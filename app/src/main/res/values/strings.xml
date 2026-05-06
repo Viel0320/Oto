@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">APlayer</string>
+    <string name="author_label">作者</string>
+    <string name="narrator_label">朗読</string>
+    <string name="summary_label">概要</string>
+    <string name="back_content_description">Back</string>
+    <string name="more_content_description">More</string>
+    <string name="calendar_content_description">Year</string>
+    <string name="clock_content_description">Duration</string>
+    <string name="storage_content_description">Size</string>
+    <string name="progress_content_description">Progress</string>
+    <string name="search_content_description">Search</string>
+    <string name="settings_content_description">Settings</string>
+    <string name="filter_all">All</string>
+    <string name="filter_not_started">Not Started</string>
+    <string name="filter_in_progress">In Progress</string>
+    <string name="filter_finished">Finished</string>
+    <string name="recently_title">Recently</string>
+    <string name="import_content_description">Import Media</string>
+    <string name="play_content_description">Play</string>
+    <string name="pause_content_description">Pause</string>
+</resources>
