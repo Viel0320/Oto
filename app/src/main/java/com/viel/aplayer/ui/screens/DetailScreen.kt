@@ -124,7 +124,7 @@ fun DetailScreen(
                     .padding(padding),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
+//                Spacer(modifier = Modifier.height(16.dp))
 
                 // Cover Art
                 Surface(
@@ -134,16 +134,7 @@ fun DetailScreen(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shadowElevation = 8.dp
                 ) {
-                    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-                    if (isPreview) {
-                        // 在预览模式下显示占位图或特定资源
-                        Icon(
-                            Icons.Rounded.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp).padding(64.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        )
-                    } else if ((coverPath != null) && File(coverPath).exists()) {
+                    if ((coverPath != null) && File(coverPath).exists()) {
                         AsyncImage(
                             model = File(coverPath),
                             contentDescription = "Cover",
@@ -165,7 +156,7 @@ fun DetailScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Title
                 Text(
@@ -177,7 +168,7 @@ fun DetailScreen(
                     modifier = Modifier.padding(horizontal = 24.dp)
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Author & Narrator Row
                 Row(
@@ -187,23 +178,53 @@ fun DetailScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = author,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = stringResource(R.string.author_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = author,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    VerticalDivider(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .padding(horizontal = 8.dp),
+                        thickness = 2.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
-                    Text(
-                        text = " • ",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = narrator,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = stringResource(R.string.narrator_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = narrator,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -303,7 +324,7 @@ fun DetailInfoChip(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(

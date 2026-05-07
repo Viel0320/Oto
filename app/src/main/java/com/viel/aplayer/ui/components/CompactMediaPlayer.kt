@@ -32,7 +32,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import coil.compose.AsyncImage
+import com.viel.aplayer.ui.theme.APlayerTheme
 import java.io.File
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -44,6 +46,7 @@ fun CompactMediaPlayer(
     author: String = "Unknown Author",
     coverPath: String? = null,
     progress: () -> Float = { 0f },
+    showProgressBar: Boolean = true,
     onPlayPauseClick: () -> Unit = {},
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null
@@ -56,15 +59,17 @@ fun CompactMediaPlayer(
     ) {
         Column {
             // Progress bar at the very top, not clipped
-            AudioProgressBar(
-                progress = progress,
-                onProgressChange = {}, // Read-only in compact player
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp),
-                color = MaterialTheme.colorScheme.primary,
-                showKnob = false
-            )
+            if (showProgressBar) {
+                AudioProgressBar(
+                    progress = progress,
+                    onProgressChange = {}, // Read-only in compact player
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    showKnob = false
+                )
+            }
             
             Row(
                 modifier = Modifier
@@ -137,5 +142,47 @@ fun CompactMediaPlayer(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Preview(showBackground = true)
+@Composable
+fun CompactMediaPlayerPreview() {
+    APlayerTheme {
+        CompactMediaPlayer(
+            title = "イン・ザ・メガチャーチ",
+            author = "朝井 リョウ",
+            isPlaying = false,
+            progress = { 0.23f }
+        )
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Preview(showBackground = true)
+@Composable
+fun CompactMediaPlayerPlayingPreview() {
+    APlayerTheme {
+        CompactMediaPlayer(
+            title = "イン・ザ・メガチャーチ",
+            author = "朝井 リョウ",
+            isPlaying = true,
+            progress = { 0.65f }
+        )
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Preview(showBackground = true)
+@Composable
+fun CompactMediaPlayerNoProgressBarPreview() {
+    APlayerTheme {
+        CompactMediaPlayer(
+            title = "イン・ザ・メガチャーチ",
+            author = "朝井 リョウ",
+            isPlaying = false,
+            showProgressBar = false
+        )
     }
 }

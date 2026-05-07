@@ -83,10 +83,10 @@ fun PlayerScreen(
 
     var showChapterList by remember { mutableStateOf(value = false) }
     val sheetState = rememberModalBottomSheetState()
-    
+
     // Find current chapter using derivedStateOf to minimize recompositions
     val currentChapter by remember(chapters) {
-        androidx.compose.runtime.derivedStateOf {
+        derivedStateOf {
             chapters.find {
                 (currentPosition() >= it.startPosition) && (currentPosition() < it.endPosition)
             } ?: chapters.firstOrNull { currentPosition() < it.startPosition }
@@ -119,7 +119,7 @@ fun PlayerScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -156,7 +156,7 @@ fun PlayerScreen(
             )
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
@@ -169,13 +169,15 @@ fun PlayerScreen(
                 )
                 .padding(padding)
         ) {
+            // Player Box (Main Content)
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxWidth()
                     .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(24.dp))
+//                Spacer(modifier = Modifier.height(24.dp))
 
                 // Large Cover Art
                 Box(
@@ -265,7 +267,7 @@ fun PlayerScreen(
 
                 // Progress Bar
                 val chapterMarkers by remember(chapters) {
-                    androidx.compose.runtime.derivedStateOf {
+                    derivedStateOf {
                         val d = duration()
                         if (d > 0) {
                             chapters.map { it.startPosition.toFloat() / d.toFloat() }
@@ -301,7 +303,7 @@ fun PlayerScreen(
                     TimeLabel(duration, MaterialTheme.typography.labelMedium)
                 }
 
-                Spacer(modifier = Modifier.weight(1.5f))
+                Spacer(modifier = Modifier.weight(1.0f))
 
                 // Playback Controls
                 Row(
@@ -310,7 +312,7 @@ fun PlayerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
-                    
+
                     Box(
                         modifier = Modifier
                             .size(56.dp)
@@ -416,12 +418,33 @@ fun PlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // Bottom Group (Handle and Options)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .background(Color.Transparent)
+                    .padding(top = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Drag Handle
+                Box(
+                    modifier = Modifier
+                        .size(32.dp, 4.dp)
+                        .clip(RoundedCornerShape(100))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Additional Bottom Options Placeholder
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
                         .padding(bottom = 32.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -429,21 +452,21 @@ fun PlayerScreen(
                         Text(
                             text = "Bookmarks",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     }
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                         Text(
                             text = "Subtitles",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     }
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                         Text(
                             text = "Related",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     }
                 }

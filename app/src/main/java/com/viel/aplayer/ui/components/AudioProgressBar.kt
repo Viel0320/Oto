@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,7 +18,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.ui.theme.APlayerTheme
 
 @Composable
 fun AudioProgressBar(
@@ -104,5 +107,18 @@ fun AudioProgressBar(
                 center = Offset(activeWidth, centerY)
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AudioProgressBarPreview() {
+    APlayerTheme {
+        AudioProgressBar(
+            progress = { 0.4f },
+            onProgressChange = {},
+            modifier = Modifier.padding(16.dp),
+            markers = listOf(0.2f, 0.5f, 0.8f)
+        )
     }
 }

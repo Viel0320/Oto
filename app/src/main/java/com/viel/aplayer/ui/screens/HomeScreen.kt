@@ -155,7 +155,7 @@ fun HomeScreen(
                     items(filters) { filter ->
                         FilterChip(
                             selected = filter == selectedFilter,
-                            onClick = { 
+                            onClick = {
                                 selectedFilter = filter
                                 // TODO: Implement actual filtering logic for audiobooks list
                             },
@@ -181,7 +181,7 @@ fun HomeScreen(
                         text = stringResource(R.string.recently_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 16.dp)
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp)
                     )
                 }
 
@@ -210,7 +210,7 @@ fun HomeScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 8.dp),
+                            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -442,7 +442,7 @@ fun HomeScreenWithDataPreview() {
     APlayerTheme {
         HomeScreen(
             audiobooks = mockBooks,
-            isMiniPlayerVisible = true
+            isMiniPlayerVisible = false
         )
     }
 }
