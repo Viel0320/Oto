@@ -3,12 +3,19 @@ package com.viel.aplayer.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.BookmarkAdd
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,20 +49,33 @@ fun ChapterDisplay(
             icon = {
                 Icon(
                     Icons.AutoMirrored.Rounded.List,
-                    contentDescription = currentChapterTitle ?: "No Chapters",
-                    modifier = Modifier.size(AssistChipDefaults.IconSize)
+                    contentDescription = null,
+                    modifier = Modifier.size(SuggestionChipDefaults.IconSize)
                 )
             },
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            colors = SuggestionChipDefaults.suggestionChipColors(
+                labelColor = LocalContentColor.current,
+                iconContentColor = LocalContentColor.current
+            ),
+            border = SuggestionChipDefaults.suggestionChipBorder(
+                enabled = true,
+                borderColor = LocalContentColor.current
+            )
         )
 
-        IconButton(onClick = onBookmarkClick) {
+        IconButton(
+            onClick = onBookmarkClick,
+            modifier = Modifier.padding(start = 16.dp) // 在这里增加最小间距
+        ) {
             Icon(Icons.Rounded.BookmarkAdd, contentDescription = "Bookmark")
         }
     }
 }
 
-@Preview(showBackground = true)
+// Added apiLevel = 36 to resolve layout fidelity warning in Android Studio Preview
+// when using a compileSdk higher than the layout editor's supported range.
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun ChapterDisplayPreview() {
     APlayerTheme {
