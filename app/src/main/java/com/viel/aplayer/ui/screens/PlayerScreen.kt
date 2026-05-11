@@ -320,7 +320,7 @@ fun PlayerScreen(
                     confirmButton = {
                         TextButton(
                             onClick = {
-                                val finalTitle = if (bookmarkTitle.isNotBlank()) bookmarkTitle else "Bookmark"
+                                val finalTitle = bookmarkTitle.ifBlank { "Bookmark" }
                                 onAddBookmark(finalTitle)
                                 showBookmarkDialog.value = false
                             }
