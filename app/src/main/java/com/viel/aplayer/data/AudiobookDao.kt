@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 interface AudiobookDao {
     @Query("SELECT * FROM audiobooks ORDER BY lastPlayedAt DESC")
     fun getAllAudiobooks(): Flow<List<AudiobookEntity>>
+
+    @Query("SELECT uri FROM audiobooks")
+    suspend fun getAllUris(): List<String>
     
     @Query("SELECT * FROM audiobooks WHERE uri = :uri LIMIT 1")
     suspend fun getByUri(uri: String): AudiobookEntity?
@@ -22,9 +25,15 @@ interface AudiobookDao {
     
     @Query("UPDATE audiobooks SET coverPath = :coverPath WHERE uri = :uri")
     suspend fun updateCoverPath(uri: String, coverPath: String)
+
+    @Query("UPDATE audiobooks SET subtitlePath = :subtitlePath WHERE uri = :uri")
+    suspend fun updateSubtitlePath(uri: String, subtitlePath: String?)
     
     @Query("SELECT * FROM audiobooks ORDER BY lastPlayedAt DESC LIMIT 1")
     suspend fun getMostRecent(): AudiobookEntity?
+
+    @Query("DELETE FROM audiobooks WHERE uri = :uri")
+    suspend fun deleteByUri(uri: String)
     
     @Delete
     suspend fun delete(audiobook: AudiobookEntity)

@@ -5,7 +5,9 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Log
 import androidx.annotation.OptIn
+import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.MetadataRetriever
@@ -14,6 +16,8 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.metadata.id3.ChapterFrame
 import androidx.media3.extractor.metadata.id3.CommentFrame
 import androidx.media3.extractor.metadata.id3.TextInformationFrame
+import com.viel.aplayer.ui.components.SubtitleLine
+import com.viel.aplayer.util.SubtitleParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +30,8 @@ import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
+import androidx.core.content.edit
+import androidx.core.net.toUri
 
 /**
  * Repository that wraps Room database and handles cover art caching.
@@ -37,8 +43,69 @@ class LibraryRepository private constructor(context: Context) {
     private val database = AppDatabase.getInstance(this.context)
     private val dao = database.audiobookDao()
     private val chapterDao = database.chapterDao()
+    private val bookmarkDao = database.bookmarkDao()
     private val coversDir = File(this.context.filesDir, "covers").also { it.mkdirs() }
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val prefs = this.context.getSharedPreferences("library_prefs", Context.MODE_PRIVATE)
+
+    /** Set the root library directory. */
+    fun setLibraryRoot(uri: Uri) {
+        prefs.edit { putString(KEY_LIBRARY_URI, uri.toString()) }
+    }
+
+    /** Get the root library directory. */
+    fun getLibraryRoot(): Uri? {
+        return prefs.getString(KEY_LIBRARY_URI, null)?.toUri()
+    }
+
+    /** Check if a file exists at the given URI. */
+    fun checkFileExists(uriString: String): Boolean {
+        return try {
+            val uri = uriString.toUri()
+            if (uri.scheme == "content") {
+                val doc = DocumentFile.fromSingleUri(context, uri)
+                doc?.exists() == true
+            } else {
+                File(uri.path ?: "").exists()
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Sync the entire library: scan folder and add new files.
+     */
+    fun syncLibrary() {
+        val rootUri = getLibraryRoot() ?: return
+        scope.launch {
+            val rootDoc = DocumentFile.fromTreeUri(context, rootUri) ?: return@launch
+            val existingUris = dao.getAllUris().toSet()
+            scanDirectory(rootDoc, existingUris)
+            
+            // TODO: 实现手动清理逻辑。
+            // 扫描并识别出已不存在的文件（existingUris - scannedUris），但暂时不自动删除，
+            // 留待将来在设置或库管理界面由用户手动确认后触发清理。
+        }
+    }
+
+    private fun scanDirectory(directory: DocumentFile, existingUris: Set<String>) {
+        directory.listFiles().forEach { file ->
+            if (file.isDirectory) {
+                scanDirectory(file, existingUris)
+            } else if (isAudioFile(file.name ?: "")) {
+                val uriStr = file.uri.toString()
+                if (!existingUris.contains(uriStr)) {
+                    addAudiobook(file.uri, directory, file.name)
+                }
+            }
+        }
+    }
+
+    private fun isAudioFile(fileName: String): Boolean {
+        val extensions = listOf(".mp3", ".m4b", ".m4a", ".aac", ".flac", ".wav", ".ogg")
+        return extensions.any { fileName.endsWith(it, ignoreCase = true) }
+    }
     
     /** Observable list of all audiobooks, sorted by last played. */
     val audiobooks: Flow<List<AudiobookEntity>> = dao.getAllAudiobooks()
@@ -46,8 +113,9 @@ class LibraryRepository private constructor(context: Context) {
     /**
      * Import an audiobook: extract metadata, insert into DB, and cache cover.
      */
-    fun addAudiobook(uri: Uri) {
+    fun addAudiobook(uri: Uri, parentDir: DocumentFile? = null, fileName: String? = null) {
         scope.launch {
+            Log.d("LibraryRepository", "Adding audiobook: $uri (Name: $fileName)")
             val retriever = MediaMetadataRetriever()
             var title: String
             var author: String
@@ -127,8 +195,10 @@ class LibraryRepository private constructor(context: Context) {
                     duration = duration,
                     year = year,
                     fileSize = fileSize,
+                    subtitlePath = findSubtitleFile(uri, parentDir, fileName),
                     addedAt = System.currentTimeMillis()
                 )
+                Log.d("LibraryRepository", "Inserting entity: ${entity.title}, Subtitle: ${entity.subtitlePath}")
                 dao.insert(entity)
 
                 // Extract chapters
@@ -151,7 +221,8 @@ class LibraryRepository private constructor(context: Context) {
     /** Update playback position in milliseconds. */
     fun updateProgress(uri: String, position: Long) {
         scope.launch {
-            dao.updateProgress(uri, position)
+            Log.d("LibraryRepository", "Updating progress for $uri: $position")
+            dao.updateProgress(uri, position, System.currentTimeMillis())
         }
     }
 
@@ -179,7 +250,7 @@ class LibraryRepository private constructor(context: Context) {
             }
             
             for (i in 0 until trackGroups.length) {
-                val group = trackGroups.get(i)
+                val group = trackGroups[i]
                 for (j in 0 until group.length) {
                     val format = group.getFormat(j)
                     val metadata = format.metadata ?: continue
@@ -193,11 +264,9 @@ class LibraryRepository private constructor(context: Context) {
                                 field.isAccessible = true
                                 val subFrames = field.get(entry) as? Array<*>
                                 subFrames?.forEach { subFrame ->
-                                    if (subFrame is TextInformationFrame) {
-                                        if (subFrame.id == "TIT2" || subFrame.id == "TIT1") {
+                                    if (subFrame is TextInformationFrame && (subFrame.id == "TIT2" || subFrame.id == "TIT1")) {
                                             title = subFrame.values.firstOrNull()
                                         }
-                                    }
                                 }
                             } catch (_: Exception) {}
 
@@ -231,7 +300,7 @@ class LibraryRepository private constructor(context: Context) {
         }
         
         // Distinct by start position and sort
-        val finalChapters = chapters.distinctBy { it.startPosition }.sortedBy { it.startPosition }
+        val finalChapters = chapters.asSequence().distinctBy { it.startPosition }.sortedBy { it.startPosition }.toList()
         
         if (finalChapters.isNotEmpty()) {
             chapterDao.deleteChaptersForBook(uri.toString())
@@ -491,9 +560,71 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     /**
+     * Get the most recently played audiobook.
+     */
+    suspend fun getMostRecentAudiobook(): AudiobookEntity? = dao.getMostRecent()
+
+    /**
      * Get chapters for an audiobook.
      */
     fun getChapters(uri: String): Flow<List<ChapterEntity>> = chapterDao.getChaptersForBook(uri)
+
+    /**
+     * Get bookmarks for an audiobook.
+     */
+    fun getBookmarks(uri: String): Flow<List<BookmarkEntity>> = bookmarkDao.getBookmarksForBook(uri)
+
+    /**
+     * Add a bookmark.
+     */
+    suspend fun addBookmark(uri: String, position: Long, title: String) {
+        bookmarkDao.insert(BookmarkEntity(bookUri = uri, position = position, title = title))
+    }
+
+    /**
+     * Delete a bookmark.
+     */
+    suspend fun deleteBookmark(bookmark: BookmarkEntity) {
+        bookmarkDao.delete(bookmark)
+    }
+
+    /**
+     * Load and parse subtitles for an audiobook.
+     */
+    suspend fun loadSubtitles(bookUri: String): List<SubtitleLine> {
+        val entity = dao.getByUri(bookUri) ?: run {
+            Log.d("LibraryRepository", "loadSubtitles: Entity not found for $bookUri")
+            return emptyList()
+        }
+        val subtitlePath = entity.subtitlePath ?: run {
+            Log.d("LibraryRepository", "loadSubtitles: subtitlePath is null for $bookUri")
+            return emptyList()
+        }
+        
+        Log.d("LibraryRepository", "loadSubtitles: Path is $subtitlePath")
+        return withContext(Dispatchers.IO) {
+            try {
+                val uri = subtitlePath.toUri()
+                val extension = subtitlePath.substringAfterLast(".").lowercase()
+                
+                if (uri.scheme == "content") {
+                    context.contentResolver.openInputStream(uri)?.use { 
+                        SubtitleParser.parse(it, extension)
+                    } ?: emptyList()
+                } else {
+                    val file = File(subtitlePath)
+                    if (file.exists()) {
+                        file.inputStream().use {
+                            SubtitleParser.parse(it, extension)
+                        }
+                    } else emptyList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                emptyList()
+            }
+        }
+    }
 
     /**
      * Save chapters to database.
@@ -553,8 +684,59 @@ class LibraryRepository private constructor(context: Context) {
             null
         }
     }
+
+    /**
+     * Search for a subtitle file (srt, ass, ssa) in the same directory as the media file.
+     */
+    private fun findSubtitleFile(mediaUri: Uri, providedParent: DocumentFile? = null, providedName: String? = null): String? {
+        return try {
+            when (mediaUri.scheme) {
+                "content" -> {
+                    // If we are in syncLibrary, providedParent is already the correct folder
+                    val parentDir = providedParent ?: run {
+                        val mediaFile = DocumentFile.fromSingleUri(context, mediaUri)
+                        mediaFile?.parentFile
+                    } ?: return null
+
+                    val mediaName = (providedName ?: DocumentFile.fromSingleUri(context, mediaUri)?.name)
+                        ?.substringBeforeLast(".") ?: return null
+
+                    Log.d("LibraryRepository", "Searching subtitles in ${parentDir.uri} for $mediaName")
+                    val subtitleExtensions = listOf("srt", "ass", "ssa")
+
+                    // Optimized search: only list files if needed
+                    val found = parentDir.listFiles().find { file ->
+                        val fileName = file.name ?: ""
+                        val nameWithoutExt = fileName.substringBeforeLast(".")
+                        val ext = fileName.substringAfterLast(".").lowercase()
+                        nameWithoutExt.equals(mediaName, ignoreCase = true) && subtitleExtensions.contains(ext)
+                    }
+
+                    Log.d("LibraryRepository", "Found subtitle: ${found?.uri}")
+                    found?.uri?.toString()
+                }
+                "file" -> {
+                    val file = File(mediaUri.path ?: "")
+                    val parentDir = file.parentFile ?: return null
+                    val baseName = file.nameWithoutExtension
+                    val subtitleExtensions = listOf("srt", "ass", "ssa")
+
+                    parentDir.listFiles { _, name ->
+                        val ext = name.substringAfterLast(".").lowercase()
+                        name.substringBeforeLast(".") == baseName && subtitleExtensions.contains(ext)
+                    }?.firstOrNull()?.absolutePath
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.e("LibraryRepository", "Error finding subtitle", e)
+            null
+        }
+    }
     
     companion object {
+        private const val KEY_LIBRARY_URI = "library_root_uri"
+
         @Volatile
         @SuppressLint("StaticFieldLeak")
         private var INSTANCE: LibraryRepository? = null

@@ -54,11 +54,12 @@ fun DetailScreen(
     year: String = "",
     fileSize: String = "",
     progressPercent: Int = 0,
+    isAvailable: Boolean = true,
 ) {
     val backgroundColor = remember { mutableStateOf(Color(0xFF1C1B1F)) }
     val animatedBgColor by animateColorAsState(
         targetValue = backgroundColor.value,
-        animationSpec = tween(1000),
+        animationSpec = tween(300),
         label = "bg_color"
     )
 
@@ -111,7 +112,7 @@ fun DetailScreen(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            animatedBgColor.copy(alpha = 0.4f),
+                            animatedBgColor.copy(alpha = 0.6f),
                             MaterialTheme.colorScheme.background
                         )
                     )
@@ -257,20 +258,32 @@ fun DetailScreen(
 
                 // Play/Continue Button
                 Button(
-                    onClick = onPlayClick,
+                    onClick = { if (isAvailable) onPlayClick() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .height(56.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(100.dp),
+                    colors = if (isAvailable) {
+                        ButtonDefaults.buttonColors()
+                    } else {
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 ) {
                     Icon(
-                        if (progressPercent > 0) Icons.Rounded.History else Icons.Rounded.PlayArrow,
+                        if (!isAvailable) Icons.Rounded.Storage 
+                        else if (progressPercent > 0) Icons.Rounded.History 
+                        else Icons.Rounded.PlayArrow,
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (progressPercent > 0) "Continue at $progressPercent%" else "Start Listening",
+                        text = if (!isAvailable) "File not found"
+                               else if (progressPercent > 0) "Continue at $progressPercent%" 
+                               else "Start Listening",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }

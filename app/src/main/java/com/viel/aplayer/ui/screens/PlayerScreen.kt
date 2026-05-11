@@ -1,33 +1,25 @@
 package com.viel.aplayer.ui.screens
 
 import android.graphics.BitmapFactory
-import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.rounded.BookmarkAdd
-import androidx.compose.material.icons.rounded.Forward30
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Replay10
-import androidx.compose.material.icons.rounded.Snooze
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,26 +27,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
 import com.viel.aplayer.data.ChapterEntity
-import com.viel.aplayer.ui.components.AudioProgressBar
+import com.viel.aplayer.ui.components.ChapterDisplay
+import com.viel.aplayer.ui.components.ChapterListSheet
+import com.viel.aplayer.ui.components.PlaybackControls
+import com.viel.aplayer.ui.components.PlaybackProgress
+import com.viel.aplayer.ui.components.PlayerAppBar
 import com.viel.aplayer.ui.theme.APlayerTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlayerScreen(
     onMinimize: () -> Unit,
@@ -74,369 +64,179 @@ fun PlayerScreen(
     onSpeedChange: (Float) -> Unit = {},
     selectedSleepTimer: Int = 0,
     onSleepTimerChange: (Int) -> Unit = {},
-    sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    onSubtitlesClick: () -> Unit = {},
+    onBookmarksClick: () -> Unit = {},
+    onRelatedClick: () -> Unit = {},
+    onAddBookmark: (String) -> Unit = {},
 ) {
-    val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
-    val backgroundColor = remember { mutableStateOf(Color(0xFF1C1B1F)) }
+    APlayerTheme(darkTheme = true) {
+        val backgroundColor = remember { mutableStateOf(Color(0xFF1C1B1F)) }
+        val focusManager = LocalFocusManager.current
 
-    var showChapterList by remember { mutableStateOf(value = false) }
-    val sheetState = rememberModalBottomSheetState()
+        val showChapterList = remember { mutableStateOf(false) }
+        val showBookmarkDialog = remember { mutableStateOf(false) }
+        val sheetState = rememberModalBottomSheetState()
 
-    // Find current chapter using derivedStateOf to minimize recompositions
-    val currentChapter by remember(chapters) {
-        derivedStateOf {
-            chapters.find {
-                (currentPosition() >= it.startPosition) && (currentPosition() < it.endPosition)
-            } ?: chapters.firstOrNull { currentPosition() < it.startPosition }
+        // Find current chapter using derivedStateOf to minimize recompositions
+        val currentChapter by remember(chapters) {
+            derivedStateOf {
+                chapters.find {
+                    (currentPosition() >= it.startPosition) && (currentPosition() < it.endPosition)
+                } ?: chapters.firstOrNull { currentPosition() < it.startPosition }
+            }
         }
-    }
 
-    // Track if we are in manual cycling mode or initial/reset state
-    var isSpeedManualMode by remember { mutableStateOf(playbackSpeed != 1.0f) }
+        val animatedBgColor by animateColorAsState(
+            targetValue = backgroundColor.value,
+            animationSpec = tween(300),
+            label = "bg_color"
+        )
 
-    val animatedBgColor by animateColorAsState(
-        targetValue = backgroundColor.value,
-        animationSpec = tween(300),
-        label = "bg_color"
-    )
-
-    LaunchedEffect(coverPath) {
-        if (coverPath != null) {
-            val file = File(coverPath)
-            if (file.exists()) {
-                val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                if (bitmap != null) {
-                    val palette = withContext(Dispatchers.Default) {
-                        Palette.from(bitmap).generate()
+        LaunchedEffect(coverPath) {
+            if (coverPath != null) {
+                val file = File(coverPath)
+                if (file.exists()) {
+                    val bitmap = withContext(Dispatchers.IO) {
+                        BitmapFactory.decodeFile(file.absolutePath)
                     }
-                    backgroundColor.value = Color(palette.getDominantColor(0xFF1C1B1F.toInt()))
+                    if (bitmap != null) {
+                        val palette = withContext(Dispatchers.Default) {
+                            Palette.from(bitmap).generate()
+                        }
+                        backgroundColor.value = Color(palette.getDominantColor(0xFF1C1B1F.toInt()))
+                    }
                 }
             }
         }
-    }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = author,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onMinimize) {
-                        Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Minimize")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { /* TODO */ }) {
-                        Icon(Icons.Rounded.MoreVert, contentDescription = "Options")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            animatedBgColor.copy(alpha = 0.6f),
-                            MaterialTheme.colorScheme.background
-                        )
+        val bgColor = MaterialTheme.colorScheme.background
+        val backgroundBrush by remember(animatedBgColor, bgColor) {
+            derivedStateOf {
+                Brush.verticalGradient(
+                    colors = listOf(
+                        animatedBgColor.copy(alpha = 0.6f),
+                        bgColor
                     )
                 )
-                .padding(padding)
-        ) {
-            // Player Box (Main Content)
+            }
+        }
+
+        Scaffold(
+            modifier = modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                PlayerAppBar(
+                    title = title,
+                    author = author,
+                    onNavigationClick = {
+                        focusManager.clearFocus()
+                        onMinimize()
+                    }
+                )
+            }
+        ) { padding ->
             Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxSize()
+                    .background(backgroundBrush)
+                    .padding(padding)
             ) {
-//                Spacer(modifier = Modifier.height(24.dp))
-
-                // Large Cover Art
-                Box(
+                // Player Box (Main Content)
+                Column(
                     modifier = Modifier
-                        .weight(10f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val coverShape = RoundedCornerShape(24.dp)
-                    val coverModifier = Modifier
-                        .fillMaxHeight()
-                        .aspectRatio(1f)
-
+                    // Large Cover Art
                     Box(
-                        modifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
-                            with(sharedTransitionScope) {
-                                coverModifier.sharedElement(
-                                    rememberSharedContentState(key = "cover_$title"),
-                                    animatedVisibilityScope = animatedVisibilityScope,
-                                    boundsTransform = { _, _ ->
-                                        tween(400, easing = FastOutSlowInEasing)
-                                    }
-                                ).clip(coverShape)
-                            }
-                        } else {
-                            coverModifier.clip(coverShape)
-                        },
+                        modifier = Modifier
+                            .weight(10f)
+                            .fillMaxWidth(),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (coverPath != null && File(coverPath).exists()) {
-                            AsyncImage(
-                                model = File(coverPath),
-                                contentDescription = "Cover Art",
-                                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Rounded.PlayArrow,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(80.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                        val coverShape = RoundedCornerShape(24.dp)
+                        val coverModifier = Modifier
+                            .fillMaxHeight()
+                            .aspectRatio(1f)
+
+                        val coverFile = remember(coverPath) {
+                            if (coverPath != null) File(coverPath) else null
+                        }
+
+                        Box(
+                            modifier = coverModifier.clip(coverShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (coverFile != null && coverFile.exists()) {
+                                AsyncImage(
+                                    model = coverFile,
+                                    contentDescription = "Cover Art",
+                                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentScale = ContentScale.Crop
                                 )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(80.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
 
-                // Chapter Display
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SuggestionChip(
-                        onClick = { showChapterList = true },
-                        modifier = Modifier.weight(1f, fill = false),
-                        label = {
-                            Text(
-                                text = currentChapter?.title ?: "No Chapters",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        icon = {
-                            Icon(
-                                Icons.AutoMirrored.Rounded.List,
-                                contentDescription = currentChapter?.title ?: "No Chapters",
-                                modifier = Modifier.size(AssistChipDefaults.IconSize)
-                            )
-                        },
-                        shape = RoundedCornerShape(12.dp)
+                    // Chapter Display
+                    ChapterDisplay(
+                        currentChapterTitle = currentChapter?.title,
+                        onChapterClick = { showChapterList.value = true },
+                        onBookmarkClick = { showBookmarkDialog.value = true }
                     )
 
-                    IconButton(onClick = { /* TODO */ }) {
-                        Icon(Icons.Rounded.BookmarkAdd, contentDescription = "Bookmark")
-                    }
-                }
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Progress Bar
-                val chapterMarkers by remember(chapters) {
-                    derivedStateOf {
-                        val d = duration()
-                        if (d > 0) {
-                            chapters.map { it.startPosition.toFloat() / d.toFloat() }
-                        } else emptyList()
-                    }
-                }
-
-                // 使用 remember 缓存 lambda，避免 AudioProgressBar 不必要的重组
-                val progressProvider = remember(currentPosition, duration) {
-                    {
-                        val d = duration()
-                        if (d > 0) (currentPosition().toFloat() / d.toFloat()) else 0f
-                    }
-                }
-
-                AudioProgressBar(
-                    progress = progressProvider,
-                    onProgressChange = { newProgress ->
-                        val d = duration()
-                        if (d > 0) {
-                            onSeek((newProgress * d).toLong())
-                        }
-                    },
-                    markers = chapterMarkers,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    TimeLabel(currentPosition, MaterialTheme.typography.labelMedium)
-                    TimeLabel(duration, MaterialTheme.typography.labelMedium)
-                }
-
-                Spacer(modifier = Modifier.weight(1.0f))
-
-                // Playback Controls
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
-
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .combinedClickable(
-                                onClick = {
-                                    isSpeedManualMode = true
-                                    val currentIndex = speeds.indexOf(playbackSpeed).coerceAtLeast(0)
-                                    val nextIndex = (currentIndex + 1) % speeds.size
-                                    onSpeedChange(speeds[nextIndex])
-                                },
-                                onLongClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    isSpeedManualMode = false
-                                    onSpeedChange(1.0f)
-                                    Toast.makeText(context, "倍速已关闭", Toast.LENGTH_SHORT).show()
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (playbackSpeed == 1.0f && !isSpeedManualMode) {
-                            Icon(
-                                Icons.Rounded.Speed,
-                                contentDescription = "Playback Speed",
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        } else {
-                            Text(
-                                text = "${playbackSpeed}x",
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                ),
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                    // Progress Bar
+                    val chapterMarkers by remember(chapters) {
+                        derivedStateOf {
+                            val d = duration()
+                            if (d > 0) {
+                                chapters.map { it.startPosition.toFloat() / d.toFloat() }
+                            } else emptyList()
                         }
                     }
 
-                    IconButton(onClick = onSkipBackward, modifier = Modifier.size(56.dp)) {
-                        // TODO: Update icon and content description when skip duration is customized
-                        Icon(Icons.Rounded.Replay10, contentDescription = "Rewind 10 seconds", modifier = Modifier.size(32.dp))
-                    }
+                    PlaybackProgress(
+                        currentPosition = currentPosition,
+                        duration = duration,
+                        markers = chapterMarkers,
+                        onSeek = onSeek,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-                    FilledIconButton(
-                        onClick = onPlayPauseClick,
-                        modifier = Modifier.size(80.dp),
-                        shape = CircleShape,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = if (isPlaying) "Pause" else "Play",
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
+                    Spacer(modifier = Modifier.weight(1.0f))
 
-                    IconButton(onClick = onSkipForward, modifier = Modifier.size(56.dp)) {
-                        // TODO: Update icon and content description when skip duration is customized
-                        Icon(Icons.Rounded.Forward30, contentDescription = "Forward 30 seconds", modifier = Modifier.size(32.dp))
-                    }
+                    // Playback Controls
+                    PlaybackControls(
+                        isPlaying = isPlaying,
+                        playbackSpeed = playbackSpeed,
+                        selectedSleepTimer = selectedSleepTimer,
+                        onPlayPauseClick = onPlayPauseClick,
+                        onSkipForward = onSkipForward,
+                        onSkipBackward = onSkipBackward,
+                        onSpeedChange = onSpeedChange,
+                        onSleepTimerChange = onSleepTimerChange
+                    )
 
-                    val sleepOptions = listOf(0, -1, 10, 15, 30, 45, 60)
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .combinedClickable(
-                                onClick = {
-                                    val currentIndex = sleepOptions.indexOf(selectedSleepTimer).coerceAtLeast(0)
-                                    val nextIndex = (currentIndex + 1) % sleepOptions.size
-                                    onSleepTimerChange(sleepOptions[nextIndex])
-                                },
-                                onLongClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onSleepTimerChange(0)
-                                    Toast.makeText(context, "定时已关闭", Toast.LENGTH_SHORT).show()
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (selectedSleepTimer == 0) {
-                            Icon(
-                                Icons.Rounded.Snooze,
-                                contentDescription = "Sleep Timer",
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        } else {
-                            val displayText = if (selectedSleepTimer == -1) "5s" else "${selectedSleepTimer}m"
-                            Text(
-                                text = displayText,
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                ),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // Bottom Group (Handle and Options)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(Color.Transparent)
-                    .padding(top = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Drag Handle
-                Box(
-                    modifier = Modifier
-                        .size(32.dp, 4.dp)
-                        .clip(RoundedCornerShape(100))
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
-                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -448,21 +248,39 @@ fun PlayerScreen(
                         .padding(bottom = 32.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onBookmarksClick() },
+                        contentAlignment = Alignment.CenterStart
+                    ) {
                         Text(
                             text = "Bookmarks",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     }
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onSubtitlesClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
                             text = "Subtitles",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     }
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onRelatedClick() },
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
                         Text(
                             text = "Related",
                             style = MaterialTheme.typography.labelLarge,
@@ -471,100 +289,56 @@ fun PlayerScreen(
                     }
                 }
             }
-        }
 
-        if (showChapterList) {
-            ModalBottomSheet(
-                onDismissRequest = { showChapterList = false },
-                sheetState = sheetState,
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .navigationBarsPadding()
-                ) {
-                    Text(
-                        text = "Chapters",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
+            ChapterListSheet(
+                isVisible = showChapterList.value,
+                chapters = chapters,
+                currentChapter = currentChapter,
+                onDismissRequest = { showChapterList.value = false },
+                onChapterClick = { pos ->
+                    onSeek(pos)
+                    showChapterList.value = false
+                },
+                sheetState = sheetState
+            )
 
-                    if (chapters.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("No chapters available", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.weight(1f, fill = false)
-                        ) {
-                            itemsIndexed(chapters) { index, chapter ->
-                                val isCurrent = chapter == currentChapter
-                                ListItem(
-                                    headlineContent = {
-                                        Text(
-                                            text = chapter.title,
-                                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    },
-                                    leadingContent = {
-                                        Text(
-                                            text = (index + 1).toString(),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    },
-                                    trailingContent = {
-                                        Text(
-                                            text = formatTime(chapter.startPosition),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    },
-                                    modifier = Modifier.clickable {
-                                        onSeek(chapter.startPosition)
-                                        showChapterList = false
-                                    },
-                                    colors = ListItemDefaults.colors(
-                                        containerColor = if (isCurrent) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent
-                                    )
-                                )
+            if (showBookmarkDialog.value) {
+                var bookmarkTitle by remember { mutableStateOf("") }
+                AlertDialog(
+                    onDismissRequest = { showBookmarkDialog.value = false },
+                    title = { Text("Add Bookmark") },
+                    text = {
+                        OutlinedTextField(
+                            value = bookmarkTitle,
+                            onValueChange = { bookmarkTitle = it },
+                            label = { Text("Bookmark Title") },
+                            placeholder = { Text("Enter a name for this bookmark") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                val finalTitle = if (bookmarkTitle.isNotBlank()) bookmarkTitle else "Bookmark"
+                                onAddBookmark(finalTitle)
+                                showBookmarkDialog.value = false
                             }
+                        ) {
+                            Text("Save")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showBookmarkDialog.value = false }) {
+                            Text("Cancel")
                         }
                     }
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
+                )
             }
         }
     }
 }
 
-@Composable
-private fun TimeLabel(timeProvider: () -> Long, style: androidx.compose.ui.text.TextStyle) {
-    Text(
-        text = formatTime(timeProvider()),
-        style = style
-    )
-}
-
-fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
-    return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
-}
-
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun PlayerScreenPreview() {

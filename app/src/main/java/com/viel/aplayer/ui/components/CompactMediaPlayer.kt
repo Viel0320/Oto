@@ -1,10 +1,5 @@
 package com.viel.aplayer.ui.components
 
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,7 +33,6 @@ import coil.compose.AsyncImage
 import com.viel.aplayer.ui.theme.APlayerTheme
 import java.io.File
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun CompactMediaPlayer(
     modifier: Modifier = Modifier,
@@ -48,8 +43,6 @@ fun CompactMediaPlayer(
     progress: () -> Float = { 0f },
     showProgressBar: Boolean = true,
     onPlayPauseClick: () -> Unit = {},
-    sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -81,23 +74,12 @@ fun CompactMediaPlayer(
                 val coverModifier = Modifier.size(48.dp)
 
                 Box(
-                    modifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
-                        with(sharedTransitionScope) {
-                            coverModifier.sharedElement(
-                                rememberSharedContentState(key = "cover_${title}"),
-                                animatedVisibilityScope = animatedVisibilityScope,
-                                boundsTransform = { _, _ -> 
-                                    tween(400, easing = FastOutSlowInEasing)
-                                }
-                            ).clip(coverShape)
-                        }
-                    } else {
-                        coverModifier.clip(coverShape)
-                    }
+                    modifier = coverModifier.clip(coverShape)
                 ) {
-                    if (coverPath != null && File(coverPath).exists()) {
+                    val coverFile = remember(coverPath) { if (coverPath != null) File(coverPath) else null }
+                    if (coverFile != null && coverFile.exists()) {
                         AsyncImage(
-                            model = File(coverPath),
+                            model = coverFile,
                             contentDescription = "Cover",
                             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                             contentScale = ContentScale.Crop
@@ -145,7 +127,6 @@ fun CompactMediaPlayer(
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun CompactMediaPlayerPreview() {
@@ -159,7 +140,6 @@ fun CompactMediaPlayerPreview() {
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun CompactMediaPlayerPlayingPreview() {
@@ -173,7 +153,6 @@ fun CompactMediaPlayerPlayingPreview() {
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun CompactMediaPlayerNoProgressBarPreview() {

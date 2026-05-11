@@ -14,14 +14,17 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import androidx.core.content.ContextCompat
+import com.viel.aplayer.data.BookmarkEntity
 import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.service.PlaybackService
+import com.viel.aplayer.ui.components.SubtitleLine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerViewModel : ViewModel() {
@@ -62,8 +65,20 @@ class PlayerViewModel : ViewModel() {
     private val _currentChapters = MutableStateFlow<List<ChapterEntity>>(emptyList())
     val currentChapters: StateFlow<List<ChapterEntity>> = _currentChapters.asStateFlow()
 
+    private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
+    val currentSubtitles: StateFlow<List<SubtitleLine>> = _currentSubtitles.asStateFlow()
+
+    private val _currentBookmarks = MutableStateFlow<List<BookmarkEntity>>(emptyList())
+    val currentBookmarks: StateFlow<List<BookmarkEntity>> = _currentBookmarks.asStateFlow()
+
+    private val _showUndoSeek = MutableStateFlow(false)
+    val showUndoSeek: StateFlow<Boolean> = _showUndoSeek.asStateFlow()
+    private var lastSeekPosition = 0L
+    private var undoJob: kotlinx.coroutines.Job? = null
+
     private var sleepTimerJob: kotlinx.coroutines.Job? = null
     private var chaptersJob: kotlinx.coroutines.Job? = null
+    private var bookmarksJob: kotlinx.coroutines.Job? = null
 
     fun initialize(context: Context) {
         if (controllerFuture != null) return
@@ -74,11 +89,14 @@ class PlayerViewModel : ViewModel() {
         controllerFuture = MediaController.Builder(appContext, sessionToken).buildAsync()
         
         controllerFuture?.addListener({
-            val mediaController = try { controllerFuture?.get() } catch (e: Exception) { null }
+            val mediaController = try { controllerFuture?.get() } catch (_: Exception) { null }
             player = mediaController
             mediaController?.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     _isPlaying.value = isPlaying
+                    if (!isPlaying) {
+                        saveProgress() // 暂停时立即保存进度
+                    }
                 }
                 override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
                     _playbackSpeed.value = playbackParameters.speed
@@ -128,14 +146,16 @@ class PlayerViewModel : ViewModel() {
                     val transAuthor = mediaItem.mediaMetadata.artist?.toString()
                     if (!transTitle.isNullOrBlank()) _currentTitle.value = transTitle
                     // Don't reset author here — STATE_READY will provide the real one
-                    if (!transAuthor.isNullOrBlank() && transAuthor != "Unknown Author") {
+                    if (!transAuthor.isNullOrBlank() && (transAuthor != "Unknown Author")) {
                         _currentAuthor.value = transAuthor
                     }
                     currentMediaUri = mediaItem.mediaId
                     _duration.value = mediaController.duration.coerceAtLeast(0L)
                     
-                    // Load chapters
+                    // Load chapters, subtitles & bookmarks
                     loadChapters(mediaItem.mediaId)
+                    loadSubtitles(mediaItem.mediaId)
+                    loadBookmarks(mediaItem.mediaId)
                 }
             })
             // Start progress polling & auto-save
@@ -147,8 +167,6 @@ class PlayerViewModel : ViewModel() {
                     
                     if (isActuallyPlaying && playbackState != Player.STATE_ENDED) {
                         val pos = mediaController.currentPosition.coerceAtLeast(0L)
-                        // Safety: If we just loaded a media with a start position, 
-                        // don't let a "0" position from a not-yet-synced controller overwrite it.
                         if (pos > 0 || playbackState == Player.STATE_READY) {
                             _currentPosition.value = pos
                         }
@@ -165,11 +183,10 @@ class PlayerViewModel : ViewModel() {
             }
 
             // Autoload most recent media if nothing is currently playing/loaded
-            // Disabled to prevent the mini player from showing on initialization
-            /*
             if (mediaController?.mediaItemCount == 0) {
                 viewModelScope.launch {
                     val recent = libraryRepository?.getMostRecentAudiobook()
+                    android.util.Log.d("PlayerViewModel", "Autoload search result: ${recent?.title}")
                     if (recent != null) {
                         loadMedia(
                             uri = Uri.parse(recent.uri),
@@ -181,7 +198,6 @@ class PlayerViewModel : ViewModel() {
                     }
                 }
             }
-            */
         }, ContextCompat.getMainExecutor(context))
     }
 
@@ -194,8 +210,10 @@ class PlayerViewModel : ViewModel() {
         _currentAuthor.value = author
         _currentCoverPath.value = null // reset, will be loaded after DB insert
 
-        // Load chapters
+        // Load chapters, subtitles & bookmarks
         loadChapters(uri.toString())
+        loadSubtitles(uri.toString())
+        loadBookmarks(uri.toString())
 
         // Only set metadata we actually know
         val metadataBuilder = MediaMetadata.Builder().setTitle(title)
@@ -238,77 +256,109 @@ class PlayerViewModel : ViewModel() {
         }
     }
 
+    private fun loadSubtitles(uri: String) {
+        viewModelScope.launch {
+            android.util.Log.d("PlayerViewModel", "Loading subtitles for $uri")
+            val subs = libraryRepository?.loadSubtitles(uri) ?: emptyList()
+            android.util.Log.d("PlayerViewModel", "Loaded ${subs.size} subtitles")
+            _currentSubtitles.value = subs
+        }
+    }
+
+    private fun loadBookmarks(uri: String) {
+        bookmarksJob?.cancel()
+        bookmarksJob = viewModelScope.launch {
+            libraryRepository?.getBookmarks(uri)?.collect {
+                _currentBookmarks.value = it
+            }
+        }
+    }
+
+    fun addBookmark(title: String) {
+        val uri = currentMediaUri ?: return
+        val pos = _currentPosition.value
+        viewModelScope.launch {
+            libraryRepository?.addBookmark(uri, pos, title)
+        }
+    }
+
+    fun deleteBookmark(bookmark: BookmarkEntity) {
+        viewModelScope.launch {
+            libraryRepository?.deleteBookmark(bookmark)
+        }
+    }
+
     private fun extractChaptersFromPlayer(player: Player) {
-        val chapters = mutableListOf<ChapterEntity>()
         val uri = currentMediaUri ?: return
 
-        // 1. Check current tracks for chapter metadata
-        val tracks = player.currentTracks
-        for (group in tracks.groups) {
-            val trackGroup = group.mediaTrackGroup
-            for (i in 0 until trackGroup.length) {
-                val format = trackGroup.getFormat(i)
-                val metadata = format.metadata ?: continue
-                for (j in 0 until metadata.length()) {
-                    val entry = metadata.get(j)
-                    if (entry is ChapterFrame) {
-                        var title: String? = null
-                        try {
-                            val field = entry.javaClass.getDeclaredField("subFrames")
-                            field.isAccessible = true
-                            val subFrames = field.get(entry) as? Array<*>
-                            subFrames?.forEach { subFrame ->
-                                if (subFrame is TextInformationFrame) {
-                                    if (subFrame.id == "TIT2" || subFrame.id == "TIT1") {
+        // 切换到 Default 线程处理反射和循环计算，避免阻塞主线程
+        viewModelScope.launch(Dispatchers.Default) {
+            val chapters = mutableListOf<ChapterEntity>()
+            val tracks = player.currentTracks
+            for (group in tracks.groups) {
+                val trackGroup = group.mediaTrackGroup
+                for (i in 0 until trackGroup.length) {
+                    val format = trackGroup.getFormat(i)
+                    val metadata = format.metadata ?: continue
+                    for (j in 0 until metadata.length()) {
+                        val entry = metadata[j]
+                        if (entry is ChapterFrame) {
+                            var title: String? = null
+                            try {
+                                val field = entry.javaClass.getDeclaredField("subFrames")
+                                field.isAccessible = true
+                                val subFrames = field.get(entry) as? Array<*>
+                                subFrames?.forEach { subFrame ->
+                                    if (subFrame is TextInformationFrame && (subFrame.id == "TIT2" || subFrame.id == "TIT1")) {
                                         title = subFrame.values.firstOrNull()
                                     }
                                 }
+                            } catch (_: Exception) {}
+
+                            if (title.isNullOrBlank() && !entry.chapterId.matches(Regex("ch\\d+"))) {
+                                title = entry.chapterId
                             }
-                        } catch (_: Exception) {}
 
-                        if (title.isNullOrBlank() && !entry.chapterId.matches(Regex("ch\\d+"))) {
-                            title = entry.chapterId
-                        }
-
-                        chapters.add(
-                            ChapterEntity(
-                                bookUri = uri,
-                                title = title ?: "Chapter ${chapters.size + 1}",
-                                startPosition = entry.startTimeMs.toLong(),
-                                endPosition = entry.endTimeMs.toLong()
-                            )
-                        )
-                    } else if (entry.javaClass.simpleName.contains("Chapter", ignoreCase = true)) {
-                        try {
-                            val clazz = entry.javaClass
-                            val title = try { clazz.getDeclaredField("title").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
-                                ?: try { clazz.getDeclaredField("text").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
-                            val startTimeMs = try { clazz.getDeclaredField("startTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
-                            val endTimeMs = try { clazz.getDeclaredField("endTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
-
-                            if (startTimeMs != null && endTimeMs != null) {
-                                chapters.add(
-                                    ChapterEntity(
-                                        bookUri = uri,
-                                        title = title ?: "Chapter ${chapters.size + 1}",
-                                        startPosition = startTimeMs.toLong(),
-                                        endPosition = endTimeMs.toLong()
-                                    )
+                            chapters.add(
+                                ChapterEntity(
+                                    bookUri = uri,
+                                    title = title ?: "Chapter ${chapters.size + 1}",
+                                    startPosition = entry.startTimeMs.toLong(),
+                                    endPosition = entry.endTimeMs.toLong()
                                 )
-                            }
-                        } catch (_: Exception) {}
+                            )
+                        } else if (entry.javaClass.simpleName.contains("Chapter", ignoreCase = true)) {
+                            try {
+                                val clazz = entry.javaClass
+                                val title = try { clazz.getDeclaredField("title").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
+                                    ?: try { clazz.getDeclaredField("text").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
+                                val startTimeMs = try { clazz.getDeclaredField("startTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
+                                val endTimeMs = try { clazz.getDeclaredField("endTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
+
+                                if (startTimeMs != null && endTimeMs != null) {
+                                    chapters.add(
+                                        ChapterEntity(
+                                            bookUri = uri,
+                                            title = title ?: "Chapter ${chapters.size + 1}",
+                                            startPosition = startTimeMs.toLong(),
+                                            endPosition = endTimeMs.toLong()
+                                        )
+                                    )
+                                }
+                            } catch (_: Exception) {}
+                        }
                     }
                 }
             }
-        }
 
-        // Distinct and sort
-        val finalChapters = chapters.distinctBy { it.startPosition }.sortedBy { it.startPosition }
+            // Distinct and sort
+            val finalChapters = chapters.asSequence().distinctBy { it.startPosition }.sortedBy { it.startPosition }.toList()
 
-        if (finalChapters.isNotEmpty()) {
-            _currentChapters.value = finalChapters
-            // Save to DB for future use
-            libraryRepository?.saveChapters(uri, finalChapters)
+            if (finalChapters.isNotEmpty()) {
+                _currentChapters.value = finalChapters
+                // Save to DB for future use
+                libraryRepository?.saveChapters(uri, finalChapters)
+            }
         }
     }
 
@@ -334,9 +384,29 @@ class PlayerViewModel : ViewModel() {
         }
     }
 
-    fun seekTo(positionMs: Long) {
+    fun seekTo(positionMs: Long, allowUndo: Boolean = false) {
+        if (allowUndo) {
+            lastSeekPosition = _currentPosition.value
+            _showUndoSeek.value = true
+            undoJob?.cancel()
+            undoJob = viewModelScope.launch {
+                delay(10000)
+                _showUndoSeek.value = false
+            }
+        } else {
+            _showUndoSeek.value = false
+            undoJob?.cancel()
+        }
         player?.seekTo(positionMs)
         _currentPosition.value = positionMs
+    }
+
+    fun undoSeek() {
+        if (_showUndoSeek.value) {
+            seekTo(lastSeekPosition, allowUndo = false)
+            _showUndoSeek.value = false
+            undoJob?.cancel()
+        }
     }
 
     fun skipForward() {

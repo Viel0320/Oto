@@ -34,10 +34,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.worker.LibrarySyncWorker
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,7 +55,6 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
     onNavigateToPlayer: () -> Unit = {},
-    onImportMedia: (Uri) -> Unit = {},
     onLoadMedia: (Uri, String, String, Long) -> Unit = { _, _, _, _ -> },
 ) {
     val filters = listOf(
@@ -63,7 +67,7 @@ fun HomeScreen(
 
     val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
+        contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
         uri?.let {
             try {
@@ -71,10 +75,20 @@ fun HomeScreen(
                     it,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
+                
+                // Save root and trigger sync
+                val repo = LibraryRepository.getInstance(context)
+                repo.setLibraryRoot(it)
+                
+                val syncRequest = OneTimeWorkRequestBuilder<LibrarySyncWorker>().build()
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    "LibrarySync",
+                    ExistingWorkPolicy.REPLACE,
+                    syncRequest
+                )
             } catch (_: SecurityException) {
                 // Log error or notify user if needed
             }
-            onImportMedia(it)
         }
     }
 
@@ -115,7 +129,7 @@ fun HomeScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { 
-                    launcher.launch(arrayOf("audio/*"))
+                    launcher.launch(null)
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,

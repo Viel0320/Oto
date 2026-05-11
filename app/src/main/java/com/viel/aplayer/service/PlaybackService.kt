@@ -30,10 +30,13 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         
         val player = ExoPlayer.Builder(this)
-            .setAudioAttributes(AudioAttributes.Builder()
-                .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
-                .setUsage(C.USAGE_MEDIA)
-                .build(), true)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build(),
+                true
+            )
             .setSeekBackIncrementMs(10000)
             .setSeekForwardIncrementMs(30000)
             .build()

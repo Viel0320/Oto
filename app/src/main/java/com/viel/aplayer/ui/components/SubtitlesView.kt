@@ -1,14 +1,17 @@
 package com.viel.aplayer.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -30,39 +33,156 @@ fun SubtitlesView(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    var autoScrollEnabled by remember { mutableStateOf(true) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
     
-    val currentIndex by remember(currentPosition, subtitles) {
+    // Logic to find all indices that should be highlighted (for bilingual support)
+    val currentIndices by remember(currentPosition, subtitles) {
         derivedStateOf {
-            subtitles.indexOfFirst { it.startTime <= currentPosition && it.endTime > currentPosition }
+            if (subtitles.isEmpty()) emptySet()
+            else {
+                var low = 0
+                var high = subtitles.size - 1
+                var pivot = -1
+                
+                // 1. Binary search to find one matching line
+                while (low <= high) {
+                    val mid = (low + high) / 2
+                    val sub = subtitles[mid]
+                    if (currentPosition >= sub.startTime && currentPosition < sub.endTime) {
+                        pivot = mid
+                        break
+                    } else if (currentPosition < sub.startTime) {
+                        high = mid - 1
+                    } else {
+                        low = mid + 1
+                    }
+                }
+
+                if (pivot == -1) emptySet()
+                else {
+                    val results = mutableSetOf(pivot)
+                    // 2. Check previous line for overlap
+                    if (pivot > 0) {
+                        val prev = subtitles[pivot - 1]
+                        if (currentPosition >= prev.startTime && currentPosition < prev.endTime) {
+                            results.add(pivot - 1)
+                        }
+                    }
+                    // 3. Check next line for overlap
+                    if (pivot < subtitles.size - 1) {
+                        val next = subtitles[pivot + 1]
+                        if (currentPosition >= next.startTime && currentPosition < next.endTime) {
+                            results.add(pivot + 1)
+                        }
+                    }
+                    results
+                }
+            }
         }
     }
 
-    LaunchedEffect(currentIndex) {
-        if (currentIndex != -1) {
-            listState.animateScrollToItem(currentIndex, scrollOffset = -200)
+    // Use the first (top-most) index for scrolling calculations
+    val scrollIndex = remember(currentIndices) {
+        currentIndices.minOrNull() ?: -1
+    }
+
+    val isDragged by listState.interactionSource.collectIsDraggedAsState()
+    LaunchedEffect(isDragged) {
+        if (isDragged) autoScrollEnabled = false
+    }
+
+    // Auto-resume sync after 10 seconds of inactivity
+    LaunchedEffect(autoScrollEnabled, isDragged) {
+        if (!autoScrollEnabled && !isDragged) {
+            kotlinx.coroutines.delay(5000)
+            autoScrollEnabled = true
         }
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        itemsIndexed(subtitles) { index, subtitle ->
-            val isCurrent = index == currentIndex
-            Text(
-                text = subtitle.text,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                    fontSize = if (isCurrent) 22.sp else 18.sp
-                ),
-                color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.3f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onSeek(subtitle.startTime) },
-                textAlign = TextAlign.Start
-            )
+    Box(modifier = modifier.fillMaxSize()) {
+        val secondRowOffsetPx = with(density) { 100.dp.toPx().toInt() }
+        var isFirstScroll by remember { mutableStateOf(true) }
+
+        // Auto-scroll logic using the top-most active index
+        LaunchedEffect(scrollIndex, autoScrollEnabled) {
+            if (scrollIndex != -1 && autoScrollEnabled) {
+                val visibleItems = listState.layoutInfo.visibleItemsInfo
+                val isVisible = visibleItems.any { it.index == scrollIndex }
+                
+                // If isFirstScroll is true, we always snap. 
+                // If autoScrollEnabled JUST became true, we should also check if it's already in view.
+                val shouldSnap = isFirstScroll || !isVisible || 
+                                 kotlin.math.abs(scrollIndex - listState.firstVisibleItemIndex) > 10
+
+                if (shouldSnap) {
+                    listState.scrollToItem(scrollIndex, scrollOffset = -secondRowOffsetPx)
+                    isFirstScroll = false
+                } else {
+                    listState.animateScrollToItem(scrollIndex, scrollOffset = -secondRowOffsetPx)
+                }
+            }
+        }
+
+        if (subtitles.isEmpty()) {
+            // ... (Empty state UI)
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "No subtitles found",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 300.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp)
+            ) {
+                itemsIndexed(
+                    items = subtitles,
+                    // Use a composite key to ensure uniqueness even with overlapping bilingual subtitles
+                    key = { index, subtitle -> "${subtitle.startTime}_$index" }
+                ) { index, subtitle ->
+                    val isHighlighted = currentIndices.contains(index)
+                    Text(
+                        text = subtitle.text,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
+                            fontSize = if (isHighlighted) 24.sp else 18.sp,
+                            lineHeight = if (isHighlighted) 34.sp else 28.sp
+                        ),
+                        color = if (isHighlighted) MaterialTheme.colorScheme.primary 
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { 
+                                autoScrollEnabled = true 
+                                onSeek(subtitle.startTime) 
+                            },
+                        textAlign = TextAlign.Start
+                    )
+                }
+            }
+        }
+        
+        // ... (Resume button logic)
+        if (!autoScrollEnabled && scrollIndex != -1 && subtitles.isNotEmpty()) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = true,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
+            ) {
+                Button(
+                    onClick = { autoScrollEnabled = true },
+                    colors = ButtonDefaults.filledTonalButtonColors(),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                ) {
+                    Icon(Icons.Rounded.History, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Resume Sync")
+                }
+            }
         }
     }
 }
@@ -72,41 +192,21 @@ fun SubtitlesView(
 @Composable
 fun SubtitlesViewPreview() {
     APlayerTheme {
-        Surface(color = Color(0xFF101418)) {
+        Surface {
             SubtitlesView(
                 subtitles = listOf(
-                    SubtitleLine(0, 5000, "这是第一个字幕。"),
-                    SubtitleLine(5000, 10000, "第二个字幕会在这里滚动显示。"),
-                    SubtitleLine(10000, 15000, "当前正在播放的字幕会高亮。"),
-                    SubtitleLine(15000, 20000, "点击字幕可以直接跳转播放。"),
-                    SubtitleLine(20000, 25000, "支持流畅的滚动动画。"),
-                    SubtitleLine(25000, 30000, "这是第 6 条字幕内容"),
-                    SubtitleLine(30000, 35000, "这是第 7 条字幕内容"),
-                    SubtitleLine(35000, 40000, "这是第 8 条字幕内容"),
-                    SubtitleLine(40000, 45000, "这是第 9 条字幕内容"),
-                    SubtitleLine(45000, 50000, "这是第 10 条字幕内容"),
-                    SubtitleLine(50000, 55000, "这是第 11 条字幕内容"),
-                    SubtitleLine(55000, 60000, "这是第 12 条字幕内容"),
-                    SubtitleLine(60000, 65000, "这是第 13 条字幕内容"),
-                    SubtitleLine(65000, 70000, "这是第 14 条字幕内容"),
-                    SubtitleLine(70000, 75000, "这是第 15 条字幕内容"),
-                    SubtitleLine(75000, 80000, "这是第 16 条字幕内容"),
-                    SubtitleLine(80000, 85000, "这是第 17 条字幕内容"),
-                    SubtitleLine(85000, 90000, "这是第 18 条字幕内容"),
-                    SubtitleLine(90000, 95000, "这是第 19 条字幕内容"),
-                    SubtitleLine(95000, 100000, "这是第 20 条字幕内容"),
-                    SubtitleLine(100000, 105000, "这是第 21 条字幕内容"),
-                    SubtitleLine(105000, 110000, "这是第 22 条字幕内容"),
-                    SubtitleLine(110000, 115000, "这是第 23 条字幕内容"),
-                    SubtitleLine(115000, 120000, "这是第 24 条字幕内容"),
-                    SubtitleLine(120000, 125000, "这是第 25 条字幕内容"),
-                    SubtitleLine(125000, 130000, "这是第 26 条字幕内容"),
-                    SubtitleLine(130000, 135000, "这是第 27 条字幕内容"),
-                    SubtitleLine(135000, 140000, "这是第 28 条字幕内容"),
-                    SubtitleLine(140000, 145000, "这是第 29 条字幕内容"),
-                    SubtitleLine(145000, 150000, "这是第 30 条字幕内容")
+                    SubtitleLine(0, 5000, "This is the first line."),
+                    SubtitleLine(5000, 10000, "This is a bilingual line (English)"),
+                    SubtitleLine(5000, 10000, "这是一条双语字幕 (中文)"),
+                    SubtitleLine(10000, 15000, "You can click to seek."),
+                    SubtitleLine(15000, 20000, "Smooth scrolling is supported."),
+                    SubtitleLine(20000, 25000, "Line 6 Content"),
+                    SubtitleLine(25000, 30000, "Line 7 Content"),
+                    SubtitleLine(30000, 35000, "Line 8 Content"),
+                    SubtitleLine(35000, 40000, "Line 9 Content"),
+                    SubtitleLine(40000, 45000, "Line 10 Content")
                 ),
-                currentPosition = 12000L,
+                currentPosition = 7500L,
                 onSeek = {}
             )
         }
