@@ -10,13 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Forward30
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Replay10
-import androidx.compose.material.icons.rounded.Snooze
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,7 +29,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
+import com.viel.aplayer.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.ui.theme.APlayerTheme
@@ -91,7 +86,7 @@ fun PlaybackControls(
         ) {
             if (playbackSpeed == 1.0f && !isSpeedManualMode) {
                 Icon(
-                    Icons.Rounded.Speed,
+                    painterResource(R.drawable.ic_rounded_speed),
                     contentDescription = "Playback Speed",
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onSurface
@@ -111,7 +106,7 @@ fun PlaybackControls(
         // Backward
         IconButton(onClick = onSkipBackward, modifier = Modifier.size(56.dp)) {
             Icon(
-                Icons.Rounded.Replay10, 
+                painterResource(R.drawable.ic_rounded_replay_10), 
                 contentDescription = "Rewind 10 seconds", 
                 modifier = Modifier.size(32.dp)
             )
@@ -128,7 +123,7 @@ fun PlaybackControls(
             )
         ) {
             Icon(
-                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                painter = if (isPlaying) painterResource(R.drawable.ic_rounded_pause) else painterResource(R.drawable.ic_rounded_play_arrow),
                 contentDescription = if (isPlaying) "Pause" else "Play",
                 modifier = Modifier.size(40.dp)
             )
@@ -137,7 +132,7 @@ fun PlaybackControls(
         // Forward
         IconButton(onClick = onSkipForward, modifier = Modifier.size(56.dp)) {
             Icon(
-                Icons.Rounded.Forward30, 
+                painterResource(R.drawable.ic_rounded_forward_30), 
                 contentDescription = "Forward 30 seconds", 
                 modifier = Modifier.size(32.dp)
             )
@@ -164,7 +159,7 @@ fun PlaybackControls(
         ) {
             if (selectedSleepTimer == 0) {
                 Icon(
-                    Icons.Rounded.Snooze,
+                    painterResource(R.drawable.ic_rounded_snooze),
                     contentDescription = "Sleep Timer",
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onSurface

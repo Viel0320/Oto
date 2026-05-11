@@ -24,13 +24,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -55,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -136,7 +130,7 @@ fun HomeScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateToSearch) {
                         Icon(
-                            Icons.Rounded.Search,
+                            painterResource(R.drawable.ic_rounded_search),
                             contentDescription = stringResource(R.string.search_content_description)
                         )
                     }
@@ -144,7 +138,7 @@ fun HomeScreen(
                 actions = {
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
-                            Icons.Rounded.Tune,
+                            painterResource(R.drawable.ic_rounded_tune),
                             contentDescription = stringResource(R.string.settings_content_description)
                         )
                     }
@@ -171,7 +165,7 @@ fun HomeScreen(
                     .size(64.dp)
             ) {
                 Icon(
-                    Icons.Rounded.Add,
+                    painterResource(R.drawable.ic_rounded_add),
                     contentDescription = stringResource(R.string.import_content_description),
                     modifier = Modifier.size(32.dp)
                 )
@@ -209,7 +203,7 @@ fun HomeScreen(
                             leadingIcon = if (filter == selectedFilter) {
                                 {
                                     Icon(
-                                        Icons.Rounded.Check,
+                                        painterResource(R.drawable.ic_rounded_check),
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -267,7 +261,7 @@ fun HomeScreen(
                         )
                         IconButton(onClick = { /* TODO */ }) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.ArrowForward,
+                                painterResource(R.drawable.ic_rounded_arrow_forward),
                                 contentDescription = "See All"
                             )
                         }
@@ -326,7 +320,7 @@ fun RecentlyItem(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Rounded.PlayArrow,
+                        painterResource(R.drawable.ic_rounded_play_arrow),
                         contentDescription = null,
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -416,14 +410,14 @@ fun AudiobookListItem(
                     )
                 } else {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(painterResource(R.drawable.ic_rounded_play_arrow), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         },
         trailingContent = {
             IconButton(onClick = onPlayClick) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = "Play")
+                Icon(painterResource(R.drawable.ic_rounded_play_arrow), contentDescription = "Play")
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)

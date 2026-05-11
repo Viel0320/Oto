@@ -12,7 +12,7 @@ import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.MetadataRetriever
+// No longer importing MetadataRetriever directly here to avoid top-level deprecation warning
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.metadata.id3.ChapterFrame
@@ -110,9 +110,8 @@ class LibraryRepository private constructor(context: Context) {
     /** Observable list of all audiobooks, sorted by last played. */
     val audiobooks: Flow<List<AudiobookEntity>> = dao.getAllAudiobooks()
 
-    /**
-     * Import an audiobook: extract metadata, insert into DB, and cache cover.
-     */
+    @SuppressLint("CheckResult")
+    @Suppress("DEPRECATION")
     fun addAudiobook(uri: Uri, parentDir: DocumentFile? = null, fileName: String? = null) {
         scope.launch {
             Log.d("LibraryRepository", "Adding audiobook: $uri (Name: $fileName)")
@@ -169,7 +168,7 @@ class LibraryRepository private constructor(context: Context) {
                         .setMimeType(if (uri.toString().endsWith(".m4b", ignoreCase = true)) "audio/mp4" else null)
                         .build()
                     val trackGroups = withContext(Dispatchers.IO) {
-                        MetadataRetriever.retrieveMetadata(context, mediaItem).get()
+                        androidx.media3.exoplayer.MetadataRetriever.retrieveMetadata(context, mediaItem).get()
                     }
                     for (i in 0 until trackGroups.length) {
                         val metadata = trackGroups[i].getFormat(0).metadata ?: continue
@@ -229,6 +228,7 @@ class LibraryRepository private constructor(context: Context) {
     /**
      * Extract chapters from media and save to database.
      */
+    @Suppress("DEPRECATION")
     private suspend fun extractAndSaveChapters(uri: Uri) {
         // 1. First try the high-level Media3/ExoPlayer extraction
         val chapters = mutableListOf<ChapterEntity>()
@@ -240,13 +240,12 @@ class LibraryRepository private constructor(context: Context) {
             
             val extractorsFactory = DefaultExtractorsFactory()
                 .setMp4ExtractorFlags(
-                    androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA or
                     androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA
                 )
             
             val mediaSourceFactory = DefaultMediaSourceFactory(context, extractorsFactory)
             val trackGroups = withContext(Dispatchers.IO) {
-                MetadataRetriever.retrieveMetadata(mediaSourceFactory, mediaItem).get()
+                androidx.media3.exoplayer.MetadataRetriever.retrieveMetadata(mediaSourceFactory, mediaItem).get()
             }
             
             for (i in 0 until trackGroups.length) {

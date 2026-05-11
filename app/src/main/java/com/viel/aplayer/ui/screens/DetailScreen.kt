@@ -18,22 +18,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.Timelapse
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -50,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -111,7 +106,7 @@ fun DetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            painterResource(R.drawable.ic_rounded_arrow_back),
                             contentDescription = stringResource(R.string.back_content_description)
                         )
                     }
@@ -119,7 +114,7 @@ fun DetailScreen(
                 actions = {
                     IconButton(onClick = { /* TODO */ }) {
                         Icon(
-                            Icons.Rounded.MoreVert,
+                            painterResource(R.drawable.ic_rounded_more_vert),
                             contentDescription = stringResource(R.string.more_content_description)
                         )
                     }
@@ -174,7 +169,7 @@ fun DetailScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Rounded.PlayArrow,
+                                painterResource(R.drawable.ic_rounded_play_arrow),
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
@@ -230,7 +225,7 @@ fun DetailScreen(
                             .height(32.dp)
                             .padding(horizontal = 8.dp),
                         thickness = 2.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant
+                        color = MaterialTheme.colorScheme.onSurface.copy(0.5f)
                     )
 
                     Column(
@@ -254,7 +249,7 @@ fun DetailScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Metadata Chips
                 Row(
@@ -265,22 +260,22 @@ fun DetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     DetailInfoChip(
-                        icon = Icons.Rounded.Event,
+                        icon = painterResource(R.drawable.ic_rounded_event),
                         value = year
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     DetailInfoChip(
-                        icon = Icons.Rounded.Timelapse,
+                        icon = painterResource(R.drawable.ic_rounded_timelapse),
                         value = duration ?: "Unknown"
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     DetailInfoChip(
-                        icon = Icons.Rounded.Storage,
+                        icon = painterResource(R.drawable.ic_rounded_storage),
                         value = fileSize
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Play/Continue Button
                 Button(
@@ -289,7 +284,7 @@ fun DetailScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .height(56.dp),
-                    shape = RoundedCornerShape(100.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = if (isAvailable) {
                         ButtonDefaults.buttonColors()
                     } else {
@@ -300,9 +295,9 @@ fun DetailScreen(
                     }
                 ) {
                     Icon(
-                        if (!isAvailable) Icons.Rounded.Storage 
-                        else if (progressPercent > 0) Icons.Rounded.History 
-                        else Icons.Rounded.PlayArrow,
+                        painter = if (!isAvailable) painterResource(R.drawable.ic_rounded_storage) 
+                        else if (progressPercent > 0) painterResource(R.drawable.ic_rounded_history) 
+                        else painterResource(R.drawable.ic_rounded_play_arrow),
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -344,37 +339,38 @@ fun DetailScreen(
 
 @Composable
 fun DetailInfoChip(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: androidx.compose.ui.graphics.painter.Painter,
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = AssistChipDefaults.assistChipBorder(enabled = true)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(8.dp))
+    SuggestionChip(
+        onClick = { },
+        label = {
             Text(
                 text = value,
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                fontWeight = FontWeight.Bold
             )
-        }
-    }
+        },
+        icon = {
+            Icon(
+                painter = icon,
+                contentDescription = null,
+                modifier = Modifier.size(SuggestionChipDefaults.IconSize),
+                tint = LocalContentColor.current
+            )
+        },
+        shape = RoundedCornerShape(12.dp),
+        colors = SuggestionChipDefaults.suggestionChipColors(
+            labelColor = LocalContentColor.current,
+            iconContentColor = LocalContentColor.current
+        ),
+        border = SuggestionChipDefaults.suggestionChipBorder(
+            enabled = true,
+            borderColor = LocalContentColor.current
+        ),
+        modifier = modifier
+    )
 }
 
 @Preview(showBackground = true)
