@@ -41,22 +41,19 @@ class PlaybackService : MediaSessionService() {
             .setSeekForwardIncrementMs(30000)
             .build()
 
-        val rewindButton = CommandButton.Builder()
+        val rewindButton = CommandButton.Builder(R.drawable.ic_replay_10)
             .setDisplayName("快退10秒")
             .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
-            .setIconResId(R.drawable.ic_replay_10)
             .build()
 
-        val forwardButton = CommandButton.Builder()
+        val forwardButton = CommandButton.Builder(R.drawable.ic_forward_30)
             .setDisplayName("快进30秒")
             .setSessionCommand(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
-            .setIconResId(R.drawable.ic_forward_30)
             .build()
 
-        val bookmarkButton = CommandButton.Builder()
+        val bookmarkButton = CommandButton.Builder(R.drawable.ic_bookmark_add)
             .setDisplayName("添加书签")
             .setSessionCommand(SessionCommand(ACTION_BOOKMARK, Bundle.EMPTY))
-            .setIconResId(R.drawable.ic_bookmark_add)
             .build()
 
         mediaSession = MediaSession.Builder(this, player)
