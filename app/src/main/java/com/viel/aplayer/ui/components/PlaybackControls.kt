@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
 import com.viel.aplayer.ui.action.PlaybackControlActions
 import com.viel.aplayer.ui.theme.APlayerTheme
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -54,20 +55,22 @@ fun PlaybackControls(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
-    // Speed Toast logic
+    // Speed Toast logic (Debounced)
     var lastSpeed by remember { mutableFloatStateOf(playbackSpeed) }
     LaunchedEffect(playbackSpeed) {
         if (playbackSpeed != lastSpeed) {
+            delay(500) // Wait for 0.5s of inactivity
             val msg = if (playbackSpeed == 1.0f) "Playback speed reset" else "Playback speed: ${playbackSpeed}x"
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             lastSpeed = playbackSpeed
         }
     }
 
-    // Sleep Timer Toast logic
+    // Sleep Timer Toast logic (Debounced)
     var lastTimer by remember { androidx.compose.runtime.mutableIntStateOf(selectedSleepTimer) }
     LaunchedEffect(selectedSleepTimer) {
         if (selectedSleepTimer != lastTimer) {
+            delay(500) // Wait for 0.5s of inactivity
             val msg = when (selectedSleepTimer) {
                 0 -> "Sleep timer off"
                 -1 -> "Sleep in 5 seconds"

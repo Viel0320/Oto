@@ -120,7 +120,9 @@ fun PlayerContentScreen(
                         onNavigationClick = {
                             focusManager.clearFocus()
                             navigationActions.onClose()
-                        }
+                        },
+                        onToggleProgressMode = actions.onToggleProgressMode,
+                        isChapterProgressMode = uiState.isChapterProgressMode
                     )
 
                     // Content Area (Middle)
@@ -135,7 +137,10 @@ fun PlayerContentScreen(
                                 0 -> {
                                     BookmarkListView(
                                         bookmarks = uiState.currentBookmarks,
-                                        onBookmarkClick = { pos -> actions.seekWithUndo(pos) },
+                                        onBookmarkClick = { pos -> 
+                                            actions.seekWithUndo(pos)
+                                            if (!uiState.isPlaying) actions.onPlayPauseClick()
+                                        },
                                         onDeleteClick = actions.onDeleteBookmark,
                                         currentPosition = uiState.currentPosition
                                     )
@@ -219,12 +224,32 @@ fun PlayerContentScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        val currentChapter = uiState.currentChapter
+                        val isChapterMode = uiState.isChapterProgressMode && currentChapter != null
+
+                        val (displayPos, displayDur, displayMarkers) = if (isChapterMode) {
+                            val start = currentChapter.startPosition
+                            val end = currentChapter.endPosition
+                            Triple(
+                                (uiState.currentPosition - start).coerceAtLeast(0),
+                                (end - start).coerceAtLeast(1),
+                                emptyList<Float>()
+                            )
+                        } else {
+                            Triple(uiState.currentPosition, uiState.duration, uiState.chapterMarkers)
+                        }
+
                         PlaybackProgress(
-                            currentPosition = uiState.currentPosition,
-                            duration = uiState.duration,
-                            markers = uiState.chapterMarkers,
-                            onSeek = { pos ->
-                                actions.seek(pos)
+                            currentPosition = displayPos,
+                            duration = displayDur,
+                            markers = displayMarkers,
+                            onSeek = { relPos ->
+                                val targetPos = if (isChapterMode) {
+                                    currentChapter.startPosition + relPos
+                                } else {
+                                    relPos
+                                }
+                                actions.seek(targetPos)
                                 if (!uiState.isPlaying) actions.onPlayPauseClick()
                             },
                             modifier = Modifier
@@ -323,6 +348,7 @@ fun PlayerContentScreen(
                 onDismissRequest = actions.onDismissChapterList,
                 onChapterClick = { pos ->
                     actions.seekWithUndo(pos)
+                    if (!uiState.isPlaying) actions.onPlayPauseClick()
                     actions.onDismissChapterList()
                 },
                 sheetState = sheetState

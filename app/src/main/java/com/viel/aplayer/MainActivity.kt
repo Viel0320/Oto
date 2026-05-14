@@ -86,7 +86,8 @@ class MainActivity : ComponentActivity() {
                         onShowBookmarkDialog = { playerViewModel.showBookmarkDialog() },
                         onDismissBookmarkDialog = { playerViewModel.dismissBookmarkDialog() },
                         onBookmarkTitleChange = { playerViewModel.updateBookmarkTitle(it) },
-                        onSaveBookmark = { playerViewModel.saveBookmarkFromDialog() }
+                        onSaveBookmark = { playerViewModel.saveBookmarkFromDialog() },
+                        onToggleProgressMode = { playerViewModel.toggleProgressMode() }
                     )
                 }
                 val miniPlayerActions = remember(playerViewModel) {

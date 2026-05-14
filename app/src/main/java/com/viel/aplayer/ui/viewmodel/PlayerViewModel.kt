@@ -550,6 +550,10 @@ class PlayerViewModel : ViewModel() {
         _uiState.update { it.copy(isMiniPlayerHidden = false) }
     }
 
+    fun toggleProgressMode() {
+        _uiState.update { it.copy(isChapterProgressMode = !it.isChapterProgressMode) }
+    }
+
     private fun updateCoverPath(path: String?) {
         _uiState.update { it.copy(currentCoverPath = path) }
         path?.let { p ->

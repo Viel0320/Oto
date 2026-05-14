@@ -27,7 +27,8 @@ data class PlayerUiState(
     val selectedContentTab: Int = 1,
     val isSpeedManualMode: Boolean = false,
     val isMiniPlayerHidden: Boolean = false,
-    val backgroundColorArgb: Int = DEFAULT_COVER_BACKGROUND_ARGB
+    val backgroundColorArgb: Int = DEFAULT_COVER_BACKGROUND_ARGB,
+    val isChapterProgressMode: Boolean = false
 ) {
     val hasActiveTrack: Boolean
         get() = currentTitle.isNotEmpty() && currentTitle != "Unknown Title"

@@ -35,6 +35,7 @@ data class PlayerActions(
     val onDismissBookmarkDialog: () -> Unit = {},
     val onBookmarkTitleChange: (String) -> Unit = {},
     val onSaveBookmark: () -> Unit = {},
+    val onToggleProgressMode: () -> Unit = {},
 ) {
     val playbackControls: PlaybackControlActions = PlaybackControlActions(
         onPlayPauseClick = onPlayPauseClick,
