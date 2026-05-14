@@ -115,17 +115,18 @@ class PlayerViewModel : ViewModel() {
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     if (mediaItem == null) {
                         _uiState.update {
-                            it.copy(
-                                currentTitle = "",
-                                currentAuthor = "",
-                                currentNarrator = "",
-                                currentCoverPath = null,
-                                currentChapters = emptyList(),
-                                currentSubtitles = emptyList(),
-                                currentBookmarks = emptyList(),
-                                backgroundColorArgb = DEFAULT_COVER_BACKGROUND_ARGB
-                            )
-                        }
+                        it.copy(
+                            currentTitle = "",
+                            currentAuthor = "",
+                            currentNarrator = "",
+                            currentCoverPath = null,
+                            currentThumbnailPath = null,
+                            currentChapters = emptyList(),
+                            currentSubtitles = emptyList(),
+                            currentBookmarks = emptyList(),
+                            backgroundColorArgb = DEFAULT_COVER_BACKGROUND_ARGB
+                        )
+                    }
                         currentMediaUri = null
                         return
                     }
@@ -241,12 +242,13 @@ class PlayerViewModel : ViewModel() {
             player?.play()
         }
         
-        // Poll for cover path
+        // Poll for cover paths
         viewModelScope.launch {
             repeat(5) {
-                val path = libraryRepository?.getCoverPath(uri.toString())
-                if (path != null) {
-                    updateCoverPath(path)
+                val entity = libraryRepository?.getByUri(uri.toString())
+                if (entity?.coverPath != null || entity?.thumbnailPath != null) {
+                    updateCoverPath(entity?.coverPath)
+                    updateThumbnailPath(entity?.thumbnailPath)
                     return@launch
                 }
                 delay(1000)
@@ -516,12 +518,18 @@ class PlayerViewModel : ViewModel() {
         _uiState.update { it.copy(isMiniPlayerHidden = false) }
     }
 
-    private fun updateCoverPath(path: String) {
+    private fun updateCoverPath(path: String?) {
         _uiState.update { it.copy(currentCoverPath = path) }
-        viewModelScope.launch(Dispatchers.Default) {
-            val dominantColor = extractCoverDominantColorArgb(path)
-            _uiState.update { it.copy(backgroundColorArgb = dominantColor) }
+        path?.let { p ->
+            viewModelScope.launch(Dispatchers.Default) {
+                val dominantColor = extractCoverDominantColorArgb(p)
+                _uiState.update { it.copy(backgroundColorArgb = dominantColor) }
+            }
         }
+    }
+
+    private fun updateThumbnailPath(path: String?) {
+        _uiState.update { it.copy(currentThumbnailPath = path) }
     }
 
     override fun onCleared() {

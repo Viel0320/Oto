@@ -30,6 +30,12 @@ interface AudiobookDao {
     @Query("UPDATE audiobooks SET coverPath = :coverPath WHERE uri = :uri")
     suspend fun updateCoverPath(uri: String, coverPath: String)
 
+    @Query("UPDATE audiobooks SET thumbnailPath = :thumbnailPath WHERE uri = :uri")
+    suspend fun updateThumbnailPath(uri: String, thumbnailPath: String)
+
+    @Query("UPDATE audiobooks SET coverPath = :coverPath, thumbnailPath = :thumbnailPath WHERE uri = :uri")
+    suspend fun updateCoverPaths(uri: String, coverPath: String?, thumbnailPath: String?)
+
     @Query("UPDATE audiobooks SET subtitlePath = :subtitlePath WHERE uri = :uri")
     suspend fun updateSubtitlePath(uri: String, subtitlePath: String?)
     

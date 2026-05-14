@@ -2,6 +2,8 @@ package com.viel.aplayer.data
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -237,9 +239,9 @@ class LibraryRepository private constructor(context: Context) {
             }
             
             // Extract and save cover art in background
-            val coverPath = extractAndSaveCover(uri)
-            if (coverPath != null) {
-                dao.updateCoverPath(uri.toString(), coverPath)
+            val (coverPath, thumbnailPath) = extractAndSaveCover(uri)
+            if (coverPath != null || thumbnailPath != null) {
+                dao.updateCoverPaths(uri.toString(), coverPath, thumbnailPath)
             }
         }
     }
@@ -683,32 +685,111 @@ class LibraryRepository private constructor(context: Context) {
     }
     
     /**
+     * Get an audiobook by URI.
+     */
+    suspend fun getByUri(uri: String): AudiobookEntity? {
+        return dao.getByUri(uri)
+    }
+
+    /**
      * Get the cover path for a specific audiobook URI.
      */
     suspend fun getCoverPath(bookUri: String): String? {
         return dao.getByUri(bookUri)?.coverPath
     }
+
+    /**
+     * Get the thumbnail path for a specific audiobook URI.
+     */
+    suspend fun getThumbnailPath(bookUri: String): String? {
+        return dao.getByUri(bookUri)?.thumbnailPath
+    }
     
     /**
-     * Extract embedded cover art from the audio file and save it to internal storage.
+     * Extract embedded cover art from the audio file.
+     * Saves the original image and a 300px thumbnail.
+     * Returns Pair(originalPath, thumbnailPath)
      */
-    private fun extractAndSaveCover(uri: Uri): String? {
+    private fun extractAndSaveCover(uri: Uri): Pair<String?, String?> {
         return try {
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(context, uri)
             val artBytes = retriever.embeddedPicture
             retriever.release()
-            
+
             if (artBytes != null) {
-                val coverFile = File(coversDir, "${uri.toString().hashCode()}.jpg")
-                FileOutputStream(coverFile).use { it.write(artBytes) }
-                coverFile.absolutePath
+                // 1. Save Original
+                val originalFile = File(coversDir, "${uri.toString().hashCode()}_orig.jpg")
+                FileOutputStream(originalFile).use { it.write(artBytes) }
+                val originalPath = originalFile.absolutePath
+
+                // 2. Create and Save Thumbnail (300px)
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size, options)
+
+                val maxSize = 300
+                options.inSampleSize = calculateInSampleSize(options, maxSize, maxSize)
+                options.inJustDecodeBounds = false
+
+                val bitmap = BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size, options)
+                val thumbnailPath = if (bitmap != null) {
+                    val scaledBitmap = if (bitmap.width > maxSize || bitmap.height > maxSize) {
+                        scaleBitmap(bitmap, maxSize)
+                    } else {
+                        bitmap
+                    }
+
+                    val thumbFile = File(coversDir, "${uri.toString().hashCode()}_thumb.jpg")
+                    FileOutputStream(thumbFile).use { out ->
+                        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                    }
+
+                    if (scaledBitmap != bitmap) {
+                        scaledBitmap.recycle()
+                    }
+                    bitmap.recycle()
+                    thumbFile.absolutePath
+                } else null
+
+                Pair(originalPath, thumbnailPath)
             } else {
-                null
+                Pair(null, null)
             }
-        } catch (_: Exception) {
-            null
+        } catch (e: Exception) {
+            Log.e("LibraryRepository", "Error extracting cover", e)
+            Pair(null, null)
         }
+    }
+
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val (height: Int, width: Int) = options.outHeight to options.outWidth
+        var inSampleSize = 1
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight: Int = height / 2
+            val halfWidth: Int = width / 2
+            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
+    }
+
+    private fun scaleBitmap(source: Bitmap, maxSize: Int): Bitmap {
+        val width = source.width
+        val height = source.height
+        val ratio = width.toFloat() / height.toFloat()
+        val newWidth: Int
+        val newHeight: Int
+        if (width > height) {
+            newWidth = maxSize
+            newHeight = (maxSize / ratio).toInt()
+        } else {
+            newHeight = maxSize
+            newWidth = (maxSize * ratio).toInt()
+        }
+        return Bitmap.createScaledBitmap(source, newWidth, newHeight, true)
     }
 
     /**

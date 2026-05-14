@@ -268,7 +268,7 @@ class MainActivity : ComponentActivity() {
                                     title = playerUiState.currentTitle,
                                     author = playerUiState.currentAuthor,
                                     narrator = playerUiState.currentNarrator,
-                                    coverPath = playerUiState.currentCoverPath,
+                                    coverPath = playerUiState.currentThumbnailPath ?: playerUiState.currentCoverPath,
                                     progress = {
                                         playerUiState.progress
                                     },

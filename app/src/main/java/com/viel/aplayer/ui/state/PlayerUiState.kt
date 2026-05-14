@@ -11,6 +11,7 @@ data class PlayerUiState(
     val currentAuthor: String = "",
     val currentNarrator: String = "",
     val currentCoverPath: String? = null,
+    val currentThumbnailPath: String? = null,
     val currentPosition: Long = 0L,
     val duration: Long = 0L,
     val playbackSpeed: Float = 1.0f,

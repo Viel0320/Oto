@@ -329,9 +329,10 @@ fun SearchContent(
                                             shape = RoundedCornerShape(8.dp),
                                             color = MaterialTheme.colorScheme.surfaceVariant
                                         ) {
-                                            if (book.coverPath != null) {
+                                            val displayCover = book.thumbnailPath ?: book.coverPath
+                                            if (displayCover != null) {
                                                 AsyncImage(
-                                                    model = book.coverPath,
+                                                    model = displayCover,
                                                     contentDescription = null,
                                                     contentScale = ContentScale.Crop,
                                                     modifier = Modifier.fillMaxSize()

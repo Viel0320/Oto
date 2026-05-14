@@ -222,7 +222,7 @@ fun HomeScreen(
                                 title = book.title,
                                 author = book.author,
                                 progressText = "${((book.lastPosition.toFloat() / book.duration.coerceAtLeast(1L).toFloat()) * 100).toInt()}%",
-                                coverPath = book.coverPath,
+                                coverPath = book.thumbnailPath ?: book.coverPath,
                                 onClick = { onNavigateToDetail(book.uri) }
                             )
                         }
@@ -260,7 +260,7 @@ fun HomeScreen(
                         author = book.author,
                         narrator = book.narrator,
                         duration = book.duration,
-                        coverPath = book.coverPath,
+                        coverPath = book.thumbnailPath ?: book.coverPath,
                         onClick = { onNavigateToDetail(book.uri) }
                     ) { 
                         onLoadMedia(book.uri.toUri(), book.title, book.author, book.narrator, book.lastPosition)

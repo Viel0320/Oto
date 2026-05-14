@@ -15,6 +15,7 @@ data class AudiobookEntity(
     val year: String = "",
     val fileSize: Long = 0L,
     val coverPath: String? = null,
+    val thumbnailPath: String? = null,
     val subtitlePath: String? = null,
     val lastPosition: Long = 0L, // Current playback position in ms
     val lastPlayedAt: Long = 0L,
