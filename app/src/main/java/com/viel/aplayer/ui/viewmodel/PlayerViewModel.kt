@@ -73,6 +73,9 @@ class PlayerViewModel : ViewModel() {
                         saveProgress() // 暂停时立即保存进度
                     }
                 }
+                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                    _uiState.update { it.copy(playWhenReady = playWhenReady) }
+                }
                 override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
                     _uiState.update { it.copy(playbackSpeed = playbackParameters.speed) }
                 }

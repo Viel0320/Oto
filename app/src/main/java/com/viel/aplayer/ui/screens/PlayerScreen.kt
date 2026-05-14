@@ -76,8 +76,8 @@ fun PlayerScreen(
         )
 
         val coverScale by animateFloatAsState(
-            targetValue = if (uiState.isPlaying) 1f else 0.95f,
-            animationSpec = tween(durationMillis = 200),
+            targetValue = if (uiState.playWhenReady) 1f else 0.95f,
+            animationSpec = tween(durationMillis = 300),
             label = "cover_scale"
         )
 
@@ -86,7 +86,7 @@ fun PlayerScreen(
             derivedStateOf {
                 Brush.verticalGradient(
                     colors = listOf(
-                        animatedBgColor.copy(alpha = 0.6f),
+                        animatedBgColor.copy(alpha = 0.5f),
                         bgColor
                     )
                 )

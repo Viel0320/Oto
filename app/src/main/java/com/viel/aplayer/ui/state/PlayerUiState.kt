@@ -7,6 +7,7 @@ import com.viel.aplayer.ui.utils.DEFAULT_COVER_BACKGROUND_ARGB
 
 data class PlayerUiState(
     val isPlaying: Boolean = false,
+    val playWhenReady: Boolean = false,
     val currentTitle: String = "",
     val currentAuthor: String = "",
     val currentNarrator: String = "",
