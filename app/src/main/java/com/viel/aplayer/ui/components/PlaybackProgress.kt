@@ -9,7 +9,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -18,26 +17,20 @@ import com.viel.aplayer.ui.utils.formatTime
 
 @Composable
 fun PlaybackProgress(
-    currentPosition: () -> Long,
-    duration: () -> Long,
+    currentPosition: Long,
+    duration: Long,
     markers: List<Float>,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        val progressProvider = remember(currentPosition, duration) {
-            {
-                val d = duration()
-                if (d > 0) (currentPosition().toFloat() / d.toFloat()) else 0f
-            }
-        }
-
         AudioProgressBar(
-            progress = progressProvider,
+            progress = {
+                if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
+            },
             onProgressChange = { newProgress ->
-                val d = duration()
-                if (d > 0) {
-                    onSeek((newProgress * d).toLong())
+                if (duration > 0) {
+                    onSeek((newProgress * duration).toLong())
                 }
             },
             markers = markers,
@@ -51,11 +44,11 @@ fun PlaybackProgress(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = formatTime(currentPosition()),
+                text = formatTime(currentPosition),
                 style = MaterialTheme.typography.labelMedium
             )
             Text(
-                text = formatTime(duration()),
+                text = formatTime(duration),
                 style = MaterialTheme.typography.labelMedium
             )
         }
@@ -68,8 +61,8 @@ fun PlaybackProgressPreview() {
     APlayerTheme {
         Surface {
             PlaybackProgress(
-                currentPosition = { 120000L },
-                duration = { 360000L },
+                currentPosition = 120000L,
+                duration = 360000L,
                 markers = listOf(0.2f, 0.5f, 0.8f),
                 onSeek = {},
                 modifier = Modifier.padding(16.dp)

@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.screens
 
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,7 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,16 +56,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.data.AudiobookEntity
-import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.ui.theme.APlayerTheme
-import com.viel.aplayer.worker.LibrarySyncWorker
+import com.viel.aplayer.ui.utils.formatCompactDuration
+import com.viel.aplayer.ui.utils.formatPeopleSubtitle
 import java.io.File
+
+enum class HomeFilter {
+    All,
+    NotStarted,
+    InProgress,
+    Finished
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,41 +81,31 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
     onNavigateToPlayer: () -> Unit = {},
+    onSeeAllClick: () -> Unit = {},
     onLoadMedia: (Uri, String, String, String, Long) -> Unit = { _, _, _, _, _ -> },
+    onLibraryRootSelected: (Uri) -> Unit = {},
 ) {
     val filters = listOf(
-        stringResource(R.string.filter_all),
-        stringResource(R.string.filter_not_started),
-        stringResource(R.string.filter_in_progress),
-        stringResource(R.string.filter_finished)
+        HomeFilter.All to stringResource(R.string.filter_all),
+        HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
+        HomeFilter.InProgress to stringResource(R.string.filter_in_progress),
+        HomeFilter.Finished to stringResource(R.string.filter_finished)
     )
-    var selectedFilter by remember { mutableStateOf(filters[0]) }
-
-    val context = LocalContext.current
+    var selectedFilter by remember { mutableStateOf(HomeFilter.All) }
+    val filteredAudiobooks = remember(audiobooks, selectedFilter) {
+        audiobooks.filter { it.matchesFilter(selectedFilter) }
+    }
+    val recentBooks = remember(audiobooks) {
+        audiobooks
+            .filter { it.lastPlayedAt > 0 }
+            .sortedByDescending { it.lastPlayedAt }
+            .take(3)
+    }
+    val shouldShowRecentBooks = selectedFilter == HomeFilter.All || selectedFilter == HomeFilter.InProgress
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
-        uri?.let {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    it,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                
-                // Save root and trigger sync
-                val repo = LibraryRepository.getInstance(context)
-                repo.setLibraryRoot(it)
-                
-                val syncRequest = OneTimeWorkRequestBuilder<LibrarySyncWorker>().build()
-                WorkManager.getInstance(context).enqueueUniqueWork(
-                    "LibrarySync",
-                    ExistingWorkPolicy.REPLACE,
-                    syncRequest
-                )
-            } catch (_: SecurityException) {
-                // Log error or notify user if needed
-            }
-        }
+        uri?.let(onLibraryRootSelected)
     }
 
     Scaffold(
@@ -128,7 +120,7 @@ fun HomeScreen(
                 shape = CircleShape,
                 modifier = Modifier
                     .padding(bottom = if (isMiniPlayerVisible) 80.dp else 16.dp)
-                    .navigationBarsPadding() // 确保 FAB 避开导航栏
+                    .navigationBarsPadding()
                     .size(64.dp)
             ) {
                 Icon(
@@ -139,11 +131,6 @@ fun HomeScreen(
             }
         }
     ) { innerPadding ->
-        val recentBooks = audiobooks
-            .filter { it.lastPlayedAt > 0 }
-            .sortedByDescending { it.lastPlayedAt }
-            .take(3)
-
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
@@ -194,14 +181,11 @@ fun HomeScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(filters) { filter ->
+                    items(filters) { (filter, label) ->
                         FilterChip(
                             selected = filter == selectedFilter,
-                            onClick = {
-                                selectedFilter = filter
-                                // TODO: Implement actual filtering logic for audiobooks list
-                            },
-                            label = { Text(filter) },
+                            onClick = { selectedFilter = filter },
+                            label = { Text(label) },
                             leadingIcon = if (filter == selectedFilter) {
                                 {
                                     Icon(
@@ -217,7 +201,7 @@ fun HomeScreen(
             }
 
             // Recently Played Section
-            if (recentBooks.isNotEmpty()) {
+            if (shouldShowRecentBooks && recentBooks.isNotEmpty()) {
                 item {
                     Text(
                         text = stringResource(R.string.recently_title),
@@ -247,7 +231,7 @@ fun HomeScreen(
             }
 
             // Category Section (e.g., specific author)
-            if (audiobooks.isNotEmpty()) {
+            if (filteredAudiobooks.isNotEmpty()) {
                 item {
                     Row(
                         modifier = Modifier
@@ -261,7 +245,7 @@ fun HomeScreen(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
-                        IconButton(onClick = { /* TODO */ }) {
+                        IconButton(onClick = onSeeAllClick) {
                             Icon(
                                 painterResource(R.drawable.ic_rounded_arrow_forward),
                                 contentDescription = "See All"
@@ -270,7 +254,7 @@ fun HomeScreen(
                     }
                 }
 
-                items(audiobooks) { book ->
+                items(filteredAudiobooks) { book ->
                     AudiobookListItem(
                         title = book.title,
                         author = book.author,
@@ -390,9 +374,9 @@ fun AudiobookListItem(
         },
         supportingContent = {
             Column {
-                Text("$author • $narrator", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(formatPeopleSubtitle(author, narrator), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    text = formatDuration(duration),
+                    text = formatCompactDuration(duration),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -426,39 +410,33 @@ fun AudiobookListItem(
     )
 }
 
-private fun formatDuration(ms: Long): String {
-    val hours = ms / 3600000
-    val minutes = (ms % 3600000) / 60000
-    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-}
-
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
-fun Preview() {
+fun HomeScreenPreview() {
     val mockBooks = listOf(
         AudiobookEntity(
             uri = "uri1",
-            title = "イン・ザ・メガチャーチ",
-            author = "朝井 リョウ",
-            narrator = "岩崎 了, 大森 ゆき",
+            title = "In the Megachurch",
+            author = "Ryo Asai",
+            narrator = "Narrator A",
             duration = 44580000L,
             lastPosition = 10314400L,
             lastPlayedAt = System.currentTimeMillis(),
         ),
         AudiobookEntity(
             uri = "uri2",
-            title = "晓星",
-            author = "凑 かなえ",
-            narrator = "樱井 孝宏, 早见 沙织",
+            title = "Dawn Star",
+            author = "Kanae Minato",
+            narrator = "Narrator B",
             duration = 4826000L,
             lastPosition = 3281680L,
             lastPlayedAt = System.currentTimeMillis() - 100000,
         ),
         AudiobookEntity(
             uri = "uri3",
-            title = "复仇是合法的",
-            author = "三日市 零",
-            narrator = "Narrator Name",
+            title = "Legal Revenge",
+            author = "Rei Mikkaichi",
+            narrator = "Narrator C",
             duration = 3600000L,
             lastPosition = 500000L,
             lastPlayedAt = System.currentTimeMillis() - 200000,
@@ -467,16 +445,29 @@ fun Preview() {
             uri = "uri4",
             title = "Sample Book 4",
             author = "Sample Author",
-            narrator = "Narrator Name",
+            narrator = "Narrator D",
             duration = 3600000L,
             lastPosition = 1800000L,
             lastPlayedAt = System.currentTimeMillis() - 300000,
         )
-        )
+    )
+
     APlayerTheme {
         HomeScreen(
             audiobooks = mockBooks,
             isMiniPlayerVisible = false
         )
+    }
+}
+
+private fun AudiobookEntity.matchesFilter(filter: HomeFilter): Boolean {
+    return when (filter) {
+        HomeFilter.All -> true
+        HomeFilter.NotStarted -> lastPosition <= 0L
+        HomeFilter.InProgress -> {
+            val finishThreshold = (duration * 0.98f).toLong()
+            lastPosition > 0L && (duration <= 0L || lastPosition < finishThreshold)
+        }
+        HomeFilter.Finished -> duration > 0L && lastPosition >= (duration * 0.98f).toLong()
     }
 }

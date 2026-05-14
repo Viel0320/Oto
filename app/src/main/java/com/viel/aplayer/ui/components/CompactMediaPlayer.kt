@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,11 +28,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import com.viel.aplayer.R
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.viel.aplayer.R
+import com.viel.aplayer.ui.action.MiniPlayerActions
 import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.utils.formatPeopleSubtitle
 import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -47,28 +48,18 @@ fun CompactMediaPlayer(
     coverPath: String? = null,
     progress: () -> Float = { 0f },
     showProgressBar: Boolean = true,
-    onPlayPauseClick: () -> Unit = {},
-    onLongClickCover: () -> Unit = {}, // 测试操作：长按封面回调
+    actions: MiniPlayerActions = MiniPlayerActions(),
 ) {
-    val subtitle = remember(author, narrator) {
-        listOf(author, narrator)
-            .filter { it.isNotBlank() }
-            .joinToString(" • ")
-            .ifBlank { "Unknown" }
-    }
-
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        // Remove top rounded corners
         shape = RoundedCornerShape(0.dp)
     ) {
         Column(modifier = Modifier.navigationBarsPadding()) {
-            // Progress bar at the very top, not clipped
             if (showProgressBar) {
                 AudioProgressBar(
                     progress = progress,
-                    onProgressChange = {}, // Read-only in compact player
+                    onProgressChange = {},
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp),
@@ -76,30 +67,33 @@ fun CompactMediaPlayer(
                     showKnob = false
                 )
             }
-            
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val coverShape = RoundedCornerShape(8.dp)
-                val coverModifier = Modifier.size(48.dp)
+                val coverFile = remember(coverPath) {
+                    coverPath?.let(::File)
+                }
 
                 Box(
-                    modifier = coverModifier
-                        .clip(coverShape)
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .combinedClickable(
-                            onClick = {}, // 保持点击穿透或根据需要处理
-                            onLongClick = onLongClickCover // 测试操作：长按封面隐藏 mini 播放器
+                            onClick = {},
+                            onLongClick = actions.onHide
                         )
                 ) {
-                    val coverFile = remember(coverPath) { if (coverPath != null) File(coverPath) else null }
                     if (coverFile != null && coverFile.exists()) {
                         AsyncImage(
                             model = coverFile,
                             contentDescription = "Cover",
-                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                             contentScale = ContentScale.Crop
                         )
                     } else {
@@ -110,33 +104,35 @@ fun CompactMediaPlayer(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.width(16.dp))
-                
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        modifier = Modifier.basicMarquee()
+                        maxLines = 1
                     )
                     Text(
-                        text = subtitle,
+                        text = formatPeopleSubtitle(author, narrator),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        modifier = Modifier.basicMarquee()
+                        maxLines = 1
                     )
                 }
-                
+
                 IconButton(
-                    onClick = onPlayPauseClick,
+                    onClick = actions.onPlayPauseClick,
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        painter = if (isPlaying) painterResource(R.drawable.ic_rounded_pause) else painterResource(R.drawable.ic_rounded_play_arrow),
+                        painter = if (isPlaying) {
+                            painterResource(R.drawable.ic_rounded_pause)
+                        } else {
+                            painterResource(R.drawable.ic_rounded_play_arrow)
+                        },
                         contentDescription = if (isPlaying) "Pause" else "Play",
                         modifier = Modifier.size(32.dp),
                         tint = MaterialTheme.colorScheme.onSurface
@@ -152,9 +148,9 @@ fun CompactMediaPlayer(
 fun CompactMediaPlayerPreview() {
     APlayerTheme {
         CompactMediaPlayer(
-            title = "イン・ザ・メガチャーチ",
-            author = "朝井 リョウ",
-            narrator = "岩崎 了",
+            title = "In the Megachurch",
+            author = "Ryo Asai",
+            narrator = "Narrator A",
             isPlaying = false,
             progress = { 0.23f }
         )
@@ -166,8 +162,8 @@ fun CompactMediaPlayerPreview() {
 fun CompactMediaPlayerPlayingPreview() {
     APlayerTheme {
         CompactMediaPlayer(
-            title = "イン・ザ・メガチャーチ",
-            author = "朝井 リョウ",
+            title = "In the Megachurch",
+            author = "Ryo Asai",
             isPlaying = true,
             progress = { 0.65f }
         )
@@ -179,8 +175,8 @@ fun CompactMediaPlayerPlayingPreview() {
 fun CompactMediaPlayerNoProgressBarPreview() {
     APlayerTheme {
         CompactMediaPlayer(
-            title = "イン・ザ・メガチャーチ",
-            author = "朝井 リョウ",
+            title = "In the Megachurch",
+            author = "Ryo Asai",
             isPlaying = false,
             showProgressBar = false
         )
@@ -192,9 +188,9 @@ fun CompactMediaPlayerNoProgressBarPreview() {
 fun CompactMediaPlayerLongTitlePreview() {
     APlayerTheme {
         CompactMediaPlayer(
-            title = "転生したらスライムだった件 21 (通常版) (デジタル版有声書)",
-            author = "伏瀬",
-            narrator = "岡咲 美保, 豊口 めぐみ, 前野 智昭",
+            title = "A Very Long Audiobook Title That Should Marquee Inside The Mini Player",
+            author = "Long Author Name",
+            narrator = "Narrator One, Narrator Two, Narrator Three",
             isPlaying = true,
             progress = { 0.45f }
         )
@@ -206,8 +202,8 @@ fun CompactMediaPlayerLongTitlePreview() {
 fun CompactMediaPlayerAuthorOnlyPreview() {
     APlayerTheme {
         CompactMediaPlayer(
-            title = "晓星",
-            author = "凑 かなえ",
+            title = "Dawn Star",
+            author = "Kanae Minato",
             narrator = "",
             isPlaying = false,
             progress = { 0.12f }

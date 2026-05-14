@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.screens
 
-import android.graphics.BitmapFactory
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -29,12 +28,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,84 +42,35 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.viel.aplayer.R
 import androidx.compose.ui.unit.dp
-import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
-import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.ui.components.ChapterDisplay
 import com.viel.aplayer.ui.components.ChapterListSheet
 import com.viel.aplayer.ui.components.PlaybackControls
 import com.viel.aplayer.ui.components.PlaybackProgress
 import com.viel.aplayer.ui.components.PlayerAppBar
+import com.viel.aplayer.ui.action.PlayerActions
+import com.viel.aplayer.ui.action.PlayerNavigationActions
 import com.viel.aplayer.ui.theme.APlayerTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.viel.aplayer.ui.state.PlayerUiState
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlayerScreen(
-    onMinimize: () -> Unit,
+    uiState: PlayerUiState,
+    actions: PlayerActions,
+    navigationActions: PlayerNavigationActions,
     modifier: Modifier = Modifier,
-    isPlaying: Boolean = false,
-    title: String = "Unknown Title",
-    author: String = "Unknown Author",
-    narrator: String = "Unknown Narrator",
-    coverPath: String? = null,
-    currentPosition: () -> Long = { 0L },
-    duration: () -> Long = { 0L },
-    chapters: List<ChapterEntity> = emptyList(),
-    onSeek: (Long) -> Unit = {},
-    onSkipForward: () -> Unit = {},
-    onSkipBackward: () -> Unit = {},
-    onPlayPauseClick: () -> Unit = {},
-    playbackSpeed: Float = 1.0f,
-    onSpeedChange: (Float) -> Unit = {},
-    selectedSleepTimer: Int = 0,
-    onSleepTimerChange: (Int) -> Unit = {},
-    onSubtitlesClick: () -> Unit = {},
-    onBookmarksClick: () -> Unit = {},
-    onRelatedClick: () -> Unit = {},
-    onAddBookmark: (String) -> Unit = {},
 ) {
     APlayerTheme(darkTheme = true) {
-        val backgroundColor = remember { mutableStateOf(Color(0xFF1C1B1F)) }
         val focusManager = LocalFocusManager.current
-
-        val showChapterList = remember { mutableStateOf(false) }
-        val showBookmarkDialog = remember { mutableStateOf(false) }
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
-        // Find current chapter using derivedStateOf to minimize recompositions
-        val currentChapter by remember(chapters) {
-            derivedStateOf {
-                chapters.find {
-                    (currentPosition() >= it.startPosition) && (currentPosition() < it.endPosition)
-                } ?: chapters.firstOrNull { currentPosition() < it.startPosition }
-            }
-        }
-
         val animatedBgColor by animateColorAsState(
-            targetValue = backgroundColor.value,
+            targetValue = Color(uiState.backgroundColorArgb),
             animationSpec = tween(300),
             label = "bg_color"
         )
-
-        LaunchedEffect(coverPath) {
-            if (coverPath != null) {
-                val file = File(coverPath)
-                if (file.exists()) {
-                    val bitmap = withContext(Dispatchers.IO) {
-                        BitmapFactory.decodeFile(file.absolutePath)
-                    }
-                    if (bitmap != null) {
-                        val palette = withContext(Dispatchers.Default) {
-                            Palette.from(bitmap).generate()
-                        }
-                        backgroundColor.value = Color(palette.getDominantColor(0xFF1C1B1F.toInt()))
-                    }
-                }
-            }
-        }
 
         val bgColor = MaterialTheme.colorScheme.background
         val backgroundBrush by remember(animatedBgColor, bgColor) {
@@ -148,12 +95,12 @@ fun PlayerScreen(
                         .background(backgroundBrush)
                 ) {
                     PlayerAppBar(
-                        title = title,
-                        author = author,
-                        narrator = narrator,
+                        title = uiState.currentTitle,
+                        author = uiState.currentAuthor,
+                        narrator = uiState.currentNarrator,
                         onNavigationClick = {
                             focusManager.clearFocus()
-                            onMinimize()
+                            navigationActions.onMinimize()
                         }
                     )
 
@@ -176,8 +123,8 @@ fun PlayerScreen(
                             .fillMaxHeight()
                             .aspectRatio(1f)
 
-                        val coverFile = remember(coverPath) {
-                            if (coverPath != null) File(coverPath) else null
+                        val coverFile = remember(uiState.currentCoverPath) {
+                            if (uiState.currentCoverPath != null) File(uiState.currentCoverPath) else null
                         }
 
                         Box(
@@ -211,30 +158,20 @@ fun PlayerScreen(
 
                     // Chapter Display
                     ChapterDisplay(
-                        currentChapterTitle = currentChapter?.title ?: title,
-                        onChapterClick = { showChapterList.value = true },
-                        onBookmarkClick = { showBookmarkDialog.value = true }
+                        currentChapterTitle = uiState.currentChapter?.title ?: uiState.currentTitle,
+                        onChapterClick = actions.onShowChapterList,
+                        onBookmarkClick = actions.onShowBookmarkDialog
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Progress Bar
-                    val chapterMarkers by remember(chapters) {
-                        derivedStateOf {
-                            val d = duration()
-                            if (d > 0) {
-                                chapters.map { it.startPosition.toFloat() / d.toFloat() }
-                            } else emptyList()
-                        }
-                    }
-
                     PlaybackProgress(
-                        currentPosition = currentPosition,
-                        duration = duration,
-                        markers = chapterMarkers,
+                        currentPosition = uiState.currentPosition,
+                        duration = uiState.duration,
+                        markers = uiState.chapterMarkers,
                         onSeek = { pos ->
-                            onSeek(pos)
-                            if (!isPlaying) onPlayPauseClick()
+                            actions.seek(pos)
+                            if (!uiState.isPlaying) actions.onPlayPauseClick()
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -243,14 +180,11 @@ fun PlayerScreen(
 
                     // Playback Controls
                     PlaybackControls(
-                        isPlaying = isPlaying,
-                        playbackSpeed = playbackSpeed,
-                        selectedSleepTimer = selectedSleepTimer,
-                        onPlayPauseClick = onPlayPauseClick,
-                        onSkipForward = onSkipForward,
-                        onSkipBackward = onSkipBackward,
-                        onSpeedChange = onSpeedChange,
-                        onSleepTimerChange = onSleepTimerChange
+                        isPlaying = uiState.isPlaying,
+                        playbackSpeed = uiState.playbackSpeed,
+                        selectedSleepTimer = uiState.selectedSleepTimer,
+                        isSpeedManualMode = uiState.isSpeedManualMode,
+                        actions = actions.playbackControls
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -271,7 +205,7 @@ fun PlayerScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable { onBookmarksClick() },
+                            .clickable { navigationActions.onBookmarksClick() },
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
@@ -284,7 +218,7 @@ fun PlayerScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable { onSubtitlesClick() },
+                            .clickable { navigationActions.onSubtitlesClick() },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -297,7 +231,7 @@ fun PlayerScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable { onRelatedClick() },
+                            .clickable { navigationActions.onRelatedClick() },
                         contentAlignment = Alignment.CenterEnd
                     ) {
                         Text(
@@ -311,26 +245,25 @@ fun PlayerScreen(
         }
 
         ChapterListSheet(
-                isVisible = showChapterList.value,
-                chapters = chapters,
-                currentChapter = currentChapter,
-                onDismissRequest = { showChapterList.value = false },
+                isVisible = uiState.isChapterListVisible,
+                chapters = uiState.currentChapters,
+                currentChapter = uiState.currentChapter,
+                onDismissRequest = actions.onDismissChapterList,
                 onChapterClick = { pos ->
-                    onSeek(pos)
-                    showChapterList.value = false
+                    actions.seek(pos)
+                    actions.onDismissChapterList()
                 },
                 sheetState = sheetState
             )
 
-            if (showBookmarkDialog.value) {
-                var bookmarkTitle by remember { mutableStateOf("") }
+            if (uiState.isBookmarkDialogVisible) {
                 AlertDialog(
-                    onDismissRequest = { showBookmarkDialog.value = false },
+                    onDismissRequest = actions.onDismissBookmarkDialog,
                     title = { Text("Add Bookmark") },
                     text = {
                         OutlinedTextField(
-                            value = bookmarkTitle,
-                            onValueChange = { bookmarkTitle = it },
+                            value = uiState.bookmarkTitle,
+                            onValueChange = actions.onBookmarkTitleChange,
                             label = { Text("Bookmark Title") },
                             placeholder = { Text("Enter a name for this bookmark") },
                             singleLine = true,
@@ -339,17 +272,13 @@ fun PlayerScreen(
                     },
                     confirmButton = {
                         TextButton(
-                            onClick = {
-                                val finalTitle = bookmarkTitle.ifBlank { "Bookmark" }
-                                onAddBookmark(finalTitle)
-                                showBookmarkDialog.value = false
-                            }
+                            onClick = actions.onSaveBookmark
                         ) {
                             Text("Save")
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { showBookmarkDialog.value = false }) {
+                        TextButton(onClick = actions.onDismissBookmarkDialog) {
                             Text("Cancel")
                         }
                     }
@@ -364,11 +293,13 @@ fun PlayerScreen(
 fun PlayerScreenPreview() {
     APlayerTheme {
         PlayerScreen(
-            onMinimize = {},
-            title = "イン・ザ-メガチャーチ",
-            author = "",
-            currentPosition = { 1200000L },
-            duration = { 3600000L }
+            uiState = PlayerUiState(
+                currentTitle = "Preview Title",
+                currentPosition = 1200000L,
+                duration = 3600000L
+            ),
+            actions = PlayerActions(),
+            navigationActions = PlayerNavigationActions()
         )
     }
 }

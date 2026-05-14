@@ -19,63 +19,35 @@ import com.viel.aplayer.data.BookmarkEntity
 import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.service.PlaybackService
-import com.viel.aplayer.ui.components.SubtitleLine
+import com.viel.aplayer.ui.state.PlayerUiState
+import com.viel.aplayer.ui.utils.DEFAULT_COVER_BACKGROUND_ARGB
+import com.viel.aplayer.ui.utils.extractCoverDominantColorArgb
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerViewModel : ViewModel() {
+    companion object {
+        private val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
+        private val SLEEP_TIMER_OPTIONS = listOf(0, -1, 10, 15, 30, 45, 60)
+    }
+
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var player: Player? = null
     private var libraryRepository: LibraryRepository? = null
     private var currentMediaUri: String? = null
 
-    private val _isPlaying = MutableStateFlow(false)
-    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
-
-    private val _currentTitle = MutableStateFlow("")
-    val currentTitle: StateFlow<String> = _currentTitle.asStateFlow()
-
-    private val _currentAuthor = MutableStateFlow("")
-    val currentAuthor: StateFlow<String> = _currentAuthor.asStateFlow()
-
-    private val _currentNarrator = MutableStateFlow("")
-    val currentNarrator: StateFlow<String> = _currentNarrator.asStateFlow()
-
-    private val _currentCoverPath = MutableStateFlow<String?>(null)
-    val currentCoverPath: StateFlow<String?> = _currentCoverPath.asStateFlow()
-
-    private val _currentPosition = MutableStateFlow(0L)
-    val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
-
-    private val _duration = MutableStateFlow(0L)
-    val duration: StateFlow<Long> = _duration.asStateFlow()
-
-    private val _playbackSpeed = MutableStateFlow(1.0f)
-    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+    private val _uiState = MutableStateFlow(PlayerUiState())
+    val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
     private val _playbackState = MutableStateFlow(Player.STATE_IDLE)
 
     private val _sleepTimerMillis = MutableStateFlow(0L)
-
-    private val _selectedSleepTimer = MutableStateFlow(0) // 0 for off, otherwise minutes
-    val selectedSleepTimer: StateFlow<Int> = _selectedSleepTimer.asStateFlow()
-
-    private val _currentChapters = MutableStateFlow<List<ChapterEntity>>(emptyList())
-    val currentChapters: StateFlow<List<ChapterEntity>> = _currentChapters.asStateFlow()
-
-    private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
-    val currentSubtitles: StateFlow<List<SubtitleLine>> = _currentSubtitles.asStateFlow()
-
-    private val _currentBookmarks = MutableStateFlow<List<BookmarkEntity>>(emptyList())
-    val currentBookmarks: StateFlow<List<BookmarkEntity>> = _currentBookmarks.asStateFlow()
-
-    private val _showUndoSeek = MutableStateFlow(false)
-    val showUndoSeek: StateFlow<Boolean> = _showUndoSeek.asStateFlow()
     private var lastSeekPosition = 0L
     private var undoJob: kotlinx.coroutines.Job? = null
 
@@ -96,21 +68,22 @@ class PlayerViewModel : ViewModel() {
             player = mediaController
             mediaController?.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    _isPlaying.value = isPlaying
+                    _uiState.update { it.copy(isPlaying = isPlaying) }
                     if (!isPlaying) {
                         saveProgress() // 暂停时立即保存进度
                     }
                 }
                 override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
-                    _playbackSpeed.value = playbackParameters.speed
+                    _uiState.update { it.copy(playbackSpeed = playbackParameters.speed) }
                 }
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     _playbackState.value = playbackState
                     if (playbackState == Player.STATE_READY) {
-                        _duration.value = mediaController.duration.coerceAtLeast(0L)
+                        val duration = mediaController.duration.coerceAtLeast(0L)
+                        _uiState.update { it.copy(duration = duration) }
                         
                         // Try to extract chapters if current list is empty
-                        if (_currentChapters.value.isEmpty()) {
+                        if (_uiState.value.currentChapters.isEmpty()) {
                             extractChaptersFromPlayer(mediaController)
                         }
 
@@ -123,42 +96,51 @@ class PlayerViewModel : ViewModel() {
                         val narrator = meta.composer?.toString()
                         val description = meta.description?.toString()
                         
-                        if (!title.isNullOrBlank() && !title.contains("/")) {
-                            _currentTitle.value = title
+                        _uiState.update { state ->
+                            state.copy(
+                                currentTitle = if (!title.isNullOrBlank() && !title.contains("/")) title else state.currentTitle,
+                                currentAuthor = if (!author.isNullOrBlank()) author else state.currentAuthor,
+                                currentNarrator = if (!narrator.isNullOrBlank()) narrator else state.currentNarrator
+                            )
                         }
-                        if (!author.isNullOrBlank()) _currentAuthor.value = author
-                        if (!narrator.isNullOrBlank()) _currentNarrator.value = narrator
 
                         // Write back to library so the list shows correct data
                         currentMediaUri?.let { uri ->
                             // Only update title if it's not a mime type
                             val finalTitle = if (!title.isNullOrBlank() && !title.contains("/")) title else null
-                            libraryRepository?.updateMetadata(uri, finalTitle, author, narrator, description, mediaController.duration.coerceAtLeast(0L))
+                            libraryRepository?.updateMetadata(uri, finalTitle, author, narrator, description, duration)
                         }
                     }
                 }
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     if (mediaItem == null) {
-                        _currentTitle.value = ""
-                        _currentAuthor.value = ""
-                        _currentCoverPath.value = null
-                        _currentChapters.value = emptyList()
+                        _uiState.update {
+                            it.copy(
+                                currentTitle = "",
+                                currentAuthor = "",
+                                currentNarrator = "",
+                                currentCoverPath = null,
+                                currentChapters = emptyList(),
+                                currentSubtitles = emptyList(),
+                                currentBookmarks = emptyList(),
+                                backgroundColorArgb = DEFAULT_COVER_BACKGROUND_ARGB
+                            )
+                        }
                         currentMediaUri = null
                         return
                     }
                     val transTitle = mediaItem.mediaMetadata.title?.toString()
                     val transAuthor = mediaItem.mediaMetadata.artist?.toString()
                     val transNarrator = mediaItem.mediaMetadata.composer?.toString()
-                    if (!transTitle.isNullOrBlank()) _currentTitle.value = transTitle
-                    // Don't reset author here — STATE_READY will provide the real one
-                    if (!transAuthor.isNullOrBlank() && (transAuthor != "Unknown Author")) {
-                        _currentAuthor.value = transAuthor
-                    }
-                    if (!transNarrator.isNullOrBlank()) {
-                        _currentNarrator.value = transNarrator
+                    _uiState.update { state ->
+                        state.copy(
+                            currentTitle = if (!transTitle.isNullOrBlank()) transTitle else state.currentTitle,
+                            currentAuthor = if (!transAuthor.isNullOrBlank() && transAuthor != "Unknown Author") transAuthor else state.currentAuthor,
+                            currentNarrator = if (!transNarrator.isNullOrBlank()) transNarrator else state.currentNarrator,
+                            duration = mediaController.duration.coerceAtLeast(0L)
+                        )
                     }
                     currentMediaUri = mediaItem.mediaId
-                    _duration.value = mediaController.duration.coerceAtLeast(0L)
                     
                     // Load chapters, subtitles & bookmarks
                     loadChapters(mediaItem.mediaId)
@@ -176,7 +158,7 @@ class PlayerViewModel : ViewModel() {
                     if (isActuallyPlaying && playbackState != Player.STATE_ENDED) {
                         val pos = mediaController.currentPosition.coerceAtLeast(0L)
                         if (pos > 0 || playbackState == Player.STATE_READY) {
-                            _currentPosition.value = pos
+                            _uiState.update { it.copy(currentPosition = pos) }
                         }
                         
                         saveCounter++
@@ -215,10 +197,23 @@ class PlayerViewModel : ViewModel() {
         saveProgress()
         
         currentMediaUri = uri.toString()
-        _currentTitle.value = title
-        _currentAuthor.value = author
-        _currentNarrator.value = narrator
-        _currentCoverPath.value = null // reset, will be loaded after DB insert
+        _uiState.update {
+            it.copy(
+                currentTitle = title,
+                currentAuthor = author,
+                currentNarrator = narrator,
+                currentCoverPath = null,
+                currentPosition = startPositionMs,
+                currentChapters = emptyList(),
+                currentSubtitles = emptyList(),
+                currentBookmarks = emptyList(),
+                showUndoSeek = false,
+                isChapterListVisible = false,
+                isBookmarkDialogVisible = false,
+                bookmarkTitle = "",
+                backgroundColorArgb = DEFAULT_COVER_BACKGROUND_ARGB
+            )
+        }
 
         // Load chapters, subtitles & bookmarks
         loadChapters(uri.toString())
@@ -241,7 +236,6 @@ class PlayerViewModel : ViewModel() {
             .build()
             
         player?.setMediaItem(mediaItem, startPositionMs)
-        _currentPosition.value = startPositionMs
         player?.prepare()
         if (playWhenReady) {
             player?.play()
@@ -252,7 +246,7 @@ class PlayerViewModel : ViewModel() {
             repeat(5) {
                 val path = libraryRepository?.getCoverPath(uri.toString())
                 if (path != null) {
-                    _currentCoverPath.value = path
+                    updateCoverPath(path)
                     return@launch
                 }
                 delay(1000)
@@ -264,7 +258,7 @@ class PlayerViewModel : ViewModel() {
         chaptersJob?.cancel()
         chaptersJob = viewModelScope.launch {
             libraryRepository?.getChapters(uri)?.collect {
-                _currentChapters.value = it
+                _uiState.update { state -> state.copy(currentChapters = it) }
             }
         }
     }
@@ -274,7 +268,7 @@ class PlayerViewModel : ViewModel() {
             android.util.Log.d("PlayerViewModel", "Loading subtitles for $uri")
             val subs = libraryRepository?.loadSubtitles(uri) ?: emptyList()
             android.util.Log.d("PlayerViewModel", "Loaded ${subs.size} subtitles")
-            _currentSubtitles.value = subs
+            _uiState.update { it.copy(currentSubtitles = subs) }
         }
     }
 
@@ -282,14 +276,14 @@ class PlayerViewModel : ViewModel() {
         bookmarksJob?.cancel()
         bookmarksJob = viewModelScope.launch {
             libraryRepository?.getBookmarks(uri)?.collect {
-                _currentBookmarks.value = it
+                _uiState.update { state -> state.copy(currentBookmarks = it) }
             }
         }
     }
 
     fun addBookmark(title: String) {
         val uri = currentMediaUri ?: return
-        val pos = _currentPosition.value
+        val pos = _uiState.value.currentPosition
         viewModelScope.launch {
             libraryRepository?.addBookmark(uri, pos, title)
         }
@@ -368,7 +362,7 @@ class PlayerViewModel : ViewModel() {
             val finalChapters = chapters.asSequence().distinctBy { it.startPosition }.sortedBy { it.startPosition }.toList()
 
             if (finalChapters.isNotEmpty()) {
-                _currentChapters.value = finalChapters
+                _uiState.update { it.copy(currentChapters = finalChapters) }
                 // Save to DB for future use
                 libraryRepository?.saveChapters(uri, finalChapters)
             }
@@ -377,7 +371,7 @@ class PlayerViewModel : ViewModel() {
 
     private fun saveProgress() {
         val uri = currentMediaUri ?: return
-        val position = _currentPosition.value
+        val position = _uiState.value.currentPosition
         libraryRepository?.updateProgress(uri, position)
     }
 
@@ -399,49 +393,67 @@ class PlayerViewModel : ViewModel() {
 
     fun seekTo(positionMs: Long, allowUndo: Boolean = false) {
         if (allowUndo) {
-            lastSeekPosition = _currentPosition.value
-            _showUndoSeek.value = true
+            lastSeekPosition = _uiState.value.currentPosition
+            _uiState.update { it.copy(showUndoSeek = true) }
             undoJob?.cancel()
             undoJob = viewModelScope.launch {
                 delay(10000)
-                _showUndoSeek.value = false
+                _uiState.update { it.copy(showUndoSeek = false) }
             }
         } else {
-            _showUndoSeek.value = false
+            _uiState.update { it.copy(showUndoSeek = false) }
             undoJob?.cancel()
         }
         player?.seekTo(positionMs)
-        _currentPosition.value = positionMs
+        _uiState.update { it.copy(currentPosition = positionMs) }
     }
 
     fun undoSeek() {
-        if (_showUndoSeek.value) {
+        if (_uiState.value.showUndoSeek) {
             seekTo(lastSeekPosition, allowUndo = false)
-            _showUndoSeek.value = false
+            _uiState.update { it.copy(showUndoSeek = false) }
             undoJob?.cancel()
         }
     }
 
     fun skipForward() {
         // TODO: Make skip duration customizable by user
-        val newPos = (_currentPosition.value + 30000).coerceAtMost(_duration.value)
+        val state = _uiState.value
+        val newPos = (state.currentPosition + 30000).coerceAtMost(state.duration)
         seekTo(newPos)
     }
 
     fun skipBackward() {
         // TODO: Make skip duration customizable by user
-        val newPos = (_currentPosition.value - 10000).coerceAtLeast(0L)
+        val newPos = (_uiState.value.currentPosition - 10000).coerceAtLeast(0L)
         seekTo(newPos)
     }
 
-    fun setPlaybackSpeed(speed: Float) {
+    fun setPlaybackSpeed(speed: Float, manualMode: Boolean = speed != 1.0f) {
         player?.setPlaybackSpeed(speed)
-        _playbackSpeed.value = speed
+        _uiState.update { it.copy(playbackSpeed = speed, isSpeedManualMode = manualMode) }
+    }
+
+    fun cyclePlaybackSpeed() {
+        val state = _uiState.value
+        val currentIndex = PLAYBACK_SPEEDS.indexOf(state.playbackSpeed).coerceAtLeast(0)
+        val nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.size
+        setPlaybackSpeed(PLAYBACK_SPEEDS[nextIndex], manualMode = true)
+    }
+
+    fun resetPlaybackSpeed() {
+        setPlaybackSpeed(1.0f, manualMode = false)
+    }
+
+    fun cycleSleepTimer() {
+        val currentIndex = SLEEP_TIMER_OPTIONS.indexOf(_uiState.value.selectedSleepTimer).coerceAtLeast(0)
+        val nextIndex = (currentIndex + 1) % SLEEP_TIMER_OPTIONS.size
+        setSleepTimer(SLEEP_TIMER_OPTIONS[nextIndex])
     }
 
     fun setSleepTimer(minutes: Int) {
         sleepTimerJob?.cancel()
-        _selectedSleepTimer.value = minutes
+        _uiState.update { it.copy(selectedSleepTimer = minutes) }
         
         if (minutes == 0) {
             _sleepTimerMillis.value = 0L
@@ -456,13 +468,59 @@ class PlayerViewModel : ViewModel() {
             while (_sleepTimerMillis.value > 0) {
                 delay(1000)
                 // Only count down if actually playing
-                if (_isPlaying.value) {
+                if (_uiState.value.isPlaying) {
                     _sleepTimerMillis.value = (_sleepTimerMillis.value - 1000).coerceAtLeast(0L)
                 }
             }
             player?.pause()
-            _selectedSleepTimer.value = 0
+            _uiState.update { it.copy(selectedSleepTimer = 0) }
             _sleepTimerMillis.value = 0
+        }
+    }
+
+    fun showChapterList() {
+        _uiState.update { it.copy(isChapterListVisible = true) }
+    }
+
+    fun dismissChapterList() {
+        _uiState.update { it.copy(isChapterListVisible = false) }
+    }
+
+    fun showBookmarkDialog() {
+        _uiState.update { it.copy(isBookmarkDialogVisible = true, bookmarkTitle = "") }
+    }
+
+    fun dismissBookmarkDialog() {
+        _uiState.update { it.copy(isBookmarkDialogVisible = false, bookmarkTitle = "") }
+    }
+
+    fun updateBookmarkTitle(title: String) {
+        _uiState.update { it.copy(bookmarkTitle = title) }
+    }
+
+    fun saveBookmarkFromDialog() {
+        val title = _uiState.value.bookmarkTitle.ifBlank { "Bookmark" }
+        addBookmark(title)
+        dismissBookmarkDialog()
+    }
+
+    fun setSelectedContentTab(tab: Int) {
+        _uiState.update { it.copy(selectedContentTab = tab) }
+    }
+
+    fun setMiniPlayerHidden(hidden: Boolean) {
+        _uiState.update { it.copy(isMiniPlayerHidden = hidden) }
+    }
+
+    fun onRouteChanged() {
+        _uiState.update { it.copy(isMiniPlayerHidden = false) }
+    }
+
+    private fun updateCoverPath(path: String) {
+        _uiState.update { it.copy(currentCoverPath = path) }
+        viewModelScope.launch(Dispatchers.Default) {
+            val dominantColor = extractCoverDominantColorArgb(path)
+            _uiState.update { it.copy(backgroundColorArgb = dominantColor) }
         }
     }
 

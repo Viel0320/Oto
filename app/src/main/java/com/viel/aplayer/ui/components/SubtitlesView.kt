@@ -51,68 +51,30 @@ fun SubtitlesView(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    var autoScrollEnabled by remember { mutableStateOf(true) }
     val density = androidx.compose.ui.platform.LocalDensity.current
-    
-    // Logic to find all indices that should be highlighted (for bilingual support)
-    val currentIndices by remember(currentPosition, subtitles) {
-        derivedStateOf {
-            if (subtitles.isEmpty()) emptySet()
-            else {
-                var low = 0
-                var high = subtitles.size - 1
-                var pivot = -1
-                
-                // 1. Binary search to find one matching line
-                while (low <= high) {
-                    val mid = (low + high) / 2
-                    val sub = subtitles[mid]
-                    if (currentPosition >= sub.startTime && currentPosition < sub.endTime) {
-                        pivot = mid
-                        break
-                    } else if (currentPosition < sub.startTime) {
-                        high = mid - 1
-                    } else {
-                        low = mid + 1
-                    }
-                }
+    var autoScrollEnabled by remember(subtitles) { mutableStateOf(true) }
+    var isFirstScroll by remember(subtitles) { mutableStateOf(true) }
 
-                if (pivot == -1) emptySet()
-                else {
-                    val results = mutableSetOf(pivot)
-                    // 2. Check previous line for overlap
-                    if (pivot > 0) {
-                        val prev = subtitles[pivot - 1]
-                        if (currentPosition >= prev.startTime && currentPosition < prev.endTime) {
-                            results.add(pivot - 1)
-                        }
-                    }
-                    // 3. Check next line for overlap
-                    if (pivot < subtitles.size - 1) {
-                        val next = subtitles[pivot + 1]
-                        if (currentPosition >= next.startTime && currentPosition < next.endTime) {
-                            results.add(pivot + 1)
-                        }
-                    }
-                    results
-                }
-            }
+    val highlightedIndices by remember(subtitles, currentPosition) {
+        derivedStateOf {
+            subtitles.findActiveSubtitleIndices(currentPosition)
         }
     }
-
-    // Use the first (top-most) index for scrolling calculations
-    val scrollIndex = remember(currentIndices) {
-        currentIndices.minOrNull() ?: -1
+    val scrollIndex by remember(highlightedIndices) {
+        derivedStateOf {
+            highlightedIndices.minOrNull() ?: -1
+        }
     }
 
     val isDragged by listState.interactionSource.collectIsDraggedAsState()
     LaunchedEffect(isDragged) {
-        if (isDragged) autoScrollEnabled = false
+        if (isDragged) {
+            autoScrollEnabled = false
+        }
     }
 
-    // Auto-resume sync after 10 seconds of inactivity
-    LaunchedEffect(autoScrollEnabled, isDragged) {
-        if (!autoScrollEnabled && !isDragged) {
+    LaunchedEffect(isDragged, autoScrollEnabled) {
+        if (!isDragged && !autoScrollEnabled) {
             kotlinx.coroutines.delay(5000)
             autoScrollEnabled = true
         }
@@ -120,16 +82,11 @@ fun SubtitlesView(
 
     Box(modifier = modifier.fillMaxSize()) {
         val secondRowOffsetPx = with(density) { 100.dp.toPx().toInt() }
-        var isFirstScroll by remember { mutableStateOf(true) }
 
-        // Auto-scroll logic using the top-most active index
         LaunchedEffect(scrollIndex, autoScrollEnabled) {
             if (scrollIndex != -1 && autoScrollEnabled) {
                 val visibleItems = listState.layoutInfo.visibleItemsInfo
                 val isVisible = visibleItems.any { it.index == scrollIndex }
-                
-                // If isFirstScroll is true, we always snap. 
-                // If autoScrollEnabled JUST became true, we should also check if it's already in view.
                 val shouldSnap = isFirstScroll || !isVisible || 
                                  kotlin.math.abs(scrollIndex - listState.firstVisibleItemIndex) > 10
 
@@ -163,7 +120,7 @@ fun SubtitlesView(
                     // Use a composite key to ensure uniqueness even with overlapping bilingual subtitles
                     key = { index, subtitle -> "${subtitle.startTime}_$index" }
                 ) { index, subtitle ->
-                    val isHighlighted = currentIndices.contains(index)
+                    val isHighlighted = highlightedIndices.contains(index)
                     Text(
                         text = subtitle.text,
                         style = MaterialTheme.typography.titleMedium.copy(
@@ -176,7 +133,7 @@ fun SubtitlesView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { 
-                                autoScrollEnabled = true 
+                                autoScrollEnabled = true
                                 onSeek(subtitle.startTime) 
                             },
                         textAlign = TextAlign.Start
@@ -224,9 +181,47 @@ fun SubtitlesViewPreview() {
                     SubtitleLine(35000, 40000, "Line 9 Content"),
                     SubtitleLine(40000, 45000, "Line 10 Content")
                 ),
-                currentPosition = 7500L,
-                onSeek = {}
+                currentPosition = 5000,
+                onSeek = {},
             )
         }
     }
+}
+
+private fun List<SubtitleLine>.findActiveSubtitleIndices(currentPosition: Long): Set<Int> {
+    if (isEmpty()) return emptySet()
+
+    var low = 0
+    var high = size - 1
+    var pivot = -1
+
+    while (low <= high) {
+        val mid = (low + high) / 2
+        val subtitle = this[mid]
+        if (currentPosition >= subtitle.startTime && currentPosition < subtitle.endTime) {
+            pivot = mid
+            break
+        } else if (currentPosition < subtitle.startTime) {
+            high = mid - 1
+        } else {
+            low = mid + 1
+        }
+    }
+
+    if (pivot == -1) return emptySet()
+
+    val results = mutableSetOf(pivot)
+    if (pivot > 0) {
+        val previous = this[pivot - 1]
+        if (currentPosition >= previous.startTime && currentPosition < previous.endTime) {
+            results.add(pivot - 1)
+        }
+    }
+    if (pivot < lastIndex) {
+        val next = this[pivot + 1]
+        if (currentPosition >= next.startTime && currentPosition < next.endTime) {
+            results.add(pivot + 1)
+        }
+    }
+    return results
 }

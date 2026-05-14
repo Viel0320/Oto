@@ -21,7 +21,7 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "aplayer_database_v12" // Updated version in filename
+                    "aplayer_database"
                 )
                 .fallbackToDestructiveMigration(true)
                 .build()

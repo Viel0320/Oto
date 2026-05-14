@@ -55,7 +55,27 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.AudiobookEntity
 import com.viel.aplayer.data.SearchHistoryEntity
 import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.utils.formatPeopleSubtitle
 import com.viel.aplayer.viewmodel.SearchViewModel
+
+data class SearchCommand(
+    val token: String,
+    val description: String
+)
+
+private val searchCommands = listOf(
+    SearchCommand("year:", "Search by release year"),
+    SearchCommand("author:", "Search by author name"),
+    SearchCommand("narrator:", "Search by narrator name")
+)
+
+private fun commandSuggestionsFor(query: String): List<SearchCommand> {
+    return if (query.isNotEmpty() && !query.contains(":")) {
+        searchCommands.filter { it.token.startsWith(query.lowercase()) }
+    } else {
+        emptyList()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +93,7 @@ fun SearchScreen(
         query = query,
         searchResults = searchResults,
         searchHistory = searchHistory,
+        commandSuggestions = commandSuggestionsFor(query.text),
         onQueryChange = { viewModel.onQueryChange(it) },
         onSearch = { viewModel.search(it) },
         onClearQuery = { viewModel.clearQuery() },
@@ -93,6 +114,7 @@ fun SearchContent(
     query: TextFieldValue,
     searchResults: List<AudiobookEntity>,
     searchHistory: List<SearchHistoryEntity>,
+    commandSuggestions: List<SearchCommand>,
     onQueryChange: (TextFieldValue) -> Unit,
     onSearch: (String) -> Unit,
     onClearQuery: () -> Unit,
@@ -102,7 +124,6 @@ fun SearchContent(
     onNavigateToDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var active by remember { mutableStateOf(value = true) }
     var isBacking by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -159,22 +180,12 @@ fun SearchContent(
                         shape = SearchBarDefaults.inputFieldShape
                     )
                 },
-                expanded = active,
+                expanded = true,
                 onExpandedChange = {
                     if (!it) handleBack()
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                val commandSuggestions = remember(query.text) {
-                    if (query.text.isNotEmpty() && !query.text.contains(":")) {
-                        listOf("year:", "author:", "narrator:").filter {
-                            it.startsWith(query.text.lowercase())
-                        }
-                    } else {
-                        emptyList()
-                    }
-                }
-
                 if (query.text.isBlank()) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -263,18 +274,11 @@ fun SearchContent(
                                 val cmd = commandSuggestions[index]
                                 ListItem(
                                     modifier = Modifier.clickable { 
-                                        onQueryChange(TextFieldValue(cmd, selection = TextRange(cmd.length))) 
+                                        onQueryChange(TextFieldValue(cmd.token, selection = TextRange(cmd.token.length)))
                                     },
-                                    headlineContent = { Text(cmd) },
+                                    headlineContent = { Text(cmd.token) },
                                     supportingContent = {
-                                        Text(
-                                            when (cmd) {
-                                                "year:" -> "Search by release year"
-                                                "author:" -> "Search by author name"
-                                                "narrator:" -> "Search by narrator name"
-                                                else -> ""
-                                            }
-                                        )
+                                        Text(cmd.description)
                                     },
                                     leadingContent = {
                                         Icon(
@@ -318,7 +322,7 @@ fun SearchContent(
                                 ListItem(
                                     modifier = Modifier.clickable { onNavigateToDetail(book.uri) },
                                     headlineContent = { Text(book.title, fontWeight = FontWeight.SemiBold) },
-                                    supportingContent = { Text("${book.author} • ${book.narrator}") },
+                                    supportingContent = { Text(formatPeopleSubtitle(book.author, book.narrator)) },
                                     leadingContent = {
                                         Surface(
                                             modifier = Modifier.size(48.dp),
@@ -389,6 +393,7 @@ fun SearchScreenPreview() {
                 SearchHistoryEntity("Brandon Sanderson"),
                 SearchHistoryEntity("The Hobbit")
             ),
+            commandSuggestions = commandSuggestionsFor("Fantasy"),
             onQueryChange = {},
             onSearch = {},
             onClearQuery = {},

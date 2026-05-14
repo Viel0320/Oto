@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.components
 
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -13,16 +12,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import com.viel.aplayer.R
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import com.viel.aplayer.R
 import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.utils.formatPeopleSubtitle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,20 +48,18 @@ fun PlayerAppBar(
                     fontWeight = FontWeight.Bold,
                     color = contentColor,
                     maxLines = 1,
-                    modifier = Modifier.basicMarquee()
+                    overflow = TextOverflow.Ellipsis
                 )
-                val subtitle = remember(author, narrator) {
-                    listOf(author, narrator)
-                        .filter { it.isNotBlank() }
-                        .joinToString(" • ")
-                        .ifBlank { "Unknown" }
-                }
                 Text(
-                    text = subtitle,
+                    text = formatPeopleSubtitle(author, narrator),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (contentColor == Color.White) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (contentColor == Color.White) {
+                        Color.White.copy(alpha = 0.7f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     maxLines = 1,
-                    modifier = Modifier.basicMarquee()
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         },
@@ -99,9 +97,9 @@ fun PlayerAppBarPreview() {
     APlayerTheme {
         Surface(color = Color(0xFF1C1B1F)) {
             PlayerAppBar(
-                title = "暁星",
-                author = "湊 かなえ",
-                narrator = "大森 ゆき",
+                title = "Preview Book",
+                author = "Preview Author",
+                narrator = "Preview Narrator",
                 onNavigationClick = {},
                 contentColor = Color.White
             )

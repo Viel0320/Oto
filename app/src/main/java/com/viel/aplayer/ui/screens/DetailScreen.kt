@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.screens
 
-import android.graphics.BitmapFactory
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -38,10 +37,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,12 +52,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.ui.theme.APlayerTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.viel.aplayer.ui.utils.DEFAULT_COVER_BACKGROUND_ARGB
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,6 +64,7 @@ fun DetailScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
     onPlayClick: () -> Unit = {},
+    onMoreClick: () -> Unit = {},
     title: String = "",
     author: String = "",
     narrator: String = "",
@@ -80,28 +75,13 @@ fun DetailScreen(
     fileSize: String = "",
     progressPercent: Int = 0,
     isAvailable: Boolean = true,
+    backgroundColorArgb: Int = DEFAULT_COVER_BACKGROUND_ARGB,
 ) {
-    val backgroundColor = remember { mutableStateOf(Color(0xFF1C1B1F)) }
     val animatedBgColor by animateColorAsState(
-        targetValue = backgroundColor.value,
+        targetValue = Color(backgroundColorArgb),
         animationSpec = tween(300),
         label = "bg_color"
     )
-
-    LaunchedEffect(coverPath) {
-        coverPath?.let { path ->
-            val file = File(path)
-            if (file.exists()) {
-                val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                if (bitmap != null) {
-                    val palette = withContext(Dispatchers.Default) {
-                        Palette.from(bitmap).generate()
-                    }
-                    backgroundColor.value = Color(palette.getDominantColor(0xFF1C1B1F.toInt()))
-                }
-            }
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -116,7 +96,7 @@ fun DetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO */ }) {
+                    IconButton(onClick = onMoreClick) {
                         Icon(
                             painterResource(R.drawable.ic_rounded_more_vert),
                             contentDescription = stringResource(R.string.more_content_description)
@@ -354,7 +334,9 @@ fun DetailInfoChip(
             Text(
                 text = value,
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false
             )
         },
         icon = {
@@ -384,13 +366,13 @@ fun DetailScreenPreview() {
     APlayerTheme {
         DetailScreen(
             onBackClick = {},
-            title = "イン・ザ・メガチャーチ",
-            author = "朝井 リョウ",
-            narrator = "岩崎 了, 大森 ゆき",
+            title = "In the Megachurch",
+            author = "Ryo Asai",
+            narrator = "Narrator A",
             duration = "12:23:00",
             year = "2023",
-            fileSize = "450 MB",
-            description = "朝井リョウが放つ、宗教、信仰、そして「信じること」の正体を問い直す衝撃作。巨大な教会（メガチャーチ）を舞台に、人々の欲望と祈りが交錯する。"
+            fileSize = "45000 MB",
+            description = "A preview description for the audiobook detail screen."
         )
     }
 }
