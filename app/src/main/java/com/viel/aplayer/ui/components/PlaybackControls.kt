@@ -18,6 +18,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +54,31 @@ fun PlaybackControls(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
+    // Speed Toast logic
+    var lastSpeed by remember { mutableStateOf(playbackSpeed) }
+    LaunchedEffect(playbackSpeed) {
+        if (playbackSpeed != lastSpeed) {
+            val msg = if (playbackSpeed == 1.0f) "Playback speed reset" else "Playback speed: ${playbackSpeed}x"
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            lastSpeed = playbackSpeed
+        }
+    }
+
+    // Sleep Timer Toast logic
+    var lastTimer by remember { mutableStateOf(selectedSleepTimer) }
+    LaunchedEffect(selectedSleepTimer) {
+        if (selectedSleepTimer != lastTimer) {
+            val msg = when (selectedSleepTimer) {
+                0 -> "Sleep timer off"
+                -1 -> "Sleep in 5 seconds"
+                -2 -> "Stop at end of chapter"
+                else -> "Sleep in $selectedSleepTimer minutes"
+            }
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            lastTimer = selectedSleepTimer
+        }
+    }
+
     val contentColor = if (buttonColor.luminance() > 0.5f) Color.Black else Color.White
 
     Row(
@@ -65,7 +95,6 @@ fun PlaybackControls(
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         actions.onResetPlaybackSpeed()
-                        Toast.makeText(context, "Speed reset", Toast.LENGTH_SHORT).show()
                     }
                 ),
             contentAlignment = Alignment.Center
@@ -134,7 +163,6 @@ fun PlaybackControls(
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         actions.onCancelSleepTimer()
-                        Toast.makeText(context, "Sleep timer off", Toast.LENGTH_SHORT).show()
                     }
                 ),
             contentAlignment = Alignment.Center
@@ -147,7 +175,11 @@ fun PlaybackControls(
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             } else {
-                val displayText = if (selectedSleepTimer == -1) "5s" else "${selectedSleepTimer}m"
+                val displayText = when (selectedSleepTimer) {
+                    -1 -> "5s"
+                    -2 -> "Ch"
+                    else -> "${selectedSleepTimer}m"
+                }
                 Text(
                     text = displayText,
                     style = MaterialTheme.typography.labelLarge.copy(

@@ -33,8 +33,8 @@ import kotlinx.coroutines.Dispatchers
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerViewModel : ViewModel() {
     companion object {
-        private val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
-        private val SLEEP_TIMER_OPTIONS = listOf(0, -1, 10, 15, 30, 45, 60)
+        private val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 1.0f)
+        private val SLEEP_TIMER_OPTIONS = listOf(0, -1, -2, 15, 30, 60)
     }
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -465,6 +465,33 @@ class PlayerViewModel : ViewModel() {
             return
         }
         
+        if (minutes == -2) {
+            // End of Chapter mode
+            sleepTimerJob = viewModelScope.launch {
+                while (true) {
+                    delay(500)
+                    val state = _uiState.value
+                    if (state.isPlaying) {
+                        val currentChapter = state.currentChapter
+                        if (currentChapter != null) {
+                            if (state.currentPosition >= currentChapter.endPosition - 500) {
+                                break
+                            }
+                        } else {
+                            // Fallback to end of track if no chapters are found
+                            if (state.duration > 0 && state.currentPosition >= state.duration - 1000) {
+                                break
+                            }
+                        }
+                    }
+                }
+                player?.pause()
+                _uiState.update { it.copy(selectedSleepTimer = 0) }
+                _sleepTimerMillis.value = 0
+            }
+            return
+        }
+
         // Special handling for test option: if minutes is -1, set 5 seconds
         val millis = if (minutes < 0) 5000L else minutes * 60 * 1000L
         _sleepTimerMillis.value = millis
