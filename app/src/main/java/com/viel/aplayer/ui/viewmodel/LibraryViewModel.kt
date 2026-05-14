@@ -57,7 +57,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun selectDetailBook(book: AudiobookEntity?) {
         val progressPercent = if (book != null && book.duration > 0) {
-            ((book.lastPosition.toFloat() / book.duration.toFloat()) * 100).toInt()
+            kotlin.math.ceil(book.lastPosition.toDouble() / book.duration.toDouble() * 100).toInt()
         } else {
             0
         }

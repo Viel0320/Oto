@@ -221,7 +221,7 @@ fun HomeScreen(
                             RecentlyItem(
                                 title = book.title,
                                 author = book.author,
-                                progressText = "${((book.lastPosition.toFloat() / book.duration.coerceAtLeast(1L).toFloat()) * 100).toInt()}%",
+                                progressText = "${kotlin.math.ceil(book.lastPosition.toDouble() / book.duration.coerceAtLeast(1L).toDouble() * 100).toInt()}%",
                                 coverPath = book.thumbnailPath ?: book.coverPath,
                                 onClick = { onNavigateToDetail(book.uri) }
                             )

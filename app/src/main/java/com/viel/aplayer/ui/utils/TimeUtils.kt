@@ -32,3 +32,8 @@ fun formatFileSize(sizeInBytes: Long): String {
         units[digitGroups]
     )
 }
+
+fun formatDate(ms: Long): String {
+    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+    return sdf.format(java.util.Date(ms))
+}

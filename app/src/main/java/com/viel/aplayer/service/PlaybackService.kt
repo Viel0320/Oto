@@ -15,12 +15,20 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.R
+import com.viel.aplayer.data.LibraryRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private lateinit var rewindButton: CommandButton
     private lateinit var forwardButton: CommandButton
     private lateinit var bookmarkButton: CommandButton
+    private lateinit var libraryRepository: LibraryRepository
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
         const val ACTION_REWIND = "ACTION_REWIND"
@@ -32,6 +40,8 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         
+        libraryRepository = LibraryRepository.getInstance(this)
+
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -115,7 +125,15 @@ class PlaybackService : MediaSessionService() {
                 ACTION_REWIND -> session.player.seekBack()
                 ACTION_FORWARD -> session.player.seekForward()
                 ACTION_BOOKMARK -> {
-                    // TODO: 实现书签逻辑
+                    val player = session.player
+                    val uri = player.currentMediaItem?.mediaId
+                    val position = player.currentPosition
+                    if (uri != null) {
+                        serviceScope.launch {
+                            libraryRepository.addBookmark(uri, position, "Bookmark")
+                            android.widget.Toast.makeText(this@PlaybackService, "Bookmark saved", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
@@ -127,6 +145,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        serviceScope.cancel()
         mediaSession?.run {
             player.release()
             release()

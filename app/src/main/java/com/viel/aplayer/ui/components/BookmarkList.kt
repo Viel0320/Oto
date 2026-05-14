@@ -10,12 +10,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.data.BookmarkEntity
 import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.utils.formatDate
 import com.viel.aplayer.ui.utils.formatTime
 
 @Composable
@@ -37,6 +42,32 @@ fun BookmarkListView(
     modifier: Modifier = Modifier,
     currentPosition: Long = 0L
 ) {
+    val bookmarkToDeleteState = remember { mutableStateOf<BookmarkEntity?>(null) }
+    val bookmarkToDelete = bookmarkToDeleteState.value
+
+    if (bookmarkToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { bookmarkToDeleteState.value = null },
+            title = { Text("Delete Bookmark") },
+            text = { Text("Are you sure you want to delete this bookmark?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteClick(bookmarkToDelete)
+                        bookmarkToDeleteState.value = null
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { bookmarkToDeleteState.value = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
@@ -65,16 +96,29 @@ fun BookmarkListView(
                         ),
                         color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
-                    Text(
-                        text = formatTime(bookmark.position),
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontSize = 14.sp
-                        ),
-                        color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = formatTime(bookmark.position),
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontSize = 14.sp
+                            ),
+                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
+                        Text(
+                            text = "@ ${formatDate(bookmark.createdAt)}",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontSize = 14.sp
+                            ),
+                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        )
+                    }
                 }
 
-                IconButton(onClick = { onDeleteClick(bookmark) }) {
+                IconButton(onClick = { bookmarkToDeleteState.value = bookmark }) {
                     Icon(
                         painterResource(R.drawable.ic_rounded_delete),
                         contentDescription = "Delete Bookmark",

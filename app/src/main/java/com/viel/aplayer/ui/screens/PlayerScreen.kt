@@ -46,6 +46,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.viel.aplayer.R
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.viel.aplayer.ui.components.BookmarkDialog
 import com.viel.aplayer.ui.components.ChapterDisplay
 import com.viel.aplayer.ui.components.ChapterListSheet
 import com.viel.aplayer.ui.components.PlaybackControls
@@ -271,34 +272,13 @@ fun PlayerScreen(
                 sheetState = sheetState
             )
 
-            if (uiState.isBookmarkDialogVisible) {
-                AlertDialog(
-                    onDismissRequest = actions.onDismissBookmarkDialog,
-                    title = { Text("Add Bookmark") },
-                    text = {
-                        OutlinedTextField(
-                            value = uiState.bookmarkTitle,
-                            onValueChange = actions.onBookmarkTitleChange,
-                            label = { Text("Bookmark Title") },
-                            placeholder = { Text("Enter a name for this bookmark") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = actions.onSaveBookmark
-                        ) {
-                            Text("Save")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = actions.onDismissBookmarkDialog) {
-                            Text("Cancel")
-                        }
-                    }
-                )
-            }
+            BookmarkDialog(
+                isVisible = uiState.isBookmarkDialogVisible,
+                title = uiState.bookmarkTitle,
+                onTitleChange = actions.onBookmarkTitleChange,
+                onSave = actions.onSaveBookmark,
+                onDismiss = actions.onDismissBookmarkDialog
+            )
         }
     }
 }
