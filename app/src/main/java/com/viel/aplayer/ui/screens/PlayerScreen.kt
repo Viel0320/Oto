@@ -198,7 +198,8 @@ fun PlayerScreen(
                         playbackSpeed = uiState.playbackSpeed,
                         selectedSleepTimer = uiState.selectedSleepTimer,
                         isSpeedManualMode = uiState.isSpeedManualMode,
-                        actions = actions.playbackControls
+                        actions = actions.playbackControls,
+                        buttonColor = animatedBgColor
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))

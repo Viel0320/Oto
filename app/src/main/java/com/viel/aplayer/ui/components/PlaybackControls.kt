@@ -21,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -41,10 +43,13 @@ fun PlaybackControls(
     selectedSleepTimer: Int,
     isSpeedManualMode: Boolean,
     actions: PlaybackControlActions,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    buttonColor: Color = MaterialTheme.colorScheme.primaryContainer
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+
+    val contentColor = if (buttonColor.luminance() > 0.5f) Color.Black else Color.White
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -97,8 +102,8 @@ fun PlaybackControls(
             modifier = Modifier.size(80.dp),
             shape = CircleShape,
             colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                containerColor = buttonColor,
+                contentColor = contentColor
             )
         ) {
             Icon(

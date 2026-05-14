@@ -242,7 +242,8 @@ fun PlayerContentScreen(
                             selectedSleepTimer = uiState.selectedSleepTimer,
                             isSpeedManualMode = uiState.isSpeedManualMode,
                             actions = actions.playbackControls,
-                            modifier = Modifier.padding(horizontal = 24.dp)
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                            buttonColor = animatedBgColor
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
