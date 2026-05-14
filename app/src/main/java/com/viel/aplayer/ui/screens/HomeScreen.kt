@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -77,7 +79,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
     onNavigateToPlayer: () -> Unit = {},
-    onLoadMedia: (Uri, String, String, Long) -> Unit = { _, _, _, _ -> },
+    onLoadMedia: (Uri, String, String, String, Long) -> Unit = { _, _, _, _, _ -> },
 ) {
     val filters = listOf(
         stringResource(R.string.filter_all),
@@ -116,42 +118,6 @@ fun HomeScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp
-                        )
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateToSearch) {
-                        Icon(
-                            painterResource(R.drawable.ic_rounded_search),
-                            contentDescription = stringResource(R.string.search_content_description)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            painterResource(R.drawable.ic_rounded_tune),
-                            contentDescription = stringResource(R.string.settings_content_description)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = Color.Unspecified,
-                    navigationIconContentColor = Color.Unspecified,
-                    titleContentColor = Color.Unspecified,
-                    actionIconContentColor = Color.Unspecified
-                )
-            )
-        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { 
@@ -162,6 +128,7 @@ fun HomeScreen(
                 shape = CircleShape,
                 modifier = Modifier
                     .padding(bottom = if (isMiniPlayerVisible) 80.dp else 16.dp)
+                    .navigationBarsPadding() // 确保 FAB 避开导航栏
                     .size(64.dp)
             ) {
                 Icon(
@@ -176,13 +143,48 @@ fun HomeScreen(
             .filter { it.lastPlayedAt > 0 }
             .sortedByDescending { it.lastPlayedAt }
             .take(3)
-        
+
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(bottom = if (isMiniPlayerVisible) 100.dp else 16.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = innerPadding.calculateTopPadding(),
+                bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
+            )
         ) {
+            item {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 22.sp
+                            )
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateToSearch) {
+                            Icon(
+                                painterResource(R.drawable.ic_rounded_search),
+                                contentDescription = stringResource(R.string.search_content_description)
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(
+                                painterResource(R.drawable.ic_rounded_tune),
+                                contentDescription = stringResource(R.string.settings_content_description)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    ),
+                    windowInsets = WindowInsets(0, 0, 0, 0)
+                )
+            }
             // Filters Section
             item {
                 LazyRow(
@@ -277,7 +279,7 @@ fun HomeScreen(
                         coverPath = book.coverPath,
                         onClick = { onNavigateToDetail(book.uri) }
                     ) { 
-                        onLoadMedia(book.uri.toUri(), book.title, book.author, book.lastPosition)
+                        onLoadMedia(book.uri.toUri(), book.title, book.author, book.narrator, book.lastPosition)
                         onNavigateToPlayer()
                     }
                 }
@@ -430,17 +432,9 @@ private fun formatDuration(ms: Long): String {
     return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
-fun HomeScreenPreview() {
-    APlayerTheme {
-        HomeScreen()
-    }
-}
-
-@Preview(showBackground = true, name = "Home with Data")
-@Composable
-fun HomeScreenWithDataPreview() {
+fun Preview() {
     val mockBooks = listOf(
         AudiobookEntity(
             uri = "uri1",

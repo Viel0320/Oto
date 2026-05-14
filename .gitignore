@@ -3,3 +3,8 @@
 /app/build/
 /app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/
 /build/
+/.idea/
+/.cursor/
+/.vscode/
+/.skill/
+/.kotlin/

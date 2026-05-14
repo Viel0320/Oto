@@ -62,7 +62,7 @@ fun PlaybackProgress(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun PlaybackProgressPreview() {
     APlayerTheme {

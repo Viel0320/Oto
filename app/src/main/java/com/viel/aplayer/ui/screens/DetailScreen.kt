@@ -9,11 +9,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -121,7 +125,8 @@ fun DetailScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
-                )
+                ),
+                windowInsets = WindowInsets.statusBars
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -331,7 +336,7 @@ fun DetailScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(100.dp))
+                Spacer(modifier = Modifier.height(100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
             }
         }
     }
@@ -373,7 +378,7 @@ fun DetailInfoChip(
     )
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun DetailScreenPreview() {
     APlayerTheme {

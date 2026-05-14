@@ -44,9 +44,27 @@ class LibraryRepository private constructor(context: Context) {
     private val dao = database.audiobookDao()
     private val chapterDao = database.chapterDao()
     private val bookmarkDao = database.bookmarkDao()
+    private val historyDao = database.searchHistoryDao()
     private val coversDir = File(this.context.filesDir, "covers").also { it.mkdirs() }
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val prefs = this.context.getSharedPreferences("library_prefs", Context.MODE_PRIVATE)
+
+    /** Search history flow. */
+    val searchHistory: Flow<List<SearchHistoryEntity>> = historyDao.getRecentHistory()
+
+    suspend fun addToHistory(query: String) {
+        if (query.isNotBlank()) {
+            historyDao.insert(SearchHistoryEntity(query.trim()))
+        }
+    }
+
+    suspend fun deleteFromHistory(history: SearchHistoryEntity) {
+        historyDao.delete(history)
+    }
+
+    suspend fun clearHistory() {
+        historyDao.clearAll()
+    }
 
     /** Set the root library directory. */
     fun setLibraryRoot(uri: Uri) {
@@ -109,6 +127,15 @@ class LibraryRepository private constructor(context: Context) {
     
     /** Observable list of all audiobooks, sorted by last played. */
     val audiobooks: Flow<List<AudiobookEntity>> = dao.getAllAudiobooks()
+
+    /** Search audiobooks by title, author, or narrator. */
+    fun searchAudiobooks(query: String): Flow<List<AudiobookEntity>> = dao.searchAudiobooks(query)
+
+    fun filterByYear(year: String): Flow<List<AudiobookEntity>> = dao.filterByYear(year)
+    
+    fun filterByAuthor(author: String): Flow<List<AudiobookEntity>> = dao.filterByAuthor(author)
+    
+    fun filterByNarrator(narrator: String): Flow<List<AudiobookEntity>> = dao.filterByNarrator(narrator)
 
     @SuppressLint("CheckResult")
     @Suppress("DEPRECATION")

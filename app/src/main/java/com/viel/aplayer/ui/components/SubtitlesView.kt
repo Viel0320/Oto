@@ -206,7 +206,7 @@ fun SubtitlesView(
 }
 
 
-@Preview
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun SubtitlesViewPreview() {
     APlayerTheme {

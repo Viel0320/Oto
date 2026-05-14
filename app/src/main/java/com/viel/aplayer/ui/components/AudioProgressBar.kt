@@ -110,7 +110,7 @@ fun AudioProgressBar(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun AudioProgressBarPreview() {
     APlayerTheme {

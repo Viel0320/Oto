@@ -1,6 +1,9 @@
 package com.viel.aplayer.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,24 +36,34 @@ import coil.compose.AsyncImage
 import com.viel.aplayer.ui.theme.APlayerTheme
 import java.io.File
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CompactMediaPlayer(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
     title: String = "Audiobook Title",
     author: String = "Unknown Author",
+    narrator: String = "",
     coverPath: String? = null,
     progress: () -> Float = { 0f },
     showProgressBar: Boolean = true,
     onPlayPauseClick: () -> Unit = {},
+    onLongClickCover: () -> Unit = {}, // 测试操作：长按封面回调
 ) {
+    val subtitle = remember(author, narrator) {
+        listOf(author, narrator)
+            .filter { it.isNotBlank() }
+            .joinToString(" • ")
+            .ifBlank { "Unknown" }
+    }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant,
         // Remove top rounded corners
         shape = RoundedCornerShape(0.dp)
     ) {
-        Column {
+        Column(modifier = Modifier.navigationBarsPadding()) {
             // Progress bar at the very top, not clipped
             if (showProgressBar) {
                 AudioProgressBar(
@@ -73,7 +87,12 @@ fun CompactMediaPlayer(
                 val coverModifier = Modifier.size(48.dp)
 
                 Box(
-                    modifier = coverModifier.clip(coverShape)
+                    modifier = coverModifier
+                        .clip(coverShape)
+                        .combinedClickable(
+                            onClick = {}, // 保持点击穿透或根据需要处理
+                            onLongClick = onLongClickCover // 测试操作：长按封面隐藏 mini 播放器
+                        )
                 ) {
                     val coverFile = remember(coverPath) { if (coverPath != null) File(coverPath) else null }
                     if (coverFile != null && coverFile.exists()) {
@@ -100,13 +119,15 @@ fun CompactMediaPlayer(
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
+                        maxLines = 1,
+                        modifier = Modifier.basicMarquee()
                     )
                     Text(
-                        text = author,
+                        text = subtitle,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
+                        maxLines = 1,
+                        modifier = Modifier.basicMarquee()
                     )
                 }
                 
@@ -126,20 +147,21 @@ fun CompactMediaPlayer(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun CompactMediaPlayerPreview() {
     APlayerTheme {
         CompactMediaPlayer(
             title = "イン・ザ・メガチャーチ",
             author = "朝井 リョウ",
+            narrator = "岩崎 了",
             isPlaying = false,
             progress = { 0.23f }
         )
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun CompactMediaPlayerPlayingPreview() {
     APlayerTheme {
@@ -152,7 +174,7 @@ fun CompactMediaPlayerPlayingPreview() {
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun CompactMediaPlayerNoProgressBarPreview() {
     APlayerTheme {
@@ -161,6 +183,34 @@ fun CompactMediaPlayerNoProgressBarPreview() {
             author = "朝井 リョウ",
             isPlaying = false,
             showProgressBar = false
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Long Title & Narrator", apiLevel = 36)
+@Composable
+fun CompactMediaPlayerLongTitlePreview() {
+    APlayerTheme {
+        CompactMediaPlayer(
+            title = "転生したらスライムだった件 21 (通常版) (デジタル版有声書)",
+            author = "伏瀬",
+            narrator = "岡咲 美保, 豊口 めぐみ, 前野 智昭",
+            isPlaying = true,
+            progress = { 0.45f }
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Author Only", apiLevel = 36)
+@Composable
+fun CompactMediaPlayerAuthorOnlyPreview() {
+    APlayerTheme {
+        CompactMediaPlayer(
+            title = "晓星",
+            author = "凑 かなえ",
+            narrator = "",
+            isPlaying = false,
+            progress = { 0.12f }
         )
     }
 }
