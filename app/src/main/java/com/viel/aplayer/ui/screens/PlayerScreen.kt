@@ -183,8 +183,8 @@ fun PlayerScreen(
                     val isChapterMode = uiState.isChapterProgressMode && currentChapter != null
 
                     val (displayPos, displayDur, displayMarkers) = if (isChapterMode) {
-                        val start = currentChapter!!.startPosition
-                        val end = currentChapter!!.endPosition
+                        val start = currentChapter.startPosition
+                        val end = currentChapter.endPosition
                         Triple(
                             (uiState.currentPosition - start).coerceAtLeast(0),
                             (end - start).coerceAtLeast(1),
@@ -200,7 +200,7 @@ fun PlayerScreen(
                         markers = displayMarkers,
                         onSeek = { relPos ->
                             val targetPos = if (isChapterMode) {
-                                currentChapter!!.startPosition + relPos
+                                currentChapter.startPosition + relPos
                             } else {
                                 relPos
                             }
