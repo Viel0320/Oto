@@ -40,8 +40,8 @@ import com.viel.aplayer.ui.screens.SearchScreen
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatFileSize
 import com.viel.aplayer.ui.utils.formatTime
-import com.viel.aplayer.viewmodel.LibraryViewModel
-import com.viel.aplayer.viewmodel.PlayerViewModel
+import com.viel.aplayer.ui.viewmodel.LibraryViewModel
+import com.viel.aplayer.ui.viewmodel.PlayerViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

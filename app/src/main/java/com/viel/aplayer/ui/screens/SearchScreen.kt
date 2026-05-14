@@ -56,7 +56,7 @@ import com.viel.aplayer.data.AudiobookEntity
 import com.viel.aplayer.data.SearchHistoryEntity
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatPeopleSubtitle
-import com.viel.aplayer.viewmodel.SearchViewModel
+import com.viel.aplayer.ui.viewmodel.SearchViewModel
 
 data class SearchCommand(
     val token: String,

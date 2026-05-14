@@ -1,4 +1,4 @@
-package com.viel.aplayer.viewmodel
+package com.viel.aplayer.ui.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
