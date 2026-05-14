@@ -34,6 +34,7 @@ import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
+import androidx.core.graphics.scale
 
 /**
  * Repository that wraps Room database and handles cover art caching.
@@ -704,7 +705,7 @@ class LibraryRepository private constructor(context: Context) {
     suspend fun getThumbnailPath(bookUri: String): String? {
         return dao.getByUri(bookUri)?.thumbnailPath
     }
-    
+
     /**
      * Extract embedded cover art from the audio file.
      * Saves the original image and a 300px thumbnail.
@@ -789,7 +790,7 @@ class LibraryRepository private constructor(context: Context) {
             newHeight = maxSize
             newWidth = (maxSize * ratio).toInt()
         }
-        return Bitmap.createScaledBitmap(source, newWidth, newHeight, true)
+        return source.scale(newWidth, newHeight)
     }
 
     /**

@@ -20,10 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.data.BookmarkEntity
 import com.viel.aplayer.data.ChapterEntity
+import com.viel.aplayer.ui.action.PlayerActions
+import com.viel.aplayer.ui.action.PlayerNavigationActions
 import com.viel.aplayer.ui.components.BookmarkDialog
 import com.viel.aplayer.ui.components.BookmarkListView
 import com.viel.aplayer.ui.components.ChapterDisplay
@@ -58,11 +58,9 @@ import com.viel.aplayer.ui.components.PlaybackProgress
 import com.viel.aplayer.ui.components.PlayerAppBar
 import com.viel.aplayer.ui.components.SubtitleLine
 import com.viel.aplayer.ui.components.SubtitlesView
-import com.viel.aplayer.ui.action.PlayerActions
-import com.viel.aplayer.ui.action.PlayerNavigationActions
+import com.viel.aplayer.ui.state.PlayerUiState
 import com.viel.aplayer.ui.theme.APlayerTheme
 import kotlinx.coroutines.delay
-import com.viel.aplayer.ui.state.PlayerUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -249,10 +249,12 @@ class PlayerViewModel : ViewModel() {
         viewModelScope.launch {
             repeat(5) {
                 val entity = libraryRepository?.getByUri(uri.toString())
-                if (entity?.coverPath != null || entity?.thumbnailPath != null) {
-                    updateCoverPath(entity?.coverPath)
-                    updateThumbnailPath(entity?.thumbnailPath)
-                    return@launch
+                if (entity != null) {
+                    if (entity.coverPath != null || entity.thumbnailPath != null) {
+                        updateCoverPath(entity.coverPath)
+                        updateThumbnailPath(entity.thumbnailPath)
+                        return@launch
+                    }
                 }
                 delay(1000)
             }

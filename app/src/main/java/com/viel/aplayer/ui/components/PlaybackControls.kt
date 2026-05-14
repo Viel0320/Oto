@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,7 +56,7 @@ fun PlaybackControls(
     val haptic = LocalHapticFeedback.current
 
     // Speed Toast logic
-    var lastSpeed by remember { mutableStateOf(playbackSpeed) }
+    var lastSpeed by remember { mutableFloatStateOf(playbackSpeed) }
     LaunchedEffect(playbackSpeed) {
         if (playbackSpeed != lastSpeed) {
             val msg = if (playbackSpeed == 1.0f) "Playback speed reset" else "Playback speed: ${playbackSpeed}x"
@@ -65,7 +66,7 @@ fun PlaybackControls(
     }
 
     // Sleep Timer Toast logic
-    var lastTimer by remember { mutableStateOf(selectedSleepTimer) }
+    var lastTimer by remember { androidx.compose.runtime.mutableIntStateOf(selectedSleepTimer) }
     LaunchedEffect(selectedSleepTimer) {
         if (selectedSleepTimer != lastTimer) {
             val msg = when (selectedSleepTimer) {
