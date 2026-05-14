@@ -4,8 +4,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,19 +25,37 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
-import com.viel.aplayer.R
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.viel.aplayer.R
+import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.SearchHistoryEntity
 import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.viewmodel.SearchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,92 +63,339 @@ fun SearchScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
+    viewModel: SearchViewModel = viewModel()
 ) {
-    var query by remember { mutableStateOf("") }
+    val query by viewModel.query.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
+    val searchHistory by viewModel.searchHistory.collectAsState()
+
+    SearchContent(
+        query = query,
+        searchResults = searchResults,
+        searchHistory = searchHistory,
+        onQueryChange = { viewModel.onQueryChange(it) },
+        onSearch = { viewModel.search(it) },
+        onClearQuery = { viewModel.clearQuery() },
+        onDeleteHistory = { viewModel.deleteHistory(it) },
+        onClearHistory = { viewModel.clearHistory() },
+        onBack = onBack,
+        onNavigateToDetail = { uri ->
+            viewModel.saveSearchHistory(query.text)
+            onNavigateToDetail(uri)
+        },
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchContent(
+    query: TextFieldValue,
+    searchResults: List<AudiobookEntity>,
+    searchHistory: List<SearchHistoryEntity>,
+    onQueryChange: (TextFieldValue) -> Unit,
+    onSearch: (String) -> Unit,
+    onClearQuery: () -> Unit,
+    onDeleteHistory: (SearchHistoryEntity) -> Unit,
+    onClearHistory: () -> Unit,
+    onBack: () -> Unit,
+    onNavigateToDetail: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     var active by remember { mutableStateOf(value = true) }
+    var isBacking by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+
+    val handleBack = {
+        if (!isBacking) {
+            isBacking = true
+            focusManager.clearFocus()
+            onBack()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             SearchBar(
                 inputField = {
-                    SearchBarDefaults.InputField(
-                        query = query,
-                        onQueryChange = { query = it },
-                        onSearch = { /* todo Execute search */ },
-                        expanded = active,
-                        onExpandedChange = { if (!it) onBack() },
-                        placeholder = { Text("Search your library...") },
+                    TextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester),
+                        placeholder = { Text("Search or use year: author: narrator:") },
                         leadingIcon = {
-                            IconButton(onClick = onBack) {
+                            IconButton(onClick = handleBack) {
                                 Icon(painterResource(R.drawable.ic_rounded_arrow_back), contentDescription = "Back")
                             }
                         },
                         trailingIcon = {
-                            if (query.isNotEmpty()) {
-                                IconButton(onClick = { query = "" }) {
+                            if (query.text.isNotEmpty()) {
+                                IconButton(onClick = onClearQuery) {
                                     Icon(painterResource(R.drawable.ic_rounded_clear), contentDescription = "Clear")
                                 }
                             }
-                        }
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { 
+                            focusManager.clearFocus()
+                            onSearch(query.text) 
+                        }),
+                        singleLine = true,
+                        shape = SearchBarDefaults.inputFieldShape
                     )
                 },
                 expanded = active,
-                onExpandedChange = { 
-                    if (!it) onBack() 
+                onExpandedChange = {
+                    if (!it) handleBack()
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    item {
-                        Text(
-                            text = "Suggested",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
+                val commandSuggestions = remember(query.text) {
+                    if (query.text.isNotEmpty() && !query.text.contains(":")) {
+                        listOf("year:", "author:", "narrator:").filter {
+                            it.startsWith(query.text.lowercase())
+                        }
+                    } else {
+                        emptyList()
                     }
-                    items(5) { index ->
-                        ListItem(
-                            modifier = Modifier.clickable { onNavigateToDetail("dummy_uri_$index") },
-                            headlineContent = { Text("Search Result ${index + 1}", fontWeight = FontWeight.SemiBold) },
-                            supportingContent = { Text("Author Name • Audiobook") },
-                            leadingContent = {
-                                Surface(
-                                    modifier = Modifier.size(48.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
+                }
+
+                if (query.text.isBlank()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (searchHistory.isNotEmpty()) {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = "Recent Searches",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.align(Alignment.CenterStart)
+                                    )
+                                    Text(
+                                        text = "Clear All",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier
+                                            .align(Alignment.CenterEnd)
+                                            .clickable { onClearHistory() }
+                                            .padding(4.dp)
+                                    )
+                                }
+                            }
+                            items(searchHistory.size) { index ->
+                                val history = searchHistory[index]
+                                ListItem(
+                                    modifier = Modifier.clickable { onSearch(history.query) },
+                                    headlineContent = { Text(history.query) },
+                                    leadingContent = {
+                                        Icon(
+                                            painterResource(R.drawable.ic_rounded_history),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    trailingContent = {
+                                        IconButton(onClick = { onDeleteHistory(history) }) {
+                                            Icon(
+                                                painterResource(R.drawable.ic_rounded_clear),
+                                                contentDescription = "Remove",
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    },
+                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                                )
+                            }
+                        } else {
+                            item {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "No recent searches",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            top = 16.dp,
+                            end = 16.dp,
+                            bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (commandSuggestions.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Filter by",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                )
+                            }
+                            items(commandSuggestions.size) { index ->
+                                val cmd = commandSuggestions[index]
+                                ListItem(
+                                    modifier = Modifier.clickable { 
+                                        onQueryChange(TextFieldValue(cmd, selection = TextRange(cmd.length))) 
+                                    },
+                                    headlineContent = { Text(cmd) },
+                                    supportingContent = {
+                                        Text(
+                                            when (cmd) {
+                                                "year:" -> "Search by release year"
+                                                "author:" -> "Search by author name"
+                                                "narrator:" -> "Search by narrator name"
+                                                else -> ""
+                                            }
+                                        )
+                                    },
+                                    leadingContent = {
                                         Icon(
                                             painterResource(R.drawable.ic_rounded_search),
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            tint = MaterialTheme.colorScheme.primary
                                         )
-                                    }
+                                    },
+                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                                )
+                            }
+                        }
+
+                        if (searchResults.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "No results found for \"${query.text}\"",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
+                            }
+                        } else {
+                            item {
+                                Text(
+                                    text = "Results",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                                )
+                            }
+                            items(searchResults.size) { index ->
+                                val book = searchResults[index]
+                                ListItem(
+                                    modifier = Modifier.clickable { onNavigateToDetail(book.uri) },
+                                    headlineContent = { Text(book.title, fontWeight = FontWeight.SemiBold) },
+                                    supportingContent = { Text("${book.author} • ${book.narrator}") },
+                                    leadingContent = {
+                                        Surface(
+                                            modifier = Modifier.size(48.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant
+                                        ) {
+                                            if (book.coverPath != null) {
+                                                AsyncImage(
+                                                    model = book.coverPath,
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        painterResource(R.drawable.ic_rounded_search),
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     ) { padding ->
-        // This is empty because SearchBar covers the screen when active
         Box(modifier = Modifier.padding(padding))
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun SearchScreenPreview() {
     APlayerTheme {
-        SearchScreen()
+        SearchContent(
+            query = TextFieldValue("Fantasy"),
+            searchResults = listOf(
+                AudiobookEntity(
+                    uri = "1",
+                    title = "The Way of Kings",
+                    author = "Brandon Sanderson",
+                    narrator = "Michael Kramer",
+                    coverPath = null
+                ),
+                AudiobookEntity(
+                    uri = "2",
+                    title = "Name of the Wind",
+                    author = "Patrick Rothfuss",
+                    narrator = "Nick Podehl",
+                    coverPath = null
+                ),
+                AudiobookEntity(
+                    uri = "3",
+                    title = "Project Hail Mary",
+                    author = "Andy Weir",
+                    narrator = "Ray Porter",
+                    coverPath = null
+                )
+            ),
+            searchHistory = listOf(
+                SearchHistoryEntity("Brandon Sanderson"),
+                SearchHistoryEntity("The Hobbit")
+            ),
+            onQueryChange = {},
+            onSearch = {},
+            onClearQuery = {},
+            onDeleteHistory = {},
+            onClearHistory = {},
+            onBack = {},
+            onNavigateToDetail = {}
+        )
     }
 }

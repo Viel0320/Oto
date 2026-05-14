@@ -179,7 +179,7 @@ fun PlaybackControls(
     }
 }
 
-@Preview
+@Preview(apiLevel = 36)
 @Composable
 fun PlaybackControlsPreview() {
     APlayerTheme {

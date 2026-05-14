@@ -3,6 +3,7 @@ package com.viel.aplayer.viewmodel
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -42,6 +43,9 @@ class PlayerViewModel : ViewModel() {
     private val _currentAuthor = MutableStateFlow("")
     val currentAuthor: StateFlow<String> = _currentAuthor.asStateFlow()
 
+    private val _currentNarrator = MutableStateFlow("")
+    val currentNarrator: StateFlow<String> = _currentNarrator.asStateFlow()
+
     private val _currentCoverPath = MutableStateFlow<String?>(null)
     val currentCoverPath: StateFlow<String?> = _currentCoverPath.asStateFlow()
 
@@ -55,7 +59,6 @@ class PlayerViewModel : ViewModel() {
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
 
     private val _playbackState = MutableStateFlow(Player.STATE_IDLE)
-    val playbackState: StateFlow<Int> = _playbackState.asStateFlow()
 
     private val _sleepTimerMillis = MutableStateFlow(0L)
 
@@ -124,7 +127,8 @@ class PlayerViewModel : ViewModel() {
                             _currentTitle.value = title
                         }
                         if (!author.isNullOrBlank()) _currentAuthor.value = author
-                        
+                        if (!narrator.isNullOrBlank()) _currentNarrator.value = narrator
+
                         // Write back to library so the list shows correct data
                         currentMediaUri?.let { uri ->
                             // Only update title if it's not a mime type
@@ -144,10 +148,14 @@ class PlayerViewModel : ViewModel() {
                     }
                     val transTitle = mediaItem.mediaMetadata.title?.toString()
                     val transAuthor = mediaItem.mediaMetadata.artist?.toString()
+                    val transNarrator = mediaItem.mediaMetadata.composer?.toString()
                     if (!transTitle.isNullOrBlank()) _currentTitle.value = transTitle
                     // Don't reset author here — STATE_READY will provide the real one
                     if (!transAuthor.isNullOrBlank() && (transAuthor != "Unknown Author")) {
                         _currentAuthor.value = transAuthor
+                    }
+                    if (!transNarrator.isNullOrBlank()) {
+                        _currentNarrator.value = transNarrator
                     }
                     currentMediaUri = mediaItem.mediaId
                     _duration.value = mediaController.duration.coerceAtLeast(0L)
@@ -189,9 +197,10 @@ class PlayerViewModel : ViewModel() {
                     android.util.Log.d("PlayerViewModel", "Autoload search result: ${recent?.title}")
                     if (recent != null) {
                         loadMedia(
-                            uri = Uri.parse(recent.uri),
+                            uri = recent.uri.toUri(),
                             title = recent.title,
                             author = recent.author,
+                            narrator = recent.narrator,
                             startPositionMs = recent.lastPosition,
                             playWhenReady = false
                         )
@@ -201,13 +210,14 @@ class PlayerViewModel : ViewModel() {
         }, ContextCompat.getMainExecutor(context))
     }
 
-    fun loadMedia(uri: Uri, title: String, author: String, startPositionMs: Long = 0L, playWhenReady: Boolean = true) {
+    fun loadMedia(uri: Uri, title: String, author: String, narrator: String = "", startPositionMs: Long = 0L, playWhenReady: Boolean = true) {
         // Save progress of previous media before switching
         saveProgress()
         
         currentMediaUri = uri.toString()
         _currentTitle.value = title
         _currentAuthor.value = author
+        _currentNarrator.value = narrator
         _currentCoverPath.value = null // reset, will be loaded after DB insert
 
         // Load chapters, subtitles & bookmarks
@@ -219,6 +229,9 @@ class PlayerViewModel : ViewModel() {
         val metadataBuilder = MediaMetadata.Builder().setTitle(title)
         if (author != "Unknown Author") {
             metadataBuilder.setArtist(author)
+        }
+        if (narrator.isNotBlank()) {
+            metadataBuilder.setComposer(narrator)
         }
             
         val mediaItem = MediaItem.Builder()

@@ -12,17 +12,15 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -73,6 +71,9 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 val playerViewModel: PlayerViewModel = viewModel()
 
+                // 测试操作：记录 mini 播放器是否被临时隐藏，界面切换时刷新
+                var isMiniPlayerHidden by remember(currentRoute) { mutableStateOf(false) }
+
                 LaunchedEffect(Unit) {
                     playerViewModel.initialize(context)
                 }
@@ -80,6 +81,7 @@ class MainActivity : ComponentActivity() {
                 val isPlaying by playerViewModel.isPlaying.collectAsState()
                 val currentTitle by playerViewModel.currentTitle.collectAsState()
                 val currentAuthor by playerViewModel.currentAuthor.collectAsState()
+                val currentNarrator by playerViewModel.currentNarrator.collectAsState()
                 val currentCoverPath by playerViewModel.currentCoverPath.collectAsState()
                 val currentPositionState = playerViewModel.currentPosition.collectAsState()
                 val durationState = playerViewModel.duration.collectAsState()
@@ -88,8 +90,6 @@ class MainActivity : ComponentActivity() {
                 val currentChapters by playerViewModel.currentChapters.collectAsState()
                 val currentSubtitles by playerViewModel.currentSubtitles.collectAsState()
                 val currentBookmarks by playerViewModel.currentBookmarks.collectAsState()
-                val playbackState by playerViewModel.playbackState.collectAsState()
-
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
 
                         val showMiniPlayer = currentRoute != "player" && 
                                              currentRoute != "content/{tab}" && 
+                                             currentRoute != "search" &&
                                              hasActiveTrack
 
                         NavHost(
@@ -116,8 +117,8 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToSearch = {
                                         navController.navigate("search")
                                     },
-                                    onLoadMedia = { uri: Uri, title: String, author: String, pos: Long -> 
-                                        playerViewModel.loadMedia(uri, title, author, pos) 
+                                    onLoadMedia = { uri: Uri, title: String, author: String, narrator: String, pos: Long -> 
+                                        playerViewModel.loadMedia(uri, title, author, narrator, pos) 
                                     },
                                     onNavigateToPlayer = { navController.navigate("player") }
                                 )
@@ -130,11 +131,7 @@ class MainActivity : ComponentActivity() {
                                 popExitTransition = { fadeOut(animationSpec = tween(400)) }
                             ) {
                                 SearchScreen(
-                                    onBack = { 
-                                        navController.navigate("home") {
-                                            popUpTo("home") { inclusive = true }
-                                        }
-                                    },
+                                    onBack = { navController.popBackStack() },
                                     onNavigateToDetail = { uri: String ->
                                         navController.navigate("detail?bookUri=${Uri.encode(uri)}")
                                     }
@@ -184,6 +181,7 @@ class MainActivity : ComponentActivity() {
                                                 uri = book.uri.toUri(), 
                                                 title = book.title, 
                                                 author = book.author,
+                                                narrator = book.narrator,
                                                 startPositionMs = book.lastPosition
                                             )
                                         }
@@ -215,6 +213,7 @@ class MainActivity : ComponentActivity() {
                                     isPlaying = isPlaying,
                                     title = currentTitle,
                                     author = currentAuthor,
+                                    narrator = currentNarrator,
                                     coverPath = currentCoverPath,
                                     currentPosition = currentPositionProvider,
                                     duration = durationProvider,
@@ -253,6 +252,7 @@ class MainActivity : ComponentActivity() {
                                 PlayerContentScreen(
                                     title = currentTitle,
                                     author = currentAuthor,
+                                    narrator = currentNarrator,
                                     currentPosition = currentPositionState.value,
                                     duration = durationState.value,
                                     isPlaying = isPlaying,
@@ -280,7 +280,7 @@ class MainActivity : ComponentActivity() {
 
                         // 迷你播放器
                         androidx.compose.animation.AnimatedVisibility(
-                            visible = showMiniPlayer,
+                            visible = showMiniPlayer && !isMiniPlayerHidden,
                             enter = fadeIn(animationSpec = tween(400)),
                             exit = fadeOut(animationSpec = tween(400)) +
                                    slideOutVertically(
@@ -289,19 +289,20 @@ class MainActivity : ComponentActivity() {
                                    ),
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
                         ) {
                             Box(modifier = Modifier.clickable { navController.navigate("player") }) {
                                 CompactMediaPlayer(
                                     isPlaying = isPlaying,
                                     title = currentTitle,
                                     author = currentAuthor,
+                                    narrator = currentNarrator,
                                     coverPath = currentCoverPath,
                                     progress = {
                                         val d = durationState.value
                                         if (d > 0) currentPositionState.value.toFloat() / d.toFloat() else 0f
                                     },
-                                    onPlayPauseClick = { playerViewModel.togglePlayPause() }
+                                    onPlayPauseClick = { playerViewModel.togglePlayPause() },
+                                    onLongClickCover = { isMiniPlayerHidden = true } // 测试操作：长按封面隐藏
                                 )
                             }
                         }

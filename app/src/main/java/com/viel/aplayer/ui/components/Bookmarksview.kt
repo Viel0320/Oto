@@ -47,7 +47,7 @@ fun BookmarkListView(
             key = { it.id }
         ) { bookmark ->
             val isActive = currentPosition >= bookmark.position
-            
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -73,7 +73,7 @@ fun BookmarkListView(
                         color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
                 }
-                
+
                 IconButton(onClick = { onDeleteClick(bookmark) }) {
                     Icon(
                         painterResource(R.drawable.ic_rounded_delete),
@@ -87,7 +87,7 @@ fun BookmarkListView(
     }
 }
 
-@Preview(name = "Bookmark List View - Dark")
+@Preview(name = "Bookmark List View - Dark", apiLevel = 36)
 @Composable
 fun BookmarkListViewDarkPreview() {
     val sampleBookmarks = listOf(

@@ -28,7 +28,8 @@ fun ChapterDisplay(
     currentChapterTitle: String?,
     onChapterClick: () -> Unit,
     onBookmarkClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    title: String? = null
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -40,7 +41,7 @@ fun ChapterDisplay(
             modifier = Modifier.weight(1f, fill = false),
             label = {
                 Text(
-                    text = currentChapterTitle ?: "No Chapters",
+                    text = currentChapterTitle ?: title ?: "No Chapters",
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -81,6 +82,7 @@ fun ChapterDisplayPreview() {
         Surface {
             ChapterDisplay(
                 currentChapterTitle = "Chapter 1: The Beginning",
+                title = "The Great Adventure",
                 onChapterClick = {},
                 onBookmarkClick = {}
             )

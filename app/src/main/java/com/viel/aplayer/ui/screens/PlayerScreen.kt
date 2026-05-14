@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,7 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -66,6 +67,7 @@ fun PlayerScreen(
     isPlaying: Boolean = false,
     title: String = "Unknown Title",
     author: String = "Unknown Author",
+    narrator: String = "Unknown Narrator",
     coverPath: String? = null,
     currentPosition: () -> Long = { 0L },
     duration: () -> Long = { 0L },
@@ -89,7 +91,7 @@ fun PlayerScreen(
 
         val showChapterList = remember { mutableStateOf(false) }
         val showBookmarkDialog = remember { mutableStateOf(false) }
-        val sheetState = rememberModalBottomSheetState()
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
         // Find current chapter using derivedStateOf to minimize recompositions
         val currentChapter by remember(chapters) {
@@ -135,34 +137,33 @@ fun PlayerScreen(
             }
         }
 
-        Scaffold(
+        Surface(
             modifier = modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                PlayerAppBar(
-                    title = title,
-                    author = author,
-                    onNavigationClick = {
-                        focusManager.clearFocus()
-                        onMinimize()
-                    }
-                )
-            }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(backgroundBrush)
-                    .padding(padding)
-            ) {
-                // Player Box (Main Content)
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxSize()
+                        .background(backgroundBrush)
                 ) {
+                    PlayerAppBar(
+                        title = title,
+                        author = author,
+                        narrator = narrator,
+                        onNavigationClick = {
+                            focusManager.clearFocus()
+                            onMinimize()
+                        }
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                     // Large Cover Art
                     Box(
                         modifier = Modifier
@@ -210,7 +211,7 @@ fun PlayerScreen(
 
                     // Chapter Display
                     ChapterDisplay(
-                        currentChapterTitle = currentChapter?.title,
+                        currentChapterTitle = currentChapter?.title ?: title,
                         onChapterClick = { showChapterList.value = true },
                         onBookmarkClick = { showBookmarkDialog.value = true }
                     )
@@ -231,7 +232,10 @@ fun PlayerScreen(
                         currentPosition = currentPosition,
                         duration = duration,
                         markers = chapterMarkers,
-                        onSeek = onSeek,
+                        onSeek = { pos ->
+                            onSeek(pos)
+                            if (!isPlaying) onPlayPauseClick()
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -258,6 +262,7 @@ fun PlayerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(horizontal = 24.dp)
                         .padding(bottom = 32.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -303,8 +308,9 @@ fun PlayerScreen(
                     }
                 }
             }
+        }
 
-            ChapterListSheet(
+        ChapterListSheet(
                 isVisible = showChapterList.value,
                 chapters = chapters,
                 currentChapter = currentChapter,
@@ -353,14 +359,14 @@ fun PlayerScreen(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun PlayerScreenPreview() {
     APlayerTheme {
         PlayerScreen(
             onMinimize = {},
             title = "イン・ザ-メガチャーチ",
-            author = "朝井 リョウ",
+            author = "",
             currentPosition = { 1200000L },
             duration = { 3600000L }
         )
