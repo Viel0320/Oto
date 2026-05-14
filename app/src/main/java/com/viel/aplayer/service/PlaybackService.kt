@@ -18,6 +18,9 @@ import com.viel.aplayer.R
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
+    private lateinit var rewindButton: CommandButton
+    private lateinit var forwardButton: CommandButton
+    private lateinit var bookmarkButton: CommandButton
 
     companion object {
         const val ACTION_REWIND = "ACTION_REWIND"
@@ -41,19 +44,25 @@ class PlaybackService : MediaSessionService() {
             .setSeekForwardIncrementMs(30000)
             .build()
 
-        val rewindButton = CommandButton.Builder(R.drawable.ic_replay_10)
+        rewindButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("快退10秒")
             .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
+            .setCustomIconResId(R.drawable.ic_replay_10)
+            .setEnabled(true)
             .build()
 
-        val forwardButton = CommandButton.Builder(R.drawable.ic_forward_30)
+        forwardButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("快进30秒")
             .setSessionCommand(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
+            .setCustomIconResId(R.drawable.ic_forward_30)
+            .setEnabled(true)
             .build()
 
-        val bookmarkButton = CommandButton.Builder(R.drawable.ic_bookmark_add)
+        bookmarkButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("添加书签")
             .setSessionCommand(SessionCommand(ACTION_BOOKMARK, Bundle.EMPTY))
+            .setCustomIconResId(R.drawable.ic_bookmark_add)
+            .setEnabled(true)
             .build()
 
         mediaSession = MediaSession.Builder(this, player)
@@ -61,20 +70,25 @@ class PlaybackService : MediaSessionService() {
             .build()
             
         // 顺序：快退 -> 快进 -> 书签。书签在列表最后，会显示在通知栏的最右侧槽位。
-        mediaSession?.setCustomLayout(listOf(rewindButton, forwardButton, bookmarkButton))
+        mediaSession?.let {
+            it.setCustomLayout(listOf(rewindButton, forwardButton, bookmarkButton))
+            addSession(it)
+        }
     }
 
     @UnstableApi
-    private class CustomCallback : MediaSession.Callback {
+    private inner class CustomCallback : MediaSession.Callback {
         override fun onConnect(
             session: MediaSession,
             controller: MediaSession.ControllerInfo
         ): MediaSession.ConnectionResult {
             val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
-                .add(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
-                .add(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
-                .add(SessionCommand(ACTION_BOOKMARK, Bundle.EMPTY))
+                .add(rewindButton.sessionCommand!!)
+                .add(forwardButton.sessionCommand!!)
+                .add(bookmarkButton.sessionCommand!!)
                 .build()
+
+            val customLayout = listOf(rewindButton, forwardButton, bookmarkButton)
 
             val playerCommands = Player.Commands.Builder()
                 .addAllCommands()
@@ -87,6 +101,7 @@ class PlaybackService : MediaSessionService() {
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
                 .setAvailablePlayerCommands(playerCommands)
+                .setCustomLayout(customLayout)
                 .build()
         }
 
