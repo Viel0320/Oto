@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.screens
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -36,6 +37,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -70,6 +73,12 @@ fun PlayerScreen(
             targetValue = Color(uiState.backgroundColorArgb),
             animationSpec = tween(300),
             label = "bg_color"
+        )
+
+        val coverScale by animateFloatAsState(
+            targetValue = if (uiState.isPlaying) 1f else 0.95f,
+            animationSpec = tween(durationMillis = 200),
+            label = "cover_scale"
         )
 
         val bgColor = MaterialTheme.colorScheme.background
@@ -122,6 +131,11 @@ fun PlayerScreen(
                         val coverModifier = Modifier
                             .fillMaxHeight()
                             .aspectRatio(1f)
+                            .graphicsLayer {
+                                scaleX = coverScale
+                                scaleY = coverScale
+                                transformOrigin = TransformOrigin(0.5f, 0.0f)
+                            }
 
                         val coverFile = remember(uiState.currentCoverPath) {
                             if (uiState.currentCoverPath != null) File(uiState.currentCoverPath) else null
