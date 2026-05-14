@@ -188,7 +188,7 @@ fun PlayerScreen(
                         Triple(
                             (uiState.currentPosition - start).coerceAtLeast(0),
                             (end - start).coerceAtLeast(1),
-                            emptyList<Float>()
+                            emptyList()
                         )
                     } else {
                         Triple(uiState.currentPosition, uiState.duration, uiState.chapterMarkers)
