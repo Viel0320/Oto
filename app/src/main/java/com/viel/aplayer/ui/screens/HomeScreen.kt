@@ -56,11 +56,11 @@ import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.ui.state.HomeFilter
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatCompactDuration
 import com.viel.aplayer.ui.utils.formatPeopleSubtitle
 import java.io.File
-import com.viel.aplayer.ui.state.HomeFilter
 
 private fun AudiobookEntity.matchesFilter(filter: HomeFilter): Boolean {
     return when (filter) {

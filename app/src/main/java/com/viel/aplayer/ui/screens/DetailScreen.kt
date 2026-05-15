@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.text.SpannableStringBuilder
+import android.text.style.LeadingMarginSpan
 import android.view.ActionMode
 import android.view.Gravity
 import android.view.Menu
@@ -71,7 +72,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
-import android.text.style.LeadingMarginSpan
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.ui.state.DetailUiState
