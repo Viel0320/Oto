@@ -59,7 +59,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.TextView
 import androidx.core.text.HtmlCompat
@@ -377,14 +376,10 @@ fun DetailScreen(
     // Full info dialog for long press
     if (infoDialogText != null) {
         AlertDialog(
-            onDismissRequest = { 
-                infoDialogText = null 
-                infoDialogTitle = null
+            onDismissRequest = {
             },
             confirmButton = {
-                TextButton(onClick = { 
-                    infoDialogText = null 
-                    infoDialogTitle = null
+                TextButton(onClick = {
                 }) {
                     Text("OK")
                 }
