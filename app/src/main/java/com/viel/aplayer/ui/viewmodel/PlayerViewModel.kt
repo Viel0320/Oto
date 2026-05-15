@@ -171,13 +171,13 @@ class PlayerViewModel : ViewModel() {
                         }
                         
                         saveCounter++
-                        // Save progress every 10 seconds (20 * 500ms)
-                        if (saveCounter >= 20) {
+                        // Save progress every 10 seconds (20 * 1000ms)
+                        if (saveCounter >= 10) {
                             saveCounter = 0
                             saveProgress()
                         }
                     }
-                    delay(500)
+                    delay(1000)
                 }
             }
 
@@ -514,12 +514,12 @@ class PlayerViewModel : ViewModel() {
             // End of Chapter mode
             sleepTimerJob = viewModelScope.launch {
                 while (true) {
-                    delay(500)
+                    delay(1000)
                     val state = _uiState.value
                     if (state.isPlaying) {
                         val currentChapter = state.currentChapter
                         if (currentChapter != null) {
-                            if (state.currentPosition >= currentChapter.endPosition - 500) {
+                            if (state.currentPosition >= currentChapter.endPosition - 1000) {
                                 break
                             }
                         } else {
