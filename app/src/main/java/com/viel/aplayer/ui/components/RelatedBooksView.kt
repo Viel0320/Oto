@@ -14,6 +14,10 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.AudiobookEntity
 import com.viel.aplayer.ui.screens.AudiobookListItem
 
+import androidx.compose.material3.Surface
+import androidx.compose.ui.tooling.preview.Preview
+import com.viel.aplayer.ui.theme.APlayerTheme
+
 @Composable
 fun RelatedBooksView(
     author: String,
@@ -83,4 +87,31 @@ private fun RelatedAudiobookItem(
         onClick = { onBookClick(book) },
         onPlayClick = { onBookClick(book) }
     )
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF101418)
+@Composable
+fun RelatedBooksViewPreview() {
+    val mockBook = AudiobookEntity(
+        uri = "uri1",
+        title = "Sample Audiobook",
+        author = "Author Name",
+        narrator = "Narrator Name",
+        duration = 3600000L,
+        addedAt = System.currentTimeMillis()
+    )
+    val mockList = listOf(mockBook, mockBook.copy(uri = "uri2", title = "Another Book"))
+
+    APlayerTheme(darkTheme = true) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            RelatedBooksView(
+                author = "Author Name",
+                narrator = "Narrator Name",
+                authorBooks = mockList,
+                narratorBooks = mockList,
+                recentBooks = mockList,
+                onBookClick = {}
+            )
+        }
+    }
 }
