@@ -38,7 +38,7 @@ fun formatDate(ms: Long): String {
     return sdf.format(java.util.Date(ms))
 }
 
-fun formatShortDate(ms: Long): String {
-    val sdf = java.text.SimpleDateFormat("MM-dd", Locale.getDefault())
-    return sdf.format(java.util.Date(ms))
-}
+//fun formatShortDate(ms: Long): String {
+//    val sdf = java.text.SimpleDateFormat("MM-dd", Locale.getDefault())
+//    return sdf.format(java.util.Date(ms))
+//}

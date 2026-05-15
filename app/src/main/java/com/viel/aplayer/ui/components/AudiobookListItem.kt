@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,7 +50,7 @@ fun AudiobookListItem(
     ListItem(
         modifier = modifier.clickable { onClick() },
         headlineContent = { 
-            Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
+            Column(verticalArrangement = Arrangement.Center) {
                 Text(
                     title, 
                     maxLines = 1, 
@@ -109,7 +111,8 @@ fun AudiobookListItem(
                 shape = RoundedCornerShape(8.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-                if ((coverPath != null) && File(coverPath).exists()) {
+                val isPreview = LocalInspectionMode.current
+                if (!isPreview && (coverPath != null) && File(coverPath).exists()) {
                     AsyncImage(
                         model = File(coverPath),
                         contentDescription = null,
@@ -131,10 +134,10 @@ fun AudiobookListItem(
     )
 }
 
-@Preview(showBackground = true, name = "New Book")
+@Preview(showBackground = true, name = "New Book", apiLevel = 36)
 @Composable
 fun AudiobookListItemNewPreview() {
-    APlayerTheme {
+    APlayerTheme(dynamicColor = false) {
         Surface {
             AudiobookListItem(
                 title = "The Great Adventure",
@@ -149,10 +152,10 @@ fun AudiobookListItemNewPreview() {
     }
 }
 
-@Preview(showBackground = true, name = "In Progress")
+@Preview(showBackground = true, name = "In Progress", apiLevel = 36)
 @Composable
 fun AudiobookListItemProgressPreview() {
-    APlayerTheme {
+    APlayerTheme(dynamicColor = false) {
         Surface {
             AudiobookListItem(
                 title = "Mystery in the Woods",

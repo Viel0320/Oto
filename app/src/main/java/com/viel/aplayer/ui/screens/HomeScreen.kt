@@ -253,7 +253,7 @@ fun HomeScreen(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun HomeScreenNotStartedPreview() {
     val mockBooks = listOf(
@@ -298,7 +298,7 @@ fun HomeScreenNotStartedPreview() {
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun HomeScreenInProgressPreview() {
     val mockBooks = listOf(
