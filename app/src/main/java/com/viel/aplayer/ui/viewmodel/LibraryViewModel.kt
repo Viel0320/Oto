@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import com.viel.aplayer.data.AudiobookEntity
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.ui.state.DetailUiState
+import com.viel.aplayer.ui.state.HomeFilter
 import com.viel.aplayer.ui.state.LibraryUiState
 import com.viel.aplayer.ui.utils.extractCoverDominantColorArgb
 import com.viel.aplayer.worker.LibrarySyncWorker
@@ -30,16 +31,32 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _detailUiState = MutableStateFlow(DetailUiState())
     val detailUiState: StateFlow<DetailUiState> = _detailUiState.asStateFlow()
 
-    val uiState: StateFlow<LibraryUiState> = repository.audiobooks
-        .map { audiobooks -> LibraryUiState(audiobooks = audiobooks) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = LibraryUiState()
-        )
+    private val _selectedFilter = MutableStateFlow<HomeFilter>(
+        try {
+            HomeFilter.valueOf(repository.getHomeFilter())
+        } catch (_: Exception) {
+            HomeFilter.InProgress
+        }
+    )
+
+    val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
+        repository.audiobooks,
+        _selectedFilter
+    ) { audiobooks, filter ->
+        LibraryUiState(audiobooks = audiobooks, selectedFilter = filter)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = LibraryUiState(selectedFilter = _selectedFilter.value)
+    )
 
     init {
         enqueueLibrarySync()
+    }
+
+    fun setFilter(filter: HomeFilter) {
+        _selectedFilter.value = filter
+        repository.setHomeFilter(filter.name)
     }
 
     fun onLibraryRootSelected(uri: Uri) {

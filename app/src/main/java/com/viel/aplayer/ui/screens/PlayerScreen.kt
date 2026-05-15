@@ -7,11 +7,16 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,8 +49,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.ui.action.PlayerActions
@@ -122,7 +130,7 @@ fun PlayerScreen(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
+                            .padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                     // Large Cover Art
@@ -130,8 +138,9 @@ fun PlayerScreen(
                     var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
                     Box(
                         modifier = Modifier
-                            .weight(10f)
+                            .weight(1f)
                             .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
                             .pointerInput(Unit) {
                                 detectDragGestures(
                                     onDragStart = { 
@@ -209,13 +218,12 @@ fun PlayerScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
-
                     // Chapter Display
                     ChapterDisplay(
                         currentChapterTitle = uiState.currentChapter?.title ?: uiState.currentTitle,
                         onChapterClick = actions.onShowChapterList,
-                        onBookmarkClick = actions.onShowBookmarkDialog
+                        onBookmarkClick = actions.onShowBookmarkDialog,
+                        modifier = Modifier.padding(horizontal = 24.dp)
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -249,10 +257,12 @@ fun PlayerScreen(
                             }
                             actions.onSeek(targetPos, true)
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
                     )
 
-                    Spacer(modifier = Modifier.weight(1.0f))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     // Playback Controls
                     PlaybackControls(
@@ -261,62 +271,53 @@ fun PlayerScreen(
                         selectedSleepTimer = uiState.selectedSleepTimer,
                         isSpeedManualMode = uiState.isSpeedManualMode,
                         actions = actions.playbackControls,
+                        modifier = Modifier.padding(horizontal = 24.dp),
                         buttonColor = animatedBgColor
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Additional Bottom Options Placeholder
-                Row(
+                // Bottom Navigation Tabs
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = 32.dp),
-                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { navigationActions.onBookmarksClick() },
-                        contentAlignment = Alignment.CenterStart
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .height(48.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Bookmarks",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
+                        val tabTitles = listOf("Bookmark", "Subtitles", "Related")
+                        val alignments = listOf(TextAlign.Start, TextAlign.Center, TextAlign.End)
+                        val textColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+
+                        tabTitles.forEachIndexed { index, title ->
+                            Text(
+                                text = title,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        when (index) {
+                                            0 -> navigationActions.onBookmarksClick()
+                                            1 -> navigationActions.onSubtitlesClick()
+                                            2 -> navigationActions.onRelatedClick()
+                                        }
+                                    },
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp
+                                ),
+                                color = textColor,
+                                textAlign = alignments[index]
+                            )
+                        }
                     }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { navigationActions.onSubtitlesClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Subtitles",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { navigationActions.onRelatedClick() },
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
-                        Text(
-                            text = "Related",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }

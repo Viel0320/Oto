@@ -79,6 +79,14 @@ class LibraryRepository private constructor(context: Context) {
         return prefs.getString(KEY_LIBRARY_URI, null)?.toUri()
     }
 
+    fun setHomeFilter(filter: String) {
+        prefs.edit { putString(KEY_HOME_FILTER, filter) }
+    }
+
+    fun getHomeFilter(): String {
+        return prefs.getString(KEY_HOME_FILTER, "InProgress") ?: "InProgress"
+    }
+
     /** Check if a file exists at the given URI. */
     fun checkFileExists(uriString: String): Boolean {
         return try {
@@ -830,6 +838,7 @@ class LibraryRepository private constructor(context: Context) {
     
     companion object {
         private const val KEY_LIBRARY_URI = "library_root_uri"
+        private const val KEY_HOME_FILTER = "home_filter"
 
         @Volatile
         @SuppressLint("StaticFieldLeak")

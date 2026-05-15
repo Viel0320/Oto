@@ -65,7 +65,6 @@ import com.viel.aplayer.ui.components.SubtitleLine
 import com.viel.aplayer.ui.components.SubtitlesView
 import com.viel.aplayer.ui.state.PlayerUiState
 import com.viel.aplayer.ui.theme.APlayerTheme
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +83,7 @@ fun PlayerContentScreen(
         var isReady by remember { mutableStateOf(isPreview) }
         LaunchedEffect(Unit) {
             if (!isPreview) {
-                delay(400) // Match the transition duration
+//                delay(400) // Match the transition duration
                 isReady = true
             }
         }

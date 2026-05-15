@@ -97,13 +97,22 @@ class MainActivity : ComponentActivity() {
                         onHide = { playerViewModel.setMiniPlayerHidden(true) }
                     )
                 }
-                val playerNavigationActions = remember(navController) {
+                val playerNavigationActions = remember(navController, playerViewModel) {
                     PlayerNavigationActions(
                         onMinimize = { navController.popBackStack() },
                         onClose = { navController.popBackStack() },
-                        onBookmarksClick = { navController.navigate("content/0") },
-                        onSubtitlesClick = { navController.navigate("content/1") },
-                        onRelatedClick = { navController.navigate("content/2") }
+                        onBookmarksClick = { 
+                            playerViewModel.setSelectedContentTab(0)
+                            navController.navigate("content/0") 
+                        },
+                        onSubtitlesClick = { 
+                            playerViewModel.setSelectedContentTab(1)
+                            navController.navigate("content/1") 
+                        },
+                        onRelatedClick = { 
+                            playerViewModel.setSelectedContentTab(2)
+                            navController.navigate("content/2") 
+                        }
                     )
                 }
                 Surface(
@@ -124,6 +133,8 @@ class MainActivity : ComponentActivity() {
                             composable("home") {
                                 HomeScreen(
                                     audiobooks = libraryUiState.audiobooks,
+                                    selectedFilter = libraryUiState.selectedFilter,
+                                    onFilterSelected = { libraryViewModel.setFilter(it) },
                                     isMiniPlayerVisible = playerUiState.hasActiveTrack,
                                     onNavigateToDetail = { uri: String ->
                                         navController.navigate("detail?bookUri=${Uri.encode(uri)}")
@@ -203,7 +214,7 @@ class MainActivity : ComponentActivity() {
                                     slideInVertically(initialOffsetY = { it }, animationSpec = tween(400))
                                 },
                                 exitTransition = {
-                                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
+                                    fadeOut(animationSpec = tween(400))
                                 },
                                 popEnterTransition = {
                                     fadeIn(animationSpec = tween(400))
@@ -221,18 +232,10 @@ class MainActivity : ComponentActivity() {
 
                             composable(
                                 "content/{tab}",
-                                enterTransition = {
-                                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(400))
-                                },
-                                exitTransition = {
-                                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
-                                },
-                                popEnterTransition = {
-                                    fadeIn(animationSpec = tween(400))
-                                },
-                                popExitTransition = {
-                                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
-                                }
+                                enterTransition = { fadeIn(animationSpec = tween(400)) },
+                                exitTransition = { fadeOut(animationSpec = tween(400)) },
+                                popEnterTransition = { fadeIn(animationSpec = tween(400)) },
+                                popExitTransition = { fadeOut(animationSpec = tween(400)) }
                             ) { backStackEntry ->
                                 val tab = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: 1
                                 LaunchedEffect(tab) {
