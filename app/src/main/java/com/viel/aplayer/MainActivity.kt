@@ -35,6 +35,7 @@ import com.viel.aplayer.ui.components.CompactMediaPlayer
 import com.viel.aplayer.ui.screens.DetailScreen
 import com.viel.aplayer.ui.screens.HomeScreen
 import com.viel.aplayer.ui.screens.PlayerContentScreen
+import com.viel.aplayer.ui.screens.NewPlayerScreen
 import com.viel.aplayer.ui.screens.PlayerScreen
 import com.viel.aplayer.ui.screens.SearchScreen
 import com.viel.aplayer.ui.theme.APlayerTheme
@@ -112,6 +113,9 @@ class MainActivity : ComponentActivity() {
                         onRelatedClick = { 
                             playerViewModel.setSelectedContentTab(2)
                             navController.navigate("content/2") 
+                        },
+                        onNavigateToNewPlayer = {
+                            navController.navigate("new_player/-1")
                         }
                     )
                 }
@@ -122,6 +126,7 @@ class MainActivity : ComponentActivity() {
                     Box(modifier = Modifier.fillMaxSize()) {
                         val showMiniPlayer = currentRoute != "player" &&
                                              currentRoute != "content/{tab}" &&
+                                             currentRoute?.startsWith("new_player") == false &&
                                              currentRoute != "search" &&
                                              playerUiState.hasActiveTrack
 
@@ -242,6 +247,24 @@ class MainActivity : ComponentActivity() {
                                     playerViewModel.setSelectedContentTab(tab)
                                 }
                                 PlayerContentScreen(
+                                    uiState = playerUiState,
+                                    actions = playerActions,
+                                    navigationActions = playerNavigationActions
+                                )
+                            }
+
+                            composable(
+                                "new_player/{tab}",
+                                enterTransition = { fadeIn(animationSpec = tween(400)) },
+                                exitTransition = { fadeOut(animationSpec = tween(400)) },
+                                popEnterTransition = { fadeIn(animationSpec = tween(400)) },
+                                popExitTransition = { fadeOut(animationSpec = tween(400)) }
+                            ) { backStackEntry ->
+                                val tab = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: -1
+                                LaunchedEffect(tab) {
+                                    playerViewModel.setSelectedContentTab(tab)
+                                }
+                                NewPlayerScreen(
                                     uiState = playerUiState,
                                     actions = playerActions,
                                     navigationActions = playerNavigationActions

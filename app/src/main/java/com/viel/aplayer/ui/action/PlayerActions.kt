@@ -65,4 +65,5 @@ data class PlayerNavigationActions(
     val onBookmarksClick: () -> Unit = {},
     val onSubtitlesClick: () -> Unit = {},
     val onRelatedClick: () -> Unit = {},
+    val onNavigateToNewPlayer: () -> Unit = {},
 )
