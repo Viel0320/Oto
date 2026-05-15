@@ -693,20 +693,6 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     /**
-     * Get the cover path for a specific audiobook URI.
-     */
-    suspend fun getCoverPath(bookUri: String): String? {
-        return dao.getByUri(bookUri)?.coverPath
-    }
-
-    /**
-     * Get the thumbnail path for a specific audiobook URI.
-     */
-    suspend fun getThumbnailPath(bookUri: String): String? {
-        return dao.getByUri(bookUri)?.thumbnailPath
-    }
-
-    /**
      * Extract embedded cover art from the audio file.
      * Saves the original image and a 300px thumbnail.
      * Returns Pair(originalPath, thumbnailPath)

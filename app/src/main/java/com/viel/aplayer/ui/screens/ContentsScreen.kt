@@ -1,11 +1,17 @@
 package com.viel.aplayer.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -128,46 +134,131 @@ fun PlayerContentScreen(
                     // Content Area (Middle)
                     Box(modifier = Modifier.weight(1f)) {
                         // Main Tab Content
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(vertical = 12.dp)
-                        ) {
-                            when (uiState.selectedContentTab) {
-                                0 -> {
-                                    BookmarkListView(
-                                        bookmarks = uiState.currentBookmarks,
-                                        onBookmarkClick = { pos -> 
-                                            actions.seekWithUndo(pos)
-                                            if (!uiState.isPlaying) actions.onPlayPauseClick()
-                                        },
-                                        onDeleteClick = actions.onDeleteBookmark,
-                                        currentPosition = uiState.currentPosition
-                                    )
-                                }
-                                1 -> {
-                                    if (isReady) {
-                                        SubtitlesView(
-                                            subtitles = uiState.currentSubtitles,
-                                            currentPosition = uiState.currentPosition,
-                                            onSeek = { pos -> actions.seekWithUndo(pos) }
+                        AnimatedContent(
+                            targetState = uiState.selectedContentTab,
+                            transitionSpec = {
+                                if (targetState > initialState) {
+                                    // 向左滑动 (进入新内容)
+                                    (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300)))
+                                        .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
+                                } else {
+                                    // 向右滑动 (返回旧内容)
+                                    (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300)))
+                                        .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
+                                }.using(
+                                    SizeTransform(clip = false)
+                                )
+                            },
+                            label = "tab_content_transition",
+                            modifier = Modifier.fillMaxSize()
+                        ) { targetTab ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 12.dp)
+                            ) {
+                                when (targetTab) {
+                                    0 -> {
+                                        BookmarkListView(
+                                            bookmarks = uiState.currentBookmarks,
+                                            onBookmarkClick = { pos ->
+                                                actions.seekWithUndo(pos)
+                                                if (!uiState.isPlaying) actions.onPlayPauseClick()
+                                            },
+                                            onDeleteClick = actions.onDeleteBookmark,
+                                            currentPosition = uiState.currentPosition
                                         )
-                                    } else {
-                                        Box(modifier = Modifier.fillMaxSize())
                                     }
-                                }
-                                2 -> {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "Related Audiobooks",
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                alpha = 0.6f
-                                            ),
-                                            style = MaterialTheme.typography.titleMedium
+
+                                    1 -> {
+                                        // Subtitles View takes the remaining space
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            androidx.compose.animation.AnimatedVisibility(
+                                                visible = isReady,
+                                                enter = fadeIn(animationSpec = tween(500)),
+                                                exit = fadeOut(animationSpec = tween(300))
+                                            ) {
+                                                SubtitlesView(
+                                                    subtitles = uiState.currentSubtitles,
+                                                    currentPosition = uiState.currentPosition,
+                                                    onSeek = { pos -> actions.seekWithUndo(pos) }
+                                                )
+                                            }
+                                        }
+
+                                        // Playback Info & Controls
+                                        ChapterDisplay(
+                                            currentChapterTitle = uiState.currentChapter?.title ?: uiState.currentTitle,
+                                            onChapterClick = actions.onShowChapterList,
+                                            onBookmarkClick = actions.onShowBookmarkDialog,
+                                            modifier = Modifier.padding(horizontal = 24.dp),
+                                            title = uiState.currentTitle
                                         )
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        val currentChapter = uiState.currentChapter
+                                        val isChapterMode = uiState.isChapterProgressMode && currentChapter != null
+
+                                        val (displayPos, displayDur, displayMarkers) = if (isChapterMode) {
+                                            val start = currentChapter.startPosition
+                                            val end = currentChapter.endPosition
+                                            Triple(
+                                                (uiState.currentPosition - start).coerceAtLeast(0),
+                                                (end - start).coerceAtLeast(1),
+                                                emptyList()
+                                            )
+                                        } else {
+                                            Triple(uiState.currentPosition, uiState.duration, uiState.chapterMarkers)
+                                        }
+
+                                        PlaybackProgress(
+                                            currentPosition = displayPos,
+                                            duration = displayDur,
+                                            markers = displayMarkers,
+                                            onSeek = { relPos ->
+                                                val targetPos = if (isChapterMode) {
+                                                    currentChapter.startPosition + relPos
+                                                } else {
+                                                    relPos
+                                                }
+                                                actions.seek(targetPos)
+                                                if (!uiState.isPlaying) actions.onPlayPauseClick()
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 24.dp)
+                                        )
+
+                                        Spacer(modifier = Modifier.height(24.dp))
+
+                                        // Playback Controls
+                                        PlaybackControls(
+                                            isPlaying = uiState.isPlaying,
+                                            playbackSpeed = uiState.playbackSpeed,
+                                            selectedSleepTimer = uiState.selectedSleepTimer,
+                                            isSpeedManualMode = uiState.isSpeedManualMode,
+                                            actions = actions.playbackControls,
+                                            modifier = Modifier.padding(horizontal = 24.dp),
+                                            buttonColor = animatedBgColor
+                                        )
+                                        
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
+
+                                    2 -> {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Related Audiobooks",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                    alpha = 0.6f
+                                                ),
+                                                style = MaterialTheme.typography.titleMedium
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -212,66 +303,7 @@ fun PlayerContentScreen(
                         }
                     }
 
-                    if (uiState.selectedContentTab == 1) {
-                        // Chapter Display
-                        ChapterDisplay(
-                            currentChapterTitle = uiState.currentChapter?.title ?: uiState.currentTitle,
-                            onChapterClick = actions.onShowChapterList,
-                            onBookmarkClick = actions.onShowBookmarkDialog,
-                            modifier = Modifier.padding(horizontal = 24.dp),
-                            title = uiState.currentTitle
-                        )
 
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        val currentChapter = uiState.currentChapter
-                        val isChapterMode = uiState.isChapterProgressMode && currentChapter != null
-
-                        val (displayPos, displayDur, displayMarkers) = if (isChapterMode) {
-                            val start = currentChapter.startPosition
-                            val end = currentChapter.endPosition
-                            Triple(
-                                (uiState.currentPosition - start).coerceAtLeast(0),
-                                (end - start).coerceAtLeast(1),
-                                emptyList<Float>()
-                            )
-                        } else {
-                            Triple(uiState.currentPosition, uiState.duration, uiState.chapterMarkers)
-                        }
-
-                        PlaybackProgress(
-                            currentPosition = displayPos,
-                            duration = displayDur,
-                            markers = displayMarkers,
-                            onSeek = { relPos ->
-                                val targetPos = if (isChapterMode) {
-                                    currentChapter.startPosition + relPos
-                                } else {
-                                    relPos
-                                }
-                                actions.seek(targetPos)
-                                if (!uiState.isPlaying) actions.onPlayPauseClick()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Playback Controls
-                        PlaybackControls(
-                            isPlaying = uiState.isPlaying,
-                            playbackSpeed = uiState.playbackSpeed,
-                            selectedSleepTimer = uiState.selectedSleepTimer,
-                            isSpeedManualMode = uiState.isSpeedManualMode,
-                            actions = actions.playbackControls,
-                            modifier = Modifier.padding(horizontal = 24.dp),
-                            buttonColor = animatedBgColor
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-                    }
 
                     // Bottom Tabs
                     Column(
@@ -279,62 +311,91 @@ fun PlayerContentScreen(
                             .fillMaxWidth()
                             .navigationBarsPadding()
                     ) {
-                        Row(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp)
-                                .padding(horizontal = 24.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(horizontal = 24.dp)
                         ) {
-                            val interactionSource = remember { MutableInteractionSource() }
-                            Text(
-                                text = "Bookmark",
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable(
-                                        interactionSource = interactionSource,
-                                        indication = null
-                                    ) { actions.onSelectedContentTabChange(0) },
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 16.sp
-                                ),
-                                color = if (uiState.selectedContentTab == 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                textAlign = TextAlign.Start
+                            val tabTitles = listOf("Bookmark", "Subtitles", "Related")
+                            val alignments = listOf(TextAlign.Start, TextAlign.Center, TextAlign.End)
+                            
+                            // Widths for indicator matching text length (approximate or measured)
+                            // "Bookmark" ~ 80dp, "Subtitles" ~ 70dp, "Related" ~ 60dp
+                            val indicatorWidths = listOf(80.dp, 70.dp, 60.dp)
+                            
+                            val indicatorOffset by androidx.compose.animation.core.animateFloatAsState(
+                                targetValue = uiState.selectedContentTab.toFloat(),
+                                animationSpec = tween(300),
+                                label = "tab_indicator_offset"
                             )
-                            Text(
-                                text = "Subtitles",
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable(
-                                        interactionSource = interactionSource,
-                                        indication = null
-                                    ) { actions.onSelectedContentTabChange(1) },
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 16.sp
-                                ),
-                                color = if (uiState.selectedContentTab == 1) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                textAlign = TextAlign.Center
+                            
+                            val currentIndicatorWidth by androidx.compose.animation.core.animateDpAsState(
+                                targetValue = indicatorWidths[uiState.selectedContentTab],
+                                animationSpec = tween(300),
+                                label = "tab_indicator_width"
                             )
-                            Text(
-                                text = "Related",
+
+                            val activeColor = MaterialTheme.colorScheme.onSurface
+
+                            androidx.compose.foundation.Canvas(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable(
-                                        interactionSource = interactionSource,
-                                        indication = null
-                                    ) { actions.onSelectedContentTabChange(2) },
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 16.sp
-                                ),
-                                color = if (uiState.selectedContentTab == 2) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                textAlign = TextAlign.End
-                            )
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                            ) {
+                                val width = size.width
+                                val tabWidth = width / 3
+                                val indWidthPx = currentIndicatorWidth.toPx()
+                                
+                                // Calculate X position logic to be more fluid
+                                val fluidXPos = if (indicatorOffset <= 1f) {
+                                    // Transition between 0 and 1
+                                    val startX = 0f
+                                    val endX = (tabWidth / 2) - (indWidthPx / 2) + tabWidth
+                                    startX + (endX - startX) * indicatorOffset
+                                } else {
+                                    // Transition between 1 and 2
+                                    val startX = (tabWidth / 2) - (indWidthPx / 2) + tabWidth
+                                    val endX = width - indWidthPx
+                                    startX + (endX - startX) * (indicatorOffset - 1f)
+                                }
+                                
+                                drawRoundRect(
+                                    color = activeColor,
+                                    topLeft = androidx.compose.ui.geometry.Offset(fluidXPos, size.height - 4.dp.toPx()),
+                                    size = androidx.compose.ui.geometry.Size(indWidthPx, 3.dp.toPx()),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val interactionSource = remember { MutableInteractionSource() }
+                                tabTitles.forEachIndexed { index, title ->
+                                    Text(
+                                        text = title,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable(
+                                                interactionSource = interactionSource,
+                                                indication = null
+                                            ) { actions.onSelectedContentTabChange(index) },
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = if (uiState.selectedContentTab == index) FontWeight.Bold else FontWeight.SemiBold,
+                                            fontSize = 16.sp
+                                        ),
+                                        color = if (uiState.selectedContentTab == index) 
+                                            activeColor 
+                                        else 
+                                            activeColor.copy(alpha = 0.6f),
+                                        textAlign = alignments[index]
+                                    )
+                                }
+                            }
                         }
                         Spacer(modifier = Modifier.height(24.dp))
                     }
