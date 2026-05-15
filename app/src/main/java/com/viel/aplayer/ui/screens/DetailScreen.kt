@@ -1,5 +1,15 @@
 package com.viel.aplayer.ui.screens
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.text.SpannableStringBuilder
+import android.view.ActionMode
+import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.TextView
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -23,7 +33,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -51,17 +60,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.fromHtml
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.text.HtmlCompat
+import android.text.style.LeadingMarginSpan
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.ui.state.DetailUiState
@@ -172,16 +182,17 @@ fun DetailScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Title
-                SelectionContainer {
-                    Text(
-                        text = book?.title ?: "Unknown Title",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 24.dp)
-                    )
-                }
+                SelectableTextView(
+                    text = book?.title ?: "Unknown Title",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    textColor = MaterialTheme.colorScheme.onSurface,
+                    textSizeSp = 28f,
+                    lineSpacingExtraSp = 0f,
+                    gravity = Gravity.CENTER,
+                    typefaceStyle = android.graphics.Typeface.BOLD
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -338,17 +349,14 @@ fun DetailScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     val htmlDescription = book?.description ?: ""
                     
-                    SelectionContainer {
-                        Text(
-                            text = androidx.compose.ui.text.AnnotatedString.fromHtml(htmlDescription),
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 24.sp,
-                                textIndent = androidx.compose.ui.text.style.TextIndent(firstLine = 2.em)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    SelectableTextView(
+                        text = HtmlCompat.fromHtml(htmlDescription, HtmlCompat.FROM_HTML_MODE_COMPACT),
+                        modifier = Modifier.fillMaxWidth(),
+                        textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textSizeSp = 16f,
+                        lineSpacingExtraSp = 4f,
+                        firstLineIndentEm = 2f
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
@@ -372,15 +380,122 @@ fun DetailScreen(
                 }
             },
             title = { infoDialogTitle?.let { Text(it) } },
-            text = { 
-                SelectionContainer {
-                    Text(
-                        text = infoDialogText!!,
-                        style = MaterialTheme.typography.bodyLarge // 内容文字调大
-                    )
-                }
+            text = {
+                SelectableTextView(
+                    text = infoDialogText!!,
+                    modifier = Modifier.fillMaxWidth(),
+                    textColor = MaterialTheme.colorScheme.onSurface,
+                    textSizeSp = 16f,
+                    lineSpacingExtraSp = 4f
+                )
             }
         )
+    }
+}
+
+@Composable
+private fun SelectableTextView(
+    text: CharSequence,
+    modifier: Modifier = Modifier,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    textSizeSp: Float = 16f,
+    lineSpacingExtraSp: Float = 0f,
+    firstLineIndentEm: Float = 0f,
+    gravity: Int = Gravity.START,
+    typefaceStyle: Int = android.graphics.Typeface.NORMAL
+) {
+    val textColorInt = textColor.toArgb()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val lineSpacingExtraPx = with(density) { lineSpacingExtraSp.sp.toPx() }
+    val firstLineIndentPx = with(density) {
+        (textSizeSp * firstLineIndentEm).sp.toPx().toInt()
+    }
+    val displayText = remember(text, firstLineIndentPx) {
+        if (firstLineIndentPx > 0) {
+            SpannableStringBuilder(text).apply {
+                setSpan(
+                    LeadingMarginSpan.Standard(firstLineIndentPx, 0),
+                    0,
+                    length,
+                    0
+                )
+            }
+        } else {
+            text
+        }
+    }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            TextView(context).apply {
+                setTextIsSelectable(true)
+                background = null
+                setPadding(0, 0, 0, 0)
+                setHorizontallyScrolling(false)
+                customSelectionActionModeCallback = ProcessTextMenuCallback(this)
+            }
+        },
+        update = { tv ->
+            if (tv.text?.toString() != displayText.toString()) {
+                tv.text = displayText
+            }
+            tv.setTextColor(textColorInt)
+            tv.textSize = textSizeSp
+            tv.gravity = gravity
+            tv.typeface = android.graphics.Typeface.create(
+                android.graphics.Typeface.DEFAULT,
+                typefaceStyle
+            )
+            tv.setLineSpacing(lineSpacingExtraPx, 1.0f)
+        }
+    )
+}
+
+private class ProcessTextMenuCallback(
+    private val textView: TextView
+) : ActionMode.Callback {
+    override fun onCreateActionMode(mode: ActionMode, menu: Menu) = true
+    override fun onDestroyActionMode(mode: ActionMode) = Unit
+
+    override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+        val pm = textView.context.packageManager
+        val baseIntent = Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain")
+        val activities = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.queryIntentActivities(baseIntent, PackageManager.ResolveInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(baseIntent, 0)
+        }
+        activities.forEachIndexed { index, ri ->
+            val label = ri.loadLabel(pm).toString()
+            if (menu.findItem(label.hashCode()) == null) {
+                menu.add(Menu.NONE, label.hashCode(), 100 + index, label)
+                    .setIntent(
+                        Intent(baseIntent)
+                            .setClassName(ri.activityInfo.packageName, ri.activityInfo.name)
+                            .putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
+                    )
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+            }
+        }
+        return true
+    }
+
+    override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+        val intent = item.intent ?: return false
+        val s = textView.selectionStart.coerceAtLeast(0)
+        val e = textView.selectionEnd.coerceAtLeast(0)
+        val text = textView.text.subSequence(minOf(s, e), maxOf(s, e)).toString()
+        if (text.isEmpty()) return false
+        intent.putExtra(Intent.EXTRA_PROCESS_TEXT, text)
+        return try {
+            textView.context.startActivity(intent)
+            mode.finish()
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        }
     }
 }
 
