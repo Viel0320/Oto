@@ -48,16 +48,20 @@ fun AudiobookListItem(
     ListItem(
         modifier = modifier.clickable { onClick() },
         headlineContent = { 
-            Text(
-                title, 
-                maxLines = 1, 
-                overflow = TextOverflow.Ellipsis,
-                fontWeight = FontWeight.SemiBold
-            ) 
-        },
-        supportingContent = {
-            Column {
-                Text(formatPeopleSubtitle(author, narrator), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
+                Text(
+                    title, 
+                    maxLines = 1, 
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.SemiBold
+                ) 
+                Text(
+                    formatPeopleSubtitle(author, narrator), 
+                    maxLines = 1, 
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -87,15 +91,15 @@ fun AudiobookListItem(
                         style = textStyle,
                         color = textColor
                     )
-                    
-                    if (addedAt != null) {
-                        Text(text = separator, style = textStyle, color = textColor)
-                        Text(
-                            text = formatShortDate(addedAt),
-                            style = textStyle,
-                            color = textColor
-                        )
-                    }
+//
+//                    if (addedAt != null) {
+//                        Text(text = separator, style = textStyle, color = textColor)
+//                        Text(
+//                            text = formatShortDate(addedAt) + " added at " + formatShortDate(addedAt) ,
+//                            style = textStyle,
+//                            color = textColor
+//                        )
+//                    }
                 }
             }
         },
