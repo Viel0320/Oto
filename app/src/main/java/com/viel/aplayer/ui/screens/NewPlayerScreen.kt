@@ -175,20 +175,18 @@ fun NewPlayerScreen(
                     narrator = uiState.currentNarrator,
                     onNavigationClick = {
                         focusManager.clearFocus()
-                        if (currentMode == PlayerScreenMode.PLAYER) {
-                            navigationActions.onMinimize()
-                        } else {
-                            currentMode = PlayerScreenMode.PLAYER
-                        }
+                        navigationActions.onMinimize()
+
                     },
                     onToggleProgressMode = actions.onToggleProgressMode,
                     isChapterProgressMode = uiState.isChapterProgressMode
                 )
 
-                // 2. Middle Content Area - 状态切换
+                // 2. Main Content & Controls Area
                 Box(modifier = Modifier.weight(1f)) {
                     AnimatedContent(
                         targetState = currentMode,
+                        modifier = Modifier.fillMaxSize(),
                         transitionSpec = {
                             if (initialState == PlayerScreenMode.PLAYER || targetState == PlayerScreenMode.PLAYER) {
                                 fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
@@ -204,40 +202,52 @@ fun NewPlayerScreen(
                         },
                         label = "player_mode_transition"
                     ) { mode ->
-                        when (mode) {
-                            PlayerScreenMode.PLAYER -> {
-                                MainCoverView(uiState, actions)
-                            }
-                            PlayerScreenMode.BOOKMARKS -> {
-                                BookmarkListView(
-                                    bookmarks = uiState.currentBookmarks,
-                                    onBookmarkClick = { pos -> actions.onSeek(pos, true) },
-                                    onDeleteClick = actions.onDeleteBookmark,
-                                    onUpdateClick = actions.onUpdateBookmark,
-                                    currentPosition = uiState.currentPosition
-                                )
-                            }
-                            PlayerScreenMode.SUBTITLES -> {
-                                SubtitlesView(
-                                    subtitles = uiState.currentSubtitles,
-                                    currentPosition = uiState.currentPosition,
-                                    onSeek = { pos -> actions.onSeek(pos, true) }
-                                )
-                            }
-                            PlayerScreenMode.RELATED -> {
-                                RelatedBooksView(
-                                    author = uiState.currentAuthor,
-                                    narrator = uiState.currentNarrator,
-                                    authorBooks = uiState.relatedAuthorBooks,
-                                    narratorBooks = uiState.relatedNarratorBooks,
-                                    recentBooks = uiState.recentlyAddedBooks,
-                                    onBookClick = actions.onLoadRelatedBook
-                                )
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            when (mode) {
+                                PlayerScreenMode.PLAYER -> {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        MainCoverView(uiState, actions)
+                                    }
+                                    StablePlaybackControls(uiState, actions, animatedBgColor)
+                                }
+                                PlayerScreenMode.BOOKMARKS -> {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        BookmarkListView(
+                                            bookmarks = uiState.currentBookmarks,
+                                            onBookmarkClick = { pos -> actions.onSeek(pos, true) },
+                                            onDeleteClick = actions.onDeleteBookmark,
+                                            onUpdateClick = actions.onUpdateBookmark,
+                                            currentPosition = uiState.currentPosition
+                                        )
+                                    }
+                                }
+                                PlayerScreenMode.SUBTITLES -> {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        SubtitlesView(
+                                            subtitles = uiState.currentSubtitles,
+                                            currentPosition = uiState.currentPosition,
+                                            onSeek = { pos -> actions.onSeek(pos, true) }
+                                        )
+                                    }
+                                    StablePlaybackControls(uiState, actions, animatedBgColor)
+                                }
+                                PlayerScreenMode.RELATED -> {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        RelatedBooksView(
+                                            author = uiState.currentAuthor,
+                                            narrator = uiState.currentNarrator,
+                                            authorBooks = uiState.relatedAuthorBooks,
+                                            narratorBooks = uiState.relatedNarratorBooks,
+                                            recentBooks = uiState.recentlyAddedBooks,
+                                            onBookClick = actions.onLoadRelatedBook
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
 
-                    // Undo Seek Banner - Overlay
+                    // Undo Seek Banner - Overlay on top of content
                     androidx.compose.animation.AnimatedVisibility(
                         visible = uiState.showUndoSeek,
                         enter = fadeIn() + androidx.compose.animation.expandVertically(),
@@ -270,17 +280,6 @@ fun NewPlayerScreen(
                             }
                         }
                     }
-                }
-
-                // 3. Stable Bottom Controls - 位置保持不变
-                val controlsVisible = currentMode == PlayerScreenMode.PLAYER || currentMode == PlayerScreenMode.SUBTITLES
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = controlsVisible,
-                    enter = androidx.compose.animation.expandVertically(tween(300)) + fadeIn(),
-                    exit = androidx.compose.animation.shrinkVertically(tween(300)) + fadeOut(),
-                    label = "controls_visibility"
-                ) {
-                    StablePlaybackControls(uiState, actions, animatedBgColor)
                 }
 
                 // 4. Navigation Tabs - 始终固定
@@ -328,12 +327,54 @@ private fun MainCoverView(uiState: PlayerUiState, actions: PlayerActions) {
             .fillMaxSize()
             .padding(horizontal = 24.dp, vertical = 32.dp) // 增加固定边距
             .pointerInput(Unit) {
+                var offsetX = 0f
+                var offsetY = 0f
+                var dragDirectionLocked = false // 是否已锁定滑动方向
+                var isVerticalDrag = false
+
                 detectDragGestures(
+                    onDragStart = {
+                        offsetX = 0f
+                        offsetY = 0f
+                        dragDirectionLocked = false
+                        isVerticalDrag = false
+                    },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x)) {
+                        offsetX += dragAmount.x
+                        offsetY += dragAmount.y
+
+                        // 如果方向未锁定，且滑动距离超过阈值（30px），则锁定方向
+                        if (!dragDirectionLocked) {
+                            if (kotlin.math.abs(offsetY) > 30f) {
+                                isVerticalDrag = true
+                                dragDirectionLocked = true
+                            } else if (kotlin.math.abs(offsetX) > 30f) {
+                                isVerticalDrag = false
+                                dragDirectionLocked = true
+                            }
+                        }
+
+                        // 如果已锁定为垂直方向，且总位移超过 50px，才开始调节音量
+                        if (dragDirectionLocked && isVerticalDrag && kotlin.math.abs(offsetY) > 50f) {
                             actions.onAdjustVolume(-dragAmount.y * 0.002f)
                         }
+                    },
+                    onDragEnd = {
+                        // 只有锁定为横向滑动且超过 150px 时才触发章节跳转
+                        if (dragDirectionLocked && !isVerticalDrag) {
+                            if (offsetX < -150f) {
+                                actions.onPreviousChapter()
+                            } else if (offsetX > 150f) {
+                                actions.onNextChapter()
+                            }
+                        }
+                        offsetX = 0f
+                        offsetY = 0f
+                    },
+                    onDragCancel = {
+                        offsetX = 0f
+                        offsetY = 0f
                     }
                 )
             },
