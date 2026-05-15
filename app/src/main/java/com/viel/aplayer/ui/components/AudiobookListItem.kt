@@ -27,7 +27,7 @@ import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.ui.utils.formatCompactDuration
 import com.viel.aplayer.ui.utils.formatPeopleSubtitle
-import com.viel.aplayer.ui.utils.formatShortDate
+//import com.viel.aplayer.ui.utils.formatShortDate
 import androidx.compose.ui.tooling.preview.Preview
 import com.viel.aplayer.ui.theme.APlayerTheme
 import java.io.File
@@ -42,7 +42,7 @@ fun AudiobookListItem(
     modifier: Modifier = Modifier,
     coverPath: String? = null,
     progressPercent: Int? = null,
-    addedAt: Long? = null,
+//    addedAt: Long? = null,
     onPlayClick: () -> Unit = {}
 ) {
     ListItem(
