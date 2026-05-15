@@ -4,21 +4,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -26,7 +28,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,6 +45,9 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatTime
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,46 +59,79 @@ fun ChapterListSheet(
     onChapterClick: (Long) -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 ) {
-    if (isVisible) {
-        val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val windowInfo = LocalWindowInfo.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
-        // 每次 sheet 打开时，重置列表位置到当前章节
-        LaunchedEffect(Unit) {
-            val index = chapters.indexOfFirst { it.id == currentChapter?.id }
-            if (index >= 0) {
-                listState.scrollToItem((index - 2).coerceAtLeast(0))
+    // 1. 初始索引计算
+    val initialIndex = remember(chapters, currentChapter) {
+        val index = chapters.indexOfFirst { it.id == currentChapter?.id }
+        (index - 2).coerceAtLeast(0)
+    }
+
+    // 2. 状态重置：每次可见性变化时重新创建 listState，确保应用 initialIndex 且消除闪烁
+    val listState = remember(isVisible) {
+        LazyListState(firstVisibleItemIndex = initialIndex)
+    }
+
+    // 3. 动画同步：在打开动画完成后才开启 offset 计算，确保滑入动画时内容与标题同步
+    var canCalculateOffset by remember(isVisible) { mutableStateOf(false) }
+    LaunchedEffect(isVisible) {
+        if (isVisible) {
+            // 等待进入动画完成并稳定
+            snapshotFlow { sheetState.currentValue == sheetState.targetValue }
+                .filter { it }
+                .first()
+            canCalculateOffset = true
+        } else {
+            canCalculateOffset = false
+        }
+    }
+
+    val dynamicSpacerHeight by remember(sheetState, canCalculateOffset) {
+        derivedStateOf {
+            val halfHeight = with(density) { (windowInfo.containerSize.height / 2).toDp() }
+            if (!canCalculateOffset || sheetState.targetValue == SheetValue.Hidden) {
+                halfHeight
+            } else {
+                try {
+                    val offsetPx = sheetState.requireOffset()
+                    with(density) { offsetPx.toDp() }
+                } catch (_: IllegalStateException) {
+                    halfHeight
+                }
             }
         }
+    }
 
+    if (isVisible) {
         if (LocalInspectionMode.current) {
             ChapterListContent(chapters, currentChapter, onChapterClick, listState)
         } else {
-            // 根据 sheetState 的偏移量计算动态底部占位高度
-            // 部分展开时 offset 大 → 占位高；全屏展开时 offset 小 → 占位趋近 0
-            val density = LocalDensity.current
-            val windowInfo = LocalWindowInfo.current
-            val dynamicSpacerHeight by remember(sheetState) {
-                derivedStateOf {
-                    try {
-                        val offsetPx = sheetState.requireOffset()
-                        with(density) { offsetPx.toDp() }
-                    } catch (_: IllegalStateException) {
-                        // 初始值设为窗口高度的一半，匹配半展开状态
-                        with(density) { (windowInfo.containerSize.height / 2).toDp() }
-                    }
-                }
-            }
-
             ModalBottomSheet(
                 onDismissRequest = onDismissRequest,
                 sheetState = sheetState,
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp,
+                contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+                dragHandle = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Spacer(Modifier.statusBarsPadding())
+                        BottomSheetDefaults.DragHandle()
+                    }
+                }
             ) {
                 ChapterListContent(
                     chapters = chapters,
                     currentChapter = currentChapter,
-                    onChapterClick = onChapterClick,
+                    onChapterClick = { pos ->
+                        // 修复动画丢失：先手动触发隐藏动画，再回调关闭
+                        scope.launch {
+                            sheetState.hide()
+                            onChapterClick(pos)
+                            onDismissRequest()
+                        }
+                    },
                     listState = listState,
                     bottomSpacerHeight = dynamicSpacerHeight
                 )
@@ -111,16 +152,16 @@ fun ChapterListContent(
 
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp)
-            .navigationBarsPadding()
+            .fillMaxWidth()            .padding(horizontal = 16.dp)
     ) {
         Text(
             text = "Chapters",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp, top = 8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp, top = 8.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
         if (chapters.isEmpty()) {
@@ -179,12 +220,11 @@ fun ChapterListContent(
                 // 动态底部占位：部分展开时高度大，全屏时趋近0
                 // 使列表内容可以被滚动到可视区域上方
                 item(key = "bottom_spacer") {
-                    Spacer(modifier = Modifier.height(bottomSpacerHeight))
+                    Spacer(modifier = Modifier.height(bottomSpacerHeight+32.dp))
                 }
 
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 

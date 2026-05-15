@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.viewmodel
 
 import android.content.ComponentName
 import android.content.Context
+import android.media.AudioManager
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
@@ -40,6 +41,7 @@ class PlayerViewModel : ViewModel() {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var player: Player? = null
     private var libraryRepository: LibraryRepository? = null
+    private var audioManager: AudioManager? = null
     private var currentMediaUri: String? = null
 
     private val _uiState = MutableStateFlow(PlayerUiState())
@@ -59,6 +61,7 @@ class PlayerViewModel : ViewModel() {
         if (controllerFuture != null) return
         val appContext = context.applicationContext
         libraryRepository = LibraryRepository.getInstance(appContext)
+        audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
         val sessionToken = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
         controllerFuture = MediaController.Builder(appContext, sessionToken).buildAsync()
@@ -552,6 +555,53 @@ class PlayerViewModel : ViewModel() {
 
     fun toggleProgressMode() {
         _uiState.update { it.copy(isChapterProgressMode = !it.isChapterProgressMode) }
+    }
+
+    private var volumeAccumulator = 0f
+    fun adjustVolume(delta: Float) {
+        val am = audioManager ?: return
+        volumeAccumulator += delta
+        
+        // 每个单位步长需要的滑动位移，可以根据灵敏度调整
+        val threshold = 0.05f 
+        
+        if (kotlin.math.abs(volumeAccumulator) >= threshold) {
+            val direction = if (volumeAccumulator > 0) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER
+            am.adjustStreamVolume(
+                AudioManager.STREAM_MUSIC,
+                direction,
+                AudioManager.FLAG_SHOW_UI // 显示系统音量条
+            )
+            volumeAccumulator = 0f
+        }
+    }
+
+    fun skipToNextChapter() {
+        val state = _uiState.value
+        val chapters = state.currentChapters
+        if (chapters.isEmpty()) return
+        
+        val currentIndex = chapters.indexOfLast { state.currentPosition >= it.startPosition }
+        if (currentIndex != -1 && currentIndex < chapters.size - 1) {
+            seekTo(chapters[currentIndex + 1].startPosition)
+        }
+    }
+
+    fun skipToPreviousChapter() {
+        val state = _uiState.value
+        val chapters = state.currentChapters
+        if (chapters.isEmpty()) return
+
+        val currentIndex = chapters.indexOfLast { state.currentPosition >= it.startPosition }
+        if (currentIndex != -1) {
+            val currentChapter = chapters[currentIndex]
+            // If we are more than 3 seconds into the chapter, go to start of current chapter
+            if (state.currentPosition - currentChapter.startPosition > 3000) {
+                seekTo(currentChapter.startPosition)
+            } else if (currentIndex > 0) {
+                seekTo(chapters[currentIndex - 1].startPosition)
+            }
+        }
     }
 
     private fun updateCoverPath(path: String?) {
