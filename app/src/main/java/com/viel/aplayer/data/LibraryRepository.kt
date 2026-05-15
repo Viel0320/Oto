@@ -619,6 +619,13 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     /**
+     * Update a bookmark.
+     */
+    suspend fun updateBookmark(bookmark: BookmarkEntity) {
+        bookmarkDao.insert(bookmark)
+    }
+
+    /**
      * Delete a bookmark.
      */
     suspend fun deleteBookmark(bookmark: BookmarkEntity) {

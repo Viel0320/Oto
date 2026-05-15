@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
                         onSeek = { pos, allowUndo -> playerViewModel.seekTo(pos, allowUndo) },
                         onUndoSeek = { playerViewModel.undoSeek() },
                         onDeleteBookmark = { bookmark -> playerViewModel.deleteBookmark(bookmark) },
+                        onUpdateBookmark = { bookmark, newTitle -> playerViewModel.updateBookmark(bookmark, newTitle) },
                         onPlayPauseClick = { playerViewModel.togglePlayPause() },
                         onSkipForward = { playerViewModel.skipForward() },
                         onSkipBackward = { playerViewModel.skipBackward() },

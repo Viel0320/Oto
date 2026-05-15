@@ -305,6 +305,16 @@ class PlayerViewModel : ViewModel() {
         }
     }
 
+    fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) {
+        viewModelScope.launch {
+            val updatedBookmark = bookmark.copy(
+                title = newTitle,
+                createdAt = System.currentTimeMillis()
+            )
+            libraryRepository?.updateBookmark(updatedBookmark)
+        }
+    }
+
     private fun extractChaptersFromPlayer(player: Player) {
         val uri = currentMediaUri ?: return
 

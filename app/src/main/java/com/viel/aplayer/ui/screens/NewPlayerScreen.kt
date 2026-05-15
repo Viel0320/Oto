@@ -211,6 +211,7 @@ fun NewPlayerScreen(
                                     bookmarks = uiState.currentBookmarks,
                                     onBookmarkClick = { pos -> actions.onSeek(pos, true) },
                                     onDeleteClick = actions.onDeleteBookmark,
+                                    onUpdateClick = actions.onUpdateBookmark,
                                     currentPosition = uiState.currentPosition
                                 )
                             }

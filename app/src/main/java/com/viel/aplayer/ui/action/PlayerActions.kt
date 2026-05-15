@@ -21,6 +21,7 @@ data class PlayerActions(
     val onSeek: (positionMs: Long, allowUndo: Boolean) -> Unit = { _, _ -> },
     val onUndoSeek: () -> Unit = {},
     val onDeleteBookmark: (BookmarkEntity) -> Unit = {},
+    val onUpdateBookmark: (BookmarkEntity, String) -> Unit = { _, _ -> },
     val onPlayPauseClick: () -> Unit = {},
     val onSkipForward: () -> Unit = {},
     val onSkipBackward: () -> Unit = {},
