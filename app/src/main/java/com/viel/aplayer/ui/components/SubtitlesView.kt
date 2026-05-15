@@ -143,24 +143,6 @@ fun SubtitlesView(
                 }
             }
         }
-        
-        // ... (Resume button logic)
-        if (!autoScrollEnabled && scrollIndex != -1 && subtitles.isNotEmpty()) {
-            androidx.compose.animation.AnimatedVisibility(
-                visible = true,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
-            ) {
-                Button(
-                    onClick = { autoScrollEnabled = true },
-                    colors = ButtonDefaults.filledTonalButtonColors(),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-                ) {
-                    Icon(painterResource(R.drawable.ic_rounded_history), contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Resume Sync")
-                }
-            }
-        }
     }
 }
 

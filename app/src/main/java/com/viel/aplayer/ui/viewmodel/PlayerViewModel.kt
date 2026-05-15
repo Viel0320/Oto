@@ -171,8 +171,8 @@ class PlayerViewModel : ViewModel() {
                         }
                         
                         saveCounter++
-                        // Save progress every 2 seconds (4 * 500ms)
-                        if (saveCounter >= 4) {
+                        // Save progress every 10 seconds (20 * 500ms)
+                        if (saveCounter >= 20) {
                             saveCounter = 0
                             saveProgress()
                         }
@@ -445,7 +445,7 @@ class PlayerViewModel : ViewModel() {
             _uiState.update { it.copy(showUndoSeek = true, currentPosition = positionMs) }
             undoJob?.cancel()
             undoJob = viewModelScope.launch {
-                delay(5000)
+                delay(3000)
                 _uiState.update { it.copy(showUndoSeek = false) }
             }
         } else {

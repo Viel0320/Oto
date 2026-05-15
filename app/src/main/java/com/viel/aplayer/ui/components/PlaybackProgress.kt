@@ -18,24 +18,37 @@ import com.viel.aplayer.ui.utils.formatTime
 @Composable
 fun PlaybackProgress(
     currentPosition: Long,
-    duration: Long,
+    totalDuration: Long,
+    isChapterMode: Boolean,
+    chapterStart: Long,
+    chapterEnd: Long,
     markers: List<Float>,
     currentChapterIndex: Int,
     chapterCount: Int,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // 逻辑放回组件内部处理
+    val effectiveEnd = if (isChapterMode && chapterEnd <= chapterStart) totalDuration else if (isChapterMode) chapterEnd else totalDuration
+    val displayDur = if (isChapterMode) (effectiveEnd - chapterStart).coerceAtLeast(1) else totalDuration
+    val displayPos = if (isChapterMode) (currentPosition - chapterStart).coerceAtLeast(0) else currentPosition
+
     Column(modifier = modifier.fillMaxWidth()) {
         AudioProgressBar(
             progress = {
-                if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
+                if (displayDur > 0) displayPos.toFloat() / displayDur.toFloat() else 0f
             },
             onProgressChange = { newProgress ->
-                if (duration > 0) {
-                    onSeek((newProgress * duration).toLong())
+                if (displayDur > 0) {
+                    val targetPos = if (isChapterMode) {
+                        chapterStart + (newProgress * displayDur).toLong()
+                    } else {
+                        (newProgress * totalDuration).toLong()
+                    }
+                    onSeek(targetPos)
                 }
             },
-            markers = markers,
+            markers = if (isChapterMode) emptyList() else markers,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -46,7 +59,7 @@ fun PlaybackProgress(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = formatTime(currentPosition),
+                text = formatTime(displayPos),
                 style = MaterialTheme.typography.labelMedium
             )
             
@@ -59,7 +72,7 @@ fun PlaybackProgress(
             }
 
             Text(
-                text = formatTime(duration),
+                text = formatTime(displayDur),
                 style = MaterialTheme.typography.labelMedium
             )
         }
@@ -73,7 +86,10 @@ fun PlaybackProgressPreview() {
         Surface {
             PlaybackProgress(
                 currentPosition = 120000L,
-                duration = 360000L,
+                totalDuration = 360000L,
+                isChapterMode = false,
+                chapterStart = 0,
+                chapterEnd = 0,
                 markers = listOf(0.2f, 0.5f, 0.8f),
                 currentChapterIndex = 1,
                 chapterCount = 4,

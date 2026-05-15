@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -247,36 +247,37 @@ fun NewPlayerScreen(
                         }
                     }
 
-                    // Undo Seek Banner - Overlay on top of content
+                    // Undo Seek Button - Overlay
                     androidx.compose.animation.AnimatedVisibility(
                         visible = uiState.showUndoSeek,
-                        enter = fadeIn() + androidx.compose.animation.expandVertically(),
-                        exit = fadeOut() + androidx.compose.animation.shrinkVertically(),
+                        enter = fadeIn(),
+                        exit = fadeOut(),
                         modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 24.dp)
-                            .padding(horizontal = 24.dp)
+                            .align(Alignment.Center)
+                            .offset(y = 65.dp)
                     ) {
                         Surface(
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            onClick = actions.onUndoSeek,
+                            shape = RoundedCornerShape(20.dp),
                             color = MaterialTheme.colorScheme.secondaryContainer,
-                            tonalElevation = 4.dp,
+                            tonalElevation = 6.dp,
                             shadowElevation = 8.dp
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = "Jumped to new position",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_rounded_history),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
                                 )
-                                TextButton(onClick = actions.onUndoSeek) {
-                                    Text("UNDO", fontWeight = FontWeight.Bold)
-                                }
+                                Text(
+                                    text = "Undo Seek",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -356,8 +357,8 @@ private fun MainCoverView(uiState: PlayerUiState, actions: PlayerActions) {
                         }
 
                         // 如果已锁定为垂直方向，且总位移超过 50px，才开始调节音量
-                        if (dragDirectionLocked && isVerticalDrag && kotlin.math.abs(offsetY) > 50f) {
-                            actions.onAdjustVolume(-dragAmount.y * 0.002f)
+                        if (dragDirectionLocked && isVerticalDrag && kotlin.math.abs(offsetY) > 150f) {
+                            actions.onAdjustVolume(-dragAmount.y * 0.001f)
                         }
                     },
                     onDragEnd = {
@@ -420,18 +421,16 @@ private fun StablePlaybackControls(uiState: PlayerUiState, actions: PlayerAction
         )
         Spacer(Modifier.height(16.dp))
         
-        val currentChapter = uiState.currentChapter
-        val isChapterMode = uiState.isChapterProgressMode && currentChapter != null
-        val displayPos = if (isChapterMode) (uiState.currentPosition - currentChapter.startPosition).coerceAtLeast(0) else uiState.currentPosition
-        val displayDur = if (isChapterMode) (currentChapter.endPosition - currentChapter.startPosition).coerceAtLeast(1) else uiState.duration
-
         PlaybackProgress(
-            currentPosition = displayPos,
-            duration = displayDur,
-            markers = if (isChapterMode) emptyList() else uiState.chapterMarkers,
+            currentPosition = uiState.currentPosition,
+            totalDuration = uiState.duration,
+            isChapterMode = uiState.isChapterProgressMode && uiState.currentChapter != null,
+            chapterStart = uiState.currentChapter?.startPosition ?: 0L,
+            chapterEnd = uiState.currentChapter?.endPosition ?: 0L,
+            markers = uiState.chapterMarkers,
             currentChapterIndex = uiState.currentChapters.indexOf(uiState.currentChapter),
             chapterCount = uiState.currentChapters.size,
-            onSeek = { relPos -> actions.onSeek(if (isChapterMode) currentChapter.startPosition + relPos else relPos, true) }
+            onSeek = { pos -> actions.onSeek(pos, true) }
         )
         Spacer(Modifier.height(24.dp))
         PlaybackControls(
