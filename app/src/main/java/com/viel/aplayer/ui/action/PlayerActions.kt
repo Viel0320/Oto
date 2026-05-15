@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.action
 
+import com.viel.aplayer.data.AudiobookEntity
 import com.viel.aplayer.data.BookmarkEntity
 
 data class PlaybackControlActions(
@@ -40,6 +41,7 @@ data class PlayerActions(
     val onAdjustVolume: (delta: Float) -> Unit = {},
     val onNextChapter: () -> Unit = {},
     val onPreviousChapter: () -> Unit = {},
+    val onLoadRelatedBook: (AudiobookEntity) -> Unit = {},
 ) {
     val playbackControls: PlaybackControlActions = PlaybackControlActions(
         onPlayPauseClick = onPlayPauseClick,

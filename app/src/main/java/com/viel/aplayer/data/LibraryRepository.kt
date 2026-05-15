@@ -148,6 +148,8 @@ class LibraryRepository private constructor(context: Context) {
     
     fun filterByNarrator(narrator: String): Flow<List<AudiobookEntity>> = dao.filterByNarrator(narrator)
 
+    fun getRecentlyAdded(limit: Int): Flow<List<AudiobookEntity>> = dao.getRecentlyAdded(limit)
+
     @SuppressLint("CheckResult")
     @Suppress("DEPRECATION")
     fun addAudiobook(uri: Uri, parentDir: DocumentFile? = null, fileName: String? = null) {

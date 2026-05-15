@@ -54,6 +54,9 @@ interface AudiobookDao {
     @Query("SELECT * FROM audiobooks WHERE narrator LIKE '%' || :narrator || '%' ORDER BY title ASC")
     fun filterByNarrator(narrator: String): Flow<List<AudiobookEntity>>
 
+    @Query("SELECT * FROM audiobooks ORDER BY addedAt DESC LIMIT :limit")
+    fun getRecentlyAdded(limit: Int): Flow<List<AudiobookEntity>>
+
     @Query("DELETE FROM audiobooks WHERE uri = :uri")
     suspend fun deleteByUri(uri: String)
     

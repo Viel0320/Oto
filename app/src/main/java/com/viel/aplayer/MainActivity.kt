@@ -88,7 +88,17 @@ class MainActivity : ComponentActivity() {
                         onToggleProgressMode = { playerViewModel.toggleProgressMode() },
                         onAdjustVolume = { delta -> playerViewModel.adjustVolume(delta) },
                         onNextChapter = { playerViewModel.skipToNextChapter() },
-                        onPreviousChapter = { playerViewModel.skipToPreviousChapter() }
+                        onPreviousChapter = { playerViewModel.skipToPreviousChapter() },
+                        onLoadRelatedBook = { book ->
+                            playerViewModel.loadMedia(
+                                uri = book.uri.toUri(),
+                                title = book.title,
+                                author = book.author,
+                                narrator = book.narrator,
+                                startPositionMs = book.lastPosition,
+                                playWhenReady = true
+                            )
+                        }
                     )
                 }
                 val miniPlayerActions = remember(playerViewModel) {

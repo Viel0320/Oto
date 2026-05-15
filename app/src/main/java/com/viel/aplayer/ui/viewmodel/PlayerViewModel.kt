@@ -56,6 +56,7 @@ class PlayerViewModel : ViewModel() {
     private var sleepTimerJob: kotlinx.coroutines.Job? = null
     private var chaptersJob: kotlinx.coroutines.Job? = null
     private var bookmarksJob: kotlinx.coroutines.Job? = null
+    private var relatedBooksJob: kotlinx.coroutines.Job? = null
 
     fun initialize(context: Context) {
         if (controllerFuture != null) return
@@ -153,6 +154,7 @@ class PlayerViewModel : ViewModel() {
                     loadChapters(mediaItem.mediaId)
                     loadSubtitles(mediaItem.mediaId)
                     loadBookmarks(mediaItem.mediaId)
+                    loadRelatedBooks(mediaItem.mediaId, transAuthor ?: "Unknown Author", transNarrator ?: "Unknown Narrator")
                 }
             })
             // Start progress polling & auto-save
@@ -226,6 +228,7 @@ class PlayerViewModel : ViewModel() {
         loadChapters(uri.toString())
         loadSubtitles(uri.toString())
         loadBookmarks(uri.toString())
+        loadRelatedBooks(uri.toString(), author, narrator)
 
         // Only set metadata we actually know
         val metadataBuilder = MediaMetadata.Builder().setTitle(title)
@@ -287,6 +290,32 @@ class PlayerViewModel : ViewModel() {
         bookmarksJob = viewModelScope.launch {
             libraryRepository?.getBookmarks(uri)?.collect {
                 _uiState.update { state -> state.copy(currentBookmarks = it) }
+            }
+        }
+    }
+
+    private fun loadRelatedBooks(currentUri: String, author: String, narrator: String) {
+        relatedBooksJob?.cancel()
+        relatedBooksJob = viewModelScope.launch {
+            // Collect all three flows and combine them into state updates
+            launch {
+                libraryRepository?.filterByAuthor(author)?.collect { books ->
+                    _uiState.update { it.copy(relatedAuthorBooks = books.filter { b -> b.uri != currentUri }) }
+                }
+            }
+            launch {
+                if (narrator.isNotBlank() && narrator != "Unknown Narrator") {
+                    libraryRepository?.filterByNarrator(narrator)?.collect { books ->
+                        _uiState.update { it.copy(relatedNarratorBooks = books.filter { b -> b.uri != currentUri }) }
+                    }
+                } else {
+                    _uiState.update { it.copy(relatedNarratorBooks = emptyList()) }
+                }
+            }
+            launch {
+                libraryRepository?.getRecentlyAdded(3)?.collect { books ->
+                    _uiState.update { it.copy(recentlyAddedBooks = books) }
+                }
             }
         }
     }

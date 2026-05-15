@@ -5,6 +5,7 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -71,6 +72,7 @@ import com.viel.aplayer.ui.components.ChapterListSheet
 import com.viel.aplayer.ui.components.PlaybackControls
 import com.viel.aplayer.ui.components.PlaybackProgress
 import com.viel.aplayer.ui.components.PlayerAppBar
+import com.viel.aplayer.ui.components.RelatedBooksView
 import com.viel.aplayer.ui.components.SubtitleLine
 import com.viel.aplayer.ui.components.SubtitlesView
 import com.viel.aplayer.ui.state.PlayerUiState
@@ -223,9 +225,14 @@ fun NewPlayerScreen(
                                 )
                             }
                             PlayerScreenMode.RELATED -> {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Text("Related Audiobooks", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                                RelatedBooksView(
+                                    author = uiState.currentAuthor,
+                                    narrator = uiState.currentNarrator,
+                                    authorBooks = uiState.relatedAuthorBooks,
+                                    narratorBooks = uiState.relatedNarratorBooks,
+                                    recentBooks = uiState.recentlyAddedBooks,
+                                    onBookClick = actions.onLoadRelatedBook
+                                )
                             }
                         }
                     }
@@ -417,15 +424,11 @@ private fun BottomNavTabs(
             val alignments = listOf(TextAlign.Start, TextAlign.Center, TextAlign.End)
             val indicatorWidths = listOf(80.dp, 70.dp, 60.dp)
 
-            // 记录上一个活跃详情页的状态，用于实现“原地消失”
+            // 记录上一个活跃详情页的状态
             var lastActiveTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
             LaunchedEffect(selectedTab) {
                 if (selectedTab != PlayerScreenMode.PLAYER) {
                     lastActiveTab = selectedTab
-                } else {
-                    // 等待淡出动画完成 (300ms) 后重置位置到中间
-                    kotlinx.coroutines.delay(300)
-                    lastActiveTab = PlayerScreenMode.SUBTITLES
                 }
             }
 
@@ -438,13 +441,13 @@ private fun BottomNavTabs(
 
             val indicatorOffset by animateFloatAsState(
                 targetValue = lastActiveTab.index.toFloat(),
-                animationSpec = tween(300),
+                animationSpec = if (indicatorAlpha == 0f) snap() else tween(300),
                 label = "tab_indicator_offset"
             )
 
             val currentIndicatorWidth by animateDpAsState(
                 targetValue = indicatorWidths[lastActiveTab.index],
-                animationSpec = tween(300),
+                animationSpec = if (indicatorAlpha == 0f) snap() else tween(300),
                 label = "tab_indicator_width"
             )
 

@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.state
 
+import com.viel.aplayer.data.AudiobookEntity
 import com.viel.aplayer.data.BookmarkEntity
 import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.ui.components.SubtitleLine
@@ -20,6 +21,9 @@ data class PlayerUiState(
     val currentChapters: List<ChapterEntity> = emptyList(),
     val currentSubtitles: List<SubtitleLine> = emptyList(),
     val currentBookmarks: List<BookmarkEntity> = emptyList(),
+    val relatedAuthorBooks: List<AudiobookEntity> = emptyList(),
+    val relatedNarratorBooks: List<AudiobookEntity> = emptyList(),
+    val recentlyAddedBooks: List<AudiobookEntity> = emptyList(),
     val showUndoSeek: Boolean = false,
     val isChapterListVisible: Boolean = false,
     val isBookmarkDialogVisible: Boolean = false,
