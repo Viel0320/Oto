@@ -7,10 +7,10 @@
     <string name="more_content_description">More</string>
     <string name="search_content_description">Search</string>
     <string name="settings_content_description">Settings</string>
-    <string name="filter_all">All</string>
     <string name="filter_not_started">Not Started</string>
     <string name="filter_in_progress">In Progress</string>
     <string name="filter_finished">Finished</string>
-    <string name="recently_title">Recently</string>
+    <string name="recently_added_title">Recently Added</string>
+    <string name="recently_played_title">Recently Played</string>
     <string name="import_content_description">Import Media</string>
 </resources>

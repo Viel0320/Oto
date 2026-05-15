@@ -2,7 +2,9 @@ package com.viel.aplayer.ui.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,11 +37,15 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,33 +60,34 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.TextView
+import androidx.core.text.HtmlCompat
+import androidx.compose.ui.graphics.toArgb
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
+import com.viel.aplayer.ui.state.DetailUiState
 import com.viel.aplayer.ui.theme.APlayerTheme
-import com.viel.aplayer.ui.utils.DEFAULT_COVER_BACKGROUND_ARGB
+import com.viel.aplayer.ui.utils.formatFileSize
+import com.viel.aplayer.ui.utils.formatTime
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DetailScreen(
+    uiState: DetailUiState,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
     onPlayClick: () -> Unit = {},
     onMoreClick: () -> Unit = {},
-    title: String = "",
-    author: String = "",
-    narrator: String = "",
-    coverPath: String? = null,
-    description: String = "",
-    duration: String? = null,
-    year: String = "",
-    fileSize: String = "",
-    progressPercent: Int = 0,
-    isAvailable: Boolean = true,
-    backgroundColorArgb: Int = DEFAULT_COVER_BACKGROUND_ARGB,
+    onSearchClick: (String) -> Unit = {},
 ) {
+    val book = uiState.book
+    var infoDialogTitle by remember { mutableStateOf<String?>(null) }
+    var infoDialogText by remember { mutableStateOf<String?>(null) }
+    
     val animatedBgColor by animateColorAsState(
-        targetValue = Color(backgroundColorArgb),
+        targetValue = Color(uiState.backgroundColorArgb),
         animationSpec = tween(300),
         label = "bg_color"
     )
@@ -131,8 +140,6 @@ fun DetailScreen(
                     .padding(padding),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-//                Spacer(modifier = Modifier.height(16.dp))
-
                 // Cover Art
                 Surface(
                     modifier = Modifier
@@ -141,6 +148,7 @@ fun DetailScreen(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shadowElevation = 8.dp
                 ) {
+                    val coverPath = book?.thumbnailPath ?: book?.coverPath
                     if ((coverPath != null) && File(coverPath).exists()) {
                         AsyncImage(
                             model = File(coverPath),
@@ -166,14 +174,16 @@ fun DetailScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Title
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 24.dp)
-                )
+                SelectionContainer {
+                    Text(
+                        text = book?.title ?: "Unknown Title",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -186,7 +196,17 @@ fun DetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .combinedClickable(
+                                onClick = { book?.author?.let { onSearchClick("author:$it") } },
+                                onLongClick = { 
+                                    infoDialogTitle = "Author"
+                                    infoDialogText = book?.author 
+                                }
+                            )
+                            .padding(vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -195,7 +215,7 @@ fun DetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = author,
+                            text = book?.author ?: "Unknown Author",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.SemiBold
                             ),
@@ -214,7 +234,17 @@ fun DetailScreen(
                     )
 
                     Column(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .combinedClickable(
+                                onClick = { book?.narrator?.let { onSearchClick("narrator:$it") } },
+                                onLongClick = { 
+                                    infoDialogTitle = "Narrator"
+                                    infoDialogText = book?.narrator 
+                                }
+                            )
+                            .padding(vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -223,7 +253,7 @@ fun DetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = narrator,
+                            text = book?.narrator ?: "Unknown Narrator",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.SemiBold
                             ),
@@ -246,17 +276,17 @@ fun DetailScreen(
                 ) {
                     DetailInfoChip(
                         icon = painterResource(R.drawable.ic_rounded_event),
-                        value = year
+                        value = if (!book?.year.isNullOrBlank()) book.year else "Unknown"
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     DetailInfoChip(
                         icon = painterResource(R.drawable.ic_rounded_timelapse),
-                        value = duration ?: "Unknown"
+                        value = formatTime(book?.duration ?: 0L)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     DetailInfoChip(
                         icon = painterResource(R.drawable.ic_rounded_storage),
-                        value = fileSize
+                        value = formatFileSize(book?.fileSize ?: 0L)
                     )
                 }
 
@@ -264,13 +294,13 @@ fun DetailScreen(
 
                 // Play/Continue Button
                 Button(
-                    onClick = { if (isAvailable) onPlayClick() },
+                    onClick = { if (uiState.isAvailable) onPlayClick() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = if (isAvailable) {
+                    colors = if (uiState.isAvailable) {
                         ButtonDefaults.buttonColors()
                     } else {
                         ButtonDefaults.buttonColors(
@@ -280,15 +310,15 @@ fun DetailScreen(
                     }
                 ) {
                     Icon(
-                        painter = if (!isAvailable) painterResource(R.drawable.ic_rounded_storage) 
-                        else if (progressPercent > 0) painterResource(R.drawable.ic_rounded_history) 
+                        painter = if (!uiState.isAvailable) painterResource(R.drawable.ic_rounded_storage) 
+                        else if (uiState.progressPercent > 0) painterResource(R.drawable.ic_rounded_history) 
                         else painterResource(R.drawable.ic_rounded_play_arrow),
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (!isAvailable) "File not found"
-                               else if (progressPercent > 0) "Continue at $progressPercent%" 
+                        text = if (!uiState.isAvailable) "File not found"
+                               else if (uiState.progressPercent > 0) "Continue at ${uiState.progressPercent}%" 
                                else "Start Listening",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
@@ -308,17 +338,67 @@ fun DetailScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 24.sp
+                    val htmlDescription = book?.description ?: ""
+                    val textColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+                    
+                    AndroidView(
+                        factory = { context ->
+                            TextView(context).apply {
+                                setTextColor(textColor)
+                                textSize = 16f
+                                setLineSpacing(0f, 1.2f)
+                                setTextIsSelectable(true)
+                            }
+                        },
+                        update = { textView ->
+                            val spanned = HtmlCompat.fromHtml(htmlDescription, HtmlCompat.FROM_HTML_MODE_COMPACT)
+                            val spannable = android.text.SpannableStringBuilder(spanned)
+                            
+                            // 计算两个字符的缩进像素值 (使用当前 TextView 的字体测量)
+                            val indentPx = textView.paint.measureText("\u3000\u3000").toInt()
+                            
+                            spannable.setSpan(
+                                android.text.style.LeadingMarginSpan.Standard(indentPx, 0),
+                                0,
+                                spannable.length,
+                                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                            )
+                            textView.text = spannable
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 
                 Spacer(modifier = Modifier.height(100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
             }
         }
+    }
+
+    // Full info dialog for long press
+    if (infoDialogText != null) {
+        AlertDialog(
+            onDismissRequest = { 
+                infoDialogText = null 
+                infoDialogTitle = null
+            },
+            confirmButton = {
+                TextButton(onClick = { 
+                    infoDialogText = null 
+                    infoDialogTitle = null
+                }) {
+                    Text("OK")
+                }
+            },
+            title = { infoDialogTitle?.let { Text(it) } },
+            text = { 
+                SelectionContainer {
+                    Text(
+                        text = infoDialogText!!,
+                        style = MaterialTheme.typography.bodyLarge // 内容文字调大
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -365,14 +445,21 @@ fun DetailInfoChip(
 fun DetailScreenPreview() {
     APlayerTheme {
         DetailScreen(
-            onBackClick = {},
-            title = "In the Megachurch",
-            author = "Ryo Asai",
-            narrator = "Narrator A",
-            duration = "12:23:00",
-            year = "2023",
-            fileSize = "45000 MB",
-            description = "A preview description for the audiobook detail screen."
+            uiState = DetailUiState(
+                book = com.viel.aplayer.data.AudiobookEntity(
+                    uri = "uri",
+                    title = "In the Megachurch",
+                    author = "Ryo Asai",
+                    narrator = "Narrator A",
+                    duration = 3600000L,
+                    year = "2023",
+                    fileSize = 45000000L,
+                    description = "A preview description for the audiobook detail screen."
+                ),
+                isAvailable = true,
+                progressPercent = 45
+            ),
+            onBackClick = {}
         )
     }
 }

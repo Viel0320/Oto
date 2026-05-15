@@ -20,4 +20,24 @@ data class AudiobookEntity(
     val lastPosition: Long = 0L, // Current playback position in ms
     val lastPlayedAt: Long = 0L,
     val addedAt: Long = System.currentTimeMillis()
-)
+) {
+    companion object {
+        const val FINISHED_THRESHOLD = 0.99f
+    }
+
+    val isNotStarted: Boolean
+        get() = lastPosition <= 0L
+
+    val isFinished: Boolean
+        get() = duration > 0L && lastPosition >= (duration * FINISHED_THRESHOLD).toLong()
+
+    val isInProgress: Boolean
+        get() = !isNotStarted && !isFinished
+
+    val progressPercent: Int
+        get() = if (duration > 0) {
+            kotlin.math.ceil(lastPosition.toDouble() / duration.toDouble() * 100).toInt().coerceIn(0, 100)
+        } else {
+            0
+        }
+}

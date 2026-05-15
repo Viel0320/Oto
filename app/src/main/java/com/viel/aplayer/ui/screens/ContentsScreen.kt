@@ -215,6 +215,8 @@ fun PlayerContentScreen(
                                             currentPosition = displayPos,
                                             duration = displayDur,
                                             markers = displayMarkers,
+                                            currentChapterIndex = uiState.currentChapters.indexOf(uiState.currentChapter),
+                                            chapterCount = uiState.currentChapters.size,
                                             onSeek = { relPos ->
                                                 val targetPos = if (isChapterMode) {
                                                     currentChapter.startPosition + relPos

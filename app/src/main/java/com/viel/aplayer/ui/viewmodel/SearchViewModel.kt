@@ -11,12 +11,14 @@ import com.viel.aplayer.data.SearchHistoryEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = LibraryRepository.getInstance(application)
@@ -31,27 +33,40 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @OptIn(ExperimentalCoroutinesApi::class)
     val searchResults: StateFlow<List<AudiobookEntity>> = _query
         .map { it.text }
         .flatMapLatest { query ->
-            val trimmedQuery = query.trim()
-            if (trimmedQuery.isBlank()) {
+            val tokens = query.split(Regex("\\s+")).filter { it.isNotBlank() }
+            if (tokens.isEmpty()) {
                 flowOf(emptyList())
             } else {
-                val parts = trimmedQuery.split(":", limit = 2)
-                if (parts.size == 2) {
-                    val command = parts[0].trim().lowercase()
-                    val content = parts[1].trim()
-                    
-                    when (command) {
-                        "year" -> repository.filterByYear(content)
-                        "writer", "author" -> repository.filterByAuthor(content)
-                        "narrator" -> repository.filterByNarrator(content)
-                        else -> repository.searchAudiobooks(trimmedQuery)
+                val knownCommands = listOf("year", "author", "writer", "narrator")
+                val allFlows = tokens.map { token ->
+                    val parts = token.split(":", limit = 2)
+                    if (parts.size == 2 && parts[0].lowercase() in knownCommands) {
+                        val command = parts[0].trim().lowercase()
+                        val content = parts[1].trim()
+                        
+                        when (command) {
+                            "year" -> if (content.isEmpty()) repository.audiobooks else repository.filterByYear(content)
+                            "writer", "author" -> if (content.isEmpty()) repository.audiobooks else repository.filterByAuthor(content)
+                            "narrator" -> if (content.isEmpty()) repository.audiobooks else repository.filterByNarrator(content)
+                            else -> repository.audiobooks
+                        }
+                    } else {
+                        // 每一个普通单词都视为一个独立的搜索流
+                        repository.searchAudiobooks(token)
                     }
-                } else {
-                    repository.searchAudiobooks(trimmedQuery)
+                }
+
+                combine(allFlows) { lists ->
+                    if (lists.isEmpty()) return@combine emptyList()
+                    // 取交集：所有 token 的搜索结果都必须包含该书籍
+                    lists.reduce { acc, list ->
+                        val accUris = acc.map { it.uri }.toSet()
+                        list.filter { it.uri in accUris }
+                    }
                 }
             }
         }

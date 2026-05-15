@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -70,9 +71,16 @@ private val searchCommands = listOf(
     SearchCommand("narrator:", "Search by narrator name")
 )
 
-private fun commandSuggestionsFor(query: String): List<SearchCommand> {
-    return if (query.isNotEmpty() && !query.contains(":")) {
-        searchCommands.filter { it.token.startsWith(query.lowercase()) }
+private fun commandSuggestionsFor(value: TextFieldValue): List<SearchCommand> {
+    val text = value.text
+    val cursor = value.selection.start
+    if (cursor == 0) return emptyList()
+
+    val lastSpace = text.lastIndexOf(' ', cursor - 1)
+    val currentWord = text.substring(lastSpace + 1, cursor)
+
+    return if (currentWord.isNotEmpty() && !currentWord.contains(":")) {
+        searchCommands.filter { it.token.startsWith(currentWord.lowercase()) }
     } else {
         emptyList()
     }
@@ -82,6 +90,7 @@ private fun commandSuggestionsFor(query: String): List<SearchCommand> {
 @Composable
 fun SearchScreen(
     modifier: Modifier = Modifier,
+    initialQuery: String? = null,
     onBack: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
     viewModel: SearchViewModel = viewModel()
@@ -90,11 +99,17 @@ fun SearchScreen(
     val searchResults by viewModel.searchResults.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
 
+    LaunchedEffect(initialQuery) {
+        if (!initialQuery.isNullOrBlank() && query.text.isBlank()) {
+            viewModel.search(initialQuery)
+        }
+    }
+
     SearchContent(
         query = query,
         searchResults = searchResults,
         searchHistory = searchHistory,
-        commandSuggestions = commandSuggestionsFor(query.text),
+        commandSuggestions = commandSuggestionsFor(query),
         onQueryChange = { viewModel.onQueryChange(it) },
         onSearch = { viewModel.search(it) },
         onClearQuery = { viewModel.clearQuery() },
@@ -128,6 +143,13 @@ fun SearchContent(
     var isBacking by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val scrollState = rememberLazyListState()
+
+    LaunchedEffect(scrollState.isScrollInProgress) {
+        if (scrollState.isScrollInProgress) {
+            focusManager.clearFocus()
+        }
+    }
 
     val handleBack = {
         if (!isBacking) {
@@ -195,6 +217,7 @@ fun SearchContent(
             ) {
                 if (query.text.isBlank()) {
                     LazyColumn(
+                        state = scrollState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -264,6 +287,7 @@ fun SearchContent(
                     }
                 } else {
                     LazyColumn(
+                        state = scrollState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
                             start = 16.dp,
@@ -287,7 +311,19 @@ fun SearchContent(
                                 val cmd = commandSuggestions[index]
                                 ListItem(
                                     modifier = Modifier.clickable { 
-                                        onQueryChange(TextFieldValue(cmd.token, selection = TextRange(cmd.token.length)))
+                                        val text = query.text
+                                        val cursor = query.selection.start
+                                        val lastSpace = text.lastIndexOf(' ', cursor - 1)
+                                        
+                                        val prefix = if (lastSpace == -1) "" else text.substring(0, lastSpace + 1)
+                                        val suffix = text.substring(cursor)
+                                        val newText = "$prefix${cmd.token}$suffix"
+                                        val newCursorPos = prefix.length + cmd.token.length
+                                        
+                                        onQueryChange(TextFieldValue(
+                                            text = newText,
+                                            selection = TextRange(newCursorPos)
+                                        ))
                                     },
                                     headlineContent = { 
                                         Text(
@@ -430,7 +466,7 @@ fun SearchScreenPreview() {
                 SearchHistoryEntity("Brandon Sanderson"),
                 SearchHistoryEntity("The Hobbit")
             ),
-            commandSuggestions = commandSuggestionsFor("Fantasy"),
+            commandSuggestions = commandSuggestionsFor(TextFieldValue("Fantasy")),
             onQueryChange = {},
             onSearch = {},
             onClearQuery = {},

@@ -379,9 +379,8 @@ class PlayerViewModel : ViewModel() {
         }
     }
 
-    private fun saveProgress() {
+    private fun saveProgress(position: Long = _uiState.value.currentPosition) {
         val uri = currentMediaUri ?: return
-        val position = _uiState.value.currentPosition
         libraryRepository?.updateProgress(uri, position)
     }
 
@@ -404,18 +403,19 @@ class PlayerViewModel : ViewModel() {
     fun seekTo(positionMs: Long, allowUndo: Boolean = false) {
         if (allowUndo) {
             lastSeekPosition = _uiState.value.currentPosition
-            _uiState.update { it.copy(showUndoSeek = true) }
+            _uiState.update { it.copy(showUndoSeek = true, currentPosition = positionMs) }
             undoJob?.cancel()
             undoJob = viewModelScope.launch {
                 delay(10000)
                 _uiState.update { it.copy(showUndoSeek = false) }
             }
         } else {
-            _uiState.update { it.copy(showUndoSeek = false) }
+            _uiState.update { it.copy(showUndoSeek = false, currentPosition = positionMs) }
             undoJob?.cancel()
         }
         player?.seekTo(positionMs)
-        _uiState.update { it.copy(currentPosition = positionMs) }
+        // 立即保存进度到数据库并更新本地 UI 状态，防止被后续的进度轮询拉回旧位置
+        saveProgress(positionMs)
     }
 
     fun undoSeek() {

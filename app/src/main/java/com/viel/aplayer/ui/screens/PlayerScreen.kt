@@ -239,14 +239,15 @@ fun PlayerScreen(
                         currentPosition = displayPos,
                         duration = displayDur,
                         markers = displayMarkers,
+                        currentChapterIndex = uiState.currentChapters.indexOf(uiState.currentChapter),
+                        chapterCount = uiState.currentChapters.size,
                         onSeek = { relPos ->
                             val targetPos = if (isChapterMode) {
                                 currentChapter.startPosition + relPos
                             } else {
                                 relPos
                             }
-                            actions.seek(targetPos)
-                            if (!uiState.isPlaying) actions.onPlayPauseClick()
+                            actions.onSeek(targetPos, true)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -352,7 +353,12 @@ fun PlayerScreenPreview() {
             uiState = PlayerUiState(
                 currentTitle = "Preview Title",
                 currentPosition = 1200000L,
-                duration = 3600000L
+                duration = 3600000L,
+                currentChapters = listOf(
+                    com.viel.aplayer.data.ChapterEntity(bookUri = "", title = "Chapter 1", startPosition = 0L, endPosition = 1000000L),
+                    com.viel.aplayer.data.ChapterEntity(bookUri = "", title = "Chapter 2", startPosition = 1000000L, endPosition = 2000000L),
+                    com.viel.aplayer.data.ChapterEntity(bookUri = "", title = "Chapter 3", startPosition = 2000000L, endPosition = 3600000L)
+                )
             ),
             actions = PlayerActions(),
             navigationActions = PlayerNavigationActions()

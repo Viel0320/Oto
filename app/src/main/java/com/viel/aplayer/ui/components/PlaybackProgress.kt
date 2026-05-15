@@ -20,6 +20,8 @@ fun PlaybackProgress(
     currentPosition: Long,
     duration: Long,
     markers: List<Float>,
+    currentChapterIndex: Int,
+    chapterCount: Int,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -47,6 +49,15 @@ fun PlaybackProgress(
                 text = formatTime(currentPosition),
                 style = MaterialTheme.typography.labelMedium
             )
+            
+            if (chapterCount > 0) {
+                Text(
+                    text = "${currentChapterIndex + 1} / $chapterCount",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Text(
                 text = formatTime(duration),
                 style = MaterialTheme.typography.labelMedium
@@ -64,6 +75,8 @@ fun PlaybackProgressPreview() {
                 currentPosition = 120000L,
                 duration = 360000L,
                 markers = listOf(0.2f, 0.5f, 0.8f),
+                currentChapterIndex = 1,
+                chapterCount = 4,
                 onSeek = {},
                 modifier = Modifier.padding(16.dp)
             )

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
@@ -65,9 +64,8 @@ import com.viel.aplayer.ui.utils.formatPeopleSubtitle
 import java.io.File
 
 enum class HomeFilter {
-    All,
-    NotStarted,
     InProgress,
+    NotStarted,
     Finished
 }
 
@@ -81,27 +79,38 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
     onNavigateToPlayer: () -> Unit = {},
-    onSeeAllClick: () -> Unit = {},
     onLoadMedia: (Uri, String, String, String, Long) -> Unit = { _, _, _, _, _ -> },
     onLibraryRootSelected: (Uri) -> Unit = {},
 ) {
     val filters = listOf(
-        HomeFilter.All to stringResource(R.string.filter_all),
-        HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
         HomeFilter.InProgress to stringResource(R.string.filter_in_progress),
+        HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
         HomeFilter.Finished to stringResource(R.string.filter_finished)
     )
-    var selectedFilter by remember { mutableStateOf(HomeFilter.All) }
+    var selectedFilter by remember { mutableStateOf(HomeFilter.InProgress) }
     val filteredAudiobooks = remember(audiobooks, selectedFilter) {
         audiobooks.filter { it.matchesFilter(selectedFilter) }
     }
-    val recentBooks = remember(audiobooks) {
-        audiobooks
-            .filter { it.lastPlayedAt > 0 }
-            .sortedByDescending { it.lastPlayedAt }
-            .take(3)
+    val groupedByAuthor = remember(filteredAudiobooks) {
+        filteredAudiobooks.groupBy { it.author }
     }
-    val shouldShowRecentBooks = selectedFilter == HomeFilter.All || selectedFilter == HomeFilter.InProgress
+    val recentBooks = remember(audiobooks, selectedFilter) {
+        when (selectedFilter) {
+            HomeFilter.NotStarted -> audiobooks.filter { it.isNotStarted }
+                .sortedByDescending { it.addedAt }
+                .take(10)
+            HomeFilter.InProgress -> audiobooks.filter { it.isInProgress && it.lastPlayedAt > 0 }
+                .sortedByDescending { it.lastPlayedAt }
+                .take(5)
+            else -> emptyList()
+        }
+    }
+    val recentTitle = when (selectedFilter) {
+        HomeFilter.NotStarted -> stringResource(R.string.recently_added_title)
+        HomeFilter.InProgress -> stringResource(R.string.recently_played_title)
+        else -> ""
+    }
+    val shouldShowRecentBooks = (selectedFilter == HomeFilter.NotStarted || selectedFilter == HomeFilter.InProgress) && recentBooks.isNotEmpty()
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
@@ -201,10 +210,10 @@ fun HomeScreen(
             }
 
             // Recently Played Section
-            if (shouldShowRecentBooks && recentBooks.isNotEmpty()) {
+            if (shouldShowRecentBooks) {
                 item {
                     Text(
-                        text = stringResource(R.string.recently_title),
+                        text = recentTitle,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp)
@@ -221,7 +230,7 @@ fun HomeScreen(
                             RecentlyItem(
                                 title = book.title,
                                 author = book.author,
-                                progressText = "${kotlin.math.ceil(book.lastPosition.toDouble() / book.duration.coerceAtLeast(1L).toDouble() * 100).toInt()}%",
+                                progressText = "${book.progressPercent}%",
                                 coverPath = book.thumbnailPath ?: book.coverPath,
                                 onClick = { onNavigateToDetail(book.uri) }
                             )
@@ -230,31 +239,18 @@ fun HomeScreen(
                 }
             }
 
-            // Category Section (e.g., specific author)
-            if (filteredAudiobooks.isNotEmpty()) {
+            // Grouped Category Section
+            groupedByAuthor.forEach { (author, books) ->
                 item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Your Collection",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        IconButton(onClick = onSeeAllClick) {
-                            Icon(
-                                painterResource(R.drawable.ic_rounded_arrow_forward),
-                                contentDescription = "See All"
-                            )
-                        }
-                    }
+                    Text(
+                        text = author,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
+                    )
                 }
 
-                items(filteredAudiobooks) { book ->
+                items(books) { book ->
                     AudiobookListItem(
                         title = book.title,
                         author = book.author,
@@ -462,12 +458,8 @@ fun HomeScreenPreview() {
 
 private fun AudiobookEntity.matchesFilter(filter: HomeFilter): Boolean {
     return when (filter) {
-        HomeFilter.All -> true
-        HomeFilter.NotStarted -> lastPosition <= 0L
-        HomeFilter.InProgress -> {
-            val finishThreshold = (duration * 0.98f).toLong()
-            lastPosition > 0L && (duration <= 0L || lastPosition < finishThreshold)
-        }
-        HomeFilter.Finished -> duration > 0L && lastPosition >= (duration * 0.98f).toLong()
+        HomeFilter.NotStarted -> isNotStarted
+        HomeFilter.InProgress -> isInProgress
+        HomeFilter.Finished -> isFinished
     }
 }

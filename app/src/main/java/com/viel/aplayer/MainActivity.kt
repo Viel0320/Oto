@@ -28,18 +28,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.viel.aplayer.ui.components.CompactMediaPlayer
 import com.viel.aplayer.ui.action.MiniPlayerActions
 import com.viel.aplayer.ui.action.PlayerActions
 import com.viel.aplayer.ui.action.PlayerNavigationActions
+import com.viel.aplayer.ui.components.CompactMediaPlayer
 import com.viel.aplayer.ui.screens.DetailScreen
 import com.viel.aplayer.ui.screens.HomeScreen
 import com.viel.aplayer.ui.screens.PlayerContentScreen
 import com.viel.aplayer.ui.screens.PlayerScreen
 import com.viel.aplayer.ui.screens.SearchScreen
 import com.viel.aplayer.ui.theme.APlayerTheme
-import com.viel.aplayer.ui.utils.formatFileSize
-import com.viel.aplayer.ui.utils.formatTime
 import com.viel.aplayer.ui.viewmodel.LibraryViewModel
 import com.viel.aplayer.ui.viewmodel.PlayerViewModel
 
@@ -141,13 +139,15 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable(
-                                "search",
+                                "search?q={q}",
                                 enterTransition = { fadeIn(animationSpec = tween(400)) },
                                 exitTransition = { fadeOut(animationSpec = tween(400)) },
                                 popEnterTransition = { fadeIn(animationSpec = tween(400)) },
                                 popExitTransition = { fadeOut(animationSpec = tween(400)) }
-                            ) {
+                            ) { backStackEntry ->
+                                val initialQuery = backStackEntry.arguments?.getString("q")
                                 SearchScreen(
+                                    initialQuery = initialQuery,
                                     onBack = { navController.popBackStack() },
                                     onNavigateToDetail = { uri: String ->
                                         navController.navigate("detail?bookUri=${Uri.encode(uri)}")
@@ -175,23 +175,15 @@ class MainActivity : ComponentActivity() {
                                     libraryViewModel.selectDetailBook(selectedBook)
                                 }
                                 val detailUiState by libraryViewModel.detailUiState.collectAsState()
-                                val detailBook = detailUiState.book
 
                                 DetailScreen(
-                                    title = detailBook?.title ?: "Unknown Title",
-                                    author = detailBook?.author ?: "Unknown Author",
-                                    narrator = detailBook?.narrator ?: "Unknown Narrator",
-                                    description = detailBook?.description ?: "",
-                                    coverPath = detailBook?.coverPath,
-                                    duration = formatTime(detailBook?.duration ?: 0L),
-                                    year = if (!detailBook?.year.isNullOrBlank()) detailBook.year else "Unknown",
-                                    fileSize = formatFileSize(detailBook?.fileSize ?: 0L),
-                                    progressPercent = detailUiState.progressPercent,
-                                    isAvailable = detailUiState.isAvailable,
-                                    backgroundColorArgb = detailUiState.backgroundColorArgb,
+                                    uiState = detailUiState,
                                     onBackClick = { navController.popBackStack() },
+                                    onSearchClick = { query ->
+                                        navController.navigate("search?q=${Uri.encode(query)}")
+                                    },
                                     onPlayClick = { 
-                                        detailBook?.let { book ->
+                                        detailUiState.book?.let { book ->
                                             playerViewModel.loadMedia(
                                                 uri = book.uri.toUri(), 
                                                 title = book.title, 

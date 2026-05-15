@@ -15,9 +15,9 @@ import com.viel.aplayer.ui.state.LibraryUiState
 import com.viel.aplayer.ui.utils.extractCoverDominantColorArgb
 import com.viel.aplayer.worker.LibrarySyncWorker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -56,15 +56,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun selectDetailBook(book: AudiobookEntity?) {
-        val progressPercent = if (book != null && book.duration > 0) {
-            kotlin.math.ceil(book.lastPosition.toDouble() / book.duration.toDouble() * 100).toInt()
-        } else {
-            0
-        }
         _detailUiState.value = DetailUiState(
             book = book,
             isAvailable = book?.let { repository.checkFileExists(it.uri) } ?: false,
-            progressPercent = progressPercent
+            progressPercent = book?.progressPercent ?: 0
         )
 
         viewModelScope.launch(Dispatchers.Default) {
