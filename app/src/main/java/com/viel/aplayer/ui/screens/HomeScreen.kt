@@ -241,7 +241,7 @@ fun HomeScreen(
                         duration = book.duration,
                         coverPath = book.thumbnailPath ?: book.coverPath,
                         progressPercent = book.progressPercent,
-                        addedAt = book.addedAt,
+//                        addedAt = book.addedAt,
                         onClick = { onNavigateToDetail(book.uri) }
                     ) { 
                         onLoadMedia(book.uri.toUri(), book.title, book.author, book.narrator, book.lastPosition)

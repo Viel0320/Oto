@@ -142,7 +142,7 @@ fun AudiobookListItemNewPreview() {
                 narrator = "Jane Smith",
                 duration = 3600000L,
                 progressPercent = 0,
-                addedAt = System.currentTimeMillis(),
+//                addedAt = System.currentTimeMillis(),
                 onClick = {}
             )
         }
@@ -160,7 +160,7 @@ fun AudiobookListItemProgressPreview() {
                 narrator = "Stephen Fry",
                 duration = 7200000L,
                 progressPercent = 45,
-                addedAt = System.currentTimeMillis() - 86400000,
+//                addedAt = System.currentTimeMillis() - 86400000,
                 onClick = {}
             )
         }

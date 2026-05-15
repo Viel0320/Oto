@@ -81,7 +81,7 @@ private fun RelatedAudiobookItem(
         duration = book.duration,
         coverPath = book.thumbnailPath ?: book.coverPath,
         progressPercent = book.progressPercent,
-        addedAt = book.addedAt,
+//        addedAt = book.addedAt,
         onClick = { onBookClick(book) },
         onPlayClick = { onBookClick(book) }
     )
