@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.components
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,7 +13,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.AudiobookEntity
 import com.viel.aplayer.ui.screens.AudiobookListItem
-import androidx.core.net.toUri
 
 @Composable
 fun RelatedBooksView(
