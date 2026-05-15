@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -151,7 +152,13 @@ fun SearchContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
-                        placeholder = { Text("Search or use year: author: narrator:") },
+                        placeholder = { 
+                            Text(
+                                text = "Search or use year: author: narrator:",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            ) 
+                        },
                         leadingIcon = {
                             IconButton(onClick = handleBack) {
                                 Icon(painterResource(R.drawable.ic_rounded_arrow_back), contentDescription = "Back")
@@ -217,7 +224,13 @@ fun SearchContent(
                                 val history = searchHistory[index]
                                 ListItem(
                                     modifier = Modifier.clickable { onSearch(history.query) },
-                                    headlineContent = { Text(history.query) },
+                                    headlineContent = { 
+                                        Text(
+                                            text = history.query,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        ) 
+                                    },
                                     leadingContent = {
                                         Icon(
                                             painterResource(R.drawable.ic_rounded_history),
@@ -276,9 +289,19 @@ fun SearchContent(
                                     modifier = Modifier.clickable { 
                                         onQueryChange(TextFieldValue(cmd.token, selection = TextRange(cmd.token.length)))
                                     },
-                                    headlineContent = { Text(cmd.token) },
+                                    headlineContent = { 
+                                        Text(
+                                            text = cmd.token,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        ) 
+                                    },
                                     supportingContent = {
-                                        Text(cmd.description)
+                                        Text(
+                                            text = cmd.description,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     },
                                     leadingContent = {
                                         Icon(
@@ -321,8 +344,21 @@ fun SearchContent(
                                 val book = searchResults[index]
                                 ListItem(
                                     modifier = Modifier.clickable { onNavigateToDetail(book.uri) },
-                                    headlineContent = { Text(book.title, fontWeight = FontWeight.SemiBold) },
-                                    supportingContent = { Text(formatPeopleSubtitle(book.author, book.narrator)) },
+                                    headlineContent = { 
+                                        Text(
+                                            text = book.title,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        ) 
+                                    },
+                                    supportingContent = { 
+                                        Text(
+                                            text = formatPeopleSubtitle(book.author, book.narrator),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        ) 
+                                    },
                                     leadingContent = {
                                         Surface(
                                             modifier = Modifier.size(48.dp),

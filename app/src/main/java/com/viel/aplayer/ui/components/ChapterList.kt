@@ -220,7 +220,8 @@ fun ChapterListContent(
                 // 动态底部占位：部分展开时高度大，全屏时趋近0
                 // 使列表内容可以被滚动到可视区域上方
                 item(key = "bottom_spacer") {
-                    Spacer(modifier = Modifier.height(bottomSpacerHeight+32.dp))
+                    Spacer(modifier = Modifier.height(bottomSpacerHeight))
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
 
             }

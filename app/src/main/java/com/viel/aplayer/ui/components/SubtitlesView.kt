@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.components
 
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -112,8 +113,9 @@ fun SubtitlesView(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 300.dp),
-                verticalArrangement = Arrangement.spacedBy(28.dp)
+                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp),
+                flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
             ) {
                 itemsIndexed(
                     items = subtitles,
@@ -125,7 +127,7 @@ fun SubtitlesView(
                         text = subtitle.text,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = if (isHighlighted) 24.sp else 18.sp,
+                            fontSize = if (isHighlighted) 30.sp else 18.sp,
                             lineHeight = if (isHighlighted) 34.sp else 28.sp
                         ),
                         color = if (isHighlighted) MaterialTheme.colorScheme.primary 

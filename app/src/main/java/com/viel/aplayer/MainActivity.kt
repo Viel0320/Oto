@@ -113,8 +113,8 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        val showMiniPlayer = currentRoute != "player" && 
-                                             currentRoute != "content/{tab}" && 
+                        val showMiniPlayer = currentRoute != "player" &&
+                                             currentRoute != "content/{tab}" &&
                                              currentRoute != "search" &&
                                              playerUiState.hasActiveTrack
 
@@ -257,12 +257,14 @@ class MainActivity : ComponentActivity() {
                         // Mini player
                         androidx.compose.animation.AnimatedVisibility(
                             visible = showMiniPlayer && !playerUiState.isMiniPlayerHidden,
-                            enter = fadeIn(animationSpec = tween(400)),
-                            exit = fadeOut(animationSpec = tween(400)) +
-                                   slideOutVertically(
-                                       targetOffsetY = { it },
-                                       animationSpec = tween(400)
-                                   ),
+                            enter = slideInVertically(
+                                initialOffsetY = { it },
+                                animationSpec = tween(400)
+                            ) + fadeIn(animationSpec = tween(400)),
+                            exit = slideOutVertically(
+                                targetOffsetY = { it },
+                                animationSpec = tween(400)
+                            ) + fadeOut(animationSpec = tween(400)),
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                         ) {
