@@ -11,7 +11,7 @@ enum class HomeFilter {
 
 data class LibraryUiState(
     val audiobooks: List<AudiobookEntity> = emptyList(),
-    val selectedFilter: HomeFilter = HomeFilter.InProgress
+    val selectedFilter: HomeFilter = HomeFilter.NotStarted
 )
 
 data class DetailUiState(

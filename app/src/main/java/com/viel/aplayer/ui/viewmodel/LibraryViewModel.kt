@@ -34,7 +34,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         try {
             HomeFilter.valueOf(repository.getHomeFilter())
         } catch (_: Exception) {
-            HomeFilter.InProgress
+            HomeFilter.NotStarted
         }
     )
 

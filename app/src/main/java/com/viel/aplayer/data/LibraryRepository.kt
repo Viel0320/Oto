@@ -84,7 +84,7 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     fun getHomeFilter(): String {
-        return prefs.getString(KEY_HOME_FILTER, "InProgress") ?: "InProgress"
+        return prefs.getString(KEY_HOME_FILTER, "NotStarted") ?: "NotStarted"
     }
 
     /** Check if a file exists at the given URI. */
