@@ -278,7 +278,9 @@ fun NewPlayerScreen(
                 // 4. Navigation Tabs - 始终固定
                 BottomNavTabs(
                     selectedTab = currentMode,
-                    onTabSelected = { currentMode = it }
+                    onTabSelected = { 
+                        currentMode = if (currentMode == it) PlayerScreenMode.PLAYER else it
+                    }
                 )
             }
         }
