@@ -17,12 +17,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -92,22 +93,40 @@ fun NewPlayerScreen(
     modifier: Modifier = Modifier,
 ) {
     // 内部状态管理当前模式
-    var currentMode by remember { mutableStateOf(PlayerScreenMode.PLAYER) }
     
-    // 同步外部 Tab 状态（如果需要从外部导航进入特定 Tab）
-    LaunchedEffect(uiState.selectedContentTab) {
-        if (uiState.selectedContentTab in 0..2 && currentMode == PlayerScreenMode.PLAYER) {
-            currentMode = when(uiState.selectedContentTab) {
-                0 -> PlayerScreenMode.BOOKMARKS
-                1 -> PlayerScreenMode.SUBTITLES
-                else -> PlayerScreenMode.RELATED
-            }
+    // 动画防抖：动画播完前禁止交互
+    var isReady by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(400) // 匹配 MainActivity 中的 tween(400)
+        isReady = true
+    }
+    
+    // 将外部状态转换为枚举
+    val targetMode = remember(uiState.selectedContentTab) {
+        when(uiState.selectedContentTab) {
+            0 -> PlayerScreenMode.BOOKMARKS
+            1 -> PlayerScreenMode.SUBTITLES
+            2 -> PlayerScreenMode.RELATED
+            else -> PlayerScreenMode.PLAYER
         }
+    }
+
+    // 内部状态，初始值直接跟随外部状态
+    var currentMode by remember { mutableStateOf(targetMode) }
+    
+    // 当外部状态发生变化（如通过路由跳转）时，同步给内部状态
+    LaunchedEffect(targetMode) {
+        currentMode = targetMode
     }
 
     APlayerTheme(darkTheme = true) {
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+
+        // 处理物理返回键：非 PLAYER 模式下先返回 PLAYER
+        androidx.activity.compose.BackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) {
+            currentMode = PlayerScreenMode.PLAYER
+        }
 
         val animatedBgColor by animateColorAsState(
             targetValue = Color(uiState.backgroundColorArgb),
@@ -128,7 +147,18 @@ fun NewPlayerScreen(
         }
 
         Surface(
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier
+                .fillMaxSize()
+                .pointerInput(isReady) {
+                    if (!isReady) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                // 动画期间消费所有触摸事件，防止抖动和误操作
+                                awaitPointerEvent().changes.forEach { it.consume() }
+                            }
+                        }
+                    }
+                },
             color = MaterialTheme.colorScheme.background
         ) {
             Column(
@@ -198,10 +228,50 @@ fun NewPlayerScreen(
                             }
                         }
                     }
+
+                    // Undo Seek Banner - Overlay
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = uiState.showUndoSeek,
+                        enter = fadeIn() + androidx.compose.animation.expandVertically(),
+                        exit = fadeOut() + androidx.compose.animation.shrinkVertically(),
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 24.dp)
+                            .padding(horizontal = 24.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            tonalElevation = 4.dp,
+                            shadowElevation = 8.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Jumped to new position",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                TextButton(onClick = actions.onUndoSeek) {
+                                    Text("UNDO", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // 3. Stable Bottom Controls - 位置保持不变
-                if (currentMode == PlayerScreenMode.PLAYER || currentMode == PlayerScreenMode.SUBTITLES) {
+                val controlsVisible = currentMode == PlayerScreenMode.PLAYER || currentMode == PlayerScreenMode.SUBTITLES
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = controlsVisible,
+                    enter = androidx.compose.animation.expandVertically(tween(300)) + fadeIn(),
+                    exit = androidx.compose.animation.shrinkVertically(tween(300)) + fadeOut(),
+                    label = "controls_visibility"
+                ) {
                     StablePlaybackControls(uiState, actions, animatedBgColor)
                 }
 
@@ -221,7 +291,6 @@ fun NewPlayerScreen(
             onDismissRequest = actions.onDismissChapterList,
             onChapterClick = { pos ->
                 actions.onSeek(pos, true)
-                if (!uiState.isPlaying) actions.onPlayPauseClick()
                 actions.onDismissChapterList()
             },
             sheetState = sheetState
@@ -247,7 +316,7 @@ private fun MainCoverView(uiState: PlayerUiState, actions: PlayerActions) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 12.dp)
+            .padding(horizontal = 24.dp, vertical = 32.dp) // 增加固定边距
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
@@ -258,14 +327,14 @@ private fun MainCoverView(uiState: PlayerUiState, actions: PlayerActions) {
                     }
                 )
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopCenter // 改为顶部对齐，防止下沉
     ) {
         val coverFile = remember(uiState.currentCoverPath) {
             if (uiState.currentCoverPath != null) File(uiState.currentCoverPath) else null
         }
         Box(
             modifier = Modifier
-                .fillMaxHeight()
+                .fillMaxWidth() // 基于稳定的宽度
                 .aspectRatio(1f)
                 .graphicsLayer {
                     scaleX = coverScale
@@ -345,9 +414,19 @@ private fun BottomNavTabs(
             val alignments = listOf(TextAlign.Start, TextAlign.Center, TextAlign.End)
             val indicatorWidths = listOf(80.dp, 70.dp, 60.dp)
 
-            // 当处于 PLAYER 模式时，指示器停留在最中间 (index 1) 并消失
+            // 记录上一个活跃详情页的状态，用于实现“原地消失”
+            var lastActiveTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
+            LaunchedEffect(selectedTab) {
+                if (selectedTab != PlayerScreenMode.PLAYER) {
+                    lastActiveTab = selectedTab
+                } else {
+                    // 等待淡出动画完成 (300ms) 后重置位置到中间
+                    kotlinx.coroutines.delay(300)
+                    lastActiveTab = PlayerScreenMode.SUBTITLES
+                }
+            }
+
             val isMainPlayer = selectedTab == PlayerScreenMode.PLAYER
-            val targetIndex = if (isMainPlayer) 1f else selectedTab.index.toFloat()
             val indicatorAlpha by animateFloatAsState(
                 targetValue = if (isMainPlayer) 0f else 1f,
                 animationSpec = tween(300),
@@ -355,13 +434,13 @@ private fun BottomNavTabs(
             )
 
             val indicatorOffset by animateFloatAsState(
-                targetValue = targetIndex,
+                targetValue = lastActiveTab.index.toFloat(),
                 animationSpec = tween(300),
                 label = "tab_indicator_offset"
             )
 
             val currentIndicatorWidth by animateDpAsState(
-                targetValue = indicatorWidths[if (isMainPlayer) 1 else selectedTab.index],
+                targetValue = indicatorWidths[lastActiveTab.index],
                 animationSpec = tween(300),
                 label = "tab_indicator_width"
             )

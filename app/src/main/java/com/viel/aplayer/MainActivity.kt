@@ -34,9 +34,7 @@ import com.viel.aplayer.ui.action.PlayerNavigationActions
 import com.viel.aplayer.ui.components.CompactMediaPlayer
 import com.viel.aplayer.ui.screens.DetailScreen
 import com.viel.aplayer.ui.screens.HomeScreen
-import com.viel.aplayer.ui.screens.PlayerContentScreen
 import com.viel.aplayer.ui.screens.NewPlayerScreen
-import com.viel.aplayer.ui.screens.PlayerScreen
 import com.viel.aplayer.ui.screens.SearchScreen
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.viewmodel.LibraryViewModel
@@ -104,19 +102,17 @@ class MainActivity : ComponentActivity() {
                         onClose = { navController.popBackStack() },
                         onBookmarksClick = { 
                             playerViewModel.setSelectedContentTab(0)
-                            navController.navigate("content/0") 
+                            navController.navigate("player/0") 
                         },
                         onSubtitlesClick = { 
                             playerViewModel.setSelectedContentTab(1)
-                            navController.navigate("content/1") 
+                            navController.navigate("player/1") 
                         },
                         onRelatedClick = { 
                             playerViewModel.setSelectedContentTab(2)
-                            navController.navigate("content/2") 
+                            navController.navigate("player/2") 
                         },
-                        onNavigateToNewPlayer = {
-                            navController.navigate("new_player/-1")
-                        }
+                        onNavigateToNewPlayer = {} // 已整合，置空
                     )
                 }
                 Surface(
@@ -124,9 +120,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        val showMiniPlayer = currentRoute != "player" &&
-                                             currentRoute != "content/{tab}" &&
-                                             currentRoute?.startsWith("new_player") == false &&
+                        val showMiniPlayer = currentRoute?.startsWith("player") == false &&
                                              currentRoute != "search" &&
                                              playerUiState.hasActiveTrack
 
@@ -150,7 +144,7 @@ class MainActivity : ComponentActivity() {
                                     onLoadMedia = { uri: Uri, title: String, author: String, narrator: String, pos: Long -> 
                                         playerViewModel.loadMedia(uri, title, author, narrator, pos) 
                                     },
-                                    onNavigateToPlayer = { navController.navigate("player") },
+                                    onNavigateToPlayer = { navController.navigate("player/-1") },
                                     onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) }
                                 )
                             }
@@ -208,57 +202,29 @@ class MainActivity : ComponentActivity() {
                                                 startPositionMs = book.lastPosition
                                             )
                                         }
-                                        navController.navigate("player") 
+                                        navController.navigate("player/-1") 
                                     }
                                 )
                             }
 
                             composable(
-                                "player",
+                                "player/{tab}",
                                 enterTransition = {
-                                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(400))
+                                    if (initialState.destination.route?.startsWith("player") == true) {
+                                        fadeIn(animationSpec = tween(400))
+                                    } else {
+                                        slideInVertically(initialOffsetY = { it }, animationSpec = tween(400))
+                                    }
                                 },
                                 exitTransition = {
-                                    fadeOut(animationSpec = tween(400))
+                                    if (targetState.destination.route?.startsWith("player") == true) {
+                                        fadeOut(animationSpec = tween(400))
+                                    } else {
+                                        slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
+                                    }
                                 },
-                                popEnterTransition = {
-                                    fadeIn(animationSpec = tween(400))
-                                },
-                                popExitTransition = {
-                                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
-                                }
-                            ) {
-                                PlayerScreen(
-                                    uiState = playerUiState,
-                                    actions = playerActions,
-                                    navigationActions = playerNavigationActions
-                                )
-                            }
-
-                            composable(
-                                "content/{tab}",
-                                enterTransition = { fadeIn(animationSpec = tween(400)) },
-                                exitTransition = { fadeOut(animationSpec = tween(400)) },
                                 popEnterTransition = { fadeIn(animationSpec = tween(400)) },
-                                popExitTransition = { fadeOut(animationSpec = tween(400)) }
-                            ) { backStackEntry ->
-                                val tab = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: 1
-                                LaunchedEffect(tab) {
-                                    playerViewModel.setSelectedContentTab(tab)
-                                }
-                                PlayerContentScreen(
-                                    uiState = playerUiState,
-                                    actions = playerActions,
-                                    navigationActions = playerNavigationActions
-                                )
-                            }
-
-                            composable(
-                                "new_player/{tab}",
-                                enterTransition = { fadeIn(animationSpec = tween(400)) },
-                                exitTransition = { fadeOut(animationSpec = tween(400)) },
-                                popEnterTransition = { fadeIn(animationSpec = tween(400)) },
-                                popExitTransition = { fadeOut(animationSpec = tween(400)) }
+                                popExitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) }
                             ) { backStackEntry ->
                                 val tab = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: -1
                                 LaunchedEffect(tab) {
@@ -286,7 +252,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                         ) {
-                            Box(modifier = Modifier.clickable { navController.navigate("player") }) {
+                            Box(modifier = Modifier.clickable { navController.navigate("player/-1") }) {
                                 CompactMediaPlayer(
                                     isPlaying = playerUiState.isPlaying,
                                     title = playerUiState.currentTitle,

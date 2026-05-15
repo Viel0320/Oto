@@ -50,13 +50,6 @@ data class PlayerActions(
         onCancelSleepTimer = onCancelSleepTimer
     )
 
-    fun seek(positionMs: Long) {
-        onSeek(positionMs, false)
-    }
-
-    fun seekWithUndo(positionMs: Long) {
-        onSeek(positionMs, true)
-    }
 }
 
 data class PlayerNavigationActions(

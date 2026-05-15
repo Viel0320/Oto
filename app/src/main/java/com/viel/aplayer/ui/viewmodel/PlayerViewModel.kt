@@ -406,7 +406,7 @@ class PlayerViewModel : ViewModel() {
             _uiState.update { it.copy(showUndoSeek = true, currentPosition = positionMs) }
             undoJob?.cancel()
             undoJob = viewModelScope.launch {
-                delay(10000)
+                delay(5000)
                 _uiState.update { it.copy(showUndoSeek = false) }
             }
         } else {
@@ -414,6 +414,7 @@ class PlayerViewModel : ViewModel() {
             undoJob?.cancel()
         }
         player?.seekTo(positionMs)
+        player?.play() // 只要触发 Seek，就转为播放状态
         // 立即保存进度到数据库并更新本地 UI 状态，防止被后续的进度轮询拉回旧位置
         saveProgress(positionMs)
     }

@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -31,7 +30,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _detailUiState = MutableStateFlow(DetailUiState())
     val detailUiState: StateFlow<DetailUiState> = _detailUiState.asStateFlow()
 
-    private val _selectedFilter = MutableStateFlow<HomeFilter>(
+    private val _selectedFilter = MutableStateFlow(
         try {
             HomeFilter.valueOf(repository.getHomeFilter())
         } catch (_: Exception) {

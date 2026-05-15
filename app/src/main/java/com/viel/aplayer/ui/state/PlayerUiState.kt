@@ -24,7 +24,7 @@ data class PlayerUiState(
     val isChapterListVisible: Boolean = false,
     val isBookmarkDialogVisible: Boolean = false,
     val bookmarkTitle: String = "",
-    val selectedContentTab: Int = 1,
+    val selectedContentTab: Int = -1,
     val isSpeedManualMode: Boolean = false,
     val isMiniPlayerHidden: Boolean = false,
     val backgroundColorArgb: Int = DEFAULT_COVER_BACKGROUND_ARGB,
