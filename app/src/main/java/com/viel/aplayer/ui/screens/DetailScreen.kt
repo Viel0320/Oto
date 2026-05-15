@@ -59,10 +59,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import android.widget.TextView
-import androidx.core.text.HtmlCompat
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.fromHtml
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.ui.state.DetailUiState
@@ -338,34 +337,18 @@ fun DetailScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     val htmlDescription = book?.description ?: ""
-                    val textColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
                     
-                    AndroidView(
-                        factory = { context ->
-                            TextView(context).apply {
-                                setTextColor(textColor)
-                                textSize = 16f
-                                setLineSpacing(0f, 1.2f)
-                                setTextIsSelectable(true)
-                            }
-                        },
-                        update = { textView ->
-                            val spanned = HtmlCompat.fromHtml(htmlDescription, HtmlCompat.FROM_HTML_MODE_COMPACT)
-                            val spannable = android.text.SpannableStringBuilder(spanned)
-                            
-                            // 计算两个字符的缩进像素值 (使用当前 TextView 的字体测量)
-                            val indentPx = textView.paint.measureText("\u3000\u3000").toInt()
-                            
-                            spannable.setSpan(
-                                android.text.style.LeadingMarginSpan.Standard(indentPx, 0),
-                                0,
-                                spannable.length,
-                                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                            )
-                            textView.text = spannable
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    SelectionContainer {
+                        Text(
+                            text = androidx.compose.ui.text.AnnotatedString.fromHtml(htmlDescription),
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 24.sp,
+                                textIndent = androidx.compose.ui.text.style.TextIndent(firstLine = 2.em)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
@@ -377,9 +360,13 @@ fun DetailScreen(
     if (infoDialogText != null) {
         AlertDialog(
             onDismissRequest = {
+                infoDialogText = null
+                infoDialogTitle = null
             },
             confirmButton = {
                 TextButton(onClick = {
+                    infoDialogText = null
+                    infoDialogTitle = null
                 }) {
                     Text("OK")
                 }
