@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -30,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -46,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -55,12 +52,12 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.viel.aplayer.data.AudiobookEntity
 import com.viel.aplayer.data.SearchHistoryEntity
+import com.viel.aplayer.ui.components.AudiobookListItem
 import com.viel.aplayer.ui.theme.APlayerTheme
-import com.viel.aplayer.ui.utils.formatPeopleSubtitle
 import com.viel.aplayer.ui.viewmodel.SearchViewModel
 
 data class SearchCommand(
@@ -96,6 +93,8 @@ fun SearchScreen(
     initialQuery: String? = null,
     onBack: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
+    onLoadMedia: (android.net.Uri, String, String, String, Long) -> Unit = { _, _, _, _, _ -> },
+    onNavigateToPlayer: () -> Unit = {},
     viewModel: SearchViewModel = viewModel()
 ) {
     val query by viewModel.query.collectAsState()
@@ -123,6 +122,8 @@ fun SearchScreen(
             viewModel.saveSearchHistory(query.text)
             onNavigateToDetail(uri)
         },
+        onLoadMedia = onLoadMedia,
+        onNavigateToPlayer = onNavigateToPlayer,
         modifier = modifier
     )
 }
@@ -141,6 +142,8 @@ fun SearchContent(
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
+    onLoadMedia: (android.net.Uri, String, String, String, Long) -> Unit,
+    onNavigateToPlayer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isBacking by remember { mutableStateOf(false) }
@@ -185,13 +188,19 @@ fun SearchContent(
                             ) 
                         },
                         leadingIcon = {
-                            IconButton(onClick = handleBack) {
+                            IconButton(
+                                onClick = handleBack,
+                                modifier = Modifier.padding(start = 4.dp)
+                            ) {
                                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                             }
                         },
                         trailingIcon = {
                             if (query.text.isNotEmpty()) {
-                                IconButton(onClick = onClearQuery) {
+                                IconButton(
+                                    onClick = onClearQuery,
+                                    modifier = Modifier.padding(end = 4.dp)
+                                ) {
                                     Icon(Icons.Rounded.Clear, contentDescription = "Clear")
                                 }
                             }
@@ -249,7 +258,10 @@ fun SearchContent(
                             items(searchHistory.size) { index ->
                                 val history = searchHistory[index]
                                 ListItem(
-                                    modifier = Modifier.clickable { onSearch(history.query) },
+                                    modifier = Modifier.clickable { 
+                                        focusManager.clearFocus()
+                                        onSearch(history.query) 
+                                    },
                                     headlineContent = { 
                                         Text(
                                             text = history.query,
@@ -381,50 +393,22 @@ fun SearchContent(
                             }
                             items(searchResults.size) { index ->
                                 val book = searchResults[index]
-                                ListItem(
-                                    modifier = Modifier.clickable { onNavigateToDetail(book.uri) },
-                                    headlineContent = { 
-                                        Text(
-                                            text = book.title,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        ) 
-                                    },
-                                    supportingContent = { 
-                                        Text(
-                                            text = formatPeopleSubtitle(book.author, book.narrator),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        ) 
-                                    },
-                                    leadingContent = {
-                                        Surface(
-                                            modifier = Modifier.size(48.dp),
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant
-                                        ) {
-                                            val displayCover = book.thumbnailPath ?: book.coverPath
-                                            if (displayCover != null) {
-                                                AsyncImage(
-                                                    model = displayCover,
-                                                    contentDescription = null,
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
-                                            } else {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        Icons.Rounded.Search,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    },
-                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                                )
+                                AudiobookListItem(
+                                    title = book.title,
+                                    author = book.author,
+                                    narrator = book.narrator,
+                                    duration = book.duration,
+                                    coverPath = book.thumbnailPath ?: book.coverPath,
+                                    progressPercent = book.progressPercent,
+                                    onClick = { 
+                                        focusManager.clearFocus()
+                                        onNavigateToDetail(book.uri) 
+                                    }
+                                ) {
+                                    focusManager.clearFocus()
+                                    onLoadMedia(book.uri.toUri(), book.title, book.author, book.narrator, book.lastPosition)
+                                    onNavigateToPlayer()
+                                }
                             }
                         }
                     }
@@ -476,7 +460,9 @@ fun SearchScreenPreview() {
             onDeleteHistory = {},
             onClearHistory = {},
             onBack = {},
-            onNavigateToDetail = {}
+            onNavigateToDetail = {},
+            onLoadMedia = { _, _, _, _, _ -> },
+            onNavigateToPlayer = {}
         )
     }
 }

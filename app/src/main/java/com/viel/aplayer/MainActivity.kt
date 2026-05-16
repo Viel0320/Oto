@@ -172,7 +172,11 @@ class MainActivity : ComponentActivity() {
                                     onBack = { navController.popBackStack() },
                                     onNavigateToDetail = { uri: String ->
                                         navController.navigate("detail?bookUri=${Uri.encode(uri)}")
-                                    }
+                                    },
+                                    onLoadMedia = { uri: Uri, title: String, author: String, narrator: String, pos: Long -> 
+                                        playerViewModel.loadMedia(uri, title, author, narrator, pos) 
+                                    },
+                                    onNavigateToPlayer = { navController.navigate("player/-1") }
                                 )
                             }
                             composable(
