@@ -2,7 +2,6 @@ package com.viel.aplayer.data
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -18,7 +17,6 @@ import com.viel.aplayer.util.image.ImageProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.metadata.id3.CommentFrame
-import androidx.media3.extractor.metadata.id3.TextInformationFrame
 import com.viel.aplayer.ui.components.SubtitleLine
 import com.viel.aplayer.util.parser.SubtitleParser
 import com.viel.aplayer.util.parser.AudiobookParser
@@ -29,12 +27,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.channels.FileChannel
-import androidx.core.graphics.scale
+
 
 /**
  * Repository that wraps Room database and handles cover art caching.

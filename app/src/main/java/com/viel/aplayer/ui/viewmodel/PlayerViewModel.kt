@@ -5,7 +5,6 @@ import android.media.AudioManager
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.Player
 import com.viel.aplayer.playback.PlaybackManager
 import com.viel.aplayer.data.BookmarkEntity
 import com.viel.aplayer.data.LibraryRepository
@@ -20,7 +19,6 @@ import com.viel.aplayer.util.parser.AudiobookParser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.SharingStarted
