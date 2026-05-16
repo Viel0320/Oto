@@ -71,6 +71,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookmarkEntity
+import com.viel.aplayer.data.ChapterEntity
+import com.viel.aplayer.ui.state.RelatedSection
 import com.viel.aplayer.ui.action.PlayerActions
 import com.viel.aplayer.ui.action.PlayerNavigationActions
 import com.viel.aplayer.ui.components.BookmarkDialog
@@ -276,10 +280,8 @@ fun NewPlayerScreen(
                                 PlayerScreenMode.RELATED -> {
                                     Box(modifier = Modifier.weight(1f)) {
                                         RelatedBooksView(
-                                            author = uiState.currentAuthor,
-                                            narrator = uiState.currentNarrator,
-                                            authorBooks = uiState.relatedAuthorBooks,
-                                            narratorBooks = uiState.relatedNarratorBooks,
+                                            authorSections = uiState.relatedAuthorSections,
+                                            narratorSections = uiState.relatedNarratorSections,
                                             recentBooks = uiState.recentlyAddedBooks,
                                             onBookClick = actions.onLoadRelatedBook
                                         )
@@ -593,27 +595,40 @@ private fun BottomNavTabs(
     }
 }
 
-@Preview(name = "Player Mode", showBackground = true, apiLevel = 36)
+@Preview(name = "Player Mode", showBackground = true, apiLevel = 35)
 @Composable
 fun NewPlayerScreenPlayerPreview() {
     NewPlayerScreenPreviewWrapper(initialTab = -1)
 }
 
-@Preview(name = "Bookmarks Mode", showBackground = true, apiLevel = 36)
+@Preview(name = "Bookmarks Mode", showBackground = true, apiLevel = 35)
 @Composable
 fun NewPlayerScreenBookmarksPreview() {
     NewPlayerScreenPreviewWrapper(initialTab = 0)
 }
 
-@Preview(name = "Subtitles Mode", showBackground = true, apiLevel = 36)
+@Preview(name = "Subtitles Mode", showBackground = true, apiLevel = 35)
 @Composable
 fun NewPlayerScreenSubtitlesPreview() {
     NewPlayerScreenPreviewWrapper(initialTab = 1)
 }
 
+@Preview(name = "Related Mode", showBackground = true, apiLevel = 35)
+@Composable
+fun NewPlayerScreenRelatedPreview() {
+    NewPlayerScreenPreviewWrapper(initialTab = 2)
+}
+
 
 @Composable
 private fun NewPlayerScreenPreviewWrapper(initialTab: Int) {
+    val sampleBook = AudiobookEntity(
+        uri = "uri",
+        title = "Another Book",
+        author = "John Doe",
+        narrator = "Jane Smith"
+    )
+
     APlayerTheme {
         NewPlayerScreen(
             uiState = PlayerUiState(
@@ -624,16 +639,19 @@ private fun NewPlayerScreenPreviewWrapper(initialTab: Int) {
                 duration = 3600000L,
                 selectedContentTab = initialTab,
                 currentChapters = listOf(
-                    com.viel.aplayer.data.ChapterEntity(1, "", "Chapter 1", 0L, 1000000L),
-                    com.viel.aplayer.data.ChapterEntity(2, "", "Chapter 2", 1000000L, 2000000L)
+                    ChapterEntity(1, "", "Chapter 1", 0L, 1000000L),
+                    ChapterEntity(2, "", "Chapter 2", 1000000L, 2000000L)
                 ),
                 currentBookmarks = listOf(
-                    com.viel.aplayer.data.BookmarkEntity(1, "", 500000L, "Interesting part")
+                    BookmarkEntity(1, "", 500000L, "Interesting part")
                 ),
                 currentSubtitles = listOf(
                     SubtitleLine(0, 5000, "Once upon a time..."),
                     SubtitleLine(5000, 10000, "In a land far, far away.")
-                )
+                ),
+                relatedAuthorSections = listOf(RelatedSection("John Doe", listOf(sampleBook))),
+                relatedNarratorSections = listOf(RelatedSection("Jane Smith", listOf(sampleBook))),
+                recentlyAddedBooks = listOf(sampleBook, sampleBook, sampleBook)
             ),
             actions = PlayerActions(),
             navigationActions = PlayerNavigationActions()

@@ -6,6 +6,11 @@ import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.ui.components.SubtitleLine
 import com.viel.aplayer.ui.utils.DEFAULT_COVER_BACKGROUND_ARGB
 
+data class RelatedSection(
+    val name: String,
+    val books: List<AudiobookEntity>
+)
+
 data class PlayerUiState(
     val isPlaying: Boolean = false,
     val playWhenReady: Boolean = false,
@@ -21,8 +26,8 @@ data class PlayerUiState(
     val currentChapters: List<ChapterEntity> = emptyList(),
     val currentSubtitles: List<SubtitleLine> = emptyList(),
     val currentBookmarks: List<BookmarkEntity> = emptyList(),
-    val relatedAuthorBooks: List<AudiobookEntity> = emptyList(),
-    val relatedNarratorBooks: List<AudiobookEntity> = emptyList(),
+    val relatedAuthorSections: List<RelatedSection> = emptyList(),
+    val relatedNarratorSections: List<RelatedSection> = emptyList(),
     val recentlyAddedBooks: List<AudiobookEntity> = emptyList(),
     val showUndoSeek: Boolean = false,
     val isChapterListVisible: Boolean = false,

@@ -21,6 +21,7 @@ import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.service.PlaybackService
 import com.viel.aplayer.ui.state.PlayerUiState
+import com.viel.aplayer.ui.state.RelatedSection
 import com.viel.aplayer.ui.utils.DEFAULT_COVER_BACKGROUND_ARGB
 import com.viel.aplayer.ui.utils.extractCoverDominantColorArgb
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -297,21 +298,46 @@ class PlayerViewModel : ViewModel() {
     private fun loadRelatedBooks(currentUri: String, author: String, narrator: String) {
         relatedBooksJob?.cancel()
         relatedBooksJob = viewModelScope.launch {
-            // Collect all three flows and combine them into state updates
-            launch {
-                libraryRepository?.filterByAuthor(author)?.collect { books ->
-                    _uiState.update { it.copy(relatedAuthorBooks = books.filter { b -> b.uri != currentUri }) }
-                }
-            }
-            launch {
-                if (narrator.isNotBlank() && narrator != "Unknown Narrator") {
-                    libraryRepository?.filterByNarrator(narrator)?.collect { books ->
-                        _uiState.update { it.copy(relatedNarratorBooks = books.filter { b -> b.uri != currentUri }) }
+            val authorList = author.split(",").map { it.trim() }.filter { it.isNotBlank() && it != "Unknown Author" }
+            val narratorList = narrator.split(",").map { it.trim() }.filter { it.isNotBlank() && it != "Unknown Narrator" }
+
+            // Initialize sections to maintain order
+            _uiState.update { state -> state.copy(
+                relatedAuthorSections = authorList.map { name -> RelatedSection(name, emptyList()) },
+                relatedNarratorSections = narratorList.map { name -> RelatedSection(name, emptyList()) },
+                recentlyAddedBooks = emptyList()
+            ) }
+
+            authorList.forEachIndexed { index, name ->
+                launch {
+                    libraryRepository?.filterByAuthor(name)?.collect { books ->
+                        val filteredBooks = books.filter { it.uri != currentUri }
+                        _uiState.update { state ->
+                            val currentSections = state.relatedAuthorSections.toMutableList()
+                            if (index < currentSections.size) {
+                                currentSections[index] = RelatedSection(name, filteredBooks)
+                            }
+                            state.copy(relatedAuthorSections = currentSections)
+                        }
                     }
-                } else {
-                    _uiState.update { it.copy(relatedNarratorBooks = emptyList()) }
                 }
             }
+
+            narratorList.forEachIndexed { index, name ->
+                launch {
+                    libraryRepository?.filterByNarrator(name)?.collect { books ->
+                        val filteredBooks = books.filter { it.uri != currentUri }
+                        _uiState.update { state ->
+                            val currentSections = state.relatedNarratorSections.toMutableList()
+                            if (index < currentSections.size) {
+                                currentSections[index] = RelatedSection(name, filteredBooks)
+                            }
+                            state.copy(relatedNarratorSections = currentSections)
+                        }
+                    }
+                }
+            }
+
             launch {
                 libraryRepository?.getRecentlyAdded(3)?.collect { books ->
                     _uiState.update { it.copy(recentlyAddedBooks = books) }

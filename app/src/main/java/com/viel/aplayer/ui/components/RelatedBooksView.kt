@@ -14,14 +14,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.ui.state.RelatedSection
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 @Composable
 fun RelatedBooksView(
-    author: String,
-    narrator: String,
-    authorBooks: List<AudiobookEntity>,
-    narratorBooks: List<AudiobookEntity>,
+    authorSections: List<RelatedSection>,
+    narratorSections: List<RelatedSection>,
     recentBooks: List<AudiobookEntity>,
     onBookClick: (AudiobookEntity) -> Unit,
     modifier: Modifier = Modifier
@@ -30,21 +29,25 @@ fun RelatedBooksView(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
-        if (authorBooks.isNotEmpty()) {
-            item {
-                RelatedSectionHeader("More by $author")
-            }
-            items(authorBooks) { book ->
-                RelatedAudiobookItem(book, onBookClick)
+        authorSections.forEach { section ->
+            if (section.books.isNotEmpty()) {
+                item {
+                    RelatedSectionHeader("More by ${section.name}")
+                }
+                items(section.books) { book ->
+                    RelatedAudiobookItem(book, onBookClick)
+                }
             }
         }
 
-        if (narratorBooks.isNotEmpty()) {
-            item {
-                RelatedSectionHeader("More by $narrator")
-            }
-            items(narratorBooks) { book ->
-                RelatedAudiobookItem(book, onBookClick)
+        narratorSections.forEach { section ->
+            if (section.books.isNotEmpty()) {
+                item {
+                    RelatedSectionHeader("More by ${section.name}")
+                }
+                items(section.books) { book ->
+                    RelatedAudiobookItem(book, onBookClick)
+                }
             }
         }
 
@@ -103,10 +106,8 @@ fun RelatedBooksViewPreview() {
     APlayerTheme(darkTheme = true) {
         Surface(color = MaterialTheme.colorScheme.background) {
             RelatedBooksView(
-                author = "Author Name",
-                narrator = "Narrator Name",
-                authorBooks = mockList,
-                narratorBooks = mockList,
+                authorSections = listOf(RelatedSection("Author Name", mockList)),
+                narratorSections = listOf(RelatedSection("Narrator Name", mockList)),
                 recentBooks = mockList,
                 onBookClick = {}
             )
