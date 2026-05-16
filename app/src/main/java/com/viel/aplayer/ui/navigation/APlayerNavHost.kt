@@ -6,13 +6,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.viel.aplayer.ui.screens.DetailScreen
 import com.viel.aplayer.ui.screens.HomeScreen
 import com.viel.aplayer.ui.screens.SearchScreen
 import com.viel.aplayer.ui.viewmodel.LibraryViewModel

@@ -73,9 +73,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.viel.aplayer.data.AudiobookEntity
-import com.viel.aplayer.data.BookmarkEntity
-import com.viel.aplayer.data.ChapterEntity
-import com.viel.aplayer.ui.state.RelatedSection
 import com.viel.aplayer.ui.action.PlayerActions
 import com.viel.aplayer.ui.action.PlayerNavigationActions
 import com.viel.aplayer.ui.components.BookmarkDialog
@@ -86,15 +83,13 @@ import com.viel.aplayer.ui.components.PlaybackControls
 import com.viel.aplayer.ui.components.PlaybackProgress
 import com.viel.aplayer.ui.components.PlayerAppBar
 import com.viel.aplayer.ui.components.RelatedBooksView
-import com.viel.aplayer.ui.components.SubtitleLine
 import com.viel.aplayer.ui.components.SubtitlesView
 import com.viel.aplayer.ui.state.BookMetadataState
 import com.viel.aplayer.ui.state.PlaybackState
 import com.viel.aplayer.ui.state.PlayerSettingsState
-import com.viel.aplayer.ui.state.PlayerUiState
 import com.viel.aplayer.ui.theme.APlayerTheme
-import java.io.File
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlin.math.roundToInt
 
 enum class PlayerScreenMode(val index: Int) {

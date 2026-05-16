@@ -29,9 +29,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatCompactDuration
 import com.viel.aplayer.ui.utils.formatPeopleSubtitle
-import com.viel.aplayer.ui.theme.APlayerTheme
 import java.io.File
 
 @Composable
