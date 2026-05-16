@@ -106,7 +106,7 @@ fun RecentlyItem(
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            text = formatPeopleSubtitle(author, narrator),
+            text = formatPeopleSubtitle(author,narrator),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,

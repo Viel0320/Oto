@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.screens
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -30,7 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,6 +47,7 @@ import com.viel.aplayer.ui.components.APlayerFilterChip
 import com.viel.aplayer.ui.components.AudiobookListItem
 import com.viel.aplayer.ui.components.RecentlyItem
 import com.viel.aplayer.ui.theme.APlayerTheme
+import kotlinx.coroutines.launch
 
 /**
  * 首页图书馆的过滤选项枚举。
@@ -113,6 +118,9 @@ fun HomeScreen(
         uri?.let(onLibraryRootSelected)
     }
 
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -123,7 +131,17 @@ fun HomeScreen(
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 22.sp
-                        )
+                        ),
+                        modifier = Modifier.pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    scope.launch {
+                                        // 切换回瞬间回顶，彻底消除分段感
+                                        listState.scrollToItem(0)
+                                    }
+                                }
+                            )
+                        }
                     )
                 },
                 navigationIcon = {
@@ -193,6 +211,7 @@ fun HomeScreen(
 
             // 滚动列表部分
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
