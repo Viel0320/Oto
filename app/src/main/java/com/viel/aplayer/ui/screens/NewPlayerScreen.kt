@@ -1,8 +1,10 @@
 package com.viel.aplayer.ui.screens
 
+import android.view.RoundedCorner
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -17,6 +19,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +50,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,10 +61,13 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -79,6 +86,8 @@ import com.viel.aplayer.ui.components.SubtitlesView
 import com.viel.aplayer.ui.state.PlayerUiState
 import com.viel.aplayer.ui.theme.APlayerTheme
 import java.io.File
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 enum class PlayerScreenMode(val index: Int) {
     PLAYER(-1),
@@ -108,6 +117,21 @@ fun NewPlayerScreen(
     // 内部状态，初始值直接跟随外部状态
     var currentMode by remember { mutableStateOf(targetMode) }
 
+    // 动画状态：下滑位移
+    val scope = rememberCoroutineScope()
+    val offsetY = remember { Animatable(0f) }
+    val density = LocalDensity.current
+    val dismissThreshold = with(density) { 50.dp.toPx() }
+
+    // 获取系统圆角
+    val view = LocalView.current
+    val systemCornerRadius = remember(view) {
+        val insets = view.rootWindowInsets
+        val corner = insets?.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)
+        corner?.radius ?: 0
+    }
+    val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
+
     // 当外部状态发生变化（如通过路由跳转）时，同步给内部状态
     LaunchedEffect(targetMode) {
         currentMode = targetMode
@@ -120,6 +144,11 @@ fun NewPlayerScreen(
         // 处理物理返回键：非 PLAYER 模式下先返回 PLAYER
         androidx.activity.compose.BackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) {
             currentMode = PlayerScreenMode.PLAYER
+        }
+
+        // 当处于 PLAYER 模式且播放器展开时，返回键触发收起
+        androidx.activity.compose.BackHandler(enabled = currentMode == PlayerScreenMode.PLAYER && uiState.isFullPlayerVisible) {
+            navigationActions.onMinimize()
         }
 
         val animatedBgColor by animateColorAsState(
@@ -142,13 +171,41 @@ fun NewPlayerScreen(
 
         Surface(
             modifier = modifier
-                .fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+                .fillMaxSize()
+                .offset { IntOffset(0, offsetY.value.roundToInt()) }
+                .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp)) // 应用系统圆角
+                .background(bgColor) // 1. 先铺设实心底色，防止半透明
+                .background(backgroundBrush) // 2. 再叠加原有的渐变
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, dragAmount ->
+                            val newOffset = (offsetY.value + dragAmount).coerceAtLeast(0f)
+                            scope.launch {
+                                offsetY.snapTo(newOffset)
+                            }
+                            change.consume()
+                        },
+                        onDragEnd = {
+                            scope.launch {
+                                if (offsetY.value > dismissThreshold) {
+                                    // 触发收起，但不重置位移
+                                    // 让 AnimatedVisibility 的退出动画从当前位置开始滑出，这样就没有跳变感
+                                    navigationActions.onMinimize()
+                                } else {
+                                    // 未达阈值，平滑回弹到顶部
+                                    offsetY.animateTo(0f)
+                                }
+                            }
+                        },
+                        onDragCancel = {
+                            scope.launch { offsetY.animateTo(0f) }
+                        }
+                    )
+                },
+            color = Color.Transparent
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(backgroundBrush)
+                modifier = Modifier.fillMaxSize()
             ) {
                 // 1. App Bar - 始终固定
                 PlayerAppBar(

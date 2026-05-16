@@ -141,48 +141,34 @@ class MainActivity : ComponentActivity() {
                         onHide = { playerViewModel.setMiniPlayerHidden(true) }
                     )
                 }
-                val playerNavigationActions = remember(navController, playerViewModel, navigateBack) {
+                val playerNavigationActions = remember(navController, playerViewModel) {
                     PlayerNavigationActions(
-                        onMinimize = navigateBack,
-                        onClose = navigateBack,
-                        onBookmarksClick = { 
-                            if (canStartNavigation()) {
-                                playerViewModel.setSelectedContentTab(0)
-                                navController.navigate("player/0") {
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
+                        onMinimize = { playerViewModel.setFullPlayerVisible(false) },
+                        onClose = { playerViewModel.setFullPlayerVisible(false) },
+                        onBookmarksClick = {
+                            playerViewModel.setSelectedContentTab(0)
+                            playerViewModel.setFullPlayerVisible(true)
                         },
-                        onSubtitlesClick = { 
-                            if (canStartNavigation()) {
-                                playerViewModel.setSelectedContentTab(1)
-                                navController.navigate("player/1") {
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
+                        onSubtitlesClick = {
+                            playerViewModel.setSelectedContentTab(1)
+                            playerViewModel.setFullPlayerVisible(true)
                         },
-                        onRelatedClick = { 
-                            if (canStartNavigation()) {
-                                playerViewModel.setSelectedContentTab(2)
-                                navController.navigate("player/2") {
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
+                        onRelatedClick = {
+                            playerViewModel.setSelectedContentTab(2)
+                            playerViewModel.setFullPlayerVisible(true)
                         },
-                        onNavigateToNewPlayer = {} // 已整合，置空
+                        onNavigateToNewPlayer = { playerViewModel.setFullPlayerVisible(true) }
                     )
                 }
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
+                    val playerUiState by playerViewModel.uiState.collectAsState()
                     Box(modifier = Modifier.fillMaxSize()) {
                         val showMiniPlayer = hasActiveTrack &&
                                              currentRoute != null &&
-                                             !currentRoute.startsWith("player") &&
+                                             !playerUiState.isFullPlayerVisible &&
                                              !currentRoute.startsWith("search")
 
                         NavHost(
@@ -212,12 +198,8 @@ class MainActivity : ComponentActivity() {
                                     onLoadMedia = { uri: Uri, title: String, author: String, narrator: String, pos: Long -> 
                                         playerViewModel.loadMedia(uri, title, author, narrator, pos) 
                                     },
-                                    onNavigateToPlayer = { 
-                                        if (canStartNavigation()) {
-                                            navController.navigate("player/-1") {
-                                                launchSingleTop = true
-                                            }
-                                        }
+                                    onNavigateToPlayer = {
+                                        playerViewModel.setFullPlayerVisible(true)
                                     },
                                     onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) }
                                 )
@@ -241,12 +223,8 @@ class MainActivity : ComponentActivity() {
                                     onLoadMedia = { uri: Uri, title: String, author: String, narrator: String, pos: Long -> 
                                         playerViewModel.loadMedia(uri, title, author, narrator, pos) 
                                     },
-                                    onNavigateToPlayer = { 
-                                        if (canStartNavigation()) {
-                                            navController.navigate("player/-1") {
-                                                launchSingleTop = true
-                                            }
-                                        }
+                                    onNavigateToPlayer = {
+                                        playerViewModel.setFullPlayerVisible(true)
                                     }
                                 )
                             }
@@ -300,45 +278,23 @@ class MainActivity : ComponentActivity() {
                                                 startPositionMs = book.lastPosition
                                             )
                                         }
-                                        if (canStartNavigation()) {
-                                            navController.navigate("player/-1") {
-                                                launchSingleTop = true
-                                            }
-                                        }
+                                        playerViewModel.setFullPlayerVisible(true)
                                     }
                                 )
                             }
+                        }
 
-                            composable(
-                                "player/{tab}",
-                                enterTransition = {
-                                    if (initialState.destination.route?.startsWith("player") == true) {
-                                        fadeIn(animationSpec = tween(400))
-                                    } else {
-                                        slideInVertically(initialOffsetY = { it }, animationSpec = tween(400))
-                                    }
-                                },
-                                exitTransition = {
-                                    if (targetState.destination.route?.startsWith("player") == true) {
-                                        fadeOut(animationSpec = tween(400))
-                                    } else {
-                                        slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
-                                    }
-                                },
-                                popEnterTransition = { fadeIn(animationSpec = tween(400)) },
-                                popExitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) }
-                            ) { backStackEntry ->
-                                val playerUiState by playerViewModel.uiState.collectAsState()
-                                val tab = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: -1
-                                LaunchedEffect(tab) {
-                                    playerViewModel.setSelectedContentTab(tab)
-                                }
-                                NewPlayerScreen(
-                                    uiState = playerUiState,
-                                    actions = playerActions,
-                                    navigationActions = playerNavigationActions
-                                )
-                            }
+                        // Full Player Overlay
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = playerUiState.isFullPlayerVisible,
+                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)),
+                            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
+                        ) {
+                            NewPlayerScreen(
+                                uiState = playerUiState,
+                                actions = playerActions,
+                                navigationActions = playerNavigationActions
+                            )
                         }
 
                         // Mini player
@@ -356,12 +312,8 @@ class MainActivity : ComponentActivity() {
                                 .align(Alignment.BottomCenter)
                         ) {
                             val playerUiState by playerViewModel.uiState.collectAsState()
-                            Box(modifier = Modifier.clickable { 
-                                if (canStartNavigation()) {
-                                    navController.navigate("player/-1") {
-                                        launchSingleTop = true
-                                    }
-                                }
+                            Box(modifier = Modifier.clickable {
+                                playerViewModel.setFullPlayerVisible(true)
                             }) {
                                 CompactMediaPlayer(
                                     isPlaying = playerUiState.isPlaying,

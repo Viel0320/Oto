@@ -32,7 +32,8 @@ data class PlayerUiState(
     val isSpeedManualMode: Boolean = false,
     val isMiniPlayerHidden: Boolean = false,
     val backgroundColorArgb: Int = DEFAULT_COVER_BACKGROUND_ARGB,
-    val isChapterProgressMode: Boolean = false
+    val isChapterProgressMode: Boolean = false,
+    val isFullPlayerVisible: Boolean = false
 ) {
     val hasActiveTrack: Boolean
         get() = currentTitle.isNotEmpty() && currentTitle != "Unknown Title"

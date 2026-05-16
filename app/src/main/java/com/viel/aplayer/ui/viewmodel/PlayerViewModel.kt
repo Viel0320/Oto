@@ -585,6 +585,10 @@ class PlayerViewModel : ViewModel() {
         _uiState.update { it.copy(selectedContentTab = tab) }
     }
 
+    fun setFullPlayerVisible(visible: Boolean) {
+        _uiState.update { it.copy(isFullPlayerVisible = visible) }
+    }
+
     fun setMiniPlayerHidden(hidden: Boolean) {
         _uiState.update { it.copy(isMiniPlayerHidden = hidden) }
     }
