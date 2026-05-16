@@ -116,7 +116,7 @@ fun NewPlayerScreen(
 
     // 内部状态，初始值直接跟随外部状态
     var currentMode by remember { mutableStateOf(targetMode) }
-    
+
     // 当外部状态发生变化（如通过路由跳转）时，同步给内部状态
     LaunchedEffect(targetMode) {
         currentMode = targetMode

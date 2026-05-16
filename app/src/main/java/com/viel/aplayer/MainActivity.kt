@@ -2,6 +2,7 @@ package com.viel.aplayer
 
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,6 +29,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.viel.aplayer.ui.action.MiniPlayerActions
 import com.viel.aplayer.ui.action.PlayerActions
 import com.viel.aplayer.ui.action.PlayerNavigationActions
@@ -44,6 +47,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // 禁用整个 Activity 的自动填充（包括其所有子视图）
+        window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
 
         setContent {
             APlayerTheme {
@@ -54,7 +60,15 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 val libraryViewModel: LibraryViewModel = viewModel()
                 val playerViewModel: PlayerViewModel = viewModel()
-                val libraryUiState by libraryViewModel.uiState.collectAsState()
+                
+                // 仅收集用于控制 MiniPlayer 显示的必要状态，减少顶级重组
+                val hasActiveTrack by remember(playerViewModel) {
+                    playerViewModel.uiState.map { it.hasActiveTrack }.distinctUntilChanged()
+                }.collectAsState(initial = false)
+                
+                val isMiniPlayerHidden by remember(playerViewModel) {
+                    playerViewModel.uiState.map { it.isMiniPlayerHidden }.distinctUntilChanged()
+                }.collectAsState(initial = false)
 
                 LaunchedEffect(Unit) {
                     playerViewModel.initialize(context)
@@ -64,7 +78,6 @@ class MainActivity : ComponentActivity() {
                     playerViewModel.onRouteChanged()
                 }
                 
-                val playerUiState by playerViewModel.uiState.collectAsState()
                 val playerActions = remember(playerViewModel) {
                     PlayerActions(
                         onSeek = { pos, allowUndo -> playerViewModel.seekTo(pos, allowUndo) },
@@ -101,27 +114,45 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+                
+                val navigateBack: () -> Unit = remember(navController) {
+                    {
+                        if (navController.previousBackStackEntry != null) {
+                            navController.popBackStack()
+                        }
+                    }
+                }
+
                 val miniPlayerActions = remember(playerViewModel) {
                     MiniPlayerActions(
                         onPlayPauseClick = { playerViewModel.togglePlayPause() },
                         onHide = { playerViewModel.setMiniPlayerHidden(true) }
                     )
                 }
-                val playerNavigationActions = remember(navController, playerViewModel) {
+                val playerNavigationActions = remember(navController, playerViewModel, navigateBack) {
                     PlayerNavigationActions(
-                        onMinimize = { navController.popBackStack() },
-                        onClose = { navController.popBackStack() },
+                        onMinimize = navigateBack,
+                        onClose = navigateBack,
                         onBookmarksClick = { 
                             playerViewModel.setSelectedContentTab(0)
-                            navController.navigate("player/0") 
+                            navController.navigate("player/0") {
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         onSubtitlesClick = { 
                             playerViewModel.setSelectedContentTab(1)
-                            navController.navigate("player/1") 
+                            navController.navigate("player/1") {
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         onRelatedClick = { 
                             playerViewModel.setSelectedContentTab(2)
-                            navController.navigate("player/2") 
+                            navController.navigate("player/2") {
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         onNavigateToNewPlayer = {} // 已整合，置空
                     )
@@ -131,9 +162,10 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        val showMiniPlayer = currentRoute?.startsWith("player") == false &&
-                                             currentRoute != "search" &&
-                                             playerUiState.hasActiveTrack
+                        val showMiniPlayer = hasActiveTrack &&
+                                             currentRoute != null &&
+                                             !currentRoute.startsWith("player") &&
+                                             !currentRoute.startsWith("search")
 
                         NavHost(
                             navController = navController,
@@ -141,21 +173,32 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxSize()
                         ) {
                             composable("home") {
+                                val libraryUiState by libraryViewModel.uiState.collectAsState()
                                 HomeScreen(
                                     audiobooks = libraryUiState.audiobooks,
                                     selectedFilter = libraryUiState.selectedFilter,
                                     onFilterSelected = { libraryViewModel.setFilter(it) },
-                                    isMiniPlayerVisible = playerUiState.hasActiveTrack,
+                                    isMiniPlayerVisible = hasActiveTrack,
                                     onNavigateToDetail = { uri: String ->
-                                        navController.navigate("detail?bookUri=${Uri.encode(uri)}")
+                                        if (navController.currentBackStackEntry?.destination?.route?.startsWith("detail") != true) {
+                                            navController.navigate("detail?bookUri=${Uri.encode(uri)}")
+                                        }
                                     },
                                     onNavigateToSearch = {
-                                        navController.navigate("search")
+                                        if (navController.currentBackStackEntry?.destination?.route?.startsWith("search") != true) {
+                                            navController.navigate("search") {
+                                                launchSingleTop = true
+                                            }
+                                        }
                                     },
                                     onLoadMedia = { uri: Uri, title: String, author: String, narrator: String, pos: Long -> 
                                         playerViewModel.loadMedia(uri, title, author, narrator, pos) 
                                     },
-                                    onNavigateToPlayer = { navController.navigate("player/-1") },
+                                    onNavigateToPlayer = { 
+                                        navController.navigate("player/-1") {
+                                            launchSingleTop = true
+                                        }
+                                    },
                                     onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) }
                                 )
                             }
@@ -169,14 +212,20 @@ class MainActivity : ComponentActivity() {
                                 val initialQuery = backStackEntry.arguments?.getString("q")
                                 SearchScreen(
                                     initialQuery = initialQuery,
-                                    onBack = { navController.popBackStack() },
+                                    onBack = navigateBack,
                                     onNavigateToDetail = { uri: String ->
-                                        navController.navigate("detail?bookUri=${Uri.encode(uri)}")
+                                        if (navController.currentBackStackEntry?.destination?.route?.startsWith("detail") != true) {
+                                            navController.navigate("detail?bookUri=${Uri.encode(uri)}")
+                                        }
                                     },
                                     onLoadMedia = { uri: Uri, title: String, author: String, narrator: String, pos: Long -> 
                                         playerViewModel.loadMedia(uri, title, author, narrator, pos) 
                                     },
-                                    onNavigateToPlayer = { navController.navigate("player/-1") }
+                                    onNavigateToPlayer = { 
+                                        navController.navigate("player/-1") {
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 )
                             }
                             composable(
@@ -185,27 +234,39 @@ class MainActivity : ComponentActivity() {
                                     slideInVertically(initialOffsetY = { it }, animationSpec = tween(400))
                                 },
                                 exitTransition = {
-                                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
+                                    // 前进到下一级时淡出，保持视觉连贯性
+                                    fadeOut(animationSpec = tween(400))
                                 },
                                 popEnterTransition = {
+                                    // 从下一级返回时淡入
                                     fadeIn(animationSpec = tween(400))
                                 },
                                 popExitTransition = {
+                                    // 后退到主页时向下滑动
                                     slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
                                 }
                             ) { backStackEntry ->
+                                val libraryUiState by libraryViewModel.uiState.collectAsState()
                                 val bookUri = backStackEntry.arguments?.getString("bookUri")
-                                val selectedBook = libraryUiState.audiobooks.find { it.uri == bookUri }
-                                LaunchedEffect(selectedBook) {
+                                val selectedBook = remember(libraryUiState.audiobooks, bookUri) {
+                                    libraryUiState.audiobooks.find { it.uri == bookUri }
+                                }
+                                
+                                LaunchedEffect(selectedBook?.uri) {
                                     libraryViewModel.selectDetailBook(selectedBook)
                                 }
+                                
                                 val detailUiState by libraryViewModel.detailUiState.collectAsState()
 
                                 DetailScreen(
                                     uiState = detailUiState,
-                                    onBackClick = { navController.popBackStack() },
+                                    onBackClick = navigateBack,
                                     onSearchClick = { query ->
-                                        navController.navigate("search?q=${Uri.encode(query)}")
+                                        if (navController.currentBackStackEntry?.destination?.route?.startsWith("search") != true) {
+                                            navController.navigate("search?q=${Uri.encode(query)}") {
+                                                launchSingleTop = true
+                                            }
+                                        }
                                     },
                                     onPlayClick = { 
                                         detailUiState.book?.let { book ->
@@ -217,7 +278,9 @@ class MainActivity : ComponentActivity() {
                                                 startPositionMs = book.lastPosition
                                             )
                                         }
-                                        navController.navigate("player/-1") 
+                                        navController.navigate("player/-1") {
+                                            launchSingleTop = true
+                                        }
                                     }
                                 )
                             }
@@ -241,6 +304,7 @@ class MainActivity : ComponentActivity() {
                                 popEnterTransition = { fadeIn(animationSpec = tween(400)) },
                                 popExitTransition = { slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) }
                             ) { backStackEntry ->
+                                val playerUiState by playerViewModel.uiState.collectAsState()
                                 val tab = backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: -1
                                 LaunchedEffect(tab) {
                                     playerViewModel.setSelectedContentTab(tab)
@@ -255,7 +319,7 @@ class MainActivity : ComponentActivity() {
 
                         // Mini player
                         androidx.compose.animation.AnimatedVisibility(
-                            visible = showMiniPlayer && !playerUiState.isMiniPlayerHidden,
+                            visible = showMiniPlayer && !isMiniPlayerHidden,
                             enter = slideInVertically(
                                 initialOffsetY = { it },
                                 animationSpec = tween(400)
@@ -267,7 +331,12 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                         ) {
-                            Box(modifier = Modifier.clickable { navController.navigate("player/-1") }) {
+                            val playerUiState by playerViewModel.uiState.collectAsState()
+                            Box(modifier = Modifier.clickable { 
+                                navController.navigate("player/-1") {
+                                    launchSingleTop = true
+                                }
+                            }) {
                                 CompactMediaPlayer(
                                     isPlaying = playerUiState.isPlaying,
                                     title = playerUiState.currentTitle,

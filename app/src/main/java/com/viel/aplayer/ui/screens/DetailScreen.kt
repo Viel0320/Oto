@@ -100,7 +100,7 @@ fun DetailScreen(
     val book = uiState.book
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
-    
+
     val animatedBgColor by animateColorAsState(
         targetValue = Color(uiState.backgroundColorArgb),
         animationSpec = tween(300),
@@ -216,7 +216,7 @@ fun DetailScreen(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .combinedClickable(
-                                onClick = { book?.author?.let { onSearchClick("author:$it") } },
+                                onClick = { book?.author?.let { onSearchClick("Author:$it ") } },
                                 onLongClick = { 
                                     infoDialogTitle = "Author"
                                     infoDialogText = book?.author 
@@ -254,7 +254,7 @@ fun DetailScreen(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .combinedClickable(
-                                onClick = { book?.narrator?.let { onSearchClick("narrator:$it") } },
+                                onClick = { book?.narrator?.let { onSearchClick("Narrator:$it ") } },
                                 onLongClick = { 
                                     infoDialogTitle = "Narrator"
                                     infoDialogText = book?.narrator 

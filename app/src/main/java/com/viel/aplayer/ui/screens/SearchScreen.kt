@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,9 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -66,9 +65,9 @@ data class SearchCommand(
 )
 
 private val searchCommands = listOf(
-    SearchCommand("year:", "Search by release year"),
-    SearchCommand("author:", "Search by author name"),
-    SearchCommand("narrator:", "Search by narrator name")
+    SearchCommand("Year:", "Search by release year"),
+    SearchCommand("Author:", "Search by author name"),
+    SearchCommand("Narrator:", "Search by narrator name")
 )
 
 private fun commandSuggestionsFor(value: TextFieldValue): List<SearchCommand> {
@@ -80,7 +79,7 @@ private fun commandSuggestionsFor(value: TextFieldValue): List<SearchCommand> {
     val currentWord = text.substring(lastSpace + 1, cursor)
 
     return if (currentWord.isNotEmpty() && !currentWord.contains(":")) {
-        searchCommands.filter { it.token.startsWith(currentWord.lowercase()) }
+        searchCommands.filter { it.token.startsWith(currentWord, ignoreCase = true) }
     } else {
         emptyList()
     }
@@ -124,6 +123,7 @@ fun SearchScreen(
         },
         onLoadMedia = onLoadMedia,
         onNavigateToPlayer = onNavigateToPlayer,
+        autoFocus = initialQuery.isNullOrBlank(),
         modifier = modifier
     )
 }
@@ -144,9 +144,9 @@ fun SearchContent(
     onNavigateToDetail: (String) -> Unit,
     onLoadMedia: (android.net.Uri, String, String, String, Long) -> Unit,
     onNavigateToPlayer: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    autoFocus: Boolean = true,
 ) {
-    var isBacking by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val scrollState = rememberLazyListState()
@@ -158,15 +158,18 @@ fun SearchContent(
     }
 
     val handleBack = {
-        if (!isBacking) {
-            isBacking = true
-            focusManager.clearFocus()
-            onBack()
-        }
+        focusManager.clearFocus()
+        onBack()
+    }
+
+    BackHandler {
+        handleBack()
     }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+        if (autoFocus) {
+            focusRequester.requestFocus()
+        }
     }
 
     Scaffold(
@@ -305,9 +308,7 @@ fun SearchContent(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
-                            start = 16.dp,
                             top = 16.dp,
-                            end = 16.dp,
                             bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -319,7 +320,7 @@ fun SearchContent(
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(bottom = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                                 )
                             }
                             items(commandSuggestions.size) { index ->
@@ -388,7 +389,7 @@ fun SearchContent(
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
                                 )
                             }
                             items(searchResults.size) { index ->
