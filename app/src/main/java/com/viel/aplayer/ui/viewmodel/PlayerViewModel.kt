@@ -74,8 +74,9 @@ class PlayerViewModel : ViewModel() {
             mediaController?.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     _uiState.update { it.copy(isPlaying = isPlaying) }
-                    if (!isPlaying) {
-                        saveProgress() // 暂停时立即保存进度
+                    // Ensure saveProgress (which touches MediaController) is called on Main thread
+                    viewModelScope.launch {
+                        saveProgress()
                     }
                 }
                 override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -124,6 +125,7 @@ class PlayerViewModel : ViewModel() {
                     if (mediaItem == null) {
                         _uiState.update {
                         it.copy(
+                            currentUri = "",
                             currentTitle = "",
                             currentAuthor = "",
                             currentNarrator = "",
@@ -143,6 +145,7 @@ class PlayerViewModel : ViewModel() {
                     val transNarrator = mediaItem.mediaMetadata.composer?.toString()
                     _uiState.update { state ->
                         state.copy(
+                            currentUri = mediaItem.mediaId,
                             currentTitle = if (!transTitle.isNullOrBlank()) transTitle else state.currentTitle,
                             currentAuthor = if (!transAuthor.isNullOrBlank() && transAuthor != "Unknown Author") transAuthor else state.currentAuthor,
                             currentNarrator = if (!transNarrator.isNullOrBlank()) transNarrator else state.currentNarrator,
@@ -159,9 +162,10 @@ class PlayerViewModel : ViewModel() {
                 }
             })
             // Start progress polling & auto-save
-            viewModelScope.launch {
+            viewModelScope.launch(Dispatchers.Main.immediate) {
                 var saveCounter = 0
                 while (true) {
+                    // mediaController methods must be called on Main thread
                     val isActuallyPlaying = mediaController?.isPlaying == true
                     val playbackState = mediaController?.playbackState ?: Player.STATE_IDLE
                     
@@ -184,7 +188,7 @@ class PlayerViewModel : ViewModel() {
 
             // Autoload most recent media if nothing is currently playing/loaded
             if (mediaController?.mediaItemCount == 0) {
-                viewModelScope.launch {
+                viewModelScope.launch(Dispatchers.Main.immediate) {
                     val recent = libraryRepository?.getMostRecentAudiobook()
                     android.util.Log.d("PlayerViewModel", "Autoload search result: ${recent?.title}")
                     if (recent != null) {
@@ -239,10 +243,27 @@ class PlayerViewModel : ViewModel() {
         if (narrator.isNotBlank()) {
             metadataBuilder.setComposer(narrator)
         }
+
+        val extension = android.webkit.MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+        val mimeType = if (extension != null) {
+            android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
+        } else {
+            null
+        } ?: when {
+            uri.toString().endsWith(".m4b", ignoreCase = true) -> "audio/mp4"
+            uri.toString().endsWith(".m4a", ignoreCase = true) -> "audio/mp4"
+            uri.toString().endsWith(".mp3", ignoreCase = true) -> "audio/mpeg"
+            uri.toString().endsWith(".flac", ignoreCase = true) -> "audio/flac"
+            uri.toString().endsWith(".wav", ignoreCase = true) -> "audio/wav"
+            uri.toString().endsWith(".ogg", ignoreCase = true) -> "audio/ogg"
+            uri.toString().endsWith(".aac", ignoreCase = true) -> "audio/aac"
+            else -> null
+        }
             
         val mediaItem = MediaItem.Builder()
             .setMediaId(uri.toString())
             .setUri(uri)
+            .setMimeType(mimeType)
             .setMediaMetadata(metadataBuilder.build())
             .build()
             
@@ -251,6 +272,9 @@ class PlayerViewModel : ViewModel() {
         if (playWhenReady) {
             player?.play()
         }
+        
+        // 立即保存一次进度，确保新加载的书籍立刻出现在“最近播放”列表顶部
+        saveProgress(startPositionMs)
         
         // Poll for cover paths
         viewModelScope.launch {
@@ -310,12 +334,11 @@ class PlayerViewModel : ViewModel() {
 
             authorList.forEachIndexed { index, name ->
                 launch {
-                    libraryRepository?.filterByAuthor(name)?.collect { books ->
-                        val filteredBooks = books.filter { it.uri != currentUri }
+                    libraryRepository?.filterByAuthorLimited(name, currentUri, 3)?.collect { books ->
                         _uiState.update { state ->
                             val currentSections = state.relatedAuthorSections.toMutableList()
                             if (index < currentSections.size) {
-                                currentSections[index] = RelatedSection(name, filteredBooks)
+                                currentSections[index] = RelatedSection(name, books)
                             }
                             state.copy(relatedAuthorSections = currentSections)
                         }
@@ -325,12 +348,11 @@ class PlayerViewModel : ViewModel() {
 
             narratorList.forEachIndexed { index, name ->
                 launch {
-                    libraryRepository?.filterByNarrator(name)?.collect { books ->
-                        val filteredBooks = books.filter { it.uri != currentUri }
+                    libraryRepository?.filterByNarratorLimited(name, currentUri, 3)?.collect { books ->
                         _uiState.update { state ->
                             val currentSections = state.relatedNarratorSections.toMutableList()
                             if (index < currentSections.size) {
-                                currentSections[index] = RelatedSection(name, filteredBooks)
+                                currentSections[index] = RelatedSection(name, books)
                             }
                             state.copy(relatedNarratorSections = currentSections)
                         }
@@ -339,7 +361,7 @@ class PlayerViewModel : ViewModel() {
             }
 
             launch {
-                libraryRepository?.getRecentlyAdded(3)?.collect { books ->
+                libraryRepository?.getRecentlyAddedExclusive(currentUri, authorList, narratorList, 3)?.collect { books ->
                     _uiState.update { it.copy(recentlyAddedBooks = books) }
                 }
             }
@@ -372,64 +394,72 @@ class PlayerViewModel : ViewModel() {
 
     private fun extractChaptersFromPlayer(player: Player) {
         val uri = currentMediaUri ?: return
+        // Must access currentTracks on the main thread
+        val tracks = player.currentTracks
+        
+        // Extract metadata entries on the main thread to avoid background thread access to Tracks/Groups
+        val metadataEntries = mutableListOf<androidx.media3.common.Metadata.Entry>()
+        for (group in tracks.groups) {
+            val trackGroup = group.mediaTrackGroup
+            for (i in 0 until trackGroup.length) {
+                val format = trackGroup.getFormat(i)
+                val metadata = format.metadata ?: continue
+                for (j in 0 until metadata.length()) {
+                    metadataEntries.add(metadata[j])
+                }
+            }
+        }
 
-        // 切换到 Default 线程处理反射和循环计算，避免阻塞主线程
+        if (metadataEntries.isEmpty()) return
+
+        // Switch to Default thread for reflection and heavy computation
         viewModelScope.launch(Dispatchers.Default) {
             val chapters = mutableListOf<ChapterEntity>()
-            val tracks = player.currentTracks
-            for (group in tracks.groups) {
-                val trackGroup = group.mediaTrackGroup
-                for (i in 0 until trackGroup.length) {
-                    val format = trackGroup.getFormat(i)
-                    val metadata = format.metadata ?: continue
-                    for (j in 0 until metadata.length()) {
-                        val entry = metadata[j]
-                        if (entry is ChapterFrame) {
-                            var title: String? = null
-                            try {
-                                val field = entry.javaClass.getDeclaredField("subFrames")
-                                field.isAccessible = true
-                                val subFrames = field.get(entry) as? Array<*>
-                                subFrames?.forEach { subFrame ->
-                                    if (subFrame is TextInformationFrame && (subFrame.id == "TIT2" || subFrame.id == "TIT1")) {
-                                        title = subFrame.values.firstOrNull()
-                                    }
-                                }
-                            } catch (_: Exception) {}
-
-                            if (title.isNullOrBlank() && !entry.chapterId.matches(Regex("ch\\d+"))) {
-                                title = entry.chapterId
+            for (entry in metadataEntries) {
+                if (entry is ChapterFrame) {
+                    var title: String? = null
+                    try {
+                        val field = entry.javaClass.getDeclaredField("subFrames")
+                        field.isAccessible = true
+                        val subFrames = field.get(entry) as? Array<*>
+                        subFrames?.forEach { subFrame ->
+                            if (subFrame is TextInformationFrame && (subFrame.id == "TIT2" || subFrame.id == "TIT1")) {
+                                title = subFrame.values.firstOrNull()
                             }
+                        }
+                    } catch (_: Exception) {}
 
+                    if (title.isNullOrBlank() && !entry.chapterId.matches(Regex("ch\\d+"))) {
+                        title = entry.chapterId
+                    }
+
+                    chapters.add(
+                        ChapterEntity(
+                            bookUri = uri,
+                            title = title ?: "Chapter ${chapters.size + 1}",
+                            startPosition = entry.startTimeMs.toLong(),
+                            endPosition = entry.endTimeMs.toLong()
+                        )
+                    )
+                } else if (entry.javaClass.simpleName.contains("Chapter", ignoreCase = true)) {
+                    try {
+                        val clazz = entry.javaClass
+                        val title = try { clazz.getDeclaredField("title").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
+                            ?: try { clazz.getDeclaredField("text").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
+                        val startTimeMs = try { clazz.getDeclaredField("startTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
+                        val endTimeMs = try { clazz.getDeclaredField("endTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
+
+                        if (startTimeMs != null && endTimeMs != null) {
                             chapters.add(
                                 ChapterEntity(
                                     bookUri = uri,
                                     title = title ?: "Chapter ${chapters.size + 1}",
-                                    startPosition = entry.startTimeMs.toLong(),
-                                    endPosition = entry.endTimeMs.toLong()
+                                    startPosition = startTimeMs.toLong(),
+                                    endPosition = endTimeMs.toLong()
                                 )
                             )
-                        } else if (entry.javaClass.simpleName.contains("Chapter", ignoreCase = true)) {
-                            try {
-                                val clazz = entry.javaClass
-                                val title = try { clazz.getDeclaredField("title").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
-                                    ?: try { clazz.getDeclaredField("text").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
-                                val startTimeMs = try { clazz.getDeclaredField("startTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
-                                val endTimeMs = try { clazz.getDeclaredField("endTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
-
-                                if (startTimeMs != null && endTimeMs != null) {
-                                    chapters.add(
-                                        ChapterEntity(
-                                            bookUri = uri,
-                                            title = title ?: "Chapter ${chapters.size + 1}",
-                                            startPosition = startTimeMs.toLong(),
-                                            endPosition = endTimeMs.toLong()
-                                        )
-                                    )
-                                }
-                            } catch (_: Exception) {}
                         }
-                    }
+                    } catch (_: Exception) {}
                 }
             }
 
@@ -444,9 +474,19 @@ class PlayerViewModel : ViewModel() {
         }
     }
 
-    private fun saveProgress(position: Long = _uiState.value.currentPosition) {
+    private fun saveProgress(position: Long? = null) {
         val uri = currentMediaUri ?: return
-        libraryRepository?.updateProgress(uri, position)
+        
+        if (position != null) {
+            libraryRepository?.updateProgress(uri, position)
+            return
+        }
+
+        // Must access player?.currentPosition on the main thread
+        viewModelScope.launch {
+            val pos = player?.currentPosition?.coerceAtLeast(0L) ?: _uiState.value.currentPosition
+            libraryRepository?.updateProgress(uri, pos)
+        }
     }
 
     fun play() {

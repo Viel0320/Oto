@@ -38,11 +38,29 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
     )
 
+    private var isFirstLoad = true
+
     val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
         repository.audiobooks,
         _selectedFilter
     ) { audiobooks, filter ->
-        LibraryUiState(audiobooks = audiobooks, selectedFilter = filter)
+        var activeFilter = filter
+        if (isFirstLoad) {
+            isFirstLoad = false
+            // 首次载入逻辑：优先进入 InProgress，如果没有正在阅读的书，则进入 NotStarted
+            activeFilter = if (audiobooks.any { it.isInProgress }) {
+                HomeFilter.InProgress
+            } else {
+                HomeFilter.NotStarted
+            }
+
+            // 同步保存状态，确保数据一致性
+            if (activeFilter != filter) {
+                _selectedFilter.value = activeFilter
+                repository.setHomeFilter(activeFilter.name)
+            }
+        }
+        LibraryUiState(audiobooks = audiobooks, selectedFilter = activeFilter)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -72,15 +90,22 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun selectDetailBook(book: AudiobookEntity?) {
-        _detailUiState.value = DetailUiState(
-            book = book,
-            isAvailable = book?.let { repository.checkFileExists(it.uri) } ?: false,
-            progressPercent = book?.progressPercent ?: 0
-        )
+        val current = _detailUiState.value
+        // 仅在书籍改变或进度改变时更新状态
+        if (current.book?.uri != book?.uri || current.book?.lastPosition != book?.lastPosition) {
+            _detailUiState.value = current.copy(
+                book = book,
+                isAvailable = book?.let { repository.checkFileExists(it.uri) } ?: false,
+                progressPercent = book?.progressPercent ?: 0
+            )
+        }
 
-        viewModelScope.launch(Dispatchers.Default) {
-            val backgroundColor = extractCoverDominantColorArgb(book?.coverPath)
-            _detailUiState.value = _detailUiState.value.copy(backgroundColorArgb = backgroundColor)
+        // 仅在封面路径改变时重新提取颜色，避免频繁重置背景色
+        if (book?.coverPath != current.book?.coverPath || (book != null && current.backgroundColorArgb == 0)) {
+            viewModelScope.launch(Dispatchers.Default) {
+                val backgroundColor = extractCoverDominantColorArgb(book?.coverPath)
+                _detailUiState.value = _detailUiState.value.copy(backgroundColorArgb = backgroundColor)
+            }
         }
     }
 

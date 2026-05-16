@@ -252,14 +252,21 @@ class MainActivity : ComponentActivity() {
                                     libraryUiState.audiobooks.find { it.uri == bookUri }
                                 }
                                 
-                                LaunchedEffect(selectedBook?.uri) {
+                                LaunchedEffect(selectedBook) {
                                     libraryViewModel.selectDetailBook(selectedBook)
                                 }
                                 
                                 val detailUiState by libraryViewModel.detailUiState.collectAsState()
 
                                 DetailScreen(
-                                    uiState = detailUiState,
+                                    uiState = if (playerUiState.currentUri == detailUiState.book?.uri && playerUiState.duration > 0) {
+                                        val realTimePercent = kotlin.math.ceil(
+                                            playerUiState.currentPosition.toDouble() / playerUiState.duration.toDouble() * 100
+                                        ).toInt().coerceIn(0, 100)
+                                        detailUiState.copy(progressPercent = realTimePercent)
+                                    } else {
+                                        detailUiState
+                                    },
                                     onBackClick = navigateBack,
                                     onSearchClick = { query ->
                                         if (canStartNavigation() && navController.currentBackStackEntry?.destination?.route?.startsWith("search") != true) {

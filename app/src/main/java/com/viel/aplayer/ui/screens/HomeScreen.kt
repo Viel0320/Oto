@@ -210,13 +210,14 @@ fun HomeScreen(
                 item {
                     LazyRow(
                         modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(recentBooks) { book ->
                             RecentlyItem(
                                 title = book.title,
                                 author = book.author,
+                                narrator = book.narrator,
                                 progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
                                 coverPath = book.thumbnailPath ?: book.coverPath,
                                 onClick = { onNavigateToDetail(book.uri) }

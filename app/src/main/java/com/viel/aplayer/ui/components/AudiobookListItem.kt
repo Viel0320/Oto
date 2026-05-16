@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -48,17 +49,17 @@ fun AudiobookListItem(
 ) {
     ListItem(
         modifier = modifier.clickable { onClick() },
-        headlineContent = { 
+        headlineContent = {
             Column(verticalArrangement = Arrangement.Center) {
                 Text(
-                    title, 
-                    maxLines = 1, 
+                    title,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.SemiBold
-                ) 
+                )
                 Text(
-                    formatPeopleSubtitle(author, narrator), 
-                    maxLines = 1, 
+                    formatPeopleSubtitle(author, narrator),
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -125,7 +126,10 @@ fun AudiobookListItem(
             }
         },
         trailingContent = {
-            IconButton(onClick = onPlayClick) {
+            IconButton(
+                onClick = onPlayClick,
+                modifier = Modifier.offset(x = 8.dp)
+            ) {
                 Icon(Icons.Rounded.PlayArrow, contentDescription = "Play")
             }
         },

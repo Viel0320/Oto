@@ -280,6 +280,7 @@ fun NewPlayerScreen(
                                 PlayerScreenMode.RELATED -> {
                                     Box(modifier = Modifier.weight(1f)) {
                                         RelatedBooksView(
+                                            currentBookUri = uiState.currentUri,
                                             authorSections = uiState.relatedAuthorSections,
                                             narratorSections = uiState.relatedNarratorSections,
                                             recentBooks = uiState.recentlyAddedBooks,

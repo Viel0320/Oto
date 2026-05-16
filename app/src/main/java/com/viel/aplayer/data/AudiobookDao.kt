@@ -51,11 +51,31 @@ interface AudiobookDao {
     @Query("SELECT * FROM audiobooks WHERE author LIKE '%' || :author || '%' ORDER BY title ASC")
     fun filterByAuthor(author: String): Flow<List<AudiobookEntity>>
 
+    @Query("SELECT * FROM audiobooks WHERE author LIKE '%' || :author || '%' AND uri != :excludeUri ORDER BY title ASC LIMIT :limit")
+    fun filterByAuthorLimited(author: String, excludeUri: String, limit: Int): Flow<List<AudiobookEntity>>
+
     @Query("SELECT * FROM audiobooks WHERE narrator LIKE '%' || :narrator || '%' ORDER BY title ASC")
     fun filterByNarrator(narrator: String): Flow<List<AudiobookEntity>>
 
+    @Query("SELECT * FROM audiobooks WHERE narrator LIKE '%' || :narrator || '%' AND uri != :excludeUri ORDER BY title ASC LIMIT :limit")
+    fun filterByNarratorLimited(narrator: String, excludeUri: String, limit: Int): Flow<List<AudiobookEntity>>
+
     @Query("SELECT * FROM audiobooks ORDER BY addedAt DESC LIMIT :limit")
     fun getRecentlyAdded(limit: Int): Flow<List<AudiobookEntity>>
+
+    @Query("""
+        SELECT * FROM audiobooks 
+        WHERE uri != :currentUri 
+        AND author NOT IN (:authors) 
+        AND narrator NOT IN (:narrators) 
+        ORDER BY addedAt DESC LIMIT :limit
+    """)
+    fun getRecentlyAddedExclusive(
+        currentUri: String,
+        authors: List<String>,
+        narrators: List<String>,
+        limit: Int
+    ): Flow<List<AudiobookEntity>>
 
     @Query("DELETE FROM audiobooks WHERE uri = :uri")
     suspend fun deleteByUri(uri: String)

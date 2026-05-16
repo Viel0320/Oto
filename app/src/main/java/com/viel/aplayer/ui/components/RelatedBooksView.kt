@@ -19,6 +19,7 @@ import com.viel.aplayer.ui.theme.APlayerTheme
 
 @Composable
 fun RelatedBooksView(
+    currentBookUri: String,
     authorSections: List<RelatedSection>,
     narratorSections: List<RelatedSection>,
     recentBooks: List<AudiobookEntity>,
@@ -68,7 +69,7 @@ private fun RelatedSectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
+        modifier = Modifier.padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 8.dp)
     )
 }
 
@@ -106,6 +107,7 @@ fun RelatedBooksViewPreview() {
     APlayerTheme(darkTheme = true) {
         Surface(color = MaterialTheme.colorScheme.background) {
             RelatedBooksView(
+                currentBookUri = "uri0",
                 authorSections = listOf(RelatedSection("Author Name", mockList)),
                 narratorSections = listOf(RelatedSection("Narrator Name", mockList)),
                 recentBooks = mockList,

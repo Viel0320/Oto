@@ -1,12 +1,19 @@
 package com.viel.aplayer.service
 
 import android.os.Bundle
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.mp3.Mp3Extractor
+import androidx.media3.extractor.mp4.Mp4Extractor
+import androidx.media3.extractor.ts.AdtsExtractor
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -42,7 +49,27 @@ class PlaybackService : MediaSessionService() {
         
         libraryRepository = LibraryRepository.getInstance(this)
 
-        val player = ExoPlayer.Builder(this)
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                30000, // Min buffer 30s
+                30000, // Max buffer 30s
+                1000,  // Buffer for playback 1s
+                2000   // Buffer for playback after rebuffer 2s
+            )
+            .build()
+
+        val renderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(this)
+            .forceDisableMediaCodecAsynchronousQueueing()
+
+        val extractorsFactory = DefaultExtractorsFactory()
+            .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
+            .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
+            // Note: In newer Media3 (1.2.0+), consider adding .setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_SAMPLE_TABLE_DIRECTLY)
+            // to further reduce memory usage for large M4B files.
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
+
+        val player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
@@ -50,9 +77,23 @@ class PlaybackService : MediaSessionService() {
                     .build(),
                 true
             )
+            .setLoadControl(loadControl)
+            .setMediaSourceFactory(mediaSourceFactory)
             .setSeekBackIncrementMs(10000)
             .setSeekForwardIncrementMs(30000)
             .build()
+
+        player.addListener(object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e("PlaybackService", "Player error: ${error.message}", error)
+                if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED) {
+                    val cause = error.cause
+                    if (cause is androidx.media3.common.ParserException) {
+                        Log.e("PlaybackService", "Parser exception: contentIsMalformed=${cause.contentIsMalformed}, dataType=${cause.dataType}")
+                    }
+                }
+            }
+        })
 
         rewindButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("快退10秒")

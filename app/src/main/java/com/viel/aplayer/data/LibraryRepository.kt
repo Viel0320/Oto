@@ -146,9 +146,18 @@ class LibraryRepository private constructor(context: Context) {
     
     fun filterByAuthor(author: String): Flow<List<AudiobookEntity>> = dao.filterByAuthor(author)
     
+    fun filterByAuthorLimited(author: String, excludeUri: String, limit: Int): Flow<List<AudiobookEntity>> = 
+        dao.filterByAuthorLimited(author, excludeUri, limit)
+    
     fun filterByNarrator(narrator: String): Flow<List<AudiobookEntity>> = dao.filterByNarrator(narrator)
 
+    fun filterByNarratorLimited(narrator: String, excludeUri: String, limit: Int): Flow<List<AudiobookEntity>> = 
+        dao.filterByNarratorLimited(narrator, excludeUri, limit)
+
     fun getRecentlyAdded(limit: Int): Flow<List<AudiobookEntity>> = dao.getRecentlyAdded(limit)
+
+    fun getRecentlyAddedExclusive(currentUri: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<AudiobookEntity>> = 
+        dao.getRecentlyAddedExclusive(currentUri, authors, narrators, limit)
 
     @SuppressLint("CheckResult")
     @Suppress("DEPRECATION")

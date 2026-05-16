@@ -14,6 +14,7 @@ data class RelatedSection(
 data class PlayerUiState(
     val isPlaying: Boolean = false,
     val playWhenReady: Boolean = false,
+    val currentUri: String = "",
     val currentTitle: String = "",
     val currentAuthor: String = "",
     val currentNarrator: String = "",
