@@ -2,6 +2,7 @@ package com.viel.aplayer
 
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,6 +79,16 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(currentRoute) {
                     playerViewModel.onRouteChanged()
                 }
+
+                val lastNavigationClickAt = remember { mutableLongStateOf(0L) }
+                fun canStartNavigation(): Boolean {
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - lastNavigationClickAt.longValue < NAVIGATION_CLICK_THROTTLE_MS) {
+                        return false
+                    }
+                    lastNavigationClickAt.longValue = now
+                    return true
+                }
                 
                 val playerActions = remember(playerViewModel) {
                     PlayerActions(
@@ -117,7 +129,7 @@ class MainActivity : ComponentActivity() {
                 
                 val navigateBack: () -> Unit = remember(navController) {
                     {
-                        if (navController.previousBackStackEntry != null) {
+                        if (canStartNavigation() && navController.previousBackStackEntry != null) {
                             navController.popBackStack()
                         }
                     }
@@ -134,24 +146,30 @@ class MainActivity : ComponentActivity() {
                         onMinimize = navigateBack,
                         onClose = navigateBack,
                         onBookmarksClick = { 
-                            playerViewModel.setSelectedContentTab(0)
-                            navController.navigate("player/0") {
-                                launchSingleTop = true
-                                restoreState = true
+                            if (canStartNavigation()) {
+                                playerViewModel.setSelectedContentTab(0)
+                                navController.navigate("player/0") {
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         },
                         onSubtitlesClick = { 
-                            playerViewModel.setSelectedContentTab(1)
-                            navController.navigate("player/1") {
-                                launchSingleTop = true
-                                restoreState = true
+                            if (canStartNavigation()) {
+                                playerViewModel.setSelectedContentTab(1)
+                                navController.navigate("player/1") {
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         },
                         onRelatedClick = { 
-                            playerViewModel.setSelectedContentTab(2)
-                            navController.navigate("player/2") {
-                                launchSingleTop = true
-                                restoreState = true
+                            if (canStartNavigation()) {
+                                playerViewModel.setSelectedContentTab(2)
+                                navController.navigate("player/2") {
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         },
                         onNavigateToNewPlayer = {} // 已整合，置空
@@ -180,12 +198,12 @@ class MainActivity : ComponentActivity() {
                                     onFilterSelected = { libraryViewModel.setFilter(it) },
                                     isMiniPlayerVisible = hasActiveTrack,
                                     onNavigateToDetail = { uri: String ->
-                                        if (navController.currentBackStackEntry?.destination?.route?.startsWith("detail") != true) {
+                                        if (canStartNavigation() && navController.currentBackStackEntry?.destination?.route?.startsWith("detail") != true) {
                                             navController.navigate("detail?bookUri=${Uri.encode(uri)}")
                                         }
                                     },
                                     onNavigateToSearch = {
-                                        if (navController.currentBackStackEntry?.destination?.route?.startsWith("search") != true) {
+                                        if (canStartNavigation() && navController.currentBackStackEntry?.destination?.route?.startsWith("search") != true) {
                                             navController.navigate("search") {
                                                 launchSingleTop = true
                                             }
@@ -195,8 +213,10 @@ class MainActivity : ComponentActivity() {
                                         playerViewModel.loadMedia(uri, title, author, narrator, pos) 
                                     },
                                     onNavigateToPlayer = { 
-                                        navController.navigate("player/-1") {
-                                            launchSingleTop = true
+                                        if (canStartNavigation()) {
+                                            navController.navigate("player/-1") {
+                                                launchSingleTop = true
+                                            }
                                         }
                                     },
                                     onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) }
@@ -214,7 +234,7 @@ class MainActivity : ComponentActivity() {
                                     initialQuery = initialQuery,
                                     onBack = navigateBack,
                                     onNavigateToDetail = { uri: String ->
-                                        if (navController.currentBackStackEntry?.destination?.route?.startsWith("detail") != true) {
+                                        if (canStartNavigation() && navController.currentBackStackEntry?.destination?.route?.startsWith("detail") != true) {
                                             navController.navigate("detail?bookUri=${Uri.encode(uri)}")
                                         }
                                     },
@@ -222,8 +242,10 @@ class MainActivity : ComponentActivity() {
                                         playerViewModel.loadMedia(uri, title, author, narrator, pos) 
                                     },
                                     onNavigateToPlayer = { 
-                                        navController.navigate("player/-1") {
-                                            launchSingleTop = true
+                                        if (canStartNavigation()) {
+                                            navController.navigate("player/-1") {
+                                                launchSingleTop = true
+                                            }
                                         }
                                     }
                                 )
@@ -262,7 +284,7 @@ class MainActivity : ComponentActivity() {
                                     uiState = detailUiState,
                                     onBackClick = navigateBack,
                                     onSearchClick = { query ->
-                                        if (navController.currentBackStackEntry?.destination?.route?.startsWith("search") != true) {
+                                        if (canStartNavigation() && navController.currentBackStackEntry?.destination?.route?.startsWith("search") != true) {
                                             navController.navigate("search?q=${Uri.encode(query)}") {
                                                 launchSingleTop = true
                                             }
@@ -278,8 +300,10 @@ class MainActivity : ComponentActivity() {
                                                 startPositionMs = book.lastPosition
                                             )
                                         }
-                                        navController.navigate("player/-1") {
-                                            launchSingleTop = true
+                                        if (canStartNavigation()) {
+                                            navController.navigate("player/-1") {
+                                                launchSingleTop = true
+                                            }
                                         }
                                     }
                                 )
@@ -333,8 +357,10 @@ class MainActivity : ComponentActivity() {
                         ) {
                             val playerUiState by playerViewModel.uiState.collectAsState()
                             Box(modifier = Modifier.clickable { 
-                                navController.navigate("player/-1") {
-                                    launchSingleTop = true
+                                if (canStartNavigation()) {
+                                    navController.navigate("player/-1") {
+                                        launchSingleTop = true
+                                    }
                                 }
                             }) {
                                 CompactMediaPlayer(
@@ -357,3 +383,5 @@ class MainActivity : ComponentActivity() {
     }
 
 }
+
+private const val NAVIGATION_CLICK_THROTTLE_MS = 180L

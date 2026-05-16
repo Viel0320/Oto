@@ -95,15 +95,6 @@ fun NewPlayerScreen(
     navigationActions: PlayerNavigationActions,
     modifier: Modifier = Modifier,
 ) {
-    // 内部状态管理当前模式
-    
-    // 动画防抖：动画播完前禁止交互
-    var isReady by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(400) // 匹配 MainActivity 中的 tween(400)
-        isReady = true
-    }
-    
     // 将外部状态转换为枚举
     val targetMode = remember(uiState.selectedContentTab) {
         when(uiState.selectedContentTab) {
@@ -151,17 +142,7 @@ fun NewPlayerScreen(
 
         Surface(
             modifier = modifier
-                .fillMaxSize()
-                .pointerInput(isReady) {
-                    if (!isReady) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                // 动画期间消费所有触摸事件，防止抖动和误操作
-                                awaitPointerEvent().changes.forEach { it.consume() }
-                            }
-                        }
-                    }
-                },
+                .fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
             Column(
@@ -288,7 +269,9 @@ fun NewPlayerScreen(
                 BottomNavTabs(
                     selectedTab = currentMode,
                     onTabSelected = { 
-                        currentMode = if (currentMode == it) PlayerScreenMode.PLAYER else it
+                        val nextMode = if (currentMode == it) PlayerScreenMode.PLAYER else it
+                        currentMode = nextMode
+                        actions.onSelectedContentTabChange(nextMode.index)
                     }
                 )
             }
