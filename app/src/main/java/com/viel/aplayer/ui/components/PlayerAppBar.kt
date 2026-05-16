@@ -47,7 +47,7 @@ fun PlayerAppBar(
     containerColor: Color = Color.Transparent,
     contentColor: Color = LocalContentColor.current
 ) {
-    val navPainter = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
+    val navIcon = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
 
     CenterAlignedTopAppBar(
@@ -78,7 +78,7 @@ fun PlayerAppBar(
         navigationIcon = {
             IconButton(onClick = onNavigationClick) {
                 Icon(
-                    painter = navPainter,
+                    painter = rememberVectorPainter(navIcon),
                     contentDescription = "Back",
                     tint = contentColor
                 )
@@ -88,7 +88,7 @@ fun PlayerAppBar(
             Box {
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
-                        imageVector = Icons.Rounded.MoreVert,
+                        painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = "More",
                         tint = contentColor
                     )
