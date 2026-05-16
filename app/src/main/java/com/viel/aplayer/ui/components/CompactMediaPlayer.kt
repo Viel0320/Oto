@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,12 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.viel.aplayer.R
 import com.viel.aplayer.ui.action.MiniPlayerActions
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatPeopleSubtitle
@@ -128,10 +129,10 @@ fun CompactMediaPlayer(
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        painter = if (isPlaying) {
-                            painterResource(R.drawable.ic_rounded_pause)
+                        imageVector = if (isPlaying) {
+                            Icons.Rounded.Pause
                         } else {
-                            painterResource(R.drawable.ic_rounded_play_arrow)
+                            Icons.Rounded.PlayArrow
                         },
                         contentDescription = if (isPlaying) "Pause" else "Play",
                         modifier = Modifier.size(32.dp),

@@ -3,6 +3,9 @@ package com.viel.aplayer.ui.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -22,12 +25,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import com.viel.aplayer.R
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatPeopleSubtitle
 
@@ -39,13 +41,13 @@ fun PlayerAppBar(
     narrator: String,
     onNavigationClick: () -> Unit,
     modifier: Modifier = Modifier,
-    navigationIcon: Painter? = null,
+    navigationIcon: ImageVector? = null,
     onToggleProgressMode: (() -> Unit)? = null,
     isChapterProgressMode: Boolean = false,
     containerColor: Color = Color.Transparent,
     contentColor: Color = LocalContentColor.current
 ) {
-    val navPainter = navigationIcon ?: painterResource(R.drawable.ic_rounded_keyboard_arrow_down)
+    val navPainter = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
 
     CenterAlignedTopAppBar(
@@ -86,7 +88,7 @@ fun PlayerAppBar(
             Box {
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_rounded_more_vert),
+                        imageVector = Icons.Rounded.MoreVert,
                         contentDescription = "More",
                         tint = contentColor
                     )

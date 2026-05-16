@@ -34,6 +34,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Timelapse
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -63,7 +71,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -107,7 +114,7 @@ fun DetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
-                            painterResource(R.drawable.ic_rounded_arrow_back),
+                            Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = stringResource(R.string.back_content_description)
                         )
                     }
@@ -115,7 +122,7 @@ fun DetailScreen(
                 actions = {
                     IconButton(onClick = onMoreClick) {
                         Icon(
-                            painterResource(R.drawable.ic_rounded_more_vert),
+                            Icons.Rounded.MoreVert,
                             contentDescription = stringResource(R.string.more_content_description)
                         )
                     }
@@ -170,7 +177,7 @@ fun DetailScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                painterResource(R.drawable.ic_rounded_play_arrow),
+                                Icons.Rounded.PlayArrow,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
@@ -284,17 +291,17 @@ fun DetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     DetailInfoChip(
-                        icon = painterResource(R.drawable.ic_rounded_event),
+                        icon = Icons.Rounded.Event,
                         value = if (!book?.year.isNullOrBlank()) book.year else "Unknown"
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     DetailInfoChip(
-                        icon = painterResource(R.drawable.ic_rounded_timelapse),
+                        icon = Icons.Rounded.Timelapse,
                         value = formatTime(book?.duration ?: 0L)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     DetailInfoChip(
-                        icon = painterResource(R.drawable.ic_rounded_storage),
+                        icon = Icons.Rounded.Storage,
                         value = formatFileSize(book?.fileSize ?: 0L)
                     )
                 }
@@ -319,9 +326,9 @@ fun DetailScreen(
                     }
                 ) {
                     Icon(
-                        painter = if (!uiState.isAvailable) painterResource(R.drawable.ic_rounded_storage) 
-                        else if (uiState.progressPercent > 0) painterResource(R.drawable.ic_rounded_history) 
-                        else painterResource(R.drawable.ic_rounded_play_arrow),
+                        imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage 
+                        else if (uiState.progressPercent > 0) Icons.Rounded.History 
+                        else Icons.Rounded.PlayArrow,
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -501,7 +508,7 @@ private class ProcessTextMenuCallback(
 
 @Composable
 fun DetailInfoChip(
-    icon: androidx.compose.ui.graphics.painter.Painter,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     value: String,
     modifier: Modifier = Modifier
 ) {
@@ -518,7 +525,7 @@ fun DetailInfoChip(
         },
         icon = {
             Icon(
-                painter = icon,
+                imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(SuggestionChipDefaults.IconSize),
                 tint = LocalContentColor.current

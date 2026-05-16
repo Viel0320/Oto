@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -21,16 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.viel.aplayer.R
 import com.viel.aplayer.ui.utils.formatCompactDuration
 import com.viel.aplayer.ui.utils.formatPeopleSubtitle
-//import com.viel.aplayer.ui.utils.formatShortDate
-import androidx.compose.ui.tooling.preview.Preview
 import com.viel.aplayer.ui.theme.APlayerTheme
 import java.io.File
 
@@ -120,14 +119,14 @@ fun AudiobookListItem(
                     )
                 } else {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(painterResource(R.drawable.ic_rounded_play_arrow), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         },
         trailingContent = {
             IconButton(onClick = onPlayClick) {
-                Icon(painterResource(R.drawable.ic_rounded_play_arrow), contentDescription = "Play")
+                Icon(Icons.Rounded.PlayArrow, contentDescription = "Play")
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)

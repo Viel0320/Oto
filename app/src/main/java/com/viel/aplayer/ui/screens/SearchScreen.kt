@@ -16,6 +16,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,7 +48,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -53,7 +57,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.viel.aplayer.R
 import com.viel.aplayer.data.AudiobookEntity
 import com.viel.aplayer.data.SearchHistoryEntity
 import com.viel.aplayer.ui.theme.APlayerTheme
@@ -183,13 +186,13 @@ fun SearchContent(
                         },
                         leadingIcon = {
                             IconButton(onClick = handleBack) {
-                                Icon(painterResource(R.drawable.ic_rounded_arrow_back), contentDescription = "Back")
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                             }
                         },
                         trailingIcon = {
                             if (query.text.isNotEmpty()) {
                                 IconButton(onClick = onClearQuery) {
-                                    Icon(painterResource(R.drawable.ic_rounded_clear), contentDescription = "Clear")
+                                    Icon(Icons.Rounded.Clear, contentDescription = "Clear")
                                 }
                             }
                         },
@@ -256,7 +259,7 @@ fun SearchContent(
                                     },
                                     leadingContent = {
                                         Icon(
-                                            painterResource(R.drawable.ic_rounded_history),
+                                            Icons.Rounded.History,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -264,7 +267,7 @@ fun SearchContent(
                                     trailingContent = {
                                         IconButton(onClick = { onDeleteHistory(history) }) {
                                             Icon(
-                                                painterResource(R.drawable.ic_rounded_clear),
+                                                Icons.Rounded.Clear,
                                                 contentDescription = "Remove",
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -341,7 +344,7 @@ fun SearchContent(
                                     },
                                     leadingContent = {
                                         Icon(
-                                            painterResource(R.drawable.ic_rounded_search),
+                                            Icons.Rounded.Search,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary
                                         )
@@ -412,7 +415,7 @@ fun SearchContent(
                                             } else {
                                                 Box(contentAlignment = Alignment.Center) {
                                                     Icon(
-                                                        painterResource(R.drawable.ic_rounded_search),
+                                                        Icons.Rounded.Search,
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                                     )
