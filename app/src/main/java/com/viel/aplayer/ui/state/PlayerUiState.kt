@@ -1,60 +1,75 @@
 package com.viel.aplayer.ui.state
 
 import com.viel.aplayer.data.AudiobookEntity
-import com.viel.aplayer.data.BookmarkEntity
 import com.viel.aplayer.data.ChapterEntity
-import com.viel.aplayer.ui.components.SubtitleLine
-import com.viel.aplayer.ui.utils.DEFAULT_COVER_BACKGROUND_ARGB
 
-data class RelatedSection(
-    val name: String,
-    val books: List<AudiobookEntity>
-)
-
+/**
+ * 根 UI 状态聚合类。
+ * 将元数据、播放状态和设置组合在一起，作为单项数据流提供给 UI 层。
+ */
 data class PlayerUiState(
-    val isPlaying: Boolean = false,
-    val playWhenReady: Boolean = false,
-    val currentUri: String = "",
-    val currentTitle: String = "",
-    val currentAuthor: String = "",
-    val currentNarrator: String = "",
-    val currentCoverPath: String? = null,
-    val currentThumbnailPath: String? = null,
-    val currentPosition: Long = 0L,
-    val duration: Long = 0L,
-    val playbackSpeed: Float = 1.0f,
-    val selectedSleepTimer: Int = 0,
-    val currentChapters: List<ChapterEntity> = emptyList(),
-    val currentSubtitles: List<SubtitleLine> = emptyList(),
-    val currentBookmarks: List<BookmarkEntity> = emptyList(),
+    /** 书籍元数据子状态 */
+    val metadata: BookMetadataState = BookMetadataState(),
+    /** 核心播放逻辑子状态 */
+    val playback: PlaybackState = PlaybackState(),
+    /** UI 表现与交互子状态 */
+    val settings: PlayerSettingsState = PlayerSettingsState(),
+    /** 相关作者板块列表 */
     val relatedAuthorSections: List<RelatedSection> = emptyList(),
+    /** 相关播讲人板块列表 */
     val relatedNarratorSections: List<RelatedSection> = emptyList(),
-    val recentlyAddedBooks: List<AudiobookEntity> = emptyList(),
-    val showUndoSeek: Boolean = false,
-    val isChapterListVisible: Boolean = false,
-    val isBookmarkDialogVisible: Boolean = false,
-    val bookmarkTitle: String = "",
-    val selectedContentTab: Int = -1,
-    val isSpeedManualMode: Boolean = false,
-    val isMiniPlayerHidden: Boolean = false,
-    val backgroundColorArgb: Int = DEFAULT_COVER_BACKGROUND_ARGB,
-    val isChapterProgressMode: Boolean = false,
-    val isFullPlayerVisible: Boolean = false
+    /** 最近添加/导入的书籍列表 */
+    val recentlyAddedBooks: List<AudiobookEntity> = emptyList()
 ) {
-    val hasActiveTrack: Boolean
-        get() = currentTitle.isNotEmpty() && currentTitle != "Unknown Title"
-
+    // --- 快捷访问器：保留以下字段以保证现有 UI 代码的向后兼容性 ---
+    
+    /** 播放状态 */
+    val isPlaying get() = playback.isPlaying
+    val playWhenReady get() = playback.playWhenReady
+    
+    /** 基础信息 */
+    val currentUri get() = metadata.uri
+    val currentTitle get() = metadata.title
+    val currentAuthor get() = metadata.author
+    val currentNarrator get() = metadata.narrator
+    val currentCoverPath get() = metadata.coverPath
+    val currentThumbnailPath get() = metadata.thumbnailPath
+    val backgroundColorArgb get() = metadata.backgroundColorArgb
+    
+    /** 进度与时长 */
+    val currentPosition get() = playback.currentPosition
+    val duration get() = playback.duration
+    val progress get() = playback.progress
+    val playbackSpeed get() = playback.playbackSpeed
+    val isSpeedManualMode get() = playback.isSpeedManualMode
+    
+    /** UI 设置 */
+    val selectedSleepTimer get() = settings.selectedSleepTimer
+    val showUndoSeek get() = settings.showUndoSeek
+    val isChapterListVisible get() = settings.isChapterListVisible
+    val isBookmarkDialogVisible get() = settings.isBookmarkDialogVisible
+    val bookmarkTitle get() = settings.bookmarkTitle
+    val selectedContentTab get() = settings.selectedContentTab
+    val isMiniPlayerHidden get() = settings.isMiniPlayerHidden
+    val isChapterProgressMode get() = settings.isChapterProgressMode
+    val isFullPlayerVisible get() = settings.isFullPlayerVisible
+    
+    /** 衍生状态 */
+    val hasActiveTrack get() = metadata.hasActiveTrack
+    val currentChapters get() = metadata.chapters
+    val currentSubtitles get() = metadata.subtitles
+    val currentBookmarks get() = metadata.bookmarks
+    
+    /** 
+     * 实时计算当前播放位置所在的章节。
+     */
     val currentChapter: ChapterEntity?
-        get() = currentChapters.findLast { currentPosition >= it.startPosition }
-            ?: currentChapters.firstOrNull()
+        get() = metadata.chapters.findLast { playback.currentPosition >= it.startPosition }
+            ?: metadata.chapters.firstOrNull()
 
+    /** 
+     * 获取用于在进度条上显示的章节标记位置（0.0 - 1.0）。
+     */
     val chapterMarkers: List<Float>
-        get() = if (duration > 0) {
-            currentChapters.map { it.startPosition.toFloat() / duration.toFloat() }
-        } else {
-            emptyList()
-        }
-
-    val progress: Float
-        get() = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
+        get() = metadata.getChapterMarkers(playback.duration)
 }

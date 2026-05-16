@@ -1,20 +1,11 @@
 package com.viel.aplayer.data
 
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "chapters",
-    foreignKeys = [
-        ForeignKey(
-            entity = AudiobookEntity::class,
-            parentColumns = ["uri"],
-            childColumns = ["bookUri"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
     indices = [Index("bookUri")]
 )
 data class ChapterEntity(

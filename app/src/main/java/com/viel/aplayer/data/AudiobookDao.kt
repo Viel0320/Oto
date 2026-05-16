@@ -18,6 +18,9 @@ interface AudiobookDao {
     @Query("SELECT * FROM audiobooks WHERE uri = :uri LIMIT 1")
     suspend fun getByUri(uri: String): AudiobookEntity?
 
+    @Query("SELECT * FROM audiobooks WHERE uri = :uri LIMIT 1")
+    fun getByUriFlow(uri: String): Flow<AudiobookEntity?>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(audiobook: AudiobookEntity)
     
@@ -35,6 +38,9 @@ interface AudiobookDao {
 
     @Query("UPDATE audiobooks SET coverPath = :coverPath, thumbnailPath = :thumbnailPath WHERE uri = :uri")
     suspend fun updateCoverPaths(uri: String, coverPath: String?, thumbnailPath: String?)
+
+    @Query("UPDATE audiobooks SET backgroundColorArgb = :color WHERE uri = :uri")
+    suspend fun updateBackgroundColor(uri: String, color: Int)
 
     @Query("UPDATE audiobooks SET subtitlePath = :subtitlePath WHERE uri = :uri")
     suspend fun updateSubtitlePath(uri: String, subtitlePath: String?)

@@ -14,14 +14,14 @@ import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-// No longer importing MetadataRetriever directly here to avoid top-level deprecation warning
+import com.viel.aplayer.util.image.ImageProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
-import androidx.media3.extractor.metadata.id3.ChapterFrame
 import androidx.media3.extractor.metadata.id3.CommentFrame
 import androidx.media3.extractor.metadata.id3.TextInformationFrame
 import com.viel.aplayer.ui.components.SubtitleLine
-import com.viel.aplayer.util.SubtitleParser
+import com.viel.aplayer.util.parser.SubtitleParser
+import com.viel.aplayer.util.parser.AudiobookParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -104,6 +104,7 @@ class LibraryRepository private constructor(context: Context) {
 
     /**
      * Sync the entire library: scan folder and add new files.
+     * 使用挂起函数顺序执行扫描，避免并发过高导致系统资源（如 Codec 实例）耗尽。
      */
     fun syncLibrary() {
         val rootUri = getLibraryRoot() ?: return
@@ -118,7 +119,8 @@ class LibraryRepository private constructor(context: Context) {
         }
     }
 
-    private fun scanDirectory(directory: DocumentFile, existingUris: Set<String>) {
+    /** 顺序扫描目录，减少 CPU 和内存瞬间冲击。 */
+    private suspend fun scanDirectory(directory: DocumentFile, existingUris: Set<String>) {
         directory.listFiles().forEach { file ->
             if (file.isDirectory) {
                 scanDirectory(file, existingUris)
@@ -159,11 +161,15 @@ class LibraryRepository private constructor(context: Context) {
     fun getRecentlyAddedExclusive(currentUri: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<AudiobookEntity>> = 
         dao.getRecentlyAddedExclusive(currentUri, authors, narrators, limit)
 
+    /**
+     * 顺序添加有声书，并整合元数据提取。
+     */
     @SuppressLint("CheckResult")
     @Suppress("DEPRECATION")
-    fun addAudiobook(uri: Uri, parentDir: DocumentFile? = null, fileName: String? = null) {
-        scope.launch {
+    suspend fun addAudiobook(uri: Uri, parentDir: DocumentFile? = null, fileName: String? = null) {
+        withContext(Dispatchers.IO) {
             Log.d("LibraryRepository", "Adding audiobook: $uri (Name: $fileName)")
+            // 复用单个 retriever 完成所有基本信息的提取，避免多次 open/release。
             val retriever = MediaMetadataRetriever()
             var title: String
             var author: String
@@ -172,8 +178,10 @@ class LibraryRepository private constructor(context: Context) {
             var duration: Long
             var year = ""
             var fileSize = 0L
+            var finalChapters = emptyList<ChapterEntity>()
             
             try {
+                // ... (existing code for file size, duration, etc.) ...
                 // Extract file size
                 if (uri.scheme == "content") {
                     context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
@@ -210,29 +218,49 @@ class LibraryRepository private constructor(context: Context) {
                 author = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: "Unknown Author"
                 narrator = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER) ?: "Unknown Narrator"
 
-                // Try to extract description using Media3's MetadataRetriever for better ID3 support (COMM frame)
+                // 使用 Media3 MetadataRetriever 一次性提取评论（描述）和章节，提升效率并减少资源竞争。
                 try {
                     val mediaItem = MediaItem.Builder()
                         .setUri(uri)
                         .setMimeType(if (uri.toString().endsWith(".m4b", ignoreCase = true)) "audio/mp4" else null)
                         .build()
-                    val trackGroups = withContext(Dispatchers.IO) {
-                        androidx.media3.exoplayer.MetadataRetriever.retrieveMetadata(context, mediaItem).get()
-                    }
+                    
+                    val extractorsFactory = DefaultExtractorsFactory()
+                        .setMp4ExtractorFlags(androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA)
+                    val mediaSourceFactory = DefaultMediaSourceFactory(context, extractorsFactory)
+
+                    val trackGroups = androidx.media3.exoplayer.MetadataRetriever.retrieveMetadata(mediaSourceFactory, mediaItem).get()
+                    
+                    val metadataEntries = mutableListOf<androidx.media3.common.Metadata.Entry>()
                     for (i in 0 until trackGroups.length) {
-                        val metadata = trackGroups[i].getFormat(0).metadata ?: continue
-                        for (j in 0 until metadata.length()) {
-                            val entry = metadata[j]
-                            if (entry is CommentFrame) {
-                                description = entry.text
-                                break
+                        val group = trackGroups[i]
+                        for (j in 0 until group.length) {
+                            val format = group.getFormat(j)
+                            val metadata = format.metadata ?: continue
+                            for (k in 0 until metadata.length()) {
+                                val entry = metadata.get(k)
+                                metadataEntries.add(entry)
+                                if (entry is CommentFrame && description.isEmpty()) {
+                                    description = entry.text
+                                }
                             }
                         }
-                        if (description.isNotEmpty()) break
                     }
-                } catch (_: Exception) {
-                    // Fallback or ignore if Media3 extraction fails
+                    
+                    // Extract chapters
+                    val chapters = AudiobookParser.extractChaptersFromMetadata(metadataEntries, uri.toString())
+                    finalChapters = if (chapters.isEmpty()) {
+                        AudiobookParser.extractChaptersLowLevel(context, uri)
+                    } else {
+                        chapters
+                    }.asSequence().distinctBy { it.startPosition }.sortedBy { it.startPosition }.toList()
+
+                } catch (e: Exception) {
+                    Log.e("LibraryRepository", "Media3 metadata extraction failed", e)
                 }
+
+                // Extract and save cover art using the SAME retriever
+                val (coverPath, thumbnailPath) = extractAndSaveCoverWithRetriever(retriever, uri)
 
                 val entity = AudiobookEntity(
                     uri = uri.toString(),
@@ -244,24 +272,27 @@ class LibraryRepository private constructor(context: Context) {
                     year = year,
                     fileSize = fileSize,
                     subtitlePath = findSubtitleFile(uri, parentDir, fileName),
+                    coverPath = coverPath,
+                    thumbnailPath = thumbnailPath,
                     addedAt = System.currentTimeMillis()
                 )
                 Log.d("LibraryRepository", "Inserting entity: ${entity.title}, Subtitle: ${entity.subtitlePath}")
                 dao.insert(entity)
 
-                // Extract chapters
-                extractAndSaveChapters(uri)
+                // Save chapters AFTER the book entity is inserted to satisfy Foreign Key constraints
+                if (finalChapters.isNotEmpty()) {
+                    try {
+                        chapterDao.deleteChaptersForBook(uri.toString())
+                        chapterDao.insertChapters(finalChapters)
+                    } catch (e: Exception) {
+                        Log.e("LibraryRepository", "Failed to insert chapters for ${entity.title}", e)
+                    }
+                }
 
-            } catch (_: Exception) {
-                // Log or handle error
+            } catch (e: Exception) {
+                Log.e("LibraryRepository", "Error adding audiobook", e)
             } finally {
                 try { retriever.release() } catch (_: Exception) {}
-            }
-            
-            // Extract and save cover art in background
-            val (coverPath, thumbnailPath) = extractAndSaveCover(uri)
-            if (coverPath != null || thumbnailPath != null) {
-                dao.updateCoverPaths(uri.toString(), coverPath, thumbnailPath)
             }
         }
     }
@@ -272,339 +303,6 @@ class LibraryRepository private constructor(context: Context) {
             Log.d("LibraryRepository", "Updating progress for $uri: $position")
             dao.updateProgress(uri, position, System.currentTimeMillis())
         }
-    }
-
-    /**
-     * Extract chapters from media and save to database.
-     */
-    @Suppress("DEPRECATION")
-    private suspend fun extractAndSaveChapters(uri: Uri) {
-        // 1. First try the high-level Media3/ExoPlayer extraction
-        val chapters = mutableListOf<ChapterEntity>()
-        try {
-            val mediaItem = MediaItem.Builder()
-                .setUri(uri)
-                .setMimeType(if (uri.toString().endsWith(".m4b", ignoreCase = true)) "audio/mp4" else null)
-                .build()
-            
-            val extractorsFactory = DefaultExtractorsFactory()
-                .setMp4ExtractorFlags(
-                    androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA
-                )
-            
-            val mediaSourceFactory = DefaultMediaSourceFactory(context, extractorsFactory)
-            val trackGroups = withContext(Dispatchers.IO) {
-                androidx.media3.exoplayer.MetadataRetriever.retrieveMetadata(mediaSourceFactory, mediaItem).get()
-            }
-            
-            for (i in 0 until trackGroups.length) {
-                val group = trackGroups[i]
-                for (j in 0 until group.length) {
-                    val format = group.getFormat(j)
-                    val metadata = format.metadata ?: continue
-                    
-                    for (k in 0 until metadata.length()) {
-                        val entry = metadata.get(k)
-                        if (entry is ChapterFrame) {
-                            var title: String? = null
-                            try {
-                                val field = entry.javaClass.getDeclaredField("subFrames")
-                                field.isAccessible = true
-                                val subFrames = field.get(entry) as? Array<*>
-                                subFrames?.forEach { subFrame ->
-                                    if (subFrame is TextInformationFrame && (subFrame.id == "TIT2" || subFrame.id == "TIT1")) {
-                                            title = subFrame.values.firstOrNull()
-                                        }
-                                }
-                            } catch (_: Exception) {}
-
-                            if (title.isNullOrBlank() && !entry.chapterId.matches(Regex("ch\\d+"))) {
-                                title = entry.chapterId
-                            }
-
-                            chapters.add(
-                                ChapterEntity(
-                                    bookUri = uri.toString(),
-                                    title = title ?: "Chapter ${chapters.size + 1}",
-                                    startPosition = entry.startTimeMs.toLong(),
-                                    endPosition = entry.endTimeMs.toLong()
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-
-        // 2. If high-level failed or got nothing, use the "Binary Tracker" (Low-Level Parser)
-        if (chapters.isEmpty()) {
-            try {
-                chapters.addAll(extractChaptersLowLevel(uri))
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-        
-        // Distinct by start position and sort
-        val finalChapters = chapters.asSequence().distinctBy { it.startPosition }.sortedBy { it.startPosition }.toList()
-        
-        if (finalChapters.isNotEmpty()) {
-            chapterDao.deleteChaptersForBook(uri.toString())
-            chapterDao.insertChapters(finalChapters)
-        }
-    }
-
-    /**
-     * Binary Tracker: Bypasses Android's MediaExtractor to parse MP4 atoms directly.
-     * Extracts Nero 'chpl' and QuickTime chapters.
-     */
-    private fun extractChaptersLowLevel(uri: Uri): List<ChapterEntity> {
-        val chapters = mutableListOf<ChapterEntity>()
-        try {
-            context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                FileInputStream(pfd.fileDescriptor).channel.use { channel ->
-                    val fileSize = channel.size()
-                    // 1. Locate moov
-                    val moov = findAtom(channel, 0, fileSize, "moov") ?: return emptyList()
-
-                    // 2. Try parsing Nero chpl (Common for FFmpeg -map_chapters)
-                    val udta = findAtom(channel, moov.offset + 8, moov.size - 8, "udta") ?: return@use
-                    val chpl = findAtom(channel, udta.offset + 8, udta.size - 8, "chpl")
-                    if (chpl != null) {
-                        chapters.addAll(parseChpl(channel, chpl, uri))
-                    }
-
-                    // 3. Try QuickTime Chapter Tracks (tref -> chap)
-                    if (chapters.isEmpty()) {
-                        chapters.addAll(parseQuickTimeChapters(channel, moov, uri))
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return chapters
-    }
-
-    private fun parseQuickTimeChapters(channel: FileChannel, moov: Atom, uri: Uri): List<ChapterEntity> {
-        val list = mutableListOf<ChapterEntity>()
-        try {
-            // Find all traks
-            var pos = moov.offset + 8
-            val limit = moov.offset + moov.size
-            val trakIdsWithChapters = mutableMapOf<Int, Int>() // TrackID -> ChapterTrackID
-            val tracks = mutableMapOf<Int, Atom>() // TrackID -> TrakAtom
-
-            while (pos + 8 <= limit) {
-                val trak = findAtom(channel, pos, limit - pos, "trak") ?: break
-                pos = trak.offset + trak.size
-                
-                val tkhd = findAtom(channel, trak.offset + 8, trak.size - 8, "tkhd") ?: continue
-                
-                val buf = ByteBuffer.allocate(32).order(ByteOrder.BIG_ENDIAN)
-                channel.position(tkhd.offset + 8)
-                channel.read(buf)
-                buf.flip()
-                val version = buf.get().toInt()
-                buf.position(if (version == 1) 20 else 12)
-                val trackId = buf.int
-                tracks[trackId] = trak
-
-                val tref = findAtom(channel, trak.offset + 8, trak.size - 8, "tref")
-                if (tref != null) {
-                    val chap = findAtom(channel, tref.offset + 8, tref.size - 8, "chap")
-                    if (chap != null) {
-                        channel.position(chap.offset + 8)
-                        val cb = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN)
-                        channel.read(cb)
-                        cb.flip()
-                        val chapterTrackId = cb.int
-                        trakIdsWithChapters[trackId] = chapterTrackId
-                    }
-                }
-            }
-
-            // Typically, the first audio track's chapter track is what we want
-            val chapterTrackId = trakIdsWithChapters.values.firstOrNull()
-            val chapterTrak = tracks[chapterTrackId]
-            
-            if (chapterTrak != null) {
-                val mdia = findAtom(channel, chapterTrak.offset + 8, chapterTrak.size - 8, "mdia") ?: return list
-                val mdhd = findAtom(channel, mdia.offset + 8, mdia.size - 8, "mdhd") ?: return list
-                
-                val mb = ByteBuffer.allocate(32).order(ByteOrder.BIG_ENDIAN)
-                channel.position(mdhd.offset + 8)
-                channel.read(mb)
-                mb.flip()
-                val mVersion = mb.get().toInt()
-                mb.position(if (mVersion == 1) 20 else 12)
-                val timeScale = mb.int.toLong()
-
-                val minf = findAtom(channel, mdia.offset + 8, mdia.size - 8, "minf") ?: return list
-                val stbl = findAtom(channel, minf.offset + 8, minf.size - 8, "stbl") ?: return list
-                
-                // stts: Time-to-sample
-                val stts = findAtom(channel, stbl.offset + 8, stbl.size - 8, "stts") ?: return list
-                val sttsBuf = ByteBuffer.allocate(stts.size.toInt()).order(ByteOrder.BIG_ENDIAN)
-                channel.position(stts.offset + 8)
-                channel.read(sttsBuf)
-                sttsBuf.flip()
-                sttsBuf.get(); sttsBuf.position(sttsBuf.position() + 3) // version/flags
-                val entryCount = sttsBuf.int
-                val sampleDurations = mutableListOf<Long>()
-                repeat(entryCount) {
-                    val count = sttsBuf.int
-                    val delta = sttsBuf.int
-                    repeat(count) { sampleDurations.add(delta.toLong()) }
-                }
-
-                // stco: Chunk offset
-                val stco = findAtom(channel, stbl.offset + 8, stbl.size - 8, "stco")
-                val co64 = if (stco == null) findAtom(channel, stbl.offset + 8, stbl.size - 8, "co64") else null
-                val offsets = mutableListOf<Long>()
-                if (stco != null) {
-                    val b = ByteBuffer.allocate(stco.size.toInt()).order(ByteOrder.BIG_ENDIAN)
-                    channel.position(stco.offset + 8)
-                    channel.read(b)
-                    b.flip()
-                    b.get(); b.position(b.position() + 3)
-                    val count = b.int
-                    repeat(count) { offsets.add(b.int.toLong() and 0xffffffffL) }
-                } else if (co64 != null) {
-                    val b = ByteBuffer.allocate(co64.size.toInt()).order(ByteOrder.BIG_ENDIAN)
-                    channel.position(co64.offset + 8)
-                    channel.read(b)
-                    b.flip()
-                    b.get(); b.position(b.position() + 3)
-                    val count = b.int
-                    repeat(count) { offsets.add(b.long) }
-                }
-
-                // stsz: Sample sizes
-                val stsz = findAtom(channel, stbl.offset + 8, stbl.size - 8, "stsz") ?: return list
-                val szBuf = ByteBuffer.allocate(stsz.size.toInt()).order(ByteOrder.BIG_ENDIAN)
-                channel.position(stsz.offset + 8)
-                channel.read(szBuf)
-                szBuf.flip()
-                szBuf.get(); szBuf.position(szBuf.position() + 3)
-                val defaultSize = szBuf.int
-                val sampleCount = szBuf.int
-                val sizes = mutableListOf<Int>()
-                repeat(sampleCount) {
-                    sizes.add(if (defaultSize == 0) szBuf.int else defaultSize)
-                }
-
-                // Read sample data
-                var currentTime = 0L
-                for (i in 0 until offsets.size.coerceAtMost(sizes.size)) {
-                    val offset = offsets[i]
-                    val size = sizes[i]
-                    if (size > 2) {
-                        val sampleBuf = ByteBuffer.allocate(size)
-                        channel.position(offset)
-                        channel.read(sampleBuf)
-                        sampleBuf.flip()
-                        // tx3g format: first 2 bytes are length
-                        val textLen = sampleBuf.short.toInt() and 0xffff
-                        if (textLen > 0 && textLen <= sampleBuf.remaining()) {
-                            val bytes = ByteArray(textLen)
-                            sampleBuf.get(bytes)
-                            val title = String(bytes, Charsets.UTF_8)
-                            list.add(ChapterEntity(
-                                bookUri = uri.toString(),
-                                title = title,
-                                startPosition = (currentTime * 1000) / timeScale,
-                                endPosition = 0
-                            ))
-                        }
-                    }
-                    if (i < sampleDurations.size) currentTime += sampleDurations[i]
-                }
-                
-                // Set end positions
-                for (i in 0 until list.size - 1) {
-                    list[i] = list[i].copy(endPosition = list[i+1].startPosition)
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return list
-    }
-
-    private data class Atom(val offset: Long, val size: Long, val type: String)
-
-    private fun findAtom(channel: FileChannel, start: Long, limit: Long, type: String): Atom? {
-        var pos = start
-        val buf = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN)
-        while (pos + 8 <= start + limit) {
-            channel.position(pos)
-            buf.clear()
-            if (channel.read(buf) < 8) break
-            buf.flip()
-            var size = buf.int.toLong() and 0xffffffffL
-            val t = ByteArray(4).also { buf.get(it) }.toString(Charsets.US_ASCII)
-            
-            if (size == 1L) {
-                val lb = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN)
-                channel.read(lb)
-                lb.flip()
-                size = lb.long
-            }
-            
-            if (t == type) {
-                return Atom(pos, size, t)
-            }
-            if (size <= 0) break
-            pos += size
-        }
-        return null
-    }
-
-    private fun parseChpl(channel: FileChannel, chpl: Atom, uri: Uri): List<ChapterEntity> {
-        val list = mutableListOf<ChapterEntity>()
-        try {
-            val buf = ByteBuffer.allocate(chpl.size.toInt().coerceAtMost(1024 * 1024)).order(ByteOrder.BIG_ENDIAN)
-            channel.position(chpl.offset + 8)
-            channel.read(buf)
-            buf.flip()
-            if (buf.remaining() < 9) return list
-            
-            buf.get() // version
-            buf.position(buf.position() + 3) // flags
-            buf.position(buf.position() + 4) // reserved
-            val count = buf.get().toInt() and 0xff
-            
-            repeat(count) {
-                if (buf.remaining() < 9) return@repeat
-                val time100ns = buf.long // start time in 100ns units
-                val len = buf.get().toInt() and 0xff
-                if (buf.remaining() < len) return@repeat
-                val titleBytes = ByteArray(len).also { buf.get(it) }
-                val title = titleBytes.toString(Charsets.UTF_8)
-                
-                list.add(
-                    ChapterEntity(
-                        bookUri = uri.toString(),
-                        title = title,
-                        startPosition = time100ns / 10000, // convert to ms
-                        endPosition = 0
-                    )
-                )
-            }
-            
-            // Set end positions
-            for (i in 0 until list.size - 1) {
-                val current = list[i]
-                val next = list[i+1]
-                list[i] = current.copy(endPosition = next.startPosition)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return list
     }
 
     /**
@@ -686,8 +384,13 @@ class LibraryRepository private constructor(context: Context) {
      */
     fun saveChapters(uri: String, chapters: List<ChapterEntity>) {
         scope.launch {
-            chapterDao.deleteChaptersForBook(uri)
-            chapterDao.insertChapters(chapters)
+            // 加固：检查书籍是否存在，避免 observePlaybackManager 触发时书籍尚未入库导致的外键约束错误
+            if (dao.getByUri(uri) != null) {
+                chapterDao.deleteChaptersForBook(uri)
+                chapterDao.insertChapters(chapters)
+            } else {
+                Log.w("LibraryRepository", "Skip saveChapters: Book entity not found yet for $uri")
+            }
         }
     }
 
@@ -718,17 +421,27 @@ class LibraryRepository private constructor(context: Context) {
         return dao.getByUri(uri)
     }
 
+    fun getByUriFlow(uri: String): Flow<AudiobookEntity?> {
+        return dao.getByUriFlow(uri)
+    }
+
     /**
-     * Extract embedded cover art from the audio file.
+     * Cache the dominant color of the book cover.
+     */
+    fun updateBackgroundColor(uri: String, color: Int) {
+        scope.launch {
+            dao.updateBackgroundColor(uri, color)
+        }
+    }
+
+    /**
+     * Extract embedded cover art from the audio file using an existing retriever.
      * Saves the original image and a 300px thumbnail.
      * Returns Pair(originalPath, thumbnailPath)
      */
-    private fun extractAndSaveCover(uri: Uri): Pair<String?, String?> {
+    private fun extractAndSaveCoverWithRetriever(retriever: MediaMetadataRetriever, uri: Uri): Pair<String?, String?> {
         return try {
-            val retriever = MediaMetadataRetriever()
-            retriever.setDataSource(context, uri)
             val artBytes = retriever.embeddedPicture
-            retriever.release()
 
             if (artBytes != null) {
                 // 1. Save Original
@@ -743,21 +456,19 @@ class LibraryRepository private constructor(context: Context) {
                 BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size, options)
 
                 val maxSize = 300
-                options.inSampleSize = calculateInSampleSize(options, maxSize, maxSize)
+                options.inSampleSize = ImageProcessor.calculateInSampleSize(options, maxSize, maxSize)
                 options.inJustDecodeBounds = false
 
                 val bitmap = BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size, options)
                 val thumbnailPath = if (bitmap != null) {
                     val scaledBitmap = if (bitmap.width > maxSize || bitmap.height > maxSize) {
-                        scaleBitmap(bitmap, maxSize)
+                        ImageProcessor.scaleBitmap(bitmap, maxSize)
                     } else {
                         bitmap
                     }
 
                     val thumbFile = File(coversDir, "${uri.toString().hashCode()}_thumb.jpg")
-                    FileOutputStream(thumbFile).use { out ->
-                        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
-                    }
+                    ImageProcessor.saveBitmapToFile(scaledBitmap, thumbFile)
 
                     if (scaledBitmap != bitmap) {
                         scaledBitmap.recycle()
@@ -774,35 +485,6 @@ class LibraryRepository private constructor(context: Context) {
             Log.e("LibraryRepository", "Error extracting cover", e)
             Pair(null, null)
         }
-    }
-
-    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
-        val (height: Int, width: Int) = options.outHeight to options.outWidth
-        var inSampleSize = 1
-        if (height > reqHeight || width > reqWidth) {
-            val halfHeight: Int = height / 2
-            val halfWidth: Int = width / 2
-            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
-                inSampleSize *= 2
-            }
-        }
-        return inSampleSize
-    }
-
-    private fun scaleBitmap(source: Bitmap, maxSize: Int): Bitmap {
-        val width = source.width
-        val height = source.height
-        val ratio = width.toFloat() / height.toFloat()
-        val newWidth: Int
-        val newHeight: Int
-        if (width > height) {
-            newWidth = maxSize
-            newHeight = (maxSize / ratio).toInt()
-        } else {
-            newHeight = maxSize
-            newWidth = (maxSize * ratio).toInt()
-        }
-        return source.scale(newWidth, newHeight)
     }
 
     /**
@@ -861,7 +543,7 @@ class LibraryRepository private constructor(context: Context) {
         @Volatile
         @SuppressLint("StaticFieldLeak")
         private var INSTANCE: LibraryRepository? = null
-        
+
         fun getInstance(context: Context): LibraryRepository {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: LibraryRepository(context).also { INSTANCE = it }

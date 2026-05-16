@@ -59,7 +59,9 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         val renderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(this)
-            .forceDisableMediaCodecAsynchronousQueueing()
+            // 允许 Media3 在硬件解码器失败时尝试备用解码器（甚至是软件解码器），增加稳定性。
+            .setEnableDecoderFallback(true)
+            // 注意：不再强制禁用异步队列。在 Android 12+ 上，异步 MediaCodec 更加稳定。
 
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)

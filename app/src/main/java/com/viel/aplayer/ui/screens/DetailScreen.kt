@@ -10,12 +10,15 @@ import android.view.ActionMode
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
+import android.view.RoundedCorner
 import android.widget.TextView
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -60,9 +64,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,11 +76,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -85,7 +95,9 @@ import com.viel.aplayer.ui.state.DetailUiState
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatFileSize
 import com.viel.aplayer.ui.utils.formatTime
+import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -107,47 +119,100 @@ fun DetailScreen(
         label = "bg_color"
     )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.back_content_description)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onMoreClick) {
-                        Icon(
-                            Icons.Rounded.MoreVert,
-                            contentDescription = stringResource(R.string.more_content_description)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                ),
-                windowInsets = WindowInsets.statusBars
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-        modifier = modifier
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            animatedBgColor.copy(alpha = 0.6f),
-                            MaterialTheme.colorScheme.background
-                        )
-                    )
+    // Gesture status
+    val scope = rememberCoroutineScope()
+    val offsetY = remember { Animatable(0f) }
+    val density = LocalDensity.current
+    val dismissThreshold = with(density) { 50.dp.toPx() }
+
+    // System Corner Radius
+    val view = LocalView.current
+    val systemCornerRadius = remember(view) {
+        val insets = view.rootWindowInsets
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val corner = insets?.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)
+            corner?.radius ?: 0
+        } else 0
+    }
+    val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
+
+    // 处理物理返回键
+    androidx.activity.compose.BackHandler(enabled = uiState.isVisible) {
+        onBackClick()
+    }
+
+    val bgColor = MaterialTheme.colorScheme.background
+    val backgroundBrush by remember(animatedBgColor, bgColor) {
+        derivedStateOf {
+            Brush.verticalGradient(
+                colors = listOf(
+                    animatedBgColor.copy(alpha = 0.9f),
+                    bgColor.copy(alpha = 0.95f)
                 )
-        ) {
+            )
+        }
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxSize()
+            .offset { IntOffset(0, offsetY.value.roundToInt()) }
+            .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
+            .background(bgColor) // 1. 先铺设实心底色，防止半透明
+            .background(backgroundBrush), // 2. 再叠加原有的渐变
+        color = Color.Transparent // 设为透明以露出底色
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = stringResource(R.string.back_content_description)
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onMoreClick) {
+                            Icon(
+                                Icons.Rounded.MoreVert,
+                                contentDescription = stringResource(R.string.more_content_description)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    ),
+                    windowInsets = WindowInsets.statusBars,
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, dragAmount ->
+                                val newOffset = (offsetY.value + dragAmount).coerceAtLeast(0f)
+                                scope.launch {
+                                    offsetY.snapTo(newOffset)
+                                }
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                scope.launch {
+                                    if (offsetY.value > dismissThreshold) {
+                                        onBackClick()
+                                    } else {
+                                        offsetY.animateTo(0f, animationSpec = tween(300))
+                                    }
+                                }
+                            },
+                            onDragCancel = {
+                                scope.launch { offsetY.animateTo(0f, animationSpec = tween(300)) }
+                            }
+                        )
+                    }
+                )
+            },
+            containerColor = Color.Transparent,
+        ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -412,7 +477,7 @@ private fun SelectableTextView(
     typefaceStyle: Int = android.graphics.Typeface.NORMAL
 ) {
     val textColorInt = textColor.toArgb()
-    val density = androidx.compose.ui.platform.LocalDensity.current
+    val density = LocalDensity.current
     val lineSpacingExtraPx = with(density) { lineSpacingExtraSp.sp.toPx() }
     val firstLineIndentPx = with(density) {
         (textSizeSp * firstLineIndentEm).sp.toPx().toInt()

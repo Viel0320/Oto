@@ -1,22 +1,14 @@
 package com.viel.aplayer.ui.state
 
 import com.viel.aplayer.data.AudiobookEntity
-import com.viel.aplayer.ui.utils.DEFAULT_COVER_BACKGROUND_ARGB
+import com.viel.aplayer.ui.screens.HomeFilter
 
-enum class HomeFilter {
-    InProgress,
-    NotStarted,
-    Finished
-}
-
+/**
+ * 图书馆主页的 UI 状态聚合类。
+ */
 data class LibraryUiState(
+    /** 书架上的所有书籍列表 */
     val audiobooks: List<AudiobookEntity> = emptyList(),
+    /** 当前激活的过滤类型 */
     val selectedFilter: HomeFilter = HomeFilter.NotStarted
-)
-
-data class DetailUiState(
-    val book: AudiobookEntity? = null,
-    val isAvailable: Boolean = false,
-    val progressPercent: Int = 0,
-    val backgroundColorArgb: Int = DEFAULT_COVER_BACKGROUND_ARGB
 )

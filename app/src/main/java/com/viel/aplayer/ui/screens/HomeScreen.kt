@@ -4,8 +4,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -22,7 +22,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,10 +41,22 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.viel.aplayer.R
 import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.ui.components.APlayerFilterChip
 import com.viel.aplayer.ui.components.AudiobookListItem
 import com.viel.aplayer.ui.components.RecentlyItem
-import com.viel.aplayer.ui.state.HomeFilter
 import com.viel.aplayer.ui.theme.APlayerTheme
+
+/**
+ * 首页图书馆的过滤选项枚举。
+ */
+enum class HomeFilter {
+    /** 正在阅读（播放进度 > 0 且未读完） */
+    InProgress,
+    /** 未开始 */
+    NotStarted,
+    /** 已读完 */
+    Finished
+}
 
 private fun AudiobookEntity.matchesFilter(filter: HomeFilter): Boolean {
     return when (filter) {
@@ -106,6 +117,39 @@ fun HomeScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
+                        )
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateToSearch) {
+                        Icon(
+                            Icons.Rounded.Search,
+                            contentDescription = stringResource(R.string.search_content_description)
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            Icons.Rounded.Tune,
+                            contentDescription = stringResource(R.string.settings_content_description)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { 
@@ -127,130 +171,91 @@ fun HomeScreen(
             }
         }
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = innerPadding.calculateTopPadding(),
-                bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = innerPadding.calculateTopPadding())
         ) {
-            item {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 22.sp
-                            )
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onNavigateToSearch) {
-                            Icon(
-                                Icons.Rounded.Search,
-                                contentDescription = stringResource(R.string.search_content_description)
-                            )
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = onNavigateToSettings) {
-                            Icon(
-                                Icons.Rounded.Tune,
-                                contentDescription = stringResource(R.string.settings_content_description)
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent
-                    ),
-                    windowInsets = WindowInsets(0, 0, 0, 0)
+            // Filters Section - 固定在顶部
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filters) { (filter, label) ->
+                    APlayerFilterChip(
+                        selected = filter == selectedFilter,
+                        onClick = { onFilterSelected(filter) },
+                        label = label
+                    )
+                }
+            }
+
+            // 滚动列表部分
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
                 )
-            }
-            // Filters Section
-            item {
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(filters) { (filter, label) ->
-                        FilterChip(
-                            selected = filter == selectedFilter,
-                            onClick = { onFilterSelected(filter) },
-                            label = { Text(label) },
-                            leadingIcon = if (filter == selectedFilter) {
-                                {
-                                    Icon(
-                                        Icons.Rounded.Check,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            } else null
+            ) {
+                // Recently Played Section
+                if (shouldShowRecentBooks) {
+                    item {
+                        Text(
+                            text = recentTitle,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp)
                         )
                     }
-                }
-            }
 
-            // Recently Played Section
-            if (shouldShowRecentBooks) {
-                item {
-                    Text(
-                        text = recentTitle,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp)
-                    )
-                }
-
-                item {
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(recentBooks) { book ->
-                            RecentlyItem(
-                                title = book.title,
-                                author = book.author,
-                                narrator = book.narrator,
-                                progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
-                                coverPath = book.thumbnailPath ?: book.coverPath,
-                                onClick = { onNavigateToDetail(book.uri) }
-                            )
+                    item {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(recentBooks) { book ->
+                                RecentlyItem(
+                                    title = book.title,
+                                    author = book.author,
+                                    narrator = book.narrator,
+                                    progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
+                                    coverPath = book.thumbnailPath ?: book.coverPath,
+                                    onClick = { onNavigateToDetail(book.uri) }
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            // Grouped Category Section
-            groupedByAuthor.forEach { (author, books) ->
-                item {
-                    Text(
-                        text = author,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
-                    )
-                }
+                // Grouped Category Section
+                groupedByAuthor.forEach { (author, books) ->
+                    item {
+                        Text(
+                            text = author,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
+                        )
+                    }
 
-                items(books) { book ->
-                    AudiobookListItem(
-                        title = book.title,
-                        author = book.author,
-                        narrator = book.narrator,
-                        duration = book.duration,
-                        coverPath = book.thumbnailPath ?: book.coverPath,
-                        progressPercent = book.progressPercent,
+                    items(books) { book ->
+                        AudiobookListItem(
+                            title = book.title,
+                            author = book.author,
+                            narrator = book.narrator,
+                            duration = book.duration,
+                            coverPath = book.thumbnailPath ?: book.coverPath,
+                            progressPercent = book.progressPercent,
 //                        addedAt = book.addedAt,
-                        onClick = { onNavigateToDetail(book.uri) }
-                    ) { 
-                        onLoadMedia(book.uri.toUri(), book.title, book.author, book.narrator, book.lastPosition)
-                        onNavigateToPlayer()
+                            onClick = { onNavigateToDetail(book.uri) }
+                        ) { 
+                            onLoadMedia(book.uri.toUri(), book.title, book.author, book.narrator, book.lastPosition)
+                            onNavigateToPlayer()
+                        }
                     }
                 }
             }

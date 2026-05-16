@@ -1,33 +1,33 @@
 package com.viel.aplayer.ui.viewmodel
 
-import android.content.ComponentName
 import android.content.Context
 import android.media.AudioManager
 import android.net.Uri
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
-import androidx.media3.extractor.metadata.id3.ChapterFrame
-import androidx.media3.extractor.metadata.id3.TextInformationFrame
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
-import com.google.common.util.concurrent.ListenableFuture
-import androidx.core.content.ContextCompat
+import com.viel.aplayer.playback.PlaybackManager
 import com.viel.aplayer.data.BookmarkEntity
-import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.data.LibraryRepository
-import com.viel.aplayer.service.PlaybackService
+import com.viel.aplayer.domain.GetRelatedBooksUseCase
+import com.viel.aplayer.domain.RelatedData
 import com.viel.aplayer.ui.state.PlayerUiState
-import com.viel.aplayer.ui.state.RelatedSection
-import com.viel.aplayer.ui.utils.DEFAULT_COVER_BACKGROUND_ARGB
-import com.viel.aplayer.ui.utils.extractCoverDominantColorArgb
+import com.viel.aplayer.ui.state.BookMetadataState
+import com.viel.aplayer.ui.state.PlaybackState
+import com.viel.aplayer.ui.state.PlayerSettingsState
+import com.viel.aplayer.util.image.ImageProcessor
+import com.viel.aplayer.util.parser.AudiobookParser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -39,702 +39,282 @@ class PlayerViewModel : ViewModel() {
         private val SLEEP_TIMER_OPTIONS = listOf(0, -1, -2, 15, 30, 60)
     }
 
-    private var controllerFuture: ListenableFuture<MediaController>? = null
-    private var player: Player? = null
+    private var playbackManager: PlaybackManager? = null
     private var libraryRepository: LibraryRepository? = null
+    private var getRelatedBooksUseCase: GetRelatedBooksUseCase? = null
     private var audioManager: AudioManager? = null
-    private var currentMediaUri: String? = null
+    
+    // 替换为 MutableStateFlow 以驱动响应式流，减少对 settingsState 的依赖 (优化方向 1)
+    private val _currentMediaUri = MutableStateFlow<String?>(null)
+    val currentMediaUri: StateFlow<String?> = _currentMediaUri.asStateFlow()
 
-    private val _uiState = MutableStateFlow(PlayerUiState())
-    val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
+    // --- Delegates (Managers & Delegates) ---
+    private var bookmarkManager: BookmarkManager? = null
+    private var playbackDelegate: MediaPlaybackDelegate? = null
+    private val settingsManager: PlayerSettingsManager = PlayerSettingsManager(
+        scope = viewModelScope,
+        playbackManager = { playbackManager },
+        audioManager = { audioManager }
+    )
 
-    private val _playbackState = MutableStateFlow(Player.STATE_IDLE)
+    private var _lastDominantColor = ImageProcessor.DEFAULT_BACKGROUND_ARGB
 
-    private val _sleepTimerMillis = MutableStateFlow(0L)
+    val settingsState: StateFlow<PlayerSettingsState> = settingsManager.settingsState
+    val sleepTimerMillis: StateFlow<Long> = settingsManager.sleepTimerMillis
+
+    // 1. 动态推荐流：仅在 URI 变化时重新触发 (优化方向 1)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val _relatedData = _currentMediaUri
+        .flatMapLatest { uri ->
+            if (uri == null) return@flatMapLatest flowOf(RelatedData(emptyList(), emptyList(), emptyList()))
+            
+            val meta = playbackManager?.currentMediaItem?.value?.mediaMetadata
+            val author = meta?.artist?.toString() ?: ""
+            val narrator = meta?.composer?.toString() ?: ""
+            getRelatedBooksUseCase?.invoke(uri, author, narrator) ?: flowOf(RelatedData(emptyList(), emptyList(), emptyList()))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RelatedData(emptyList(), emptyList(), emptyList()))
+
+    // 2. 动态元数据流：仅在 URI 或书籍实体/章节/书签实质变化时触发 (优化方向 1 & 3)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val metadataState: StateFlow<BookMetadataState> = _currentMediaUri
+        .flatMapLatest { uri ->
+            val repo = libraryRepository ?: return@flatMapLatest flowOf(BookMetadataState())
+            if (uri == null) return@flatMapLatest flowOf(BookMetadataState())
+
+            combine(
+                repo.getByUriFlow(uri),
+                repo.getChapters(uri),
+                repo.getBookmarks(uri)
+            ) { entity, chapters, bookmarks ->
+                BookMetadataState(
+                    uri = uri,
+                    title = entity?.title ?: "",
+                    author = entity?.author ?: "",
+                    narrator = entity?.narrator ?: "",
+                    coverPath = entity?.coverPath,
+                    thumbnailPath = entity?.thumbnailPath,
+                    chapters = chapters,
+                    bookmarks = bookmarks,
+                    backgroundColorArgb = entity?.backgroundColorArgb ?: _lastDominantColor
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BookMetadataState())
+
+    // 3. 动态播放状态流：直接监听 PlaybackManager，不再依赖 settingsState (优化方向 1)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val playbackState: StateFlow<PlaybackState> = _currentMediaUri
+        .flatMapLatest { _ ->
+            playbackManager?.let { manager ->
+                combine(
+                    manager.isPlaying,
+                    manager.playbackState,
+                    manager.currentPosition,
+                    manager.duration,
+                    manager.playbackSpeed
+                ) { isPlaying, _, pos, dur, speed ->
+                    PlaybackState(
+                        isPlaying = isPlaying,
+                        currentPosition = pos,
+                        duration = dur,
+                        playbackSpeed = speed,
+                        playWhenReady = isPlaying
+                    )
+                }
+            } ?: flowOf(PlaybackState())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
+
+    // 4. 播放控制流（用于 UI 按钮）
+    val playbackControlState: StateFlow<PlaybackControlState> = playbackState
+        .map { 
+            PlaybackControlState(it.isPlaying, it.playbackSpeed, it.isSpeedManualMode)
+        }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackControlState(false, 1.0f, false))
+
+    // 5. 全局聚合状态
+    val uiState: StateFlow<PlayerUiState> = combine(
+        metadataState,
+        playbackState,
+        settingsManager.settingsState,
+        _relatedData
+    ) { metadata, playback, settings, related ->
+        PlayerUiState(
+            metadata = metadata,
+            playback = playback,
+            settings = settings,
+            relatedAuthorSections = related.authorSections,
+            relatedNarratorSections = related.narratorSections,
+            recentlyAddedBooks = related.recentlyAdded
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlayerUiState())
+
+    data class PlaybackControlState(
+        val isPlaying: Boolean,
+        val playbackSpeed: Float,
+        val isSpeedManualMode: Boolean
+    )
+
     private var lastSeekPosition = 0L
     private var undoJob: kotlinx.coroutines.Job? = null
 
-    private var sleepTimerJob: kotlinx.coroutines.Job? = null
-    private var chaptersJob: kotlinx.coroutines.Job? = null
-    private var bookmarksJob: kotlinx.coroutines.Job? = null
-    private var relatedBooksJob: kotlinx.coroutines.Job? = null
-
     fun initialize(context: Context) {
-        if (controllerFuture != null) return
+        if (playbackManager != null) return
         val appContext = context.applicationContext
         libraryRepository = LibraryRepository.getInstance(appContext)
+        getRelatedBooksUseCase = GetRelatedBooksUseCase(libraryRepository!!)
         audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        playbackManager = PlaybackManager.getInstance(appContext)
 
-        val sessionToken = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
-        controllerFuture = MediaController.Builder(appContext, sessionToken).buildAsync()
-        
-        controllerFuture?.addListener({
-            val mediaController = try { controllerFuture?.get() } catch (_: Exception) { null }
-            player = mediaController
-            mediaController?.addListener(object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    _uiState.update { it.copy(isPlaying = isPlaying) }
-                    // Ensure saveProgress (which touches MediaController) is called on Main thread
-                    viewModelScope.launch {
-                        saveProgress()
-                    }
-                }
-                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                    _uiState.update { it.copy(playWhenReady = playWhenReady) }
-                }
-                override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
-                    _uiState.update { it.copy(playbackSpeed = playbackParameters.speed) }
-                }
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    _playbackState.value = playbackState
-                    if (playbackState == Player.STATE_READY) {
-                        val duration = mediaController.duration.coerceAtLeast(0L)
-                        _uiState.update { it.copy(duration = duration) }
-                        
-                        // Try to extract chapters if current list is empty
-                        if (_uiState.value.currentChapters.isEmpty()) {
-                            extractChaptersFromPlayer(mediaController)
-                        }
+        bookmarkManager = BookmarkManager(libraryRepository!!, viewModelScope)
+        playbackDelegate = MediaPlaybackDelegate(
+            playbackManager = { playbackManager },
+            repository = libraryRepository!!,
+            scope = viewModelScope
+        )
 
-                        // ExoPlayer has fully parsed metadata now — update everything
-                        val meta = mediaController.mediaMetadata
-                        val title = meta.title?.toString()
-                        val author = meta.artist?.toString()
-                            ?: meta.albumArtist?.toString()
-                            ?: meta.writer?.toString()
-                        val narrator = meta.composer?.toString()
-                        val description = meta.description?.toString()
-                        
-                        _uiState.update { state ->
-                            state.copy(
-                                currentTitle = if (!title.isNullOrBlank() && !title.contains("/")) title else state.currentTitle,
-                                currentAuthor = if (!author.isNullOrBlank()) author else state.currentAuthor,
-                                currentNarrator = if (!narrator.isNullOrBlank()) narrator else state.currentNarrator
-                            )
-                        }
+        observePlaybackManager()
+    }
 
-                        // Write back to library so the list shows correct data
-                        currentMediaUri?.let { uri ->
-                            // Only update title if it's not a mime type
-                            val finalTitle = if (!title.isNullOrBlank() && !title.contains("/")) title else null
-                            libraryRepository?.updateMetadata(uri, finalTitle, author, narrator, description, duration)
-                        }
-                    }
-                }
-                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    if (mediaItem == null) {
-                        _uiState.update {
-                        it.copy(
-                            currentUri = "",
-                            currentTitle = "",
-                            currentAuthor = "",
-                            currentNarrator = "",
-                            currentCoverPath = null,
-                            currentThumbnailPath = null,
-                            currentChapters = emptyList(),
-                            currentSubtitles = emptyList(),
-                            currentBookmarks = emptyList(),
-                            backgroundColorArgb = DEFAULT_COVER_BACKGROUND_ARGB
-                        )
-                    }
-                        currentMediaUri = null
-                        return
-                    }
-                    val transTitle = mediaItem.mediaMetadata.title?.toString()
-                    val transAuthor = mediaItem.mediaMetadata.artist?.toString()
-                    val transNarrator = mediaItem.mediaMetadata.composer?.toString()
-                    _uiState.update { state ->
-                        state.copy(
-                            currentUri = mediaItem.mediaId,
-                            currentTitle = if (!transTitle.isNullOrBlank()) transTitle else state.currentTitle,
-                            currentAuthor = if (!transAuthor.isNullOrBlank() && transAuthor != "Unknown Author") transAuthor else state.currentAuthor,
-                            currentNarrator = if (!transNarrator.isNullOrBlank()) transNarrator else state.currentNarrator,
-                            duration = mediaController.duration.coerceAtLeast(0L)
-                        )
-                    }
-                    currentMediaUri = mediaItem.mediaId
-                    
-                    // Load chapters, subtitles & bookmarks
-                    loadChapters(mediaItem.mediaId)
-                    loadSubtitles(mediaItem.mediaId)
-                    loadBookmarks(mediaItem.mediaId)
-                    loadRelatedBooks(mediaItem.mediaId, transAuthor ?: "Unknown Author", transNarrator ?: "Unknown Narrator")
-                }
-            })
-            // Start progress polling & auto-save
-            viewModelScope.launch(Dispatchers.Main.immediate) {
-                var saveCounter = 0
-                while (true) {
-                    // mediaController methods must be called on Main thread
-                    val isActuallyPlaying = mediaController?.isPlaying == true
-                    val playbackState = mediaController?.playbackState ?: Player.STATE_IDLE
-                    
-                    if (isActuallyPlaying && playbackState != Player.STATE_ENDED) {
-                        val pos = mediaController.currentPosition.coerceAtLeast(0L)
-                        if (pos > 0 || playbackState == Player.STATE_READY) {
-                            _uiState.update { it.copy(currentPosition = pos) }
-                        }
-                        
-                        saveCounter++
-                        // Save progress every 10 seconds (20 * 1000ms)
-                        if (saveCounter >= 10) {
-                            saveCounter = 0
-                            saveProgress()
-                        }
-                    }
-                    delay(1000)
-                }
-            }
+    private fun observePlaybackManager() {
+        val manager = playbackManager ?: return
 
-            // Autoload most recent media if nothing is currently playing/loaded
-            if (mediaController?.mediaItemCount == 0) {
-                viewModelScope.launch(Dispatchers.Main.immediate) {
-                    val recent = libraryRepository?.getMostRecentAudiobook()
-                    android.util.Log.d("PlayerViewModel", "Autoload search result: ${recent?.title}")
-                    if (recent != null) {
-                        loadMedia(
-                            uri = recent.uri.toUri(),
-                            title = recent.title,
-                            author = recent.author,
-                            narrator = recent.narrator,
-                            startPositionMs = recent.lastPosition,
-                            playWhenReady = false
-                        )
+        viewModelScope.launch {
+            manager.metadataEntries.collect { entries ->
+                if (entries.isNotEmpty()) {
+                    _currentMediaUri.value?.let { uri ->
+                        val chapters = AudiobookParser.extractChaptersFromMetadata(entries, uri)
+                        if (chapters.isNotEmpty()) {
+                            libraryRepository?.saveChapters(uri, chapters)
+                        }
                     }
                 }
             }
-        }, ContextCompat.getMainExecutor(context))
+        }
+
+        viewModelScope.launch {
+            manager.currentMediaItem.collect { mediaItem ->
+                if (mediaItem != null) {
+                    _currentMediaUri.value = mediaItem.mediaId
+                    settingsManager.setMiniPlayerHidden(false)
+                }
+            }
+        }
     }
 
     fun loadMedia(uri: Uri, title: String, author: String, narrator: String = "", startPositionMs: Long = 0L, playWhenReady: Boolean = true) {
-        // Save progress of previous media before switching
-        saveProgress()
-        
-        currentMediaUri = uri.toString()
-        _uiState.update {
-            it.copy(
-                currentTitle = title,
-                currentAuthor = author,
-                currentNarrator = narrator,
-                currentCoverPath = null,
-                currentPosition = startPositionMs,
-                currentChapters = emptyList(),
-                currentSubtitles = emptyList(),
-                currentBookmarks = emptyList(),
-                showUndoSeek = false,
-                isChapterListVisible = false,
-                isBookmarkDialogVisible = false,
-                bookmarkTitle = "",
-                backgroundColorArgb = DEFAULT_COVER_BACKGROUND_ARGB
-            )
-        }
+        _currentMediaUri.value = uri.toString()
+        settingsManager.setUndoSeekVisible(false)
+        settingsManager.dismissChapterList()
+        settingsManager.dismissBookmarkDialog()
 
-        // Load chapters, subtitles & bookmarks
-        loadChapters(uri.toString())
-        loadSubtitles(uri.toString())
-        loadBookmarks(uri.toString())
-        loadRelatedBooks(uri.toString(), author, narrator)
-
-        // Only set metadata we actually know
-        val metadataBuilder = MediaMetadata.Builder().setTitle(title)
-        if (author != "Unknown Author") {
-            metadataBuilder.setArtist(author)
-        }
-        if (narrator.isNotBlank()) {
-            metadataBuilder.setComposer(narrator)
-        }
-
-        val extension = android.webkit.MimeTypeMap.getFileExtensionFromUrl(uri.toString())
-        val mimeType = if (extension != null) {
-            android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
-        } else {
-            null
-        } ?: when {
-            uri.toString().endsWith(".m4b", ignoreCase = true) -> "audio/mp4"
-            uri.toString().endsWith(".m4a", ignoreCase = true) -> "audio/mp4"
-            uri.toString().endsWith(".mp3", ignoreCase = true) -> "audio/mpeg"
-            uri.toString().endsWith(".flac", ignoreCase = true) -> "audio/flac"
-            uri.toString().endsWith(".wav", ignoreCase = true) -> "audio/wav"
-            uri.toString().endsWith(".ogg", ignoreCase = true) -> "audio/ogg"
-            uri.toString().endsWith(".aac", ignoreCase = true) -> "audio/aac"
-            else -> null
-        }
-            
-        val mediaItem = MediaItem.Builder()
-            .setMediaId(uri.toString())
-            .setUri(uri)
-            .setMimeType(mimeType)
-            .setMediaMetadata(metadataBuilder.build())
-            .build()
-            
-        player?.setMediaItem(mediaItem, startPositionMs)
-        player?.prepare()
-        if (playWhenReady) {
-            player?.play()
-        }
-        
-        // 立即保存一次进度，确保新加载的书籍立刻出现在“最近播放”列表顶部
-        saveProgress(startPositionMs)
-        
-        // Poll for cover paths
-        viewModelScope.launch {
-            repeat(5) {
-                val entity = libraryRepository?.getByUri(uri.toString())
-                if (entity != null) {
-                    if (entity.coverPath != null || entity.thumbnailPath != null) {
-                        updateCoverPath(entity.coverPath)
-                        updateThumbnailPath(entity.thumbnailPath)
-                        return@launch
-                    }
-                }
-                delay(1000)
-            }
-        }
-    }
-    
-    private fun loadChapters(uri: String) {
-        chaptersJob?.cancel()
-        chaptersJob = viewModelScope.launch {
-            libraryRepository?.getChapters(uri)?.collect {
-                _uiState.update { state -> state.copy(currentChapters = it) }
-            }
-        }
+        playbackDelegate?.loadMedia(
+            uri = uri,
+            title = title,
+            author = author,
+            narrator = narrator,
+            startPositionMs = startPositionMs,
+            playWhenReady = playWhenReady,
+            onCoverUpdate = { updateCoverPath(it) }
+        )
     }
 
-    private fun loadSubtitles(uri: String) {
-        viewModelScope.launch {
-            android.util.Log.d("PlayerViewModel", "Loading subtitles for $uri")
-            val subs = libraryRepository?.loadSubtitles(uri) ?: emptyList()
-            android.util.Log.d("PlayerViewModel", "Loaded ${subs.size} subtitles")
-            _uiState.update { it.copy(currentSubtitles = subs) }
-        }
-    }
-
-    private fun loadBookmarks(uri: String) {
-        bookmarksJob?.cancel()
-        bookmarksJob = viewModelScope.launch {
-            libraryRepository?.getBookmarks(uri)?.collect {
-                _uiState.update { state -> state.copy(currentBookmarks = it) }
-            }
-        }
-    }
-
-    private fun loadRelatedBooks(currentUri: String, author: String, narrator: String) {
-        relatedBooksJob?.cancel()
-        relatedBooksJob = viewModelScope.launch {
-            val authorList = author.split(",").map { it.trim() }.filter { it.isNotBlank() && it != "Unknown Author" }
-            val narratorList = narrator.split(",").map { it.trim() }.filter { it.isNotBlank() && it != "Unknown Narrator" }
-
-            // Initialize sections to maintain order
-            _uiState.update { state -> state.copy(
-                relatedAuthorSections = authorList.map { name -> RelatedSection(name, emptyList()) },
-                relatedNarratorSections = narratorList.map { name -> RelatedSection(name, emptyList()) },
-                recentlyAddedBooks = emptyList()
-            ) }
-
-            authorList.forEachIndexed { index, name ->
-                launch {
-                    libraryRepository?.filterByAuthorLimited(name, currentUri, 3)?.collect { books ->
-                        _uiState.update { state ->
-                            val currentSections = state.relatedAuthorSections.toMutableList()
-                            if (index < currentSections.size) {
-                                currentSections[index] = RelatedSection(name, books)
-                            }
-                            state.copy(relatedAuthorSections = currentSections)
-                        }
-                    }
-                }
-            }
-
-            narratorList.forEachIndexed { index, name ->
-                launch {
-                    libraryRepository?.filterByNarratorLimited(name, currentUri, 3)?.collect { books ->
-                        _uiState.update { state ->
-                            val currentSections = state.relatedNarratorSections.toMutableList()
-                            if (index < currentSections.size) {
-                                currentSections[index] = RelatedSection(name, books)
-                            }
-                            state.copy(relatedNarratorSections = currentSections)
-                        }
-                    }
-                }
-            }
-
-            launch {
-                libraryRepository?.getRecentlyAddedExclusive(currentUri, authorList, narratorList, 3)?.collect { books ->
-                    _uiState.update { it.copy(recentlyAddedBooks = books) }
-                }
-            }
-        }
-    }
-
+    // --- Delegate Calls ---
+    fun deleteBookmark(bookmark: BookmarkEntity) = bookmarkManager?.deleteBookmark(bookmark)
+    fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) = bookmarkManager?.updateBookmark(bookmark, newTitle)
     fun addBookmark(title: String) {
-        val uri = currentMediaUri ?: return
-        val pos = _uiState.value.currentPosition
-        viewModelScope.launch {
-            libraryRepository?.addBookmark(uri, pos, title)
-        }
+        val uri = _currentMediaUri.value ?: return
+        bookmarkManager?.addBookmark(uri, playbackState.value.currentPosition, title)
     }
 
-    fun deleteBookmark(bookmark: BookmarkEntity) {
-        viewModelScope.launch {
-            libraryRepository?.deleteBookmark(bookmark)
-        }
-    }
-
-    fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) {
-        viewModelScope.launch {
-            val updatedBookmark = bookmark.copy(
-                title = newTitle,
-                createdAt = System.currentTimeMillis()
-            )
-            libraryRepository?.updateBookmark(updatedBookmark)
-        }
-    }
-
-    private fun extractChaptersFromPlayer(player: Player) {
-        val uri = currentMediaUri ?: return
-        // Must access currentTracks on the main thread
-        val tracks = player.currentTracks
-        
-        // Extract metadata entries on the main thread to avoid background thread access to Tracks/Groups
-        val metadataEntries = mutableListOf<androidx.media3.common.Metadata.Entry>()
-        for (group in tracks.groups) {
-            val trackGroup = group.mediaTrackGroup
-            for (i in 0 until trackGroup.length) {
-                val format = trackGroup.getFormat(i)
-                val metadata = format.metadata ?: continue
-                for (j in 0 until metadata.length()) {
-                    metadataEntries.add(metadata[j])
-                }
-            }
-        }
-
-        if (metadataEntries.isEmpty()) return
-
-        // Switch to Default thread for reflection and heavy computation
-        viewModelScope.launch(Dispatchers.Default) {
-            val chapters = mutableListOf<ChapterEntity>()
-            for (entry in metadataEntries) {
-                if (entry is ChapterFrame) {
-                    var title: String? = null
-                    try {
-                        val field = entry.javaClass.getDeclaredField("subFrames")
-                        field.isAccessible = true
-                        val subFrames = field.get(entry) as? Array<*>
-                        subFrames?.forEach { subFrame ->
-                            if (subFrame is TextInformationFrame && (subFrame.id == "TIT2" || subFrame.id == "TIT1")) {
-                                title = subFrame.values.firstOrNull()
-                            }
-                        }
-                    } catch (_: Exception) {}
-
-                    if (title.isNullOrBlank() && !entry.chapterId.matches(Regex("ch\\d+"))) {
-                        title = entry.chapterId
-                    }
-
-                    chapters.add(
-                        ChapterEntity(
-                            bookUri = uri,
-                            title = title ?: "Chapter ${chapters.size + 1}",
-                            startPosition = entry.startTimeMs.toLong(),
-                            endPosition = entry.endTimeMs.toLong()
-                        )
-                    )
-                } else if (entry.javaClass.simpleName.contains("Chapter", ignoreCase = true)) {
-                    try {
-                        val clazz = entry.javaClass
-                        val title = try { clazz.getDeclaredField("title").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
-                            ?: try { clazz.getDeclaredField("text").apply { isAccessible = true }.get(entry) as? String } catch(_: Exception) { null }
-                        val startTimeMs = try { clazz.getDeclaredField("startTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
-                        val endTimeMs = try { clazz.getDeclaredField("endTimeMs").apply { isAccessible = true }.get(entry) as? Int } catch(_: Exception) { null }
-
-                        if (startTimeMs != null && endTimeMs != null) {
-                            chapters.add(
-                                ChapterEntity(
-                                    bookUri = uri,
-                                    title = title ?: "Chapter ${chapters.size + 1}",
-                                    startPosition = startTimeMs.toLong(),
-                                    endPosition = endTimeMs.toLong()
-                                )
-                            )
-                        }
-                    } catch (_: Exception) {}
-                }
-            }
-
-            // Distinct and sort
-            val finalChapters = chapters.asSequence().distinctBy { it.startPosition }.sortedBy { it.startPosition }.toList()
-
-            if (finalChapters.isNotEmpty()) {
-                _uiState.update { it.copy(currentChapters = finalChapters) }
-                // Save to DB for future use
-                libraryRepository?.saveChapters(uri, finalChapters)
-            }
-        }
-    }
-
-    private fun saveProgress(position: Long? = null) {
-        val uri = currentMediaUri ?: return
-        
-        if (position != null) {
-            libraryRepository?.updateProgress(uri, position)
-            return
-        }
-
-        // Must access player?.currentPosition on the main thread
-        viewModelScope.launch {
-            val pos = player?.currentPosition?.coerceAtLeast(0L) ?: _uiState.value.currentPosition
-            libraryRepository?.updateProgress(uri, pos)
-        }
-    }
-
-    fun play() {
-        player?.play()
-    }
-
-    fun pause() {
-        player?.pause()
-    }
-
-    fun togglePlayPause() {
-        if (player?.isPlaying == true) {
-            pause()
-        } else {
-            play()
-        }
-    }
+    fun togglePlayPause() = if (playbackState.value.isPlaying) pause() else play()
+    fun play() = playbackDelegate?.play()
+    fun pause() = playbackDelegate?.pause()
 
     fun seekTo(positionMs: Long, allowUndo: Boolean = false) {
         if (allowUndo) {
-            lastSeekPosition = _uiState.value.currentPosition
-            _uiState.update { it.copy(showUndoSeek = true, currentPosition = positionMs) }
+            lastSeekPosition = playbackState.value.currentPosition
+            settingsManager.setUndoSeekVisible(true)
             undoJob?.cancel()
             undoJob = viewModelScope.launch {
                 delay(3000)
-                _uiState.update { it.copy(showUndoSeek = false) }
+                settingsManager.setUndoSeekVisible(false)
             }
         } else {
-            _uiState.update { it.copy(showUndoSeek = false, currentPosition = positionMs) }
+            settingsManager.setUndoSeekVisible(false)
             undoJob?.cancel()
         }
-        player?.seekTo(positionMs)
-        player?.play() // 只要触发 Seek，就转为播放状态
-        // 立即保存进度到数据库并更新本地 UI 状态，防止被后续的进度轮询拉回旧位置
-        saveProgress(positionMs)
+        playbackDelegate?.seekTo(positionMs)
     }
 
     fun undoSeek() {
-        if (_uiState.value.showUndoSeek) {
+        if (settingsState.value.showUndoSeek) {
             seekTo(lastSeekPosition, allowUndo = false)
-            _uiState.update { it.copy(showUndoSeek = false) }
-            undoJob?.cancel()
+            settingsManager.setUndoSeekVisible(false)
         }
     }
 
-    fun skipForward() {
-        // TODO: Make skip duration customizable by user
-        val state = _uiState.value
-        val newPos = (state.currentPosition + 30000).coerceAtMost(state.duration)
-        seekTo(newPos)
-    }
+    fun skipForward() = seekTo((playbackState.value.currentPosition + 30000).coerceAtMost(playbackState.value.duration))
+    fun skipBackward() = seekTo((playbackState.value.currentPosition - 10000).coerceAtLeast(0L))
 
-    fun skipBackward() {
-        // TODO: Make skip duration customizable by user
-        val newPos = (_uiState.value.currentPosition - 10000).coerceAtLeast(0L)
-        seekTo(newPos)
-    }
-
-    fun setPlaybackSpeed(speed: Float, manualMode: Boolean = speed != 1.0f) {
-        player?.setPlaybackSpeed(speed)
-        _uiState.update { it.copy(playbackSpeed = speed, isSpeedManualMode = manualMode) }
-    }
-
+    fun setPlaybackSpeed(speed: Float) = playbackDelegate?.setPlaybackSpeed(speed)
     fun cyclePlaybackSpeed() {
-        val state = _uiState.value
-        val currentIndex = PLAYBACK_SPEEDS.indexOf(state.playbackSpeed).coerceAtLeast(0)
-        val nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.size
-        setPlaybackSpeed(PLAYBACK_SPEEDS[nextIndex], manualMode = true)
+        val speed = playbackState.value.playbackSpeed
+        val nextIndex = (PLAYBACK_SPEEDS.indexOf(speed).coerceAtLeast(0) + 1) % PLAYBACK_SPEEDS.size
+        setPlaybackSpeed(PLAYBACK_SPEEDS[nextIndex])
     }
-
-    fun resetPlaybackSpeed() {
-        setPlaybackSpeed(1.0f, manualMode = false)
-    }
+    fun resetPlaybackSpeed() = setPlaybackSpeed(1.0f)
 
     fun cycleSleepTimer() {
-        val currentIndex = SLEEP_TIMER_OPTIONS.indexOf(_uiState.value.selectedSleepTimer).coerceAtLeast(0)
-        val nextIndex = (currentIndex + 1) % SLEEP_TIMER_OPTIONS.size
-        setSleepTimer(SLEEP_TIMER_OPTIONS[nextIndex])
+        val options = SLEEP_TIMER_OPTIONS
+        val nextIndex = (options.indexOf(settingsState.value.selectedSleepTimer).coerceAtLeast(0) + 1) % options.size
+        setSleepTimer(options[nextIndex])
     }
 
-    fun setSleepTimer(minutes: Int) {
-        sleepTimerJob?.cancel()
-        _uiState.update { it.copy(selectedSleepTimer = minutes) }
-        
-        if (minutes == 0) {
-            _sleepTimerMillis.value = 0L
-            return
-        }
-        
-        if (minutes == -2) {
-            // End of Chapter mode
-            sleepTimerJob = viewModelScope.launch {
-                while (true) {
-                    delay(1000)
-                    val state = _uiState.value
-                    if (state.isPlaying) {
-                        val currentChapter = state.currentChapter
-                        if (currentChapter != null) {
-                            if (state.currentPosition >= currentChapter.endPosition - 1000) {
-                                break
-                            }
-                        } else {
-                            // Fallback to end of track if no chapters are found
-                            if (state.duration > 0 && state.currentPosition >= state.duration - 1000) {
-                                break
-                            }
-                        }
-                    }
-                }
-                player?.pause()
-                _uiState.update { it.copy(selectedSleepTimer = 0) }
-                _sleepTimerMillis.value = 0
-            }
-            return
-        }
-
-        // Special handling for test option: if minutes is -1, set 5 seconds
-        val millis = if (minutes < 0) 5000L else minutes * 60 * 1000L
-        _sleepTimerMillis.value = millis
-        
-        sleepTimerJob = viewModelScope.launch {
-            while (_sleepTimerMillis.value > 0) {
-                delay(1000)
-                // Only count down if actually playing
-                if (_uiState.value.isPlaying) {
-                    _sleepTimerMillis.value = (_sleepTimerMillis.value - 1000).coerceAtLeast(0L)
-                }
-            }
-            player?.pause()
-            _uiState.update { it.copy(selectedSleepTimer = 0) }
-            _sleepTimerMillis.value = 0
-        }
-    }
-
-    fun showChapterList() {
-        _uiState.update { it.copy(isChapterListVisible = true) }
-    }
-
-    fun dismissChapterList() {
-        _uiState.update { it.copy(isChapterListVisible = false) }
-    }
-
-    fun showBookmarkDialog() {
-        _uiState.update { it.copy(isBookmarkDialogVisible = true, bookmarkTitle = "") }
-    }
-
-    fun dismissBookmarkDialog() {
-        _uiState.update { it.copy(isBookmarkDialogVisible = false, bookmarkTitle = "") }
-    }
-
-    fun updateBookmarkTitle(title: String) {
-        _uiState.update { it.copy(bookmarkTitle = title) }
-    }
-
+    fun setSleepTimer(minutes: Int) = settingsManager.setSleepTimer(minutes, { playbackState.value }, { metadataState.value })
+    fun adjustVolume(delta: Float) = settingsManager.adjustVolume(delta)
+    
+    fun showChapterList() = settingsManager.showChapterList()
+    fun dismissChapterList() = settingsManager.dismissChapterList()
+    fun showBookmarkDialog() = settingsManager.showBookmarkDialog()
+    fun dismissBookmarkDialog() = settingsManager.dismissBookmarkDialog()
+    fun updateBookmarkTitle(title: String) = settingsManager.updateBookmarkTitle(title)
     fun saveBookmarkFromDialog() {
-        val title = _uiState.value.bookmarkTitle.ifBlank { "Bookmark" }
-        addBookmark(title)
+        addBookmark(settingsState.value.bookmarkTitle.ifBlank { "Bookmark" })
         dismissBookmarkDialog()
     }
+    fun setSelectedContentTab(tab: Int) = settingsManager.setSelectedContentTab(tab)
+    fun setFullPlayerVisible(visible: Boolean) = settingsManager.setFullPlayerVisible(visible)
+    fun setMiniPlayerHidden(hidden: Boolean) = settingsManager.setMiniPlayerHidden(hidden)
+    fun toggleProgressMode() = settingsManager.toggleProgressMode()
+    fun onRouteChanged() = settingsManager.setMiniPlayerHidden(false)
 
-    fun setSelectedContentTab(tab: Int) {
-        _uiState.update { it.copy(selectedContentTab = tab) }
-    }
-
-    fun setFullPlayerVisible(visible: Boolean) {
-        _uiState.update { it.copy(isFullPlayerVisible = visible) }
-    }
-
-    fun setMiniPlayerHidden(hidden: Boolean) {
-        _uiState.update { it.copy(isMiniPlayerHidden = hidden) }
-    }
-
-    fun onRouteChanged() {
-        _uiState.update { it.copy(isMiniPlayerHidden = false) }
-    }
-
-    fun toggleProgressMode() {
-        _uiState.update { it.copy(isChapterProgressMode = !it.isChapterProgressMode) }
-    }
-
-    private var volumeAccumulator = 0f
-    fun adjustVolume(delta: Float) {
-        val am = audioManager ?: return
-        volumeAccumulator += delta
-        
-        // 每个单位步长需要的滑动位移，可以根据灵敏度调整
-        val threshold = 0.05f 
-        
-        if (kotlin.math.abs(volumeAccumulator) >= threshold) {
-            val direction = if (volumeAccumulator > 0) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER
-            am.adjustStreamVolume(
-                AudioManager.STREAM_MUSIC,
-                direction,
-                AudioManager.FLAG_SHOW_UI // 显示系统音量条
-            )
-            volumeAccumulator = 0f
-        }
-    }
-
-    fun skipToNextChapter() {
-        val state = _uiState.value
-        val chapters = state.currentChapters
-        if (chapters.isEmpty()) return
-        
-        val currentIndex = chapters.indexOfLast { state.currentPosition >= it.startPosition }
-        if (currentIndex != -1 && currentIndex < chapters.size - 1) {
-            seekTo(chapters[currentIndex + 1].startPosition)
-        }
-    }
-
-    fun skipToPreviousChapter() {
-        val state = _uiState.value
-        val chapters = state.currentChapters
-        if (chapters.isEmpty()) return
-
-        val currentIndex = chapters.indexOfLast { state.currentPosition >= it.startPosition }
-        if (currentIndex != -1) {
-            val currentChapter = chapters[currentIndex]
-            // If we are more than 3 seconds into the chapter, go to start of current chapter
-            if (state.currentPosition - currentChapter.startPosition > 3000) {
-                seekTo(currentChapter.startPosition)
-            } else if (currentIndex > 0) {
-                seekTo(chapters[currentIndex - 1].startPosition)
-            }
-        }
-    }
+    fun skipToNextChapter() = playbackDelegate?.skipToNextChapter(metadataState.value.chapters, playbackState.value.currentPosition)
+    fun skipToPreviousChapter() = playbackDelegate?.skipToPreviousChapter(metadataState.value.chapters, playbackState.value.currentPosition)
 
     private fun updateCoverPath(path: String?) {
-        _uiState.update { it.copy(currentCoverPath = path) }
+        val uri = _currentMediaUri.value ?: return
         path?.let { p ->
             viewModelScope.launch(Dispatchers.Default) {
-                val dominantColor = extractCoverDominantColorArgb(p)
-                _uiState.update { it.copy(backgroundColorArgb = dominantColor) }
+                // 优化方向 3：检查数据库是否已有颜色缓存，减少提取操作
+                val entity = libraryRepository?.getByUri(uri)
+                if (entity?.backgroundColorArgb != null) {
+                    _lastDominantColor = entity.backgroundColorArgb
+                } else {
+                    val color = ImageProcessor.getDominantColor(p)
+                    _lastDominantColor = color
+                    // 存入数据库缓存，getByUriFlow 会自动触发 metadataState 更新
+                    libraryRepository?.updateBackgroundColor(uri, color)
+                }
+                settingsManager.setSelectedContentTab(settingsState.value.selectedContentTab)
             }
         }
-    }
-
-    private fun updateThumbnailPath(path: String?) {
-        _uiState.update { it.copy(currentThumbnailPath = path) }
     }
 
     override fun onCleared() {
         super.onCleared()
-        saveProgress()
-        controllerFuture?.let {
-            MediaController.releaseFuture(it)
-            controllerFuture = null
-        }
-        player = null
+        playbackManager?.release()
     }
 }

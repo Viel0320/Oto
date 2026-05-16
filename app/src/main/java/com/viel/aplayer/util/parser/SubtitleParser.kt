@@ -1,4 +1,4 @@
-package com.viel.aplayer.util
+package com.viel.aplayer.util.parser
 
 import android.util.Log
 import com.viel.aplayer.ui.components.SubtitleLine
@@ -37,7 +37,7 @@ object SubtitleParser {
         val lines = mutableListOf<SubtitleLine>()
         // Using BufferedReader for memory efficiency
         val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
-        
+
         var line: String?
         var state = 0 // 0: Index, 1: Time, 2: Text
         var startTime = 0L
@@ -118,22 +118,22 @@ object SubtitleParser {
             while (reader.readLine().also { line = it } != null) {
                 val rawLine = line ?: ""
                 val trimmed = rawLine.trim()
-                
+
                 // We only care about the [Events] section
                 if (trimmed.startsWith("[Events]", ignoreCase = true)) {
                     inEvents = true
                     continue
                 }
-                
+
                 if (!inEvents) continue
-                
+
                 // Parse the format line to know column positions
                 if (trimmed.startsWith("Format:", ignoreCase = true)) {
                     val formatParts = trimmed.substring(7).split(",").map { it.trim() }
                     formatIndices = formatParts.withIndex().associate { it.value to it.index }
                     continue
                 }
-                
+
                 // Parse dialogue lines
                 if (trimmed.startsWith("Dialogue:", ignoreCase = true) && formatIndices != null) {
                     val data = rawLine.substring(9).split(",", limit = formatIndices.size)
@@ -141,12 +141,12 @@ object SubtitleParser {
                         val startIdx = formatIndices["Start"] ?: -1
                         val endIdx = formatIndices["End"] ?: -1
                         val textIdx = formatIndices["Text"] ?: -1
-                        
+
                         if (startIdx != -1 && endIdx != -1 && textIdx != -1) {
                             val startTime = parseAssTime(data[startIdx].trim())
                             val endTime = parseAssTime(data[endIdx].trim())
                             val cleanedText = cleanAssText(data[textIdx].trim())
-                            
+
                             if (cleanedText.isNotEmpty()) {
                                 lines.add(SubtitleLine(startTime, endTime, cleanedText))
                             }
