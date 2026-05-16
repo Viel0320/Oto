@@ -234,12 +234,19 @@ fun SearchContent(
                     LazyColumn(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(
+                            top = 16.dp,
+                            bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         if (searchHistory.isNotEmpty()) {
                             item {
-                                Box(modifier = Modifier.fillMaxWidth()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
+                                ) {
                                     Text(
                                         text = "Recent Searches",
                                         style = MaterialTheme.typography.titleSmall,
