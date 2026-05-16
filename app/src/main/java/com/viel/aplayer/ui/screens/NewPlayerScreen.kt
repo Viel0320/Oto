@@ -148,6 +148,7 @@ fun NewPlayerScreen(
 
         // 当处于 PLAYER 模式且播放器展开时，返回键触发收起
         androidx.activity.compose.BackHandler(enabled = currentMode == PlayerScreenMode.PLAYER && uiState.isFullPlayerVisible) {
+            actions.onSelectedContentTabChange(PlayerScreenMode.PLAYER.index)
             navigationActions.onMinimize()
         }
 
@@ -190,6 +191,7 @@ fun NewPlayerScreen(
                                 if (offsetY.value > dismissThreshold) {
                                     // 触发收起，但不重置位移
                                     // 让 AnimatedVisibility 的退出动画从当前位置开始滑出，这样就没有跳变感
+                                    actions.onSelectedContentTabChange(PlayerScreenMode.PLAYER.index)
                                     navigationActions.onMinimize()
                                 } else {
                                     // 未达阈值，平滑回弹到顶部
@@ -214,6 +216,7 @@ fun NewPlayerScreen(
                     narrator = uiState.currentNarrator,
                     onNavigationClick = {
                         focusManager.clearFocus()
+                        actions.onSelectedContentTabChange(PlayerScreenMode.PLAYER.index)
                         navigationActions.onMinimize()
 
                     },
@@ -608,11 +611,6 @@ fun NewPlayerScreenSubtitlesPreview() {
     NewPlayerScreenPreviewWrapper(initialTab = 1)
 }
 
-@Preview(name = "Related Mode", showBackground = true, apiLevel = 36)
-@Composable
-fun NewPlayerScreenRelatedPreview() {
-    NewPlayerScreenPreviewWrapper(initialTab = 2)
-}
 
 @Composable
 private fun NewPlayerScreenPreviewWrapper(initialTab: Int) {
