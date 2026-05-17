@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatPeopleSubtitle
 
@@ -43,6 +45,7 @@ fun PlayerAppBar(
     modifier: Modifier = Modifier,
     navigationIcon: ImageVector? = null,
     onToggleProgressMode: (() -> Unit)? = null,
+    onDeleteBook: (() -> Unit)? = null,
     isChapterProgressMode: Boolean = false,
     containerColor: Color = Color.Transparent,
     contentColor: Color = LocalContentColor.current
@@ -94,17 +97,30 @@ fun PlayerAppBar(
                     )
                 }
                 
-                if (onToggleProgressMode != null) {
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    // 1. 进度模式切换
+                    DropdownMenuItem(
+                        text = {
+                            Text(if (isChapterProgressMode) "Show Total Progress" else "Show Chapter Progress")
+                        },
+                        onClick = {
+                            onToggleProgressMode?.invoke()
+                            showMenu = false
+                        },
+                        enabled = onToggleProgressMode != null
+                    )
+
+                    // 2. 删除书籍
+                    if (onDeleteBook != null) {
                         DropdownMenuItem(
                             text = { 
-                                Text(if (isChapterProgressMode) "Show Total Progress" else "Show Chapter Progress")
+                                Text("Delete from Library", color = MaterialTheme.colorScheme.error) 
                             },
                             onClick = {
-                                onToggleProgressMode()
+                                onDeleteBook.invoke()
                                 showMenu = false
                             }
                         )

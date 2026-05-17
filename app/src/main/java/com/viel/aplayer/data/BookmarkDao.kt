@@ -12,12 +12,12 @@ interface BookmarkDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(bookmark: BookmarkEntity): Long
 
-    @Query("SELECT * FROM bookmarks WHERE bookUri = :bookUri ORDER BY position ASC")
-    fun getBookmarksForBook(bookUri: String): Flow<List<BookmarkEntity>>
+    @Query("SELECT * FROM bookmarks WHERE bookId = :bookId ORDER BY globalPositionMs ASC")
+    fun getBookmarksForBook(bookId: String): Flow<List<BookmarkEntity>>
 
     @Delete
     suspend fun delete(bookmark: BookmarkEntity)
 
-    @Query("DELETE FROM bookmarks WHERE bookUri = :bookUri")
-    suspend fun deleteBookmarksForBook(bookUri: String)
+    @Query("DELETE FROM bookmarks WHERE bookId = :bookId")
+    suspend fun deleteBookmarksForBook(bookId: String)
 }

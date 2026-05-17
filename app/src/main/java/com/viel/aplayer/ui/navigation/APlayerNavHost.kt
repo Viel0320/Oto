@@ -16,12 +16,15 @@ import com.viel.aplayer.ui.screens.SearchScreen
 import com.viel.aplayer.ui.screens.SettingsScreen
 import com.viel.aplayer.ui.viewmodel.LibraryViewModel
 import com.viel.aplayer.ui.viewmodel.PlayerViewModel
+import com.viel.aplayer.ui.viewmodel.SettingsViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun APlayerNavHost(
     navController: NavHostController,
     libraryViewModel: LibraryViewModel,
     playerViewModel: PlayerViewModel,
+    settingsViewModel: SettingsViewModel = viewModel(),
     canStartNavigation: () -> Boolean,
     navigateBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -40,8 +43,8 @@ fun APlayerNavHost(
                 selectedFilter = libraryUiState.selectedFilter,
                 onFilterSelected = { libraryViewModel.setFilter(it) },
                 isMiniPlayerVisible = playerUiState.hasActiveTrack,
-                onNavigateToDetail = { uri: String ->
-                    val book = libraryUiState.audiobooks.find { it.uri == uri }
+                onNavigateToDetail = { id: String ->
+                    val book = libraryUiState.audiobooks.find { it.book.id == id }
                     libraryViewModel.selectDetailBook(book)
                 },
                 onNavigateToSearch = {
@@ -51,8 +54,8 @@ fun APlayerNavHost(
                         }
                     }
                 },
-                onLoadMedia = { uri: Uri, title: String, author: String, narrator: String, pos: Long ->
-                    playerViewModel.loadMedia(uri, title, author, narrator, pos)
+                onLoadBook = { id: String ->
+                    playerViewModel.loadBook(id)
                 },
                 onNavigateToPlayer = {
                     playerViewModel.setFullPlayerVisible(true)
@@ -66,10 +69,14 @@ fun APlayerNavHost(
             )
         }
         composable("settings") {
+            val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
             SettingsScreen(
                 onBack = navigateBack,
                 onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
-                onClearHistory = { libraryViewModel.clearSearchHistory() }
+                onClearHistory = { settingsViewModel.clearSearchHistory() },
+                onRescan = { settingsViewModel.triggerRescan() },
+                isChapterProgressMode = settingsState.isChapterProgressMode,
+                onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) }
             )
         }
         composable(
@@ -83,12 +90,12 @@ fun APlayerNavHost(
             SearchScreen(
                 initialQuery = initialQuery,
                 onBack = navigateBack,
-                onNavigateToDetail = { uri: String ->
-                    val book = libraryUiState.audiobooks.find { it.uri == uri }
+                onNavigateToDetail = { id: String ->
+                    val book = libraryUiState.audiobooks.find { it.book.id == id }
                     libraryViewModel.selectDetailBook(book)
                 },
-                onLoadMedia = { uri: Uri, title: String, author: String, narrator: String, pos: Long ->
-                    playerViewModel.loadMedia(uri, title, author, narrator, pos)
+                onLoadBook = { id: String ->
+                    playerViewModel.loadBook(id)
                 },
                 onNavigateToPlayer = {
                     playerViewModel.setFullPlayerVisible(true)

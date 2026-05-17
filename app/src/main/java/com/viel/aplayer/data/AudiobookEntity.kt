@@ -8,8 +8,8 @@ data class AudiobookEntity(
     @PrimaryKey
     val uri: String,
     val title: String,
-    val author: String = "Unknown Author", // Artist
-    val narrator: String = "Unknown Narrator", // Composer
+    val author: String = "", // Artist
+    val narrator: String = "", // Composer
     val description: String = "", // Comment/Remarks
     val duration: Long = 0L, // Total duration in ms
     val year: String = "",

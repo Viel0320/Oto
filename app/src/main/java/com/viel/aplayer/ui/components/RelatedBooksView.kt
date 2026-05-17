@@ -13,17 +13,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookEntity
+import com.viel.aplayer.data.BookWithProgress
 import com.viel.aplayer.ui.state.RelatedSection
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 @Composable
 fun RelatedBooksView(
-    currentBookUri: String,
+    currentBookId: String,
     authorSections: List<RelatedSection>,
     narratorSections: List<RelatedSection>,
-    recentBooks: List<AudiobookEntity>,
-    onBookClick: (AudiobookEntity) -> Unit,
+    recentBooks: List<BookWithProgress>,
+    onBookClick: (BookWithProgress) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -75,17 +76,16 @@ private fun RelatedSectionHeader(title: String) {
 
 @Composable
 private fun RelatedAudiobookItem(
-    book: AudiobookEntity,
-    onBookClick: (AudiobookEntity) -> Unit
+    book: BookWithProgress,
+    onBookClick: (BookWithProgress) -> Unit
 ) {
     AudiobookListItem(
-        title = book.title,
-        author = book.author,
-        narrator = book.narrator,
-        duration = book.duration,
-        coverPath = book.thumbnailPath ?: book.coverPath,
+        title = book.book.title,
+        author = book.book.author,
+        narrator = book.book.narrator,
+        duration = book.book.totalDurationMs,
+        coverPath = book.book.thumbnailPath ?: book.book.coverPath,
         progressPercent = book.progressPercent,
-//        addedAt = book.addedAt,
         onClick = { onBookClick(book) },
         onPlayClick = { onBookClick(book) }
     )
@@ -94,20 +94,25 @@ private fun RelatedAudiobookItem(
 @Preview(showBackground = true, backgroundColor = 0xFF101418)
 @Composable
 fun RelatedBooksViewPreview() {
-    val mockBook = AudiobookEntity(
-        uri = "uri1",
-        title = "Sample Audiobook",
-        author = "Author Name",
-        narrator = "Narrator Name",
-        duration = 3600000L,
-        addedAt = System.currentTimeMillis()
+    val mockBook = BookWithProgress(
+        book = BookEntity(
+            id = "id1",
+            sourceType = "SINGLE_AUDIO",
+            sourceUri = "uri1",
+            title = "Sample Audiobook",
+            author = "Author Name",
+            narrator = "Narrator Name",
+            totalDurationMs = 3600000L,
+            addedAt = System.currentTimeMillis()
+        ),
+        progress = null
     )
-    val mockList = listOf(mockBook, mockBook.copy(uri = "uri2", title = "Another Book"))
+    val mockList = listOf(mockBook, mockBook.copy(book = mockBook.book.copy(id = "id2", title = "Another Book")))
 
     APlayerTheme(darkTheme = true) {
         Surface(color = MaterialTheme.colorScheme.background) {
             RelatedBooksView(
-                currentBookUri = "uri0",
+                currentBookId = "id0",
                 authorSections = listOf(RelatedSection("Author Name", mockList)),
                 narratorSections = listOf(RelatedSection("Narrator Name", mockList)),
                 recentBooks = mockList,

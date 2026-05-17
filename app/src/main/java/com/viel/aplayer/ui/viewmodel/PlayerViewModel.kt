@@ -2,12 +2,13 @@ package com.viel.aplayer.ui.viewmodel
 
 import android.content.Context
 import android.media.AudioManager
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.playback.PlaybackManager
 import com.viel.aplayer.data.BookmarkEntity
 import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.domain.GetRelatedBooksUseCase
 import com.viel.aplayer.domain.RelatedData
 import com.viel.aplayer.ui.state.PlayerUiState
@@ -15,7 +16,6 @@ import com.viel.aplayer.ui.state.BookMetadataState
 import com.viel.aplayer.ui.state.PlaybackState
 import com.viel.aplayer.ui.state.PlayerSettingsState
 import com.viel.aplayer.util.image.ImageProcessor
-import com.viel.aplayer.util.parser.AudiobookParser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -39,14 +40,15 @@ class PlayerViewModel : ViewModel() {
 
     private var playbackManager: PlaybackManager? = null
     private var libraryRepository: LibraryRepository? = null
+    private var settingsRepository: AppSettingsRepository? = null
     private var getRelatedBooksUseCase: GetRelatedBooksUseCase? = null
     private var audioManager: AudioManager? = null
     
-    // 替换为 MutableStateFlow 以驱动响应式流，减少对 settingsState 的依赖 (优化方向 1)
-    private val _currentMediaUri = MutableStateFlow<String?>(null)
-    val currentMediaUri: StateFlow<String?> = _currentMediaUri.asStateFlow()
+    private val _currentBookId = MutableStateFlow<String?>(null)
+    val currentBookId: StateFlow<String?> = _currentBookId.asStateFlow()
 
-    // --- Delegates (Managers & Delegates) ---
+    private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.ui.components.SubtitleLine>>(emptyList())
+
     private var bookmarkManager: BookmarkManager? = null
     private var playbackDelegate: MediaPlaybackDelegate? = null
     private val settingsManager: PlayerSettingsManager = PlayerSettingsManager(
@@ -60,33 +62,32 @@ class PlayerViewModel : ViewModel() {
     val settingsState: StateFlow<PlayerSettingsState> = settingsManager.settingsState
     val sleepTimerMillis: StateFlow<Long> = settingsManager.sleepTimerMillis
 
-    // 1. 动态推荐流：仅在 URI 变化时重新触发 (优化方向 1)
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private val _relatedData = _currentMediaUri
-        .flatMapLatest { uri ->
-            if (uri == null) return@flatMapLatest flowOf(RelatedData(emptyList(), emptyList(), emptyList()))
+    private val _relatedData = _currentBookId
+        .flatMapLatest { id ->
+            if (id == null) return@flatMapLatest flowOf(RelatedData(emptyList(), emptyList(), emptyList()))
             
-            val meta = playbackManager?.currentMediaItem?.value?.mediaMetadata
-            val author = meta?.artist?.toString() ?: ""
-            val narrator = meta?.composer?.toString() ?: ""
-            getRelatedBooksUseCase?.invoke(uri, author, narrator) ?: flowOf(RelatedData(emptyList(), emptyList(), emptyList()))
+            val meta = metadataState.value
+            val author = meta.author
+            val narrator = meta.narrator
+            getRelatedBooksUseCase?.invoke(id, author, narrator) ?: flowOf(RelatedData(emptyList(), emptyList(), emptyList()))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RelatedData(emptyList(), emptyList(), emptyList()))
 
-    // 2. 动态元数据流：仅在 URI 或书籍实体/章节/书签实质变化时触发 (优化方向 1 & 3)
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val metadataState: StateFlow<BookMetadataState> = _currentMediaUri
-        .flatMapLatest { uri ->
+    val metadataState: StateFlow<BookMetadataState> = _currentBookId
+        .flatMapLatest { id ->
             val repo = libraryRepository ?: return@flatMapLatest flowOf(BookMetadataState())
-            if (uri == null) return@flatMapLatest flowOf(BookMetadataState())
+            if (id == null) return@flatMapLatest flowOf(BookMetadataState())
 
             combine(
-                repo.getByUriFlow(uri),
-                repo.getChapters(uri),
-                repo.getBookmarks(uri)
-            ) { entity, chapters, bookmarks ->
+                repo.observeBookById(id),
+                repo.getChapters(id),
+                repo.getBookmarks(id),
+                _currentSubtitles
+            ) { entity: com.viel.aplayer.data.BookEntity?, chapters: List<com.viel.aplayer.data.ChapterEntity>, bookmarks: List<com.viel.aplayer.data.BookmarkEntity>, subtitles: List<com.viel.aplayer.ui.components.SubtitleLine> ->
                 BookMetadataState(
-                    uri = uri,
+                    id = id,
                     title = entity?.title ?: "",
                     author = entity?.author ?: "",
                     narrator = entity?.narrator ?: "",
@@ -94,15 +95,15 @@ class PlayerViewModel : ViewModel() {
                     thumbnailPath = entity?.thumbnailPath,
                     chapters = chapters,
                     bookmarks = bookmarks,
+                    subtitles = subtitles,
                     backgroundColorArgb = entity?.backgroundColorArgb ?: _lastDominantColor
                 )
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BookMetadataState())
 
-    // 3. 动态播放状态流：直接监听 PlaybackManager，不再依赖 settingsState (优化方向 1)
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val playbackState: StateFlow<PlaybackState> = _currentMediaUri
+    val playbackState: StateFlow<PlaybackState> = _currentBookId
         .flatMapLatest { _ ->
             playbackManager?.let { manager ->
                 combine(
@@ -124,7 +125,6 @@ class PlayerViewModel : ViewModel() {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
 
-    // 4. 播放控制流（用于 UI 按钮）
     val playbackControlState: StateFlow<PlaybackControlState> = playbackState
         .map { 
             PlaybackControlState(it.isPlaying, it.playbackSpeed, it.isSpeedManualMode)
@@ -132,7 +132,6 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackControlState(false, 1.0f, false))
 
-    // 5. 全局聚合状态
     val uiState: StateFlow<PlayerUiState> = combine(
         metadataState,
         playbackState,
@@ -161,7 +160,10 @@ class PlayerViewModel : ViewModel() {
     fun initialize(context: Context) {
         if (playbackManager != null) return
         val appContext = context.applicationContext
-        libraryRepository = LibraryRepository.getInstance(appContext)
+        val container = (appContext as APlayerApplication).container
+        libraryRepository = container.libraryRepository
+        settingsRepository = container.settingsRepository
+        
         getRelatedBooksUseCase = GetRelatedBooksUseCase(libraryRepository!!)
         audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         playbackManager = PlaybackManager.getInstance(appContext)
@@ -174,57 +176,73 @@ class PlayerViewModel : ViewModel() {
         )
 
         observePlaybackManager()
+        observeSettings()
+    }
+
+    private fun observeSettings() {
+        viewModelScope.launch {
+            settingsRepository?.settingsFlow?.collect { settings ->
+                if (settings.isChapterProgressMode != settingsState.value.isChapterProgressMode) {
+                    settingsManager.setChapterProgressMode(settings.isChapterProgressMode)
+                }
+            }
+        }
     }
 
     private fun observePlaybackManager() {
         val manager = playbackManager ?: return
 
         viewModelScope.launch {
-            manager.metadataEntries.collect { entries ->
-                if (entries.isNotEmpty()) {
-                    _currentMediaUri.value?.let { uri ->
-                        val chapters = AudiobookParser.extractChaptersFromMetadata(entries, uri)
-                        if (chapters.isNotEmpty()) {
-                            libraryRepository?.saveChapters(uri, chapters)
-                        }
+            manager.currentMediaItem.collect { mediaItem ->
+                if (mediaItem != null) {
+                    val mediaId = mediaItem.mediaId
+                    if (mediaId.contains(":")) {
+                        val bookId = mediaId.substringBefore(":")
+                        _currentBookId.value = bookId
+                        settingsManager.setMiniPlayerHidden(false)
                     }
                 }
             }
         }
-
-        viewModelScope.launch {
-            manager.currentMediaItem.collect { mediaItem ->
-                if (mediaItem != null) {
-                    _currentMediaUri.value = mediaItem.mediaId
-                    settingsManager.setMiniPlayerHidden(false)
-                }
-            }
-        }
     }
 
-    fun loadMedia(uri: Uri, title: String, author: String, narrator: String = "", startPositionMs: Long = 0L, playWhenReady: Boolean = true) {
-        _currentMediaUri.value = uri.toString()
+    fun loadBook(id: String, playWhenReady: Boolean = true) {
+        _currentBookId.value = id
+        _currentSubtitles.value = emptyList() // 重置上一本书的字幕
         settingsManager.setUndoSeekVisible(false)
         settingsManager.dismissChapterList()
         settingsManager.dismissBookmarkDialog()
 
-        playbackDelegate?.loadMedia(
-            uri = uri,
-            title = title,
-            author = author,
-            narrator = narrator,
-            startPositionMs = startPositionMs,
-            playWhenReady = playWhenReady,
-            onCoverUpdate = { updateCoverPath(it) }
-        )
+        viewModelScope.launch {
+            // 异步加载字幕，不阻塞主元数据流
+            val subs = libraryRepository?.loadSubtitles(id) ?: emptyList()
+            _currentSubtitles.value = subs
+
+            val plan = libraryRepository?.getPlaybackPlan(id)
+            if (plan != null) {
+                playbackDelegate?.loadBook(plan, playWhenReady) { updateCoverPath(it) }
+            }
+        }
     }
 
-    // --- Delegate Calls ---
     fun deleteBookmark(bookmark: BookmarkEntity) = bookmarkManager?.deleteBookmark(bookmark)
     fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) = bookmarkManager?.updateBookmark(bookmark, newTitle)
     fun addBookmark(title: String) {
-        val uri = _currentMediaUri.value ?: return
-        bookmarkManager?.addBookmark(uri, playbackState.value.currentPosition, title)
+        val id = _currentBookId.value ?: return
+        bookmarkManager?.addBookmark(id, playbackState.value.currentPosition, title)
+    }
+
+    /**
+     * 停止播放并清理当前书籍状态（主要用于删除书籍时）。
+     */
+    fun closePlayback(bookId: String) {
+        if (_currentBookId.value == bookId) {
+            _currentBookId.value = null
+            _currentSubtitles.value = emptyList()
+            playbackManager?.pause()
+            settingsManager.setFullPlayerVisible(false)
+            settingsManager.setMiniPlayerHidden(true)
+        }
     }
 
     fun togglePlayPause() = if (playbackState.value.isPlaying) pause() else play()
@@ -286,25 +304,29 @@ class PlayerViewModel : ViewModel() {
     fun setSelectedContentTab(tab: Int) = settingsManager.setSelectedContentTab(tab)
     fun setFullPlayerVisible(visible: Boolean) = settingsManager.setFullPlayerVisible(visible)
     fun setMiniPlayerHidden(hidden: Boolean) = settingsManager.setMiniPlayerHidden(hidden)
-    fun toggleProgressMode() = settingsManager.toggleProgressMode()
+    
+    fun toggleProgressMode() {
+        viewModelScope.launch {
+            val nextMode = !settingsState.value.isChapterProgressMode
+            settingsRepository?.updateChapterProgressMode(nextMode)
+        }
+    }
     fun onRouteChanged() = settingsManager.setMiniPlayerHidden(false)
 
     fun skipToNextChapter() = playbackDelegate?.skipToNextChapter(metadataState.value.chapters, playbackState.value.currentPosition)
     fun skipToPreviousChapter() = playbackDelegate?.skipToPreviousChapter(metadataState.value.chapters, playbackState.value.currentPosition)
 
-    private fun updateCoverPath(path: String?) {
-        val uri = _currentMediaUri.value ?: return
+    fun updateCoverPath(path: String?) {
+        val id = _currentBookId.value ?: return
         path?.let { p ->
             viewModelScope.launch(Dispatchers.Default) {
-                // 优化方向 3：检查数据库是否已有颜色缓存，减少提取操作
-                val entity = libraryRepository?.getByUri(uri)
+                val entity = libraryRepository?.getBookById(id)
                 if (entity?.backgroundColorArgb != null) {
                     _lastDominantColor = entity.backgroundColorArgb
                 } else {
                     val color = ImageProcessor.getDominantColor(p)
                     _lastDominantColor = color
-                    // 存入数据库缓存，getByUriFlow 会自动触发 metadataState 更新
-                    libraryRepository?.updateBackgroundColor(uri, color)
+                    libraryRepository?.updateBackgroundColor(id, color)
                 }
                 settingsManager.setSelectedContentTab(settingsState.value.selectedContentTab)
             }

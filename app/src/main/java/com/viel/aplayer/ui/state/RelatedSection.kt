@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.state
 
-import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookWithProgress
 
 /**
  * 关联书籍板块的数据模型。
@@ -10,5 +10,5 @@ data class RelatedSection(
     /** 板块名称（通常是作者名或播讲人名） */
     val name: String,
     /** 该板块下的书籍列表 */
-    val books: List<AudiobookEntity>
+    val books: List<BookWithProgress>
 )

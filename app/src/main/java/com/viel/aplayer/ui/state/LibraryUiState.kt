@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.state
 
-import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookWithProgress
 import com.viel.aplayer.ui.screens.HomeFilter
 
 /**
@@ -8,7 +8,7 @@ import com.viel.aplayer.ui.screens.HomeFilter
  */
 data class LibraryUiState(
     /** 书架上的所有书籍列表 */
-    val audiobooks: List<AudiobookEntity> = emptyList(),
+    val audiobooks: List<BookWithProgress> = emptyList(),
     /** 当前激活的过滤类型 */
     val selectedFilter: HomeFilter = HomeFilter.NotStarted
 )

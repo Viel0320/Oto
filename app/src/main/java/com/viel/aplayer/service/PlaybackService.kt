@@ -169,12 +169,19 @@ class PlaybackService : MediaSessionService() {
                 ACTION_FORWARD -> session.player.seekForward()
                 ACTION_BOOKMARK -> {
                     val player = session.player
-                    val uri = player.currentMediaItem?.mediaId
-                    val position = player.currentPosition
-                    if (uri != null) {
+                    val mediaId = player.currentMediaItem?.mediaId
+                    if (mediaId != null && mediaId.contains(":")) {
+                        val bookId = mediaId.substringBefore(":")
+                        val fileIndex = mediaId.substringAfter(":").toIntOrNull() ?: 0
+                        val positionInFile = player.currentPosition.coerceAtLeast(0L)
+
                         serviceScope.launch {
-                            libraryRepository.addBookmark(uri, position, "Bookmark")
-                            android.widget.Toast.makeText(this@PlaybackService, "Bookmark saved", android.widget.Toast.LENGTH_SHORT).show()
+                            val files = libraryRepository.getFilesForBookSync(bookId)
+                            if (files.isNotEmpty()) {
+                                val globalPos = com.viel.aplayer.playback.PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
+                                libraryRepository.addBookmark(bookId, globalPos, "Bookmark")
+                                android.widget.Toast.makeText(this@PlaybackService, "Bookmark saved", android.widget.Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 }

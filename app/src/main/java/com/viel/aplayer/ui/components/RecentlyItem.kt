@@ -106,7 +106,10 @@ fun RecentlyItem(
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            text = formatPeopleSubtitle(author,narrator),
+            text = formatPeopleSubtitle(
+                author.takeIf { it.isNotBlank() } ?: "Unknown",
+                narrator.takeIf { it.isNotBlank() } ?: "Unknown"
+            ),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -139,7 +142,7 @@ fun RecentlyItemProgressPreview() {
             RecentlyItem(
                 title = "In the Megachurch",
                 author = "Ryo Asai",
-                narrator = "Unknown Narrator",
+                narrator = "Unknown",
                 progressText = "45%",
                 onClick = {}
             )

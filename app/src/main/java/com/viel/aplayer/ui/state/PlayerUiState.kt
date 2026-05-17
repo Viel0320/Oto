@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.state
 
-import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookWithProgress
 import com.viel.aplayer.data.ChapterEntity
 
 /**
@@ -19,7 +19,7 @@ data class PlayerUiState(
     /** 相关播讲人板块列表 */
     val relatedNarratorSections: List<RelatedSection> = emptyList(),
     /** 最近添加/导入的书籍列表 */
-    val recentlyAddedBooks: List<AudiobookEntity> = emptyList()
+    val recentlyAddedBooks: List<BookWithProgress> = emptyList()
 ) {
     // --- 快捷访问器：保留以下字段以保证现有 UI 代码的向后兼容性 ---
     
@@ -28,7 +28,7 @@ data class PlayerUiState(
     val playWhenReady get() = playback.playWhenReady
     
     /** 基础信息 */
-    val currentUri get() = metadata.uri
+    val currentId get() = metadata.id
     val currentTitle get() = metadata.title
     val currentAuthor get() = metadata.author
     val currentNarrator get() = metadata.narrator
@@ -64,7 +64,7 @@ data class PlayerUiState(
      * 实时计算当前播放位置所在的章节。
      */
     val currentChapter: ChapterEntity?
-        get() = metadata.chapters.findLast { playback.currentPosition >= it.startPosition }
+        get() = metadata.chapters.findLast { playback.currentPosition >= it.startPositionMs }
             ?: metadata.chapters.firstOrNull()
 
     /** 

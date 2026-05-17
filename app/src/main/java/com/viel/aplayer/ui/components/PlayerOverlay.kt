@@ -106,18 +106,29 @@ private fun MiniPlayerContent(
     // 在此处收集高频状态，进度更新只会引起这个 Box 及其子项重组
     val playback by viewModel.playbackState.collectAsStateWithLifecycle()
     val metadata by viewModel.metadataState.collectAsStateWithLifecycle()
+    val settings by viewModel.settingsState.collectAsStateWithLifecycle()
 
     Box(modifier = Modifier.clickable {
         viewModel.setFullPlayerVisible(true)
     }) {
+        val displayProgress = if (settings.isChapterProgressMode && metadata.chapters.isNotEmpty()) {
+            val currentChapter = metadata.chapters.findLast { playback.currentPosition >= it.startPositionMs } ?: metadata.chapters.first()
+            val posInChapter = (playback.currentPosition - currentChapter.startPositionMs).coerceAtLeast(0L)
+            if (currentChapter.durationMs > 0) {
+                posInChapter.toFloat() / currentChapter.durationMs.toFloat()
+            } else 0f
+        } else {
+            playback.progress
+        }
+
         CompactMediaPlayer(
             isPlaying = playback.isPlaying,
             title = metadata.title,
             author = metadata.author,
             narrator = metadata.narrator,
             coverPath = metadata.thumbnailPath ?: metadata.coverPath,
-            // 传递 Lambda 而非直接传递数值，利用 AudioProgressBar 的内部优化减少重组次数
-            progress = { playback.progress },
+            // 传递计算后的进度
+            progress = { displayProgress },
             actions = actions
         )
     }

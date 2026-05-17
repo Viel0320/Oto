@@ -16,9 +16,9 @@ class BookmarkManager(
     /**
      * 添加书签。
      */
-    fun addBookmark(uri: String, position: Long, title: String) {
+    fun addBookmark(bookId: String, position: Long, title: String) {
         scope.launch {
-            repository.addBookmark(uri, position, title)
+            repository.addBookmark(bookId, position, title)
         }
     }
 
@@ -36,11 +36,7 @@ class BookmarkManager(
      */
     fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) {
         scope.launch {
-            val updatedBookmark = bookmark.copy(
-                title = newTitle,
-                createdAt = System.currentTimeMillis()
-            )
-            repository.updateBookmark(updatedBookmark)
+            repository.updateBookmark(bookmark.copy(title = newTitle))
         }
     }
 }

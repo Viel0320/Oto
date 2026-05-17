@@ -10,8 +10,8 @@ import com.viel.aplayer.util.image.ImageProcessor
  * 仅在切换书籍或元数据解析完成后才会发生变化，属于低频更新数据。
  */
 data class BookMetadataState(
-    /** 书籍的唯一标识 URI */
-    val uri: String = "",
+    /** 书籍的唯一标识 ID */
+    val id: String = "",
     /** 书名 */
     val title: String = "",
     /** 作者 */
@@ -33,7 +33,7 @@ data class BookMetadataState(
 ) {
     /** 是否存在有效的播放轨道 */
     val hasActiveTrack: Boolean
-        get() = title.isNotEmpty() && title != "Unknown Title"
+        get() = title.isNotEmpty() && title != "Unknown"
 
     /**
      * 根据总时长计算章节在进度条上的标记位置（0.0 - 1.0）。
@@ -41,9 +41,11 @@ data class BookMetadataState(
      */
     fun getChapterMarkers(totalDuration: Long): List<Float> {
         return if (totalDuration > 0) {
-            chapters.map { it.startPosition.toFloat() / totalDuration.toFloat() }
+            chapters.map { it.startPositionMs.toFloat() / totalDuration.toFloat() }
         } else {
             emptyList()
         }
     }
+
+    private fun <T> emptyInList(): List<T> = emptyList()
 }

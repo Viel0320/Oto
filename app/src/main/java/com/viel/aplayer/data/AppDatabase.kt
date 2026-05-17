@@ -5,11 +5,29 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [AudiobookEntity::class, ChapterEntity::class, BookmarkEntity::class, SearchHistoryEntity::class], version = 15, exportSchema = false)
+@Database(
+    entities = [
+        BookEntity::class,
+        BookFileEntity::class,
+        BookSourceEntity::class,
+        BookProgressEntity::class,
+        ChapterEntity::class,
+        BookmarkEntity::class,
+        SubtitleTrackEntity::class,
+        LibraryRootEntity::class,
+        ScanSessionEntity::class,
+        PendingScanActionEntity::class,
+        SearchHistoryEntity::class
+    ],
+    version = 16, // 升版
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
-    abstract fun audiobookDao(): AudiobookDao
+    abstract fun bookDao(): BookDao
     abstract fun chapterDao(): ChapterDao
     abstract fun bookmarkDao(): BookmarkDao
+    abstract fun libraryRootDao(): LibraryRootDao
+    abstract fun scanSessionDao(): ScanSessionDao
     abstract fun searchHistoryDao(): SearchHistoryDao
 
     companion object {

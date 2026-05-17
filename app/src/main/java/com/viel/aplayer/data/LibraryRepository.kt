@@ -20,6 +20,9 @@ import androidx.media3.extractor.metadata.id3.CommentFrame
 import com.viel.aplayer.ui.components.SubtitleLine
 import com.viel.aplayer.util.parser.SubtitleParser
 import com.viel.aplayer.util.parser.AudiobookParser
+import com.viel.aplayer.playback.BookPlaybackPlan
+import com.viel.aplayer.playback.PositionMapper
+import com.viel.aplayer.library.BookImporter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +33,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import java.io.File
 import java.io.FileOutputStream
+import java.util.UUID
 
 
 /**
@@ -40,13 +44,18 @@ class LibraryRepository private constructor(context: Context) {
     @SuppressLint("StaticFieldLeak")
     private val context = context.applicationContext
     private val database = AppDatabase.getInstance(this.context)
-    private val dao = database.audiobookDao()
+    private val bookDao = database.bookDao()
     private val chapterDao = database.chapterDao()
     private val bookmarkDao = database.bookmarkDao()
+    private val libraryRootDao = database.libraryRootDao()
+    private val scanSessionDao = database.scanSessionDao()
     private val historyDao = database.searchHistoryDao()
-    private val coversDir = File(this.context.filesDir, "covers").also { it.mkdirs() }
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val prefs = this.context.getSharedPreferences("library_prefs", Context.MODE_PRIVATE)
+    private val scanner = com.viel.aplayer.library.LibraryScanner(this.context)
+    private val importer = BookImporter(this.context)
+    private val rootStore = com.viel.aplayer.library.LibraryRootStore(this.context)
+    private val coverExtractor = com.viel.aplayer.media.CoverExtractor(this.context)
+    private val metadataExtractor = com.viel.aplayer.media.MetadataExtractor(this.context)
 
     /** Search history flow. */
     val searchHistory: Flow<List<SearchHistoryEntity>> = historyDao.getRecentHistory()
@@ -67,21 +76,11 @@ class LibraryRepository private constructor(context: Context) {
 
     /** Set the root library directory. */
     fun setLibraryRoot(uri: Uri) {
-        prefs.edit { putString(KEY_LIBRARY_URI, uri.toString()) }
+        scope.launch {
+            rootStore.addRoot(uri, "My Library")
+        }
     }
 
-    /** Get the root library directory. */
-    fun getLibraryRoot(): Uri? {
-        return prefs.getString(KEY_LIBRARY_URI, null)?.toUri()
-    }
-
-    fun setHomeFilter(filter: String) {
-        prefs.edit { putString(KEY_HOME_FILTER, filter) }
-    }
-
-    fun getHomeFilter(): String {
-        return prefs.getString(KEY_HOME_FILTER, "NotStarted") ?: "NotStarted"
-    }
 
     /** Check if a file exists at the given URI. */
     fun checkFileExists(uriString: String): Boolean {
@@ -100,228 +99,194 @@ class LibraryRepository private constructor(context: Context) {
 
     /**
      * Sync the entire library: scan folder and add new files.
-     * 使用挂起函数顺序执行扫描，避免并发过高导致系统资源（如 Codec 实例）耗尽。
      */
-    suspend fun syncLibrary() = withContext(Dispatchers.IO) {
-        val rootUri = getLibraryRoot() ?: return@withContext
-        val rootDoc = DocumentFile.fromTreeUri(context, rootUri) ?: return@withContext
-        val existingUris = dao.getAllUris().toSet()
-        scanDirectory(rootDoc, existingUris)
-        
-        // TODO: 实现手动清理逻辑。
-        // 扫描并识别出已不存在的文件（existingUris - scannedUris），但暂时不自动删除，
-        // 留待将来在设置或库管理界面由用户手动确认后触发清理。
-    }
+    suspend fun syncLibrary(trigger: String = "USER") = withContext(Dispatchers.IO) {
+        rootStore.migrateLegacyRoot()
 
-    /** 顺序扫描目录，减少 CPU 和内存瞬间冲击。 */
-    private suspend fun scanDirectory(directory: DocumentFile, existingUris: Set<String>) {
-        directory.listFiles().forEach { file ->
-            yield()
-            if (file.isDirectory) {
-                scanDirectory(file, existingUris)
-            } else if (isAudioFile(file.name ?: "")) {
-                val uriStr = file.uri.toString()
-                if (!existingUris.contains(uriStr)) {
-                    addAudiobook(file.uri, directory, file.name)
+        // 1. 扫描生成快照 (包含 ScanSession 开始)
+        val snapshot = scanner.scanAllRoots(trigger)
+        
+        // 2. 协调差异
+        val reconciler = com.viel.aplayer.library.LibraryReconciler(database)
+        val result = reconciler.reconcile(snapshot)
+
+        // 3. 执行导入与更新
+        result.newClaims.forEach { claim ->
+            try {
+                if (claim.type == com.viel.aplayer.library.ClaimSourceType.SINGLE_AUDIO || 
+                    claim.type == com.viel.aplayer.library.ClaimSourceType.M4B_EMBEDDED) {
+                    addAudiobook(Uri.parse(claim.sourceUri), subtitleUri = claim.subtitleUri)
+                } else {
+                    Log.i("LibraryRepository", "🚀 Triggering Manifest Import for: ${claim.displayName}")
+                    importer.importManifestBook(claim)
                 }
+            } catch (e: Exception) {
+                Log.e("LibraryRepository", "Import failed for ${claim.displayName}", e)
             }
         }
+
+        // 4. 更新缺失书籍状态
+        result.unavailableBookIds.forEach { id ->
+            bookDao.updateBookStatus(id, "UNAVAILABLE")
+        }
+
+        // 5. 插入待处理操作（统一标记为 SKIPPED）
+        if (result.pendingActions.isNotEmpty()) {
+            val skippedActions = result.pendingActions.map { it.copy(status = "SKIPPED") }
+            scanSessionDao.insertActions(skippedActions)
+            Log.d("LibraryRepository", "Auto-skipped ${skippedActions.size} conflicts.")
+        }
+
+        // 6. 标记 Session 完成
+        scanSessionDao.insertSession(ScanSessionEntity(
+            id = snapshot.scanId,
+            trigger = trigger,
+            status = "COMPLETED",
+            startedAt = snapshot.timestamp,
+            completedAt = System.currentTimeMillis(),
+            discoveredBookCount = result.discoveredCount,
+            unavailableBookCount = result.unavailableBookIds.size,
+            pendingActionCount = result.pendingActions.size
+        ))
+
+        Log.i("LibraryRepository", "Sync finished. New: ${result.discoveredCount}, Missing: ${result.unavailableBookIds.size}")
     }
 
-    private fun isAudioFile(fileName: String): Boolean {
-        val extensions = listOf(".mp3", ".m4b", ".m4a", ".aac", ".flac", ".wav", ".ogg")
-        return extensions.any { fileName.endsWith(it, ignoreCase = true) }
-    }
+
     
-    /** Observable list of all audiobooks, sorted by last played. */
-    val audiobooks: Flow<List<AudiobookEntity>> = dao.getAllAudiobooks()
+    /** Observable list of all audiobooks, sorted by added date. */
+    val audiobooks: Flow<List<BookWithProgress>> = bookDao.getAllBooksWithProgress()
 
     /** Search audiobooks by title, author, or narrator. */
-    fun searchAudiobooks(query: String): Flow<List<AudiobookEntity>> = dao.searchAudiobooks(query)
+    fun searchAudiobooks(query: String): Flow<List<BookWithProgress>> = bookDao.searchBooksWithProgress(query)
 
-    fun filterByYear(year: String): Flow<List<AudiobookEntity>> = dao.filterByYear(year)
+    fun filterByYear(year: String): Flow<List<BookWithProgress>> = bookDao.filterByYearWithProgress(year)
     
-    fun filterByAuthor(author: String): Flow<List<AudiobookEntity>> = dao.filterByAuthor(author)
+    fun filterByAuthor(author: String): Flow<List<BookWithProgress>> = bookDao.filterByAuthorWithProgress(author)
     
-    fun filterByAuthorLimited(author: String, excludeUri: String, limit: Int): Flow<List<AudiobookEntity>> = 
-        dao.filterByAuthorLimited(author, excludeUri, limit)
+    fun filterByAuthorLimited(author: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>> = 
+        bookDao.filterByAuthorLimitedWithProgress(author, excludeId, limit)
     
-    fun filterByNarrator(narrator: String): Flow<List<AudiobookEntity>> = dao.filterByNarrator(narrator)
+    fun filterByNarrator(narrator: String): Flow<List<BookWithProgress>> = bookDao.filterByNarratorWithProgress(narrator)
 
-    fun filterByNarratorLimited(narrator: String, excludeUri: String, limit: Int): Flow<List<AudiobookEntity>> = 
-        dao.filterByNarratorLimited(narrator, excludeUri, limit)
+    fun filterByNarratorLimited(narrator: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>> = 
+        bookDao.filterByNarratorLimitedWithProgress(narrator, excludeId, limit)
 
-    fun getRecentlyAdded(limit: Int): Flow<List<AudiobookEntity>> = dao.getRecentlyAdded(limit)
+    fun getRecentlyAdded(limit: Int): Flow<List<BookWithProgress>> = bookDao.getRecentlyAddedWithProgress(limit)
 
-    fun getRecentlyAddedExclusive(currentUri: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<AudiobookEntity>> = 
-        dao.getRecentlyAddedExclusive(currentUri, authors, narrators, limit)
+    fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<BookWithProgress>> = 
+        bookDao.getRecentlyAddedExclusiveWithProgress(currentId, authors, narrators, limit)
 
     /**
      * 顺序添加有声书，并整合元数据提取。
      */
     @SuppressLint("CheckResult")
-    @Suppress("DEPRECATION")
-    suspend fun addAudiobook(uri: Uri, parentDir: DocumentFile? = null, fileName: String? = null) {
+    @OptIn(UnstableApi::class)
+    suspend fun addAudiobook(
+        uri: Uri, 
+        parentDir: DocumentFile? = null, 
+        fileName: String? = null,
+        subtitleUri: String? = null
+    ) {
         withContext(Dispatchers.IO) {
             Log.d("LibraryRepository", "Adding audiobook: $uri (Name: $fileName)")
-            // 复用单个 retriever 完成所有基本信息的提取，避免多次 open/release。
-            val retriever = MediaMetadataRetriever()
-            var title: String
-            var author: String
-            var narrator: String
-            var description = ""
-            var duration: Long
-            var year = ""
-            var fileSize = 0L
-            var finalChapters = emptyList<ChapterEntity>()
+            val bookId = UUID.randomUUID().toString()
             
             try {
-                // ... (existing code for file size, duration, etc.) ...
-                // Extract file size
+                // 1. 获取文件大小
+                var fileSize = 0L
                 if (uri.scheme == "content") {
                     context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                         val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                        if (cursor.moveToFirst()) {
-                            fileSize = cursor.getLong(sizeIndex)
-                        }
+                        if (cursor.moveToFirst()) fileSize = cursor.getLong(sizeIndex)
                     }
                 } else if (uri.scheme == "file") {
                     fileSize = File(uri.path ?: "").length()
                 }
 
+                // 2. 使用 MetadataExtractor 提取音频元数据及章节
+                val metadata = metadataExtractor.extract(uri)
+
+                // 3. 提取封面图（为了保持流程一致，此处单独开启一次 Retriever 处理封面）
+                val retriever = MediaMetadataRetriever()
                 retriever.setDataSource(context, uri)
-                val rawTitle = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                
-                // Extract year/date
-                val rawYear = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR) 
-                    ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE)
-                if (!rawYear.isNullOrBlank()) {
-                    year = Regex("\\d{4}").find(rawYear)?.value ?: rawYear
-                }
+                val coverResult = coverExtractor.extractFromRetriever(retriever, bookId)
+                retriever.release()
 
-                // Extract duration
-                val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                duration = durationStr?.toLongOrNull() ?: 0L
+                val lastModified = if (uri.scheme == "file") File(uri.path ?: "").lastModified() else System.currentTimeMillis()
 
-                // Title/Author extraction
-                title = if (!rawTitle.isNullOrBlank() && !rawTitle.contains("/")) {
-                    rawTitle
-                } else {
-                    uri.lastPathSegment?.substringAfterLast("/")?.substringBeforeLast(".") ?: "Unknown Title"
-                }
-
-                author = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: "Unknown Author"
-                narrator = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER) ?: "Unknown Narrator"
-
-                // 使用 Media3 MetadataRetriever 一次性提取评论（描述）和章节，提升效率并减少资源竞争。
-                try {
-                    val mediaItem = MediaItem.Builder()
-                        .setUri(uri)
-                        .setMimeType(if (uri.toString().endsWith(".m4b", ignoreCase = true)) "audio/mp4" else null)
-                        .build()
-                    
-                    val extractorsFactory = DefaultExtractorsFactory()
-                        .setMp4ExtractorFlags(androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA)
-                    val mediaSourceFactory = DefaultMediaSourceFactory(context, extractorsFactory)
-
-                    val trackGroups = androidx.media3.exoplayer.MetadataRetriever.retrieveMetadata(mediaSourceFactory, mediaItem).get()
-                    
-                    val metadataEntries = mutableListOf<androidx.media3.common.Metadata.Entry>()
-                    for (i in 0 until trackGroups.length) {
-                        val group = trackGroups[i]
-                        for (j in 0 until group.length) {
-                            val format = group.getFormat(j)
-                            val metadata = format.metadata ?: continue
-                            for (k in 0 until metadata.length()) {
-                                val entry = metadata.get(k)
-                                metadataEntries.add(entry)
-                                if (entry is CommentFrame && description.isEmpty()) {
-                                    description = entry.text
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Extract chapters
-                    val chapters = AudiobookParser.extractChaptersFromMetadata(metadataEntries, uri.toString())
-                    finalChapters = if (chapters.isEmpty()) {
-                        AudiobookParser.extractChaptersLowLevel(context, uri)
-                    } else {
-                        chapters
-                    }.asSequence().distinctBy { it.startPosition }.sortedBy { it.startPosition }.toList()
-
-                } catch (e: Exception) {
-                    Log.e("LibraryRepository", "Media3 metadata extraction failed", e)
-                }
-
-                // Extract and save cover art using the SAME retriever
-                val (coverPath, thumbnailPath) = extractAndSaveCoverWithRetriever(retriever, uri)
-
-                val entity = AudiobookEntity(
+                // 4. 调用 Importer 执行事务化导入
+                importer.importSingleAudio(
                     uri = uri.toString(),
-                    title = title,
-                    author = author,
-                    narrator = narrator,
-                    description = description,
-                    duration = duration,
-                    year = year,
+                    title = metadata.title,
+                    author = metadata.author,
+                    narrator = metadata.narrator,
+                    description = metadata.description,
+                    year = metadata.year,
+                    durationMs = metadata.durationMs,
                     fileSize = fileSize,
-                    subtitlePath = findSubtitleFile(uri, parentDir, fileName),
-                    coverPath = coverPath,
-                    thumbnailPath = thumbnailPath,
-                    addedAt = System.currentTimeMillis()
+                    lastModified = lastModified,
+                    coverPath = coverResult.originalPath,
+                    thumbnailPath = coverResult.thumbnailPath,
+                    backgroundColorArgb = coverResult.backgroundColor,
+                    chapters = metadata.chapters,
+                    subtitleUri = subtitleUri ?: findSubtitleFile(uri, parentDir, fileName)
                 )
-                Log.d("LibraryRepository", "Inserting entity: ${entity.title}, Subtitle: ${entity.subtitlePath}")
-                dao.insert(entity)
-
-                // Save chapters AFTER the book entity is inserted to satisfy Foreign Key constraints
-                if (finalChapters.isNotEmpty()) {
-                    try {
-                        chapterDao.deleteChaptersForBook(uri.toString())
-                        chapterDao.insertChapters(finalChapters)
-                    } catch (e: Exception) {
-                        if (e is CancellationException) throw e
-                        Log.e("LibraryRepository", "Failed to insert chapters for ${entity.title}", e)
-                    }
-                }
 
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 Log.e("LibraryRepository", "Error adding audiobook", e)
-            } finally {
-                try { retriever.release() } catch (_: Exception) {}
             }
         }
     }
     
     /** Update playback position in milliseconds. */
-    fun updateProgress(uri: String, position: Long) {
+    fun updateProgress(bookId: String, position: Long) {
         scope.launch {
-            Log.d("LibraryRepository", "Updating progress for $uri: $position")
-            dao.updateProgress(uri, position, System.currentTimeMillis())
+            val progress = bookDao.getProgressForBookSync(bookId)
+            val files = bookDao.getFilesForBookList(bookId)
+            
+            if (progress != null && files.isNotEmpty()) {
+                val (fileIndex, posInFile) = com.viel.aplayer.playback.PositionMapper.globalToFilePosition(position, files)
+                val bookFileId = files.getOrNull(fileIndex)?.id
+                
+                bookDao.insertProgress(progress.copy(
+                    globalPositionMs = position,
+                    bookFileId = bookFileId,
+                    currentFileIndex = fileIndex,
+                    positionInFileMs = posInFile,
+                    lastPlayedAt = System.currentTimeMillis()
+                ))
+            } else if (progress != null) {
+                // 回退逻辑，仅更新全局位置
+                bookDao.insertProgress(progress.copy(
+                    globalPositionMs = position,
+                    lastPlayedAt = System.currentTimeMillis()
+                ))
+            }
         }
     }
 
     /**
-     * Get the most recently played audiobook.
-     */
-    suspend fun getMostRecentAudiobook(): AudiobookEntity? = dao.getMostRecent()
-
-    /**
      * Get chapters for an audiobook.
      */
-    fun getChapters(uri: String): Flow<List<ChapterEntity>> = chapterDao.getChaptersForBook(uri)
+    fun getChapters(bookId: String): Flow<List<ChapterEntity>> = chapterDao.getChaptersForBook(bookId)
 
     /**
      * Get bookmarks for an audiobook.
      */
-    fun getBookmarks(uri: String): Flow<List<BookmarkEntity>> = bookmarkDao.getBookmarksForBook(uri)
+    fun getBookmarks(bookId: String): Flow<List<BookmarkEntity>> = bookmarkDao.getBookmarksForBook(bookId)
 
     /**
      * Add a bookmark.
      */
-    suspend fun addBookmark(uri: String, position: Long, title: String) {
-        bookmarkDao.insert(BookmarkEntity(bookUri = uri, position = position, title = title))
+    suspend fun addBookmark(bookId: String, position: Long, title: String) {
+        bookmarkDao.insert(BookmarkEntity(
+            id = UUID.randomUUID().toString(),
+            bookId = bookId,
+            globalPositionMs = position,
+            title = title
+        ))
     }
 
     /**
@@ -341,36 +306,49 @@ class LibraryRepository private constructor(context: Context) {
     /**
      * Load and parse subtitles for an audiobook.
      */
-    suspend fun loadSubtitles(bookUri: String): List<SubtitleLine> {
-        val entity = dao.getByUri(bookUri) ?: run {
-            Log.d("LibraryRepository", "loadSubtitles: Entity not found for $bookUri")
-            return emptyList()
-        }
-        val subtitlePath = entity.subtitlePath ?: run {
-            Log.d("LibraryRepository", "loadSubtitles: subtitlePath is null for $bookUri")
+    suspend fun loadSubtitles(bookId: String): List<SubtitleLine> {
+        Log.d("LibraryRepository", "Loading subtitles for book: $bookId")
+        val tracks = bookDao.getSubtitleTracksForBookList(bookId)
+        Log.d("LibraryRepository", "Found ${tracks.size} tracks in DB")
+        
+        val track = tracks.firstOrNull { it.isActive } ?: tracks.firstOrNull() ?: run {
+            Log.d("LibraryRepository", "No subtitle tracks found for book: $bookId")
             return emptyList()
         }
         
-        Log.d("LibraryRepository", "loadSubtitles: Path is $subtitlePath")
+        Log.d("LibraryRepository", "Selected track: ${track.uri}, format: ${track.format}")
+        
         return withContext(Dispatchers.IO) {
             try {
-                val uri = subtitlePath.toUri()
-                val extension = subtitlePath.substringAfterLast(".").lowercase()
+                val uri = track.uri.toUri()
+                val extension = track.format
                 
-                if (uri.scheme == "content") {
+                val lines = if (uri.scheme == "content") {
                     context.contentResolver.openInputStream(uri)?.use { 
                         SubtitleParser.parse(it, extension)
                     } ?: emptyList()
                 } else {
-                    val file = File(subtitlePath)
+                    val path = if (uri.scheme == "file") uri.path else track.uri
+                    val file = File(path ?: track.uri)
                     if (file.exists()) {
                         file.inputStream().use {
                             SubtitleParser.parse(it, extension)
                         }
-                    } else emptyList()
+                    } else {
+                        Log.w("LibraryRepository", "Subtitle file not found at: $path")
+                        emptyList()
+                    }
+                }
+
+                Log.d("LibraryRepository", "Parsed ${lines.size} lines")
+
+                if (track.globalOffsetMs != 0L) {
+                    lines.map { it.copy(startTime = it.startTime + track.globalOffsetMs, endTime = it.endTime + track.globalOffsetMs) }
+                } else {
+                    lines
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("LibraryRepository", "Error loading subtitles for book $bookId", e)
                 emptyList()
             }
         }
@@ -379,14 +357,11 @@ class LibraryRepository private constructor(context: Context) {
     /**
      * Save chapters to database.
      */
-    fun saveChapters(uri: String, chapters: List<ChapterEntity>) {
+    fun saveChapters(bookId: String, chapters: List<ChapterEntity>) {
         scope.launch {
-            // 加固：检查书籍是否存在，避免 observePlaybackManager 触发时书籍尚未入库导致的外键约束错误
-            if (dao.getByUri(uri) != null) {
-                chapterDao.deleteChaptersForBook(uri)
+            if (bookDao.getBookById(bookId) != null) {
+                chapterDao.deleteChaptersForBook(bookId)
                 chapterDao.insertChapters(chapters)
-            } else {
-                Log.w("LibraryRepository", "Skip saveChapters: Book entity not found yet for $uri")
             }
         }
     }
@@ -394,95 +369,89 @@ class LibraryRepository private constructor(context: Context) {
     /**
      * Update title/author/narrator/description from ExoPlayer's parsed metadata.
      */
-    fun updateMetadata(uri: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) {
+    fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) {
         scope.launch {
-            val existing = dao.getByUri(uri) ?: return@launch
+            val existing = bookDao.getBookById(bookId) ?: return@launch
             val newTitle = if (!title.isNullOrBlank()) title else existing.title
             val newAuthor = if (!author.isNullOrBlank()) author else existing.author
             val newNarrator = if (!narrator.isNullOrBlank()) narrator else existing.narrator
             val newDescription = if (!description.isNullOrBlank()) description else existing.description
-            val newDuration = if (duration > 0) duration else existing.duration
+            val newDuration = if (duration > 0) duration else existing.totalDurationMs
             
             if (newTitle != existing.title || newAuthor != existing.author || 
                 newNarrator != existing.narrator || newDescription != existing.description ||
-                newDuration != existing.duration) {
-                dao.updateMetadata(uri, newTitle, newAuthor, newNarrator, newDescription, newDuration)
+                newDuration != existing.totalDurationMs) {
+                bookDao.updateMetadata(bookId, newTitle, newAuthor, newNarrator, newDescription, newDuration)
             }
         }
     }
     
-    /**
-     * Get an audiobook by URI.
-     */
-    suspend fun getByUri(uri: String): AudiobookEntity? {
-        return dao.getByUri(uri)
+    suspend fun saveProgress(progress: BookProgressEntity) {
+        bookDao.insertProgress(progress)
     }
 
-    fun getByUriFlow(uri: String): Flow<AudiobookEntity?> {
-        return dao.getByUriFlow(uri)
+    /**
+     * 同步获取书籍的文件列表（用于内部转换）。
+     */
+    suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = withContext(Dispatchers.IO) {
+        bookDao.getFilesForBookList(bookId)
+    }
+
+    suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = withContext(Dispatchers.IO) {
+        val book = bookDao.getBookById(bookId) ?: return@withContext null
+        val files = bookDao.getFilesForBookList(bookId)
+        val chapters = chapterDao.getChaptersForBookList(bookId)
+        val progress = bookDao.getProgressForBookSync(bookId)
+        
+        if (files.isEmpty()) return@withContext null
+        
+        val artworkUri = book.thumbnailPath?.let { Uri.fromFile(java.io.File(it)) } 
+            ?: book.coverPath?.let { Uri.parse(it) }
+        
+        val artworkData = book.thumbnailPath?.let { path ->
+            try { java.io.File(path).readBytes() } catch (e: Exception) { null }
+        }
+
+        BookPlaybackPlan(
+            bookId = bookId,
+            title = book.title,
+            author = book.author,
+            artworkUri = artworkUri,
+            artworkData = artworkData,
+            files = files,
+            chapters = chapters,
+            startGlobalPositionMs = progress?.globalPositionMs ?: 0L
+        )
     }
 
     /**
      * Cache the dominant color of the book cover.
      */
-    fun updateBackgroundColor(uri: String, color: Int) {
+    fun updateBackgroundColor(id: String, color: Int) {
         scope.launch {
-            dao.updateBackgroundColor(uri, color)
+            bookDao.updateBackgroundColor(id, color)
         }
     }
 
-    /**
-     * Extract embedded cover art from the audio file using an existing retriever.
-     * Saves the original image and a 300px thumbnail.
-     * Returns Pair(originalPath, thumbnailPath)
-     */
-    private fun extractAndSaveCoverWithRetriever(retriever: MediaMetadataRetriever, uri: Uri): Pair<String?, String?> {
-        return try {
-            val artBytes = retriever.embeddedPicture
-
-            if (artBytes != null) {
-                // 1. Save Original
-                val originalFile = File(coversDir, "${uri.toString().hashCode()}_orig.jpg")
-                FileOutputStream(originalFile).use { it.write(artBytes) }
-                val originalPath = originalFile.absolutePath
-
-                // 2. Create and Save Thumbnail (300px)
-                val options = BitmapFactory.Options().apply {
-                    inJustDecodeBounds = true
-                }
-                BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size, options)
-
-                val maxSize = 300
-                options.inSampleSize = ImageProcessor.calculateInSampleSize(options, maxSize, maxSize)
-                options.inJustDecodeBounds = false
-
-                val bitmap = BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size, options)
-                val thumbnailPath = if (bitmap != null) {
-                    val scaledBitmap = if (bitmap.width > maxSize || bitmap.height > maxSize) {
-                        ImageProcessor.scaleBitmap(bitmap, maxSize)
-                    } else {
-                        bitmap
-                    }
-
-                    val thumbFile = File(coversDir, "${uri.toString().hashCode()}_thumb.jpg")
-                    ImageProcessor.saveBitmapToFile(scaledBitmap, thumbFile)
-
-                    if (scaledBitmap != bitmap) {
-                        scaledBitmap.recycle()
-                    }
-                    bitmap.recycle()
-                    thumbFile.absolutePath
-                } else null
-
-                Pair(originalPath, thumbnailPath)
-            } else {
-                Pair(null, null)
-            }
-        } catch (e: Exception) {
-            Log.e("LibraryRepository", "Error extracting cover", e)
-            Pair(null, null)
+    suspend fun deleteBook(bookId: String) {
+        val book = bookDao.getBookById(bookId)
+        if (book != null) {
+            bookDao.deleteBook(book)
         }
     }
+
+    suspend fun getBookById(id: String): BookEntity? {
+        return bookDao.getBookById(id)
+    }
+
+    fun observeBookById(id: String): Flow<BookEntity?> {
+        return bookDao.observeBookById(id)
+    }
+
+    fun observeLatestScanSession(): Flow<ScanSessionEntity?> {
+        return scanSessionDao.observeLatestCompletedSession()
+    }
+
 
     /**
      * Search for a subtitle file (srt, ass, ssa) in the same directory as the media file.
@@ -501,14 +470,14 @@ class LibraryRepository private constructor(context: Context) {
                         ?.substringBeforeLast(".") ?: return null
 
                     Log.d("LibraryRepository", "Searching subtitles in ${parentDir.uri} for $mediaName")
-                    val subtitleExtensions = listOf("srt", "ass", "ssa")
+                    val subtitleExtensions = listOf("srt", "ass", "ssa", "vtt", "lrc")
 
                     // Optimized search: only list files if needed
                     val found = parentDir.listFiles().find { file ->
                         val fileName = file.name ?: ""
                         val nameWithoutExt = fileName.substringBeforeLast(".")
                         val ext = fileName.substringAfterLast(".").lowercase()
-                        nameWithoutExt.equals(mediaName, ignoreCase = true) && subtitleExtensions.contains(ext)
+                        subtitleExtensions.contains(ext) && nameWithoutExt.equals(mediaName, ignoreCase = true)
                     }
 
                     Log.d("LibraryRepository", "Found subtitle: ${found?.uri}")
@@ -518,7 +487,7 @@ class LibraryRepository private constructor(context: Context) {
                     val file = File(mediaUri.path ?: "")
                     val parentDir = file.parentFile ?: return null
                     val baseName = file.nameWithoutExtension
-                    val subtitleExtensions = listOf("srt", "ass", "ssa")
+                    val subtitleExtensions = listOf("srt", "ass", "ssa", "vtt", "lrc")
 
                     parentDir.listFiles { _, name ->
                         val ext = name.substringAfterLast(".").lowercase()
@@ -534,9 +503,6 @@ class LibraryRepository private constructor(context: Context) {
     }
     
     companion object {
-        private const val KEY_LIBRARY_URI = "library_root_uri"
-        private const val KEY_HOME_FILTER = "home_filter"
-
         @Volatile
         @SuppressLint("StaticFieldLeak")
         private var INSTANCE: LibraryRepository? = null

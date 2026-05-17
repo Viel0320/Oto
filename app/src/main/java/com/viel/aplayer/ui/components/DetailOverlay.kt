@@ -9,7 +9,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.viel.aplayer.ui.screens.DetailScreen
@@ -18,7 +17,7 @@ import com.viel.aplayer.ui.viewmodel.PlayerViewModel
 
 /**
  * 书籍详情悬浮层组件。
- * 将详情页的显示逻辑与动画从主 App 容器中解耦。
+ * 将详情页的显示逻辑与动画从主 App容器中解耦。
  */
 @Composable
 fun DetailOverlay(
@@ -38,7 +37,7 @@ fun DetailOverlay(
         modifier = modifier
     ) {
         DetailScreen(
-            uiState = if (playerUiState.currentUri == detailUiState.book?.uri && playerUiState.duration > 0) {
+            uiState = if (playerUiState.currentId == detailUiState.book?.book?.id && playerUiState.duration > 0) {
                 val realTimePercent = kotlin.math.ceil(
                     playerUiState.currentPosition.toDouble() / playerUiState.duration.toDouble() * 100
                 ).toInt().coerceIn(0, 100)
@@ -56,14 +55,8 @@ fun DetailOverlay(
                 }
             },
             onPlayClick = {
-                detailUiState.book?.let { book ->
-                    playerViewModel.loadMedia(
-                        uri = book.uri.toUri(),
-                        title = book.title,
-                        author = book.author,
-                        narrator = book.narrator,
-                        startPositionMs = book.lastPosition
-                    )
+                detailUiState.book?.let { bookWithProgress ->
+                    playerViewModel.loadBook(bookWithProgress.book.id)
                 }
                 playerViewModel.setFullPlayerVisible(true)
             }

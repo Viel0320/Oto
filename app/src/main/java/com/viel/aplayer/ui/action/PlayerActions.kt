@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.action
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.core.net.toUri
 import com.viel.aplayer.ui.viewmodel.PlayerViewModel
 
 /**
@@ -20,14 +19,10 @@ data class PlayerActions(
 
 /**
  * [PlayerActions] 的工厂扩展函数。
- * 核心职责：
- * 1. 桥接：将 [PlayerViewModel] 中的复杂业务逻辑映射为 UI 组件可直接使用的简单回调。
- * 2. 缓存：利用 [remember] 确保 Actions 对象在 ViewModel 实例不变的情况下保持稳定，避免子组件产生无效重组。
- * 3. 解耦：使 UI 组件只需依赖 Action 接口，无需直接持有 ViewModel 引用。
  */
 @Composable
-fun PlayerViewModel.rememberActions(): PlayerActions {
-    return remember(this) {
+fun PlayerViewModel.rememberActions(onDeleteBook: (String) -> Unit = {}): PlayerActions {
+    return remember(this, onDeleteBook) {
         val viewModel = this
         PlayerActions(
             playback = PlaybackControlActions(
@@ -57,16 +52,10 @@ fun PlayerViewModel.rememberActions(): PlayerActions {
                 onShowChapterList = { viewModel.showChapterList() },
                 onDismissChapterList = { viewModel.dismissChapterList() },
                 onToggleProgressMode = { viewModel.toggleProgressMode() },
-                onLoadRelatedBook = { book ->
-                    viewModel.loadMedia(
-                        uri = book.uri.toUri(),
-                        title = book.title,
-                        author = book.author,
-                        narrator = book.narrator,
-                        startPositionMs = book.lastPosition,
-                        playWhenReady = true
-                    )
-                }
+                onLoadRelatedBook = { bookWithProgress ->
+                    viewModel.loadBook(bookWithProgress.book.id)
+                },
+                onDeleteBook = { viewModel.currentBookId.value?.let { onDeleteBook(it) } }
             )
         )
     }

@@ -10,7 +10,6 @@ import android.view.ActionMode
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
-import android.view.RoundedCorner
 import android.widget.TextView
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -55,8 +54,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -91,6 +88,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
+import com.viel.aplayer.data.BookEntity
+import com.viel.aplayer.data.BookWithProgress
 import com.viel.aplayer.ui.state.DetailUiState
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatFileSize
@@ -109,7 +108,8 @@ fun DetailScreen(
     onMoreClick: () -> Unit = {},
     onSearchClick: (String) -> Unit = {},
 ) {
-    val book = uiState.book
+    val bookWithProgress = uiState.book
+    val book = bookWithProgress?.book
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
 
@@ -119,24 +119,20 @@ fun DetailScreen(
         label = "bg_color"
     )
 
-    // Gesture status
     val scope = rememberCoroutineScope()
     val offsetY = remember { Animatable(0f) }
     val density = LocalDensity.current
     val dismissThreshold = with(density) { 50.dp.toPx() }
 
-    // System Corner Radius
     val view = LocalView.current
     val systemCornerRadius = remember(view) {
-        val insets = view.rootWindowInsets
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val corner = insets?.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)
-            corner?.radius ?: 0
-        } else 0
+        val insets =
+            view.rootWindowInsets
+
+        insets?.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_LEFT)?.radius ?: 0
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    // 处理物理返回键
     androidx.activity.compose.BackHandler(enabled = uiState.isVisible) {
         onBackClick()
     }
@@ -158,9 +154,9 @@ fun DetailScreen(
             .fillMaxSize()
             .offset { IntOffset(0, offsetY.value.roundToInt()) }
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
-            .background(bgColor) // 1. 先铺设实心底色，防止半透明
-            .background(backgroundBrush), // 2. 再叠加原有的渐变
-        color = Color.Transparent // 设为透明以露出底色
+            .background(bgColor)
+            .background(backgroundBrush),
+        color = Color.Transparent
     ) {
         Scaffold(
             topBar = {
@@ -220,7 +216,6 @@ fun DetailScreen(
                     .padding(padding),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Cover Art
                 Surface(
                     modifier = Modifier
                         .size(260.dp)
@@ -253,9 +248,8 @@ fun DetailScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Title
                 SelectableTextView(
-                    text = book?.title ?: "Unknown Title",
+                    text = book?.title?.takeIf { it.isNotBlank() } ?: "Unknown",
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp),
@@ -268,7 +262,6 @@ fun DetailScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Author & Narrator Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -281,10 +274,14 @@ fun DetailScreen(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .combinedClickable(
-                                onClick = { book?.author?.let { onSearchClick("Author:$it ") } },
+                                onClick = { 
+                                    book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Author:$it ") } 
+                                },
                                 onLongClick = { 
-                                    infoDialogTitle = "Author"
-                                    infoDialogText = book?.author 
+                                    if (!book?.author.isNullOrBlank() && !book.author.equals("unknown", true)) {
+                                        infoDialogTitle = "Author"
+                                        infoDialogText = book.author
+                                    }
                                 }
                             )
                             .padding(vertical = 4.dp),
@@ -296,7 +293,7 @@ fun DetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = book?.author ?: "Unknown Author",
+                            text = book?.author?.takeIf { it.isNotBlank() } ?: "Unknown",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.SemiBold
                             ),
@@ -319,10 +316,14 @@ fun DetailScreen(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .combinedClickable(
-                                onClick = { book?.narrator?.let { onSearchClick("Narrator:$it ") } },
+                                onClick = {
+                                    book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Narrator:$it ") } 
+                                },
                                 onLongClick = { 
-                                    infoDialogTitle = "Narrator"
-                                    infoDialogText = book?.narrator 
+                                    if (!book?.narrator.isNullOrBlank() && !book.narrator.equals("unknown", true)) {
+                                        infoDialogTitle = "Narrator"
+                                        infoDialogText = book.narrator
+                                    }
                                 }
                             )
                             .padding(vertical = 4.dp),
@@ -334,7 +335,7 @@ fun DetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = book?.narrator ?: "Unknown Narrator",
+                            text = book?.narrator?.takeIf { it.isNotBlank() } ?: "Unknown",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.SemiBold
                             ),
@@ -345,35 +346,30 @@ fun DetailScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Metadata Chips
-                Row(
+                // 使用 FlowRow 实现自适应布局：
+                // 1. 空间足够时，3 个 Chip 自动并排成一行。
+                // 2. 空间不足时，自动换行，并保持居中对齐。
+                androidx.compose.foundation.layout.FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     DetailInfoChip(
                         icon = Icons.Rounded.Event,
-                        value = if (!book?.year.isNullOrBlank()) book.year else "Unknown"
+                        value = book?.year?.takeIf { it.isNotBlank() } ?: "Unknown"
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
                     DetailInfoChip(
                         icon = Icons.Rounded.Timelapse,
-                        value = formatTime(book?.duration ?: 0L)
+                        value = formatTime(book?.totalDurationMs ?: 0L)
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
                     DetailInfoChip(
                         icon = Icons.Rounded.Storage,
-                        value = formatFileSize(book?.fileSize ?: 0L)
+                        value = if ((book?.totalFileSize ?: 0L) > 0) formatFileSize(book!!.totalFileSize) else "Unknown"
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Play/Continue Button
                 Button(
                     onClick = { if (uiState.isAvailable) onPlayClick() },
                     modifier = Modifier
@@ -407,7 +403,6 @@ fun DetailScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Description/Summary
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -436,7 +431,6 @@ fun DetailScreen(
         }
     }
 
-    // Full info dialog for long press
     if (infoDialogText != null) {
         AlertDialog(
             onDismissRequest = {
@@ -577,36 +571,38 @@ fun DetailInfoChip(
     value: String,
     modifier: Modifier = Modifier
 ) {
-    SuggestionChip(
-        onClick = { },
-        label = {
+    // 使用自定义布局替代 SuggestionChip，以获得更紧凑的间距且不带有额外的点击透明区域
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = LocalContentColor.current.copy(alpha = 0.5f)
+        ),
+        color = Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = LocalContentColor.current
+            )
             Text(
                 text = value,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
+                color = LocalContentColor.current,
                 maxLines = 1,
+                overflow = TextOverflow.Visible,
                 softWrap = false
             )
-        },
-        icon = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(SuggestionChipDefaults.IconSize),
-                tint = LocalContentColor.current
-            )
-        },
-        shape = RoundedCornerShape(12.dp),
-        colors = SuggestionChipDefaults.suggestionChipColors(
-            labelColor = LocalContentColor.current,
-            iconContentColor = LocalContentColor.current
-        ),
-        border = SuggestionChipDefaults.suggestionChipBorder(
-            enabled = true,
-            borderColor = LocalContentColor.current
-        ),
-        modifier = modifier
-    )
+        }
+    }
 }
 
 @Preview(showBackground = true, apiLevel = 36)
@@ -615,15 +611,19 @@ fun DetailScreenPreview() {
     APlayerTheme {
         DetailScreen(
             uiState = DetailUiState(
-                book = com.viel.aplayer.data.AudiobookEntity(
-                    uri = "uri",
-                    title = "In the Megachurch",
-                    author = "Ryo Asai",
-                    narrator = "Narrator A",
-                    duration = 3600000L,
-                    year = "2023",
-                    fileSize = 45000000L,
-                    description = "A preview description for the audiobook detail screen."
+                book = BookWithProgress(
+                    book = BookEntity(
+                        id = "id",
+                        sourceType = "SINGLE_AUDIO",
+                        sourceUri = "uri",
+                        title = "In the M   egachurch",
+                        author = "Ryo Asai",
+                        narrator = "Narrator A",
+                        totalDurationMs = 36000L,
+                        year = "2023",
+                        description = "A preview description."
+                    ),
+                    progress = null
                 ),
                 isAvailable = true,
                 progressPercent = 45

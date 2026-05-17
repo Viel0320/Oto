@@ -48,6 +48,7 @@ import com.viel.aplayer.ui.utils.formatTime
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,22 +64,18 @@ fun ChapterListSheet(
     val windowInfo = LocalWindowInfo.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
-    // 1. 初始索引计算
     val initialIndex = remember(chapters, currentChapter) {
         val index = chapters.indexOfFirst { it.id == currentChapter?.id }
         (index - 2).coerceAtLeast(0)
     }
 
-    // 2. 状态重置：每次可见性变化时重新创建 listState，确保应用 initialIndex 且消除闪烁
     val listState = remember(isVisible) {
         LazyListState(firstVisibleItemIndex = initialIndex)
     }
 
-    // 3. 动画同步：在打开动画完成后才开启 offset 计算，确保滑入动画时内容与标题同步
     var canCalculateOffset by remember(isVisible) { mutableStateOf(false) }
     LaunchedEffect(isVisible) {
         if (isVisible) {
-            // 等待进入动画完成并稳定
             snapshotFlow { sheetState.currentValue == sheetState.targetValue }
                 .filter { it }
                 .first()
@@ -125,7 +122,6 @@ fun ChapterListSheet(
                     chapters = chapters,
                     currentChapter = currentChapter,
                     onChapterClick = { pos ->
-                        // 修复动画丢失：先手动触发隐藏动画，再回调关闭
                         scope.launch {
                             sheetState.hide()
                             onChapterClick(pos)
@@ -199,15 +195,16 @@ fun ChapterListContent(
                             )
                         },
                         trailingContent = {
+                            // 直接显示数据模型中的时长，确保数据源准确
                             Text(
-                                text = formatTime(chapter.startPosition),
+                                text = formatTime(chapter.durationMs),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         },
                         modifier = Modifier
                             .clickable {
-                                onChapterClick(chapter.startPosition)
+                                onChapterClick(chapter.startPositionMs)
                             },
                         colors = ListItemDefaults.colors(
                             containerColor = if (isCurrent)
@@ -217,8 +214,6 @@ fun ChapterListContent(
                     )
                 }
 
-                // 动态底部占位：部分展开时高度大，全屏时趋近0
-                // 使列表内容可以被滚动到可视区域上方
                 item(key = "bottom_spacer") {
                     Spacer(modifier = Modifier.height(bottomSpacerHeight))
                     Spacer(modifier = Modifier.height(32.dp))
@@ -234,7 +229,17 @@ fun ChapterListContent(
 @Composable
 fun ChapterListSheetPreview() {
     val sampleChapters = List(20) { i ->
-        ChapterEntity(id = i.toLong(), bookUri = "uri", title = "Chapter ${i + 1}", startPosition = i * 60000L, endPosition = (i + 1) * 60000L)
+        ChapterEntity(
+            id = UUID.randomUUID().toString(),
+            bookId = "bookId",
+            bookFileId = "fileId",
+            index = i,
+            title = "Chapter ${i + 1}",
+            startPositionMs = i * 60000L,
+            durationMs = 60000L,
+            fileOffsetMs = 0L,
+            source = "EMBEDDED"
+        )
     }
 
     APlayerTheme {

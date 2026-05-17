@@ -5,7 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookWithProgress
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.SearchHistoryEntity
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +34,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val searchResults: StateFlow<List<AudiobookEntity>> = _query
+    val searchResults: StateFlow<List<BookWithProgress>> = _query
         .map { it.text }
         .flatMapLatest { query ->
             val tokens = query.split(Regex("\\s+")).filter { it.isNotBlank() }
@@ -55,17 +55,15 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                             else -> repository.audiobooks
                         }
                     } else {
-                        // 每一个普通单词都视为一个独立的搜索流
                         repository.searchAudiobooks(token)
                     }
                 }
 
                 combine(allFlows) { lists ->
                     if (lists.isEmpty()) return@combine emptyList()
-                    // 取交集：所有 token 的搜索结果都必须包含该书籍
                     lists.reduce { acc, list ->
-                        val accUris = acc.map { it.uri }.toSet()
-                        list.filter { it.uri in accUris }
+                        val accIds = acc.map { it.book.id }.toSet()
+                        list.filter { it.book.id in accIds }
                     }
                 }
             }
@@ -84,9 +82,6 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         _query.value = TextFieldValue("")
     }
 
-    /**
-     * Records the current query to search history.
-     */
     fun saveSearchHistory(queryToSave: String) {
         if (queryToSave.isNotBlank()) {
             viewModelScope.launch {

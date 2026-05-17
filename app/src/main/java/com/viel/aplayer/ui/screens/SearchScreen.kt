@@ -51,9 +51,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookWithProgress
+import com.viel.aplayer.data.BookEntity
 import com.viel.aplayer.data.SearchHistoryEntity
 import com.viel.aplayer.ui.components.AudiobookListItem
 import com.viel.aplayer.ui.theme.APlayerTheme
@@ -92,7 +92,7 @@ fun SearchScreen(
     initialQuery: String? = null,
     onBack: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
-    onLoadMedia: (android.net.Uri, String, String, String, Long) -> Unit = { _, _, _, _, _ -> },
+    onLoadBook: (String) -> Unit = {},
     onNavigateToPlayer: () -> Unit = {},
     viewModel: SearchViewModel = viewModel()
 ) {
@@ -117,11 +117,11 @@ fun SearchScreen(
         onDeleteHistory = { viewModel.deleteHistory(it) },
         onClearHistory = { viewModel.clearHistory() },
         onBack = onBack,
-        onNavigateToDetail = { uri ->
+        onNavigateToDetail = { id ->
             viewModel.saveSearchHistory(query.text)
-            onNavigateToDetail(uri)
+            onNavigateToDetail(id)
         },
-        onLoadMedia = onLoadMedia,
+        onLoadBook = onLoadBook,
         onNavigateToPlayer = onNavigateToPlayer,
         autoFocus = initialQuery.isNullOrBlank(),
         modifier = modifier
@@ -132,7 +132,7 @@ fun SearchScreen(
 @Composable
 fun SearchContent(
     query: TextFieldValue,
-    searchResults: List<AudiobookEntity>,
+    searchResults: List<BookWithProgress>,
     searchHistory: List<SearchHistoryEntity>,
     commandSuggestions: List<SearchCommand>,
     onQueryChange: (TextFieldValue) -> Unit,
@@ -142,7 +142,7 @@ fun SearchContent(
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
-    onLoadMedia: (android.net.Uri, String, String, String, Long) -> Unit,
+    onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
     modifier: Modifier = Modifier,
     autoFocus: Boolean = true,
@@ -400,21 +400,21 @@ fun SearchContent(
                                 )
                             }
                             items(searchResults.size) { index ->
-                                val book = searchResults[index]
+                                val result = searchResults[index]
                                 AudiobookListItem(
-                                    title = book.title,
-                                    author = book.author,
-                                    narrator = book.narrator,
-                                    duration = book.duration,
-                                    coverPath = book.thumbnailPath ?: book.coverPath,
-                                    progressPercent = book.progressPercent,
+                                    title = result.book.title,
+                                    author = result.book.author,
+                                    narrator = result.book.narrator,
+                                    duration = result.book.totalDurationMs,
+                                    coverPath = result.book.thumbnailPath ?: result.book.coverPath,
+                                    progressPercent = result.progressPercent,
                                     onClick = { 
                                         focusManager.clearFocus()
-                                        onNavigateToDetail(book.uri) 
+                                        onNavigateToDetail(result.book.id) 
                                     }
                                 ) {
                                     focusManager.clearFocus()
-                                    onLoadMedia(book.uri.toUri(), book.title, book.author, book.narrator, book.lastPosition)
+                                    onLoadBook(result.book.id)
                                     onNavigateToPlayer()
                                 }
                             }
@@ -425,52 +425,5 @@ fun SearchContent(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding))
-    }
-}
-
-@Preview(showBackground = true, apiLevel = 36)
-@Composable
-fun SearchScreenPreview() {
-    APlayerTheme {
-        SearchContent(
-            query = TextFieldValue("Fantasy"),
-            searchResults = listOf(
-                AudiobookEntity(
-                    uri = "1",
-                    title = "The Way of Kings",
-                    author = "Brandon Sanderson",
-                    narrator = "Michael Kramer",
-                    coverPath = null
-                ),
-                AudiobookEntity(
-                    uri = "2",
-                    title = "Name of the Wind",
-                    author = "Patrick Rothfuss",
-                    narrator = "Nick Podehl",
-                    coverPath = null
-                ),
-                AudiobookEntity(
-                    uri = "3",
-                    title = "Project Hail Mary",
-                    author = "Andy Weir",
-                    narrator = "Ray Porter",
-                    coverPath = null
-                )
-            ),
-            searchHistory = listOf(
-                SearchHistoryEntity("Brandon Sanderson"),
-                SearchHistoryEntity("The Hobbit")
-            ),
-            commandSuggestions = commandSuggestionsFor(TextFieldValue("Fantasy")),
-            onQueryChange = {},
-            onSearch = {},
-            onClearQuery = {},
-            onDeleteHistory = {},
-            onClearHistory = {},
-            onBack = {},
-            onNavigateToDetail = {},
-            onLoadMedia = { _, _, _, _, _ -> },
-            onNavigateToPlayer = {}
-        )
     }
 }

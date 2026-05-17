@@ -14,8 +14,9 @@ class LibrarySyncWorker(
 
     override suspend fun doWork(): Result {
         return try {
+            val trigger = inputData.getString("trigger") ?: "USER"
             val repository = LibraryRepository.getInstance(applicationContext)
-            repository.syncLibrary()
+            repository.syncLibrary(trigger)
             Result.success()
         } catch (e: Exception) {
             if (e is CancellationException) {

@@ -40,9 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
 import com.viel.aplayer.R
-import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookWithProgress
+import com.viel.aplayer.data.BookEntity
 import com.viel.aplayer.ui.components.APlayerFilterChip
 import com.viel.aplayer.ui.components.AudiobookListItem
 import com.viel.aplayer.ui.components.RecentlyItem
@@ -61,7 +61,7 @@ enum class HomeFilter {
     Finished
 }
 
-private fun AudiobookEntity.matchesFilter(filter: HomeFilter): Boolean {
+private fun BookWithProgress.matchesFilter(filter: HomeFilter): Boolean {
     return when (filter) {
         HomeFilter.NotStarted -> isNotStarted
         HomeFilter.InProgress -> isInProgress
@@ -73,7 +73,7 @@ private fun AudiobookEntity.matchesFilter(filter: HomeFilter): Boolean {
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    audiobooks: List<AudiobookEntity> = emptyList(),
+    audiobooks: List<BookWithProgress> = emptyList(),
     selectedFilter: HomeFilter = HomeFilter.NotStarted,
     onFilterSelected: (HomeFilter) -> Unit = {},
     isMiniPlayerVisible: Boolean = false,
@@ -81,7 +81,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
     onNavigateToPlayer: () -> Unit = {},
-    onLoadMedia: (Uri, String, String, String, Long) -> Unit = { _, _, _, _, _ -> },
+    onLoadBook: (String) -> Unit = {},
     onLibraryRootSelected: (Uri) -> Unit = {},
 ) {
     val filters = listOf(
@@ -93,15 +93,15 @@ fun HomeScreen(
         audiobooks.filter { it.matchesFilter(selectedFilter) }
     }
     val groupedByAuthor = remember(filteredAudiobooks) {
-        filteredAudiobooks.groupBy { it.author }
+        filteredAudiobooks.groupBy { it.book.author }
     }
     val recentBooks = remember(audiobooks, selectedFilter) {
         when (selectedFilter) {
             HomeFilter.NotStarted -> audiobooks.filter { it.isNotStarted }
-                .sortedByDescending { it.addedAt }
+                .sortedByDescending { it.book.addedAt }
                 .take(10)
-            HomeFilter.InProgress -> audiobooks.filter { it.isInProgress && it.lastPlayedAt > 0 }
-                .sortedByDescending { it.lastPlayedAt }
+            HomeFilter.InProgress -> audiobooks.filter { it.isInProgress && (it.progress?.lastPlayedAt ?: 0) > 0 }
+                .sortedByDescending { it.progress?.lastPlayedAt ?: 0 }
                 .take(5)
             else -> emptyList()
         }
@@ -136,7 +136,6 @@ fun HomeScreen(
                             detectTapGestures(
                                 onDoubleTap = {
                                     scope.launch {
-                                        // 切换回瞬间回顶，彻底消除分段感
                                         listState.scrollToItem(0)
                                     }
                                 }
@@ -192,7 +191,6 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            // Filters Section - 固定在顶部
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -209,7 +207,6 @@ fun HomeScreen(
                 }
             }
 
-            // 滚动列表部分
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
@@ -217,7 +214,6 @@ fun HomeScreen(
                     bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
                 )
             ) {
-                // Recently Played Section
                 if (shouldShowRecentBooks) {
                     item {
                         Text(
@@ -236,23 +232,22 @@ fun HomeScreen(
                         ) {
                             items(recentBooks) { book ->
                                 RecentlyItem(
-                                    title = book.title,
-                                    author = book.author,
-                                    narrator = book.narrator,
+                                    title = book.book.title,
+                                    author = book.book.author,
+                                    narrator = book.book.narrator,
                                     progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
-                                    coverPath = book.thumbnailPath ?: book.coverPath,
-                                    onClick = { onNavigateToDetail(book.uri) }
+                                    coverPath = book.book.thumbnailPath ?: book.book.coverPath,
+                                    onClick = { onNavigateToDetail(book.book.id) }
                                 )
                             }
                         }
                     }
                 }
 
-                // Grouped Category Section
                 groupedByAuthor.forEach { (author, books) ->
                     item {
                         Text(
-                            text = author,
+                            text = author.takeIf { it.isNotBlank() } ?: "Unknown",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
@@ -261,16 +256,15 @@ fun HomeScreen(
 
                     items(books) { book ->
                         AudiobookListItem(
-                            title = book.title,
-                            author = book.author,
-                            narrator = book.narrator,
-                            duration = book.duration,
-                            coverPath = book.thumbnailPath ?: book.coverPath,
+                            title = book.book.title,
+                            author = book.book.author,
+                            narrator = book.book.narrator,
+                            duration = book.book.totalDurationMs,
+                            coverPath = book.book.thumbnailPath ?: book.book.coverPath,
                             progressPercent = book.progressPercent,
-//                        addedAt = book.addedAt,
-                            onClick = { onNavigateToDetail(book.uri) }
+                            onClick = { onNavigateToDetail(book.book.id) }
                         ) { 
-                            onLoadMedia(book.uri.toUri(), book.title, book.author, book.narrator, book.lastPosition)
+                            onLoadBook(book.book.id)
                             onNavigateToPlayer()
                         }
                     }
@@ -284,35 +278,18 @@ fun HomeScreen(
 @Composable
 fun HomeScreenNotStartedPreview() {
     val mockBooks = listOf(
-        AudiobookEntity(
-            uri = "uri1",
-            title = "In the Megachurch",
-            author = "Ryo Asai",
-            narrator = "Narrator A",
-            duration = 44580000L,
-            lastPosition = 0L,
-            lastPlayedAt = 0,
-            addedAt = System.currentTimeMillis()
-        ),
-        AudiobookEntity(
-            uri = "uri2",
-            title = "Dawn Star",
-            author = "Kanae Minato",
-            narrator = "Narrator B",
-            duration = 4826000L,
-            lastPosition = 0L,
-            lastPlayedAt = 0,
-            addedAt = System.currentTimeMillis() - 100000
-        ),
-        AudiobookEntity(
-            uri = "uri3",
-            title = "Legal Revenge",
-            author = "Rei Mikkaichi",
-            narrator = "Narrator C",
-            duration = 3600000L,
-            lastPosition = 0L,
-            lastPlayedAt = 0,
-            addedAt = System.currentTimeMillis() - 200000
+        BookWithProgress(
+            book = BookEntity(
+                id = "id1",
+                sourceType = "SINGLE_AUDIO",
+                sourceUri = "uri1",
+                title = "In the Megachurch",
+                author = "Ryo Asai",
+                narrator = "Narrator A",
+                totalDurationMs = 44580000L,
+                addedAt = System.currentTimeMillis()
+            ),
+            progress = null
         )
     )
 
@@ -324,38 +301,3 @@ fun HomeScreenNotStartedPreview() {
         )
     }
 }
-
-@Preview(showBackground = true, apiLevel = 36)
-@Composable
-fun HomeScreenInProgressPreview() {
-    val mockBooks = listOf(
-        AudiobookEntity(
-            uri = "uri1",
-            title = "In the Megachurch",
-            author = "Ryo Asai",
-            narrator = "Narrator A",
-            duration = 44580000L,
-            lastPosition = 10314400L,
-            lastPlayedAt = System.currentTimeMillis(),
-        ),
-        AudiobookEntity(
-            uri = "uri2",
-            title = "Dawn Star",
-            author = "Kanae Minato",
-            narrator = "Narrator B",
-            duration = 4826000L,
-            lastPosition = 3281680L,
-            lastPlayedAt = System.currentTimeMillis() - 100000,
-        )
-    )
-
-    APlayerTheme {
-        HomeScreen(
-            audiobooks = mockBooks,
-            selectedFilter = HomeFilter.InProgress,
-            isMiniPlayerVisible = true
-        )
-    }
-}
-
-

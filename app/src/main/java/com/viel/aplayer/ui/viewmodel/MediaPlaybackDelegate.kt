@@ -1,11 +1,8 @@
 package com.viel.aplayer.ui.viewmodel
 
-import android.net.Uri
-import android.webkit.MimeTypeMap
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.playback.BookPlaybackPlan
 import com.viel.aplayer.playback.PlaybackManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -26,48 +23,24 @@ class MediaPlaybackDelegate(
     fun setPlaybackSpeed(speed: Float) = playbackManager()?.setPlaybackSpeed(speed)
 
     /**
-     * 加载媒体资源。
+     * 加载书籍。
      */
-    fun loadMedia(
-        uri: Uri,
-        title: String,
-        author: String,
-        narrator: String,
-        startPositionMs: Long,
+    fun loadBook(
+        plan: BookPlaybackPlan,
         playWhenReady: Boolean,
         onCoverUpdate: (String?) -> Unit
     ) {
-        val metadataBuilder = MediaMetadata.Builder().setTitle(title)
-        if (author != "Unknown Author") metadataBuilder.setArtist(author)
-        if (narrator.isNotBlank()) metadataBuilder.setComposer(narrator)
-
-        val extension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
-        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: run {
-            when {
-                uri.toString().endsWith(".m4b", ignoreCase = true) -> "audio/mp4"
-                uri.toString().endsWith(".m4a", ignoreCase = true) -> "audio/mp4"
-                else -> "audio/mpeg"
-            }
-        }
-
-        val mediaItem = MediaItem.Builder()
-            .setMediaId(uri.toString())
-            .setUri(uri)
-            .setMimeType(mimeType)
-            .setMediaMetadata(metadataBuilder.build())
-            .build()
-            
         playbackManager()?.let { manager ->
-            manager.setMediaItem(mediaItem, startPositionMs)
+            manager.setBookPlaybackPlan(plan)
             if (playWhenReady) manager.play()
         }
 
         // 轮询封面路径
         scope.launch {
             repeat(5) {
-                val entity = repository.getByUri(uri.toString())
-                if (entity != null && (entity.coverPath != null || entity.thumbnailPath != null)) {
-                    onCoverUpdate(entity.coverPath)
+                val book = repository.getBookById(plan.bookId)
+                if (book != null && (book.coverPath != null || book.thumbnailPath != null)) {
+                    onCoverUpdate(book.coverPath)
                     return@launch
                 }
                 delay(1000)
@@ -80,9 +53,9 @@ class MediaPlaybackDelegate(
      */
     fun skipToNextChapter(chapters: List<ChapterEntity>, currentPosition: Long) {
         if (chapters.isEmpty()) return
-        val currentIndex = chapters.indexOfLast { currentPosition >= it.startPosition }
+        val currentIndex = chapters.indexOfLast { currentPosition >= it.startPositionMs }
         if (currentIndex != -1 && currentIndex < chapters.size - 1) {
-            seekTo(chapters[currentIndex + 1].startPosition)
+            seekTo(chapters[currentIndex + 1].startPositionMs)
         }
     }
 
@@ -91,12 +64,12 @@ class MediaPlaybackDelegate(
      */
     fun skipToPreviousChapter(chapters: List<ChapterEntity>, currentPosition: Long) {
         if (chapters.isEmpty()) return
-        val currentIndex = chapters.indexOfLast { currentPosition >= it.startPosition }
+        val currentIndex = chapters.indexOfLast { currentPosition >= it.startPositionMs }
         if (currentIndex != -1) {
-            if (currentPosition - chapters[currentIndex].startPosition > 3000) {
-                seekTo(chapters[currentIndex].startPosition)
+            if (currentPosition - chapters[currentIndex].startPositionMs > 3000) {
+                seekTo(chapters[currentIndex].startPositionMs)
             } else if (currentIndex > 0) {
-                seekTo(chapters[currentIndex - 1].startPosition)
+                seekTo(chapters[currentIndex - 1].startPositionMs)
             }
         }
     }

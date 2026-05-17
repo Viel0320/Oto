@@ -17,12 +17,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.LinearScale
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,7 +42,10 @@ import com.viel.aplayer.ui.theme.APlayerTheme
 fun SettingsScreen(
     onBack: () -> Unit,
     onLibraryRootSelected: (Uri) -> Unit,
-    onClearHistory: () -> Unit
+    onClearHistory: () -> Unit,
+    onRescan: () -> Unit,
+    isChapterProgressMode: Boolean,
+    onChapterProgressModeChange: (Boolean) -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -76,6 +82,23 @@ fun SettingsScreen(
                 )
             }
             item {
+                SettingsToggleItem(
+                    title = stringResource(R.string.chapter_progress_title),
+                    subtitle = stringResource(R.string.chapter_progress_subtitle),
+                    icon = Icons.Rounded.LinearScale,
+                    checked = isChapterProgressMode,
+                    onCheckedChange = onChapterProgressModeChange
+                )
+            }
+            item {
+                SettingsItem(
+                    title = stringResource(R.string.rescan_library_title),
+                    subtitle = stringResource(R.string.rescan_library_subtitle),
+                    icon = Icons.Rounded.Refresh,
+                    onClick = onRescan
+                )
+            }
+            item {
                 SettingsItem(
                     title = stringResource(R.string.clear_history_title),
                     subtitle = stringResource(R.string.clear_history_subtitle),
@@ -84,6 +107,43 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsToggleItem(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = subtitle, 
+                style = MaterialTheme.typography.bodySmall, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
     }
 }
 
@@ -126,7 +186,10 @@ fun SettingsScreenPreview() {
         SettingsScreen(
             onBack = {},
             onLibraryRootSelected = {},
-            onClearHistory = {}
+            onClearHistory = {},
+            onRescan = {},
+            isChapterProgressMode = false,
+            onChapterProgressModeChange = {}
         )
     }
 }

@@ -5,12 +5,14 @@ import android.content.Context
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.viel.aplayer.data.BookProgressEntity
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.service.PlaybackService
 import kotlinx.coroutines.*
@@ -48,6 +50,8 @@ class PlaybackManager private constructor(context: Context) {
     private val _playbackSpeed = MutableStateFlow(1.0f)
     val playbackSpeed = _playbackSpeed.asStateFlow()
 
+    private var currentPlan: BookPlaybackPlan? = null
+
     init {
         initializeController()
         startProgressPolling()
@@ -74,36 +78,29 @@ class PlaybackManager private constructor(context: Context) {
         _playbackState.value = controller.playbackState
         _currentMediaItem.value = controller.currentMediaItem
         _metadataEntries.value = extractMetadataEntries(controller)
-        _duration.value = controller.duration.coerceAtLeast(0L)
+        updateGlobalPositionAndDuration(controller)
         _playbackSpeed.value = controller.playbackParameters.speed
 
         controller.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
-                // 自动保存：播放状态改变时（例如暂停）保存进度
                 saveProgress()
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 _playbackState.value = playbackState
                 if (playbackState == Player.STATE_READY) {
-                    _duration.value = controller.duration.coerceAtLeast(0L)
+                    updateGlobalPositionAndDuration(controller)
                     _metadataEntries.value = extractMetadataEntries(controller)
                 }
-                // 自动保存：播放结束或状态变化时保存
                 saveProgress()
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                // 自动保存：在切换媒体项之前，保存旧媒体项的进度
-                _currentMediaItem.value?.mediaId?.let { oldUri ->
-                    val pos = controller.currentPosition.coerceAtLeast(0L)
-                    libraryRepository.updateProgress(oldUri, pos)
-                }
-
                 _currentMediaItem.value = mediaItem
-                _duration.value = controller.duration.coerceAtLeast(0L)
+                updateGlobalPositionAndDuration(controller)
                 _metadataEntries.value = extractMetadataEntries(controller)
+                saveProgress()
             }
 
             override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
@@ -128,23 +125,37 @@ class PlaybackManager private constructor(context: Context) {
         return entries
     }
 
+    private fun updateGlobalPositionAndDuration(player: Player) {
+        val plan = currentPlan
+        if (plan != null && player.currentMediaItem != null) {
+            val fileIndex = player.currentMediaItemIndex
+            val positionInFile = player.currentPosition.coerceAtLeast(0L)
+            
+            val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
+            val totalDur = plan.files.sumOf { it.durationMs }
+            
+            _currentPosition.value = globalPos
+            _duration.value = totalDur
+        } else {
+            _currentPosition.value = player.currentPosition.coerceAtLeast(0L)
+            _duration.value = player.duration.coerceAtLeast(0L)
+        }
+    }
+
     private fun startProgressPolling() {
         scope.launch {
             var saveCounter = 0
             while (isActive) {
                 val controller = mediaController
                 if (controller != null && controller.isPlaying) {
-                    val pos = controller.currentPosition.coerceAtLeast(0L)
-                    _currentPosition.value = pos
+                    updateGlobalPositionAndDuration(controller)
                     
-                    // 自动保存：播放期间每 10 秒自动保存一次，防止异常闪退丢失进度
                     saveCounter++
-                    if (saveCounter >= 20) { // 500ms * 20 = 10s
+                    if (saveCounter >= 20) { // 10s
                         saveCounter = 0
                         saveProgress()
                     }
                 }
-                // 当播放时高频更新（如 500ms），不播放时降低频率（如 2s）以节省资源
                 val delayTime = if (mediaController?.isPlaying == true) 500L else 2000L
                 delay(delayTime)
             }
@@ -156,12 +167,64 @@ class PlaybackManager private constructor(context: Context) {
      */
     fun saveProgress() {
         val controller = mediaController ?: return
-        val uri = controller.currentMediaItem?.mediaId ?: return
-        val pos = controller.currentPosition.coerceAtLeast(0L)
-        libraryRepository.updateProgress(uri, pos)
+        val mediaId = controller.currentMediaItem?.mediaId ?: return
+        if (!mediaId.contains(":")) return
+
+        val bookId = mediaId.substringBefore(":")
+        val fileIndex = mediaId.substringAfter(":").toIntOrNull() ?: 0
+        val positionInFile = controller.currentPosition.coerceAtLeast(0L)
+
+        scope.launch {
+            val files = libraryRepository.getFilesForBookSync(bookId)
+            if (files.isNotEmpty()) {
+                val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
+                val bookFileId = files.getOrNull(fileIndex)?.id
+                
+                libraryRepository.saveProgress(BookProgressEntity(
+                    bookId = bookId,
+                    globalPositionMs = globalPos,
+                    bookFileId = bookFileId,
+                    currentFileIndex = fileIndex,
+                    positionInFileMs = positionInFile,
+                    lastPlayedAt = System.currentTimeMillis()
+                ))
+            }
+        }
     }
 
-    // Commands - Thread safe execution
+    fun setBookPlaybackPlan(plan: BookPlaybackPlan) {
+        this.currentPlan = plan
+        
+        // 性能优化：立即将计划中的初始进度和总时长推送到 UI 流，避免闪烁
+        val totalDur = plan.files.sumOf { it.durationMs }
+        _currentPosition.value = plan.startGlobalPositionMs
+        _duration.value = totalDur
+
+        executeOnMain {
+            val mediaItems = plan.files.map { file ->
+                val metadata = MediaMetadata.Builder()
+                    .setTitle(plan.title)
+                    .setArtist(plan.author)
+                    .setAlbumTitle(plan.title)
+                    .setArtworkUri(plan.artworkUri)
+                    .setArtworkData(plan.artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                    .build()
+                MediaItem.Builder()
+                    .setMediaId("${plan.bookId}:${file.index}")
+                    .setUri(file.uri)
+                    .setMediaMetadata(metadata)
+                    .build()
+            }
+            val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
+            
+            mediaController?.let { controller ->
+                controller.setMediaItems(mediaItems, fileIndex, positionInFile)
+                controller.prepare()
+            }
+        }
+    }
+
+    // Commands
     fun play() {
         executeOnMain { mediaController?.play() }
     }
@@ -170,18 +233,22 @@ class PlaybackManager private constructor(context: Context) {
         executeOnMain { mediaController?.pause() }
     }
 
-    fun seekTo(positionMs: Long) {
-        executeOnMain {
-            mediaController?.seekTo(positionMs)
-            mediaController?.play()
-            _currentPosition.value = positionMs
-        }
-    }
+    fun seekTo(globalPositionMs: Long) {
+        val controller = mediaController ?: return
+        val mediaId = controller.currentMediaItem?.mediaId ?: return
+        if (!mediaId.contains(":")) return
+        val bookId = mediaId.substringBefore(":")
 
-    fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long = 0L) {
-        executeOnMain {
-            mediaController?.setMediaItem(mediaItem, startPositionMs)
-            mediaController?.prepare()
+        scope.launch {
+            val files = libraryRepository.getFilesForBookSync(bookId)
+            if (files.isNotEmpty()) {
+                val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(globalPositionMs, files)
+                executeOnMain {
+                    controller.seekTo(fileIndex, positionInFile)
+                    controller.play()
+                    _currentPosition.value = globalPositionMs
+                }
+            }
         }
     }
 

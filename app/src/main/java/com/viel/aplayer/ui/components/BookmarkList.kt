@@ -123,13 +123,13 @@ fun BookmarkListView(
             items = bookmarks,
             key = { it.id }
         ) { bookmark ->
-            val isActive = currentPosition >= bookmark.position
+            val isActive = currentPosition >= bookmark.globalPositionMs
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .combinedClickable(
-                        onClick = { onBookmarkClick(bookmark.position) },
+                        onClick = { onBookmarkClick(bookmark.globalPositionMs) },
                         onLongClick = { 
                             bookmarkToEditState.value = bookmark
                             editTitle = bookmark.title
@@ -154,7 +154,7 @@ fun BookmarkListView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = formatTime(bookmark.position),
+                            text = formatTime(bookmark.globalPositionMs),
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontSize = 14.sp
                             ),
@@ -187,9 +187,9 @@ fun BookmarkListView(
 @Composable
 fun BookmarkListViewDarkPreview() {
     val sampleBookmarks = listOf(
-        BookmarkEntity(1, "uri", 0L, "Introduction"),
-        BookmarkEntity(2, "uri", 300000L, "Chapter 1"),
-        BookmarkEntity(3, "uri", 1200000L, "Chapter 2")
+        BookmarkEntity("1", "id", 0L, title = "Introduction"),
+        BookmarkEntity("2", "id", 300000L, title = "Chapter 1"),
+        BookmarkEntity("3", "id", 1200000L, title = "Chapter 2")
     )
 
     APlayerTheme(darkTheme = true) {

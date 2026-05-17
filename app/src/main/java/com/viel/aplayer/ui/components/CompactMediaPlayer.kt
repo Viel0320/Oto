@@ -44,7 +44,7 @@ fun CompactMediaPlayer(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
     title: String = "Audiobook Title",
-    author: String = "Unknown Author",
+    author: String = "Unknown",
     narrator: String = "",
     coverPath: String? = null,
     progress: () -> Float = { 0f },
@@ -117,7 +117,10 @@ fun CompactMediaPlayer(
                         maxLines = 1
                     )
                     Text(
-                        text = formatPeopleSubtitle(author, narrator),
+                        text = formatPeopleSubtitle(
+                            author.takeIf { it.isNotBlank() } ?: "Unknown",
+                            narrator.takeIf { it.isNotBlank() } ?: "Unknown"
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1

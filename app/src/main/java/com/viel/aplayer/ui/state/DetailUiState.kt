@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.state
 
-import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookWithProgress
 import com.viel.aplayer.util.image.ImageProcessor
 
 /**
@@ -8,7 +8,7 @@ import com.viel.aplayer.util.image.ImageProcessor
  */
 data class DetailUiState(
     /** 当前选中的书籍实体 */
-    val book: AudiobookEntity? = null,
+    val book: BookWithProgress? = null,
     /** 是否显示详情页 */
     val isVisible: Boolean = false,
     /** 书籍文件在本地是否可用 */

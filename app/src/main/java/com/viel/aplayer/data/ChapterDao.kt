@@ -11,9 +11,12 @@ interface ChapterDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChapters(chapters: List<ChapterEntity>)
 
-    @Query("SELECT * FROM chapters WHERE bookUri = :bookUri ORDER BY startPosition ASC")
-    fun getChaptersForBook(bookUri: String): Flow<List<ChapterEntity>>
+    @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY `index` ASC")
+    fun getChaptersForBook(bookId: String): Flow<List<ChapterEntity>>
 
-    @Query("DELETE FROM chapters WHERE bookUri = :bookUri")
-    suspend fun deleteChaptersForBook(bookUri: String)
+    @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY `index` ASC")
+    suspend fun getChaptersForBookList(bookId: String): List<ChapterEntity>
+
+    @Query("DELETE FROM chapters WHERE bookId = :bookId")
+    suspend fun deleteChaptersForBook(bookId: String)
 }

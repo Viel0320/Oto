@@ -12,6 +12,7 @@ import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
+import java.util.UUID
 
 @OptIn(UnstableApi::class)
 object AudiobookParser {
@@ -19,7 +20,7 @@ object AudiobookParser {
     /**
      * Extracts chapters from a list of Media3 Metadata entries (usually from Player or MetadataRetriever).
      */
-    fun extractChaptersFromMetadata(entries: List<Metadata.Entry>, bookUri: String): List<ChapterEntity> {
+    fun extractChaptersFromMetadata(entries: List<Metadata.Entry>, bookId: String): List<ChapterEntity> {
         val chapters = mutableListOf<ChapterEntity>()
         for (entry in entries) {
             if (entry is ChapterFrame) {
@@ -41,10 +42,15 @@ object AudiobookParser {
 
                 chapters.add(
                     ChapterEntity(
-                        bookUri = bookUri,
+                        id = UUID.randomUUID().toString(),
+                        bookId = bookId,
+                        bookFileId = "", // Filled by importer
+                        index = chapters.size,
                         title = title ?: "Chapter ${chapters.size + 1}",
-                        startPosition = entry.startTimeMs.toLong(),
-                        endPosition = entry.endTimeMs.toLong()
+                        startPositionMs = entry.startTimeMs.toLong(),
+                        durationMs = (entry.endTimeMs - entry.startTimeMs).toLong(),
+                        fileOffsetMs = entry.startTimeMs.toLong(),
+                        source = "EMBEDDED"
                     )
                 )
             } else if (entry.javaClass.simpleName.contains("Chapter", ignoreCase = true)) {
@@ -58,17 +64,22 @@ object AudiobookParser {
                     if (startTimeMs != null && endTimeMs != null) {
                         chapters.add(
                             ChapterEntity(
-                                bookUri = bookUri,
+                                id = UUID.randomUUID().toString(),
+                                bookId = bookId,
+                                bookFileId = "",
+                                index = chapters.size,
                                 title = title ?: "Chapter ${chapters.size + 1}",
-                                startPosition = startTimeMs.toLong(),
-                                endPosition = endTimeMs.toLong()
+                                startPositionMs = startTimeMs.toLong(),
+                                durationMs = (endTimeMs - startTimeMs).toLong(),
+                                fileOffsetMs = startTimeMs.toLong(),
+                                source = "EMBEDDED"
                             )
                         )
                     }
                 } catch (_: Exception) {}
             }
         }
-        return chapters.asSequence().distinctBy { it.startPosition }.sortedBy { it.startPosition }.toList()
+        return chapters.asSequence().distinctBy { it.startPositionMs }.sortedBy { it.startPositionMs }.toList()
     }
 
     /**
@@ -100,10 +111,10 @@ object AudiobookParser {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return chapters.asSequence().distinctBy { it.startPosition }.sortedBy { it.startPosition }.toList()
+        return chapters.asSequence().distinctBy { it.startPositionMs }.sortedBy { it.startPositionMs }.toList()
     }
 
-    private fun parseQuickTimeChapters(channel: FileChannel, moov: Atom, bookUri: String): List<ChapterEntity> {
+    private fun parseQuickTimeChapters(channel: FileChannel, moov: Atom, bookId: String): List<ChapterEntity> {
         val list = mutableListOf<ChapterEntity>()
         try {
             // Find all traks
@@ -141,7 +152,6 @@ object AudiobookParser {
                 }
             }
 
-            // Typically, the first audio track's chapter track is what we want
             val chapterTrackId = trakIdsWithChapters.values.firstOrNull()
             val chapterTrak = tracks[chapterTrackId]
             
@@ -160,7 +170,6 @@ object AudiobookParser {
                 val minf = findAtom(channel, mdia.offset + 8, mdia.size - 8, "minf") ?: return list
                 val stbl = findAtom(channel, minf.offset + 8, minf.size - 8, "stbl") ?: return list
                 
-                // stts: Time-to-sample
                 val stts = findAtom(channel, stbl.offset + 8, stbl.size - 8, "stts") ?: return list
                 val sttsBuf = ByteBuffer.allocate(stts.size.toInt()).order(ByteOrder.BIG_ENDIAN)
                 channel.position(stts.offset + 8)
@@ -175,7 +184,6 @@ object AudiobookParser {
                     repeat(count) { sampleDurations.add(delta.toLong()) }
                 }
 
-                // stco: Chunk offset
                 val stco = findAtom(channel, stbl.offset + 8, stbl.size - 8, "stco")
                 val co64 = if (stco == null) findAtom(channel, stbl.offset + 8, stbl.size - 8, "co64") else null
                 val offsets = mutableListOf<Long>()
@@ -197,7 +205,6 @@ object AudiobookParser {
                     repeat(count) { offsets.add(b.long) }
                 }
 
-                // stsz: Sample sizes
                 val stsz = findAtom(channel, stbl.offset + 8, stbl.size - 8, "stsz") ?: return list
                 val szBuf = ByteBuffer.allocate(stsz.size.toInt()).order(ByteOrder.BIG_ENDIAN)
                 channel.position(stsz.offset + 8)
@@ -211,7 +218,6 @@ object AudiobookParser {
                     sizes.add(if (defaultSize == 0) szBuf.int else defaultSize)
                 }
 
-                // Read sample data
                 var currentTime = 0L
                 for (i in 0 until offsets.size.coerceAtMost(sizes.size)) {
                     val offset = offsets[i]
@@ -221,26 +227,31 @@ object AudiobookParser {
                         channel.position(offset)
                         channel.read(sampleBuf)
                         sampleBuf.flip()
-                        // tx3g format: first 2 bytes are length
                         val textLen = sampleBuf.short.toInt() and 0xffff
                         if (textLen > 0 && textLen <= sampleBuf.remaining()) {
                             val bytes = ByteArray(textLen)
                             sampleBuf.get(bytes)
                             val title = String(bytes, Charsets.UTF_8)
                             list.add(ChapterEntity(
-                                bookUri = bookUri,
+                                id = UUID.randomUUID().toString(),
+                                bookId = bookId,
+                                bookFileId = "",
+                                index = list.size,
                                 title = title,
-                                startPosition = (currentTime * 1000) / timeScale,
-                                endPosition = 0
+                                startPositionMs = (currentTime * 1000) / timeScale,
+                                durationMs = 0,
+                                fileOffsetMs = (currentTime * 1000) / timeScale,
+                                source = "EMBEDDED"
                             ))
                         }
                     }
                     if (i < sampleDurations.size) currentTime += sampleDurations[i]
                 }
                 
-                // Set end positions
-                for (i in 0 until list.size - 1) {
-                    list[i] = list[i].copy(endPosition = list[i+1].startPosition)
+                val trackDurationMs = (currentTime * 1000) / timeScale
+                for (i in list.indices) {
+                    val nextStart = if (i < list.size - 1) list[i+1].startPositionMs else trackDurationMs
+                    list[i] = list[i].copy(durationMs = (nextStart - list[i].startPositionMs).coerceAtLeast(0L))
                 }
             }
         } catch (e: Exception) {
@@ -278,7 +289,7 @@ object AudiobookParser {
         return null
     }
 
-    private fun parseChpl(channel: FileChannel, chpl: Atom, bookUri: String): List<ChapterEntity> {
+    private fun parseChpl(channel: FileChannel, chpl: Atom, bookId: String): List<ChapterEntity> {
         val list = mutableListOf<ChapterEntity>()
         try {
             val buf = ByteBuffer.allocate(chpl.size.toInt().coerceAtMost(1024 * 1024)).order(ByteOrder.BIG_ENDIAN)
@@ -302,19 +313,25 @@ object AudiobookParser {
                 
                 list.add(
                     ChapterEntity(
-                        bookUri = bookUri,
+                        id = UUID.randomUUID().toString(),
+                        bookId = bookId,
+                        bookFileId = "",
+                        index = list.size,
                         title = title,
-                        startPosition = time100ns / 10000, // convert to ms
-                        endPosition = 0
+                        startPositionMs = time100ns / 10000, // convert to ms
+                        durationMs = 0,
+                        fileOffsetMs = time100ns / 10000,
+                        source = "EMBEDDED"
                     )
                 )
             }
             
-            // Set end positions
+            // 注意：chpl 原子本身不携带文件总时长，因此最后一个章节的时长
+            // 将在 BookImporter 中结合文件实际时长进行二次修正。
             for (i in 0 until list.size - 1) {
                 val current = list[i]
                 val next = list[i+1]
-                list[i] = current.copy(endPosition = next.startPosition)
+                list[i] = current.copy(durationMs = next.startPositionMs - current.startPositionMs)
             }
         } catch (e: Exception) {
             e.printStackTrace()

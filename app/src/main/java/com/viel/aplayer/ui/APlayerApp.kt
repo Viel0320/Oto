@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -18,6 +19,7 @@ import com.viel.aplayer.ui.action.PlayerNavigationActions
 import com.viel.aplayer.ui.action.rememberActions
 import com.viel.aplayer.ui.components.DetailOverlay
 import com.viel.aplayer.ui.components.PlayerOverlay
+import com.viel.aplayer.ui.components.ScanResultDialog
 import com.viel.aplayer.ui.navigation.APlayerNavHost
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.rememberNavigationThrottle
@@ -35,6 +37,10 @@ fun APlayerApp() {
         val libraryViewModel: LibraryViewModel = viewModel()
         val playerViewModel: PlayerViewModel = viewModel()
 
+        val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
+        val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
+        val scanResult by libraryViewModel.scanResultDialogState.collectAsStateWithLifecycle()
+
         val canStartNavigation = rememberNavigationThrottle()
 
         LaunchedEffect(Unit) {
@@ -45,9 +51,6 @@ fun APlayerApp() {
             playerViewModel.onRouteChanged()
         }
 
-        // 使用扩展函数构建 Actions 对象，实现逻辑解耦与性能缓存
-        val playerActions = playerViewModel.rememberActions()
-
         val navigateBack: () -> Unit = remember(navController) {
             {
                 if (canStartNavigation() && navController.previousBackStackEntry != null) {
@@ -55,6 +58,17 @@ fun APlayerApp() {
                 }
             }
         }
+
+        // 使用扩展函数构建 Actions 对象，实现逻辑解耦与性能缓存
+        val playerActions = playerViewModel.rememberActions(
+            onDeleteBook = { bookId ->
+                playerViewModel.closePlayback(bookId)
+                libraryViewModel.deleteBook(bookId)
+                if (currentRoute != null && currentRoute != "home") {
+                    navigateBack()
+                }
+            }
+        )
 
         val miniPlayerActions = remember(playerViewModel) {
             MiniPlayerActions(
@@ -110,6 +124,13 @@ fun APlayerApp() {
                     playerNavigationActions = playerNavigationActions,
                     currentRoute = currentRoute
                 )
+
+                scanResult?.let { session ->
+                    ScanResultDialog(
+                        session = session,
+                        onDismiss = { libraryViewModel.dismissScanResultDialog() }
+                    )
+                }
             }
         }
     }

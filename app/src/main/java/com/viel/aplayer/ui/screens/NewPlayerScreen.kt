@@ -72,7 +72,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.viel.aplayer.data.AudiobookEntity
+import com.viel.aplayer.data.BookEntity
+import com.viel.aplayer.data.BookWithProgress
 import com.viel.aplayer.ui.action.PlayerActions
 import com.viel.aplayer.ui.action.PlayerNavigationActions
 import com.viel.aplayer.ui.components.BookmarkDialog
@@ -107,7 +108,6 @@ fun NewPlayerScreen(
     navigationActions: PlayerNavigationActions,
     modifier: Modifier = Modifier,
 ) {
-    // 订阅拆分后的状态，实现细粒度更新
     val metadata by viewModel.metadataState.collectAsStateWithLifecycle()
     val playback by viewModel.playbackState.collectAsStateWithLifecycle()
     val settings by viewModel.settingsState.collectAsStateWithLifecycle()
@@ -115,7 +115,6 @@ fun NewPlayerScreen(
     
     val fullUiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // 将外部状态转换为枚举
     val targetMode = remember(settings.selectedContentTab) {
         when(settings.selectedContentTab) {
             0 -> PlayerScreenMode.BOOKMARKS
@@ -125,16 +124,13 @@ fun NewPlayerScreen(
         }
     }
 
-    // 内部状态，初始值直接跟随外部状态
     var currentMode by remember { mutableStateOf(targetMode) }
 
-    // 动画状态：下滑位移
     val scope = rememberCoroutineScope()
     val offsetY = remember { Animatable(0f) }
     val density = LocalDensity.current
     val dismissThreshold = with(density) { 50.dp.toPx() }
 
-    // 获取系统圆角
     val view = LocalView.current
     val systemCornerRadius = remember(view) {
         val insets = view.rootWindowInsets
@@ -143,7 +139,6 @@ fun NewPlayerScreen(
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    // 当外部状态发生变化（如通过路由跳转）时，同步给内部状态
     LaunchedEffect(targetMode) {
         currentMode = targetMode
     }
@@ -152,12 +147,10 @@ fun NewPlayerScreen(
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
-        // 处理物理返回键：非 PLAYER 模式下先返回 PLAYER
         androidx.activity.compose.BackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) {
             currentMode = PlayerScreenMode.PLAYER
         }
 
-        // 当处于 PLAYER 模式且播放器展开时，返回键触发收起
         androidx.activity.compose.BackHandler(enabled = currentMode == PlayerScreenMode.PLAYER && settings.isFullPlayerVisible) {
             actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
             navigationActions.onMinimize()
@@ -185,15 +178,14 @@ fun NewPlayerScreen(
             modifier = modifier
                 .fillMaxSize()
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
-                .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp)) // 应用系统圆角
-                .background(bgColor) // 1. 先铺设实心底色，防止半透明
-                .background(backgroundBrush), // 2. 再叠加原有的渐变
+                .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
+                .background(bgColor)
+                .background(backgroundBrush),
             color = Color.Transparent
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // 1. App Bar - 始终固定
                 PlayerAppBar(
                     title = metadata.title,
                     author = metadata.author,
@@ -204,6 +196,7 @@ fun NewPlayerScreen(
                         navigationActions.onMinimize()
                     },
                     onToggleProgressMode = actions.content.onToggleProgressMode,
+                    onDeleteBook = actions.content.onDeleteBook,
                     isChapterProgressMode = settings.isChapterProgressMode,
                     modifier = Modifier.pointerInput(Unit) {
                         detectVerticalDragGestures(
@@ -231,7 +224,6 @@ fun NewPlayerScreen(
                     }
                 )
 
-                // 2. Main Content & Controls Area
                 Box(modifier = Modifier.weight(1f)) {
                     AnimatedContent(
                         targetState = currentMode,
@@ -255,7 +247,7 @@ fun NewPlayerScreen(
                             when (mode) {
                                 PlayerScreenMode.PLAYER -> {
                                     Box(modifier = Modifier.weight(1f)) {
-                                        MainCoverView(metadata.coverPath, controls.isPlaying, actions)
+                                        MainCoverView(metadata.coverPath, controls.isPlaying)
                                     }
                                     StablePlaybackControls(metadata, playback, controls, settings, actions, animatedBgColor)
                                 }
@@ -283,7 +275,7 @@ fun NewPlayerScreen(
                                 PlayerScreenMode.RELATED -> {
                                     Box(modifier = Modifier.weight(1f)) {
                                         RelatedBooksView(
-                                            currentBookUri = metadata.uri,
+                                            currentBookId = metadata.id,
                                             authorSections = fullUiState.relatedAuthorSections,
                                             narratorSections = fullUiState.relatedNarratorSections,
                                             recentBooks = fullUiState.recentlyAddedBooks,
@@ -295,7 +287,6 @@ fun NewPlayerScreen(
                         }
                     }
 
-                    // Undo Seek Button - Overlay
                     androidx.compose.animation.AnimatedVisibility(
                         visible = settings.showUndoSeek,
                         enter = fadeIn(),
@@ -331,7 +322,6 @@ fun NewPlayerScreen(
                     }
                 }
 
-                // 4. Navigation Tabs - 始终固定
                 BottomNavTabs(
                     selectedTab = currentMode,
                     onTabSelected = { 
@@ -343,11 +333,10 @@ fun NewPlayerScreen(
             }
         }
 
-        // Overlays
         ChapterListSheet(
             isVisible = settings.isChapterListVisible,
             chapters = metadata.chapters,
-            currentChapter = metadata.chapters.findLast { playback.currentPosition >= it.startPosition } ?: metadata.chapters.firstOrNull(),
+            currentChapter = metadata.chapters.findLast { playback.currentPosition >= it.startPositionMs } ?: metadata.chapters.firstOrNull(),
             onDismissRequest = actions.content.onDismissChapterList,
             onChapterClick = { pos ->
                 actions.playback.onSeek(pos, true)
@@ -367,7 +356,7 @@ fun NewPlayerScreen(
 }
 
 @Composable
-private fun MainCoverView(coverPath: String?, isPlaying: Boolean, actions: PlayerActions) {
+private fun MainCoverView(coverPath: String?, isPlaying: Boolean) {
     val coverScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.95f,
         animationSpec = tween(300)
@@ -376,67 +365,15 @@ private fun MainCoverView(coverPath: String?, isPlaying: Boolean, actions: Playe
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 32.dp) // 增加固定边距
-            .pointerInput(Unit) {
-                var offsetX = 0f
-                var offsetY = 0f
-                var dragDirectionLocked = false // 是否已锁定滑动方向
-                var isVerticalDrag = false
-
-                detectDragGestures(
-                    onDragStart = {
-                        offsetX = 0f
-                        offsetY = 0f
-                        dragDirectionLocked = false
-                        isVerticalDrag = false
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        offsetX += dragAmount.x
-                        offsetY += dragAmount.y
-
-                        // 如果方向未锁定，且滑动距离超过阈值（30px），则锁定方向
-                        if (!dragDirectionLocked) {
-                            if (kotlin.math.abs(offsetY) > 30f) {
-                                isVerticalDrag = true
-                                dragDirectionLocked = true
-                            } else if (kotlin.math.abs(offsetX) > 30f) {
-                                isVerticalDrag = false
-                                dragDirectionLocked = true
-                            }
-                        }
-
-                        // 如果已锁定为垂直方向，且总位移超过 50px，才开始调节音量
-                        if (dragDirectionLocked && isVerticalDrag && kotlin.math.abs(offsetY) > 150f) {
-                            actions.playback.onAdjustVolume(-dragAmount.y * 0.001f)
-                        }
-                    },
-                    onDragEnd = {
-                        // 只有锁定为横向滑动且超过 150px 时才触发章节跳转
-                        if (dragDirectionLocked && !isVerticalDrag) {
-                            if (offsetX < -150f) {
-                                actions.playback.onPreviousChapter()
-                            } else if (offsetX > 150f) {
-                                actions.playback.onNextChapter()
-                            }
-                        }
-                        offsetX = 0f
-                        offsetY = 0f
-                    },
-                    onDragCancel = {
-                        offsetX = 0f
-                        offsetY = 0f
-                    }
-                )
-            },
-        contentAlignment = Alignment.TopCenter // 改为顶部对齐，防止下沉
+            .padding(horizontal = 24.dp, vertical = 32.dp),
+        contentAlignment = Alignment.TopCenter
     ) {
         val coverFile = remember(coverPath) {
             if (coverPath != null) File(coverPath) else null
         }
         Box(
             modifier = Modifier
-                .fillMaxWidth() // 基于稳定的宽度
+                .fillMaxWidth()
                 .aspectRatio(1f)
                 .graphicsLayer {
                     scaleX = coverScale
@@ -470,12 +407,8 @@ private fun StablePlaybackControls(
     actions: PlayerActions,
     buttonColor: Color
 ) {
-    // 使用 derivedStateOf 隔离高频位置更新带来的影响。
-    // 只有当 currentPosition 的变化导致章节对象切换时，currentChapter 才会触发下游重组。
-    val currentChapter by remember {
-        derivedStateOf {
-            metadata.chapters.findLast { playback.currentPosition >= it.startPosition } ?: metadata.chapters.firstOrNull()
-        }
+    val currentChapter = remember(playback.currentPosition, metadata.chapters) {
+        metadata.chapters.findLast { playback.currentPosition >= it.startPositionMs } ?: metadata.chapters.firstOrNull()
     }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
@@ -489,12 +422,9 @@ private fun StablePlaybackControls(
         PlaybackProgress(
             currentPosition = playback.currentPosition,
             totalDuration = playback.duration,
-            isChapterMode = settings.isChapterProgressMode && currentChapter != null,
-            chapterStart = currentChapter?.startPosition ?: 0L,
-            chapterEnd = currentChapter?.endPosition ?: 0L,
+            isChapterMode = settings.isChapterProgressMode,
+            chapters = metadata.chapters,
             markers = metadata.getChapterMarkers(playback.duration),
-            currentChapterIndex = metadata.chapters.indexOf(currentChapter),
-            chapterCount = metadata.chapters.size,
             onSeek = { pos -> actions.playback.onSeek(pos, true) }
         )
         Spacer(Modifier.height(24.dp))
@@ -529,7 +459,6 @@ private fun BottomNavTabs(
             val alignments = listOf(TextAlign.Start, TextAlign.Center, TextAlign.End)
             val indicatorWidths = listOf(80.dp, 70.dp, 60.dp)
 
-            // 记录上一个活跃详情页的状态
             var lastActiveTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
             LaunchedEffect(selectedTab) {
                 if (selectedTab != PlayerScreenMode.PLAYER) {
@@ -620,36 +549,8 @@ fun NewPlayerScreenPlayerPreview() {
     NewPlayerScreenPreviewWrapper(initialTab = -1)
 }
 
-@Preview(name = "Bookmarks Mode", showBackground = true, apiLevel = 35)
-@Composable
-fun NewPlayerScreenBookmarksPreview() {
-    NewPlayerScreenPreviewWrapper(initialTab = 0)
-}
-
-@Preview(name = "Subtitles Mode", showBackground = true, apiLevel = 35)
-@Composable
-fun NewPlayerScreenSubtitlesPreview() {
-    NewPlayerScreenPreviewWrapper(initialTab = 1)
-}
-
-@Preview(name = "Related Mode", showBackground = true, apiLevel = 35)
-@Composable
-fun NewPlayerScreenRelatedPreview() {
-    NewPlayerScreenPreviewWrapper(initialTab = 2)
-}
-
-
 @Composable
 private fun NewPlayerScreenPreviewWrapper(initialTab: Int) {
-    // 预览模式下无法轻易模拟完整 ViewModel，此处为了编译通过简单 Mock
-    // 实际生产中应尽量使用 Interface 或抽象 State
-    val sampleBook = AudiobookEntity(
-        uri = "uri",
-        title = "Another Book",
-        author = "John Doe",
-        narrator = "Jane Smith"
-    )
-
     APlayerTheme {
         Text("Preview is currently disabled due to ViewModel dependency refactoring")
     }

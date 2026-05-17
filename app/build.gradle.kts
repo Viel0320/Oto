@@ -92,6 +92,7 @@ dependencies {
 
     // Palette (for dynamic background colors)
     implementation(libs.androidx.palette.ktx)
+    implementation(libs.androidx.datastore.preferences)
 
     // Room (local database)
     implementation(libs.androidx.room.runtime)

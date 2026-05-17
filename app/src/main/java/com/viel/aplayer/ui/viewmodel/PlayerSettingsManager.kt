@@ -51,9 +51,10 @@ class PlayerSettingsManager(
                     val state = currentPlayback()
                     val meta = currentMetadata()
                     if (state.isPlaying) {
-                        val currentChapter = meta.chapters.findLast { state.currentPosition >= it.startPosition }
+                        val currentChapter = meta.chapters.findLast { state.currentPosition >= it.startPositionMs }
                         if (currentChapter != null) {
-                            if (state.currentPosition >= currentChapter.endPosition - 1000) break
+                            val endPos = currentChapter.startPositionMs + currentChapter.durationMs
+                            if (state.currentPosition >= endPos - 1000) break
                         } else {
                             if (state.duration > 0 && state.currentPosition >= state.duration - 1000) break
                         }
@@ -110,5 +111,6 @@ class PlayerSettingsManager(
     fun setFullPlayerVisible(visible: Boolean) = _settingsState.update { it.copy(isFullPlayerVisible = visible) }
     fun setMiniPlayerHidden(hidden: Boolean) = _settingsState.update { it.copy(isMiniPlayerHidden = hidden) }
     fun toggleProgressMode() = _settingsState.update { it.copy(isChapterProgressMode = !it.isChapterProgressMode) }
+    fun setChapterProgressMode(enabled: Boolean) = _settingsState.update { it.copy(isChapterProgressMode = enabled) }
     fun setUndoSeekVisible(visible: Boolean) = _settingsState.update { it.copy(showUndoSeek = visible) }
 }

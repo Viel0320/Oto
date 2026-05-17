@@ -24,9 +24,127 @@ object SubtitleParser {
         return when (extension.lowercase(Locale.ROOT)) {
             "srt" -> parseSrt(inputStream)
             "ass", "ssa" -> parseAss(inputStream)
+            "vtt" -> parseVtt(inputStream)
+            "lrc" -> parseLrc(inputStream)
             else -> emptyList()
         }.also {
             Log.d("SubtitleParser", "Parsed ${it.size} lines")
+        }
+    }
+
+    /**
+     * Parsing LRC (Lyrics) format.
+     */
+    private fun parseLrc(inputStream: InputStream): List<SubtitleLine> {
+        val lines = mutableListOf<SubtitleLine>()
+        val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
+        val lrcList = mutableListOf<Pair<Long, String>>()
+
+        try {
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                val trimmed = line?.trim() ?: ""
+                if (trimmed.isEmpty()) continue
+
+                // LRC Format: [mm:ss.xx]Text or [mm:ss:xx]Text
+                val regex = Regex("\\[(\\d{2}):(\\d{2})[.:](\\d{2,3})](.*)")
+                val match = regex.find(trimmed)
+                if (match != null) {
+                    val min = match.groupValues[1].toLong()
+                    val sec = match.groupValues[2].toLong()
+                    val msPart = match.groupValues[3]
+                    val ms = if (msPart.length == 2) msPart.toLong() * 10 else msPart.toLong()
+                    val time = min * 60000 + sec * 1000 + ms
+                    val text = match.groupValues[4].trim()
+                    lrcList.add(time to text)
+                }
+            }
+
+            // Convert point-in-time LRC to duration-based SubtitleLine
+            for (i in 0 until lrcList.size) {
+                val startTime = lrcList[i].first
+                val endTime = if (i < lrcList.size - 1) lrcList[i + 1].first else startTime + 10000
+                lines.add(SubtitleLine(startTime, endTime, lrcList[i].second))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            try { reader.close() } catch (_: Exception) {}
+        }
+        return lines
+    }
+
+    /**
+     * Parsing VTT (WebVTT) format. 
+     * Simplified version, treats it similar to SRT.
+     */
+    private fun parseVtt(inputStream: InputStream): List<SubtitleLine> {
+        val lines = mutableListOf<SubtitleLine>()
+        val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
+
+        var line: String?
+        var state = 0 // 0: Searching for Time, 1: Text
+        var startTime = 0L
+        var endTime = 0L
+        val textBuilder = StringBuilder()
+
+        try {
+            // Skip "WEBVTT" header
+            reader.readLine()
+
+            while (reader.readLine().also { line = it } != null) {
+                val trimmed = line?.trim() ?: ""
+                
+                // Time format: 00:00:20.000 --> 00:00:24.400
+                if (trimmed.contains(" --> ")) {
+                    if (textBuilder.isNotEmpty()) {
+                        lines.add(SubtitleLine(startTime, endTime, textBuilder.toString().trim()))
+                        textBuilder.setLength(0)
+                    }
+                    val times = trimmed.split(" --> ")
+                    if (times.size == 2) {
+                        startTime = parseVttTime(times[0])
+                        endTime = parseVttTime(times[1])
+                        state = 1
+                    }
+                    continue
+                }
+
+                if (state == 1 && trimmed.isNotEmpty()) {
+                    if (textBuilder.isNotEmpty()) textBuilder.append("\n")
+                    textBuilder.append(trimmed)
+                } else if (trimmed.isEmpty() && textBuilder.isNotEmpty()) {
+                    lines.add(SubtitleLine(startTime, endTime, textBuilder.toString().trim()))
+                    textBuilder.setLength(0)
+                    state = 0
+                }
+            }
+            if (textBuilder.isNotEmpty()) {
+                lines.add(SubtitleLine(startTime, endTime, textBuilder.toString().trim()))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            try { reader.close() } catch (_: Exception) {}
+        }
+        return lines
+    }
+
+    private fun parseVttTime(timeStr: String): Long {
+        return try {
+            val parts = timeStr.split(":")
+            if (parts.size == 3) {
+                val hours = parts[0].toLong()
+                val minutes = parts[1].toLong()
+                val seconds = parts[2].replace(',', '.').toDouble()
+                ((hours * 3600 + minutes * 60 + seconds) * 1000).toLong()
+            } else if (parts.size == 2) {
+                val minutes = parts[0].toLong()
+                val seconds = parts[1].replace(',', '.').toDouble()
+                ((minutes * 60 + seconds) * 1000).toLong()
+            } else 0L
+        } catch (_: Exception) {
+            0L
         }
     }
 

@@ -18,4 +18,8 @@
     <string name="recently_added_title">Recently Added</string>
     <string name="recently_played_title">Recently Played</string>
     <string name="import_content_description">Import Media</string>
+    <string name="rescan_library_title">Rescan Library</string>
+    <string name="rescan_library_subtitle">Manually trigger a full scan of all authorized folders</string>
+    <string name="chapter_progress_title">Chapter Progress Mode</string>
+    <string name="chapter_progress_subtitle">Progress bar and notifications show current chapter only</string>
 </resources>
