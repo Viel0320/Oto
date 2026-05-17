@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.viel.aplayer.ui.screens.HomeScreen
 import com.viel.aplayer.ui.screens.SearchScreen
+import com.viel.aplayer.ui.screens.SettingsScreen
 import com.viel.aplayer.ui.viewmodel.LibraryViewModel
 import com.viel.aplayer.ui.viewmodel.PlayerViewModel
 
@@ -56,7 +57,19 @@ fun APlayerNavHost(
                 onNavigateToPlayer = {
                     playerViewModel.setFullPlayerVisible(true)
                 },
-                onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) }
+                onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
+                onNavigateToSettings = {
+                    if (canStartNavigation()) {
+                        navController.navigate("settings")
+                    }
+                }
+            )
+        }
+        composable("settings") {
+            SettingsScreen(
+                onBack = navigateBack,
+                onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
+                onClearHistory = { libraryViewModel.clearSearchHistory() }
             )
         }
         composable(

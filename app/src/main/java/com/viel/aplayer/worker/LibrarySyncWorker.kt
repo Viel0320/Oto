@@ -1,9 +1,11 @@
 package com.viel.aplayer.worker
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.viel.aplayer.data.LibraryRepository
+import kotlinx.coroutines.CancellationException
 
 class LibrarySyncWorker(
     context: Context,
@@ -11,8 +13,17 @@ class LibrarySyncWorker(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val repository = LibraryRepository.getInstance(applicationContext)
-        repository.syncLibrary()
-        return Result.success()
+        return try {
+            val repository = LibraryRepository.getInstance(applicationContext)
+            repository.syncLibrary()
+            Result.success()
+        } catch (e: Exception) {
+            if (e is CancellationException) {
+                Log.d("LibrarySyncWorker", "Library sync cancelled")
+                throw e
+            }
+            Log.e("LibrarySyncWorker", "Error during library sync", e)
+            Result.failure()
+        }
     }
 }

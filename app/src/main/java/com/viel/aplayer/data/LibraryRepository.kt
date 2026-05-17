@@ -20,12 +20,14 @@ import androidx.media3.extractor.metadata.id3.CommentFrame
 import com.viel.aplayer.ui.components.SubtitleLine
 import com.viel.aplayer.util.parser.SubtitleParser
 import com.viel.aplayer.util.parser.AudiobookParser
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import java.io.File
 import java.io.FileOutputStream
 
@@ -100,22 +102,21 @@ class LibraryRepository private constructor(context: Context) {
      * Sync the entire library: scan folder and add new files.
      * 使用挂起函数顺序执行扫描，避免并发过高导致系统资源（如 Codec 实例）耗尽。
      */
-    fun syncLibrary() {
-        val rootUri = getLibraryRoot() ?: return
-        scope.launch {
-            val rootDoc = DocumentFile.fromTreeUri(context, rootUri) ?: return@launch
-            val existingUris = dao.getAllUris().toSet()
-            scanDirectory(rootDoc, existingUris)
-            
-            // TODO: 实现手动清理逻辑。
-            // 扫描并识别出已不存在的文件（existingUris - scannedUris），但暂时不自动删除，
-            // 留待将来在设置或库管理界面由用户手动确认后触发清理。
-        }
+    suspend fun syncLibrary() = withContext(Dispatchers.IO) {
+        val rootUri = getLibraryRoot() ?: return@withContext
+        val rootDoc = DocumentFile.fromTreeUri(context, rootUri) ?: return@withContext
+        val existingUris = dao.getAllUris().toSet()
+        scanDirectory(rootDoc, existingUris)
+        
+        // TODO: 实现手动清理逻辑。
+        // 扫描并识别出已不存在的文件（existingUris - scannedUris），但暂时不自动删除，
+        // 留待将来在设置或库管理界面由用户手动确认后触发清理。
     }
 
     /** 顺序扫描目录，减少 CPU 和内存瞬间冲击。 */
     private suspend fun scanDirectory(directory: DocumentFile, existingUris: Set<String>) {
         directory.listFiles().forEach { file ->
+            yield()
             if (file.isDirectory) {
                 scanDirectory(file, existingUris)
             } else if (isAudioFile(file.name ?: "")) {
@@ -279,11 +280,13 @@ class LibraryRepository private constructor(context: Context) {
                         chapterDao.deleteChaptersForBook(uri.toString())
                         chapterDao.insertChapters(finalChapters)
                     } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                         Log.e("LibraryRepository", "Failed to insert chapters for ${entity.title}", e)
                     }
                 }
 
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Log.e("LibraryRepository", "Error adding audiobook", e)
             } finally {
                 try { retriever.release() } catch (_: Exception) {}

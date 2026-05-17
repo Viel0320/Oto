@@ -125,6 +125,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _detailUiState.update { it.copy(isVisible = visible) }
     }
 
+    fun clearSearchHistory() {
+        viewModelScope.launch {
+            repository.clearHistory()
+        }
+    }
+
     private fun enqueueLibrarySync() {
         val syncRequest = OneTimeWorkRequestBuilder<LibrarySyncWorker>().build()
         workManager.enqueueUniqueWork(

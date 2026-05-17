@@ -7,6 +7,11 @@
     <string name="more_content_description">More</string>
     <string name="search_content_description">Search</string>
     <string name="settings_content_description">Settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="clear_history_title">Clear Search History</string>
+    <string name="clear_history_subtitle">Delete all previous search records</string>
+    <string name="library_folder_title">Media Library Folder</string>
+    <string name="library_folder_subtitle">Change the root directory for audiobook scanning</string>
     <string name="filter_not_started">Not Started</string>
     <string name="filter_in_progress">In Progress</string>
     <string name="filter_finished">Finished</string>

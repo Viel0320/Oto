@@ -16,6 +16,10 @@
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
         </intent>
+        <!-- For Android Auto connection status -->
+        <intent>
+            <action android:name="androidx.car.app.connection.CarConnection" />
+        </intent>
     </queries>
 
     <application
