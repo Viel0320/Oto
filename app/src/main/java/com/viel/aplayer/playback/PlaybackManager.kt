@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
@@ -15,6 +16,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.data.BookProgressEntity
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.service.PlaybackService
+import com.viel.aplayer.ui.components.SubtitleLine
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
@@ -40,6 +42,9 @@ class PlaybackManager private constructor(context: Context) {
 
     private val _metadataEntries = MutableStateFlow<List<androidx.media3.common.Metadata.Entry>>(emptyList())
     val metadataEntries = _metadataEntries.asStateFlow()
+
+    private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
+    val currentSubtitles = _currentSubtitles.asStateFlow()
 
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition = _currentPosition.asStateFlow()
@@ -98,6 +103,8 @@ class PlaybackManager private constructor(context: Context) {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 _currentMediaItem.value = mediaItem
+                // 字幕行跟随当前播放文件切换，来源与 MediaItem 挂载的字幕附件一致。
+                _currentSubtitles.value = subtitleLinesFor(mediaItem)
                 updateGlobalPositionAndDuration(controller)
                 _metadataEntries.value = extractMetadataEntries(controller)
                 saveProgress()
@@ -209,19 +216,40 @@ class PlaybackManager private constructor(context: Context) {
                     .setArtworkUri(plan.artworkUri)
                     .setArtworkData(plan.artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
                     .build()
-                MediaItem.Builder()
+                val builder = MediaItem.Builder()
                     .setMediaId("${plan.bookId}:${file.index}")
                     .setUri(file.uri)
                     .setMediaMetadata(metadata)
-                    .build()
+                // 同目录同名字幕在播放计划里已解析；这里正式挂到 Media3 的 MediaItem。
+                plan.subtitlesByFileId[file.id]?.toSubtitleConfiguration(file.id)?.let { subtitle ->
+                    builder.setSubtitleConfigurations(listOf(subtitle))
+                }
+                builder.build()
             }
             val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
             
             mediaController?.let { controller ->
                 controller.setMediaItems(mediaItems, fileIndex, positionInFile)
                 controller.prepare()
+                _currentSubtitles.value = subtitleLinesFor(mediaItems.getOrNull(fileIndex))
             }
         }
+    }
+
+    private fun PlaybackSubtitle.toSubtitleConfiguration(fileId: String): MediaItem.SubtitleConfiguration =
+        MediaItem.SubtitleConfiguration.Builder(uri)
+            .setMimeType(mimeType)
+            .setLabel(label)
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            .setId("$fileId:subtitle")
+            .build()
+
+    private fun subtitleLinesFor(mediaItem: MediaItem?): List<SubtitleLine> {
+        val plan = currentPlan ?: return emptyList()
+        val mediaId = mediaItem?.mediaId ?: return emptyList()
+        val fileIndex = mediaId.substringAfter(":", missingDelimiterValue = "").toIntOrNull() ?: return emptyList()
+        val file = plan.files.firstOrNull { it.index == fileIndex } ?: return emptyList()
+        return plan.subtitlesByFileId[file.id]?.lines.orEmpty()
     }
 
     // Commands

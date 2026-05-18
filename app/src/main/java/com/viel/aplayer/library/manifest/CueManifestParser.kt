@@ -65,7 +65,8 @@ object CueManifestParser {
                         }
                         "FILE" -> {
                             currentFile = extractQuotedValue(remainder)
-                            currentFile?.let { files.add(it) }
+                            // FILE always yields a parsed path here.
+                            files.add(currentFile)
                         }
                         "TRACK" -> {
                             isTrackSection = true
@@ -79,7 +80,7 @@ object CueManifestParser {
                                 if (currentFile != null) {
                                     chapterCandidates.add(ChapterCandidate(
                                         title = currentTrackTitle ?: "Track ${chapterCandidates.size + 1}",
-                                        fileUri = currentFile!!,
+                                        fileUri = currentFile,
                                         fileOffsetMs = offsetMs
                                     ))
                                 }

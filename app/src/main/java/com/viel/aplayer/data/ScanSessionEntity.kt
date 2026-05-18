@@ -19,6 +19,7 @@ data class ScanSessionEntity(
     val unavailableBookCount: Int = 0,
     val partialBookCount: Int = 0,
     val updatedBookCount: Int = 0,
-    val recoveredBookCount: Int = 0,
-    val pendingActionCount: Int = 0
+    val pendingActionCount: Int = 0,
+    // Persist display names from this scan so the completion dialog can show concrete items.
+    val summaryJson: String = ""
 )

@@ -281,8 +281,9 @@ fun HomeScreenNotStartedPreview() {
         BookWithProgress(
             book = BookEntity(
                 id = "id1",
+                // Preview data follows the new logical-book model.
+                rootId = "preview-root",
                 sourceType = "SINGLE_AUDIO",
-                sourceUri = "uri1",
                 title = "In the Megachurch",
                 author = "Ryo Asai",
                 narrator = "Narrator A",

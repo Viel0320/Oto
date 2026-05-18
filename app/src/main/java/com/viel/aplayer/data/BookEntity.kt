@@ -1,18 +1,20 @@
 package com.viel.aplayer.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-/**
- * 核心书籍实体，代表一本逻辑上的有声书。
- * 它可以是单文件音频，也可以是通过 manifest (cue/m3u8) 聚合的多文件书籍。
- */
-@Entity(tableName = "books")
+// New model: Book is the logical title; file ownership lives in BookFileEntity.
+@Entity(tableName = "books", indices = [Index("rootId"), Index("status")])
 data class BookEntity(
     @PrimaryKey
-    val id: String, // 稳定主键，不再使用 URI
-    val sourceType: String, // SINGLE_AUDIO / M4B / CUE / M3U8 / GENERATED_M3U8
-    val sourceUri: String, // 原始来源 URI (音频文件或 manifest)
+    val id: String,
+    val rootId: String,
+    val sourceType: String,
+    // GENERATED_M3U8 has no external manifest file, so its virtual playlist is stored here.
+    val generatedManifestJson: String? = null,
+    // Tracks the heuristic version used to create generated playlists.
+    val heuristicRuleVersion: String? = null,
     val title: String,
     val author: String = "",
     val narrator: String = "",
@@ -23,9 +25,7 @@ data class BookEntity(
     val coverPath: String? = null,
     val thumbnailPath: String? = null,
     val backgroundColorArgb: Int? = null,
-    val sourceLastModified: Long = 0L,
-    val sourceFileSize: Long = 0L,
     val addedAt: Long = System.currentTimeMillis(),
     val lastScannedAt: Long = 0L,
-    val status: String = "READY" // READY / PARTIAL / ERROR / CONFLICT / UNAVAILABLE
+    val status: String = AudiobookSchema.BookStatus.READY
 )

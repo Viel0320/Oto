@@ -9,7 +9,6 @@ import androidx.room.RoomDatabase
     entities = [
         BookEntity::class,
         BookFileEntity::class,
-        BookSourceEntity::class,
         BookProgressEntity::class,
         ChapterEntity::class,
         BookmarkEntity::class,
@@ -18,7 +17,8 @@ import androidx.room.RoomDatabase
         PendingScanActionEntity::class,
         SearchHistoryEntity::class
     ],
-    version = 20, // 移除 subtitle_tracks 表
+    // Schema v25 removes BookSource storage and pending-action lifecycle columns from the Room model.
+    version = 25,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

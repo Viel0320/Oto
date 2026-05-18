@@ -1,12 +1,32 @@
 package com.viel.aplayer.data
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
  * 播放进度实体，独立于书籍信息保存。
  */
-@Entity(tableName = "book_progress")
+@Entity(
+    tableName = "book_progress",
+    foreignKeys = [
+        ForeignKey(
+            entity = BookEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["bookId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = BookFileEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["bookFileId"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
+    // Progress keeps a nullable file anchor so source updates can remap position safely.
+    indices = [Index("bookFileId")]
+)
 data class BookProgressEntity(
     @PrimaryKey
     val bookId: String,

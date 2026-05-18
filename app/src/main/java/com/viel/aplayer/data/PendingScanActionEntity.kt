@@ -16,9 +16,16 @@ import androidx.room.PrimaryKey
             parentColumns = ["id"],
             childColumns = ["scanSessionId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = BookEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["bookId"],
+            onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index("scanSessionId")]
+    // actionKey is the stable dedupe key; bookId is nullable for source-level conflicts.
+    indices = [Index("scanSessionId"), Index("bookId"), Index(value = ["actionKey"], unique = true)]
 )
 data class PendingScanActionEntity(
     @PrimaryKey
@@ -26,11 +33,10 @@ data class PendingScanActionEntity(
     val scanSessionId: String,
     val actionKey: String, // 稳定去重键
     val type: String, // CONFLICT / UPDATE_EXISTING
-    val status: String, // PENDING / RESOLVED / SKIPPED
     val bookId: String? = null,
     val payloadJson: String,
     val message: String,
     val lastSeenScanId: String,
-    val createdAt: Long = System.currentTimeMillis(),
-    val resolvedAt: Long? = null
+    // Pending actions are removed when resolved/skipped, so the row only needs creation time.
+    val createdAt: Long = System.currentTimeMillis()
 )

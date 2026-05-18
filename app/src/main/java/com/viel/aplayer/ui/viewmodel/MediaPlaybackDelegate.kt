@@ -40,7 +40,8 @@ class MediaPlaybackDelegate(
             repeat(5) {
                 val book = repository.getBookById(plan.bookId)
                 if (book != null && (book.coverPath != null || book.thumbnailPath != null)) {
-                    onCoverUpdate(book.coverPath)
+                    // Player UI should use the cached thumbnail when available and fall back to the original cover.
+                    onCoverUpdate(book.thumbnailPath ?: book.coverPath)
                     return@launch
                 }
                 delay(1000)

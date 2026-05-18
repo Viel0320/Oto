@@ -16,9 +16,16 @@ import androidx.room.PrimaryKey
             parentColumns = ["id"],
             childColumns = ["bookId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = BookFileEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["bookFileId"],
+            onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("bookId")]
+    // Chapters are anchored to an AUDIO BookFile for source updates and position mapping.
+    indices = [Index("bookId"), Index("bookFileId")]
 )
 data class ChapterEntity(
     @PrimaryKey

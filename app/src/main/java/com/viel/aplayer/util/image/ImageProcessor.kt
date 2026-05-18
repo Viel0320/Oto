@@ -35,10 +35,11 @@ object ImageProcessor {
             val file = File(path)
             if (!file.exists()) return@withContext DEFAULT_BACKGROUND_ARGB
             
-            // For Palette, we don't need the full resolution image. 
-            // 100x100 is more than enough and much faster.
+            // Palette only needs a small bitmap, so read bounds first and then downsample the decode.
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(path, bounds)
             val options = BitmapFactory.Options().apply {
-                inSampleSize = calculateInSampleSize(this, 100, 100)
+                inSampleSize = calculateInSampleSize(bounds, 100, 100)
             }
             
             val bitmap = BitmapFactory.decodeFile(path, options) ?: return@withContext DEFAULT_BACKGROUND_ARGB

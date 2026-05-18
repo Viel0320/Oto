@@ -27,19 +27,30 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.ScanSessionEntity
+import org.json.JSONObject
 
 @Composable
 fun ScanResultDialog(
     session: ScanSessionEntity,
     onDismiss: () -> Unit
 ) {
+    // The dialog now renders persisted counts from the completed ScanSession.
+    val hasFailures = session.unavailableBookCount > 0
+    val hasPending = session.pendingActionCount > 0
+    val hasChanges = session.discoveredBookCount > 0 ||
+        session.partialBookCount > 0 ||
+        session.updatedBookCount > 0 ||
+        hasFailures ||
+        hasPending
+    val summary = ScanSummaryItems.from(session.summaryJson)
+
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
             Icon(
-                Icons.Rounded.CheckCircle,
+                if (hasFailures || hasPending) Icons.Rounded.Warning else Icons.Rounded.CheckCircle,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = if (hasFailures || hasPending) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp)
             )
         },
@@ -49,7 +60,11 @@ fun ScanResultDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Library synchronization finished successfully.",
+                    text = if (hasChanges) {
+                        "Library synchronization finished with the results below."
+                    } else {
+                        "Library synchronization finished. No new changes were found."
+                    },
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -62,40 +77,33 @@ fun ScanResultDialog(
                     value = "${session.discoveredBookCount}",
                     color = MaterialTheme.colorScheme.primary
                 )
-
-                if (session.recoveredBookCount > 0) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ResultRow(
-                        icon = Icons.Rounded.CheckCircle,
-                        label = "Recovered",
-                        value = "${session.recoveredBookCount}",
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                    )
-                }
+                ItemList(items = summary.newBooks)
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 ResultRow(
                     icon = Icons.Rounded.Warning,
-                    label = "Missing Books",
+                    label = "Scan Failures",
                     value = "${session.unavailableBookCount}",
                     color = MaterialTheme.colorScheme.error
                 )
+                ItemList(items = summary.failures)
 
                 if (session.partialBookCount > 0) {
                     Spacer(modifier = Modifier.height(12.dp))
                     ResultRow(
                         icon = Icons.Rounded.Warning,
-                        label = "Partly Lost",
+                        label = "Partial Imports",
                         value = "${session.partialBookCount}",
                         color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
                     )
                     Text(
-                        text = "Some files in these books are missing.",
+                        text = "Some candidate books need confirmation before importing incomplete file sets.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 36.dp, top = 4.dp)
                     )
+                    ItemList(items = summary.partialImports)
                 }
                 
                 if (session.updatedBookCount > 0) {
@@ -106,22 +114,24 @@ fun ScanResultDialog(
                         value = "${session.updatedBookCount}",
                         color = MaterialTheme.colorScheme.secondary
                     )
+                    ItemList(items = summary.updatedBooks)
                 }
 
                 if (session.pendingActionCount > 0) {
                     Spacer(modifier = Modifier.height(12.dp))
                     ResultRow(
                         icon = Icons.Rounded.History,
-                        label = "Skipped (Conflicts)",
+                        label = "Needs Review",
                         value = "${session.pendingActionCount}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Conflicting or redundant items were skipped.",
+                        text = "Conflicts, partial imports, or source updates are saved as pending actions.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 36.dp, top = 4.dp)
                     )
+                    ItemList(items = summary.pendingActions)
                 }
             }
         },
@@ -131,6 +141,28 @@ fun ScanResultDialog(
             }
         }
     )
+}
+
+@Composable
+private fun ItemList(items: List<String>) {
+    if (items.isEmpty()) return
+    // Keep the dialog compact while still showing concrete scan results.
+    Column(modifier = Modifier.padding(start = 36.dp, top = 6.dp)) {
+        items.take(5).forEach { item ->
+            Text(
+                text = "- $item",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (items.size > 5) {
+            Text(
+                text = "+${items.size - 5} more",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
@@ -159,5 +191,35 @@ private fun ResultRow(
             fontWeight = FontWeight.Bold,
             color = color
         )
+    }
+}
+
+private data class ScanSummaryItems(
+    val newBooks: List<String> = emptyList(),
+    val partialImports: List<String> = emptyList(),
+    val updatedBooks: List<String> = emptyList(),
+    val pendingActions: List<String> = emptyList(),
+    val failures: List<String> = emptyList()
+) {
+    companion object {
+        fun from(summaryJson: String): ScanSummaryItems {
+            if (summaryJson.isBlank()) return ScanSummaryItems()
+            return runCatching {
+                val json = JSONObject(summaryJson)
+                ScanSummaryItems(
+                    newBooks = json.stringList("newBooks"),
+                    partialImports = json.stringList("partialImports"),
+                    updatedBooks = json.stringList("updatedBooks"),
+                    pendingActions = json.stringList("pendingActions"),
+                    failures = json.stringList("failures")
+                )
+            }.getOrDefault(ScanSummaryItems())
+        }
+
+        private fun JSONObject.stringList(name: String): List<String> {
+            val array = optJSONArray(name) ?: return emptyList()
+            return List(array.length()) { index -> array.optString(index) }
+                .filter { it.isNotBlank() }
+        }
     }
 }

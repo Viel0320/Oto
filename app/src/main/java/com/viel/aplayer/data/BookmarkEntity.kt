@@ -16,9 +16,16 @@ import androidx.room.PrimaryKey
             parentColumns = ["id"],
             childColumns = ["bookId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = BookFileEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["bookFileId"],
+            onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index("bookId")]
+    // bookFileId is the stable bookmark anchor; null is kept when remapping cannot resolve a file.
+    indices = [Index("bookId"), Index("bookFileId")]
 )
 data class BookmarkEntity(
     @PrimaryKey

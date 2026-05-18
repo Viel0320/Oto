@@ -68,14 +68,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         var activeFilter = filter
         if (isFirstLoad && audiobooks.isNotEmpty()) {
             isFirstLoad = false
-            // 首次载入逻辑：优先进入 InProgress，如果没有正在阅读的书，则进入 NotStarted
+            // Restore first-load filter selection independently from scan dialog handling.
             activeFilter = if (audiobooks.any { it.isInProgress }) {
                 HomeFilter.InProgress
             } else {
                 HomeFilter.NotStarted
             }
 
-            // 同步保存状态，确保数据一致性
+            // Persist the auto-selected filter so the saved setting matches the visible home filter.
             if (activeFilter != filter) {
                 _selectedFilter.value = activeFilter
                 viewModelScope.launch {
@@ -99,16 +99,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.observeLatestScanSession().collect { session ->
                 if (session != null && session.id != lastCompletedSessionId) {
-                    // 如果是用户手动触发，或者冷启动发现了新变动（新书、缺失、部分丢失、更新），则显示弹窗
-                    val hasChanges = session.discoveredBookCount > 0 || 
-                                   session.unavailableBookCount > 0 || 
-                                   session.partialBookCount > 0 ||
-                                   session.updatedBookCount > 0 ||
-                                   session.recoveredBookCount > 0
-                    
-                    if (session.trigger == "USER" || hasChanges) {
+                    // Only pending scan actions require user review, so scans without new pending items stay silent.
+                    if (session.pendingActionCount > 0) {
                         _scanResultDialogState.value = session
                     }
+                    // Remember the completed session so the same result does not reopen the dialog.
                     lastCompletedSessionId = session.id
                 }
             }
@@ -122,18 +117,19 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     fun deleteBook(bookId: String) {
         viewModelScope.launch {
             val book = repository.getBookById(bookId)
-            val fileExists = book?.let { repository.checkFileExists(it.sourceUri) } ?: false
+            // Book no longer has a sourceUri; check the first AUDIO BookFile instead.
+            val fileExists = repository.getPrimaryAudioUri(bookId)?.let { repository.checkFileExists(it) } ?: false
 
             if (_detailUiState.value.book?.book?.id == bookId) {
                 _detailUiState.update { it.copy(isVisible = false, book = null) }
             }
             repository.deleteBook(bookId)
 
-            // 发送状态通知
+            // 发送状态通知，说明删除书籍记录时是否仍保留源文件。
             val fileStatus = if (fileExists) "源文件已保留" else "源文件已丢失或不存在"
             val message = "书籍已从媒体库移除\n$fileStatus"
             
-            // 使用 Spannable 实现文字居中对齐
+            // 使用 Spannable 实现 Toast 文本居中显示。
             val spannable = SpannableString(message)
             spannable.setSpan(
                 AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
@@ -173,27 +169,35 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     fun selectDetailBook(book: BookWithProgress?) {
         val current = _detailUiState.value
         
-        // 1. 无论书籍是否变化，只要调用 selectDetailBook 且 book 不为空，就应该显示详情页
+        // 1. 只要选中有效书籍，就显示详情页；同一本书重复选择也刷新详情状态。
         if (book != null) {
             _detailUiState.value = current.copy(
                 book = book,
                 isVisible = true,
-                isAvailable = repository.checkFileExists(book.book.sourceUri),
-                progressPercent = book.progressPercent // 显式初始化数据库中的进度
+                // Filled asynchronously from BookFile(AUDIO); Book itself is no longer a file identity.
+                isAvailable = false,
+                progressPercent = book.progressPercent // 显式初始化数据库中的阅读进度。
             )
+            viewModelScope.launch {
+                // Detail availability persists BookFile and Book status for the selected book only.
+                val isAvailable = repository.checkDetailAvailability(book.book.id)
+                _detailUiState.update { state ->
+                    state.copy(isAvailable = isAvailable)
+                }
+            }
         } else {
             _detailUiState.value = current.copy(isVisible = false)
         }
         
-        // 2. 颜色提取逻辑（仅在必要时执行）
+        // 2. 封面主色提取逻辑，只在封面变化或尚未缓存颜色时执行。
         if (book != null && (book.book.coverPath != current.book?.book?.coverPath || current.backgroundColorArgb == ImageProcessor.DEFAULT_BACKGROUND_ARGB)) {
             viewModelScope.launch(Dispatchers.Default) {
-                // 检查数据库是否已经有缓存的主色调
+                // 优先使用数据库中已经缓存的主色调，避免重复解析封面。
                 val cachedColor = repository.getBookById(book.book.id)?.backgroundColorArgb
                 val backgroundColor = cachedColor ?: ImageProcessor.getDominantColor(book.book.coverPath)
                 _detailUiState.value = _detailUiState.value.copy(backgroundColorArgb = backgroundColor)
                 
-                // 如果是新提取的，存入数据库
+                // 如果本次新提取了主色调，则写回数据库供下次复用。
                 if (cachedColor == null) {
                     repository.updateBackgroundColor(book.book.id, backgroundColor)
                 }

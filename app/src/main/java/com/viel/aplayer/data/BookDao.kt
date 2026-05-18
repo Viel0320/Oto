@@ -1,15 +1,22 @@
 package com.viel.aplayer.data
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BookDao {
-    @Query("SELECT * FROM books ORDER BY addedAt DESC")
+    // UI lists hide soft-deleted books while their BookFile claims stay reserved.
+    @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY addedAt DESC")
     fun getAllBooks(): Flow<List<BookEntity>>
 
+    // UI lists hide soft-deleted books while their BookFile claims stay reserved.
     @Transaction
-    @Query("SELECT * FROM books ORDER BY addedAt DESC")
+    @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY addedAt DESC")
     fun getAllBooksWithProgress(): Flow<List<BookWithProgress>>
 
     @Query("SELECT * FROM books WHERE id = :id")
@@ -18,27 +25,15 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE id = :id")
     fun observeBookById(id: String): Flow<BookEntity?>
 
-    @Query("SELECT sourceUri FROM books")
-    suspend fun getAllSourceUris(): List<String>
-
-    @Query("SELECT * FROM books")
-    suspend fun getAllBooksOnce(): List<BookEntity>
-
     @Query("UPDATE books SET status = :status WHERE id = :id")
     suspend fun updateBookStatus(id: String, status: String)
 
-    @Query("SELECT uri FROM book_files")
-    suspend fun getAllBookFileUris(): List<String>
+    @Query("UPDATE books SET lastScannedAt = :lastScannedAt WHERE id = :id")
+    suspend fun updateBookLastScannedAt(id: String, lastScannedAt: Long)
 
-    @Query("SELECT uri, bookId FROM book_files")
-    suspend fun getFileUriToBookIdMap(): List<BookFileUriPair>
-
-    data class BookIdCount(val bookId: String, val count: Int)
-
-    @Query("SELECT bookId, COUNT(*) as count FROM book_files GROUP BY bookId")
-    suspend fun getBookFileCounts(): List<BookIdCount>
-
-    data class BookFileUriPair(val uri: String, val bookId: String)
+    // Rescan builds ExistingClaimIndex from all persisted file ownership rows.
+    @Query("SELECT * FROM book_files")
+    suspend fun getAllBookFilesOnce(): List<BookFileEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBook(book: BookEntity)
@@ -51,10 +46,13 @@ interface BookDao {
 
     @Transaction
     @Query("""
-        SELECT * FROM books 
-        WHERE (title LIKE '%' || :query || '%' OR (:query = 'Unknown' AND (title = '' OR title IS NULL)))
-           OR (author LIKE '%' || :query || '%' OR (:query = 'Unknown' AND (author = '' OR author IS NULL)))
-           OR (narrator LIKE '%' || :query || '%' OR (:query = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
+        SELECT * FROM books
+        WHERE status != 'DELETED'
+        AND (
+            (title LIKE '%' || :query || '%' OR (:query = 'Unknown' AND (title = '' OR title IS NULL)))
+            OR (author LIKE '%' || :query || '%' OR (:query = 'Unknown' AND (author = '' OR author IS NULL)))
+            OR (narrator LIKE '%' || :query || '%' OR (:query = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
+        )
         ORDER BY title ASC
     """)
     fun searchBooksWithProgress(query: String): Flow<List<BookWithProgress>>
@@ -62,7 +60,8 @@ interface BookDao {
     @Transaction
     @Query("""
         SELECT * FROM books 
-        WHERE (year LIKE '%' || :year || '%' OR (:year = 'Unknown' AND (year = '' OR year IS NULL)))
+        WHERE status != 'DELETED'
+        AND (year LIKE '%' || :year || '%' OR (:year = 'Unknown' AND (year = '' OR year IS NULL)))
         ORDER BY title ASC
     """)
     fun filterByYearWithProgress(year: String): Flow<List<BookWithProgress>>
@@ -70,7 +69,8 @@ interface BookDao {
     @Transaction
     @Query("""
         SELECT * FROM books 
-        WHERE (author LIKE '%' || :author || '%' OR (:author = 'Unknown' AND (author = '' OR author IS NULL)))
+        WHERE status != 'DELETED'
+        AND (author LIKE '%' || :author || '%' OR (:author = 'Unknown' AND (author = '' OR author IS NULL)))
         ORDER BY title ASC
     """)
     fun filterByAuthorWithProgress(author: String): Flow<List<BookWithProgress>>
@@ -78,7 +78,8 @@ interface BookDao {
     @Transaction
     @Query("""
         SELECT * FROM books 
-        WHERE (narrator LIKE '%' || :narrator || '%' OR (:narrator = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
+        WHERE status != 'DELETED'
+        AND (narrator LIKE '%' || :narrator || '%' OR (:narrator = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
         ORDER BY title ASC
     """)
     fun filterByNarratorWithProgress(narrator: String): Flow<List<BookWithProgress>>
@@ -86,27 +87,35 @@ interface BookDao {
     @Transaction
     @Query("""
         SELECT * FROM books 
-        WHERE (author LIKE '%' || :author || '%' OR (:author = 'Unknown' AND (author = '' OR author IS NULL)))
-        AND id != :excludeId ORDER BY title ASC LIMIT :limit
+        WHERE status != 'DELETED'
+        AND (author LIKE '%' || :author || '%' OR (:author = 'Unknown' AND (author = '' OR author IS NULL)))
+        AND id != :excludeId
+        ORDER BY title ASC
+        LIMIT :limit
     """)
     fun filterByAuthorLimitedWithProgress(author: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>>
 
     @Transaction
     @Query("""
         SELECT * FROM books 
-        WHERE (narrator LIKE '%' || :narrator || '%' OR (:narrator = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
-        AND id != :excludeId ORDER BY title ASC LIMIT :limit
+        WHERE status != 'DELETED'
+        AND (narrator LIKE '%' || :narrator || '%' OR (:narrator = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
+        AND id != :excludeId
+        ORDER BY title ASC
+        LIMIT :limit
     """)
     fun filterByNarratorLimitedWithProgress(narrator: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>>
 
+    // Recently added UI excludes soft-deleted books.
     @Transaction
-    @Query("SELECT * FROM books ORDER BY addedAt DESC LIMIT :limit")
+    @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY addedAt DESC LIMIT :limit")
     fun getRecentlyAddedWithProgress(limit: Int): Flow<List<BookWithProgress>>
 
     @Transaction
     @Query("""
         SELECT * FROM books 
-        WHERE id != :currentId 
+        WHERE status != 'DELETED'
+        AND id != :currentId
         AND author NOT IN (:authors) 
         AND narrator NOT IN (:narrators) 
         ORDER BY addedAt DESC LIMIT :limit
@@ -118,24 +127,26 @@ interface BookDao {
         limit: Int
     ): Flow<List<BookWithProgress>>
 
-    // BookSource
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBookSource(source: BookSourceEntity)
-
-    // BookFile
+    // BookFile rows include both SOURCE_MANIFEST and AUDIO ownership facts.
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBookFiles(files: List<BookFileEntity>)
 
-    @Query("SELECT * FROM book_files WHERE bookId = :bookId ORDER BY `index` ASC")
+    // Playback-facing file flow must exclude SOURCE_MANIFEST rows.
+    @Query("SELECT * FROM book_files WHERE bookId = :bookId AND fileRole = 'AUDIO' ORDER BY `index` ASC")
     fun getFilesForBook(bookId: String): Flow<List<BookFileEntity>>
 
-    @Query("SELECT * FROM book_files WHERE bookId = :bookId ORDER BY `index` ASC")
+    // Playback and progress mapping use only AUDIO files.
+    @Query("SELECT * FROM book_files WHERE bookId = :bookId AND fileRole = 'AUDIO' ORDER BY `index` ASC")
     suspend fun getFilesForBookList(bookId: String): List<BookFileEntity>
 
-    @Query("DELETE FROM book_files WHERE bookId = :bookId")
-    suspend fun deleteFilesForBook(bookId: String)
+    // Subtitle loading may start from MediaItem.uri, so map it back to the scanned BookFile row first.
+    @Query("SELECT * FROM book_files WHERE uri = :uri LIMIT 1")
+    suspend fun getBookFileByUri(uri: String): BookFileEntity?
 
-    // BookProgress
+    @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id = :id")
+    suspend fun updateBookFileStatus(id: String, status: String, scanId: String? = null)
+
+    // BookProgress is created only when playback/seek/save actually happens.
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
     fun getProgressForBook(bookId: String): Flow<BookProgressEntity?>
 

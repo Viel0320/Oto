@@ -614,8 +614,9 @@ fun DetailScreenPreview() {
                 book = BookWithProgress(
                     book = BookEntity(
                         id = "id",
+                        // Preview data follows the new logical-book model.
+                        rootId = "preview-root",
                         sourceType = "SINGLE_AUDIO",
-                        sourceUri = "uri",
                         title = "In the M   egachurch",
                         author = "Ryo Asai",
                         narrator = "Narrator A",
