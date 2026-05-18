@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.viewmodel
 import com.viel.aplayer.data.ChapterEntity
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.playback.BookPlaybackPlan
+import com.viel.aplayer.playback.ChapterTimeline
 import com.viel.aplayer.playback.PlaybackManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -54,9 +55,11 @@ class MediaPlaybackDelegate(
      */
     fun skipToNextChapter(chapters: List<ChapterEntity>, currentPosition: Long) {
         if (chapters.isEmpty()) return
-        val currentIndex = chapters.indexOfLast { currentPosition >= it.startPositionMs }
+        val sortedChapters = ChapterTimeline.sorted(chapters)
+        // Chapter navigation uses the same ordering as chapter boundary calculation.
+        val currentIndex = sortedChapters.indexOfLast { currentPosition >= it.startPositionMs }
         if (currentIndex != -1 && currentIndex < chapters.size - 1) {
-            seekTo(chapters[currentIndex + 1].startPositionMs)
+            seekTo(sortedChapters[currentIndex + 1].startPositionMs)
         }
     }
 
@@ -65,12 +68,14 @@ class MediaPlaybackDelegate(
      */
     fun skipToPreviousChapter(chapters: List<ChapterEntity>, currentPosition: Long) {
         if (chapters.isEmpty()) return
-        val currentIndex = chapters.indexOfLast { currentPosition >= it.startPositionMs }
+        val sortedChapters = ChapterTimeline.sorted(chapters)
+        // Chapter navigation uses sorted starts so single-file and aggregated books behave consistently.
+        val currentIndex = sortedChapters.indexOfLast { currentPosition >= it.startPositionMs }
         if (currentIndex != -1) {
-            if (currentPosition - chapters[currentIndex].startPositionMs > 3000) {
-                seekTo(chapters[currentIndex].startPositionMs)
+            if (currentPosition - sortedChapters[currentIndex].startPositionMs > 3000) {
+                seekTo(sortedChapters[currentIndex].startPositionMs)
             } else if (currentIndex > 0) {
-                seekTo(chapters[currentIndex - 1].startPositionMs)
+                seekTo(sortedChapters[currentIndex - 1].startPositionMs)
             }
         }
     }

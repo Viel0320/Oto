@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -193,7 +194,7 @@ class PlayerViewModel : ViewModel() {
         val manager = playbackManager ?: return
 
         viewModelScope.launch {
-            manager.currentMediaItem.collect { mediaItem ->
+            manager.currentMediaItem.collectLatest { mediaItem ->
                 if (mediaItem != null) {
                     val mediaId = mediaItem.mediaId
                     if (mediaId.contains(":")) {
@@ -201,12 +202,11 @@ class PlayerViewModel : ViewModel() {
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
 
-                        // 当媒体文件切换时，自动寻找并加载对应的字幕文件
+                        // 只在当前媒体文件切换后加载当前文件字幕，避免播放计划预解析整本多文件书的字幕。
                         mediaItem.localConfiguration?.uri?.let { uri ->
-                            viewModelScope.launch {
-                                val subs = libraryRepository?.loadSubtitlesForUri(uri) ?: emptyList()
-                                _currentSubtitles.value = subs
-                            }
+                            _currentSubtitles.value = emptyList()
+                            val subs = libraryRepository?.loadSubtitlesForUri(uri) ?: emptyList()
+                            _currentSubtitles.value = subs
                         }
                     }
                 }

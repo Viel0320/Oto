@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
@@ -103,8 +102,8 @@ class PlaybackManager private constructor(context: Context) {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 _currentMediaItem.value = mediaItem
-                // 字幕行跟随当前播放文件切换，来源与 MediaItem 挂载的字幕附件一致。
-                _currentSubtitles.value = subtitleLinesFor(mediaItem)
+                // 字幕文本由 PlayerViewModel 按当前文件懒加载，这里只清掉上一文件的缓存。
+                _currentSubtitles.value = emptyList()
                 updateGlobalPositionAndDuration(controller)
                 _metadataEntries.value = extractMetadataEntries(controller)
                 saveProgress()
@@ -134,16 +133,16 @@ class PlaybackManager private constructor(context: Context) {
 
     private fun updateGlobalPositionAndDuration(player: Player) {
         val plan = currentPlan
-        if (plan != null && player.currentMediaItem != null) {
-            val fileIndex = player.currentMediaItemIndex
+        if (plan != null && plan.files.isNotEmpty() && player.currentMediaItem != null) {
+            // UI 始终读取真实 MediaController 状态，只在这里转换成全书全局位置。
+            val fileIndex = player.currentMediaItemIndex.coerceIn(0, plan.files.lastIndex)
             val positionInFile = player.currentPosition.coerceAtLeast(0L)
-            
-            val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
             val totalDur = plan.files.sumOf { it.durationMs }
-            
-            _currentPosition.value = globalPos
+            _currentPosition.value = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
+                .coerceIn(0L, totalDur.coerceAtLeast(0L))
             _duration.value = totalDur
         } else {
+            // 没有播放计划或播放计划为空时保持 MediaController 的真实单文件进度。
             _currentPosition.value = player.currentPosition.coerceAtLeast(0L)
             _duration.value = player.duration.coerceAtLeast(0L)
         }
@@ -178,7 +177,8 @@ class PlaybackManager private constructor(context: Context) {
         if (!mediaId.contains(":")) return
 
         val bookId = mediaId.substringBefore(":")
-        val fileIndex = mediaId.substringAfter(":").toIntOrNull() ?: 0
+        // 进度持久化使用真实播放队列索引和文件内位置，通知层的显示包装不参与存储。
+        val fileIndex = controller.currentMediaItemIndex.coerceAtLeast(0)
         val positionInFile = controller.currentPosition.coerceAtLeast(0L)
 
         scope.launch {
@@ -220,10 +220,7 @@ class PlaybackManager private constructor(context: Context) {
                     .setMediaId("${plan.bookId}:${file.index}")
                     .setUri(file.uri)
                     .setMediaMetadata(metadata)
-                // 同目录同名字幕在播放计划里已解析；这里正式挂到 Media3 的 MediaItem。
-                plan.subtitlesByFileId[file.id]?.toSubtitleConfiguration(file.id)?.let { subtitle ->
-                    builder.setSubtitleConfigurations(listOf(subtitle))
-                }
+                // 启动时不挂载全书字幕附件，避免为了多文件字幕扫描/解析阻塞 setMediaItems。
                 builder.build()
             }
             val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
@@ -231,25 +228,10 @@ class PlaybackManager private constructor(context: Context) {
             mediaController?.let { controller ->
                 controller.setMediaItems(mediaItems, fileIndex, positionInFile)
                 controller.prepare()
-                _currentSubtitles.value = subtitleLinesFor(mediaItems.getOrNull(fileIndex))
+                // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
+                _currentSubtitles.value = emptyList()
             }
         }
-    }
-
-    private fun PlaybackSubtitle.toSubtitleConfiguration(fileId: String): MediaItem.SubtitleConfiguration =
-        MediaItem.SubtitleConfiguration.Builder(uri)
-            .setMimeType(mimeType)
-            .setLabel(label)
-            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-            .setId("$fileId:subtitle")
-            .build()
-
-    private fun subtitleLinesFor(mediaItem: MediaItem?): List<SubtitleLine> {
-        val plan = currentPlan ?: return emptyList()
-        val mediaId = mediaItem?.mediaId ?: return emptyList()
-        val fileIndex = mediaId.substringAfter(":", missingDelimiterValue = "").toIntOrNull() ?: return emptyList()
-        val file = plan.files.firstOrNull { it.index == fileIndex } ?: return emptyList()
-        return plan.subtitlesByFileId[file.id]?.lines.orEmpty()
     }
 
     // Commands
@@ -270,11 +252,17 @@ class PlaybackManager private constructor(context: Context) {
         scope.launch {
             val files = libraryRepository.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
-                val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(globalPositionMs, files)
+                val totalDuration = files.sumOf { it.durationMs }
+                val targetGlobal = globalPositionMs.coerceIn(0L, totalDuration.coerceAtLeast(0L))
+                val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(targetGlobal, files)
                 executeOnMain {
+                    // UI 传入全书位置；这里用当前书籍文件列表恢复到真实播放队列位置。
                     controller.seekTo(fileIndex, positionInFile)
                     controller.play()
-                    _currentPosition.value = globalPositionMs
+                    _currentPosition.value = targetGlobal
+                    _duration.value = totalDuration
+                    // 跳转后的字幕由 currentMediaItem 变化触发懒加载，避免 seek 时同步解析字幕。
+                    _currentSubtitles.value = emptyList()
                 }
             }
         }

@@ -262,6 +262,11 @@ class LibraryRepository private constructor(context: Context) {
      */
     fun getChapters(bookId: String): Flow<List<ChapterEntity>> = chapterDao.getChaptersForBook(bookId)
 
+    // PlaybackService needs a synchronous snapshot to map notification progress without depending on UI collectors.
+    suspend fun getChaptersForBookSync(bookId: String): List<ChapterEntity> = withContext(Dispatchers.IO) {
+        chapterDao.getChaptersForBookList(bookId)
+    }
+
     /**
      * Get bookmarks for an audiobook.
      */
@@ -394,10 +399,8 @@ class LibraryRepository private constructor(context: Context) {
             artworkData = artworkData,
             files = files,
             chapters = chapters,
-            // 播放计划生成时先解析同目录同名字幕，播放器和字幕页共用同一份结果。
-            subtitlesByFileId = files.mapNotNull { file ->
-                loadSubtitleAttachment(file)?.let { subtitle -> file.id to subtitle }
-            }.toMap(),
+            // 播放计划不预解析整本书字幕；当前文件字幕由 PlayerViewModel 按需加载，避免多文件启动阻塞。
+            subtitlesByFileId = emptyMap(),
             startGlobalPositionMs = progress?.globalPositionMs ?: 0L
         )
     }

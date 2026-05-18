@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.ChapterEntity
+import com.viel.aplayer.playback.ChapterTimeline
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatTime
 
@@ -33,16 +34,25 @@ fun PlaybackProgress(
 ) {
     // 1. 实时查找当前位置所在的章节
     val currentChapter = remember(currentPosition, chapters) {
-        chapters.findLast { currentPosition >= it.startPositionMs } ?: chapters.firstOrNull()
+        // 统一章节定位，避免 UI 和通知栏各自按不同顺序查找章节。
+        ChapterTimeline.currentChapter(chapters, currentPosition)
     }
 
     // 2. 根据模式计算显示参数
-    val chapterStart = currentChapter?.startPositionMs ?: 0L
-    val chapterEnd = if (currentChapter != null) chapterStart + currentChapter.durationMs else totalDuration
+    val chapterStart = ChapterTimeline.start(currentChapter)
 
     // 确保时长计算有效，防止除以零
-    val displayDur = if (isChapterMode) (chapterEnd - chapterStart).coerceAtLeast(1) else totalDuration.coerceAtLeast(1)
-    val displayPos = if (isChapterMode) (currentPosition - chapterStart).coerceIn(0, displayDur) else currentPosition
+    // 单文件内嵌章节的 durationMs 可能不可靠，章节模式统一按相邻 start/总时长计算。
+    val displayDur = if (isChapterMode) {
+        ChapterTimeline.duration(chapters, currentChapter, totalDuration)
+    } else {
+        totalDuration.coerceAtLeast(1)
+    }
+    val displayPos = if (isChapterMode) {
+        ChapterTimeline.positionInChapter(chapters, currentChapter, currentPosition, totalDuration)
+    } else {
+        currentPosition.coerceIn(0L, displayDur)
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
         AudioProgressBar(
@@ -72,7 +82,8 @@ fun PlaybackProgress(
             )
             
             if (chapters.isNotEmpty()) {
-                val currentIndex = if (currentChapter != null) chapters.indexOf(currentChapter) else 0
+                // 序号使用同一排序结果，保证显示顺序和进度边界一致。
+                val currentIndex = ChapterTimeline.currentIndex(chapters, currentChapter).coerceAtLeast(0)
                 Text(
                     text = "${currentIndex + 1} / ${chapters.size}",
                     style = MaterialTheme.typography.labelMedium,

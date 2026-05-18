@@ -22,7 +22,11 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.R
+import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.data.BookFileEntity
 import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.playback.NotificationProgressPlayer
+import com.viel.aplayer.playback.PositionMapper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,10 +35,18 @@ import kotlinx.coroutines.launch
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
+    // 通知栏使用独立 session，避免通知显示进度反向污染 App/UI controller。
+    private var notificationSession: MediaSession? = null
     private lateinit var rewindButton: CommandButton
     private lateinit var forwardButton: CommandButton
     private lateinit var bookmarkButton: CommandButton
     private lateinit var libraryRepository: LibraryRepository
+    private lateinit var settingsRepository: AppSettingsRepository
+    private lateinit var notificationPlayer: NotificationProgressPlayer
+    // 通知层缓存当前书籍 ID，用来防止切书瞬间误用上一书的文件列表。
+    private var notificationBookId: String? = null
+    // 通知层缓存当前书籍文件列表，只服务于通知命令和进度显示映射。
+    private var notificationFiles: List<BookFileEntity> = emptyList()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
@@ -48,6 +60,7 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         
         libraryRepository = LibraryRepository.getInstance(this)
+        settingsRepository = AppSettingsRepository.getInstance(this)
 
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -95,7 +108,13 @@ class PlaybackService : MediaSessionService() {
                     }
                 }
             }
+
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                updateNotificationTimeline(mediaItem)
+            }
         })
+        notificationPlayer = NotificationProgressPlayer(player)
+        observeNotificationProgressMode()
 
         rewindButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("快退10秒")
@@ -119,6 +138,14 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         mediaSession = MediaSession.Builder(this, player)
+            // App/UI controller 连接默认 session，必须看到真实文件级播放状态。
+            .setId("ui")
+            .setCallback(CustomCallback())
+            .build()
+
+        notificationSession = MediaSession.Builder(this, notificationPlayer)
+            // 通知专用 session 可以包装进度，不影响 App/UI 的真实 controller。
+            .setId("notification")
             .setCallback(CustomCallback())
             .build()
             
@@ -126,6 +153,38 @@ class PlaybackService : MediaSessionService() {
         mediaSession?.let {
             it.setCustomLayout(listOf(rewindButton, forwardButton, bookmarkButton))
             addSession(it)
+        }
+        notificationSession?.let {
+            it.setCustomLayout(listOf(rewindButton, forwardButton, bookmarkButton))
+            addSession(it)
+        }
+    }
+
+    private fun observeNotificationProgressMode() {
+        serviceScope.launch {
+            settingsRepository.settingsFlow.collect { settings ->
+                // Keep MediaSession progress mode in sync even when the full player UI is closed.
+                notificationPlayer.setChapterMode(settings.isChapterProgressMode)
+            }
+        }
+    }
+
+    private fun updateNotificationTimeline(mediaItem: androidx.media3.common.MediaItem?) {
+        val mediaId = mediaItem?.mediaId ?: return
+        if (!mediaId.contains(":")) return
+        val bookId = mediaId.substringBefore(":")
+
+        serviceScope.launch(Dispatchers.IO) {
+            val files = libraryRepository.getFilesForBookSync(bookId)
+            val chapters = libraryRepository.getChaptersForBookSync(bookId)
+            if (files.isNotEmpty()) {
+                launch(Dispatchers.Main) {
+                    // A book can be one file with many chapters or many files as one book; both are mapped through global positions.
+                    notificationBookId = bookId
+                    notificationFiles = files
+                    notificationPlayer.updateBookTimeline(bookId, files, chapters)
+                }
+            }
         }
     }
 
@@ -172,16 +231,14 @@ class PlaybackService : MediaSessionService() {
                     val mediaId = player.currentMediaItem?.mediaId
                     if (mediaId != null && mediaId.contains(":")) {
                         val bookId = mediaId.substringBefore(":")
-                        val fileIndex = mediaId.substringAfter(":").toIntOrNull() ?: 0
-                        val positionInFile = player.currentPosition.coerceAtLeast(0L)
 
                         serviceScope.launch {
-                            val files = libraryRepository.getFilesForBookSync(bookId)
-                            if (files.isNotEmpty()) {
-                                val globalPos = com.viel.aplayer.playback.PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
-                                libraryRepository.addBookmark(bookId, globalPos, "Bookmark")
-                                android.widget.Toast.makeText(this@PlaybackService, "Bookmark saved", android.widget.Toast.LENGTH_SHORT).show()
-                            }
+                            // 书签命令来自真实或通知 session 时都保存全书位置，避免保存章节相对位置。
+                            val positionMs = (session.player as? NotificationProgressPlayer)
+                                ?.currentGlobalPosition()
+                                ?: currentGlobalPosition(session.player, bookId)
+                            libraryRepository.addBookmark(bookId, positionMs, "Bookmark")
+                            android.widget.Toast.makeText(this@PlaybackService, "Bookmark saved", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -194,8 +251,34 @@ class PlaybackService : MediaSessionService() {
         return mediaSession
     }
 
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        if (session == notificationSession) {
+            // 系统通知只使用通知专用 session；真实 UI session 不再生成第二套通知或虚拟进度。
+            super.onUpdateNotification(session, startInForegroundRequired)
+        }
+    }
+
+    private suspend fun currentGlobalPosition(player: Player, bookId: String): Long {
+        val fileIndex = player.currentMediaItemIndex.coerceAtLeast(0)
+        val positionInFile = player.currentPosition.coerceAtLeast(0L)
+        val files = notificationFiles.takeIf { notificationBookId == bookId && it.isNotEmpty() }
+            ?: libraryRepository.getFilesForBookSync(bookId)
+        // 通知以外的命令也用同一套真实文件到全书位置映射。
+        return if (files.isNotEmpty()) {
+            PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
+                .coerceIn(0L, files.sumOf { it.durationMs }.coerceAtLeast(0L))
+        } else {
+            positionInFile
+        }
+    }
+
     override fun onDestroy() {
         serviceScope.cancel()
+        notificationSession?.run {
+            // 通知 session 只包装同一个 ExoPlayer，先释放 session，避免重复释放 player。
+            release()
+            notificationSession = null
+        }
         mediaSession?.run {
             player.release()
             release()

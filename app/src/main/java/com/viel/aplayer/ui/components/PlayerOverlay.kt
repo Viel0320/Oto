@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.playback.ChapterTimeline
 import com.viel.aplayer.ui.action.MiniPlayerActions
 import com.viel.aplayer.ui.action.PlayerActions
 import com.viel.aplayer.ui.action.PlayerNavigationActions
@@ -112,11 +113,11 @@ private fun MiniPlayerContent(
         viewModel.setFullPlayerVisible(true)
     }) {
         val displayProgress = if (settings.isChapterProgressMode && metadata.chapters.isNotEmpty()) {
-            val currentChapter = metadata.chapters.findLast { playback.currentPosition >= it.startPositionMs } ?: metadata.chapters.first()
-            val posInChapter = (playback.currentPosition - currentChapter.startPositionMs).coerceAtLeast(0L)
-            if (currentChapter.durationMs > 0) {
-                posInChapter.toFloat() / currentChapter.durationMs.toFloat()
-            } else 0f
+            // Mini player progress mirrors the full player chapter boundary calculation.
+            val currentChapter = ChapterTimeline.currentChapter(metadata.chapters, playback.currentPosition)
+            val posInChapter = ChapterTimeline.positionInChapter(metadata.chapters, currentChapter, playback.currentPosition, playback.duration)
+            val chapterDuration = ChapterTimeline.duration(metadata.chapters, currentChapter, playback.duration)
+            posInChapter.toFloat() / chapterDuration.toFloat()
         } else {
             playback.progress
         }

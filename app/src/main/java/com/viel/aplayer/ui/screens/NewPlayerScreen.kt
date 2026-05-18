@@ -74,6 +74,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.viel.aplayer.data.BookEntity
 import com.viel.aplayer.data.BookWithProgress
+import com.viel.aplayer.playback.ChapterTimeline
 import com.viel.aplayer.ui.action.PlayerActions
 import com.viel.aplayer.ui.action.PlayerNavigationActions
 import com.viel.aplayer.ui.components.BookmarkDialog
@@ -336,7 +337,9 @@ fun NewPlayerScreen(
         ChapterListSheet(
             isVisible = settings.isChapterListVisible,
             chapters = metadata.chapters,
-            currentChapter = metadata.chapters.findLast { playback.currentPosition >= it.startPositionMs } ?: metadata.chapters.firstOrNull(),
+            // Chapter sheet highlights the same chapter as the progress bar.
+            currentChapter = ChapterTimeline.currentChapter(metadata.chapters, playback.currentPosition),
+            totalDuration = playback.duration,
             onDismissRequest = actions.content.onDismissChapterList,
             onChapterClick = { pos ->
                 actions.playback.onSeek(pos, true)
@@ -408,7 +411,8 @@ private fun StablePlaybackControls(
     buttonColor: Color
 ) {
     val currentChapter = remember(playback.currentPosition, metadata.chapters) {
-        metadata.chapters.findLast { playback.currentPosition >= it.startPositionMs } ?: metadata.chapters.firstOrNull()
+        // Keep the title display aligned with shared chapter boundary logic.
+        ChapterTimeline.currentChapter(metadata.chapters, playback.currentPosition)
     }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {

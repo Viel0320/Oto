@@ -43,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.ChapterEntity
+import com.viel.aplayer.playback.ChapterTimeline
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.ui.utils.formatTime
 import kotlinx.coroutines.flow.filter
@@ -56,6 +57,7 @@ fun ChapterListSheet(
     isVisible: Boolean,
     chapters: List<ChapterEntity>,
     currentChapter: ChapterEntity?,
+    totalDuration: Long,
     onDismissRequest: () -> Unit,
     onChapterClick: (Long) -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
@@ -103,7 +105,7 @@ fun ChapterListSheet(
 
     if (isVisible) {
         if (LocalInspectionMode.current) {
-            ChapterListContent(chapters, currentChapter, onChapterClick, listState)
+            ChapterListContent(chapters, currentChapter, totalDuration, onChapterClick, listState)
         } else {
             ModalBottomSheet(
                 onDismissRequest = onDismissRequest,
@@ -121,6 +123,7 @@ fun ChapterListSheet(
                 ChapterListContent(
                     chapters = chapters,
                     currentChapter = currentChapter,
+                    totalDuration = totalDuration,
                     onChapterClick = { pos ->
                         scope.launch {
                             sheetState.hide()
@@ -140,6 +143,7 @@ fun ChapterListSheet(
 fun ChapterListContent(
     chapters: List<ChapterEntity>,
     currentChapter: ChapterEntity?,
+    totalDuration: Long,
     onChapterClick: (Long) -> Unit,
     listState: LazyListState,
     modifier: Modifier = Modifier,
@@ -195,9 +199,9 @@ fun ChapterListContent(
                             )
                         },
                         trailingContent = {
-                            // 直接显示数据模型中的时长，确保数据源准确
+                            // 单文件内嵌章节时优先用相邻起点推导时长，避免裸 durationMs 显示不一致。
                             Text(
-                                text = formatTime(chapter.durationMs),
+                                text = formatTime(ChapterTimeline.duration(chapters, chapter, totalDuration)),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -247,6 +251,7 @@ fun ChapterListSheetPreview() {
             ChapterListContent(
                 chapters = sampleChapters,
                 currentChapter = sampleChapters[17],
+                totalDuration = sampleChapters.last().startPositionMs + sampleChapters.last().durationMs,
                 onChapterClick = {},
                 listState = rememberLazyListState(initialFirstVisibleItemIndex = 15)
             )
