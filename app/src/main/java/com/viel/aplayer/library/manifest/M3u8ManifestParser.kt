@@ -44,7 +44,7 @@ object M3u8ManifestParser {
                             currentTitle = content.substring(commaIndex + 1).trim()
                         }
                     } else if (!line.startsWith("#")) {
-                        if (!line.startsWith("http://", ignoreCase = true) && 
+                        if (!line.startsWith("http://", ignoreCase = true) &&
                             !line.startsWith("https://", ignoreCase = true)) {
                             items.add(M3u8Item(uri = line, title = currentTitle, durationMs = currentDurationMs))
                         }

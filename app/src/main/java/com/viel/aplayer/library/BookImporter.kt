@@ -37,9 +37,9 @@ class BookImporter(private val context: Context) {
         thumbnailPath: String?,
         backgroundColorArgb: Int?,
         chapters: List<ChapterEntity>,
-        subtitleUri: String?
+        existingBookId: String? = null
     ): String = withContext(Dispatchers.IO) {
-        val bookId = UUID.randomUUID().toString()
+        val bookId = existingBookId ?: UUID.randomUUID().toString()
         val fileId = UUID.randomUUID().toString()
         val rootId = "default"
 
@@ -119,27 +119,14 @@ class BookImporter(private val context: Context) {
             chapterDao.insertChapters(fixedChapters)
         }
         
-        if (subtitleUri != null) {
-            val track = SubtitleTrackEntity(
-                id = UUID.randomUUID().toString(),
-                bookId = bookId,
-                uri = subtitleUri,
-                format = subtitleUri.substringAfterLast(".").lowercase(),
-                source = "EXTERNAL_TEXT",
-                scope = "BOOK",
-                isActive = true
-            )
-            bookDao.insertSubtitleTracks(listOf(track))
-        }
-        
         bookId
     }
 
     /**
-     * 导入 Manifest 聚合书籍 (CUE/M3U8)。
+     * 导入或更新 Manifest 聚合书籍 (CUE/M3U8)。
      */
-    suspend fun importManifestBook(claim: ClaimSource) = withContext(Dispatchers.IO) {
-        val bookId = UUID.randomUUID().toString()
+    suspend fun importManifestBook(claim: ClaimSource, existingBookId: String? = null) = withContext(Dispatchers.IO) {
+        val bookId = existingBookId ?: UUID.randomUUID().toString()
         val rootId = claim.rootId
         val fileEntities = mutableListOf<BookFileEntity>()
         val chapterEntities = mutableListOf<ChapterEntity>()
@@ -318,7 +305,14 @@ class BookImporter(private val context: Context) {
 
         val totalDuration = fileEntities.sumOf { it.durationMs }
 
-        // 4. 创建 Book 实体
+        // 4. 确定初始状态：如果物理文件不全，直接标记为 PARTIAL
+        val initialStatus = when {
+            fileEntities.isEmpty() -> "ERROR"
+            claim.missingFileCount > 0 -> "PARTIAL"
+            else -> "READY"
+        }
+
+        // 5. 创建 Book 实体
         val book = BookEntity(
             id = bookId,
             sourceType = claim.type.name,
@@ -335,11 +329,17 @@ class BookImporter(private val context: Context) {
             backgroundColorArgb = bookBgColor,
             sourceLastModified = claim.sourceLastModified,
             sourceFileSize = claim.sourceFileSize,
-            addedAt = System.currentTimeMillis(),
-            status = if (fileEntities.isEmpty()) "ERROR" else "READY"
+            addedAt = if (existingBookId != null) (bookDao.getBookById(existingBookId)?.addedAt ?: System.currentTimeMillis()) else System.currentTimeMillis(),
+            status = initialStatus
         )
 
-        // 5. 写入数据库
+        // 6. 写入数据库
+        if (existingBookId != null) {
+            // 清理旧的文件和章节，准备覆盖更新
+            bookDao.deleteFilesForBook(existingBookId)
+            chapterDao.deleteChaptersForBook(existingBookId)
+        }
+
         bookDao.insertBook(book)
         bookDao.insertBookFiles(fileEntities)
         bookDao.insertBookSource(BookSourceEntity(
@@ -353,20 +353,6 @@ class BookImporter(private val context: Context) {
         
         if (chapterEntities.isNotEmpty()) {
             chapterDao.insertChapters(chapterEntities)
-        }
-
-        // 6. 字幕处理
-        claim.subtitleUri?.let { uriStr ->
-            val track = SubtitleTrackEntity(
-                id = UUID.randomUUID().toString(),
-                bookId = bookId,
-                uri = uriStr,
-                format = uriStr.substringAfterLast(".").lowercase(),
-                source = "EXTERNAL_TEXT",
-                scope = "BOOK",
-                isActive = true
-            )
-            bookDao.insertSubtitleTracks(listOf(track))
         }
 
         // 初始进度

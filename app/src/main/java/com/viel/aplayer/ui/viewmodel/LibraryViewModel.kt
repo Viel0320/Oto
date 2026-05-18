@@ -99,8 +99,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.observeLatestScanSession().collect { session ->
                 if (session != null && session.id != lastCompletedSessionId) {
-                    // 只针对用户手动触发的重扫显示弹窗
-                    if (session.trigger == "USER") {
+                    // 如果是用户手动触发，或者冷启动发现了新变动（新书、缺失、部分丢失、更新），则显示弹窗
+                    val hasChanges = session.discoveredBookCount > 0 || 
+                                   session.unavailableBookCount > 0 || 
+                                   session.partialBookCount > 0 ||
+                                   session.updatedBookCount > 0 ||
+                                   session.recoveredBookCount > 0
+                    
+                    if (session.trigger == "USER" || hasChanges) {
                         _scanResultDialogState.value = session
                     }
                     lastCompletedSessionId = session.id

@@ -41,7 +41,9 @@ data class ClaimSource(
     /** 可选：关联的父目录 URI */
     val parentUri: String? = null,
     /** 扫描到的候选字幕 URI */
-    val subtitleUri: String? = null
+    val subtitleUri: String? = null,
+    /** 该来源引用的但未在磁盘上找到的文件数量 */
+    val missingFileCount: Int = 0
 )
 
 /**

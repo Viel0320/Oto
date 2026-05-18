@@ -26,6 +26,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = AppSettings()
         )
 
+    /** 暴露给 UI 的媒体库根目录流 */
+    val libraryRoots: StateFlow<List<com.viel.aplayer.data.LibraryRootEntity>> = libraryRepository.observeLibraryRoots()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     fun clearSearchHistory() {
         viewModelScope.launch {
             libraryRepository.clearHistory()

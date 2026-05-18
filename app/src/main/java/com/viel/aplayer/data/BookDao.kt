@@ -33,6 +33,11 @@ interface BookDao {
     @Query("SELECT uri, bookId FROM book_files")
     suspend fun getFileUriToBookIdMap(): List<BookFileUriPair>
 
+    data class BookIdCount(val bookId: String, val count: Int)
+
+    @Query("SELECT bookId, COUNT(*) as count FROM book_files GROUP BY bookId")
+    suspend fun getBookFileCounts(): List<BookIdCount>
+
     data class BookFileUriPair(val uri: String, val bookId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -127,6 +132,9 @@ interface BookDao {
     @Query("SELECT * FROM book_files WHERE bookId = :bookId ORDER BY `index` ASC")
     suspend fun getFilesForBookList(bookId: String): List<BookFileEntity>
 
+    @Query("DELETE FROM book_files WHERE bookId = :bookId")
+    suspend fun deleteFilesForBook(bookId: String)
+
     // BookProgress
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
     fun getProgressForBook(bookId: String): Flow<BookProgressEntity?>
@@ -136,16 +144,6 @@ interface BookDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProgress(progress: BookProgressEntity)
-
-    // SubtitleTrack
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSubtitleTracks(tracks: List<SubtitleTrackEntity>)
-
-    @Query("SELECT * FROM subtitle_tracks WHERE bookId = :bookId")
-    fun getSubtitleTracksForBook(bookId: String): Flow<List<SubtitleTrackEntity>>
-
-    @Query("SELECT * FROM subtitle_tracks WHERE bookId = :bookId")
-    suspend fun getSubtitleTracksForBookList(bookId: String): List<SubtitleTrackEntity>
 
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, totalDurationMs = :duration WHERE id = :id")
     suspend fun updateMetadata(id: String, title: String, author: String, narrator: String, description: String, duration: Long)

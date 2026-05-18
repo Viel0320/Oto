@@ -13,13 +13,12 @@ import androidx.room.RoomDatabase
         BookProgressEntity::class,
         ChapterEntity::class,
         BookmarkEntity::class,
-        SubtitleTrackEntity::class,
         LibraryRootEntity::class,
         ScanSessionEntity::class,
         PendingScanActionEntity::class,
         SearchHistoryEntity::class
     ],
-    version = 16, // 升版
+    version = 20, // 移除 subtitle_tracks 表
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

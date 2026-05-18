@@ -91,13 +91,19 @@ class LibraryScanner(private val context: Context) {
             if (result != null) {
                 val resolvedUris = mutableListOf<String>()
                 val relativeToFullUri = mutableMapOf<String, String>()
+                var missingCount = 0
 
-                result.referencedFiles.forEach { relPath ->
+                // 关键：对清单引用的路径进行去重，防止重复计数导致 missingCount 异常
+                val uniqueReferencedFiles = result.referencedFiles.distinct()
+
+                uniqueReferencedFiles.forEach { relPath ->
                     val resolved = ManifestResolver.resolveRelativePath(directory, relPath)
                     if (resolved != null) {
                         val fullUri = resolved.uri.toString()
                         resolvedUris.add(fullUri)
                         relativeToFullUri[relPath] = fullUri
+                    } else if (isAudioFile(relPath)) {
+                        missingCount++
                     }
                 }
 
@@ -121,7 +127,8 @@ class LibraryScanner(private val context: Context) {
                         coverUri = directoryCoverUri,
                         subtitleUri = findSubtitleForFile(directory, manifest),
                         displayName = result.metadata.title?.trim() ?: manifest.name ?: "",
-                        parentUri = directory.uri.toString()
+                        parentUri = directory.uri.toString(),
+                        missingFileCount = missingCount
                     ))
                 }
             }
@@ -134,14 +141,20 @@ class LibraryScanner(private val context: Context) {
                 val resolvedUris = mutableListOf<String>()
                 val fileTitles = mutableMapOf<String, String>()
                 val fileDurations = mutableMapOf<String, Long>()
+                var missingCount = 0
 
-                items.forEach { item ->
+                // 关键：对 M3U8 条目按 URI 去重
+                val uniqueItems = items.distinctBy { it.uri }
+
+                uniqueItems.forEach { item ->
                     val resolved = ManifestResolver.resolveRelativePath(directory, item.uri)
                     if (resolved != null) {
                         val uriStr = resolved.uri.toString()
                         resolvedUris.add(uriStr)
                         if (item.title != null) fileTitles[uriStr] = item.title
                         if (item.durationMs != null) fileDurations[uriStr] = item.durationMs
+                    } else if (isAudioFile(item.uri)) {
+                        missingCount++
                     }
                 }
 
@@ -158,7 +171,8 @@ class LibraryScanner(private val context: Context) {
                         sourceLastModified = manifest.lastModified(),
                         coverUri = directoryCoverUri,
                         subtitleUri = findSubtitleForFile(directory, manifest),
-                        displayName = manifest.name ?: ""
+                        displayName = manifest.name ?: "",
+                        missingFileCount = missingCount
                     ))
                 }
             }

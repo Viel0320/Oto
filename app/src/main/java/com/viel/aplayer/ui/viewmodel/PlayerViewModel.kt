@@ -200,6 +200,14 @@ class PlayerViewModel : ViewModel() {
                         val bookId = mediaId.substringBefore(":")
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
+
+                        // 当媒体文件切换时，自动寻找并加载对应的字幕文件
+                        mediaItem.localConfiguration?.uri?.let { uri ->
+                            viewModelScope.launch {
+                                val subs = libraryRepository?.loadSubtitlesForUri(uri) ?: emptyList()
+                                _currentSubtitles.value = subs
+                            }
+                        }
                     }
                 }
             }
@@ -214,10 +222,6 @@ class PlayerViewModel : ViewModel() {
         settingsManager.dismissBookmarkDialog()
 
         viewModelScope.launch {
-            // 异步加载字幕，不阻塞主元数据流
-            val subs = libraryRepository?.loadSubtitles(id) ?: emptyList()
-            _currentSubtitles.value = subs
-
             val plan = libraryRepository?.getPlaybackPlan(id)
             if (plan != null) {
                 playbackDelegate?.loadBook(plan, playWhenReady) { updateCoverPath(it) }

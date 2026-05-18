@@ -87,10 +87,9 @@ class MetadataExtractor(private val context: Context) {
                 // 章节解析
                 val tempBookId = "TEMP"
                 val extractedChapters = AudiobookParser.extractChaptersFromMetadata(metadataEntries, tempBookId)
-                chapters = if (extractedChapters.isEmpty()) {
-                    AudiobookParser.extractChaptersLowLevel(context, uri).map { it.copy(bookId = tempBookId) }
-                } else {
-                    extractedChapters
+                chapters = extractedChapters.ifEmpty {
+                    AudiobookParser.extractChaptersLowLevel(context, uri)
+                        .map { it.copy(bookId = tempBookId) }
                 }
 
             } catch (e: Exception) {

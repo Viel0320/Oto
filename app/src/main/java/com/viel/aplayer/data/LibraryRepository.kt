@@ -115,7 +115,7 @@ class LibraryRepository private constructor(context: Context) {
             try {
                 if (claim.type == com.viel.aplayer.library.ClaimSourceType.SINGLE_AUDIO || 
                     claim.type == com.viel.aplayer.library.ClaimSourceType.M4B_EMBEDDED) {
-                    addAudiobook(Uri.parse(claim.sourceUri), subtitleUri = claim.subtitleUri)
+                    addAudiobook(Uri.parse(claim.sourceUri))
                 } else {
                     Log.i("LibraryRepository", "🚀 Triggering Manifest Import for: ${claim.displayName}")
                     importer.importManifestBook(claim)
@@ -125,9 +125,35 @@ class LibraryRepository private constructor(context: Context) {
             }
         }
 
-        // 4. 更新缺失书籍状态
+        // 3b. 执行更新逻辑
+        result.updatedClaims.forEach { (claim, existingId) ->
+            try {
+                if (claim.type == com.viel.aplayer.library.ClaimSourceType.SINGLE_AUDIO || 
+                    claim.type == com.viel.aplayer.library.ClaimSourceType.M4B_EMBEDDED) {
+                    addAudiobook(Uri.parse(claim.sourceUri), existingBookId = existingId)
+                } else {
+                    Log.i("LibraryRepository", "🔄 Updating Manifest for: ${claim.displayName}")
+                    importer.importManifestBook(claim, existingBookId = existingId)
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryRepository", "Update failed for ${claim.displayName}", e)
+            }
+        }
+
+        // 4. 执行状态更新
+        // 4a. 完全缺失
         result.unavailableBookIds.forEach { id ->
+            Log.w("LibraryRepository", "Marking book as UNAVAILABLE: $id")
             bookDao.updateBookStatus(id, "UNAVAILABLE")
+        }
+
+        // 4b. 部分丢失
+        if (result.partialBookIds.isNotEmpty()) {
+            Log.i("LibraryRepository", "Updating ${result.partialBookIds.size} books to PARTIAL status.")
+            result.partialBookIds.forEach { id ->
+                Log.d("LibraryRepository", "Marking book as PARTIAL: $id")
+                bookDao.updateBookStatus(id, "PARTIAL")
+            }
         }
 
         // 5. 插入待处理操作（统一标记为 SKIPPED）
@@ -146,10 +172,13 @@ class LibraryRepository private constructor(context: Context) {
             completedAt = System.currentTimeMillis(),
             discoveredBookCount = result.discoveredCount,
             unavailableBookCount = result.unavailableBookIds.size,
+            partialBookCount = result.partialBookIds.size,
+            updatedBookCount = result.updatedClaims.size,
+            recoveredBookCount = result.recoveredBookIds.size,
             pendingActionCount = result.pendingActions.size
         ))
 
-        Log.i("LibraryRepository", "Sync finished. New: ${result.discoveredCount}, Missing: ${result.unavailableBookIds.size}")
+        Log.i("LibraryRepository", "Sync finished. New: ${result.discoveredCount}, Missing: ${result.unavailableBookIds.size}, Partial: ${result.partialBookIds.size}, Updated: ${result.updatedClaims.size}, Recovered: ${result.recoveredBookIds.size}")
     }
 
 
@@ -186,7 +215,7 @@ class LibraryRepository private constructor(context: Context) {
         uri: Uri, 
         parentDir: DocumentFile? = null, 
         fileName: String? = null,
-        subtitleUri: String? = null
+        existingBookId: String? = null
     ) {
         withContext(Dispatchers.IO) {
             Log.d("LibraryRepository", "Adding audiobook: $uri (Name: $fileName)")
@@ -230,7 +259,7 @@ class LibraryRepository private constructor(context: Context) {
                     thumbnailPath = coverResult.thumbnailPath,
                     backgroundColorArgb = coverResult.backgroundColor,
                     chapters = metadata.chapters,
-                    subtitleUri = subtitleUri ?: findSubtitleFile(uri, parentDir, fileName)
+                    existingBookId = existingBookId
                 )
 
             } catch (e: Exception) {
@@ -304,53 +333,32 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     /**
-     * Load and parse subtitles for an audiobook.
+     * Load and parse subtitles for an audiobook file.
+     * Looks for a subtitle file with the same name in the same directory.
      */
-    suspend fun loadSubtitles(bookId: String): List<SubtitleLine> {
-        Log.d("LibraryRepository", "Loading subtitles for book: $bookId")
-        val tracks = bookDao.getSubtitleTracksForBookList(bookId)
-        Log.d("LibraryRepository", "Found ${tracks.size} tracks in DB")
-        
-        val track = tracks.firstOrNull { it.isActive } ?: tracks.firstOrNull() ?: run {
-            Log.d("LibraryRepository", "No subtitle tracks found for book: $bookId")
-            return emptyList()
-        }
-        
-        Log.d("LibraryRepository", "Selected track: ${track.uri}, format: ${track.format}")
-        
-        return withContext(Dispatchers.IO) {
-            try {
-                val uri = track.uri.toUri()
-                val extension = track.format
-                
-                val lines = if (uri.scheme == "content") {
-                    context.contentResolver.openInputStream(uri)?.use { 
+    suspend fun loadSubtitlesForUri(mediaUri: Uri): List<SubtitleLine> = withContext(Dispatchers.IO) {
+        val subtitleUriString = findSubtitleFile(mediaUri) ?: return@withContext emptyList()
+        val subtitleUri = subtitleUriString.toUri()
+        val extension = subtitleUriString.substringAfterLast(".").lowercase()
+
+        try {
+            if (subtitleUri.scheme == "content") {
+                context.contentResolver.openInputStream(subtitleUri)?.use { 
+                    SubtitleParser.parse(it, extension)
+                } ?: emptyList()
+            } else {
+                val file = File(subtitleUri.path ?: subtitleUriString)
+                if (file.exists()) {
+                    file.inputStream().use {
                         SubtitleParser.parse(it, extension)
-                    } ?: emptyList()
-                } else {
-                    val path = if (uri.scheme == "file") uri.path else track.uri
-                    val file = File(path ?: track.uri)
-                    if (file.exists()) {
-                        file.inputStream().use {
-                            SubtitleParser.parse(it, extension)
-                        }
-                    } else {
-                        Log.w("LibraryRepository", "Subtitle file not found at: $path")
-                        emptyList()
                     }
-                }
-
-                Log.d("LibraryRepository", "Parsed ${lines.size} lines")
-
-                if (track.globalOffsetMs != 0L) {
-                    lines.map { it.copy(startTime = it.startTime + track.globalOffsetMs, endTime = it.endTime + track.globalOffsetMs) }
                 } else {
-                    lines
+                    emptyList()
                 }
-            } catch (e: Exception) {
-                Log.e("LibraryRepository", "Error loading subtitles for book $bookId", e)
-                emptyList()
             }
+        } catch (e: Exception) {
+            Log.e("LibraryRepository", "Error loading subtitles for $mediaUri", e)
+            emptyList()
         }
     }
 
@@ -450,6 +458,11 @@ class LibraryRepository private constructor(context: Context) {
 
     fun observeLatestScanSession(): Flow<ScanSessionEntity?> {
         return scanSessionDao.observeLatestCompletedSession()
+    }
+
+    /** Observe all library root directories. */
+    fun observeLibraryRoots(): Flow<List<LibraryRootEntity>> {
+        return libraryRootDao.getAllRoots()
     }
 
 

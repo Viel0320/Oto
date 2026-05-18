@@ -44,6 +44,7 @@ fun SettingsScreen(
     onLibraryRootSelected: (Uri) -> Unit,
     onClearHistory: () -> Unit,
     onRescan: () -> Unit,
+    libraryRoots: List<com.viel.aplayer.data.LibraryRootEntity>,
     isChapterProgressMode: Boolean,
     onChapterProgressModeChange: (Boolean) -> Unit
 ) {
@@ -81,6 +82,22 @@ fun SettingsScreen(
                     onClick = { launcher.launch(null) }
                 )
             }
+
+            items(libraryRoots.size) { index ->
+                val root = libraryRoots[index]
+                val decodedPath = try {
+                    Uri.decode(root.treeUri).substringAfterLast(":")
+                } catch (_: Exception) {
+                    root.treeUri
+                }
+                
+                SettingsItem(
+                    title = "$decodedPath (${root.status})",
+                    icon = Icons.Rounded.FolderOpen,
+                    onClick = { /* Could allow removal or re-auth here */ }
+                )
+            }
+
             item {
                 SettingsToggleItem(
                     title = stringResource(R.string.chapter_progress_title),
@@ -150,8 +167,8 @@ private fun SettingsToggleItem(
 @Composable
 private fun SettingsItem(
     title: String,
-    subtitle: String,
     icon: ImageVector,
+    subtitle: String? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -168,13 +185,15 @@ private fun SettingsItem(
             tint = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.width(16.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = subtitle, 
-                style = MaterialTheme.typography.bodySmall, 
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle, 
+                    style = MaterialTheme.typography.bodySmall, 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -188,6 +207,7 @@ fun SettingsScreenPreview() {
             onLibraryRootSelected = {},
             onClearHistory = {},
             onRescan = {},
+            libraryRoots = emptyList(),
             isChapterProgressMode = false,
             onChapterProgressModeChange = {}
         )

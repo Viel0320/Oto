@@ -70,11 +70,13 @@ fun APlayerNavHost(
         }
         composable("settings") {
             val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
+            val libraryRoots by settingsViewModel.libraryRoots.collectAsStateWithLifecycle()
             SettingsScreen(
                 onBack = navigateBack,
                 onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
                 onClearHistory = { settingsViewModel.clearSearchHistory() },
                 onRescan = { settingsViewModel.triggerRescan() },
+                libraryRoots = libraryRoots,
                 isChapterProgressMode = settingsState.isChapterProgressMode,
                 onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) }
             )

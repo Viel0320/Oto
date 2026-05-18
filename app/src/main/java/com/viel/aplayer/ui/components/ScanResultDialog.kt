@@ -11,7 +11,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.RunningWithErrors
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -56,11 +57,21 @@ fun ScanResultDialog(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 ResultRow(
-                    icon = Icons.AutoMirrored.Rounded.LibraryBooks,
-                    label = "New Books Found",
+                    icon = Icons.Rounded.CheckCircle,
+                    label = "New Books",
                     value = "${session.discoveredBookCount}",
                     color = MaterialTheme.colorScheme.primary
                 )
+
+                if (session.recoveredBookCount > 0) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ResultRow(
+                        icon = Icons.Rounded.CheckCircle,
+                        label = "Recovered",
+                        value = "${session.recoveredBookCount}",
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                    )
+                }
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
@@ -70,17 +81,43 @@ fun ScanResultDialog(
                     value = "${session.unavailableBookCount}",
                     color = MaterialTheme.colorScheme.error
                 )
+
+                if (session.partialBookCount > 0) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ResultRow(
+                        icon = Icons.Rounded.Warning,
+                        label = "Partly Lost",
+                        value = "${session.partialBookCount}",
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = "Some files in these books are missing.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 36.dp, top = 4.dp)
+                    )
+                }
                 
+                if (session.updatedBookCount > 0) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ResultRow(
+                        icon = Icons.Rounded.Sync,
+                        label = "Updated Books",
+                        value = "${session.updatedBookCount}",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+
                 if (session.pendingActionCount > 0) {
                     Spacer(modifier = Modifier.height(12.dp))
                     ResultRow(
-                        icon = Icons.Rounded.RunningWithErrors,
-                        label = "Pending Actions",
+                        icon = Icons.Rounded.History,
+                        label = "Skipped (Conflicts)",
                         value = "${session.pendingActionCount}",
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Check the 'Pending' section for details.",
+                        text = "Conflicting or redundant items were skipped.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 36.dp, top = 4.dp)

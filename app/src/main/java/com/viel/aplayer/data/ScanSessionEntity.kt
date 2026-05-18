@@ -17,5 +17,8 @@ data class ScanSessionEntity(
     val abandonedAt: Long? = null,
     val discoveredBookCount: Int = 0,
     val unavailableBookCount: Int = 0,
+    val partialBookCount: Int = 0,
+    val updatedBookCount: Int = 0,
+    val recoveredBookCount: Int = 0,
     val pendingActionCount: Int = 0
 )
