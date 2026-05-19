@@ -20,7 +20,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -68,14 +67,11 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.viel.aplayer.data.BookEntity
-import com.viel.aplayer.data.BookWithProgress
 import com.viel.aplayer.playback.ChapterTimeline
 import com.viel.aplayer.ui.action.PlayerActions
 import com.viel.aplayer.ui.action.PlayerNavigationActions
@@ -455,7 +451,9 @@ private fun BottomNavTabs(
                 "Related" to PlayerScreenMode.RELATED
             )
             val alignments = listOf(TextAlign.Start, TextAlign.Center, TextAlign.End)
-            val indicatorWidths = listOf(80.dp, 70.dp, 60.dp)
+            // 改为通过状态记录测量的宽度，初始设为 0dp，等测量完成后显示
+            val density = LocalDensity.current
+            var measuredWidths by remember { mutableStateOf(listOf(0.dp, 0.dp, 0.dp)) }
 
             var lastActiveTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
             LaunchedEffect(selectedTab) {
@@ -478,7 +476,7 @@ private fun BottomNavTabs(
             )
 
             val currentIndicatorWidth by animateDpAsState(
-                targetValue = indicatorWidths[lastActiveTab.index],
+                targetValue = measuredWidths[lastActiveTab.index],
                 animationSpec = if (indicatorAlpha == 0f) snap() else tween(300),
                 label = "tab_indicator_width"
             )
@@ -494,14 +492,16 @@ private fun BottomNavTabs(
                 val tabWidth = width / 3
                 val indWidthPx = currentIndicatorWidth.toPx()
 
+                // 计算各 Tab 对应的目标 X 坐标起点（基于对齐方式：左、中、右）
+                val targetX0 = 0f
+                val targetX1 = tabWidth + (tabWidth - measuredWidths[1].toPx()) / 2
+                val targetX2 = width - measuredWidths[2].toPx()
+
+                // 根据当前动画进度 indicatorOffset 进行位置插值
                 val fluidXPos = if (indicatorOffset <= 1f) {
-                    val startX = 0f
-                    val endX = (tabWidth / 2) - (indWidthPx / 2) + tabWidth
-                    startX + (endX - startX) * indicatorOffset
+                    targetX0 + (targetX1 - targetX0) * indicatorOffset
                 } else {
-                    val startX = (tabWidth / 2) - (indWidthPx / 2) + tabWidth
-                    val endX = width - indWidthPx
-                    startX + (endX - startX) * (indicatorOffset - 1f)
+                    targetX1 + (targetX2 - targetX1) * (indicatorOffset - 1f)
                 }
 
                 drawRoundRect(
@@ -532,24 +532,21 @@ private fun BottomNavTabs(
                             fontSize = 16.sp
                         ),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (selectedTab == mode) 1f else 0.6f),
-                        textAlign = alignments[index]
+                        textAlign = alignments[index],
+                        onTextLayout = { textLayoutResult ->
+                            // 获取第一行文字的精确占据宽度（不含占位的空白）
+                            val lineLeft = textLayoutResult.getLineLeft(0)
+                            val lineRight = textLayoutResult.getLineRight(0)
+                            val textWidthDp = with(density) { (lineRight - lineLeft).toDp() }
+                            
+                            if (measuredWidths[index] != textWidthDp) {
+                                measuredWidths = measuredWidths.toMutableList().also { it[index] = textWidthDp }
+                            }
+                        }
                     )
                 }
             }
         }
         Spacer(Modifier.height(24.dp))
-    }
-}
-
-@Preview(name = "Player Mode", showBackground = true, apiLevel = 35)
-@Composable
-fun NewPlayerScreenPlayerPreview() {
-    NewPlayerScreenPreviewWrapper(initialTab = -1)
-}
-
-@Composable
-private fun NewPlayerScreenPreviewWrapper(initialTab: Int) {
-    APlayerTheme {
-        Text("Preview is currently disabled due to ViewModel dependency refactoring")
     }
 }
