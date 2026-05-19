@@ -35,6 +35,17 @@ interface BookDao {
     @Query("SELECT * FROM book_files")
     suspend fun getAllBookFilesOnce(): List<BookFileEntity>
 
+    // Cold-start light scans only re-check previously missing audio rows, not every old file.
+    @Query("""
+        SELECT book_files.* FROM book_files
+        INNER JOIN books ON books.id = book_files.bookId
+        WHERE books.status != 'DELETED'
+        AND book_files.fileRole = 'AUDIO'
+        AND book_files.status = 'MISSING'
+        ORDER BY book_files.bookId ASC, book_files.`index` ASC
+    """)
+    suspend fun getMissingAudioBookFilesOnce(): List<BookFileEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBook(book: BookEntity)
 

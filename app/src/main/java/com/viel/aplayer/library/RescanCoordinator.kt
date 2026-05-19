@@ -23,6 +23,7 @@ class RescanCoordinator(private val context: Context) {
     private val scanner = FileInventoryScanner(context)
     private val orchestrator = ImportOrchestrator(context)
     private val importer = BookImporter(context)
+    private val missingRecoveryChecker = MissingBookFileRecoveryChecker(context)
 
     suspend fun rescan(type: RescanType, rootId: String? = null): ScanSessionEntity = withContext(Dispatchers.IO) {
         val scanId = UUID.randomUUID().toString()
@@ -59,6 +60,12 @@ class RescanCoordinator(private val context: Context) {
 
         result.onSuccess { importResult ->
             importer.applyImportRun(importResult)
+            val recoveryResult = if (type == RescanType.COLD_START_LIGHT) {
+                // Cold-start still imports only unclaimed files; this extra pass only restores missing BookFile rows.
+                missingRecoveryChecker.recoverMissingAudioFiles()
+            } else {
+                MissingBookFileRecoveryResult()
+            }
             importResult.readyImports.map { it.draft.book.rootId }.distinct().forEach { scannedRootId ->
                 rootDao.updateRootScanState(scannedRootId, System.currentTimeMillis())
             }
@@ -68,9 +75,9 @@ class RescanCoordinator(private val context: Context) {
                 discoveredBookCount = importResult.discoveredCount,
                 unavailableBookCount = importResult.failureCount,
                 partialBookCount = importResult.partialNewBookCount,
-                updatedBookCount = importResult.updateExistingCount,
+                updatedBookCount = importResult.updateExistingCount + recoveryResult.restoredBookCount,
                 pendingActionCount = importResult.pendingActions.size,
-                summaryJson = importResult.toSummaryJson()
+                summaryJson = importResult.toSummaryJson(recoveryResult)
             )
         }
 
@@ -82,12 +89,12 @@ class RescanCoordinator(private val context: Context) {
     }
 
     // Store only compact display labels so the dialog can render concrete scan items.
-    private fun ImportRunResult.toSummaryJson(): String =
+    private fun ImportRunResult.toSummaryJson(recoveryResult: MissingBookFileRecoveryResult = MissingBookFileRecoveryResult()): String =
         buildString {
             append('{')
             append("\"newBooks\":").append(discoveredNames.toJsonArray()).append(',')
             append("\"partialImports\":").append(partialNames.toJsonArray()).append(',')
-            append("\"updatedBooks\":").append(updateExistingNames.toJsonArray()).append(',')
+            append("\"updatedBooks\":").append((updateExistingNames + recoveryResult.restoredBookTitles).toJsonArray()).append(',')
             append("\"pendingActions\":").append(pendingNames.toJsonArray()).append(',')
             append("\"failures\":").append(failureNames.toJsonArray())
             append('}')
