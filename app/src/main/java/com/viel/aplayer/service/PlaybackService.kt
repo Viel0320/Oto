@@ -2,6 +2,7 @@ package com.viel.aplayer.service
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -47,6 +48,8 @@ class PlaybackService : MediaSessionService() {
     private var notificationBookId: String? = null
     // 通知层缓存当前书籍文件列表，只服务于通知命令和进度显示映射。
     private var notificationFiles: List<BookFileEntity> = emptyList()
+    // ExoPlayer may report the same failing item more than once; keep one skip job per queue item.
+    private var unavailableSkipKey: String? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
@@ -101,6 +104,9 @@ class PlaybackService : MediaSessionService() {
         player.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 Log.e("PlaybackService", "Player error: ${error.message}", error)
+                if (isUnavailableMediaError(error)) {
+                    handleUnavailableMediaItem(player)
+                }
                 if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED) {
                     val cause = error.cause
                     if (cause is androidx.media3.common.ParserException) {
@@ -110,6 +116,8 @@ class PlaybackService : MediaSessionService() {
             }
 
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                // A successful transition clears the previous failed-item guard.
+                unavailableSkipKey = null
                 updateNotificationTimeline(mediaItem)
             }
         })
@@ -188,6 +196,52 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    private fun isUnavailableMediaError(error: PlaybackException): Boolean {
+        val isIoError = when (error.errorCode) {
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+            PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE,
+            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND,
+            PlaybackException.ERROR_CODE_IO_NO_PERMISSION,
+            PlaybackException.ERROR_CODE_IO_CLEARTEXT_NOT_PERMITTED,
+            PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE -> true
+            else -> false
+        }
+        // Parser errors mean the file was opened but malformed; keep that separate from missing/unavailable media.
+        return isIoError && error.cause !is androidx.media3.common.ParserException
+    }
+
+    private fun handleUnavailableMediaItem(player: Player) {
+        val mediaItem = player.currentMediaItem ?: return
+        val mediaId = mediaItem.mediaId
+        if (!mediaId.contains(":")) return
+        val bookId = mediaId.substringBefore(":")
+        val queueIndex = player.currentMediaItemIndex.coerceAtLeast(0)
+        val skipKey = "$bookId:$queueIndex"
+        if (unavailableSkipKey == skipKey) return
+        unavailableSkipKey = skipKey
+
+        serviceScope.launch {
+            // The service owns playback failures: mark the bad file, notify once, then continue if possible.
+            libraryRepository.markPlaybackFileUnavailable(bookId, queueIndex)
+            Toast.makeText(this@PlaybackService, "文件不可用", Toast.LENGTH_SHORT).show()
+
+            val next = libraryRepository.findNextAvailablePlaybackFile(bookId, queueIndex)
+            if (next != null) {
+                val (nextIndex, _) = next
+                player.seekTo(nextIndex, 0L)
+                player.prepare()
+                player.play()
+            } else {
+                // If there is no later available file, stop instead of looping on the same broken item.
+                player.pause()
+                player.stop()
+            }
+        }
+    }
+
     @UnstableApi
     private inner class CustomCallback : MediaSession.Callback {
         override fun onConnect(
@@ -238,7 +292,7 @@ class PlaybackService : MediaSessionService() {
                                 ?.currentGlobalPosition()
                                 ?: currentGlobalPosition(session.player, bookId)
                             libraryRepository.addBookmark(bookId, positionMs, "Bookmark")
-                            android.widget.Toast.makeText(this@PlaybackService, "Bookmark saved", android.widget.Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@PlaybackService, "Bookmark saved", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }

@@ -91,7 +91,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     )
 
     init {
-        enqueueLibrarySync("COLD_START")
+        viewModelScope.launch {
+            // Startup refreshes root permission status before the cold-start light scan reads active roots.
+            repository.refreshLibraryRootStatuses()
+            enqueueLibrarySync("COLD_START")
+        }
         observeScanSessions()
     }
 
@@ -154,15 +158,18 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onLibraryRootSelected(uri: Uri) {
-        try {
-            getApplication<Application>().contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            repository.setLibraryRoot(uri)
-            enqueueLibrarySync("USER")
-        } catch (_: SecurityException) {
-            // Keep import flow non-blocking if the user selects an inaccessible folder.
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                // Root insertion is awaited so the following scan can see the selected root immediately.
+                repository.setLibraryRoot(uri)
+                enqueueLibrarySync("USER")
+            } catch (_: SecurityException) {
+                // Keep import flow non-blocking if the user selects an inaccessible folder.
+            }
         }
     }
 

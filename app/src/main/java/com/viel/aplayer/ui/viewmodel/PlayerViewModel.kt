@@ -267,6 +267,11 @@ class PlayerViewModel : ViewModel() {
         }
     }
 
+    fun closeCurrentPlayback() {
+        // Compact player can request a self-exit when its restored media is no longer available.
+        _currentBookId.value?.let(::closePlayback)
+    }
+
     fun togglePlayPause() = if (playbackState.value.isPlaying) pause() else play()
     fun play() = playbackDelegate?.play()
     fun pause() = playbackDelegate?.pause()
@@ -326,6 +331,15 @@ class PlayerViewModel : ViewModel() {
     fun setSelectedContentTab(tab: Int) = settingsManager.setSelectedContentTab(tab)
     fun setFullPlayerVisible(visible: Boolean) = settingsManager.setFullPlayerVisible(visible)
     fun setMiniPlayerHidden(hidden: Boolean) = settingsManager.setMiniPlayerHidden(hidden)
+
+    fun currentBookAvailability(bookId: String): kotlinx.coroutines.flow.Flow<Boolean> = flow {
+        // Empty metadata means the compact player is not attached to a real restored book yet.
+        if (bookId.isBlank()) {
+            emit(true)
+            return@flow
+        }
+        emit(libraryRepository?.checkCurrentPlaybackFileAvailability(bookId) ?: false)
+    }
     
     fun toggleProgressMode() {
         viewModelScope.launch {

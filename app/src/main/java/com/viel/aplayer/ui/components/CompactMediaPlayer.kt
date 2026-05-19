@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,8 +50,16 @@ fun CompactMediaPlayer(
     coverPath: String? = null,
     progress: () -> Float = { 0f },
     showProgressBar: Boolean = true,
+    isMediaAvailable: Boolean = true,
     actions: MiniPlayerActions = MiniPlayerActions(),
 ) {
+    LaunchedEffect(isMediaAvailable) {
+        if (!isMediaAvailable) {
+            // Compact player owns reload-time availability handling and exits when the restored file is gone.
+            actions.onUnavailable()
+        }
+    }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant,

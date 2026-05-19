@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -69,6 +70,10 @@ fun APlayerNavHost(
             )
         }
         composable("settings") {
+            LaunchedEffect(Unit) {
+                // Settings entry refreshes library-root permission status before rendering the stored roots.
+                settingsViewModel.refreshLibraryRootStatuses()
+            }
             val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
             val libraryRoots by settingsViewModel.libraryRoots.collectAsStateWithLifecycle()
             SettingsScreen(

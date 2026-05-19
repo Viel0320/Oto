@@ -73,7 +73,8 @@ fun APlayerApp() {
         val miniPlayerActions = remember(playerViewModel) {
             MiniPlayerActions(
                 onPlayPauseClick = { playerViewModel.togglePlayPause() },
-                onHide = { playerViewModel.setMiniPlayerHidden(true) }
+                onHide = { playerViewModel.setMiniPlayerHidden(true) },
+                onUnavailable = { playerViewModel.closeCurrentPlayback() }
             )
         }
         val playerNavigationActions = remember(navController, playerViewModel) {

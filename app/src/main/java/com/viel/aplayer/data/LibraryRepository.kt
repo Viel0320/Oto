@@ -82,10 +82,14 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     /** Set the root library directory. */
-    fun setLibraryRoot(uri: Uri) {
-        scope.launch {
-            rootStore.addRoot(uri, "My Library")
-        }
+    suspend fun setLibraryRoot(uri: Uri): LibraryRootEntity = withContext(Dispatchers.IO) {
+        // LibraryRootStore owns duplicate detection and grant-state refresh before any scan starts.
+        rootStore.addRoot(uri, "My Library")
+    }
+
+    suspend fun refreshLibraryRootStatuses() = withContext(Dispatchers.IO) {
+        // Startup/settings entry use this to reflect revoked or restored SAF permissions in the UI.
+        rootStore.refreshPermissionStatuses()
     }
 
 
@@ -109,6 +113,7 @@ class LibraryRepository private constructor(context: Context) {
      */
     suspend fun syncLibrary(trigger: String = "USER") = withContext(Dispatchers.IO) {
         rootStore.migrateLegacyRoot()
+        rootStore.refreshPermissionStatuses()
 
         // New rescan path: scanner builds inventory, orchestrator decides imports, pending remains PENDING.
         val type = if (trigger == AudiobookSchema.ScanTrigger.COLD_START || trigger == "COLD_START") {
@@ -385,6 +390,86 @@ class LibraryRepository private constructor(context: Context) {
     // DetailScreen owns old BookFile reachability checks, outside the rescan flow.
     suspend fun checkDetailAvailability(bookId: String): Boolean = withContext(Dispatchers.IO) {
         availabilityChecker.check(bookId).isAvailable
+    }
+
+    // Compact player reload only cares about the restored/current file, not whether the whole book has any playable file.
+    suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = withContext(Dispatchers.IO) {
+        val files = bookDao.getFilesForBookList(bookId)
+        if (files.isEmpty()) {
+            // Empty playback files cannot restore a compact player session.
+            bookDao.updateBookStatus(bookId, AudiobookSchema.BookStatus.UNAVAILABLE)
+            return@withContext false
+        }
+
+        val progress = bookDao.getProgressForBookSync(bookId)
+        val targetFile = resolveProgressFile(progress, files) ?: files.first()
+        val isReady = checkFileExists(targetFile.uri)
+        updatePlaybackFileStatus(targetFile, isReady)
+        recalculatePlaybackBookStatus(bookId)
+        isReady
+    }
+
+    // PlaybackService marks the exact failed queue item missing before it tries to advance.
+    suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) = withContext(Dispatchers.IO) {
+        val files = bookDao.getFilesForBookList(bookId)
+        files.getOrNull(queueIndex)?.let { failedFile ->
+            bookDao.updateBookFileStatus(failedFile.id, AudiobookSchema.FileStatus.MISSING)
+            recalculatePlaybackBookStatus(bookId)
+        }
+    }
+
+    // PlaybackService asks for the next actually openable queue item so stale READY rows do not cause repeated failures.
+    suspend fun findNextAvailablePlaybackFile(bookId: String, afterQueueIndex: Int): Pair<Int, BookFileEntity>? = withContext(Dispatchers.IO) {
+        val files = bookDao.getFilesForBookList(bookId)
+        if (files.isEmpty()) {
+            // No AUDIO rows means there is no target to skip to.
+            bookDao.updateBookStatus(bookId, AudiobookSchema.BookStatus.UNAVAILABLE)
+            return@withContext null
+        }
+
+        for (queueIndex in (afterQueueIndex + 1)..files.lastIndex) {
+            val candidate = files[queueIndex]
+            val isReady = checkFileExists(candidate.uri)
+            updatePlaybackFileStatus(candidate, isReady)
+            if (isReady) {
+                recalculatePlaybackBookStatus(bookId)
+                return@withContext queueIndex to candidate
+            }
+        }
+
+        recalculatePlaybackBookStatus(bookId)
+        null
+    }
+
+    // Progress restoration prefers the stable file anchor, then the saved queue index, then the global position mapping.
+    private fun resolveProgressFile(progress: BookProgressEntity?, files: List<BookFileEntity>): BookFileEntity? {
+        if (progress == null) return null
+        return progress.bookFileId?.let { id -> files.firstOrNull { it.id == id } }
+            ?: files.getOrNull(progress.currentFileIndex)
+            ?: files.getOrNull(PositionMapper.globalToFilePosition(progress.globalPositionMs, files).first)
+    }
+
+    // Playback-time checks persist both READY and MISSING so list/detail UI can reflect the latest reachability.
+    private suspend fun updatePlaybackFileStatus(file: BookFileEntity, isReady: Boolean) {
+        val status = if (isReady) AudiobookSchema.FileStatus.READY else AudiobookSchema.FileStatus.MISSING
+        bookDao.updateBookFileStatus(file.id, status)
+    }
+
+    // Playback-time availability changes update the parent book without invoking a full rescan.
+    private suspend fun recalculatePlaybackBookStatus(bookId: String) {
+        val files = bookDao.getFilesForBookList(bookId)
+        bookDao.updateBookStatus(bookId, playbackBookStatusFromFiles(files))
+    }
+
+    // Book status is derived from AUDIO file statuses only because playback plans ignore manifest rows.
+    private fun playbackBookStatusFromFiles(files: List<BookFileEntity>): String {
+        val readyCount = files.count { it.status == AudiobookSchema.FileStatus.READY }
+        val missingCount = files.count { it.status == AudiobookSchema.FileStatus.MISSING }
+        return when {
+            files.isEmpty() || readyCount == 0 -> AudiobookSchema.BookStatus.UNAVAILABLE
+            missingCount > 0 -> AudiobookSchema.BookStatus.PARTIAL
+            else -> AudiobookSchema.BookStatus.READY
+        }
     }
 
     suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = withContext(Dispatchers.IO) {

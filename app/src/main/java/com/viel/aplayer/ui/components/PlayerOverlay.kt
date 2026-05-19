@@ -108,6 +108,10 @@ private fun MiniPlayerContent(
     val playback by viewModel.playbackState.collectAsStateWithLifecycle()
     val metadata by viewModel.metadataState.collectAsStateWithLifecycle()
     val settings by viewModel.settingsState.collectAsStateWithLifecycle()
+    val isMediaAvailable by remember(viewModel, metadata.id) {
+        // Compact player checks the current book availability only while it is mounted.
+        viewModel.currentBookAvailability(metadata.id)
+    }.collectAsStateWithLifecycle(initialValue = true)
 
     Box(modifier = Modifier.clickable {
         viewModel.setFullPlayerVisible(true)
@@ -130,6 +134,7 @@ private fun MiniPlayerContent(
             coverPath = metadata.thumbnailPath ?: metadata.coverPath,
             // 传递计算后的进度
             progress = { displayProgress },
+            isMediaAvailable = isMediaAvailable,
             actions = actions
         )
     }

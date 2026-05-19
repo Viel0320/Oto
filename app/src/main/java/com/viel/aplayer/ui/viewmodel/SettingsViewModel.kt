@@ -34,6 +34,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = emptyList()
         )
 
+    init {
+        viewModelScope.launch {
+            // Settings entry should show current SAF grant status, including revoked roots.
+            libraryRepository.refreshLibraryRootStatuses()
+        }
+    }
+
+    fun refreshLibraryRootStatuses() {
+        viewModelScope.launch {
+            // Route entry calls this explicitly because the SettingsViewModel may be created before navigation.
+            libraryRepository.refreshLibraryRootStatuses()
+        }
+    }
+
     fun clearSearchHistory() {
         viewModelScope.launch {
             libraryRepository.clearHistory()
