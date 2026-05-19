@@ -157,6 +157,8 @@ class PlayerViewModel : ViewModel() {
 
     private var lastSeekPosition = 0L
     private var undoJob: kotlinx.coroutines.Job? = null
+    // Prevents repeated app-level initialize calls from reloading the compact player over the current session.
+    private var hasRestoredLastPlayedBook = false
 
     fun initialize(context: Context) {
         if (playbackManager != null) return
@@ -178,6 +180,22 @@ class PlayerViewModel : ViewModel() {
 
         observePlaybackManager()
         observeSettings()
+        restoreLastPlayedBookToCompactPlayer()
+    }
+
+    private fun restoreLastPlayedBookToCompactPlayer() {
+        if (hasRestoredLastPlayedBook) return
+        hasRestoredLastPlayedBook = true
+
+        viewModelScope.launch {
+            // Cold start only prepares the latest saved book/progress for the compact player; it must not autoplay.
+            val lastProgress = libraryRepository?.getLastPlayedProgressSync() ?: return@launch
+            if (_currentBookId.value == null) {
+                loadBook(lastProgress.bookId, playWhenReady = false)
+                settingsManager.setFullPlayerVisible(false)
+                settingsManager.setMiniPlayerHidden(false)
+            }
+        }
     }
 
     private fun observeSettings() {

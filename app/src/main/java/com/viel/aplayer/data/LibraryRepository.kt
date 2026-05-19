@@ -53,7 +53,7 @@ class LibraryRepository private constructor(context: Context) {
     private val bookmarkDao = database.bookmarkDao()
     private val libraryRootDao = database.libraryRootDao()
     private val scanSessionDao = database.scanSessionDao()
-    private val historyDao = database.searchHistoryDao()
+    private val searchHistoryStore = SearchHistoryStore.getInstance(this.context)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val importer = BookImporter(this.context)
     private val availabilityChecker = DetailAvailabilityChecker(this.context)
@@ -62,20 +62,23 @@ class LibraryRepository private constructor(context: Context) {
     private val metadataExtractor = com.viel.aplayer.media.MetadataExtractor(this.context)
 
     /** Search history flow. */
-    val searchHistory: Flow<List<SearchHistoryEntity>> = historyDao.getRecentHistory()
+    val searchHistory: Flow<List<SearchHistoryEntity>> = searchHistoryStore.history
 
     suspend fun addToHistory(query: String) {
         if (query.isNotBlank()) {
-            historyDao.insert(SearchHistoryEntity(query.trim()))
+            // DataStore owns recency ordering and duplicate replacement for search history.
+            searchHistoryStore.add(query)
         }
     }
 
     suspend fun deleteFromHistory(history: SearchHistoryEntity) {
-        historyDao.delete(history)
+        // Deleting a visible history row updates DataStore observers immediately.
+        searchHistoryStore.delete(history)
     }
 
     suspend fun clearHistory() {
-        historyDao.clearAll()
+        // Settings and search-screen clear actions share the same DataStore-backed operation.
+        searchHistoryStore.clear()
     }
 
     /** Set the root library directory. */
@@ -194,7 +197,10 @@ class LibraryRepository private constructor(context: Context) {
                 // Compatibility import delegates persistence to BookImporter and still skips initial progress.
                 importer.importSingleAudio(
                     uri = uri.toString(),
-                    title = metadata.title,
+                    // Single-file import title priority: album -> title -> filename without extension.
+                    title = metadata.album.trim()
+                        .ifBlank { metadata.title.trim() }
+                        .ifBlank { fileName?.substringBeforeLast('.') ?: uri.lastPathSegment?.substringAfterLast("/")?.substringBeforeLast(".").orEmpty() },
                     author = metadata.author,
                     narrator = metadata.narrator,
                     description = metadata.description,
@@ -354,8 +360,14 @@ class LibraryRepository private constructor(context: Context) {
         }
     }
     
-    suspend fun saveProgress(progress: BookProgressEntity) {
+    suspend fun saveProgress(progress: BookProgressEntity) = withContext(Dispatchers.IO) {
+        // Playback callbacks may arrive on the main thread, so progress upserts are forced onto IO.
         bookDao.insertProgress(progress)
+    }
+
+    // PlayerViewModel calls this once on app cold start to restore the compact player without scanning UI lists.
+    suspend fun getLastPlayedProgressSync(): BookProgressEntity? = withContext(Dispatchers.IO) {
+        bookDao.getLastPlayedProgressSync()
     }
 
     /**

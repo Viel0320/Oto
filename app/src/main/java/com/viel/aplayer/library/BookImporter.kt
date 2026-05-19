@@ -46,6 +46,7 @@ class BookImporter(private val context: Context) {
     private suspend fun refreshExistingClaim(command: ImportCommand.RefreshExistingBook, scanId: String) {
         val now = System.currentTimeMillis()
         bookDao.updateBookLastScannedAt(command.bookId, now)
+        // Existing rescans are idempotent and must not mutate book.description.
         command.files.forEach { file ->
             bookDao.updateBookFileStatus(file.id, AudiobookSchema.FileStatus.READY, scanId)
         }

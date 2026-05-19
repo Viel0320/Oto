@@ -30,6 +30,9 @@ object CueManifestParser {
 
             var globalTitle: String? = null
             var globalArtist: String? = null
+            var globalNarrator: String? = null
+            var globalYear: String? = null
+            var globalDescription: String? = null
             
             val files = mutableListOf<String>()
             val chapterCandidates = mutableListOf<ChapterCandidate>()
@@ -61,6 +64,24 @@ object CueManifestParser {
                             val value = extractQuotedValue(remainder)
                             if (!isTrackSection) {
                                 globalArtist = value
+                            }
+                        }
+                        "COMPOSER", "NARRATOR" -> {
+                            // Book-level CUE narrator fields win before falling back to the first audio file.
+                            val value = extractQuotedValue(remainder)
+                            if (!isTrackSection) {
+                                globalNarrator = value
+                            }
+                        }
+                        "REM" -> {
+                            // REM carries common CUE metadata such as DATE/YEAR/COMMENT without affecting tracks.
+                            applyRemMetadata(remainder)?.let { (key, value) ->
+                                when (key) {
+                                    "AUTHOR", "ARTIST" -> if (!isTrackSection) globalArtist = value
+                                    "COMPOSER", "NARRATOR", "READER" -> if (!isTrackSection) globalNarrator = value
+                                    "DATE", "YEAR" -> if (!isTrackSection) globalYear = value
+                                    "COMMENT", "DESCRIPTION", "SUMMARY" -> if (!isTrackSection) globalDescription = value
+                                }
                             }
                         }
                         "FILE" -> {
@@ -100,7 +121,14 @@ object CueManifestParser {
             }
 
             return CueResult(
-                metadata = MetadataSuggestion(title = globalTitle, author = globalArtist),
+                // CUE global metadata is persisted first; missing fields are filled later by ImportOrchestrator.
+                metadata = MetadataSuggestion(
+                    title = globalTitle,
+                    author = globalArtist,
+                    narrator = globalNarrator,
+                    year = globalYear,
+                    description = globalDescription
+                ),
                 referencedFiles = files.distinct(),
                 chapters = processedChapters
             )
@@ -116,7 +144,27 @@ object CueManifestParser {
         return if (start != -1 && end != -1 && start < end) {
             text.substring(start + 1, end)
         } else {
-            text.split(Regex("\\s+"))[0].trim()
+            // FILE commands need the first token when values are unquoted, e.g. FILE album.wav WAVE.
+            text.split(Regex("\\s+")).firstOrNull().orEmpty().trim()
+        }
+    }
+
+    private fun applyRemMetadata(text: String): Pair<String, String>? {
+        // REM is "KEY value"; for comments we keep the whole unquoted value instead of only one token.
+        val parts = text.trim().split(Regex("\\s+"), limit = 2)
+        val key = parts.getOrNull(0)?.uppercase()?.takeIf { it.isNotBlank() } ?: return null
+        val value = parts.getOrNull(1)?.let { extractMetadataValue(it) }.orEmpty()
+        return key to value
+    }
+
+    private fun extractMetadataValue(text: String): String {
+        // Metadata fields can contain spaces even when the CUE file does not quote them.
+        val start = text.indexOf('"')
+        val end = text.lastIndexOf('"')
+        return if (start != -1 && end != -1 && start < end) {
+            text.substring(start + 1, end)
+        } else {
+            text.trim()
         }
     }
 

@@ -70,6 +70,8 @@ class PlaybackManager private constructor(context: Context) {
                 mediaController = controllerFuture?.get()
                 mediaController?.let { controller ->
                     setupController(controller)
+                    // Cold-start restore may set the playback plan before MediaController connects; apply it once ready.
+                    currentPlan?.let { setBookPlaybackPlan(it) }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -199,6 +201,29 @@ class PlaybackManager private constructor(context: Context) {
         }
     }
 
+    private fun persistProgress(bookId: String, fileIndex: Int, positionInFile: Long) {
+        scope.launch {
+            val files = libraryRepository.getFilesForBookSync(bookId)
+            if (files.isNotEmpty()) {
+                val safeFileIndex = fileIndex.coerceIn(0, files.lastIndex)
+                val safePositionInFile = positionInFile.coerceAtLeast(0L)
+                val globalPos = PositionMapper.fileToGlobalPosition(safeFileIndex, safePositionInFile, files)
+                    .coerceIn(0L, files.sumOf { it.durationMs }.coerceAtLeast(0L))
+                val bookFileId = files.getOrNull(safeFileIndex)?.id
+
+                // BookProgress is keyed by bookId, so this creates the first row or refreshes the existing row.
+                libraryRepository.saveProgress(BookProgressEntity(
+                    bookId = bookId,
+                    globalPositionMs = globalPos,
+                    bookFileId = bookFileId,
+                    currentFileIndex = safeFileIndex,
+                    positionInFileMs = safePositionInFile,
+                    lastPlayedAt = System.currentTimeMillis()
+                ))
+            }
+        }
+    }
+
     fun setBookPlaybackPlan(plan: BookPlaybackPlan) {
         this.currentPlan = plan
         
@@ -230,6 +255,8 @@ class PlaybackManager private constructor(context: Context) {
                 controller.prepare()
                 // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
                 _currentSubtitles.value = emptyList()
+                // Loading a book should create/update BookProgress immediately, even before playback events fire.
+                persistProgress(plan.bookId, fileIndex, positionInFile)
             }
         }
     }
@@ -263,6 +290,8 @@ class PlaybackManager private constructor(context: Context) {
                     _duration.value = totalDuration
                     // 跳转后的字幕由 currentMediaItem 变化触发懒加载，避免 seek 时同步解析字幕。
                     _currentSubtitles.value = emptyList()
+                    // User-initiated seek must persist immediately so BookProgress is not dependent on later callbacks.
+                    persistProgress(bookId, fileIndex, positionInFile)
                 }
             }
         }

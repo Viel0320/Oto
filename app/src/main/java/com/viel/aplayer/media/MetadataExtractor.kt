@@ -12,6 +12,8 @@ import androidx.media3.extractor.metadata.id3.CommentFrame
 import com.viel.aplayer.util.parser.AudiobookParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 
 /**
  * 专门负责从音频文件中提取元数据（标题、作者、播讲人、描述、年份及章节）的组件。
@@ -28,6 +30,8 @@ class MetadataExtractor(private val context: Context) {
         var title = ""
         var author = ""
         var narrator = ""
+        var album = ""
+        var trackIndex: Int? = null
         var description = ""
         var duration = 0L
         var year = ""
@@ -37,20 +41,30 @@ class MetadataExtractor(private val context: Context) {
             retriever.setDataSource(context, uri)
             
             // 1. 基础信息提取
-            val rawTitle = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.trim()
-            title = if (!rawTitle.isNullOrBlank() && !rawTitle.contains("/")) {
+            val rawTitle = normalizeMetadataText(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE))
+            title = if (rawTitle.isNotBlank() && !rawTitle.contains("/")) {
                 rawTitle
             } else {
                 uri.lastPathSegment?.substringAfterLast("/")?.substringBeforeLast(".") ?: ""
             }
 
-            author = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)?.trim() ?: ""
-            narrator = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER)?.trim() ?: ""
+            // Text metadata is normalized once at extraction so all import paths keep the same field priority.
+            author = normalizeMetadataText(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST))
+            narrator = normalizeMetadataText(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER))
+            // sameAlbum 聚合必须使用音频文件的专辑字段，避免把 description 误当成专辑名。
+            album = normalizeMetadataText(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM))
+            // ID3 track number controls generated chapter order when every file exposes it.
+            trackIndex = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
+                ?.substringBefore("/")
+                ?.trim()
+                ?.toIntOrNull()
             
             val rawYear = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR) 
                 ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE)
             if (!rawYear.isNullOrBlank()) {
-                year = Regex("\\d{4}").find(rawYear)?.value ?: rawYear
+                // Year may come from DATE and can also pass through the same mojibake repair path.
+                val normalizedYear = normalizeMetadataText(rawYear)
+                year = Regex("\\d{4}").find(normalizedYear)?.value ?: normalizedYear
             }
 
             duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
@@ -78,7 +92,8 @@ class MetadataExtractor(private val context: Context) {
                             val entry = metadata.get(k)
                             metadataEntries.add(entry)
                             if (entry is CommentFrame && description.isEmpty()) {
-                                description = entry.text
+                                // CommentFrame text is metadata too, so keep its charset handling consistent.
+                                description = normalizeMetadataText(entry.text)
                             }
                         }
                     }
@@ -90,6 +105,9 @@ class MetadataExtractor(private val context: Context) {
                 chapters = extractedChapters.ifEmpty {
                     AudiobookParser.extractChaptersLowLevel(context, uri)
                         .map { it.copy(bookId = tempBookId) }
+                }.map { chapter ->
+                    // Embedded chapter names go through the same repair path as book-level metadata titles.
+                    chapter.copy(title = normalizeMetadataText(chapter.title).ifBlank { chapter.title.trim() })
                 }
 
             } catch (e: Exception) {
@@ -106,10 +124,51 @@ class MetadataExtractor(private val context: Context) {
             title = title,
             author = author,
             narrator = narrator,
+            album = album,
+            trackIndex = trackIndex,
             description = description,
             year = year,
             durationMs = duration,
             chapters = chapters
+        )
+    }
+
+    private fun normalizeMetadataText(value: String?): String {
+        // Priority order: accept valid UTF-8-looking text first, otherwise try common wrong decoders.
+        val trimmed = value?.trim().orEmpty()
+        if (trimmed.isBlank()) return ""
+        if (!trimmed.hasMojibakeMarker()) return trimmed
+
+        return METADATA_FALLBACK_ENCODINGS
+            .mapNotNull { sourceEncoding -> decodeAsUtf8From(sourceEncoding, trimmed) }
+            .minByOrNull { candidate -> candidate.metadataTextScore() }
+            ?.takeIf { repaired -> repaired.metadataTextScore() < trimmed.metadataTextScore() }
+            ?: trimmed
+    }
+
+    private fun decodeAsUtf8From(sourceEncoding: Charset, value: String): String? =
+        runCatching {
+            // Rebuild bytes as if Android decoded UTF-8 metadata with sourceEncoding, then decode as UTF-8.
+            String(value.toByteArray(sourceEncoding), StandardCharsets.UTF_8).trim()
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+
+    private fun String.hasMojibakeMarker(): Boolean =
+        // These markers cover common UTF-8-as-Windows-1252/Latin-1 artifacts such as "â€”" and replacement chars.
+        any { it == '\uFFFD' || it == 'Â' || it == 'Ã' || it == 'â' || it.code in 0x0080..0x009F }
+
+    private fun String.metadataTextScore(): Int =
+        // Lower score is better: replacement chars and common mojibake starters are stronger evidence than plain text.
+        count { it == '\uFFFD' } * 100 +
+            count { it == 'Â' || it == 'Ã' || it == 'â' } * 20 +
+            count { it.code in 0x0080..0x009F } * 10
+
+    companion object {
+        // Fallback order after the system string: UTF-8 artifacts, Big5, then Shift-JIS.
+        private val METADATA_FALLBACK_ENCODINGS: List<Charset> = listOf(
+            Charset.forName("windows-1252"),
+            StandardCharsets.ISO_8859_1,
+            Charset.forName("Big5"),
+            Charset.forName("Shift-JIS")
         )
     }
 }

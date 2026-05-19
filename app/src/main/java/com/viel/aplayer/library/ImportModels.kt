@@ -23,6 +23,7 @@ data class ImportRunContext(
 sealed interface ImportCommand {
     data class CreateReadyBook(val draft: BookDraft) : ImportCommand
     data class UpdateExistingBook(val bookId: String, val draft: BookDraft) : ImportCommand
+    // Rescans only refresh file claim visibility; book metadata is written when a book is created.
     data class RefreshExistingBook(val bookId: String, val files: List<BookFileEntity>) : ImportCommand
     data class CreatePendingAction(val action: PendingScanActionEntity) : ImportCommand
     data class RecordFailure(val failure: ImportFailure) : ImportCommand

@@ -1,11 +1,7 @@
 package com.viel.aplayer.data
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-
-@Entity(tableName = "search_history")
+// Search history is now a DataStore model, not a Room entity in the main database.
 data class SearchHistoryEntity(
-    @PrimaryKey
     val query: String,
     val timestamp: Long = System.currentTimeMillis()
 )

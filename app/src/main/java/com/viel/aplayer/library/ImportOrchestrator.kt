@@ -3,6 +3,7 @@ package com.viel.aplayer.library
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.Log
 import androidx.core.net.toUri
 import com.viel.aplayer.data.AudiobookSchema
 import com.viel.aplayer.data.BookEntity
@@ -16,6 +17,8 @@ import com.viel.aplayer.media.CoverExtractor
 import com.viel.aplayer.media.MetadataExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.BufferedInputStream
+import java.nio.charset.Charset
 import java.util.UUID
 
 // Import orchestration follows the documented fixed order: cue -> m3u8 -> audio.
@@ -80,6 +83,13 @@ class ImportOrchestrator(
             return
         }
 
+        // Same-name txt is only read for a newly created CUE book so rescans do not rewrite description.
+        val metadata = resolveManifestBookMetadata(
+            manifestMetadata = result.metadata,
+            firstAudio = firstManifestAudioMetadata(audioRefs),
+            sourceFile = cue,
+            sidecarDescription = readSameNameTxtDescription(cue)
+        )
         val chapters = result.chapters.mapNotNull { chapter ->
             entryToUri[chapter.fileUri]?.let { chapter.copy(fileUri = it) }
         }
@@ -90,17 +100,18 @@ class ImportOrchestrator(
             chapterCandidates = chapters,
             fileTitles = emptyMap(),
             fileDurations = emptyMap(),
-            title = result.metadata.title?.takeIf { it.isNotBlank() } ?: cue.displayName.substringBeforeLast('.'),
-            author = result.metadata.author.orEmpty(),
-            narrator = result.metadata.narrator.orEmpty(),
-            year = result.metadata.year.orEmpty(),
-            description = result.metadata.description.orEmpty(),
+            title = metadata.title,
+            author = metadata.author,
+            narrator = metadata.narrator,
+            year = metadata.year,
+            description = metadata.description,
             inventory = context.inventory
         )))
     }
 
     private suspend fun processM3u8(m3u8: FileRef, context: ImportRunContext, inventory: FileInventory) {
-        val items = M3u8ManifestParser.parse(this.context, m3u8.documentFile)
+        val result = M3u8ManifestParser.parse(this.context, m3u8.documentFile)
+        val items = result.items
         if (items.isEmpty()) {
             context.failures.add(ImportCommand.RecordFailure(ImportFailure(m3u8.uri, "M3U8 parse failed or empty")))
             return
@@ -136,6 +147,13 @@ class ImportOrchestrator(
             return
         }
 
+        // Same-name txt is only read for a newly created M3U8 book so rescans do not rewrite description.
+        val metadata = resolveManifestBookMetadata(
+            manifestMetadata = result.metadata,
+            firstAudio = firstManifestAudioMetadata(audioRefs),
+            sourceFile = m3u8,
+            sidecarDescription = readSameNameTxtDescription(m3u8)
+        )
         val fileTitles = resolved.mapNotNull { (item, uri) -> item.title?.let { uri to it } }.toMap()
         val fileDurations = resolved.mapNotNull { (item, uri) -> item.durationMs?.let { uri to it } }.toMap()
         context.readyImports.add(ImportCommand.CreateReadyBook(buildManifestDraft(
@@ -145,7 +163,11 @@ class ImportOrchestrator(
             chapterCandidates = emptyList(),
             fileTitles = fileTitles,
             fileDurations = fileDurations,
-            title = m3u8.displayName.substringBeforeLast('.'),
+            title = metadata.title,
+            author = metadata.author,
+            narrator = metadata.narrator,
+            year = metadata.year,
+            description = metadata.description,
             inventory = context.inventory
         )))
     }
@@ -155,16 +177,17 @@ class ImportOrchestrator(
 
         suspend fun flushHeuristic() {
             if (pendingHeuristic.isEmpty()) return
-            if (shouldAggregate(pendingHeuristic)) {
+            if (HeuristicAudioAggregator.shouldAggregate(pendingHeuristic)) {
                 val files = pendingHeuristic.map { it.file }
+                val plan = HeuristicAudioAggregator.buildPlan(pendingHeuristic)
                 val source = ImportSourceRef(
                     sourceType = AudiobookSchema.SourceType.GENERATED_M3U8,
                     sourceUri = "generated://${files.first().parentUri}/${files.joinToString("-") { it.documentId.hashCode().toString() }}",
-                    displayName = generatedBookTitle(pendingHeuristic)
+                    displayName = plan.title
                 )
                 val reservation = context.runClaimLedger.reserve(source, files.map { it.identity }, context.existingClaimIndex)
                 if (reservation.reserved) {
-                    context.readyImports.add(ImportCommand.CreateReadyBook(buildGeneratedDraft(source, pendingHeuristic, context.inventory)))
+                    context.readyImports.add(ImportCommand.CreateReadyBook(buildGeneratedDraft(source, plan, context.inventory)))
                 } else {
                     context.pendingActions.add(createConflict(context.scanId, source, reservation))
                 }
@@ -179,6 +202,8 @@ class ImportOrchestrator(
             if (context.existingClaimIndex.has(audio.identity)) continue
 
             val metadata = metadataExtractor.extract(audio.uri.toUri())
+            // Debug scan metadata so Logcat can verify the filename-to-tag mapping used by aggregation.
+            logScannedAudioMetadata(audio, metadata)
             if (metadata.chapters.isNotEmpty()) {
                 flushHeuristic()
                 createSingleAudio(AudioMetadataRef(audio, metadata), context)
@@ -192,6 +217,33 @@ class ImportOrchestrator(
         }
         flushHeuristic()
     }
+
+    private fun logScannedAudioMetadata(file: FileRef, metadata: com.viel.aplayer.media.AudiobookMetadata) {
+        // Keep the log to one physical line so each scanned file is easy to grep in Logcat.
+        Log.i(
+            TAG,
+            "Scanned audio metadata: " +
+                "file=${file.displayName.logValue()}, " +
+                "uri=${file.uri.logValue()}, " +
+                "title=${metadata.title.logValue()}, " +
+                "author=${metadata.author.logValue()}, " +
+                "narrator=${metadata.narrator.logValue()}, " +
+                "album=${metadata.album.logValue()}, " +
+                "trackIndex=${metadata.trackIndex ?: "<blank>"}, " +
+                "description=${metadata.description.logValue()}, " +
+                "year=${metadata.year.logValue()}, " +
+                "durationMs=${metadata.durationMs}, " +
+                "chapters=${metadata.chapters.size}"
+        )
+    }
+
+    private fun String.logValue(): String =
+        // Metadata can contain line breaks; escape them instead of splitting one file across many Logcat rows.
+        ifBlank { "<blank>" }
+            .replace("\\", "\\\\")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
 
     private suspend fun createSingleAudio(audio: AudioMetadataRef, context: ImportRunContext) {
         val source = ImportSourceRef(AudiobookSchema.SourceType.SINGLE_AUDIO, audio.file.uri, audio.file.displayName)
@@ -207,7 +259,8 @@ class ImportOrchestrator(
         val bookId = UUID.randomUUID().toString()
         val fileId = UUID.randomUUID().toString()
         val cover = resolveCover(bookId, primaryAudio = audio.file, manifestFile = null, fallbackAudio = emptyList(), inventory = inventory)
-        val title = audio.metadata.title.ifBlank { audio.file.displayName.substringBeforeLast('.') }
+        // Single-file books display album first, then title, then filename without extension.
+        val title = singleAudioBookTitle(audio.metadata, audio.file.displayName)
 
         val book = BookEntity(
             id = bookId,
@@ -325,23 +378,25 @@ class ImportOrchestrator(
         return BookDraft(book, listOf(manifestFile) + audioBookFiles, chapters)
     }
 
-    private suspend fun buildGeneratedDraft(source: ImportSourceRef, files: List<AudioMetadataRef>, inventory: FileInventory): BookDraft {
+    private suspend fun buildGeneratedDraft(source: ImportSourceRef, plan: HeuristicAggregationPlan, inventory: FileInventory): BookDraft {
         val bookId = UUID.randomUUID().toString()
-        val cover = resolveCover(bookId, primaryAudio = files.first().file, manifestFile = null, fallbackAudio = files.drop(1).map { it.file }, inventory = inventory)
-        val manifestJson = files.joinToString(prefix = "[", postfix = "]") { "\"${it.file.uri}\"" }
-        val bookFiles = files.mapIndexed { index, audio ->
+        val orderedFiles = plan.chapters.map { it.audio }
+        // Generated books promote author/narrator/year from the first ordered chapter file.
+        val firstChapterMetadata = orderedFiles.first().metadata
+        val cover = resolveCover(bookId, primaryAudio = orderedFiles.first().file, manifestFile = null, fallbackAudio = orderedFiles.drop(1).map { it.file }, inventory = inventory)
+        val manifestJson = orderedFiles.joinToString(prefix = "[", postfix = "]") { "\"${it.file.uri}\"" }
+        val bookFiles = orderedFiles.mapIndexed { index, audio ->
             audio.toBookFile(bookId, UUID.randomUUID().toString(), index, AudiobookSchema.FileStatus.READY)
         }
         var chapterStart = 0L
-        val chapters = files.mapIndexed { index, audio ->
+        val chapters = plan.chapters.mapIndexed { index, chapterPlan ->
             val file = bookFiles[index]
-            val title = audio.metadata.title.ifBlank { audio.file.displayName.substringBeforeLast('.') }
             val chapter = ChapterEntity(
                 id = UUID.randomUUID().toString(),
                 bookId = bookId,
                 bookFileId = file.id,
                 index = index,
-                title = title.ifBlank { "Chapter ${index + 1}" },
+                title = chapterPlan.title.ifBlank { "Chapter ${index + 1}" },
                 startPositionMs = chapterStart,
                 durationMs = file.durationMs,
                 fileOffsetMs = 0L,
@@ -352,19 +407,22 @@ class ImportOrchestrator(
         }
         val book = BookEntity(
             id = bookId,
-            rootId = files.first().file.rootId,
+            rootId = orderedFiles.first().file.rootId,
             sourceType = AudiobookSchema.SourceType.GENERATED_M3U8,
             generatedManifestJson = manifestJson,
-            heuristicRuleVersion = HEURISTIC_RULE_VERSION,
-            title = source.displayName,
-            author = commonNonBlank(files.map { it.metadata.author }),
-            narrator = commonNonBlank(files.map { it.metadata.narrator }),
+            heuristicRuleVersion = plan.ruleVersion,
+            title = plan.title,
+            author = firstChapterMetadata.author.trim(),
+            narrator = firstChapterMetadata.narrator.trim(),
+            year = firstChapterMetadata.year.trim(),
             totalDurationMs = bookFiles.sumOf { it.durationMs },
             totalFileSize = bookFiles.sumOf { it.fileSize },
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
             backgroundColorArgb = cover?.backgroundColor
         )
+        // Log the final persisted title so scan metadata logs can be compared with the created book row.
+        Log.i(TAG, "Generated audiobook draft: title=${plan.title.logValue()}, source=${source.displayName.logValue()}, files=${orderedFiles.size}")
         return BookDraft(book, bookFiles, chapters)
     }
 
@@ -537,31 +595,189 @@ class ImportOrchestrator(
         return chapters.drop(index + 1).firstOrNull { it.fileUri == current.fileUri }?.fileOffsetMs?.minus(current.fileOffsetMs)
     }
 
-    private fun shouldAggregate(files: List<AudioMetadataRef>): Boolean {
-        if (files.size < 2) return false
-        val albums = files.map { it.metadata.description.ifBlank { "" } }
-        val sameAlbum = albums.all { it.isNotBlank() && it == albums.first() }
-        if (files.size == 2) return sameAlbum
-        val names = files.map { it.file.displayName }
-        return sameAlbum || hasSequentialNames(names)
-    }
-
-    private fun hasSequentialNames(names: List<String>): Boolean {
-        val regex = Regex("(\\d+)")
-        val numbers = names.mapNotNull { regex.findAll(it).lastOrNull()?.value?.toIntOrNull() }
-        if (numbers.size != names.size) return false
-        return numbers.zipWithNext().all { (a, b) -> b == a + 1 || b > a }
-    }
-
-    private fun generatedBookTitle(files: List<AudioMetadataRef>): String {
-        val parentName = files.first().file.parentUri.substringAfterLast('/').ifBlank { "Generated audiobook" }
-        return commonNonBlank(files.map { it.metadata.title }).ifBlank { parentName }
-    }
-
     private fun commonNonBlank(values: List<String>): String {
         val trimmed = values.map { it.trim() }.filter { it.isNotBlank() }
         return if (trimmed.isNotEmpty() && trimmed.all { it == trimmed.first() }) trimmed.first() else ""
     }
+
+    private fun singleAudioBookTitle(metadata: com.viel.aplayer.media.AudiobookMetadata, displayName: String): String =
+        // Keep this priority local to single-file books so generated chapter titles can still use ID3 title.
+        metadata.album.trim()
+            .ifBlank { metadata.title.trim() }
+            .ifBlank { displayName.substringBeforeLast('.') }
+
+    private suspend fun firstManifestAudioMetadata(audioRefs: List<FileRef>): ManifestAudioMetadata? {
+        // Manifest imports must not pre-parse the whole book; one audio file is enough for metadata fallback.
+        val firstAudio = audioRefs.firstOrNull() ?: return null
+        return runCatching {
+            ManifestAudioMetadata(firstAudio, metadataExtractor.extract(firstAudio.uri.toUri()))
+        }.onFailure { error ->
+            // A failed fallback read should not block a valid CUE/M3U8 import.
+            Log.w(TAG, "Failed to read manifest fallback metadata: ${firstAudio.uri}", error)
+        }.getOrNull()
+    }
+
+    private fun resolveManifestBookMetadata(
+        manifestMetadata: MetadataSuggestion,
+        firstAudio: ManifestAudioMetadata?,
+        sourceFile: FileRef,
+        sidecarDescription: String? = null
+    ): ResolvedManifestMetadata =
+        // Per-field merge: manifest content wins; same-name txt is a manifest sidecar before audio fallback.
+        ResolvedManifestMetadata(
+            title = firstNonBlank(
+                manifestMetadata.title,
+                firstAudio?.metadata?.album,
+                firstAudio?.metadata?.title,
+                sourceFile.displayName.substringBeforeLast('.')
+            ),
+            author = firstNonBlank(manifestMetadata.author, firstAudio?.metadata?.author),
+            narrator = firstNonBlank(manifestMetadata.narrator, firstAudio?.metadata?.narrator),
+            year = firstNonBlank(manifestMetadata.year, firstAudio?.metadata?.year),
+            description = firstNonBlank(manifestMetadata.description, sidecarDescription, firstAudio?.metadata?.description)
+        )
+
+    private fun readSameNameTxtDescription(sourceFile: FileRef): String? {
+        // CUE/M3U8 description can live in a sibling txt named exactly like the manifest basename.
+        val baseName = sourceFile.displayName.substringBeforeLast('.', missingDelimiterValue = sourceFile.displayName)
+        val txtFile = sourceFile.parentDocumentFile.listFiles().firstOrNull { file ->
+            file.isFile &&
+                file.name?.substringBeforeLast('.', missingDelimiterValue = file.name.orEmpty()).equals(baseName, ignoreCase = true) &&
+                file.name?.substringAfterLast('.', missingDelimiterValue = "").equals("txt", ignoreCase = true)
+        } ?: run {
+            // Log the miss so filename mismatches are visible while testing sidecar descriptions.
+            Log.i(TAG, "No same-name txt description for manifest=${sourceFile.displayName.logValue()}, base=${baseName.logValue()}")
+            return null
+        }
+        return runCatching {
+            readTextFile(txtFile.uri)
+        }.onFailure { error ->
+            // A broken sidecar description should not block a valid manifest import.
+            Log.w(TAG, "Failed to read manifest txt description: ${txtFile.uri}", error)
+        }.getOrNull()?.trim()?.takeIf { it.isNotBlank() }?.also { description ->
+            // Log only size and names; the description itself may be long user-facing text.
+            Log.i(TAG, "Loaded manifest txt description: manifest=${sourceFile.displayName.logValue()}, txt=${txtFile.name.orEmpty().logValue()}, chars=${description.length}")
+        } ?: run {
+            Log.i(TAG, "Same-name txt description is empty: manifest=${sourceFile.displayName.logValue()}, txt=${txtFile.name.orEmpty().logValue()}")
+            null
+        }
+    }
+
+    private fun readTextFile(uri: Uri): String {
+        // Text sidecars are capped before decoding so a mistaken full-book txt cannot slow down scanning.
+        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+            BufferedInputStream(input).use { buffered ->
+                readLimitedBytes(buffered, MAX_DESCRIPTION_BYTES)
+            }
+        } ?: return ""
+        if (bytes.size == MAX_DESCRIPTION_BYTES) {
+            // Hitting the byte cap is expected for oversized descriptions; log the truncation point for debugging.
+            Log.i(TAG, "Manifest txt description reached ${MAX_DESCRIPTION_BYTES}B read limit: $uri")
+        }
+        val utf8Text = bytes.decodeUtf8PossiblyTruncated()
+        val decoded = when {
+            bytes.hasUtf8Bom() -> bytes.copyOfRange(3, bytes.size).decodeUtf8PossiblyTruncated() ?: ""
+            utf8Text != null -> utf8Text
+            bytes.isValidBig5() -> bytes.toString(Charset.forName("Big5"))
+            else -> bytes.toString(Charset.forName("Shift-JIS"))
+        }
+        return decoded.limitDescriptionChars(uri)
+    }
+
+    private fun readLimitedBytes(input: BufferedInputStream, limitBytes: Int): ByteArray {
+        // Manual bounded read avoids ByteArray.readBytes() loading an oversized sidecar into memory.
+        val buffer = ByteArray(limitBytes)
+        var total = 0
+        while (total < limitBytes) {
+            val count = input.read(buffer, total, limitBytes - total)
+            if (count == -1) break
+            total += count
+        }
+        return buffer.copyOf(total)
+    }
+
+    private fun String.limitDescriptionChars(uri: Uri): String {
+        // The database stores only a short summary; longer txt sidecars are clipped deterministically.
+        if (length <= MAX_DESCRIPTION_CHARS) return this
+        Log.i(TAG, "Manifest txt description truncated to $MAX_DESCRIPTION_CHARS chars: $uri")
+        return take(MAX_DESCRIPTION_CHARS)
+    }
+
+    private fun ByteArray.decodeUtf8PossiblyTruncated(): String? {
+        // The 2KB byte cap can cut a UTF-8 character at the end, so retry after dropping up to one partial code point.
+        if (isEmpty()) return ""
+        for (endExclusive in size downTo maxOf(1, size - MAX_UTF8_CODE_POINT_BYTES + 1)) {
+            val candidate = copyOfRange(0, endExclusive)
+            if (candidate.isValidUtf8()) return candidate.toString(Charsets.UTF_8)
+        }
+        return null
+    }
+
+    private fun ByteArray.hasUtf8Bom(): Boolean =
+        // UTF-8 BOM is stripped so Book.description does not start with an invisible marker.
+        size >= 3 && this[0] == 0xEF.toByte() && this[1] == 0xBB.toByte() && this[2] == 0xBF.toByte()
+
+    private fun ByteArray.isValidUtf8(): Boolean {
+        // Small UTF-8 validator keeps txt sidecar decoding deterministic without adding dependencies.
+        var index = 0
+        while (index < size) {
+            val byte = this[index].toInt() and 0xFF
+            if (byte < 0x80) {
+                index++
+                continue
+            }
+            val continuationCount = when {
+                byte in 0xC2..0xDF -> 1
+                byte in 0xE0..0xEF -> 2
+                byte in 0xF0..0xF4 -> 3
+                else -> return false
+            }
+            if (index + continuationCount >= size) return false
+            for (offset in 1..continuationCount) {
+                if ((this[index + offset].toInt() and 0xC0) != 0x80) return false
+            }
+            index += continuationCount + 1
+        }
+        return true
+    }
+
+    private fun ByteArray.isValidBig5(): Boolean {
+        // Big5 is tried after UTF-8 and before Shift-JIS for Traditional Chinese sidecar text.
+        var index = 0
+        var hasBig5Pair = false
+        while (index < size) {
+            val first = this[index].toInt() and 0xFF
+            if (first <= 0x7F) {
+                index++
+                continue
+            }
+            if (first !in 0x81..0xFE || index + 1 >= size) return false
+            val second = this[index + 1].toInt() and 0xFF
+            if (second !in 0x40..0x7E && second !in 0xA1..0xFE) return false
+            hasBig5Pair = true
+            index += 2
+        }
+        return hasBig5Pair
+    }
+
+    private fun firstNonBlank(vararg values: String?): String =
+        // Trimming here keeps BookEntity fields clean no matter whether they came from manifest or audio tags.
+        values.firstOrNull { !it.isNullOrBlank() }?.trim().orEmpty()
+
+    private data class ManifestAudioMetadata(
+        // Keep the file with the metadata so fallback behavior can stay tied to the first manifest item.
+        val file: FileRef,
+        val metadata: com.viel.aplayer.media.AudiobookMetadata
+    )
+
+    private data class ResolvedManifestMetadata(
+        // Resolved values are non-null because buildManifestDraft writes them directly into BookEntity.
+        val title: String,
+        val author: String,
+        val narrator: String,
+        val year: String,
+        val description: String
+    )
 
     private fun syntheticRef(uri: String, source: FileRef): FileRef =
         FileRef(
@@ -583,12 +799,14 @@ class ImportOrchestrator(
         return extensions.any { value.endsWith(it, ignoreCase = true) }
     }
 
-    private data class AudioMetadataRef(
-        val file: FileRef,
-        val metadata: com.viel.aplayer.media.AudiobookMetadata
-    )
-
     companion object {
-        private const val HEURISTIC_RULE_VERSION = "sequence-v1"
+        // Stable tag for filtering scan metadata lines in Logcat.
+        private const val TAG = "ImportOrchestrator"
+        // Same-name txt sidecars are descriptions only, so scanning reads at most 2 KiB.
+        private const val MAX_DESCRIPTION_BYTES = 2 * 1024
+        // Description text persisted to books.description is capped to keep DB/UI rendering lightweight.
+        private const val MAX_DESCRIPTION_CHARS = 2_000
+        // UTF-8 code points can span four bytes; this bounds truncation repair at the read limit.
+        private const val MAX_UTF8_CODE_POINT_BYTES = 4
     }
 }

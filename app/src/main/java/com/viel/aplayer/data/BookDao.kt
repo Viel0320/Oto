@@ -153,6 +153,16 @@ interface BookDao {
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
     suspend fun getProgressForBookSync(bookId: String): BookProgressEntity?
 
+    // Cold-start restore uses the newest progress row from non-deleted books as the last compact-player item.
+    @Query("""
+        SELECT book_progress.* FROM book_progress
+        INNER JOIN books ON books.id = book_progress.bookId
+        WHERE books.status != 'DELETED'
+        ORDER BY book_progress.lastPlayedAt DESC
+        LIMIT 1
+    """)
+    suspend fun getLastPlayedProgressSync(): BookProgressEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProgress(progress: BookProgressEntity)
 

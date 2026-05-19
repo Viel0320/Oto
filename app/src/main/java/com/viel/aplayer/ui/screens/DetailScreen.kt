@@ -415,9 +415,13 @@ fun DetailScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     val htmlDescription = book?.description ?: ""
+                    val summaryDescription = remember(htmlDescription) {
+                        // Plain txt sidecar descriptions must keep literal line breaks; only real HTML goes through HtmlCompat.
+                        renderDescriptionText(htmlDescription)
+                    }
                     
                     SelectableTextView(
-                        text = HtmlCompat.fromHtml(htmlDescription, HtmlCompat.FROM_HTML_MODE_COMPACT),
+                        text = summaryDescription,
                         modifier = Modifier.fillMaxWidth(),
                         textColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         textSizeSp = 16f,
@@ -456,6 +460,20 @@ fun DetailScreen(
                 )
             }
         )
+    }
+}
+
+// HTML detection stays conservative because HtmlCompat collapses plain-text newline characters.
+private val htmlDescriptionPattern = Regex("""</?[a-zA-Z][a-zA-Z0-9]*(\s[^>]*)?/?>""")
+
+private fun renderDescriptionText(rawDescription: String): CharSequence {
+    // Normalize CRLF/CR line endings so plain txt descriptions render consistently in TextView.
+    val normalizedDescription = rawDescription.replace("\r\n", "\n").replace('\r', '\n')
+    return if (htmlDescriptionPattern.containsMatchIn(normalizedDescription)) {
+        // Existing HTML descriptions still use the Android parser for tags and entities.
+        HtmlCompat.fromHtml(normalizedDescription, HtmlCompat.FROM_HTML_MODE_COMPACT)
+    } else {
+        normalizedDescription
     }
 }
 

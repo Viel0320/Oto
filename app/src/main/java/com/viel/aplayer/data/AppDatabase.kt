@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -14,11 +16,10 @@ import androidx.room.RoomDatabase
         BookmarkEntity::class,
         LibraryRootEntity::class,
         ScanSessionEntity::class,
-        PendingScanActionEntity::class,
-        SearchHistoryEntity::class
+        PendingScanActionEntity::class
     ],
-    // Schema v25 removes BookSource storage and pending-action lifecycle columns from the Room model.
-    version = 25,
+    // Schema v26 removes search history from Room; DataStore now owns that UI state.
+    version = 26,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,7 +28,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun libraryRootDao(): LibraryRootDao
     abstract fun scanSessionDao(): ScanSessionDao
-    abstract fun searchHistoryDao(): SearchHistoryDao
 
     companion object {
         @Volatile
@@ -40,10 +40,18 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
+                .addMigrations(MIGRATION_25_26)
                 .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        private val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Search history is no longer part of the main schema; dropping it preserves all audiobook tables.
+                db.execSQL("DROP TABLE IF EXISTS search_history")
             }
         }
     }
