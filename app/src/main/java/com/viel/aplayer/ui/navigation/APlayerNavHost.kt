@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.navigation
 
-import android.net.Uri
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,13 +21,13 @@ import com.viel.aplayer.ui.settings.SettingsViewModel
 
 @Composable
 fun APlayerNavHost(
+    modifier: Modifier = Modifier,
     navController: NavHostController,
     libraryViewModel: LibraryViewModel,
     playerViewModel: PlayerViewModel,
     settingsViewModel: SettingsViewModel = viewModel(),
     canStartNavigation: () -> Boolean,
-    navigateBack: () -> Unit,
-    modifier: Modifier = Modifier
+    navigateBack: () -> Unit
 ) {
     val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()

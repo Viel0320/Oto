@@ -1,14 +1,10 @@
 package com.viel.aplayer.ui.player
 
 import android.view.RoundedCorner
-import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,29 +13,16 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
@@ -50,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -59,40 +43,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
-import java.io.File
-import kotlin.math.roundToInt
-import kotlinx.coroutines.launch
-import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.bookmarks.BookmarkListView
 import com.viel.aplayer.ui.common.BottomNavTabs
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterDisplay
 import com.viel.aplayer.ui.player.components.ChapterListSheet
-import com.viel.aplayer.ui.player.components.PlaybackControls
-import com.viel.aplayer.ui.player.components.PlaybackProgress
 import com.viel.aplayer.ui.player.components.MainCoverView
+import com.viel.aplayer.ui.player.components.PlaybackProgress
 import com.viel.aplayer.ui.player.components.PlayerAppBar
 import com.viel.aplayer.ui.player.components.PlayerControlPanel
 import com.viel.aplayer.ui.player.components.RelatedBooksView
 import com.viel.aplayer.ui.player.components.SubtitlesView
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import com.viel.aplayer.ui.theme.APlayerTheme
-
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 
 enum class PlayerScreenMode(val index: Int) {
@@ -105,7 +79,7 @@ enum class PlayerScreenMode(val index: Int) {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NewPlayerScreen(
-    viewModel: com.viel.aplayer.ui.player.PlayerViewModel,
+    viewModel: PlayerViewModel,
     actions: PlayerActions,
     navigationActions: PlayerNavigationActions,
     modifier: Modifier = Modifier,
@@ -129,7 +103,7 @@ fun NewPlayerScreen(
 
     // 详尽中文注释：定义全屏播放器预测性返回手势的激活状态和手势百分比进度值（0f 到 1f 之间）
     var isPlayerBackActive by remember { mutableStateOf(false) }
-    var playerBackProgress by remember { mutableStateOf(0f) }
+    var playerBackProgress by remember { mutableFloatStateOf(0f) }
 
     val scope = rememberCoroutineScope()
     val offsetY = remember { Animatable(0f) }
@@ -157,7 +131,7 @@ fun NewPlayerScreen(
             try {
                 progressFlow.collect { }
                 currentMode = PlayerScreenMode.PLAYER
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            } catch (_: kotlin.coroutines.cancellation.CancellationException) {
                 // 详尽的中文注释：用户中途滑回取消，不做状态改变
             }
         }
@@ -174,7 +148,7 @@ fun NewPlayerScreen(
                 }
                 actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
                 navigationActions.onMinimize()
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            } catch (_: kotlin.coroutines.cancellation.CancellationException) {
                 // 详尽的中文注释：用户在手势拖拽时滑回以取消最小化返回，恢复原状态
             } finally {
                 // 详尽的中文注释：手势执行完成或取消时，及时清空手势激活状态和进度值为 0f
@@ -414,7 +388,7 @@ fun NewPlayerScreen(
 // 仅仅在 PlaybackProgress 内部引起局部微观重组，防止大范围 UI 污染。
 @Composable
 fun PlaybackProgressStateful(
-    viewModel: com.viel.aplayer.ui.player.PlayerViewModel,
+    viewModel: PlayerViewModel,
     metadata: BookMetadataState,
     actions: PlayerActions,
     modifier: Modifier = Modifier
@@ -437,7 +411,7 @@ fun PlaybackProgressStateful(
 // 只有在真正切换音频章节的边界临界点时才会触发重组，实现了极致的重组频率隔离。
 @Composable
 fun ChapterDisplayStateful(
-    viewModel: com.viel.aplayer.ui.player.PlayerViewModel,
+    viewModel: PlayerViewModel,
     metadata: BookMetadataState,
     actions: PlayerActions,
     modifier: Modifier = Modifier
@@ -456,7 +430,7 @@ fun ChapterDisplayStateful(
 // 仅在展示 Bookmark 面板时，在此局部隔间内高频消费进度，以防进度刷新让外部关联列表和卡片无端重组。
 @Composable
 fun BookmarkListViewStateful(
-    viewModel: com.viel.aplayer.ui.player.PlayerViewModel,
+    viewModel: PlayerViewModel,
     metadata: BookMetadataState,
     actions: PlayerActions,
     modifier: Modifier = Modifier
@@ -477,7 +451,7 @@ fun BookmarkListViewStateful(
 // 局部订阅高频进度，维持流畅高频的歌词定位，阻断该高频对外部容器和 AppBar 等的刷新污染。
 @Composable
 fun SubtitlesViewStateful(
-    viewModel: com.viel.aplayer.ui.player.PlayerViewModel,
+    viewModel: PlayerViewModel,
     metadata: BookMetadataState,
     actions: PlayerActions,
     modifier: Modifier = Modifier
@@ -498,7 +472,7 @@ fun SubtitlesViewStateful(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChapterListSheetStateful(
-    viewModel: com.viel.aplayer.ui.player.PlayerViewModel,
+    viewModel: PlayerViewModel,
     metadata: BookMetadataState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
