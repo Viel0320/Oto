@@ -85,7 +85,9 @@ import com.viel.aplayer.ui.player.components.ChapterDisplay
 import com.viel.aplayer.ui.player.components.ChapterListSheet
 import com.viel.aplayer.ui.player.components.PlaybackControls
 import com.viel.aplayer.ui.player.components.PlaybackProgress
+import com.viel.aplayer.ui.player.components.MainCoverView
 import com.viel.aplayer.ui.player.components.PlayerAppBar
+import com.viel.aplayer.ui.player.components.PlayerControlPanel
 import com.viel.aplayer.ui.player.components.RelatedBooksView
 import com.viel.aplayer.ui.player.components.SubtitlesView
 import com.viel.aplayer.ui.settings.PlayerSettingsState
@@ -291,7 +293,7 @@ fun NewPlayerScreen(
                                         MainCoverView(metadata.coverPath, controls.isPlaying, metadata.coverLastUpdated)
                                     }
                                     // 详尽的中文注释：将 viewModel 注入，并在内部采用局部的进度和章节 Stateful 隔间包装
-                                    StablePlaybackControls(viewModel, metadata, controls, settings, actions, animatedBgColor)
+                                    PlayerControlPanel(viewModel, metadata, controls, settings, actions, animatedBgColor)
                                 }
                                 PlayerScreenMode.BOOKMARKS -> {
                                     Box(modifier = Modifier.weight(1f)) {
@@ -312,7 +314,7 @@ fun NewPlayerScreen(
                                             actions = actions
                                         )
                                     }
-                                    StablePlaybackControls(viewModel, metadata, controls, settings, actions, animatedBgColor)
+                                    PlayerControlPanel(viewModel, metadata, controls, settings, actions, animatedBgColor)
                                 }
                                 PlayerScreenMode.RELATED -> {
                                     Box(modifier = Modifier.weight(1f)) {
@@ -401,101 +403,6 @@ fun NewPlayerScreen(
     }
 }
 
-@Composable
-private fun MainCoverView(coverPath: String?, isPlaying: Boolean, coverLastUpdated: Long = 0L) {
-    val coverScale by animateFloatAsState(
-        targetValue = if (isPlaying) 1f else 0.95f,
-        animationSpec = tween(300)
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 32.dp),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        // 详尽的中文注释：将 coverLastUpdated 纳入 remember 的 keys，确保当数据库自愈更新时间戳改变后，强行使 File 对象及其后的分支重新判断与重绘
-        val coverFile = remember(coverPath, coverLastUpdated) {
-            if (coverPath != null) File(coverPath) else null
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .graphicsLayer {
-                    scaleX = coverScale
-                    scaleY = coverScale
-                    transformOrigin = TransformOrigin(0.5f, 0.0f)
-                }
-                .clip(RoundedCornerShape(24.dp))
-        ) {
-            if (coverFile != null && coverFile.exists()) {
-                // 详尽的中文注释：使用 ImageRequest.Builder 重新构建 data model，
-                // 并利用具有更新时间戳后缀的 memoryCacheKey 和 diskCacheKey 来打破 Coil 对该图片的加载失败或已有缓存，
-                // 确保在封面文件被自愈重建后，Coil 能够丢弃原有失败记忆、即刻从物理文件中拉取并渲染最新的封面。
-                // 另外，加上 onError 加载错误日志打印，使 Scoped Storage 等加载异常可视化。
-                AsyncImage(
-                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                        .data(coverFile)
-                        .memoryCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
-                        .diskCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
-                        .build(),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentScale = ContentScale.Crop,
-                    onError = { errorState ->
-                        android.util.Log.e("NewPlayerScreen", "全屏播放器加载封面图片失败: ${coverFile.absolutePath}, 原因: ", errorState.result.throwable)
-                    }
-                )
-            } else {
-                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.PlayArrow, null, Modifier.size(80.dp), tint = Color.Gray)
-                }
-            }
-        }
-    }
-}
-
-// 详尽的中文注释：
-// 改造后的 StablePlaybackControls。彻底剔除了对高频 PlaybackState 实体的直接依赖。
-// 内部的进度条和章节标题分别采用 Stateful 局部隔间进行包装，只在各自局部订阅对应高/低频数据通道，
-// 从而确保在音乐播放时主播放控制区的重组发生率完美降为 0。
-@Composable
-private fun StablePlaybackControls(
-    viewModel: com.viel.aplayer.ui.player.PlayerViewModel,
-    metadata: BookMetadataState,
-    controls: com.viel.aplayer.ui.player.PlayerViewModel.PlaybackControlState,
-    settings: PlayerSettingsState,
-    actions: PlayerActions,
-    buttonColor: Color
-) {
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-        // 详尽的中文注释：章节标题显示局部隔间，订阅极其低频的章节变化流
-        ChapterDisplayStateful(
-            viewModel = viewModel,
-            metadata = metadata,
-            actions = actions
-        )
-        Spacer(Modifier.height(16.dp))
-        
-        // 详尽的中文注释：进度条显示局部隔间，只在此内部高频重组
-        PlaybackProgressStateful(
-            viewModel = viewModel,
-            metadata = metadata,
-            actions = actions
-        )
-        Spacer(Modifier.height(24.dp))
-        PlaybackControls(
-            isPlaying = controls.isPlaying,
-            playbackSpeed = controls.playbackSpeed,
-            selectedSleepTimer = settings.selectedSleepTimer,
-            isSpeedManualMode = controls.isSpeedManualMode,
-            actions = actions.playback,
-            buttonColor = buttonColor
-        )
-        Spacer(Modifier.height(12.dp))
-    }
-}
 
 // ==========================================
 // 详尽的中文注释：APlayer 5 大局部 Stateful 隔间设计物理隔离区

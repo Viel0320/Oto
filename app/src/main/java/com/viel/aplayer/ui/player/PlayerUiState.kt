@@ -1,8 +1,6 @@
 package com.viel.aplayer.ui.player
 
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.entity.ChapterEntity
-import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 
 /**
@@ -61,17 +59,4 @@ data class PlayerUiState(
     val currentChapters get() = metadata.chapters
     val currentSubtitles get() = metadata.subtitles
     val currentBookmarks get() = metadata.bookmarks
-    
-    /** 
-     * 实时计算当前播放位置所在的章节。
-     */
-    val currentChapter: ChapterEntity?
-        // Shared chapter lookup keeps derived UI state aligned with progress and notifications.
-        get() = ChapterTimeline.currentChapter(metadata.chapters, playback.currentPosition)
-
-    /** 
-     * 获取用于在进度条上显示的章节标记位置（0.0 - 1.0）。
-     */
-    val chapterMarkers: List<Float>
-        get() = metadata.getChapterMarkers(playback.duration)
 }

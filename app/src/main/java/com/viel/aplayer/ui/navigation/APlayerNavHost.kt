@@ -40,8 +40,12 @@ fun APlayerNavHost(
     ) {
         composable("home") {
             HomeScreen(
-                audiobooks = libraryUiState.audiobooks,
+                // 详尽中文注释：从 ViewModel 预计算的 UiState 中直接传入各字段，UI 层不做任何运算
                 selectedFilter = libraryUiState.selectedFilter,
+                groupedByAuthor = libraryUiState.groupedByAuthor,
+                recentBooks = libraryUiState.recentBooks,
+                shouldShowRecentBooks = libraryUiState.shouldShowRecentBooks,
+                recentTitleRes = libraryUiState.recentTitleRes,
                 onFilterSelected = { libraryViewModel.setFilter(it) },
                 isMiniPlayerVisible = playerUiState.hasActiveTrack,
                 onNavigateToDetail = { id: String ->

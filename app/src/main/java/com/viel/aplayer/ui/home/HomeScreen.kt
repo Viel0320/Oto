@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.home
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,7 +32,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -59,20 +59,22 @@ enum class HomeFilter {
     Finished
 }
 
-private fun BookWithProgress.matchesFilter(filter: HomeFilter): Boolean {
-    return when (filter) {
-        HomeFilter.NotStarted -> isNotStarted
-        HomeFilter.InProgress -> isInProgress
-        HomeFilter.Finished -> isFinished
-    }
-}
-
+/**
+ * 详尽中文注释：首页 Composable，纯 UI 渲染层。
+ * 所有数据变换（过滤、分组、排序截取）已全部迁移至 LibraryViewModel 的 Flow 管道，
+ * 此函数仅负责接收预计算好的数据并渲染界面，不做任何业务运算。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    audiobooks: List<BookWithProgress> = emptyList(),
-    selectedFilter: HomeFilter = HomeFilter.NotStarted,
+    // 详尽中文注释：以下为从 LibraryUiState 拆解传入的预计算字段，Composable 无需再做 remember 运算。
+    // selectedFilter 为 null 时表示 ViewModel 的 combine 管道尚未产出首个最终决策，此时不渲染 FilterChip 行以避免跳变动画。
+    selectedFilter: HomeFilter? = null,
+    groupedByAuthor: Map<String, List<BookWithProgress>> = emptyMap(),
+    recentBooks: List<BookWithProgress> = emptyList(),
+    shouldShowRecentBooks: Boolean = false,
+    @StringRes recentTitleRes: Int = 0,
     onFilterSelected: (HomeFilter) -> Unit = {},
     isMiniPlayerVisible: Boolean = false,
     onNavigateToSearch: () -> Unit = {},
@@ -82,34 +84,14 @@ fun HomeScreen(
     onLoadBook: (String) -> Unit = {},
     onLibraryRootSelected: (Uri) -> Unit = {},
 ) {
+    // 详尽中文注释：Filter Chip 的标签映射，这是纯 UI 文本，保留在 Composable 中
     val filters = listOf(
         HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
         HomeFilter.InProgress to stringResource(R.string.filter_in_progress),
         HomeFilter.Finished to stringResource(R.string.filter_finished)
     )
-    val filteredAudiobooks = remember(audiobooks, selectedFilter) {
-        audiobooks.filter { it.matchesFilter(selectedFilter) }
-    }
-    val groupedByAuthor = remember(filteredAudiobooks) {
-        filteredAudiobooks.groupBy { it.book.author }
-    }
-    val recentBooks = remember(audiobooks, selectedFilter) {
-        when (selectedFilter) {
-            HomeFilter.NotStarted -> audiobooks.filter { it.isNotStarted }
-                .sortedByDescending { it.book.addedAt }
-                .take(10)
-            HomeFilter.InProgress -> audiobooks.filter { it.isInProgress && (it.progress?.lastPlayedAt ?: 0) > 0 }
-                .sortedByDescending { it.progress?.lastPlayedAt ?: 0 }
-                .take(5)
-            else -> emptyList()
-        }
-    }
-    val recentTitle = when (selectedFilter) {
-        HomeFilter.NotStarted -> stringResource(R.string.recently_added_title)
-        HomeFilter.InProgress -> stringResource(R.string.recently_played_title)
-        else -> ""
-    }
-    val shouldShowRecentBooks = (selectedFilter == HomeFilter.NotStarted || selectedFilter == HomeFilter.InProgress) && recentBooks.isNotEmpty()
+    // 详尽中文注释：从 ViewModel 预计算的 recentTitleRes 解析为本地化字符串（0 表示无需展示）
+    val recentTitle = if (recentTitleRes != 0) stringResource(recentTitleRes) else ""
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
@@ -189,22 +171,26 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            // 详尽中文注释：使用全新重构的 Material 3 APlayerFilterChip 构建横向滚动的首页 Filter Chip Group。
-            // 将 LazyRow 的底部外边距微调至 12.dp，既确保了点击 FilterChip 时其原生水波纹与按压阴影等视觉微反馈
-            // 有足够的溢出展示空间不被强行截断，又为下方内容区域带来更加宽敞、透气的大师级呼吸感间距。
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 12.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(filters) { (filter, label) ->
-                    APlayerFilterChip(
-                        selected = filter == selectedFilter,
-                        onClick = { onFilterSelected(filter) },
-                        label = label
-                    )
+            // 详尽中文注释：当 selectedFilter 为 null 时（combine 管道尚未就绪），
+            // 不渲染 FilterChip 行，避免 stateIn 初始值导致的首帧假选中状态以及随后的跳变动画闪烁。
+            if (selectedFilter != null) {
+                // 详尽中文注释：使用全新重构的 Material 3 APlayerFilterChip 构建横向滚动的首页 Filter Chip Group。
+                // 将 LazyRow 的底部外边距微调至 12.dp，既确保了点击 FilterChip 时其原生水波纹与按压阴影等视觉微反馈
+                // 有足够的溢出展示空间不被强行截断，又为下方内容区域带来更加宽敞、透气的大师级呼吸感间距。
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filters) { (filter, label) ->
+                        APlayerFilterChip(
+                            selected = filter == selectedFilter,
+                            onClick = { onFilterSelected(filter) },
+                            label = label
+                        )
+                    }
                 }
             }
 
@@ -299,8 +285,12 @@ fun HomeScreenNotStartedPreview() {
 
     APlayerTheme {
         HomeScreen(
-            audiobooks = mockBooks,
+            // 详尽中文注释：Preview 中模拟 ViewModel 预计算后的数据结构
             selectedFilter = HomeFilter.NotStarted,
+            groupedByAuthor = mockBooks.groupBy { it.book.author },
+            recentBooks = mockBooks,
+            shouldShowRecentBooks = true,
+            recentTitleRes = R.string.recently_added_title,
             isMiniPlayerVisible = false
         )
     }

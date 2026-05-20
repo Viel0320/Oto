@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.library.sync.LibrarySyncWorker
@@ -44,50 +45,108 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _detailUiState = MutableStateFlow(DetailUiState())
     val detailUiState: StateFlow<DetailUiState> = _detailUiState.asStateFlow()
 
-    private val _selectedFilter = MutableStateFlow(HomeFilter.NotStarted)
-
-    init {
-        viewModelScope.launch {
-            settingsRepository.settingsFlow.collect { settings ->
-                _selectedFilter.value = try {
-                    HomeFilter.valueOf(settings.homeFilter)
-                } catch (_: Exception) {
-                    HomeFilter.NotStarted
-                }
-            }
-        }
-    }
+    // 详尽中文注释：用户手动选择的 filter，初始为 null 表示"用户尚未手动操作过"。
+    // 当 null 时，combine 管道会按优先级链（持久化设置 → 首次加载自动判断 → 默认值）统一决策，
+    // 避免多个异步源在冷启动时竞争修改导致 FilterChip 动画闪烁。
+    private val _selectedFilter = MutableStateFlow<HomeFilter?>(null)
 
     private var isFirstLoad = true
 
     val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
         repository.audiobooks,
-        _selectedFilter
-    ) { audiobooks, filter ->
-        var activeFilter = filter
-        if (isFirstLoad && audiobooks.isNotEmpty()) {
+        _selectedFilter,
+        settingsRepository.settingsFlow
+    ) { audiobooks, userSelection, appSettings ->
+        // 详尽中文注释：统一的 filter 决策优先级链，所有 filter 赋值判断集中在此处完成，
+        // 确保无论有多少异步数据源，combine 只在所有输入就绪后发射一次最终结果，
+        // 从根本上消除冷启动时 FilterChip 的多次状态跳变和动画闪烁。
+        //
+        // 优先级：用户手动选择 > 首次加载自动判断 > 持久化设置 > 默认值
+        val activeFilter = if (userSelection != null) {
+            // 详尽中文注释：用户已手动点击 FilterChip 选择了 filter，最高优先级，直接采用
+            userSelection
+        } else if (isFirstLoad && audiobooks.isNotEmpty()) {
+            // 详尽中文注释：首次加载且数据已就绪时，根据实际书籍状态自动判断最适合的 filter。
+            // 如果有正在播放的书籍则选 InProgress，否则选 NotStarted。
+            // 自动选中的结果会被持久化，使下次冷启动时通过 appSettings 恢复一致状态。
             isFirstLoad = false
-            // Restore first-load filter selection independently from scan dialog handling.
-            activeFilter = if (audiobooks.any { it.isInProgress }) {
+            val autoFilter = if (audiobooks.any { it.isInProgress }) {
                 HomeFilter.InProgress
             } else {
                 HomeFilter.NotStarted
             }
-
-            // Persist the auto-selected filter so the saved setting matches the visible home filter.
-            if (activeFilter != filter) {
-                _selectedFilter.value = activeFilter
-                viewModelScope.launch {
-                    settingsRepository.updateHomeFilter(activeFilter.name)
-                }
+            viewModelScope.launch {
+                settingsRepository.updateHomeFilter(autoFilter.name)
+            }
+            autoFilter
+        } else {
+            // 详尽中文注释：使用持久化设置中的 homeFilter 值恢复上次退出时的状态。
+            // 若解析失败（如持久化值无效），兜底使用 NotStarted。
+            isFirstLoad = false
+            try {
+                HomeFilter.valueOf(appSettings.homeFilter)
+            } catch (_: Exception) {
+                HomeFilter.NotStarted
             }
         }
-        LibraryUiState(audiobooks = audiobooks, selectedFilter = activeFilter)
+
+        // 详尽中文注释：以下所有数据变换（过滤、分组、排序截取）均在 ViewModel 的 Flow 管道中完成，
+        // 避免在 Composable 层使用 remember 做业务运算，确保 UI 层只做纯渲染。
+
+        // 1. 按当前 filter 过滤书籍列表
+        val filteredAudiobooks = audiobooks.filter { it.matchesFilter(activeFilter) }
+
+        // 2. 将过滤后的书籍按作者分组，用于 LazyColumn 的分组展示
+        val groupedByAuthor = filteredAudiobooks.groupBy { it.book.author }
+
+        // 3. 计算"最近"区域的书籍（NotStarted 按添加时间倒序取10；InProgress 按最后播放时间倒序取5）
+        val recentBooks = when (activeFilter) {
+            HomeFilter.NotStarted -> audiobooks.filter { it.isNotStarted }
+                .sortedByDescending { it.book.addedAt }
+                .take(10)
+            HomeFilter.InProgress -> audiobooks.filter { it.isInProgress && (it.progress?.lastPlayedAt ?: 0) > 0 }
+                .sortedByDescending { it.progress?.lastPlayedAt ?: 0 }
+                .take(5)
+            else -> emptyList()
+        }
+
+        // 4. 确定"最近"区域的标题字符串资源 ID
+        val recentTitleRes = when (activeFilter) {
+            HomeFilter.NotStarted -> R.string.recently_added_title
+            HomeFilter.InProgress -> R.string.recently_played_title
+            else -> 0
+        }
+
+        // 5. 判断是否应展示"最近"横向滚动区域
+        val shouldShowRecentBooks = (activeFilter == HomeFilter.NotStarted || activeFilter == HomeFilter.InProgress) && recentBooks.isNotEmpty()
+
+        LibraryUiState(
+            audiobooks = audiobooks,
+            selectedFilter = activeFilter,
+            filteredAudiobooks = filteredAudiobooks,
+            groupedByAuthor = groupedByAuthor,
+            recentBooks = recentBooks,
+            recentTitleRes = recentTitleRes,
+            shouldShowRecentBooks = shouldShowRecentBooks
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = LibraryUiState(selectedFilter = _selectedFilter.value)
+        // 详尽中文注释：初始值不设置具体 filter，等待 combine 管道所有输入就绪后再一次性发射最终状态
+        initialValue = LibraryUiState()
     )
+
+    /**
+     * 详尽中文注释：判断书籍是否匹配指定的过滤条件。
+     * 此方法从 HomeScreen Composable 迁移至 ViewModel，确保过滤逻辑在数据层完成。
+     */
+    private fun BookWithProgress.matchesFilter(filter: HomeFilter): Boolean {
+        return when (filter) {
+            HomeFilter.NotStarted -> isNotStarted
+            HomeFilter.InProgress -> isInProgress
+            HomeFilter.Finished -> isFinished
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -186,6 +245,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setFilter(filter: HomeFilter) {
+        // 详尽中文注释：用户手动点击 FilterChip 时，将选择写入 _selectedFilter（非 null），
+        // combine 管道检测到 userSelection != null 后会以最高优先级直接采用。
+        // 同时异步持久化到 DataStore，使下次冷启动通过 settingsFlow 恢复。
         _selectedFilter.value = filter
         viewModelScope.launch {
             settingsRepository.updateHomeFilter(filter.name)
