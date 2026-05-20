@@ -3,6 +3,7 @@ package com.viel.aplayer.library.orchestrator.steps
 import android.content.Context
 import androidx.core.net.toUri
 import com.viel.aplayer.library.AudioMetadataRef
+import com.viel.aplayer.library.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
@@ -14,7 +15,7 @@ import com.viel.aplayer.media.parse.MetadataExtractor
  * 为每一次改动添加详尽的中文注释：
  * 本工位从上一工位解析的清单数据入手，过滤掉已被 CUE/M3U8 认领的物理音频，
  * 剩余的散落音频文件则通过 MetadataExtractor 提取内嵌的 ID3 标签。
- * 这里采用对初学者友好的同步循环读取，如果需要性能提升，可以扩展为协程并发。
+ * 这里使用有界并发读取元数据，但返回结果保持原文件顺序，避免启发式聚合顺序漂移。
  */
 // 详尽的中文注释：声明步骤类可见性为 internal，收紧本模块内部可见，彻底防止由于对外暴露 internal 音频实体类型而报的类型泄漏错误
 internal class MetadataResolveStep(
@@ -55,11 +56,9 @@ internal class MetadataResolveStep(
                     !context.existingClaimIndex.has(audio.identity)
         }
 
-        // 4. 对每一个散落音频，逐个提取 ID3 元数据
-        val resolvedList = mutableListOf<AudioMetadataRef>()
-        looseAudios.forEach { audio ->
-            val metadata = metadataExtractor.extract(audio.uri.toUri())
-            resolvedList.add(AudioMetadataRef(audio, metadata))
+        // 4. 对每一个散落音频并发提取 ID3 元数据；mapWithBoundedConcurrency 会保持输入顺序，claim 和聚合仍由后续步骤串行裁决。
+        val resolvedList = looseAudios.mapWithBoundedConcurrency { audio ->
+            AudioMetadataRef(audio, metadataExtractor.extract(audio.uri.toUri()))
         }
 
         StepResult.Success(ResolvedMetadataDrafts(

@@ -84,22 +84,21 @@ class CoverExtractor(private val context: Context) {
         }
     }
 
-    suspend fun processExternalImage(uri: Uri): CoverResult {
-        return try {
+    suspend fun processExternalImage(uri: Uri): CoverResult = withContext(Dispatchers.IO) {
+        try {
+            val sourceId = uri.toString()
+            val originalFile = File(coversDir, "${sourceId.hashCode()}_ext_orig.jpg")
+            // 详尽的中文注释：外置 sidecar 图像可能很大，先流式复制到缓存文件，避免 readBytes() 一次性把整张原图压进内存。
+            originalFile.parentFile?.mkdirs()
             context.contentResolver.openInputStream(uri)?.use { input ->
-                val bytes = input.readBytes()
-                val sourceId = uri.toString()
-                
-                val originalFile = File(coversDir, "${sourceId.hashCode()}_ext_orig.jpg")
-                // 详尽的中文注释：外置封面图片解析转存前，强力确保 coversDir 缓存目录 100% 存在，彻底规避 ENOENT 错误。
-                originalFile.parentFile?.mkdirs()
-                FileOutputStream(originalFile).use { it.write(bytes) }
-                
-                val thumbPath = createThumbnail(bytes, sourceId)
-                val color = ImageProcessor.getDominantColor(thumbPath ?: originalFile.absolutePath)
-                
-                CoverResult(originalFile.absolutePath, thumbPath, color)
-            } ?: CoverResult(null, null)
+                FileOutputStream(originalFile).use { output -> input.copyTo(output) }
+            } ?: return@withContext CoverResult(null, null)
+
+            // 详尽的中文注释：外置图缩略图直接从已落盘的缓存原图采样生成，不再额外保留一份原始 ByteArray。
+            val thumbPath = createThumbnailFromFile(originalFile, sourceId)
+            val color = ImageProcessor.getDominantColor(thumbPath ?: originalFile.absolutePath)
+
+            CoverResult(originalFile.absolutePath, thumbPath, color)
         } catch (e: Exception) {
             Log.e("CoverExtractor", "Error processing external image", e)
             CoverResult(null, null)
@@ -133,6 +132,38 @@ class CoverExtractor(private val context: Context) {
             thumbFile.absolutePath
         } catch (e: Exception) {
             Log.e("CoverExtractor", "Error generating thumbnail", e)
+            null
+        }
+    }
+
+    private fun createThumbnailFromFile(imageFile: File, sourceId: String): String? {
+        return try {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(imageFile.absolutePath, options)
+
+            val maxSize = 300
+            options.inSampleSize = ImageProcessor.calculateInSampleSize(options, maxSize, maxSize)
+            options.inJustDecodeBounds = false
+
+            // 详尽的中文注释：从缓存文件按采样率解码 sidecar 原图，只把缩略图尺寸所需像素放进 Bitmap 内存。
+            val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath, options) ?: return null
+            val scaledBitmap = if ((bitmap.width > maxSize) || (bitmap.height > maxSize)) {
+                ImageProcessor.scaleBitmap(bitmap, maxSize)
+            } else {
+                bitmap
+            }
+
+            val thumbFile = File(coversDir, "${sourceId.hashCode()}_thumb.jpg")
+            // 详尽的中文注释：外置图缩略图写入前再次确保 cache/covers 目录存在，抵御系统清理缓存后的瞬时 ENOENT。
+            thumbFile.parentFile?.mkdirs()
+            ImageProcessor.saveBitmapToFile(scaledBitmap, thumbFile)
+
+            if (scaledBitmap != bitmap) scaledBitmap.recycle()
+            bitmap.recycle()
+
+            thumbFile.absolutePath
+        } catch (e: Exception) {
+            Log.e("CoverExtractor", "Error generating thumbnail from file", e)
             null
         }
     }

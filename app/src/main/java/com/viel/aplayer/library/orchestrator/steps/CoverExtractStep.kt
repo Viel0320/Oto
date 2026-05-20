@@ -10,6 +10,7 @@ import com.viel.aplayer.library.AudioMetadataRef
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.HeuristicAggregationPlan
+import com.viel.aplayer.library.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
@@ -42,8 +43,8 @@ internal class CoverExtractStep(
         // 详尽的中文注释：FileInventory 无默认无参构造函数，使用显式 5 参数空构造进行降级保护
         val inventory = context.sharedInventory ?: FileInventory(emptyList(), emptyList(), emptyList(), emptyList(), emptyMap())
 
-        // 1. 解析 CUE 封面的书籍列表
-        val cueBooks = input.manifestParsedResult.cueDrafts.map { cueDraft ->
+        // 1. 并发解析 CUE 封面的书籍列表；结果顺序保持与清单解析顺序一致，避免后续 claim 顺序漂移。
+        val cueBooks = input.manifestParsedResult.cueDrafts.mapWithBoundedConcurrency(maxConcurrent) { cueDraft ->
             val bookId = UUID.randomUUID().toString()
             // 挑出所有的关联物理文件
             val audioRefs = cueDraft.resolvedAudioUris.values.mapNotNull { uri ->
@@ -53,8 +54,8 @@ internal class CoverExtractStep(
             CoverExtractedCue(bookId, cueDraft, audioRefs, coverResult)
         }
 
-        // 2. 解析 M3U8 封面的书籍列表
-        val m3u8Books = input.manifestParsedResult.m3u8Drafts.map { m3u8Draft ->
+        // 2. 并发解析 M3U8 封面的书籍列表；只并发图片 I/O，不提前进入所有权认领。
+        val m3u8Books = input.manifestParsedResult.m3u8Drafts.mapWithBoundedConcurrency(maxConcurrent) { m3u8Draft ->
             val bookId = UUID.randomUUID().toString()
             val audioRefs = m3u8Draft.resolvedAudioUris.values.mapNotNull { uri ->
                 inventory.audioFiles.firstOrNull { it.uri == uri }
@@ -63,8 +64,8 @@ internal class CoverExtractStep(
             CoverExtractedM3u8(bookId, m3u8Draft, audioRefs, coverResult)
         }
 
-        // 3. 解析启发式聚合有声书封面
-        val aggregatedBooks = input.aggregatedPlans.map { plan ->
+        // 3. 并发解析启发式聚合有声书封面；聚合计划已经确定，这里只加速封面读取。
+        val aggregatedBooks = input.aggregatedPlans.mapWithBoundedConcurrency(maxConcurrent) { plan ->
             val bookId = UUID.randomUUID().toString()
             val orderedFiles = plan.chapters.map { it.audio }
             val coverResult = resolveCoverWithSemaphore(
@@ -77,8 +78,8 @@ internal class CoverExtractStep(
             CoverExtractedAggregated(bookId, plan, coverResult)
         }
 
-        // 4. 解析单音频有声书封面
-        val singleBooks = input.singleAudios.map { audioRef ->
+        // 4. 并发解析单音频有声书封面；输出顺序仍跟 singleAudios 一致，后续 claim 继续稳定串行。
+        val singleBooks = input.singleAudios.mapWithBoundedConcurrency(maxConcurrent) { audioRef ->
             val bookId = UUID.randomUUID().toString()
             val coverResult = resolveCoverWithSemaphore(
                 bookId = bookId,

@@ -27,6 +27,7 @@ import com.viel.aplayer.library.ImportRunResult
 import com.viel.aplayer.library.ImportSourceRef
 import com.viel.aplayer.library.MetadataSuggestion
 import com.viel.aplayer.library.ReservationResult
+import com.viel.aplayer.library.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
@@ -381,7 +382,12 @@ internal class ConflictClaimStep(
         cover: CoverExtractor.CoverResult?,
         inventory: FileInventory
     ): BookDraft {
-        val durationByUri = audioFiles.associate { it.uri to (fileDurations[it.uri] ?: readDuration(it.uri)) }
+        // 详尽的中文注释：manifest 已经完成 claim 预留后，再并发读取缺失的音频时长；这里只加速 MediaMetadataRetriever I/O，不改变所有权裁决顺序。
+        val durationByUri = audioFiles
+            .mapWithBoundedConcurrency { file ->
+                file.uri to (fileDurations[file.uri] ?: readDuration(file.uri))
+            }
+            .toMap()
         val audioBookFiles = audioFiles.mapIndexed { index, ref ->
             ref.toBookFile(bookId, UUID.randomUUID().toString(), index, AudiobookSchema.FileStatus.READY, durationByUri[ref.uri] ?: 0L)
         }
@@ -823,8 +829,8 @@ internal class ConflictClaimStep(
 
     companion object {
         private const val TAG = "ConflictClaimStep"
-        private const val MAX_DESCRIPTION_BYTES = 2200
-        private const val MAX_DESCRIPTION_CHARS = 500
+        private const val MAX_DESCRIPTION_BYTES = 10000
+        private const val MAX_DESCRIPTION_CHARS = 2000
         private const val MAX_UTF8_CODE_POINT_BYTES = 4
     }
 }

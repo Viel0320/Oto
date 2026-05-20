@@ -10,6 +10,8 @@ import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -28,6 +30,9 @@ class CoverRecoveryHelper(
     private val coverExtractor: CoverExtractor,
     private val scope: CoroutineScope
 ) {
+    // 详尽的中文注释：封面重建会同时触发 MediaMetadataRetriever、Bitmap 解码和 Palette 取色，限制全局并发避免大量新书入库后后台解码挤爆内存与 Binder I/O。
+    private val regenerationSemaphore = Semaphore(MAX_CONCURRENT_COVER_REGENERATIONS)
+
     // 详尽的中文注释：并发安全的去重 HashSet，用来记录当前正在异步重建提取封面的 bookId，
     // 保证对同一本有声书在多条数据流被 UI 同时收集观察时，有且仅有一个提取协程在工作，防御性规避并发解码 OOM 崩内存。
     private val pendingRegenerations = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -56,15 +61,23 @@ class CoverRecoveryHelper(
             if (pendingRegenerations.add(bookId)) {
                 Log.i("CoverRecoveryHelper", "检测到有声书封面缓存丢失或为空，已安排后台协程重建封面，书籍ID: $bookId")
                 scope.launch(Dispatchers.IO) {
+                    // 详尽的中文注释：记录本次重建是否真的写回了封面缓存，成功时不能加入失败去重集，否则同进程内缓存再次被系统清理后会失去自愈机会。
+                    var rebuiltCover = false
                     try {
-                        regenerateCoverForBook(bookId)
+                        regenerationSemaphore.withPermit {
+                            rebuiltCover = regenerateCoverForBook(bookId)
+                        }
                     } catch (e: Exception) {
                         Log.e("CoverRecoveryHelper", "后台重新提取有声书 $bookId 封面发生异常，详情: ", e)
                     } finally {
                         // 无论成功还是失败，均从去重集合中清除该 ID，恢复其可用性
                         pendingRegenerations.remove(bookId)
-                        // 详尽的中文注释：标记当前进程生命周期中已经对该书做过封面重建自愈尝试，若重建失败（封面依然为 null），后续不会再重复触发扫描
-                        alreadyAttempted.add(bookId)
+                        // 详尽的中文注释：只有失败或确实找不到封面时才加入失败去重集；成功写回后清理旧失败标记，允许未来缓存物理丢失时再次自愈。
+                        if (rebuiltCover) {
+                            alreadyAttempted.remove(bookId)
+                        } else {
+                            alreadyAttempted.add(bookId)
+                        }
                     }
                 }
             }
@@ -76,23 +89,25 @@ class CoverRecoveryHelper(
      * 本方法严格遵循「1. 首个 READY 音频的内嵌封面 -> 2. 父目录 Sidecar 外部图像 -> 3. 备用音频内嵌封面」三重漏斗型高优先级覆盖提取算法。
      * 提取成功后，通过 BookDao 的 updateCoverPaths 局部写入最新绝对路径和调色板主色，触发 Room 的 Flow 物理重发，进而让 UI 丝滑自动重绘刷新。
      */
-    private suspend fun regenerateCoverForBook(bookId: String) {
+    private suspend fun regenerateCoverForBook(bookId: String): Boolean {
         val files = bookDao.getFilesForBookList(bookId)
         if (files.isEmpty()) {
             Log.w("CoverRecoveryHelper", "有声书 $bookId 在数据库中无可关联的物理音频文件，放弃重建封面。")
-            return
+            return false
         }
 
         var finalCoverResult = CoverExtractor.CoverResult(null, null)
         // 详尽的中文注释：优先挑选出非 MISSING（状态为 READY）的首个音频物理对象。若没有，则取首个元素兜底
         val primaryFile = files.firstOrNull { it.status == AudiobookSchema.FileStatus.READY } ?: files.first()
+        // 详尽的中文注释：主文件的 SAF 定位与父目录定位共用同一次 root/relativePath 遍历，避免内嵌封面失败后再为 sidecar 查找重复访问数据库和 SAF 树。
+        val primaryResolved = resolveBookFile(primaryFile, includeParentDirectory = true)
 
         // 1. 漏斗第一层：尝试从主要音频文件内嵌流中解码封面数据。
         // 详尽的中文注释：由于 Scoped Storage 限制，后台读取具体音频子文件 content URI 在 Native 容易无权。
         // 我们这里优先通过 findReadableFile 方法获取 100% 具备合法 SAF 访问权的 DocumentFile 实体。
         // 如果是 content 协议，打开只读 ParcelFileDescriptor 并将 FileDescriptor 桥接设置给 MediaMetadataRetriever，彻底绕过 JNI 的 URI 直接权限校验阻碍。
         val coverResult = try {
-            val primaryDocFile = findReadableFile(primaryFile)
+            val primaryDocFile = primaryResolved.documentFile
             val retriever = MediaMetadataRetriever()
             var localPfd: ParcelFileDescriptor? = null
             try {
@@ -131,7 +146,7 @@ class CoverRecoveryHelper(
         } else {
             // 2. 漏斗第二层：若无内嵌封面，则通过主要音频物理文件记录寻找并解析其父目录，以此在 SAF 授权内检索 Sidecar 外部海报图（如 cover.jpg/folder.png 等）
             try {
-                val parentDir = getParentDirectory(primaryFile)
+                val parentDir = primaryResolved.parentDirectory
                 if (parentDir != null) {
                     finalCoverResult = coverExtractor.extractFromDirectory(parentDir)
                 } else {
@@ -198,8 +213,10 @@ class CoverRecoveryHelper(
                 lastScannedAt = System.currentTimeMillis()
             )
             // 详尽的中文注释：依指示直接移除原本此处的 Log.i 刷新通知日志，规避控制台在高频自愈重建中打印不必要的冗余日志
+            return true
         } else {
             Log.w("CoverRecoveryHelper", "未能在任何物理源中找到封面资产，放弃为有声书 $bookId 重建。")
+            return false
         }
     }
 
@@ -209,43 +226,68 @@ class CoverRecoveryHelper(
      * 如果解析失败，则根据协议分别进行 local file 或是 content URI 单文件解析的兜底。
      */
     private suspend fun getParentDirectory(file: BookFileEntity): DocumentFile? {
-        try {
-            val root = libraryRootDao.getRootById(file.rootId)
-            val rootDoc = root?.treeUri?.let { DocumentFile.fromTreeUri(context, Uri.parse(it)) }
-            val parentPath = file.relativePath.substringBeforeLast('/', missingDelimiterValue = "")
-            
-            // 1. 优先使用 SAF Tree 授权的相对路径逐级定位父目录
-            val rootBased = rootDoc?.let { findRelativeDirectory(it, parentPath) }
-            if (rootBased != null) return rootBased
-
-            // 2. 兜底方案：如果是 file 协议，直接用物理 java.io.File 获得父目录并转 DocumentFile
-            val fileUri = Uri.parse(file.uri)
-            if (fileUri.scheme == "file") {
-                val f = File(fileUri.path ?: "")
-                val parentF = f.parentFile
-                if (parentF != null && parentF.exists()) {
-                    return DocumentFile.fromFile(parentF)
-                }
-            }
-
-            // 3. 兜底方案：如果是单文件 content URI，退化到单文件 parentFile 方法
-            if (fileUri.scheme == "content") {
-                return DocumentFile.fromSingleUri(context, fileUri)?.parentFile
-            }
-        } catch (e: Exception) {
-            Log.e("CoverRecoveryHelper", "解析音频文件 ${file.id} 的父目录发生异常: ", e)
-        }
-        return null
+        // 详尽的中文注释：保留旧入口给局部调用兜底使用，实际定位委托给统一解析器，避免父目录和文件定位逻辑继续分叉。
+        return resolveBookFile(file, includeParentDirectory = true).parentDirectory
     }
 
     /**
-     * 详尽的中文注释：逐级递归定位 SAF Tree 下的子目录。
+     * 详尽的中文注释：统一还原 BookFile 的可读 DocumentFile 与可选父目录，主流程可一次拿到两者，减少重复 Room 查询、DocumentFile.fromTreeUri 与逐级 findFile。
      */
-    private fun findRelativeDirectory(root: DocumentFile, relativeParentPath: String): DocumentFile? {
-        if (relativeParentPath.isBlank()) return root
-        return relativeParentPath.split('/').fold(root as DocumentFile?) { current, segment ->
-            current?.findFile(segment)?.takeIf { it.isDirectory }
+    private suspend fun resolveBookFile(file: BookFileEntity, includeParentDirectory: Boolean): ResolvedBookFile {
+        try {
+            val root = libraryRootDao.getRootById(file.rootId)
+            val rootDoc = root?.treeUri?.let { DocumentFile.fromTreeUri(context, Uri.parse(it)) }
+            val fileUri = Uri.parse(file.uri)
+
+            // 详尽的中文注释：优先使用 SAF Tree 授权的相对路径逐级定位音频文件，并在遍历到最后一级前顺手保存父目录。
+            if (rootDoc != null && file.relativePath.isNotBlank()) {
+                val segments = file.relativePath.split('/').filter { it.isNotBlank() }
+                var current: DocumentFile? = rootDoc
+                var parentDirectory: DocumentFile? = if (segments.isEmpty()) rootDoc else null
+                for ((index, segment) in segments.withIndex()) {
+                    if (includeParentDirectory && index == segments.lastIndex) {
+                        parentDirectory = current
+                    }
+                    current = current?.findFile(segment)
+                    if (current == null) break
+                }
+                val documentFile = current?.takeIf { it.isFile }
+                val usableParent = parentDirectory?.takeIf { includeParentDirectory && it.isDirectory }
+                if (documentFile != null || usableParent != null) {
+                    return ResolvedBookFile(documentFile = documentFile, parentDirectory = usableParent)
+                }
+            }
+
+            // 详尽的中文注释：兜底方案一，如果是 file 协议，直接用物理 java.io.File 同时还原文件和父目录。
+            if (fileUri.scheme == "file") {
+                val f = File(fileUri.path ?: "")
+                val documentFile = f.takeIf { it.exists() && it.isFile }?.let(DocumentFile::fromFile)
+                val parentDirectory = if (includeParentDirectory) {
+                    f.parentFile?.takeIf { it.exists() && it.isDirectory }?.let(DocumentFile::fromFile)
+                } else {
+                    null
+                }
+                if (documentFile != null || parentDirectory != null) {
+                    return ResolvedBookFile(documentFile = documentFile, parentDirectory = parentDirectory)
+                }
+            }
+
+            // 详尽的中文注释：兜底方案二，如果是单文件 content URI，退化到 DocumentFile.fromSingleUri；parentFile 只作最后兼容路径使用。
+            if (fileUri.scheme == "content") {
+                val documentFile = DocumentFile.fromSingleUri(context, fileUri)?.takeIf { it.exists() && it.isFile }
+                val parentDirectory = if (includeParentDirectory) {
+                    documentFile?.parentFile
+                } else {
+                    null
+                }
+                if (documentFile != null) {
+                    return ResolvedBookFile(documentFile = documentFile, parentDirectory = parentDirectory)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("CoverRecoveryHelper", "解析音频文件 ${file.id} 的可读文件或父目录发生异常: ", e)
         }
+        return ResolvedBookFile(documentFile = null, parentDirectory = null)
     }
 
     /**
@@ -254,43 +296,18 @@ class CoverRecoveryHelper(
      * 如果 SAF Tree 路径寻址因为目录结构变更或未找到而失败，则分别根据协议类型（本地 file 协议或普通的单文件 content URI）执行安全且防御性的兜底解析。
      */
     private suspend fun findReadableFile(file: BookFileEntity): DocumentFile? {
-        try {
-            val root = libraryRootDao.getRootById(file.rootId)
-            val rootDoc = root?.treeUri?.let { DocumentFile.fromTreeUri(context, Uri.parse(it)) }
-            
-            // 1. 优先使用 SAF Tree 授权的相对路径逐级递归定位音频文件
-            if (rootDoc != null && file.relativePath.isNotBlank()) {
-                val segments = file.relativePath.split('/')
-                var current: DocumentFile? = rootDoc
-                for (segment in segments) {
-                    if (segment.isBlank()) continue
-                    current = current?.findFile(segment)
-                    if (current == null) break
-                }
-                if (current != null && current.isFile) {
-                    return current
-                }
-            }
+        // 详尽的中文注释：保留旧入口给备用音频漏斗调用，实际文件定位统一走 resolveBookFile，避免两套 SAF 路径遍历逻辑长期漂移。
+        return resolveBookFile(file, includeParentDirectory = false).documentFile
+    }
 
-            // 2. 兜底方案：如果是本地 file 协议，直接用物理 java.io.File 获得父目录并转 DocumentFile
-            val fileUri = Uri.parse(file.uri)
-            if (fileUri.scheme == "file") {
-                val f = File(fileUri.path ?: "")
-                if (f.exists() && f.isFile) {
-                    return DocumentFile.fromFile(f)
-                }
-            }
+    // 详尽的中文注释：内部承载一次 BookFile 定位结果，让主文件封面提取和同目录 sidecar 查找共享同一次解析输出。
+    private data class ResolvedBookFile(
+        val documentFile: DocumentFile?,
+        val parentDirectory: DocumentFile?
+    )
 
-            // 3. 兜底方案：如果是单文件 content URI，退化到单文件 DocumentFile
-            if (fileUri.scheme == "content") {
-                val doc = DocumentFile.fromSingleUri(context, fileUri)
-                if (doc != null && doc.exists() && doc.isFile) {
-                    return doc
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("CoverRecoveryHelper", "解析定位音频文件 ${file.id} 发生异常: ", e)
-        }
-        return null
+    private companion object {
+        // 详尽的中文注释：封面后台重建默认只允许两个重任务同时执行，给导入 metadata 与 UI 线程保留资源余量。
+        private const val MAX_CONCURRENT_COVER_REGENERATIONS = 2
     }
 }

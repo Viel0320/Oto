@@ -123,7 +123,11 @@ class LibraryRepository private constructor(context: Context) {
         } else {
             com.viel.aplayer.library.RescanType.USER_GLOBAL
         }
-        val session = com.viel.aplayer.library.RescanCoordinator(context).rescan(type)
+        // 详尽的中文注释：扫描导入阶段不再同步提取封面；这里把既有 CoverRecoveryHelper 注入 RescanCoordinator，让新书入库后立刻复用同一套异步封面重建与去重机制。
+        val session = com.viel.aplayer.library.RescanCoordinator(
+            context = context,
+            triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
+        ).rescan(type)
         Log.i("LibraryRepository", "Sync finished. New: ${session.discoveredBookCount}, Pending: ${session.pendingActionCount}")
     }
 

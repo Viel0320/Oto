@@ -3,8 +3,10 @@ package com.viel.aplayer.library
 import com.viel.aplayer.data.entity.BookFileEntity
 
 // In-memory first-claim-wins ledger for one import run.
-class RunClaimLedger {
-    private val ownerByKey = mutableMapOf<String, ImportSourceRef>()
+class RunClaimLedger(
+    // 详尽的中文注释：允许 RescanCoordinator 传入同一轮扫描共享的 owner map，从而跨 scope 保留 claim 预留状态。
+    private val ownerByKey: MutableMap<String, ImportSourceRef> = mutableMapOf()
+) {
 
     /**
      * 为每一次改动添加详尽的中文注释：
@@ -47,6 +49,16 @@ class RunClaimLedger {
             existingConflicts = existingHits.distinctBy { it.id },
             runConflicts = runHits.distinct()
         )
+    }
+
+    // 详尽的中文注释：为单个 scope 创建隔离副本，scope 内的 claim 只有在入库成功后才通过 commitFrom 合并回全局扫描账本。
+    fun fork(): RunClaimLedger = RunClaimLedger(ownerByKey.toMutableMap())
+
+    // 详尽的中文注释：scope 入库成功后提交其新增 claim 预留，避免解析失败或入库失败的 scope 污染后续 claim 判断。
+    fun commitFrom(scopeLedger: RunClaimLedger) {
+        scopeLedger.ownerByKey.forEach { (key, owner) ->
+            ownerByKey.putIfAbsent(key, owner)
+        }
     }
 }
 

@@ -70,6 +70,29 @@ data class FileInventory(
     }
 }
 
+// 详尽的中文注释：DirectoryInventory 表示扫描器已经关闭的单个物理目录快照，是后续 scope 级流式导入的输入事件。
+data class DirectoryInventory(
+    val root: LibraryRootEntity,
+    val directoryUri: String,
+    val directoryDocumentId: String,
+    val relativePath: String,
+    val cueFiles: List<FileRef>,
+    val m3u8Files: List<FileRef>,
+    val audioFiles: List<FileRef>,
+    val imageFiles: List<FileRef>
+) {
+    // 详尽的中文注释：保留 root 目录识别能力，供后续需要按授权根统计或切换释放策略时复用。
+    val isRootDirectory: Boolean get() = relativePath.isBlank()
+
+    // 详尽的中文注释：冷启动轻量扫描沿用旧逻辑，只让未被 BookFile 认领过的清单与音频进入后续 scope 构建。
+    fun onlyUnclaimed(existingClaimIndex: ExistingClaimIndex): DirectoryInventory =
+        copy(
+            cueFiles = cueFiles.filterNot { existingClaimIndex.has(it.identity) },
+            m3u8Files = m3u8Files.filterNot { existingClaimIndex.has(it.identity) },
+            audioFiles = audioFiles.filterNot { existingClaimIndex.has(it.identity) }
+        )
+}
+
 // Runtime file reference used during a single scan/import run.
 data class FileRef(
     val uri: String,
