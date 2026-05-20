@@ -21,7 +21,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.viel.aplayer.ui.detail.DetailOverlay
 import com.viel.aplayer.ui.detail.DetailViewModel
-import com.viel.aplayer.ui.home.LibraryUiEvent
+// 详尽中文注释：导入全局通用的 UI 事件类型 UiEvent，代替旧模块局部的 LibraryUiEvent
+import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.home.ScanResultDialog
 import com.viel.aplayer.ui.player.MiniPlayerActions
@@ -60,10 +61,11 @@ fun APlayerApp() {
         // 详尽的中文注释：消费 LibraryViewModel 发射的一次性 UI 事件（如 Toast 消息），
         // 遵循 ViewModel 不直接操作 Android UI 组件的架构原则，
         // 所有 Toast 的构造和展示均回归 Composable 层。
+        // 重构后：匹配通用的 UiEvent.ShowToast 进行集中渲染。
         LaunchedEffect(Unit) {
             libraryViewModel.uiEvents.collect { event ->
                 when (event) {
-                    is LibraryUiEvent.ShowToast -> {
+                    is UiEvent.ShowToast -> {
                         val spannable = SpannableString(event.message)
                         spannable.setSpan(
                             AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),

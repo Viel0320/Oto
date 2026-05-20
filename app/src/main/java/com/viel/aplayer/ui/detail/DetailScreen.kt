@@ -118,6 +118,9 @@ fun DetailScreen(
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
 
+    // 详尽中文注释：定义 3 秒播放状态保护期锁，若从“未播放”状态点击播放，则 3 秒内强制在 UI 渲染时将其视为“未播放”状态，防止按钮图标与文字由于进度异步加载发生闪烁
+    var isUnplayedProtectionActive by remember { mutableStateOf(false) }
+
     val animatedBgColor by animateColorAsState(
         targetValue = Color(uiState.backgroundColorArgb),
         animationSpec = tween(300),
@@ -423,8 +426,23 @@ fun DetailScreen(
                     )
                 }
 
+                // 详尽中文注释：根据保护期状态计算实际展示的进度。如果在 3 秒保护期内，则强制展示为 0（未播放状态），避免按钮在“Start Listening”和进度更新后高频跳变闪烁
+                val displayProgress = if (isUnplayedProtectionActive) 0 else uiState.progressPercent
+
                 Button(
-                    onClick = { if (uiState.isAvailable) onPlayClick() },
+                    onClick = { 
+                        if (uiState.isAvailable) {
+                            // 详尽中文注释：若当前处于未播放状态（进度为 0），点击播放时开启 3 秒的保护期，强行锁死状态，防止闪烁
+                            if (uiState.progressPercent == 0) {
+                                isUnplayedProtectionActive = true
+                                scope.launch {
+                                    kotlinx.coroutines.delay(3000L)
+                                    isUnplayedProtectionActive = false
+                                }
+                            }
+                            onPlayClick()
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
@@ -441,14 +459,14 @@ fun DetailScreen(
                 ) {
                     Icon(
                         imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage 
-                        else if (uiState.progressPercent > 0) Icons.Rounded.History 
+                        else if (displayProgress > 0) Icons.Rounded.History 
                         else Icons.Rounded.PlayArrow,
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (!uiState.isAvailable) "File not found"
-                               else if (uiState.progressPercent > 0) "Continue at ${uiState.progressPercent}%" 
+                               else if (displayProgress > 0) "Continue at $displayProgress%" 
                                else "Start Listening",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )

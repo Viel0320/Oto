@@ -22,6 +22,8 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.library.sync.LibrarySyncWorker
+// 详尽中文注释：导入全局通用的 UI 一次性反馈事件定义，用以解耦模块专有的 LibraryUiEvent
+import com.viel.aplayer.ui.common.UiEvent
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as APlayerApplication).container
@@ -36,10 +38,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     // 详尽的中文注释：记录 ViewModel 初始化启动的时间戳，用于过滤在本次启动前已完成的历史扫描会话，防止冷启动时重复弹窗与 Toast
     private val viewModelStartTime = System.currentTimeMillis()
 
-    // 详尽的中文注释：一次性 UI 事件流。ViewModel 不再直接操作 Toast 等 Android UI 组件，
-    // 而是通过 SharedFlow 发射事件，由 Composable 层（APlayerApp）订阅并消费展示。
-    private val _uiEvents = MutableSharedFlow<LibraryUiEvent>(extraBufferCapacity = 1)
-    val uiEvents: SharedFlow<LibraryUiEvent> = _uiEvents.asSharedFlow()
+    // 详尽的中文注释：一次性 UI 事件流。重构为使用全局通用的 UiEvent 通道代替原先局部的 LibraryUiEvent，
+    // ViewModel 不再操作任何模块局部的事件定义，进一步提升架构纯净度。
+    private val _uiEvents = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
+    val uiEvents: SharedFlow<UiEvent> = _uiEvents.asSharedFlow()
 
     // 详尽中文注释：用户手动选择的 filter，初始为 null 表示"用户尚未手动操作过"。
     // 当 null 时，combine 管道会按优先级链（持久化设置 → 首次加载自动判断 → 默认值）统一决策，
@@ -181,9 +183,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                                 "媒体库已是最新状态"
                             }
                             
-                            // 详尽的中文注释：通过一次性事件流发射 Toast 消息，由 Composable 层消费展示，
-                            // 遵循 ViewModel 不直接操作 Android UI 组件的架构原则。
-                            _uiEvents.tryEmit(LibraryUiEvent.ShowToast(message))
+                            // 详尽的中文注释：使用通用的 UiEvent.ShowToast 发射一次性 Toast 事件，交由主 Composable 容器层消费展示。
+                            _uiEvents.tryEmit(UiEvent.ShowToast(message))
                         }
                     }
                     // Remember the completed session so the same result does not reopen the dialog.
@@ -204,11 +205,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
             repository.deleteBook(bookId)
 
-            // 详尽的中文注释：通过一次性事件流发射删除结果 Toast 消息，
-            // 不再在 ViewModel 中直接构造 SpannableString 和调用 Toast.makeText()。
+            // 详尽的中文注释：使用通用的 UiEvent.ShowToast 发射图书移除结果 Toast。
             val fileStatus = if (fileExists) "源文件已保留" else "源文件已丢失或不存在"
             val message = "书籍已从媒体库移除\n$fileStatus"
-            _uiEvents.tryEmit(LibraryUiEvent.ShowToast(message))
+            _uiEvents.tryEmit(UiEvent.ShowToast(message))
         }
     }
 
