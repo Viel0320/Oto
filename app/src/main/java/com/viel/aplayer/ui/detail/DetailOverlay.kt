@@ -47,7 +47,8 @@ fun DetailOverlay(
             onBackClick = { libraryViewModel.setDetailVisible(false) },
             onSearchClick = { query ->
                 libraryViewModel.setDetailVisible(false)
-                if (canStartNavigation() && navController.currentBackStackEntry?.destination?.route?.startsWith("search") != true) {
+                if (canStartNavigation()) {
+                    // 详尽中文注释：移除对当前路由是否为 search 的判断，允许在搜索结果中打开详情后再点关键词跳回/更新搜索
                     navController.navigate("search?q=${android.net.Uri.encode(query)}") {
                         launchSingleTop = true
                     }

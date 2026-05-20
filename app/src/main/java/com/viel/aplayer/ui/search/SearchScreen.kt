@@ -52,9 +52,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.SearchHistoryEntity
 import com.viel.aplayer.ui.home.AudiobookListItem
+import com.viel.aplayer.ui.theme.APlayerTheme
 
 data class SearchCommand(
     val token: String,
@@ -98,7 +100,8 @@ fun SearchScreen(
     val searchHistory by viewModel.searchHistory.collectAsState()
 
     LaunchedEffect(initialQuery) {
-        if (!initialQuery.isNullOrBlank() && query.text.isBlank()) {
+        if (!initialQuery.isNullOrBlank()) {
+            // 只要 initialQuery 不为空，就强制执行新搜索，从而实现自动清空已有文本并跳转的功能
             viewModel.search(initialQuery)
         }
     }
@@ -424,5 +427,69 @@ fun SearchContent(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SearchScreenEmptyPreview() {
+    APlayerTheme {
+        SearchContent(
+            query = TextFieldValue(""),
+            searchResults = emptyList(),
+            searchHistory = listOf(
+                SearchHistoryEntity("Android Development", System.currentTimeMillis()),
+                SearchHistoryEntity("Jetpack Compose", System.currentTimeMillis())
+            ),
+            commandSuggestions = emptyList(),
+            onQueryChange = {},
+            onSearch = {},
+            onClearQuery = {},
+            onDeleteHistory = {},
+            onClearHistory = {},
+            onBack = {},
+            onNavigateToDetail = {},
+            onLoadBook = {},
+            onNavigateToPlayer = {},
+            autoFocus = false
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SearchScreenResultsPreview() {
+    val mockBooks = listOf(
+        BookWithProgress(
+            book = BookEntity(
+                id = "id1",
+                rootId = "preview-root",
+                sourceType = "SINGLE_AUDIO",
+                title = "In the Megachurch",
+                author = "Ryo Asai",
+                narrator = "Narrator A",
+                totalDurationMs = 44580000L,
+                addedAt = System.currentTimeMillis()
+            ),
+            progress = null
+        )
+    )
+    APlayerTheme {
+        SearchContent(
+            query = TextFieldValue("Megachurch"),
+            searchResults = mockBooks,
+            searchHistory = emptyList(),
+            commandSuggestions = emptyList(),
+            onQueryChange = {},
+            onSearch = {},
+            onClearQuery = {},
+            onDeleteHistory = {},
+            onClearHistory = {},
+            onBack = {},
+            onNavigateToDetail = {},
+            onLoadBook = {},
+            onNavigateToPlayer = {},
+            autoFocus = false
+        )
     }
 }

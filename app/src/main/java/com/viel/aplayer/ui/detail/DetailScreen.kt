@@ -11,7 +11,6 @@ import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.TextView
-import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
