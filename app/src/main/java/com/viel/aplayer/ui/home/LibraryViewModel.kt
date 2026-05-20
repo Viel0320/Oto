@@ -3,31 +3,25 @@ package com.viel.aplayer.ui.home
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
-import android.text.Layout
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.AlignmentSpan
-import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.library.sync.LibrarySyncWorker
-import com.viel.aplayer.media.parse.ImageProcessor
-import com.viel.aplayer.ui.detail.DetailUiState
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as APlayerApplication).container
@@ -42,8 +36,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     // 详尽的中文注释：记录 ViewModel 初始化启动的时间戳，用于过滤在本次启动前已完成的历史扫描会话，防止冷启动时重复弹窗与 Toast
     private val viewModelStartTime = System.currentTimeMillis()
 
-    private val _detailUiState = MutableStateFlow(DetailUiState())
-    val detailUiState: StateFlow<DetailUiState> = _detailUiState.asStateFlow()
+    // 详尽的中文注释：一次性 UI 事件流。ViewModel 不再直接操作 Toast 等 Android UI 组件，
+    // 而是通过 SharedFlow 发射事件，由 Composable 层（APlayerApp）订阅并消费展示。
+    private val _uiEvents = MutableSharedFlow<LibraryUiEvent>(extraBufferCapacity = 1)
+    val uiEvents: SharedFlow<LibraryUiEvent> = _uiEvents.asSharedFlow()
 
     // 详尽中文注释：用户手动选择的 filter，初始为 null 表示"用户尚未手动操作过"。
     // 当 null 时，combine 管道会按优先级链（持久化设置 → 首次加载自动判断 → 默认值）统一决策，
@@ -185,20 +181,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                                 "媒体库已是最新状态"
                             }
                             
-                            // 详尽的中文注释：使用 Spannable 居中对齐 Toast 文本，确保高标准视觉呈现
-                            val spannable = SpannableString(message)
-                            spannable.setSpan(
-                                AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
-                                0,
-                                message.length,
-                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                            )
-                            
-                            Toast.makeText(
-                                getApplication<Application>(),
-                                spannable,
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            // 详尽的中文注释：通过一次性事件流发射 Toast 消息，由 Composable 层消费展示，
+                            // 遵循 ViewModel 不直接操作 Android UI 组件的架构原则。
+                            _uiEvents.tryEmit(LibraryUiEvent.ShowToast(message))
                         }
                     }
                     // Remember the completed session so the same result does not reopen the dialog.
@@ -214,33 +199,16 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteBook(bookId: String) {
         viewModelScope.launch {
-            val book = repository.getBookById(bookId)
-            // Book no longer has a sourceUri; check the first AUDIO BookFile instead.
+            // 详尽的中文注释：检测被删除书籍的源文件存在状态，用于向用户反馈删除结果
             val fileExists = repository.getPrimaryAudioUri(bookId)?.let { repository.checkFileExists(it) } ?: false
 
-            if (_detailUiState.value.book?.book?.id == bookId) {
-                _detailUiState.update { it.copy(isVisible = false, book = null) }
-            }
             repository.deleteBook(bookId)
 
-            // 发送状态通知，说明删除书籍记录时是否仍保留源文件。
+            // 详尽的中文注释：通过一次性事件流发射删除结果 Toast 消息，
+            // 不再在 ViewModel 中直接构造 SpannableString 和调用 Toast.makeText()。
             val fileStatus = if (fileExists) "源文件已保留" else "源文件已丢失或不存在"
             val message = "书籍已从媒体库移除\n$fileStatus"
-            
-            // 使用 Spannable 实现 Toast 文本居中显示。
-            val spannable = SpannableString(message)
-            spannable.setSpan(
-                AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
-                0,
-                message.length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-
-            Toast.makeText(
-                getApplication<Application>(),
-                spannable,
-                Toast.LENGTH_SHORT
-            ).show()
+            _uiEvents.tryEmit(LibraryUiEvent.ShowToast(message))
         }
     }
 
@@ -270,48 +238,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun selectDetailBook(book: BookWithProgress?) {
-        val current = _detailUiState.value
-        
-        // 1. 只要选中有效书籍，就显示详情页；同一本书重复选择也刷新详情状态。
-        if (book != null) {
-            _detailUiState.value = current.copy(
-                book = book,
-                isVisible = true,
-                // Filled asynchronously from BookFile(AUDIO); Book itself is no longer a file identity.
-                isAvailable = false,
-                progressPercent = book.progressPercent // 显式初始化数据库中的阅读进度。
-            )
-            viewModelScope.launch {
-                // Detail availability persists BookFile and Book status for the selected book only.
-                val isAvailable = repository.checkDetailAvailability(book.book.id)
-                _detailUiState.update { state ->
-                    state.copy(isAvailable = isAvailable)
-                }
-            }
-        } else {
-            _detailUiState.value = current.copy(isVisible = false)
-        }
-        
-        // 2. 封面主色提取逻辑，只在封面变化或尚未缓存颜色时执行。
-        if (book != null && (book.book.coverPath != current.book?.book?.coverPath || current.backgroundColorArgb == ImageProcessor.DEFAULT_BACKGROUND_ARGB)) {
-            viewModelScope.launch(Dispatchers.Default) {
-                // 优先使用数据库中已经缓存的主色调，避免重复解析封面。
-                val cachedColor = repository.getBookById(book.book.id)?.backgroundColorArgb
-                val backgroundColor = cachedColor ?: ImageProcessor.getDominantColor(book.book.coverPath)
-                _detailUiState.value = _detailUiState.value.copy(backgroundColorArgb = backgroundColor)
-                
-                // 如果本次新提取了主色调，则写回数据库供下次复用。
-                if (cachedColor == null) {
-                    repository.updateBackgroundColor(book.book.id, backgroundColor)
-                }
-            }
-        }
-    }
 
-    fun setDetailVisible(visible: Boolean) {
-        _detailUiState.update { it.copy(isVisible = visible) }
-    }
 
     fun clearSearchHistory() {
         viewModelScope.launch {

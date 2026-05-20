@@ -16,6 +16,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -269,8 +270,51 @@ fun NewPlayerScreen(
                             when (mode) {
                                 PlayerScreenMode.PLAYER -> {
                                     Box(modifier = Modifier.weight(1f)) {
-                                        // 详尽的中文注释：在此处将自愈封面最后修改时间戳 metadata.coverLastUpdated 传入，从而强力打通缓存刷新机制
-                                        MainCoverView(metadata.coverPath, controls.isPlaying, metadata.coverLastUpdated)
+                                        // 详尽中文注释：定义封面拖拽手势所需的水平拖拽距离累加器与触发状态标志，用于水平滑动切换上下章节时的去抖动处理。
+                                        var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
+                                        var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
+
+                                        // 详尽的中文注释：在此处将自愈封面最后修改时间戳 metadata.coverLastUpdated 传入，从而强力打通缓存刷新机制。
+                                        // 同时，通过 pointerInput 绑定 detectDragGestures，重构并恢复此前遗失的封面交互手势（上下滑动微调音量，左右滑动切歌/切章节）。
+                                        MainCoverView(
+                                            coverPath = metadata.coverPath,
+                                            isPlaying = controls.isPlaying,
+                                            coverLastUpdated = metadata.coverLastUpdated,
+                                            modifier = Modifier.pointerInput(Unit) {
+                                                detectDragGestures(
+                                                    onDragStart = { 
+                                                        totalHorizontalDrag = 0f
+                                                        hasTriggeredHorizontalDrag = false
+                                                    },
+                                                    onDragEnd = { 
+                                                        totalHorizontalDrag = 0f
+                                                        hasTriggeredHorizontalDrag = false
+                                                    },
+                                                    onDragCancel = { 
+                                                        totalHorizontalDrag = 0f
+                                                        hasTriggeredHorizontalDrag = false
+                                                    },
+                                                    onDrag = { change, dragAmount ->
+                                                        change.consume()
+                                                        if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x)) {
+                                                            // 详尽中文注释：垂直拖拽用于微调系统音量大小，负号是为了拖动方向更符合直觉（向上滑增大，向下滑减小）
+                                                            actions.playback.onAdjustVolume(-dragAmount.y * 0.002f)
+                                                        } else if (!hasTriggeredHorizontalDrag) {
+                                                            // 详尽中文注释：水平拖拽用于切换章节，使用 totalHorizontalDrag 累积滑动距离进行阈值（300f）去抖
+                                                            totalHorizontalDrag += dragAmount.x
+                                                            if (kotlin.math.abs(totalHorizontalDrag) > 300f) {
+                                                                if (totalHorizontalDrag > 0) {
+                                                                    actions.playback.onNextChapter()
+                                                                } else {
+                                                                    actions.playback.onPreviousChapter()
+                                                                }
+                                                                hasTriggeredHorizontalDrag = true
+                                                            }
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        )
                                     }
                                     // 详尽的中文注释：将 viewModel 注入，并在内部采用局部的进度和章节 Stateful 隔间包装
                                     PlayerControlPanel(viewModel, metadata, controls, settings, actions, animatedBgColor)

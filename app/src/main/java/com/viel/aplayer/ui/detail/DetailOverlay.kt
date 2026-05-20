@@ -11,7 +11,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.player.PlayerViewModel
 
 /**
@@ -20,14 +19,17 @@ import com.viel.aplayer.ui.player.PlayerViewModel
  */
 @Composable
 fun DetailOverlay(
-    libraryViewModel: LibraryViewModel,
+    detailViewModel: DetailViewModel,
     playerViewModel: PlayerViewModel,
     navController: NavController,
     canStartNavigation: () -> Boolean,
     modifier: Modifier = Modifier
 ) {
-    val detailUiState by libraryViewModel.detailUiState.collectAsStateWithLifecycle()
-    val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
+    val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
+    // 详尽的中文注释：仅订阅 ViewModel 预计算好的进度百分比和当前书籍 ID，
+    // 不再在 Composable 中内联 ceil/division 数学运算，遵循 UI 层纯渲染原则。
+    val currentBookId by playerViewModel.currentBookId.collectAsStateWithLifecycle()
+    val playbackPercent by playerViewModel.currentPlaybackProgressPercent.collectAsStateWithLifecycle()
 
     AnimatedVisibility(
         visible = detailUiState.isVisible,
@@ -36,17 +38,16 @@ fun DetailOverlay(
         modifier = modifier
     ) {
         DetailScreen(
-            uiState = if (playerUiState.currentId == detailUiState.book?.book?.id && playerUiState.duration > 0) {
-                val realTimePercent = kotlin.math.ceil(
-                    playerUiState.currentPosition.toDouble() / playerUiState.duration.toDouble() * 100
-                ).toInt().coerceIn(0, 100)
-                detailUiState.copy(progressPercent = realTimePercent)
+            // 详尽的中文注释：当详情页展示的书籍与当前正在播放的书籍一致，且 ViewModel 已产出有效进度时，
+            // 使用 ViewModel 预计算的实时百分比覆盖数据库中的静态进度值，实现实时同步。
+            uiState = if (currentBookId == detailUiState.book?.book?.id && playbackPercent > 0) {
+                detailUiState.copy(progressPercent = playbackPercent)
             } else {
                 detailUiState
             },
-            onBackClick = { libraryViewModel.setDetailVisible(false) },
+            onBackClick = { detailViewModel.setVisible(false) },
             onSearchClick = { query ->
-                libraryViewModel.setDetailVisible(false)
+                detailViewModel.setVisible(false)
                 if (canStartNavigation()) {
                     // 详尽中文注释：移除对当前路由是否为 search 的判断，允许在搜索结果中打开详情后再点关键词跳回/更新搜索
                     navController.navigate("search?q=${android.net.Uri.encode(query)}") {

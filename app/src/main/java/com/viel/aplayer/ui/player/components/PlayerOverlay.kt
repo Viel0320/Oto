@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.NewPlayerScreen
@@ -98,16 +97,20 @@ fun PlayerOverlay(
 /**
  * 迷你播放器内容容器。
  * 专门用于收集高频更新的状态（PlaybackState），从而将重组范围控制在最小范围内。
+ * 详尽的中文注释：章节进度 / 全局进度的选择计算已移至 PlayerViewModel.miniPlayerProgress，
+ * 此处只做纯渲染订阅，不再直接调用 ChapterTimeline 等 media 层工具类。
  */
 @Composable
 private fun MiniPlayerContent(
     viewModel: PlayerViewModel,
     actions: MiniPlayerActions
 ) {
-    // 在此处收集高频状态，进度更新只会引起这个 Box 及其子项重组
+    // 详尽的中文注释：在此处收集高频状态，进度更新只会引起这个 Box 及其子项重组
     val playback by viewModel.playbackState.collectAsStateWithLifecycle()
     val metadata by viewModel.metadataState.collectAsStateWithLifecycle()
-    val settings by viewModel.settingsState.collectAsStateWithLifecycle()
+    // 详尽的中文注释：订阅 ViewModel 预计算好的迷你播放器进度，
+    // 已根据章节模式 / 全局模式自动切换，无需 UI 层再做 ChapterTimeline 计算。
+    val displayProgress by viewModel.miniPlayerProgress.collectAsStateWithLifecycle()
     val isMediaAvailable by remember(viewModel, metadata.id) {
         // Compact player checks the current book availability only while it is mounted.
         viewModel.currentBookAvailability(metadata.id)
@@ -116,16 +119,6 @@ private fun MiniPlayerContent(
     Box(modifier = Modifier.clickable {
         viewModel.setFullPlayerVisible(true)
     }) {
-        val displayProgress = if (settings.isChapterProgressMode && metadata.chapters.isNotEmpty()) {
-            // Mini player progress mirrors the full player chapter boundary calculation.
-            val currentChapter = ChapterTimeline.currentChapter(metadata.chapters, playback.currentPosition)
-            val posInChapter = ChapterTimeline.positionInChapter(metadata.chapters, currentChapter, playback.currentPosition, playback.duration)
-            val chapterDuration = ChapterTimeline.duration(metadata.chapters, currentChapter, playback.duration)
-            posInChapter.toFloat() / chapterDuration.toFloat()
-        } else {
-            playback.progress
-        }
-
         CompactMediaPlayer(
             isPlaying = playback.isPlaying,
             title = metadata.title,
@@ -134,7 +127,7 @@ private fun MiniPlayerContent(
             coverPath = metadata.thumbnailPath,
             // 详尽的中文注释：桥接封面最后更新时间戳，用以打破 Coil 等的缓存，确保发生重组后强制渲染最新文件
             coverLastUpdated = metadata.coverLastUpdated,
-            // 传递计算后的进度
+            // 详尽的中文注释：传递 ViewModel 预计算的进度值，UI 层不再包含任何业务计算
             progress = { displayProgress },
             isMediaAvailable = isMediaAvailable,
             actions = actions

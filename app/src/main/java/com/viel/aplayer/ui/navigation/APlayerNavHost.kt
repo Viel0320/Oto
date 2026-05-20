@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.player.PlayerViewModel
@@ -25,6 +26,8 @@ fun APlayerNavHost(
     navController: NavHostController,
     libraryViewModel: LibraryViewModel,
     playerViewModel: PlayerViewModel,
+    // 详尽的中文注释：接收独立的 DetailViewModel，用于详情页书籍选中操作
+    detailViewModel: DetailViewModel,
     settingsViewModel: SettingsViewModel = viewModel(),
     canStartNavigation: () -> Boolean,
     navigateBack: () -> Unit
@@ -49,7 +52,7 @@ fun APlayerNavHost(
                 isMiniPlayerVisible = playerUiState.hasActiveTrack,
                 onNavigateToDetail = { id: String ->
                     val book = libraryUiState.audiobooks.find { it.book.id == id }
-                    libraryViewModel.selectDetailBook(book)
+                    detailViewModel.selectBook(book)
                 },
                 onNavigateToSearch = {
                     if (canStartNavigation() && navController.currentBackStackEntry?.destination?.route?.startsWith("search") != true) {
@@ -102,7 +105,7 @@ fun APlayerNavHost(
                 onBack = navigateBack,
                 onNavigateToDetail = { id: String ->
                     val book = libraryUiState.audiobooks.find { it.book.id == id }
-                    libraryViewModel.selectDetailBook(book)
+                    detailViewModel.selectBook(book)
                 },
                 onLoadBook = { id: String ->
                     playerViewModel.loadBook(id)

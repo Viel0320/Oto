@@ -164,6 +164,48 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackControlState(false, 1.0f, false))
 
+    // 详尽的中文注释：当前播放进度百分比 (0-100)，从真实的 playbackState 高频流派生。
+    // 供 DetailOverlay 在展示当前正在播放的书籍详情时，实时同步进度百分比，
+    // 避免在 Composable 中内联数学运算，遵循 ViewModel 单向数据流原则。
+    val currentPlaybackProgressPercent: StateFlow<Int> = playbackState
+        .map { state ->
+            if (state.duration > 0) {
+                kotlin.math.ceil(
+                    state.currentPosition.toDouble() / state.duration.toDouble() * 100
+                ).toInt().coerceIn(0, 100)
+            } else 0
+        }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    // 详尽的中文注释：迷你播放器显示进度 (0.0f - 1.0f)。
+    // 根据用户是否开启章节进度模式 (isChapterProgressMode)，自动选择：
+    // - 章节模式：计算当前章节内的局部进度比例（调用 ChapterTimeline）
+    // - 全局模式：使用 currentPosition / duration 的全局进度
+    // 此前该计算散落在 PlayerOverlay 的 MiniPlayerContent Composable 中，
+    // 现集中到 ViewModel 的 Flow 管道，UI 层只需订阅并渲染。
+    val miniPlayerProgress: StateFlow<Float> = combine(
+        playbackState,
+        metadataState.map { it.chapters }.distinctUntilChanged(),
+        settingsState.map { it.isChapterProgressMode }.distinctUntilChanged()
+    ) { state, chapters, isChapterMode ->
+        if (isChapterMode && chapters.isNotEmpty()) {
+            val currentChapter = ChapterTimeline.currentChapter(chapters, state.currentPosition)
+            val posInChapter = ChapterTimeline.positionInChapter(
+                chapters, currentChapter, state.currentPosition, state.duration
+            )
+            val chapterDuration = ChapterTimeline.duration(
+                chapters, currentChapter, state.duration
+            )
+            if (chapterDuration > 0) posInChapter.toFloat() / chapterDuration.toFloat() else 0f
+        } else {
+            state.progress
+        }
+    }
+    .distinctUntilChanged()
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
+
+
     // 详尽的中文注释：重构后的低频全局 uiState 流。
     // 核心重构设计在于对 playback 字段进行彻底的进度“脱水”（将 currentPosition 和 duration 强制清零），
     // 这样全局 uiState 便能对每 500 毫秒一次的高频进度时间完全免疫，只有在播放控制改变、切换书籍或设置更新时才极低频重组。

@@ -38,7 +38,13 @@ import java.io.File
  * @param coverLastUpdated 封面文件最后更新的时间戳，用于打破 Coil 缓存以实现封面自愈重建后即时刷新
  */
 @Composable
-fun MainCoverView(coverPath: String?, isPlaying: Boolean, coverLastUpdated: Long = 0L) {
+fun MainCoverView(
+    coverPath: String?,
+    isPlaying: Boolean,
+    coverLastUpdated: Long = 0L,
+    // 详尽中文注释：新增 modifier 参数，允许外部调用者（如 NewPlayerScreen）注入封面手势监听器与自定义样式
+    modifier: Modifier = Modifier
+) {
     // 详尽中文注释：播放时封面等比缩放至 1.0，暂停时缩至 0.95，配合 300ms 动画营造呼吸感
     val coverScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.95f,
@@ -46,7 +52,7 @@ fun MainCoverView(coverPath: String?, isPlaying: Boolean, coverLastUpdated: Long
     )
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp, vertical = 32.dp),
         contentAlignment = Alignment.TopCenter
