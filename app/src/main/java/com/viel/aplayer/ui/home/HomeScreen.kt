@@ -189,10 +189,13 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
+            // 详尽中文注释：使用全新重构的 Material 3 APlayerFilterChip 构建横向滚动的首页 Filter Chip Group。
+            // 将 LazyRow 的底部外边距微调至 12.dp，既确保了点击 FilterChip 时其原生水波纹与按压阴影等视觉微反馈
+            // 有足够的溢出展示空间不被强行截断，又为下方内容区域带来更加宽敞、透气的大师级呼吸感间距。
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(top = 8.dp, bottom = 12.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {

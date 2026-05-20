@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Sync
@@ -70,7 +69,7 @@ fun ScanResultDialog(
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 ResultRow(
                     icon = Icons.Rounded.CheckCircle,
                     label = "New Books",
@@ -78,9 +77,9 @@ fun ScanResultDialog(
                     color = MaterialTheme.colorScheme.primary
                 )
                 ItemList(items = summary.newBooks)
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 ResultRow(
                     icon = Icons.Rounded.Warning,
                     label = "Scan Failures",
@@ -105,7 +104,7 @@ fun ScanResultDialog(
                     )
                     ItemList(items = summary.partialImports)
                 }
-                
+
                 if (session.updatedBookCount > 0) {
                     Spacer(modifier = Modifier.height(12.dp))
                     ResultRow(
