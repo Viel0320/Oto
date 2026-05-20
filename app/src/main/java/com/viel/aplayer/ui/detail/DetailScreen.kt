@@ -11,6 +11,8 @@ import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.TextView
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -97,6 +99,8 @@ import com.viel.aplayer.ui.common.formatFileSize
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.theme.APlayerTheme
 
+
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DetailScreen(
@@ -109,6 +113,9 @@ fun DetailScreen(
 ) {
     val bookWithProgress = uiState.book
     val book = bookWithProgress?.book
+    // 详尽中文注释：定义预测性返回手势的激活状态和手势进度值（0f 到 1f 之间）
+    var isPredictiveBackActive by remember { mutableStateOf(false) }
+    var predictiveBackProgress by remember { mutableStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
 
@@ -132,8 +139,23 @@ fun DetailScreen(
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    androidx.activity.compose.BackHandler(enabled = uiState.isVisible) {
-        onBackClick()
+    // 详尽的中文注释：接管并拦截系统预测性返回手势事件，动态收集并流式更新拖拽进度
+    androidx.activity.compose.PredictiveBackHandler(enabled = uiState.isVisible) { progressFlow ->
+        try {
+            // 收集返回事件进度流，以动态感知返回拖拽百分比进度
+            progressFlow.collect { backEvent ->
+                isPredictiveBackActive = true
+                predictiveBackProgress = backEvent.progress
+            }
+            // 手势完整滑动完成后，执行返回事件以顺畅退场
+            onBackClick()
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            // 详尽的中文注释：用户拖拽过程中放弃返回并滑回，恢复卡片状态
+        } finally {
+            // 详尽的中文注释：手势事件流结束后，重置预测性返回的触发激活状态与进度为 0f
+            isPredictiveBackActive = false
+            predictiveBackProgress = 0f
+        }
     }
 
     val bgColor = MaterialTheme.colorScheme.background
@@ -148,10 +170,24 @@ fun DetailScreen(
         }
     }
 
+    // 详尽的中文注释：计算最大的向下位移像素值，顺应详情页向下滑动退出的特征
+    val maxPredictiveTranslationY = with(density) { 120.dp.toPx() }
+
     Surface(
         modifier = modifier
             .fillMaxSize()
             .offset { IntOffset(0, offsetY.value.roundToInt()) }
+            .graphicsLayer {
+                // 详尽的中文注释：当手势处于预测性返回拖拽状态时，顺应详情页向下滑动关闭的退出动画特征，
+                // 让卡片整体随返回手势的进度向下平移，并伴随微小等比缩放（1.0f -> 0.95f）与淡出效果（1.0f -> 0.7f）。
+                if (isPredictiveBackActive) {
+                    translationY = predictiveBackProgress * maxPredictiveTranslationY
+                    val scale = 1f - predictiveBackProgress * 0.05f
+                    scaleX = scale
+                    scaleY = scale
+                    alpha = 1f - predictiveBackProgress * 0.3f
+                }
+            }
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
             .background(bgColor)
             .background(backgroundBrush),

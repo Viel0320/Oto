@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.player
 
 import android.view.RoundedCorner
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
@@ -90,6 +91,8 @@ import com.viel.aplayer.ui.player.components.SubtitlesView
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import com.viel.aplayer.ui.theme.APlayerTheme
 
+
+
 enum class PlayerScreenMode(val index: Int) {
     PLAYER(-1),
     BOOKMARKS(0),
@@ -122,6 +125,10 @@ fun NewPlayerScreen(
 
     var currentMode by remember { mutableStateOf(targetMode) }
 
+    // 详尽中文注释：定义全屏播放器预测性返回手势的激活状态和手势百分比进度值（0f 到 1f 之间）
+    var isPlayerBackActive by remember { mutableStateOf(false) }
+    var playerBackProgress by remember { mutableStateOf(0f) }
+
     val scope = rememberCoroutineScope()
     val offsetY = remember { Animatable(0f) }
     val density = LocalDensity.current
@@ -143,13 +150,35 @@ fun NewPlayerScreen(
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
-        androidx.activity.compose.BackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) {
-            currentMode = PlayerScreenMode.PLAYER
+        // 详尽的中文注释：当处于书签/歌词/推荐等面板时，使用 PredictiveBackHandler 平滑返回主播放页面
+        androidx.activity.compose.PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
+            try {
+                progressFlow.collect { }
+                currentMode = PlayerScreenMode.PLAYER
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                // 详尽的中文注释：用户中途滑回取消，不做状态改变
+            }
         }
 
-        androidx.activity.compose.BackHandler(enabled = currentMode == PlayerScreenMode.PLAYER && settings.isFullPlayerVisible) {
-            actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
-            navigationActions.onMinimize()
+        // 详尽的中文注释：当处于主播放页面且全屏播放器可见时，使用 PredictiveBackHandler 拦截并支持手势平滑最小化
+        androidx.activity.compose.PredictiveBackHandler(
+            enabled = currentMode == PlayerScreenMode.PLAYER && settings.isFullPlayerVisible
+        ) { progressFlow ->
+            try {
+                // 收集预测性返回拖拽进度流，动态调节播放器向下滑动的过渡程度
+                progressFlow.collect { backEvent ->
+                    isPlayerBackActive = true
+                    playerBackProgress = backEvent.progress
+                }
+                actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
+                navigationActions.onMinimize()
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                // 详尽的中文注释：用户在手势拖拽时滑回以取消最小化返回，恢复原状态
+            } finally {
+                // 详尽的中文注释：手势执行完成或取消时，及时清空手势激活状态和进度值为 0f
+                isPlayerBackActive = false
+                playerBackProgress = 0f
+            }
         }
 
         val animatedBgColor by animateColorAsState(
@@ -170,10 +199,25 @@ fun NewPlayerScreen(
             }
         }
 
+        // 详尽的中文注释：计算最大的向下位移像素值，顺应全屏播放器“向下滑动收起”的最小化退出特征
+        val maxPredictiveTranslationY = with(density) { 120.dp.toPx() }
+
         Surface(
             modifier = modifier
                 .fillMaxSize()
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
+                .graphicsLayer {
+                    // 详尽的中文注释：当全屏播放器拖拽最小化预测性返回手势处于激活状态时，
+                    // 让卡片整体随手势的百分比进度向下平移（最多 120.dp），并伴随轻微等比缩放（1.0f -> 0.95f）与淡出（1.0f -> 0.7f），
+                    // 在力导向和视觉上与最终向下滑动收起为迷你播放器的退出动画无缝融合。
+                    if (isPlayerBackActive) {
+                        translationY = playerBackProgress * maxPredictiveTranslationY
+                        val scale = 1f - playerBackProgress * 0.05f
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = 1f - playerBackProgress * 0.3f
+                    }
+                }
                 .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
                 .background(bgColor)
                 .background(backgroundBrush),

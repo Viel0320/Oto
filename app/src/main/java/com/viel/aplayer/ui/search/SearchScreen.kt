@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.search
 
-import androidx.activity.compose.BackHandler
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -159,9 +159,10 @@ fun SearchContent(
         onBack()
     }
 
-    BackHandler {
-        handleBack()
-    }
+    // 详尽中文注释：为了让搜索页 100% 呈现 Android 系统级原生的预测性返回手势动画（向右拉出预览并 pop 退出），
+    // 此处彻底移除了对返回事件的 PredictiveBackHandler 手动拦截。
+    // 返回手势事件直接移交系统与 Compose Navigation 接管。当用户向右滑动返回时，
+    // 系统将顺畅显示原生页面退场过渡，并在最终退出销毁时自动清空输入框焦点与收起软键盘。
 
     LaunchedEffect(Unit) {
         if (autoFocus) {
