@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.player
 
 import android.view.RoundedCorner
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -122,7 +123,8 @@ fun NewPlayerScreen(
         currentMode = targetMode
     }
 
-    APlayerTheme(darkTheme = true) {
+    // 详尽中文注释：移除原先硬编码的 darkTheme = true，使全屏播放器跟随系统/应用主题设置
+    APlayerTheme {
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
@@ -164,11 +166,15 @@ fun NewPlayerScreen(
         )
 
         val bgColor = MaterialTheme.colorScheme.background
-        val backgroundBrush by remember(animatedBgColor, bgColor) {
+        // 详尽中文注释：根据当前主题模式动态调整封面主色渐变的不透明度。
+        // 暗色模式使用 0.5f 保持沉浸感；亮色模式降至 0.15f 使渐变清淡通透，避免深色主色在浅背景上显得浑浊。
+        val isDarkTheme = isSystemInDarkTheme()
+        val gradientAlpha = if (isDarkTheme) 0.5f else 0.15f
+        val backgroundBrush by remember(animatedBgColor, bgColor, gradientAlpha) {
             derivedStateOf {
                 Brush.verticalGradient(
                     colors = listOf(
-                        animatedBgColor.copy(alpha = 0.5f),
+                        animatedBgColor.copy(alpha = gradientAlpha),
                         bgColor
                     )
                 )
