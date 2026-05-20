@@ -168,11 +168,14 @@ interface BookDao {
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
     suspend fun getProgressForBookSync(bookId: String): BookProgressEntity?
 
-    // Cold-start restore uses the newest progress row from non-deleted books as the last compact-player item.
+    // 详尽的中文注释：应用冷启动恢复逻辑。
+    // 仅检索最后一次播放、且尚未完成（进度未达 99%）的非删除书籍进度。
+    // 这样可以确保用户下次进入应用时，迷你播放器不会加载已经播放完毕的书籍。
     @Query("""
         SELECT book_progress.* FROM book_progress
         INNER JOIN books ON books.id = book_progress.bookId
         WHERE books.status != 'DELETED'
+        AND (books.totalDurationMs = 0 OR book_progress.globalPositionMs < (books.totalDurationMs * 0.99))
         ORDER BY book_progress.lastPlayedAt DESC
         LIMIT 1
     """)

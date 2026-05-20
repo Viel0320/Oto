@@ -270,6 +270,24 @@ class PlayerViewModel : ViewModel() {
                 }
             }
         }
+
+        viewModelScope.launch {
+            // 详尽的中文注释：监听播放状态变化。
+            // 当检测到播放结束（STATE_ENDED）时，启动一个 5 秒的延迟任务来自动关闭播放界面。
+            // 这样能与 PlaybackService 的自动停止逻辑保持同步，提供一致的退出体验。
+            manager.playbackState.collectLatest { state ->
+                if (state == androidx.media3.common.Player.STATE_ENDED) {
+                    delay(5000)
+                    // 再次检查状态，确保在延迟期间没有发生新的播放操作。
+                    // 只要状态仍为 ENDED 或变为 IDLE（Service 可能已清空队列并停止），就关闭界面。
+                    val currentState = manager.playbackState.value
+                    if (currentState == androidx.media3.common.Player.STATE_ENDED || 
+                        currentState == androidx.media3.common.Player.STATE_IDLE) {
+                        closeCurrentPlayback()
+                    }
+                }
+            }
+        }
     }
 
     fun loadBook(id: String, playWhenReady: Boolean = true) {

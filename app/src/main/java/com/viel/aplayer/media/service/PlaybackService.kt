@@ -25,8 +25,10 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryRepository
@@ -50,6 +52,7 @@ class PlaybackService : MediaSessionService() {
     private var notificationFiles: List<BookFileEntity> = emptyList()
     // ExoPlayer may report the same failing item more than once; keep one skip job per queue item.
     private var unavailableSkipKey: String? = null
+    private var exitJob: Job? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
@@ -119,6 +122,24 @@ class PlaybackService : MediaSessionService() {
                 // A successful transition clears the previous failed-item guard.
                 unavailableSkipKey = null
                 updateNotificationTimeline(mediaItem)
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    // 详尽的中文注释：当检测到整个播放队列播放结束（STATE_ENDED）时，弹出提示并启动 5 秒倒计时。
+                    // 倒计时结束后，清空播放队列并销毁服务。
+                    exitJob?.cancel()
+                    exitJob = serviceScope.launch {
+                        Toast.makeText(this@PlaybackService, "播放结束，5秒后将自动关闭", Toast.LENGTH_SHORT).show()
+                        delay(5000)
+                        player.clearMediaItems()
+                        stopSelf()
+                    }
+                } else {
+                    // 详尽的中文注释：若状态变为非结束（如用户手动操作），则取消待定的退出任务。
+                    exitJob?.cancel()
+                    exitJob = null
+                }
             }
         })
         notificationPlayer = NotificationProgressPlayer(player)
