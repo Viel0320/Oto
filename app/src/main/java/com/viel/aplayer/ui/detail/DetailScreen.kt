@@ -471,8 +471,24 @@ fun DetailScreen(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
-
-                Spacer(modifier = Modifier.height(32.dp))
+                // 为每一次改动添加详尽的中文注释：直接从 uiState.fullSourcePath 中读取已经在 ViewModel 侧预先计算好的源路径字符串进行渲染。
+                // 这样能使 Compose UI 层保持绝对的纯净，避免在重组（Recomposition）中执行任何复杂的字符串分割和解码操作。
+                // 为了完美适配详情页的深色/彩色适配背景并提升对比度，此处的文字颜色与字号样式完全参考了 Chip 内容的显示风格（使用 LocalContentColor.current.copy(alpha = 0.8f) 配合 labelMedium），高雅且易读。
+                if (uiState.fullSourcePath.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = uiState.fullSourcePath,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = LocalContentColor.current.copy(alpha = 0.8f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                } else {
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
 
                 Column(
                     modifier = Modifier

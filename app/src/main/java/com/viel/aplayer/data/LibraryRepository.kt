@@ -381,6 +381,13 @@ class LibraryRepository private constructor(context: Context) {
         bookDao.getFilesForBookList(bookId)
     }
 
+    /**
+     * 为每一次改动添加详尽的中文注释：同步获取书籍的全部文件列表，包含 AUDIO 与 SOURCE_MANIFEST，专用于详情页精炼路径与源文件名解析
+     */
+    suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = withContext(Dispatchers.IO) {
+        bookDao.getAllFilesForBookList(bookId)
+    }
+
     // UI availability checks use the first AUDIO file because Book no longer owns a sourceUri.
     suspend fun getPrimaryAudioUri(bookId: String): String? = withContext(Dispatchers.IO) {
         bookDao.getFilesForBookList(bookId).firstOrNull()?.uri

@@ -29,8 +29,8 @@ import com.viel.aplayer.data.entity.ScanSessionEntity
         ScanSessionEntity::class,
         PendingScanActionEntity::class
     ],
-    // Schema v26 removes search history from Room; DataStore now owns that UI state.
-    version = 26,
+    // 为每一次改动添加详尽的中文注释：升级 Room 数据库版本到 27，以激活 Destructive Migration 重建机制应用新字段
+    version = 27,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

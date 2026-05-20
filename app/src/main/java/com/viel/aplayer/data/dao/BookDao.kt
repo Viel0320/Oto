@@ -154,6 +154,10 @@ interface BookDao {
     @Query("SELECT * FROM book_files WHERE bookId = :bookId AND fileRole = 'AUDIO' ORDER BY `index` ASC")
     suspend fun getFilesForBookList(bookId: String): List<BookFileEntity>
 
+    // 为每一次改动添加详尽的中文注释：获取书籍的所有物理关联文件，包括音频与清单（SOURCE_MANIFEST），不带 fileRole 过滤，专门用于详情页识别源文件名
+    @Query("SELECT * FROM book_files WHERE bookId = :bookId ORDER BY `index` ASC")
+    suspend fun getAllFilesForBookList(bookId: String): List<BookFileEntity>
+
     // Subtitle loading may start from MediaItem.uri, so map it back to the scanned BookFile row first.
     @Query("SELECT * FROM book_files WHERE uri = :uri LIMIT 1")
     suspend fun getBookFileByUri(uri: String): BookFileEntity?
