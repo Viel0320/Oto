@@ -224,7 +224,7 @@ internal class ConflictClaimStep(
             if (reservation.reserved) {
                 // 详尽的中文注释：如果首个音频的 metadata 中的 description 为空，则采用增强匹配与模糊兜底机制读取该文件夹下的 txt 文件作为简介
                 val firstAudioMeta = firstChapter.metadata
-                val description = if (firstAudioMeta.description.isNullOrBlank()) {
+                val description = if (firstAudioMeta.description.isBlank()) {
                     readTxtDescription(firstChapter.file.parentDocumentFile, baseName = null, strictSameNameOnly = false) ?: ""
                 } else {
                     firstAudioMeta.description
@@ -257,11 +257,16 @@ internal class ConflictClaimStep(
             }
 
             // 详尽的中文注释：针对单音频模式，若音频内置描述为空，则仅查找并匹配与该音频文件严格同名的 txt 描述文件，而不做任何模糊或唯一性兜底
-            val description = if (audio.metadata.description.isNullOrBlank()) {
-                val baseName = audio.file.displayName.substringBeforeLast('.', missingDelimiterValue = audio.file.displayName)
-                readTxtDescription(audio.file.parentDocumentFile, baseName, strictSameNameOnly = true) ?: ""
-            } else {
-                audio.metadata.description
+            val description = audio.metadata.description.ifBlank {
+                val baseName = audio.file.displayName.substringBeforeLast(
+                    '.',
+                    missingDelimiterValue = audio.file.displayName
+                )
+                readTxtDescription(
+                    audio.file.parentDocumentFile,
+                    baseName,
+                    strictSameNameOnly = true
+                ) ?: ""
             }
 
             val draft = buildSingleAudioDraft(singleBook.bookId, audio, description, singleBook.coverResult)
@@ -286,7 +291,7 @@ internal class ConflictClaimStep(
 
     private fun maybeRefreshExistingBook(
         claimedIdentities: List<FileIdentity>,
-        reservation: com.viel.aplayer.library.ReservationResult,
+        reservation: ReservationResult,
         context: ImportContext,
         refreshedBooks: MutableList<ImportCommand.RefreshExistingBook>
     ): Boolean {
@@ -296,7 +301,7 @@ internal class ConflictClaimStep(
         return true
     }
 
-    private fun createConflict(scanId: String, source: ImportSourceRef, reservation: com.viel.aplayer.library.ReservationResult): ImportCommand.CreatePendingAction {
+    private fun createConflict(scanId: String, source: ImportSourceRef, reservation: ReservationResult): ImportCommand.CreatePendingAction {
         val existingBookId = reservation.existingConflicts.firstOrNull()?.bookId
         val actionKey = "CONFLICT:${source.sourceUri}:${reservation.existingConflicts.joinToString { it.id }}:${reservation.runConflicts.joinToString { it.sourceUri }}"
         return ImportCommand.CreatePendingAction(PendingScanActionEntity(
@@ -588,7 +593,7 @@ internal class ConflictClaimStep(
         runCatching {
             val retriever = MediaMetadataRetriever()
             try {
-                retriever.setDataSource(context, Uri.parse(uri))
+                retriever.setDataSource(context, uri.toUri())
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
             } finally {
                 retriever.release()
@@ -600,7 +605,7 @@ internal class ConflictClaimStep(
         return chapters.drop(index + 1).firstOrNull { it.fileUri == current.fileUri }?.fileOffsetMs?.minus(current.fileOffsetMs)
     }
 
-    private fun singleAudioBookTitle(metadata: com.viel.aplayer.media.AudiobookMetadata, displayName: String): String =
+    private fun singleAudioBookTitle(metadata: AudiobookMetadata, displayName: String): String =
         metadata.album.trim()
             .ifBlank { metadata.title.trim() }
             .ifBlank { displayName.substringBeforeLast('.') }
@@ -816,7 +821,7 @@ internal class ConflictClaimStep(
 
     private data class ManifestAudioMetadata(
         val file: FileRef,
-        val metadata: com.viel.aplayer.media.AudiobookMetadata
+        val metadata: AudiobookMetadata
     )
 
     private data class ResolvedManifestMetadata(

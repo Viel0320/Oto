@@ -10,12 +10,13 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import androidx.core.net.toUri
 
 // New scanner: it only snapshots files and leaves import decisions to ImportOrchestrator.
 class FileInventoryScanner(private val context: Context) {
     suspend fun scan(roots: List<LibraryRootEntity>): FileInventory = withContext(Dispatchers.IO) {
         val inventories = roots.mapNotNull { root ->
-            val rootDoc = DocumentFile.fromTreeUri(context, Uri.parse(root.treeUri)) ?: return@mapNotNull null
+            val rootDoc = DocumentFile.fromTreeUri(context, root.treeUri.toUri()) ?: return@mapNotNull null
             if (!rootDoc.exists()) return@mapNotNull null
             scanRoot(root, rootDoc)
         }
@@ -25,7 +26,7 @@ class FileInventoryScanner(private val context: Context) {
     // 详尽的中文注释：以目录关闭事件的形式流式输出扫描结果；当前采用后序遍历，确保一个目录发出时其子目录已经全部扫描完毕。
     fun scanDirectories(roots: List<LibraryRootEntity>): Flow<DirectoryInventory> = flow {
         roots.forEach { root ->
-            val rootDoc = DocumentFile.fromTreeUri(context, Uri.parse(root.treeUri)) ?: return@forEach
+            val rootDoc = DocumentFile.fromTreeUri(context, root.treeUri.toUri()) ?: return@forEach
             if (!rootDoc.exists()) return@forEach
             scanRootDirectories(root, rootDoc) { directoryInventory ->
                 emit(directoryInventory)

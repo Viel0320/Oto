@@ -118,7 +118,7 @@ class LibraryRepository private constructor(context: Context) {
         rootStore.refreshPermissionStatuses()
 
         // New rescan path: scanner builds inventory, orchestrator decides imports, pending remains PENDING.
-        val type = if (trigger == AudiobookSchema.ScanTrigger.COLD_START || trigger == "COLD_START") {
+        val type = if (trigger == AudiobookSchema.ScanTrigger.COLD_START) {
             com.viel.aplayer.library.RescanType.COLD_START_LIGHT
         } else {
             com.viel.aplayer.library.RescanType.USER_GLOBAL
@@ -244,7 +244,7 @@ class LibraryRepository private constructor(context: Context) {
             val files = bookDao.getFilesForBookList(bookId)
             
             if (files.isNotEmpty()) {
-                val (fileIndex, posInFile) = com.viel.aplayer.media.PositionMapper.globalToFilePosition(position, files)
+                val (fileIndex, posInFile) = PositionMapper.globalToFilePosition(position, files)
                 val bookFileId = files.getOrNull(fileIndex)?.id
 
                 // Progress is upserted on first real playback/seek, not during import.
@@ -430,10 +430,10 @@ class LibraryRepository private constructor(context: Context) {
         
         val artworkPath = book.coverPath
         // Cover cache paths are local files; expose them as file URIs and bytes for Media3 artwork.
-        val artworkUri = artworkPath?.let { Uri.fromFile(java.io.File(it)) }
+        val artworkUri = artworkPath?.let { Uri.fromFile(File(it)) }
 
         val artworkData = artworkPath?.let { path ->
-            try { java.io.File(path).readBytes() } catch (e: Exception) { null }
+            try { File(path).readBytes() } catch (e: Exception) { null }
         }
 
         BookPlaybackPlan(

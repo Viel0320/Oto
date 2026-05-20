@@ -18,6 +18,7 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.media.parse.MetadataExtractor
+import androidx.core.net.toUri
 
 enum class RescanType {
     COLD_START_LIGHT,
@@ -221,7 +222,7 @@ class RescanCoordinator(
                 val metadataJobs = candidateAudios.map { audio ->
                     async {
                         metadataSemaphore.withPermit {
-                            AudioMetadataRef(audio, metadataExtractor.extract(Uri.parse(audio.uri)))
+                            AudioMetadataRef(audio, metadataExtractor.extract(audio.uri.toUri()))
                         }
                     }
                 }

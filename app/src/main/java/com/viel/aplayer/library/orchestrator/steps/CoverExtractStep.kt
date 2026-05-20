@@ -15,6 +15,7 @@ import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
 import com.viel.aplayer.media.parse.CoverExtractor
+import androidx.core.net.toUri
 
 /**
  * 封面提取与 dominant 调色板背景色提取分步物理类
@@ -112,7 +113,7 @@ internal class CoverExtractStep(
         val sidecarAnchor = manifestFile ?: primaryAudio ?: fallbackAudio.firstOrNull()
         sidecarAnchor?.let { anchor ->
             findDirectoryCover(anchor.parentUri, inventory)?.let { image ->
-                coverExtractor.processExternalImage(Uri.parse(image.uri))?.takeIf { it.hasImage }?.let { return it }
+                coverExtractor.processExternalImage(image.uri.toUri())?.takeIf { it.hasImage }?.let { return it }
             }
         }
         
@@ -141,7 +142,7 @@ internal class CoverExtractStep(
             semaphore.withPermit {
                 val retriever = MediaMetadataRetriever()
                 try {
-                    retriever.setDataSource(context, Uri.parse(uri))
+                    retriever.setDataSource(context, uri.toUri())
                     coverExtractor.extractFromRetriever(retriever, bookId)
                 } finally {
                     retriever.release()
