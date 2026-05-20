@@ -41,6 +41,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     val scanResultDialogState: StateFlow<ScanSessionEntity?> = _scanResultDialogState.asStateFlow()
 
     private var lastCompletedSessionId: String? = null
+    // 详尽的中文注释：记录 ViewModel 初始化启动的时间戳，用于过滤在本次启动前已完成的历史扫描会话，防止冷启动时重复弹窗与 Toast
+    private val viewModelStartTime = System.currentTimeMillis()
 
     private val _detailUiState = MutableStateFlow(DetailUiState())
     val detailUiState: StateFlow<DetailUiState> = _detailUiState.asStateFlow()
@@ -103,9 +105,45 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.observeLatestScanSession().collect { session ->
                 if (session != null && session.id != lastCompletedSessionId) {
-                    // Only pending scan actions require user review, so scans without new pending items stay silent.
-                    if (session.pendingActionCount > 0) {
-                        _scanResultDialogState.value = session
+                    // 详尽的中文注释：
+                    // 只有当扫描会话的完成时间晚于本次启动时间戳时，才触发 Toast 提示或弹窗展示。
+                    // 这能完美过滤掉上一次运行留存的已完成会话，消除冷启动时因 Flow 首次下发历史状态导致的“库为空提示”和“重复弹窗”。
+                    val completedAt = session.completedAt ?: 0L
+                    if (completedAt > viewModelStartTime) {
+                        if (session.pendingActionCount > 0) {
+                            _scanResultDialogState.value = session
+                        } else {
+                            // 详尽的中文注释：
+                            // 读取当前已缓冲的书籍列表，精准辨识媒体库此时是否空空如也。
+                            val isLibraryEmpty = uiState.value.audiobooks.isEmpty()
+
+                            // 详尽的中文注释：
+                            // 如果没有产生待处理的冲突/残缺动作（不需要弹出强制审核 Dialog），
+                            // 我们提供一个极具交互感和友好温度的 Toast 提醒，将扫描已同步的结果（新书数量）明确告知用户，根治“无弹出无反馈”的痛点。
+                            val message = if (session.discoveredBookCount > 0) {
+                                "媒体库同步已完成，新增了 ${session.discoveredBookCount} 本书籍"
+                            } else if (isLibraryEmpty) {
+                                // 详尽的中文注释：如果经过扫描后库中依然没有任何有效书籍，提供极其温和与指引性的提示，消灭“空库却提示最新”的尴尬体验。
+                                "媒体库为空，未扫描到有效书籍"
+                            } else {
+                                "媒体库已是最新状态"
+                            }
+                            
+                            // 详尽的中文注释：使用 Spannable 居中对齐 Toast 文本，确保高标准视觉呈现
+                            val spannable = SpannableString(message)
+                            spannable.setSpan(
+                                AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
+                                0,
+                                message.length,
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                            )
+                            
+                            Toast.makeText(
+                                getApplication<Application>(),
+                                spannable,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                     // Remember the completed session so the same result does not reopen the dialog.
                     lastCompletedSessionId = session.id

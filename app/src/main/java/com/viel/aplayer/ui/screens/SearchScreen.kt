@@ -407,6 +407,7 @@ fun SearchContent(
                                     narrator = result.book.narrator,
                                     duration = result.book.totalDurationMs,
                                     coverPath = result.book.thumbnailPath ?: result.book.coverPath,
+                                    coverLastUpdated = result.book.lastScannedAt, // 详尽中文注释：桥接 Room 层的 lastScannedAt 更新时间戳，当封面自愈触发时强行刷新 Coil 缓存以显示新封面
                                     progressPercent = result.progressPercent,
                                     onClick = { 
                                         focusManager.clearFocus()

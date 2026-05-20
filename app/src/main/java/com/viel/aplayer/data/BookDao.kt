@@ -179,4 +179,9 @@ interface BookDao {
 
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, totalDurationMs = :duration WHERE id = :id")
     suspend fun updateMetadata(id: String, title: String, author: String, narrator: String, description: String, duration: Long)
+
+    // 详尽的中文注释：专门用于当缓存被清理丢失后，后台重新提取并局部更新书籍封面的物理缓存路径、背景主色调与最新扫描时间戳。
+    // 使用局部 UPDATE 避免覆盖其他并发更新的字段，防止引发多线程写入竞态。此外，通过更新 lastScannedAt 强制让 Flow 重发以触发布局重绘自动刷新。
+    @Query("UPDATE books SET coverPath = :coverPath, thumbnailPath = :thumbnailPath, backgroundColorArgb = :backgroundColorArgb, lastScannedAt = :lastScannedAt WHERE id = :id")
+    suspend fun updateCoverPaths(id: String, coverPath: String?, thumbnailPath: String?, backgroundColorArgb: Int?, lastScannedAt: Long)
 }

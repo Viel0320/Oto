@@ -94,6 +94,8 @@ class PlayerViewModel : ViewModel() {
                     narrator = entity?.narrator ?: "",
                     coverPath = entity?.coverPath,
                     thumbnailPath = entity?.thumbnailPath,
+                    // 详尽的中文注释：将数据库中书籍实体的 lastScannedAt 映射作为 coverLastUpdated，从而在封面缓存重建完成后，促使数据流重发新状态包，迫使页面进行画面重绘
+                    coverLastUpdated = entity?.lastScannedAt ?: 0L,
                     chapters = chapters,
                     bookmarks = bookmarks,
                     subtitles = subtitles,
@@ -126,6 +128,34 @@ class PlayerViewModel : ViewModel() {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
 
+    // 详尽的中文注释：定义精细化局部的进度状态大实体，专门承载 elapsedMs、durationMs 以在局部微观范围响应重组
+    data class PlaybackProgressViewState(
+        val elapsedMs: Long = 0L,
+        val durationMs: Long = 0L,
+        val isChapterProgressMode: Boolean = false
+    )
+
+    // 详尽的中文注释：新增细粒度进度高频 StateFlow 通道。
+    // 使用 distinctUntilChanged() 对各个变量进行锁死拦截，只在高频通道中发射这三个变量，确保不污染其他全局组件。
+    val playbackProgressState: StateFlow<PlaybackProgressViewState> = combine(
+        playbackState.map { it.currentPosition }.distinctUntilChanged(),
+        playbackState.map { it.duration }.distinctUntilChanged(),
+        settingsState.map { it.isChapterProgressMode }.distinctUntilChanged()
+    ) { pos, dur, mode ->
+        PlaybackProgressViewState(pos, dur, mode)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
+
+    // 详尽的中文注释：新增极其低频的章节边界流通道。
+    // 仅在进度跨越章节临界点或者书籍章节列表改变时才射出新章节，实现章节标题组件 ChapterDisplay 的绝对低频重组。
+    val currentChapterState: StateFlow<com.viel.aplayer.data.ChapterEntity?> = combine(
+        playbackState.map { it.currentPosition }.distinctUntilChanged(),
+        metadataState.map { it.chapters }.distinctUntilChanged()
+    ) { pos, chapters ->
+        com.viel.aplayer.playback.ChapterTimeline.currentChapter(chapters, pos)
+    }
+    .distinctUntilChanged()
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     val playbackControlState: StateFlow<PlaybackControlState> = playbackState
         .map { 
             PlaybackControlState(it.isPlaying, it.playbackSpeed, it.isSpeedManualMode)
@@ -133,15 +163,24 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackControlState(false, 1.0f, false))
 
+    // 详尽的中文注释：重构后的低频全局 uiState 流。
+    // 核心重构设计在于对 playback 字段进行彻底的进度“脱水”（将 currentPosition 和 duration 强制清零），
+    // 这样全局 uiState 便能对每 500 毫秒一次的高频进度时间完全免疫，只有在播放控制改变、切换书籍或设置更新时才极低频重组。
     val uiState: StateFlow<PlayerUiState> = combine(
         metadataState,
-        playbackState,
+        playbackControlState,
         settingsManager.settingsState,
         _relatedData
-    ) { metadata, playback, settings, related ->
+    ) { metadata, control, settings, related ->
         PlayerUiState(
             metadata = metadata,
-            playback = playback,
+            playback = PlaybackState(
+                isPlaying = control.isPlaying,
+                currentPosition = 0L, // 进行彻底的“进度脱水”，切断高频重组
+                duration = 0L,        // 进度脱水
+                playbackSpeed = control.playbackSpeed,
+                playWhenReady = control.isPlaying
+            ),
             settings = settings,
             relatedAuthorSections = related.authorSections,
             relatedNarratorSections = related.narratorSections,

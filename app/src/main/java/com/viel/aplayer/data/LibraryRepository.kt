@@ -31,6 +31,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
@@ -60,6 +61,16 @@ class LibraryRepository private constructor(context: Context) {
     private val rootStore = com.viel.aplayer.library.LibraryRootStore(this.context)
     private val coverExtractor = com.viel.aplayer.media.CoverExtractor(this.context)
     private val metadataExtractor = com.viel.aplayer.media.MetadataExtractor(this.context)
+
+    // 详尽的中文注释：实例化三个全新的、低耦合的子功能组件。
+    // SubtitleFileResolver 负责字幕文件的路径检索与流式解析；
+    // CoverRecoveryHelper 负责非阻塞的封面物理完整性自愈重建；
+    // PlaybackReachabilityManager 负责运行期的音频文件物理就绪校验、就绪降级重算与跳过检索。
+    // 原 pendingRegenerations 排重集合已被安全剥离迁移至 CoverRecoveryHelper 中。
+    private val subtitleResolver = SubtitleFileResolver(this.context, bookDao, libraryRootDao)
+    // 详尽的中文注释：实例化低耦合的封面恢复组件，将 libraryRootDao 传入以支持利用 SAF 授权路径递归搜寻并重建同目录外部封面
+    private val coverRecoveryHelper = CoverRecoveryHelper(this.context, bookDao, database.libraryRootDao(), coverExtractor, scope)
+    private val reachabilityManager = PlaybackReachabilityManager(this.context, bookDao)
 
     /** Search history flow. */
     val searchHistory: Flow<List<SearchHistoryEntity>> = searchHistoryStore.history
@@ -93,20 +104,12 @@ class LibraryRepository private constructor(context: Context) {
     }
 
 
-    /** Check if a file exists at the given URI. */
-    fun checkFileExists(uriString: String): Boolean {
-        return try {
-            val uri = uriString.toUri()
-            if (uri.scheme == "content") {
-                val doc = DocumentFile.fromSingleUri(context, uri)
-                doc?.exists() == true
-            } else {
-                File(uri.path ?: "").exists()
-            }
-        } catch (_: Exception) {
-            false
-        }
-    }
+    /**
+     * Check if a file exists at the given URI.
+     * 详尽的中文注释：原物理文件检测逻辑已解耦至 PlaybackReachabilityManager 组件。
+     * 此处门面 API 100% 签名兼容，零侵入代理委派给该管理器。
+     */
+    fun checkFileExists(uriString: String): Boolean = reachabilityManager.checkFileExists(uriString)
 
     /**
      * Sync the entire library: scan folder and add new files.
@@ -128,27 +131,27 @@ class LibraryRepository private constructor(context: Context) {
 
     
     /** Observable list of all audiobooks, sorted by added date. */
-    val audiobooks: Flow<List<BookWithProgress>> = bookDao.getAllBooksWithProgress()
+    val audiobooks: Flow<List<BookWithProgress>> = bookDao.getAllBooksWithProgress().checkCovers()
 
     /** Search audiobooks by title, author, or narrator. */
-    fun searchAudiobooks(query: String): Flow<List<BookWithProgress>> = bookDao.searchBooksWithProgress(query)
+    fun searchAudiobooks(query: String): Flow<List<BookWithProgress>> = bookDao.searchBooksWithProgress(query).checkCovers()
 
-    fun filterByYear(year: String): Flow<List<BookWithProgress>> = bookDao.filterByYearWithProgress(year)
+    fun filterByYear(year: String): Flow<List<BookWithProgress>> = bookDao.filterByYearWithProgress(year).checkCovers()
     
-    fun filterByAuthor(author: String): Flow<List<BookWithProgress>> = bookDao.filterByAuthorWithProgress(author)
+    fun filterByAuthor(author: String): Flow<List<BookWithProgress>> = bookDao.filterByAuthorWithProgress(author).checkCovers()
     
     fun filterByAuthorLimited(author: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>> = 
-        bookDao.filterByAuthorLimitedWithProgress(author, excludeId, limit)
+        bookDao.filterByAuthorLimitedWithProgress(author, excludeId, limit).checkCovers()
     
-    fun filterByNarrator(narrator: String): Flow<List<BookWithProgress>> = bookDao.filterByNarratorWithProgress(narrator)
+    fun filterByNarrator(narrator: String): Flow<List<BookWithProgress>> = bookDao.filterByNarratorWithProgress(narrator).checkCovers()
 
     fun filterByNarratorLimited(narrator: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>> = 
-        bookDao.filterByNarratorLimitedWithProgress(narrator, excludeId, limit)
+        bookDao.filterByNarratorLimitedWithProgress(narrator, excludeId, limit).checkCovers()
 
-    fun getRecentlyAdded(limit: Int): Flow<List<BookWithProgress>> = bookDao.getRecentlyAddedWithProgress(limit)
+    fun getRecentlyAdded(limit: Int): Flow<List<BookWithProgress>> = bookDao.getRecentlyAddedWithProgress(limit).checkCovers()
 
     fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<BookWithProgress>> = 
-        bookDao.getRecentlyAddedExclusiveWithProgress(currentId, authors, narrators, limit)
+        bookDao.getRecentlyAddedExclusiveWithProgress(currentId, authors, narrators, limit).checkCovers()
 
     /**
      * 顺序添加有声书，并整合元数据提取。
@@ -325,13 +328,10 @@ class LibraryRepository private constructor(context: Context) {
     /**
      * Load and parse subtitles for an audiobook file.
      * Looks for a subtitle file with the same name in the same directory.
+     * 详尽的中文注释：原字幕搜索（SAF Tree 递归）、相似名匹配及文件流式解析已被完全解耦并迁移至 SubtitleFileResolver。
+     * 此处门面 API 进行委派，保持原入参 and 签名完全不变，不对业务模块造成任何侵入性影响。
      */
-    suspend fun loadSubtitlesForUri(mediaUri: Uri): List<SubtitleLine> = withContext(Dispatchers.IO) {
-        // MediaItem only gives a URI; map it back to BookFile so SAF subtitles can use rootId/relativePath.
-        val scannedFile = bookDao.getBookFileByUri(mediaUri.toString())
-        val attachment = scannedFile?.let { loadSubtitleAttachment(it) } ?: loadSubtitleAttachment(mediaUri)
-        attachment?.lines ?: emptyList()
-    }
+    suspend fun loadSubtitlesForUri(mediaUri: Uri): List<SubtitleLine> = subtitleResolver.loadSubtitlesForUri(mediaUri)
 
     /**
      * Save chapters to database.
@@ -393,87 +393,25 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     // Compact player reload only cares about the restored/current file, not whether the whole book has any playable file.
-    suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = withContext(Dispatchers.IO) {
-        val files = bookDao.getFilesForBookList(bookId)
-        if (files.isEmpty()) {
-            // Empty playback files cannot restore a compact player session.
-            bookDao.updateBookStatus(bookId, AudiobookSchema.BookStatus.UNAVAILABLE)
-            return@withContext false
-        }
-
-        val progress = bookDao.getProgressForBookSync(bookId)
-        val targetFile = resolveProgressFile(progress, files) ?: files.first()
-        val isReady = checkFileExists(targetFile.uri)
-        updatePlaybackFileStatus(targetFile, isReady)
-        recalculatePlaybackBookStatus(bookId)
-        isReady
-    }
+    // 详尽的中文注释：前台恢复 compact 播放进度时的物理音频就绪判定门面 API，现委派至 PlaybackReachabilityManager。
+    suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = 
+        reachabilityManager.checkCurrentPlaybackFileAvailability(bookId)
 
     // PlaybackService marks the exact failed queue item missing before it tries to advance.
-    suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) = withContext(Dispatchers.IO) {
-        val files = bookDao.getFilesForBookList(bookId)
-        files.getOrNull(queueIndex)?.let { failedFile ->
-            bookDao.updateBookFileStatus(failedFile.id, AudiobookSchema.FileStatus.MISSING)
-            recalculatePlaybackBookStatus(bookId)
-        }
-    }
+    // 详尽的中文注释：运行期标记具体某轨音频文件物理丢失的门面 API，现委派至 PlaybackReachabilityManager。
+    suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) = 
+        reachabilityManager.markPlaybackFileUnavailable(bookId, queueIndex)
 
     // PlaybackService asks for the next actually openable queue item so stale READY rows do not cause repeated failures.
-    suspend fun findNextAvailablePlaybackFile(bookId: String, afterQueueIndex: Int): Pair<Int, BookFileEntity>? = withContext(Dispatchers.IO) {
-        val files = bookDao.getFilesForBookList(bookId)
-        if (files.isEmpty()) {
-            // No AUDIO rows means there is no target to skip to.
-            bookDao.updateBookStatus(bookId, AudiobookSchema.BookStatus.UNAVAILABLE)
-            return@withContext null
-        }
-
-        for (queueIndex in (afterQueueIndex + 1)..files.lastIndex) {
-            val candidate = files[queueIndex]
-            val isReady = checkFileExists(candidate.uri)
-            updatePlaybackFileStatus(candidate, isReady)
-            if (isReady) {
-                recalculatePlaybackBookStatus(bookId)
-                return@withContext queueIndex to candidate
-            }
-        }
-
-        recalculatePlaybackBookStatus(bookId)
-        null
-    }
-
-    // Progress restoration prefers the stable file anchor, then the saved queue index, then the global position mapping.
-    private fun resolveProgressFile(progress: BookProgressEntity?, files: List<BookFileEntity>): BookFileEntity? {
-        if (progress == null) return null
-        return progress.bookFileId?.let { id -> files.firstOrNull { it.id == id } }
-            ?: files.getOrNull(progress.currentFileIndex)
-            ?: files.getOrNull(PositionMapper.globalToFilePosition(progress.globalPositionMs, files).first)
-    }
-
-    // Playback-time checks persist both READY and MISSING so list/detail UI can reflect the latest reachability.
-    private suspend fun updatePlaybackFileStatus(file: BookFileEntity, isReady: Boolean) {
-        val status = if (isReady) AudiobookSchema.FileStatus.READY else AudiobookSchema.FileStatus.MISSING
-        bookDao.updateBookFileStatus(file.id, status)
-    }
-
-    // Playback-time availability changes update the parent book without invoking a full rescan.
-    private suspend fun recalculatePlaybackBookStatus(bookId: String) {
-        val files = bookDao.getFilesForBookList(bookId)
-        bookDao.updateBookStatus(bookId, playbackBookStatusFromFiles(files))
-    }
-
-    // Book status is derived from AUDIO file statuses only because playback plans ignore manifest rows.
-    private fun playbackBookStatusFromFiles(files: List<BookFileEntity>): String {
-        val readyCount = files.count { it.status == AudiobookSchema.FileStatus.READY }
-        val missingCount = files.count { it.status == AudiobookSchema.FileStatus.MISSING }
-        return when {
-            files.isEmpty() || readyCount == 0 -> AudiobookSchema.BookStatus.UNAVAILABLE
-            missingCount > 0 -> AudiobookSchema.BookStatus.PARTIAL
-            else -> AudiobookSchema.BookStatus.READY
-        }
-    }
+    // 详尽的中文注释：在当前正在播放的文件发生不可达异常时，检索列表中下一个可播放（READY）音频轨的门面 API，现委派至 PlaybackReachabilityManager。
+    suspend fun findNextAvailablePlaybackFile(bookId: String, afterQueueIndex: Int): Pair<Int, BookFileEntity>? = 
+        reachabilityManager.findNextAvailablePlaybackFile(bookId, afterQueueIndex)
 
     suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = withContext(Dispatchers.IO) {
         val book = bookDao.getBookById(bookId) ?: return@withContext null
+        // 详尽的中文注释：在构建播放计划（即开始播放有声书）时，委托 CoverRecoveryHelper 静默快速物理检查一次封面。
+        // 若物理缓存丢失，将非阻塞地派发后台协程启动漏斗模型提取机制进行零延迟自愈。
+        coverRecoveryHelper.checkAndTriggerCoverRegeneration(book)
         val files = bookDao.getFilesForBookList(bookId)
         val chapters = chapterDao.getChaptersForBookList(bookId)
         val progress = bookDao.getProgressForBookSync(bookId)
@@ -519,12 +457,16 @@ class LibraryRepository private constructor(context: Context) {
         }
     }
 
-    suspend fun getBookById(id: String): BookEntity? {
-        return bookDao.getBookById(id)
+    suspend fun getBookById(id: String): BookEntity? = withContext(Dispatchers.IO) {
+        // 详尽的中文注释：查询特定有声书实体时，委托 CoverRecoveryHelper 先快速静默地物理检查封面并触发自愈重建。
+        bookDao.getBookById(id)?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
     }
 
     fun observeBookById(id: String): Flow<BookEntity?> {
-        return bookDao.observeBookById(id)
+        // 详尽的中文注释：外部观察特定有声书实体时，通过 Flow map 进行非阻塞式的封面物理完整性自愈调度委派。
+        return bookDao.observeBookById(id).map { book ->
+            book?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
+        }
     }
 
     fun observeLatestScanSession(): Flow<ScanSessionEntity?> {
@@ -544,139 +486,11 @@ class LibraryRepository private constructor(context: Context) {
         val anchorStatus: String
     )
 
-    /**
-     * Search for a subtitle file (srt, ass, ssa) in the same directory as the media file.
-     */
-    private suspend fun loadSubtitleAttachment(file: BookFileEntity): PlaybackSubtitle? {
-        val subtitle = findSubtitleFile(file) ?: return null
-        return parseSubtitle(subtitle.uri, subtitle.extension, subtitle.displayName)
+    // 详尽的中文注释：针对 Flow<List<BookWithProgress>> 数据流的自定义扩展算子。
+    // 将封面物理文件检查与自愈重建委托给全新的 CoverRecoveryHelper 辅助组件执行，在保持流非阻塞特性的同时极大精炼了 Repository 内部逻辑。
+    private fun Flow<List<BookWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
+        list.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
     }
-
-    private fun loadSubtitleAttachment(mediaUri: Uri): PlaybackSubtitle? {
-        val subtitle = findSubtitleFile(mediaUri) ?: return null
-        return parseSubtitle(subtitle.uri, subtitle.extension, subtitle.displayName)
-    }
-
-    private fun parseSubtitle(uri: Uri, extension: String, displayName: String): PlaybackSubtitle? =
-        try {
-            val lines = if (uri.scheme == "content") {
-                context.contentResolver.openInputStream(uri)?.use {
-                    SubtitleParser.parse(it, extension)
-                }.orEmpty()
-            } else {
-                val file = File(uri.path ?: uri.toString())
-                if (file.exists()) {
-                    file.inputStream().use { SubtitleParser.parse(it, extension) }
-                } else {
-                    emptyList()
-                }
-            }
-            PlaybackSubtitle(
-                uri = uri,
-                mimeType = subtitleMimeType(extension),
-                label = displayName.substringBeforeLast('.'),
-                lines = lines
-            )
-        } catch (e: Exception) {
-            Log.e("LibraryRepository", "Error loading subtitles for $uri", e)
-            null
-        }
-
-    private suspend fun findSubtitleFile(file: BookFileEntity): SubtitleFileRef? {
-        val root = libraryRootDao.getRootById(file.rootId)
-        val rootDoc = root?.treeUri?.let { DocumentFile.fromTreeUri(context, Uri.parse(it)) }
-        val parentPath = file.relativePath.substringBeforeLast('/', missingDelimiterValue = "")
-        val audioName = file.relativePath.substringAfterLast('/').ifBlank { file.displayName }
-
-        // SAF 单文件 URI 找父目录不稳定，优先用导入时保存的 rootId/relativePath 回到同目录。
-        val rootBased = rootDoc
-            ?.findRelativeDirectory(parentPath)
-            ?.findSameBaseSubtitle(audioName)
-        if (rootBased != null) return rootBased
-
-        return findSubtitleFile(file.uri.toUri())
-    }
-
-    private fun findSubtitleFile(mediaUri: Uri, providedParent: DocumentFile? = null, providedName: String? = null): SubtitleFileRef? {
-        return try {
-            when (mediaUri.scheme) {
-                "content" -> {
-                    // If we are in syncLibrary, providedParent is already the correct folder
-                    val parentDir = providedParent ?: run {
-                        val mediaFile = DocumentFile.fromSingleUri(context, mediaUri)
-                        mediaFile?.parentFile
-                    } ?: return null
-
-                    val mediaName = (providedName ?: DocumentFile.fromSingleUri(context, mediaUri)?.name)
-                        ?.substringBeforeLast(".") ?: return null
-
-                    Log.d("LibraryRepository", "Searching subtitles in ${parentDir.uri} for $mediaName")
-
-                    // Optimized search: only list files if needed
-                    val found = parentDir.findSameBaseSubtitle(mediaName)
-
-                    Log.d("LibraryRepository", "Found subtitle: ${found?.uri}")
-                    found
-                }
-                "file" -> {
-                    val file = File(mediaUri.path ?: "")
-                    val parentDir = file.parentFile ?: return null
-                    val baseName = file.nameWithoutExtension
-
-                    parentDir.listFiles { _, name ->
-                        val ext = name.substringAfterLast(".").lowercase(Locale.ROOT)
-                        name.substringBeforeLast(".") == baseName && SUBTITLE_EXTENSIONS.contains(ext)
-                    }?.firstOrNull()?.let { subtitle ->
-                        SubtitleFileRef(
-                            uri = Uri.fromFile(subtitle),
-                            extension = subtitle.extension.lowercase(Locale.ROOT),
-                            displayName = subtitle.name
-                        )
-                    }
-                }
-                else -> null
-            }
-        } catch (e: Exception) {
-            Log.e("LibraryRepository", "Error finding subtitle", e)
-            null
-        }
-    }
-
-    private fun DocumentFile.findRelativeDirectory(relativeParentPath: String): DocumentFile? {
-        if (relativeParentPath.isBlank()) return this
-        // 逐级定位扫描记录里的相对父目录，确保 SAF 授权目录下的字幕可被找到。
-        return relativeParentPath.split('/').fold(this as DocumentFile?) { current, segment ->
-            current?.findFile(segment)?.takeIf { it.isDirectory }
-        }
-    }
-
-    private fun DocumentFile.findSameBaseSubtitle(audioName: String): SubtitleFileRef? {
-        val baseName = audioName.substringBeforeLast('.', missingDelimiterValue = audioName)
-        return listFiles().firstNotNullOfOrNull { candidate ->
-            val name = candidate.name ?: return@firstNotNullOfOrNull null
-            val extension = name.substringAfterLast('.', missingDelimiterValue = "").lowercase(Locale.ROOT)
-            val sameBaseName = name.substringBeforeLast('.', missingDelimiterValue = name).equals(baseName, ignoreCase = true)
-            if (candidate.isFile && sameBaseName && SUBTITLE_EXTENSIONS.contains(extension)) {
-                SubtitleFileRef(candidate.uri, extension, name)
-            } else {
-                null
-            }
-        }
-    }
-
-    private fun subtitleMimeType(extension: String): String? =
-        when (extension.lowercase(Locale.ROOT)) {
-            "srt" -> MimeTypes.APPLICATION_SUBRIP
-            "vtt" -> MimeTypes.TEXT_VTT
-            "ass", "ssa" -> MimeTypes.TEXT_SSA
-            else -> null
-        }
-
-    private data class SubtitleFileRef(
-        val uri: Uri,
-        val extension: String,
-        val displayName: String
-    )
     
     companion object {
         @Volatile
@@ -688,7 +502,5 @@ class LibraryRepository private constructor(context: Context) {
                 INSTANCE ?: LibraryRepository(context).also { INSTANCE = it }
             }
         }
-
-        private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "lrc")
     }
 }

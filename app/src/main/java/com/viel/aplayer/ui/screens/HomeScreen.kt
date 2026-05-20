@@ -237,6 +237,7 @@ fun HomeScreen(
                                     narrator = book.book.narrator,
                                     progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
                                     coverPath = book.book.thumbnailPath ?: book.book.coverPath,
+                                    coverLastUpdated = book.book.lastScannedAt, // 详尽中文注释：桥接 Room 中的扫描/更新时间戳，令 Coil 声明式打破缓存以即时更新界面
                                     onClick = { onNavigateToDetail(book.book.id) }
                                 )
                             }
@@ -261,6 +262,7 @@ fun HomeScreen(
                             narrator = book.book.narrator,
                             duration = book.book.totalDurationMs,
                             coverPath = book.book.thumbnailPath ?: book.book.coverPath,
+                            coverLastUpdated = book.book.lastScannedAt, // 详尽中文注释：桥接 Room 层中的扫描/自愈重建毫秒时间戳，使用声明式设计促成图片同步强绘刷新
                             progressPercent = book.progressPercent,
                             onClick = { onNavigateToDetail(book.book.id) }
                         ) { 

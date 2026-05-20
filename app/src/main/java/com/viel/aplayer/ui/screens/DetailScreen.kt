@@ -224,12 +224,31 @@ fun DetailScreen(
                     shadowElevation = 8.dp
                 ) {
                     val coverPath = book?.thumbnailPath ?: book?.coverPath
+                    val coverLastUpdated = book?.lastScannedAt ?: 0L
                     if ((coverPath != null) && File(coverPath).exists()) {
+                        // 详尽中文注释：使用 LocalContext 构建附带 lastScannedAt 更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        val request = remember(coverPath, coverLastUpdated) {
+                            coil.request.ImageRequest.Builder(context)
+                                .data(File(coverPath))
+                                .memoryCacheKey("$coverPath?t=$coverLastUpdated")
+                                .diskCacheKey("$coverPath?t=$coverLastUpdated")
+                                .crossfade(true)
+                                .build()
+                        }
                         AsyncImage(
-                            model = File(coverPath),
+                            model = request,
                             contentDescription = "Cover",
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
+                            onError = { state ->
+                                // 详尽中文注释：若大封面加载失败，向 Logcat 打印明确的文件路径与异常根本原因以利于线上诊断
+                                android.util.Log.e(
+                                    "DetailScreen",
+                                    "DetailScreen 大封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
+                                    state.result.throwable
+                                )
+                            }
                         )
                     } else {
                         Box(

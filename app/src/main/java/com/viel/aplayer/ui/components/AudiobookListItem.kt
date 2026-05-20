@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,6 +45,7 @@ fun AudiobookListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     coverPath: String? = null,
+    coverLastUpdated: Long = 0L, // 详尽中文注释：用于传递封面文件自愈重建时间戳，用以触发响应式强打破缓存
     progressPercent: Int? = null,
     onPlayClick: () -> Unit = {}
 ) {
@@ -113,10 +115,28 @@ fun AudiobookListItem(
             ) {
                 val isPreview = LocalInspectionMode.current
                 if (!isPreview && (coverPath != null) && File(coverPath).exists()) {
+                    // 详尽中文注释：使用 LocalContext 构建附带 lastScannedAt 作为更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val request = remember(coverPath, coverLastUpdated) {
+                        coil.request.ImageRequest.Builder(context)
+                            .data(File(coverPath))
+                            .memoryCacheKey("$coverPath?t=$coverLastUpdated")
+                            .diskCacheKey("$coverPath?t=$coverLastUpdated")
+                            .crossfade(true)
+                            .build()
+                    }
                     AsyncImage(
-                        model = File(coverPath),
+                        model = request,
                         contentDescription = null,
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        onError = { state ->
+                            // 详尽中文注释：当封面物理文件损坏或系统读取失败时，在控制台打印可供调试的具体物理路径和错误原委
+                            android.util.Log.e(
+                                "AudiobookListItem",
+                                "AudiobookListItem 封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
+                                state.result.throwable
+                            )
+                        }
                     )
                 } else {
                     Box(contentAlignment = Alignment.Center) {

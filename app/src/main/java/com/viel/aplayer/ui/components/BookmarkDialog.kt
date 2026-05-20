@@ -13,30 +13,41 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.viel.aplayer.ui.theme.APlayerTheme
+
+// 详尽的中文注释：
+// 彻底将打字状态隔离在 BookmarkDialog 内部。
+// 外部不再提供 onTitleChange 高频回传通道，而只在点击“Save”保存的一瞬间，一次性将 localTitle 回调出去。
 @Composable
 fun BookmarkDialog(
     isVisible: Boolean,
-    title: String,
-    onTitleChange: (String) -> Unit,
-    onSave: () -> Unit,
+    defaultTitle: String,
+    onSave: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     if (isVisible) {
+        // 详尽的中文注释：利用 remember(isVisible) 在 Dialog 显示时初始化 localTitle 变量，
+        // 用户键盘打字只会更新此局部状态并重组当前 Dialog 内部，确保整个 APlayer 主界面不会因打字而卡顿。
+        var localTitle by remember(isVisible) { mutableStateOf(defaultTitle) }
+
         AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text("Add Bookmark") },
             text = {
                 BookmarkDialogContent(
-                    title = title,
-                    onTitleChange = onTitleChange
+                    title = localTitle,
+                    onTitleChange = { localTitle = it }
                 )
             },
             confirmButton = {
                 val context = LocalContext.current
                 TextButton(
                     onClick = {
-                        onSave()
+                        onSave(localTitle)
                         Toast.makeText(context, "Bookmark added", Toast.LENGTH_SHORT).show()
                     }
                 ) {

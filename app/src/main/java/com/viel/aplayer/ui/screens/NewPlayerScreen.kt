@@ -76,6 +76,7 @@ import com.viel.aplayer.playback.ChapterTimeline
 import com.viel.aplayer.ui.action.PlayerActions
 import com.viel.aplayer.ui.action.PlayerNavigationActions
 import com.viel.aplayer.ui.components.BookmarkDialog
+import com.viel.aplayer.ui.components.BottomNavTabs
 import com.viel.aplayer.ui.components.BookmarkListView
 import com.viel.aplayer.ui.components.ChapterDisplay
 import com.viel.aplayer.ui.components.ChapterListSheet
@@ -108,7 +109,6 @@ fun NewPlayerScreen(
     modifier: Modifier = Modifier,
 ) {
     val metadata by viewModel.metadataState.collectAsStateWithLifecycle()
-    val playback by viewModel.playbackState.collectAsStateWithLifecycle()
     val settings by viewModel.settingsState.collectAsStateWithLifecycle()
     val controls by viewModel.playbackControlState.collectAsStateWithLifecycle()
     
@@ -246,30 +246,32 @@ fun NewPlayerScreen(
                             when (mode) {
                                 PlayerScreenMode.PLAYER -> {
                                     Box(modifier = Modifier.weight(1f)) {
-                                        MainCoverView(metadata.coverPath, controls.isPlaying)
+                                        // 详尽的中文注释：在此处将自愈封面最后修改时间戳 metadata.coverLastUpdated 传入，从而强力打通缓存刷新机制
+                                        MainCoverView(metadata.coverPath, controls.isPlaying, metadata.coverLastUpdated)
                                     }
-                                    StablePlaybackControls(metadata, playback, controls, settings, actions, animatedBgColor)
+                                    // 详尽的中文注释：将 viewModel 注入，并在内部采用局部的进度和章节 Stateful 隔间包装
+                                    StablePlaybackControls(viewModel, metadata, controls, settings, actions, animatedBgColor)
                                 }
                                 PlayerScreenMode.BOOKMARKS -> {
                                     Box(modifier = Modifier.weight(1f)) {
-                                        BookmarkListView(
-                                            bookmarks = metadata.bookmarks,
-                                            onBookmarkClick = { pos -> actions.playback.onSeek(pos, true) },
-                                            onDeleteClick = actions.bookmarks.onDelete,
-                                            onUpdateClick = actions.bookmarks.onUpdate,
-                                            currentPosition = playback.currentPosition
+                                        // 详尽的中文注释：使用 Stateful 局部进度隔间，防止进度刷新引发书签背景重组
+                                        BookmarkListViewStateful(
+                                            viewModel = viewModel,
+                                            metadata = metadata,
+                                            actions = actions
                                         )
                                     }
                                 }
                                 PlayerScreenMode.SUBTITLES -> {
                                     Box(modifier = Modifier.weight(1f)) {
-                                        SubtitlesView(
-                                            subtitles = metadata.subtitles,
-                                            currentPosition = playback.currentPosition,
-                                            onSeek = { pos -> actions.playback.onSeek(pos, true) }
+                                        // 详尽的中文注释：使用 Stateful 局部进度隔间控制歌词字幕高频刷新，而不影响外层
+                                        SubtitlesViewStateful(
+                                            viewModel = viewModel,
+                                            metadata = metadata,
+                                            actions = actions
                                         )
                                     }
-                                    StablePlaybackControls(metadata, playback, controls, settings, actions, animatedBgColor)
+                                    StablePlaybackControls(viewModel, metadata, controls, settings, actions, animatedBgColor)
                                 }
                                 PlayerScreenMode.RELATED -> {
                                     Box(modifier = Modifier.weight(1f)) {
@@ -301,14 +303,26 @@ fun NewPlayerScreen(
                             .align(Alignment.BottomCenter)
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
+                        // 详尽的中文注释：根据 Material 3 规范与 APlayer 播放器暗色主题优化 Snackbar 视觉样式
+                        // 使用 surfaceVariant 作为背景色以防止在深色界面中显得过于刺眼，结合 primary 主色调动作按钮提升视觉品质，配以 12.dp 圆角
                         Snackbar(
                             action = {
                                 TextButton(onClick = actions.playback.onUndoSeek) {
-                                    Text("undo")
+                                    Text(
+                                        text = "Undo",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
-                            }
+                            },
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("jumped to a new position")
+                            Text(
+                                text = "Jumped to a new position",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                         }
                     }
                 }
@@ -324,32 +338,30 @@ fun NewPlayerScreen(
             }
         }
 
-        ChapterListSheet(
-            isVisible = settings.isChapterListVisible,
-            chapters = metadata.chapters,
-            // Chapter sheet highlights the same chapter as the progress bar.
-            currentChapter = ChapterTimeline.currentChapter(metadata.chapters, playback.currentPosition),
-            totalDuration = playback.duration,
-            onDismissRequest = actions.content.onDismissChapterList,
-            onChapterClick = { pos ->
-                actions.playback.onSeek(pos, true)
-                actions.content.onDismissChapterList()
-            },
+        // 详尽的中文注释：采用 Stateful 局部隔间包裹章节列表弹窗，在弹窗不可见时完全停摆以防高频重组
+        ChapterListSheetStateful(
+            viewModel = viewModel,
+            metadata = metadata,
+            settings = settings,
+            actions = actions,
             sheetState = sheetState
         )
 
+        // 详尽的中文注释：桥接就近打字隔离后的 BookmarkDialog。通过回调 localTitle 执行 onTitleChange 和 onSave，无损向下兼容原契约
         BookmarkDialog(
             isVisible = settings.isBookmarkDialogVisible,
-            title = settings.bookmarkTitle,
-            onTitleChange = actions.bookmarks.onTitleChange,
-            onSave = actions.bookmarks.onSave,
+            defaultTitle = settings.bookmarkTitle,
+            onSave = { localTitle ->
+                actions.bookmarks.onTitleChange(localTitle)
+                actions.bookmarks.onSave()
+            },
             onDismiss = actions.bookmarks.onDismissDialog
         )
     }
 }
 
 @Composable
-private fun MainCoverView(coverPath: String?, isPlaying: Boolean) {
+private fun MainCoverView(coverPath: String?, isPlaying: Boolean, coverLastUpdated: Long = 0L) {
     val coverScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.95f,
         animationSpec = tween(300)
@@ -361,7 +373,8 @@ private fun MainCoverView(coverPath: String?, isPlaying: Boolean) {
             .padding(horizontal = 24.dp, vertical = 32.dp),
         contentAlignment = Alignment.TopCenter
     ) {
-        val coverFile = remember(coverPath) {
+        // 详尽的中文注释：将 coverLastUpdated 纳入 remember 的 keys，确保当数据库自愈更新时间戳改变后，强行使 File 对象及其后的分支重新判断与重绘
+        val coverFile = remember(coverPath, coverLastUpdated) {
             if (coverPath != null) File(coverPath) else null
         }
         Box(
@@ -376,11 +389,22 @@ private fun MainCoverView(coverPath: String?, isPlaying: Boolean) {
                 .clip(RoundedCornerShape(24.dp))
         ) {
             if (coverFile != null && coverFile.exists()) {
+                // 详尽的中文注释：使用 ImageRequest.Builder 重新构建 data model，
+                // 并利用具有更新时间戳后缀的 memoryCacheKey 和 diskCacheKey 来打破 Coil 对该图片的加载失败或已有缓存，
+                // 确保在封面文件被自愈重建后，Coil 能够丢弃原有失败记忆、即刻从物理文件中拉取并渲染最新的封面。
+                // 另外，加上 onError 加载错误日志打印，使 Scoped Storage 等加载异常可视化。
                 AsyncImage(
-                    model = coverFile,
+                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(coverFile)
+                        .memoryCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
+                        .diskCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
+                        .build(),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    onError = { errorState ->
+                        android.util.Log.e("NewPlayerScreen", "全屏播放器加载封面图片失败: ${coverFile.absolutePath}, 原因: ", errorState.result.throwable)
+                    }
                 )
             } else {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
@@ -391,35 +415,33 @@ private fun MainCoverView(coverPath: String?, isPlaying: Boolean) {
     }
 }
 
+// 详尽的中文注释：
+// 改造后的 StablePlaybackControls。彻底剔除了对高频 PlaybackState 实体的直接依赖。
+// 内部的进度条和章节标题分别采用 Stateful 局部隔间进行包装，只在各自局部订阅对应高/低频数据通道，
+// 从而确保在音乐播放时主播放控制区的重组发生率完美降为 0。
 @Composable
 private fun StablePlaybackControls(
+    viewModel: com.viel.aplayer.ui.viewmodel.PlayerViewModel,
     metadata: BookMetadataState,
-    playback: PlaybackState,
     controls: com.viel.aplayer.ui.viewmodel.PlayerViewModel.PlaybackControlState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
     buttonColor: Color
 ) {
-    val currentChapter = remember(playback.currentPosition, metadata.chapters) {
-        // Keep the title display aligned with shared chapter boundary logic.
-        ChapterTimeline.currentChapter(metadata.chapters, playback.currentPosition)
-    }
-
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-        ChapterDisplay(
-            currentChapterTitle = currentChapter?.title ?: metadata.title,
-            onChapterClick = actions.content.onShowChapterList,
-            onBookmarkClick = actions.bookmarks.onShowDialog
+        // 详尽的中文注释：章节标题显示局部隔间，订阅极其低频的章节变化流
+        ChapterDisplayStateful(
+            viewModel = viewModel,
+            metadata = metadata,
+            actions = actions
         )
         Spacer(Modifier.height(16.dp))
         
-        PlaybackProgress(
-            currentPosition = playback.currentPosition,
-            totalDuration = playback.duration,
-            isChapterMode = settings.isChapterProgressMode,
-            chapters = metadata.chapters,
-            markers = metadata.getChapterMarkers(playback.duration),
-            onSeek = { pos -> actions.playback.onSeek(pos, true) }
+        // 详尽的中文注释：进度条显示局部隔间，只在此内部高频重组
+        PlaybackProgressStateful(
+            viewModel = viewModel,
+            metadata = metadata,
+            actions = actions
         )
         Spacer(Modifier.height(24.dp))
         PlaybackControls(
@@ -434,119 +456,122 @@ private fun StablePlaybackControls(
     }
 }
 
+// ==========================================
+// 详尽的中文注释：APlayer 5 大局部 Stateful 隔间设计物理隔离区
+// ==========================================
+
+// 详尽的中文注释：
+// 1. 进度条有状态局部隔间 PlaybackProgressStateful
+// 本组件局部订阅高频 elapsedMs 进度状态，确保每 500ms 一次的高频进度改变
+// 仅仅在 PlaybackProgress 内部引起局部微观重组，防止大范围 UI 污染。
 @Composable
-private fun BottomNavTabs(
-    selectedTab: PlayerScreenMode,
-    onTabSelected: (PlayerScreenMode) -> Unit
+fun PlaybackProgressStateful(
+    viewModel: com.viel.aplayer.ui.viewmodel.PlayerViewModel,
+    metadata: BookMetadataState,
+    actions: PlayerActions,
+    modifier: Modifier = Modifier
 ) {
-    Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-        ) {
-            val tabs = listOf(
-                "Bookmark" to PlayerScreenMode.BOOKMARKS,
-                "Subtitles" to PlayerScreenMode.SUBTITLES,
-                "Related" to PlayerScreenMode.RELATED
-            )
-            val alignments = listOf(TextAlign.Start, TextAlign.Center, TextAlign.End)
-            // 改为通过状态记录测量的宽度，初始设为 0dp，等测量完成后显示
-            val density = LocalDensity.current
-            var measuredWidths by remember { mutableStateOf(listOf(0.dp, 0.dp, 0.dp)) }
+    val progressState by viewModel.playbackProgressState.collectAsStateWithLifecycle()
+    PlaybackProgress(
+        currentPosition = progressState.elapsedMs,
+        totalDuration = progressState.durationMs,
+        isChapterMode = progressState.isChapterProgressMode,
+        chapters = metadata.chapters,
+        markers = metadata.getChapterMarkers(progressState.durationMs),
+        onSeek = { pos -> actions.playback.onSeek(pos, true) },
+        modifier = modifier
+    )
+}
 
-            var lastActiveTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
-            LaunchedEffect(selectedTab) {
-                if (selectedTab != PlayerScreenMode.PLAYER) {
-                    lastActiveTab = selectedTab
-                }
-            }
+// 详尽的中文注释：
+// 2. 章节标题显示有状态局部隔间 ChapterDisplayStateful
+// 本组件局部订阅极其低频的章节变化通道 currentChapterState。
+// 只有在真正切换音频章节的边界临界点时才会触发重组，实现了极致的重组频率隔离。
+@Composable
+fun ChapterDisplayStateful(
+    viewModel: com.viel.aplayer.ui.viewmodel.PlayerViewModel,
+    metadata: BookMetadataState,
+    actions: PlayerActions,
+    modifier: Modifier = Modifier
+) {
+    val currentChapter by viewModel.currentChapterState.collectAsStateWithLifecycle()
+    ChapterDisplay(
+        currentChapterTitle = currentChapter?.title ?: metadata.title,
+        onChapterClick = actions.content.onShowChapterList,
+        onBookmarkClick = actions.bookmarks.onShowDialog,
+        modifier = modifier
+    )
+}
 
-            val isMainPlayer = selectedTab == PlayerScreenMode.PLAYER
-            val indicatorAlpha by animateFloatAsState(
-                targetValue = if (isMainPlayer) 0f else 1f,
-                animationSpec = tween(300),
-                label = "indicator_alpha"
-            )
+// 详尽的中文注释：
+// 3. 书签面板有状态局部隔间 BookmarkListViewStateful
+// 仅在展示 Bookmark 面板时，在此局部隔间内高频消费进度，以防进度刷新让外部关联列表和卡片无端重组。
+@Composable
+fun BookmarkListViewStateful(
+    viewModel: com.viel.aplayer.ui.viewmodel.PlayerViewModel,
+    metadata: BookMetadataState,
+    actions: PlayerActions,
+    modifier: Modifier = Modifier
+) {
+    val progressState by viewModel.playbackProgressState.collectAsStateWithLifecycle()
+    BookmarkListView(
+        bookmarks = metadata.bookmarks,
+        onBookmarkClick = { pos -> actions.playback.onSeek(pos, true) },
+        onDeleteClick = actions.bookmarks.onDelete,
+        onUpdateClick = actions.bookmarks.onUpdate,
+        currentPosition = progressState.elapsedMs,
+        modifier = modifier
+    )
+}
 
-            val indicatorOffset by animateFloatAsState(
-                targetValue = lastActiveTab.index.toFloat(),
-                animationSpec = if (indicatorAlpha == 0f) snap() else tween(300),
-                label = "tab_indicator_offset"
-            )
+// 详尽的中文注释：
+// 4. 歌词字幕有状态局部隔间 SubtitlesViewStateful
+// 局部订阅高频进度，维持流畅高频的歌词定位，阻断该高频对外部容器和 AppBar 等的刷新污染。
+@Composable
+fun SubtitlesViewStateful(
+    viewModel: com.viel.aplayer.ui.viewmodel.PlayerViewModel,
+    metadata: BookMetadataState,
+    actions: PlayerActions,
+    modifier: Modifier = Modifier
+) {
+    val progressState by viewModel.playbackProgressState.collectAsStateWithLifecycle()
+    SubtitlesView(
+        subtitles = metadata.subtitles,
+        currentPosition = progressState.elapsedMs,
+        onSeek = { pos -> actions.playback.onSeek(pos, true) },
+        modifier = modifier
+    )
+}
 
-            val currentIndicatorWidth by animateDpAsState(
-                targetValue = measuredWidths[lastActiveTab.index],
-                animationSpec = if (indicatorAlpha == 0f) snap() else tween(300),
-                label = "tab_indicator_width"
-            )
-
-            val activeColor = MaterialTheme.colorScheme.onSurface
-
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-            ) {
-                val width = size.width
-                val tabWidth = width / 3
-                val indWidthPx = currentIndicatorWidth.toPx()
-
-                // 计算各 Tab 对应的目标 X 坐标起点（基于对齐方式：左、中、右）
-                val targetX0 = 0f
-                val targetX1 = tabWidth + (tabWidth - measuredWidths[1].toPx()) / 2
-                val targetX2 = width - measuredWidths[2].toPx()
-
-                // 根据当前动画进度 indicatorOffset 进行位置插值
-                val fluidXPos = if (indicatorOffset <= 1f) {
-                    targetX0 + (targetX1 - targetX0) * indicatorOffset
-                } else {
-                    targetX1 + (targetX2 - targetX1) * (indicatorOffset - 1f)
-                }
-
-                drawRoundRect(
-                    color = activeColor.copy(alpha = indicatorAlpha),
-                    topLeft = androidx.compose.ui.geometry.Offset(fluidXPos, size.height - 4.dp.toPx()),
-                    size = androidx.compose.ui.geometry.Size(indWidthPx, 3.dp.toPx()),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val interactionSource = remember { MutableInteractionSource() }
-                tabs.forEachIndexed { index, (title, mode) ->
-                    Text(
-                        text = title,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(
-                                interactionSource = interactionSource,
-                                indication = null
-                            ) { onTabSelected(mode) },
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = if (selectedTab == mode) FontWeight.Bold else FontWeight.SemiBold,
-                            fontSize = 16.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (selectedTab == mode) 1f else 0.6f),
-                        textAlign = alignments[index],
-                        onTextLayout = { textLayoutResult ->
-                            // 获取第一行文字的精确占据宽度（不含占位的空白）
-                            val lineLeft = textLayoutResult.getLineLeft(0)
-                            val lineRight = textLayoutResult.getLineRight(0)
-                            val textWidthDp = with(density) { (lineRight - lineLeft).toDp() }
-                            
-                            if (measuredWidths[index] != textWidthDp) {
-                                measuredWidths = measuredWidths.toMutableList().also { it[index] = textWidthDp }
-                            }
-                        }
-                    )
-                }
-            }
+// 详尽的中文注释：
+// 5. 章节列表弹窗有状态局部隔间 ChapterListSheetStateful
+// 本隔间仅当弹窗真正可见（isVisible == true）时才订阅高频流以获取进度和高亮，
+// 在弹窗关闭（isVisible == false）时整个有状态隔间不执行内部订阅代码，完全停摆，避免无意义的高频空耗。
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChapterListSheetStateful(
+    viewModel: com.viel.aplayer.ui.viewmodel.PlayerViewModel,
+    metadata: BookMetadataState,
+    settings: PlayerSettingsState,
+    actions: PlayerActions,
+    sheetState: androidx.compose.material3.SheetState
+) {
+    if (settings.isChapterListVisible) {
+        val progressState by viewModel.playbackProgressState.collectAsStateWithLifecycle()
+        val currentChapter = remember(progressState.elapsedMs, metadata.chapters) {
+            com.viel.aplayer.playback.ChapterTimeline.currentChapter(metadata.chapters, progressState.elapsedMs)
         }
-        Spacer(Modifier.height(24.dp))
+        ChapterListSheet(
+            isVisible = true,
+            chapters = metadata.chapters,
+            currentChapter = currentChapter,
+            totalDuration = progressState.durationMs,
+            onDismissRequest = actions.content.onDismissChapterList,
+            onChapterClick = { pos ->
+                actions.playback.onSeek(pos, true)
+                actions.content.onDismissChapterList()
+            },
+            sheetState = sheetState
+        )
     }
 }

@@ -16,7 +16,9 @@ import java.io.FileOutputStream
  * 专门负责封面图片提取、缩略图生成及主色调识别的组件。
  */
 class CoverExtractor(private val context: Context) {
-    private val coversDir = File(context.filesDir, "covers").also { it.mkdirs() }
+    // 详尽的中文注释：将封面图像和缩略图的保存目录从持久存储目录 context.filesDir 移至临时缓存目录 context.cacheDir
+    // 如此设置当手机运行空间不足，或用户使用系统清理工具时，封面缓存可被安全回收以防长期耗用内存空间。
+    private val coversDir = File(context.cacheDir, "covers").also { it.mkdirs() }
 
     data class CoverResult(
         val originalPath: String?,
@@ -41,6 +43,9 @@ class CoverExtractor(private val context: Context) {
             
             // 1. 保存原图
             val originalFile = File(coversDir, "${sourceId.hashCode()}_orig.jpg")
+            // 详尽的中文注释：防御性强力建立父级目录防线。由于 cache 临时缓存目录随时可能在内存紧张或被安全工具扫描时物理删除，
+            // 每次写入前必须确保 cache/covers 父目录 100% 存在，彻底免除 ENOENT (No such file or directory) 写文件错误。
+            originalFile.parentFile?.mkdirs()
             FileOutputStream(originalFile).use { it.write(artBytes) }
             val originalPath = originalFile.absolutePath
 
@@ -87,6 +92,8 @@ class CoverExtractor(private val context: Context) {
                 val sourceId = uri.toString()
                 
                 val originalFile = File(coversDir, "${sourceId.hashCode()}_ext_orig.jpg")
+                // 详尽的中文注释：外置封面图片解析转存前，强力确保 coversDir 缓存目录 100% 存在，彻底规避 ENOENT 错误。
+                originalFile.parentFile?.mkdirs()
                 FileOutputStream(originalFile).use { it.write(bytes) }
                 
                 val thumbPath = createThumbnail(bytes, sourceId)
@@ -117,6 +124,8 @@ class CoverExtractor(private val context: Context) {
             }
 
             val thumbFile = File(coversDir, "${sourceId.hashCode()}_thumb.jpg")
+            // 详尽的中文注释：生成并写入封面缩略图前，强力确保 coversDir 缓存目录 100% 存在，保证成功写入。
+            thumbFile.parentFile?.mkdirs()
             ImageProcessor.saveBitmapToFile(scaledBitmap, thumbFile)
 
             if (scaledBitmap != bitmap) scaledBitmap.recycle()
