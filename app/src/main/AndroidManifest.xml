@@ -22,6 +22,8 @@
         </intent>
     </queries>
 
+    <!-- 详尽的中文注释：启用 largeHeap 属性以允许应用申请更大的 Java 堆内存空间。 -->
+    <!-- 这能有效应对多路并发解析大体积 .m4b 有声书文件时，Media3 底层分配巨大 sample size 数组所带来的 OOM 崩溃隐患。 -->
     <application
         android:name=".APlayerApplication"
         android:allowBackup="true"
@@ -33,7 +35,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.APlayer"
         android:enableOnBackInvokedCallback="true"
-        tools:targetApi="36">
+        tools:targetApi="36"
+        android:largeHeap="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
