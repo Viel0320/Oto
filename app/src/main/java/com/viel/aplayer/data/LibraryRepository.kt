@@ -2,34 +2,13 @@ package com.viel.aplayer.data
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.annotation.OptIn
-import androidx.core.content.edit
-import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.extractor.DefaultExtractorsFactory
-import androidx.media3.extractor.metadata.id3.CommentFrame
-import java.io.File
-import java.io.FileOutputStream
-import java.util.Locale
-import java.util.UUID
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
@@ -44,17 +23,22 @@ import com.viel.aplayer.data.entity.SearchHistoryEntity
 import com.viel.aplayer.data.store.SearchHistoryStore
 import com.viel.aplayer.library.BookImporter
 import com.viel.aplayer.library.DetailAvailabilityChecker
-import com.viel.aplayer.library.LibraryRootStore
-import com.viel.aplayer.library.RescanCoordinator
-import com.viel.aplayer.library.RescanType
 import com.viel.aplayer.media.BookPlaybackPlan
 import com.viel.aplayer.media.PlaybackReachabilityManager
 import com.viel.aplayer.media.PositionMapper
 import com.viel.aplayer.media.SubtitleFileResolver
-import com.viel.aplayer.media.parse.CoverExtractor
 import com.viel.aplayer.media.parse.CoverRecoveryHelper
-import com.viel.aplayer.media.parse.MetadataExtractor
 import com.viel.aplayer.ui.player.components.SubtitleLine
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.UUID
 
 /**
  * Repository that wraps Room database and handles cover art caching.
@@ -433,7 +417,7 @@ class LibraryRepository private constructor(context: Context) {
         
         if (files.isEmpty()) return@withContext null
         
-        val artworkPath = book.thumbnailPath ?: book.coverPath
+        val artworkPath = book.coverPath
         // Cover cache paths are local files; expose them as file URIs and bytes for Media3 artwork.
         val artworkUri = artworkPath?.let { Uri.fromFile(java.io.File(it)) }
 

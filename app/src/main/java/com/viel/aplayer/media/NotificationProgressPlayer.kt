@@ -4,7 +4,6 @@ import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
-import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import java.util.concurrent.CopyOnWriteArraySet
 import com.viel.aplayer.data.entity.BookFileEntity
@@ -58,20 +57,6 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
     // Bookmarks and persistence need the stable global position, regardless of notification display mode.
     fun currentGlobalPosition(): Long = currentRawGlobalPosition()
 
-    // App-internal chapter/book seeks provide book-global positions and must bypass notification display windows.
-    fun seekToGlobalPosition(globalPositionMs: Long, playAfterSeek: Boolean = true) {
-        val totalDuration = totalBookDuration()
-        if (files.isEmpty() || totalDuration <= 0L) {
-            wrappedPlayer.seekTo(globalPositionMs.coerceAtLeast(0L))
-            if (playAfterSeek) wrappedPlayer.play()
-            return
-        }
-
-        val targetGlobal = globalPositionMs.coerceIn(0L, totalDuration)
-        val (fileIndex, filePosition) = PositionMapper.globalToFilePosition(targetGlobal, files)
-        wrappedPlayer.seekTo(fileIndex, filePosition)
-        if (playAfterSeek) wrappedPlayer.play()
-    }
 
     // Notification seek bars read duration from MediaSession; expose current chapter length when chapter mode is enabled.
     override fun getDuration(): Long = currentDisplayWindow().also(::refreshNotificationWindowIfNeeded).durationMs
@@ -185,13 +170,13 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
     private fun notifyTimelineShapeChanged() {
         val events = Player.Events(
             androidx.media3.common.FlagSet.Builder()
-                .add(Player.EVENT_TIMELINE_CHANGED)
-                .add(Player.EVENT_POSITION_DISCONTINUITY)
+                .add(EVENT_TIMELINE_CHANGED)
+                .add(EVENT_POSITION_DISCONTINUITY)
                 .build()
         )
         // Notify MediaSession that duration/currentPosition semantics changed even though ExoPlayer media did not.
         sessionListeners.forEach { listener ->
-            listener.onTimelineChanged(currentTimeline, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE)
+            listener.onTimelineChanged(currentTimeline, TIMELINE_CHANGE_REASON_SOURCE_UPDATE)
             listener.onEvents(this, events)
         }
     }

@@ -196,6 +196,7 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    @OptIn(UnstableApi::class)
     private fun isUnavailableMediaError(error: PlaybackException): Boolean {
         val isIoError = when (error.errorCode) {
             PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
