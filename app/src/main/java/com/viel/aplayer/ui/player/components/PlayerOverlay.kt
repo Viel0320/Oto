@@ -131,7 +131,7 @@ private fun MiniPlayerContent(
             title = metadata.title,
             author = metadata.author,
             narrator = metadata.narrator,
-            coverPath = metadata.thumbnailPath ?: metadata.coverPath,
+            coverPath = metadata.thumbnailPath,
             // 详尽的中文注释：桥接封面最后更新时间戳，用以打破 Coil 等的缓存，确保发生重组后强制渲染最新文件
             coverLastUpdated = metadata.coverLastUpdated,
             // 传递计算后的进度
