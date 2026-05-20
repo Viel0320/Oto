@@ -3,11 +3,11 @@ package com.viel.aplayer.library
 import android.content.Context
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
-import com.viel.aplayer.data.AppDatabase
-import com.viel.aplayer.data.AudiobookSchema
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
+import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
 
 // Detail-only availability check; rescans do not update old BookFile reachability.
 class DetailAvailabilityChecker(private val context: Context) {

@@ -3,12 +3,12 @@ package com.viel.aplayer.library
 import android.content.Context
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
-import com.viel.aplayer.data.AppDatabase
-import com.viel.aplayer.data.AudiobookSchema
-import com.viel.aplayer.data.BookFileEntity
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
+import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookFileEntity
 
 // Cold-start helper: recover missing BookFile rows without re-importing already claimed files.
 class MissingBookFileRecoveryChecker(private val context: Context) {

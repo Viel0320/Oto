@@ -3,11 +3,10 @@ package com.viel.aplayer.library.orchestrator.steps
 import android.content.Context
 import androidx.core.net.toUri
 import com.viel.aplayer.library.AudioMetadataRef
-import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.media.MetadataExtractor
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
+import com.viel.aplayer.media.parse.MetadataExtractor
 
 /**
  * 媒体元数据 ID3 并发解析步骤物理类

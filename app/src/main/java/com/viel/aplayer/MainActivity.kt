@@ -5,7 +5,7 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.viel.aplayer.ui.APlayerApp
+import com.viel.aplayer.ui.navigation.APlayerApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

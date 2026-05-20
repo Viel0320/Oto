@@ -1,8 +1,6 @@
 package com.viel.aplayer
 
 import android.app.Application
-import com.viel.aplayer.data.AppContainer
-import com.viel.aplayer.data.DefaultAppContainer
 
 /**
  * 自定义 Application 类，负责全局依赖容器初始化。

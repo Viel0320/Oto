@@ -3,13 +3,13 @@ package com.viel.aplayer.library
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
-import com.viel.aplayer.data.AppDatabase
-import com.viel.aplayer.data.AudiobookSchema
-import com.viel.aplayer.data.LibraryRootEntity
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import java.util.UUID
+import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.LibraryRootEntity
 
 /**
  * 负责管理媒体库授权目录的持久化存储。

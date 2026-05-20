@@ -3,9 +3,9 @@ package com.viel.aplayer.library.manifest
 import android.content.Context
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
-import com.viel.aplayer.library.MetadataSuggestion
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import com.viel.aplayer.library.MetadataSuggestion
 
 /**
  * M3U8/M3U 播放列表解析器。

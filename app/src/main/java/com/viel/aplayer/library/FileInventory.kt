@@ -1,7 +1,7 @@
 package com.viel.aplayer.library
 
 import androidx.documentfile.provider.DocumentFile
-import com.viel.aplayer.data.LibraryRootEntity
+import com.viel.aplayer.data.entity.LibraryRootEntity
 
 // Scanner output: a stable file inventory, not import decisions.
 data class FileInventory(

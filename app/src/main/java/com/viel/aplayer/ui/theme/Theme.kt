@@ -70,4 +70,3 @@ fun APlayerTheme(
         content = content
     )
 }
-

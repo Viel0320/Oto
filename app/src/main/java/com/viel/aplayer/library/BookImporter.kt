@@ -2,14 +2,14 @@ package com.viel.aplayer.library
 
 import android.content.Context
 import androidx.room.withTransaction
-import com.viel.aplayer.data.AppDatabase
-import com.viel.aplayer.data.AudiobookSchema
-import com.viel.aplayer.data.BookEntity
-import com.viel.aplayer.data.BookFileEntity
-import com.viel.aplayer.data.ChapterEntity
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.UUID
+import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.data.entity.ChapterEntity
 
 // Import persistence boundary for the new scan model.
 class BookImporter(private val context: Context) {

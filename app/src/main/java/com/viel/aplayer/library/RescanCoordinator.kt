@@ -1,12 +1,12 @@
 package com.viel.aplayer.library
 
 import android.content.Context
-import com.viel.aplayer.data.AppDatabase
-import com.viel.aplayer.data.AudiobookSchema
-import com.viel.aplayer.data.ScanSessionEntity
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.UUID
+import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.ScanSessionEntity
 
 enum class RescanType {
     COLD_START_LIGHT,

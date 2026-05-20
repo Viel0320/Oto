@@ -1,6 +1,6 @@
 package com.viel.aplayer.media
 
-import com.viel.aplayer.data.ChapterEntity
+import com.viel.aplayer.data.entity.ChapterEntity
 
 /**
  * 从音频文件中提取出的完整元数据。

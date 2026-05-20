@@ -14,18 +14,13 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
-import com.viel.aplayer.util.image.ImageProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.metadata.id3.CommentFrame
-import com.viel.aplayer.ui.components.SubtitleLine
-import com.viel.aplayer.util.parser.SubtitleParser
-import com.viel.aplayer.util.parser.AudiobookParser
-import com.viel.aplayer.playback.BookPlaybackPlan
-import com.viel.aplayer.playback.PlaybackSubtitle
-import com.viel.aplayer.playback.PositionMapper
-import com.viel.aplayer.library.BookImporter
-import com.viel.aplayer.library.DetailAvailabilityChecker
+import java.io.File
+import java.io.FileOutputStream
+import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,11 +30,31 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import java.io.File
-import java.io.FileOutputStream
-import java.util.Locale
-import java.util.UUID
-
+import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.data.entity.BookProgressEntity
+import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.data.entity.SearchHistoryEntity
+import com.viel.aplayer.data.store.SearchHistoryStore
+import com.viel.aplayer.library.BookImporter
+import com.viel.aplayer.library.DetailAvailabilityChecker
+import com.viel.aplayer.library.LibraryRootStore
+import com.viel.aplayer.library.RescanCoordinator
+import com.viel.aplayer.library.RescanType
+import com.viel.aplayer.media.BookPlaybackPlan
+import com.viel.aplayer.media.PlaybackReachabilityManager
+import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.media.SubtitleFileResolver
+import com.viel.aplayer.media.parse.CoverExtractor
+import com.viel.aplayer.media.parse.CoverRecoveryHelper
+import com.viel.aplayer.media.parse.MetadataExtractor
+import com.viel.aplayer.ui.player.components.SubtitleLine
 
 /**
  * Repository that wraps Room database and handles cover art caching.
@@ -59,8 +74,8 @@ class LibraryRepository private constructor(context: Context) {
     private val importer = BookImporter(this.context)
     private val availabilityChecker = DetailAvailabilityChecker(this.context)
     private val rootStore = com.viel.aplayer.library.LibraryRootStore(this.context)
-    private val coverExtractor = com.viel.aplayer.media.CoverExtractor(this.context)
-    private val metadataExtractor = com.viel.aplayer.media.MetadataExtractor(this.context)
+    private val coverExtractor = com.viel.aplayer.media.parse.CoverExtractor(this.context)
+    private val metadataExtractor = com.viel.aplayer.media.parse.MetadataExtractor(this.context)
 
     // 详尽的中文注释：实例化三个全新的、低耦合的子功能组件。
     // SubtitleFileResolver 负责字幕文件的路径检索与流式解析；
@@ -197,7 +212,7 @@ class LibraryRepository private constructor(context: Context) {
                 } else {
                     // Direct single-file import falls back to cover/folder/artwork/front in the chosen directory.
                     parentDir?.let { coverExtractor.extractFromDirectory(it) }
-                        ?: com.viel.aplayer.media.CoverExtractor.CoverResult(null, null)
+                        ?: com.viel.aplayer.media.parse.CoverExtractor.CoverResult(null, null)
                 }
 
                 val lastModified = if (uri.scheme == "file") File(uri.path ?: "").lastModified() else System.currentTimeMillis()
@@ -231,7 +246,7 @@ class LibraryRepository private constructor(context: Context) {
     }
     
     // CoverResult may legitimately contain no image when neither embedded art nor sidecar images exist.
-    private fun com.viel.aplayer.media.CoverExtractor.CoverResult.hasImage(): Boolean =
+    private fun com.viel.aplayer.media.parse.CoverExtractor.CoverResult.hasImage(): Boolean =
         originalPath != null || thumbnailPath != null
 
     /** Update playback position in milliseconds. */
@@ -241,7 +256,7 @@ class LibraryRepository private constructor(context: Context) {
             val files = bookDao.getFilesForBookList(bookId)
             
             if (files.isNotEmpty()) {
-                val (fileIndex, posInFile) = com.viel.aplayer.playback.PositionMapper.globalToFilePosition(position, files)
+                val (fileIndex, posInFile) = com.viel.aplayer.media.PositionMapper.globalToFilePosition(position, files)
                 val bookFileId = files.getOrNull(fileIndex)?.id
 
                 // Progress is upserted on first real playback/seek, not during import.

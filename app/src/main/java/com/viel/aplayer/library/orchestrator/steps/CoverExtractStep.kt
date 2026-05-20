@@ -3,17 +3,17 @@ package com.viel.aplayer.library.orchestrator.steps
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import java.util.UUID
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import com.viel.aplayer.library.AudioMetadataRef
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.HeuristicAggregationPlan
-import com.viel.aplayer.media.CoverExtractor
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
-import java.util.UUID
+import com.viel.aplayer.media.parse.CoverExtractor
 
 /**
  * 封面提取与 dominant 调色板背景色提取分步物理类

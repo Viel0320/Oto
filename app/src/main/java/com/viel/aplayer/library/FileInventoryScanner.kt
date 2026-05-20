@@ -3,10 +3,10 @@ package com.viel.aplayer.library
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
-import com.viel.aplayer.data.LibraryRootEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import com.viel.aplayer.data.entity.LibraryRootEntity
 
 // New scanner: it only snapshots files and leaves import decisions to ImportOrchestrator.
 class FileInventoryScanner(private val context: Context) {

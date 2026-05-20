@@ -4,21 +4,21 @@ import android.net.Uri
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.viel.aplayer.ui.screens.HomeScreen
-import com.viel.aplayer.ui.screens.SearchScreen
-import com.viel.aplayer.ui.screens.SettingsScreen
-import com.viel.aplayer.ui.viewmodel.LibraryViewModel
-import com.viel.aplayer.ui.viewmodel.PlayerViewModel
-import com.viel.aplayer.ui.viewmodel.SettingsViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.viel.aplayer.ui.home.HomeScreen
+import com.viel.aplayer.ui.home.LibraryViewModel
+import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.search.SearchScreen
+import com.viel.aplayer.ui.settings.SettingsScreen
+import com.viel.aplayer.ui.settings.SettingsViewModel
 
 @Composable
 fun APlayerNavHost(

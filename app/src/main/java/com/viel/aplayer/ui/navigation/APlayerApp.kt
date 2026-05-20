@@ -1,0 +1,135 @@
+package com.viel.aplayer.ui.navigation
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.viel.aplayer.ui.detail.DetailOverlay
+import com.viel.aplayer.ui.home.LibraryViewModel
+import com.viel.aplayer.ui.home.ScanResultDialog
+import com.viel.aplayer.ui.player.MiniPlayerActions
+import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.player.components.PlayerOverlay
+import com.viel.aplayer.ui.player.rememberActions
+import com.viel.aplayer.ui.theme.APlayerTheme
+
+@Composable
+fun APlayerApp() {
+    APlayerTheme {
+        val navController = rememberNavController()
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
+
+        val context = LocalContext.current
+        val libraryViewModel: LibraryViewModel = viewModel()
+        val playerViewModel: PlayerViewModel = viewModel()
+
+        val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
+        val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
+        val scanResult by libraryViewModel.scanResultDialogState.collectAsStateWithLifecycle()
+
+        val canStartNavigation = rememberNavigationThrottle()
+
+        LaunchedEffect(Unit) {
+            playerViewModel.initialize(context)
+        }
+
+        LaunchedEffect(currentRoute) {
+            playerViewModel.onRouteChanged()
+        }
+
+        val navigateBack: () -> Unit = remember(navController) {
+            {
+                if (canStartNavigation() && navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
+        }
+
+        // 使用扩展函数构建 Actions 对象，实现逻辑解耦与性能缓存
+        val playerActions = playerViewModel.rememberActions(
+            onDeleteBook = { bookId ->
+                playerViewModel.closePlayback(bookId)
+                libraryViewModel.deleteBook(bookId)
+                if (currentRoute != null && currentRoute != "home") {
+                    navigateBack()
+                }
+            }
+        )
+
+        val miniPlayerActions = remember(playerViewModel) {
+            MiniPlayerActions(
+                onPlayPauseClick = { playerViewModel.togglePlayPause() },
+                onHide = { playerViewModel.setMiniPlayerHidden(true) },
+                onUnavailable = { playerViewModel.closeCurrentPlayback() }
+            )
+        }
+        val playerNavigationActions = remember(navController, playerViewModel) {
+            PlayerNavigationActions(
+                onMinimize = { playerViewModel.setFullPlayerVisible(false) },
+                onClose = { playerViewModel.setFullPlayerVisible(false) },
+                onBookmarksClick = {
+                    playerViewModel.setSelectedContentTab(0)
+                    playerViewModel.setFullPlayerVisible(true)
+                },
+                onSubtitlesClick = {
+                    playerViewModel.setSelectedContentTab(1)
+                    playerViewModel.setFullPlayerVisible(true)
+                },
+                onRelatedClick = {
+                    playerViewModel.setSelectedContentTab(2)
+                    playerViewModel.setFullPlayerVisible(true)
+                },
+                onNavigateToNewPlayer = { playerViewModel.setFullPlayerVisible(true) }
+            )
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                APlayerNavHost(
+                    navController = navController,
+                    libraryViewModel = libraryViewModel,
+                    playerViewModel = playerViewModel,
+                    canStartNavigation = canStartNavigation,
+                    navigateBack = navigateBack
+                )
+
+                // 详情页 Overlay
+                DetailOverlay(
+                    libraryViewModel = libraryViewModel,
+                    playerViewModel = playerViewModel,
+                    navController = navController,
+                    canStartNavigation = canStartNavigation
+                )
+
+                PlayerOverlay(
+                    playerViewModel = playerViewModel,
+                    playerActions = playerActions,
+                    miniPlayerActions = miniPlayerActions,
+                    playerNavigationActions = playerNavigationActions,
+                    currentRoute = currentRoute
+                )
+
+                scanResult?.let { session ->
+                    ScanResultDialog(
+                        session = session,
+                        onDismiss = { libraryViewModel.dismissScanResultDialog() }
+                    )
+                }
+            }
+        }
+    }
+}

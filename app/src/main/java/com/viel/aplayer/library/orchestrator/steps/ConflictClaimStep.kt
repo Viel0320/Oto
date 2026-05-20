@@ -5,13 +5,17 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import androidx.core.net.toUri
-import com.viel.aplayer.data.AudiobookSchema
-import com.viel.aplayer.data.BookEntity
-import com.viel.aplayer.data.BookFileEntity
-import com.viel.aplayer.data.ChapterEntity
-import com.viel.aplayer.data.PendingScanActionEntity
+import java.io.BufferedInputStream
+import java.nio.charset.Charset
+import java.util.UUID
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.entity.PendingScanActionEntity
 import com.viel.aplayer.library.AudioMetadataRef
 import com.viel.aplayer.library.BookDraft
+import com.viel.aplayer.library.ChapterCandidate
 import com.viel.aplayer.library.FileIdentity
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
@@ -20,18 +24,16 @@ import com.viel.aplayer.library.ImportCommand
 import com.viel.aplayer.library.ImportFailure
 import com.viel.aplayer.library.ImportRunResult
 import com.viel.aplayer.library.ImportSourceRef
-import com.viel.aplayer.library.manifest.CueManifestParser
-// 详尽的中文注释：修复 ChapterCandidate 与 MetadataSuggestion 的包名导入错误，以正确找到在 com.viel.aplayer.library 下定义的类型
-import com.viel.aplayer.library.ChapterCandidate
 import com.viel.aplayer.library.MetadataSuggestion
+import com.viel.aplayer.library.ReservationResult
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
-import com.viel.aplayer.media.CoverExtractor
-import com.viel.aplayer.media.MetadataExtractor
-import java.io.BufferedInputStream
-import java.nio.charset.Charset
-import java.util.UUID
+import com.viel.aplayer.media.AudiobookMetadata
+import com.viel.aplayer.media.parse.CoverExtractor
+import com.viel.aplayer.media.parse.MetadataExtractor
+
+// 详尽的中文注释：修复 ChapterCandidate 与 MetadataSuggestion 的包名导入错误，以正确找到在 com.viel.aplayer.library 下定义的类型
 
 /**
  * 冲突所有权认领决策工位

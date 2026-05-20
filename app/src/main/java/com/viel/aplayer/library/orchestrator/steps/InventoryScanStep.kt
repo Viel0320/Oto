@@ -1,7 +1,7 @@
 package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
-import com.viel.aplayer.data.LibraryRootEntity
+import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileInventoryScanner
 import com.viel.aplayer.library.orchestrator.ImportContext

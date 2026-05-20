@@ -1,5 +1,6 @@
 package com.viel.aplayer.library
 
+
 // Parsed manifest chapter candidate used before BookFile ids are assigned.
 data class ChapterCandidate(
     val title: String,
