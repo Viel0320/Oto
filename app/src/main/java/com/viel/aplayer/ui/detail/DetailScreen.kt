@@ -258,7 +258,7 @@ fun DetailScreen(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shadowElevation = 8.dp
                 ) {
-                    val coverPath = book?.thumbnailPath ?: book?.coverPath
+                    val coverPath = book?.coverPath
                     val coverLastUpdated = book?.lastScannedAt ?: 0L
                     if ((coverPath != null) && File(coverPath).exists()) {
                         // 详尽中文注释：使用 LocalContext 构建附带 lastScannedAt 更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
