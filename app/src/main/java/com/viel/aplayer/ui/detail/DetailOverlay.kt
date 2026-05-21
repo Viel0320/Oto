@@ -10,18 +10,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavController
-
 /**
+ * 为每一次改动添加详尽的中文注释：
  * 书籍详情悬浮层组件。
  * 将详情页的显示逻辑与动画从主 App容器中解耦。
+ *
+ * 移除了对 NavController 的直接依赖，将点击搜索时导航到搜索页的行为解耦为 onNavigateToSearch 回调，
+ * 使得 DetailOverlay 能够通过 Activity 级别拉起独立 SearchActivity，确保数据通信流一致。
  */
 @Composable
 fun DetailOverlay(
     detailViewModel: DetailViewModel,
-    navController: NavController,
     canStartNavigation: () -> Boolean,
     onPlayBook: (String) -> Unit,
+    onNavigateToSearch: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
@@ -45,10 +47,9 @@ fun DetailOverlay(
             onSearchClick = { query ->
                 detailViewModel.setVisible(false)
                 if (canStartNavigation()) {
-                    // 详尽中文注释：移除对当前路由是否为 search 的判断，允许在搜索结果中打开详情后再点关键词跳回/更新搜索
-                    navController.navigate("search?q=${android.net.Uri.encode(query)}") {
-                        launchSingleTop = true
-                    }
+                    // 为每一次改动添加详尽的中文注释：
+                    // 点击搜索关键字时，通知外部组件执行搜索跳转，并且关闭当前的详情悬浮层。
+                    onNavigateToSearch(query)
                 }
             },
             onPlayClick = {

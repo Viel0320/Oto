@@ -1,15 +1,17 @@
 package com.viel.aplayer.ui.common
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -52,21 +54,38 @@ fun BlurDialog(
         // 此时 LocalView 已指向 Dialog 自己的 AndroidComposeView，Window 定位准确。
         ApplyWindowBlur(blurBehindRadius = blurBehindRadius)
 
-        // 详尽中文注释：全屏 Box 作为定位容器，padding 确保对话框与屏幕边缘保持安全间距
+        // 详尽中文注释：全屏 Box 作为定位容器。配置了 clickable 修饰符，
+        // 在 usePlatformDefaultWidth = false 时替代失效的原生 Outside Touch，
+        // 使得用户点击对话框外围模糊空白处时，能灵敏触发 onDismissRequest()。
+        // 同时传递无波纹点击反馈以维持视觉的高级感。
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    onDismissRequest()
+                }
                 .padding(horizontal = 24.dp, vertical = 48.dp),
             contentAlignment = Alignment.Center
         ) {
             // 详尽中文注释：对话框面板 Surface。
-            // - 28dp 圆角符合 Material 3 Dialog 规范
+            // - 采用系统 extraLarge 圆角符合 Material 3 Dialog 规范，支持主题自适应
             // - surfaceContainerHigh + 0.92f alpha 与身后模糊形成玻璃拟态视觉层次
             // - tonalElevation = 6.dp：暗色模式下产生色调差，强化层次感
             // - shadowElevation = 8.dp：轻微投影强化悬浮感
+            // - 关键改动：添加无波纹 clickable 以拦截并消费点击手势，阻止其错误向上穿透触发 dismiss 关闭
             Surface(
-                modifier = Modifier.widthIn(min = 280.dp, max = 460.dp),
-                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier
+                    .widthIn(min = 280.dp, max = 460.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        // 详尽的中文注释：空操作，单纯用于拦截手势，防止点击对话框主体错误触发 dismiss
+                    },
+                shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
                 tonalElevation = 6.dp,
                 shadowElevation = 8.dp

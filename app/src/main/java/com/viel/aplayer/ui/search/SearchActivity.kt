@@ -1,6 +1,12 @@
-﻿package com.viel.aplayer.ui.search
+package com.viel.aplayer.ui.search
 
-
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -57,6 +64,73 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.ui.home.AudiobookListItem
 import com.viel.aplayer.ui.theme.APlayerTheme
+
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * 搜索功能的独立 Activity。
+ *
+ * 进入/退出动画：
+ * 由调用方通过 ActivityOptions.makeCustomAnimation 使用系统内置动画资源驱动，
+ * 退出时同理，在 finish() 前调用 overrideActivityTransition（API 34+）或 overridePendingTransition（低版本）。
+ *
+ * 跨 Activity 通信（详情页）：
+ * 搜索结果点击后，通过 setResult(RESULT_OK, Intent.putExtra(EXTRA_SELECTED_BOOK_ID, bookId)) + finish()
+ * 将书籍 ID 传回启动方（MainActivity），由 MainActivity 的 ActivityResultLauncher 接收并交给 DetailViewModel 打开详情 Overlay。
+ */
+class SearchActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        val initialQuery = intent.getStringExtra(EXTRA_INITIAL_QUERY)
+
+        setContent {
+            APlayerTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    SearchScreen(
+                        initialQuery = initialQuery,
+                        onNavigateToDetail = { bookId ->
+                            val resultIntent = Intent().putExtra(EXTRA_SELECTED_BOOK_ID, bookId)
+                            setResult(Activity.RESULT_OK, resultIntent)
+                            finish()
+                        },
+                        onLoadBook = { bookId ->
+                            val resultIntent = Intent()
+                                .putExtra(EXTRA_SELECTED_BOOK_ID, bookId)
+                                .putExtra(EXTRA_SHOULD_PLAY, true)
+                            setResult(Activity.RESULT_OK, resultIntent)
+                            finish()
+                        },
+                        onNavigateToPlayer = {
+                            val resultIntent = Intent().putExtra(EXTRA_OPEN_PLAYER, true)
+                            setResult(Activity.RESULT_OK, resultIntent)
+                            finish()
+                        },
+                        onBack = { finish() }
+                    )
+                }
+            }
+        }
+    }
+
+    companion object {
+        const val EXTRA_INITIAL_QUERY = "com.viel.aplayer.search.EXTRA_INITIAL_QUERY"
+        const val EXTRA_SELECTED_BOOK_ID = "com.viel.aplayer.search.EXTRA_SELECTED_BOOK_ID"
+        const val EXTRA_SHOULD_PLAY = "com.viel.aplayer.search.EXTRA_SHOULD_PLAY"
+        const val EXTRA_OPEN_PLAYER = "com.viel.aplayer.search.EXTRA_OPEN_PLAYER"
+
+        fun createIntent(context: Context, initialQuery: String? = null): Intent =
+            Intent(context, SearchActivity::class.java).apply {
+                if (!initialQuery.isNullOrBlank()) {
+                    putExtra(EXTRA_INITIAL_QUERY, initialQuery)
+                }
+            }
+    }
+}
 
 data class SearchCommand(
     val token: String,
@@ -101,7 +175,6 @@ fun SearchScreen(
 
     LaunchedEffect(initialQuery) {
         if (!initialQuery.isNullOrBlank()) {
-            // 鍙 initialQuery 涓嶄负绌猴紝灏卞己鍒舵墽琛屾柊鎼滅储锛屼粠鑰屽疄鐜拌嚜鍔ㄦ竻绌哄凡鏈夋枃鏈苟璺宠浆鐨勫姛鑳?
             viewModel.search(initialQuery)
         }
     }
@@ -161,11 +234,6 @@ fun SearchContent(
         focusManager.clearFocus()
         onBack()
     }
-
-    // 璇﹀敖涓枃娉ㄩ噴锛氫负浜嗚鎼滅储椤?100% 鍛堢幇 Android 绯荤粺绾у師鐢熺殑棰勬祴鎬ц繑鍥炴墜鍔垮姩鐢伙紙鍚戝彸鎷夊嚭棰勮骞?pop 閫€鍑猴級锛?
-    // 姝ゅ褰诲簳绉婚櫎浜嗗杩斿洖浜嬩欢鐨?PredictiveBackHandler 鎵嬪姩鎷︽埅銆?
-    // 杩斿洖鎵嬪娍浜嬩欢鐩存帴绉讳氦绯荤粺涓?Compose Navigation 鎺ョ銆傚綋鐢ㄦ埛鍚戝彸婊戝姩杩斿洖鏃讹紝
-    // 绯荤粺灏嗛『鐣呮樉绀哄師鐢熼〉闈㈤€€鍦鸿繃娓★紝骞跺湪鏈€缁堥€€鍑洪攢姣佹椂鑷姩娓呯┖杈撳叆妗嗙劍鐐逛笌鏀惰捣杞敭鐩樸€?
 
     LaunchedEffect(Unit) {
         if (autoFocus) {
@@ -266,7 +334,6 @@ fun SearchContent(
                                     )
                                 }
                             }
-                            // 璇﹀敖涓枃娉ㄩ噴锛氫负 items 寰幆琛ュ厖鍞竴鐨?searchHistory 鎼滅储璇嶄綔涓虹ǔ瀹?key锛岄槻姝㈠垪琛ㄩ噸缁勬椂椤圭姸鎬佷涪澶?(M-20)
                             items(
                                 count = searchHistory.size,
                                 key = { index -> searchHistory[index].query }
@@ -335,7 +402,6 @@ fun SearchContent(
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                                 )
                             }
-                            // 璇﹀敖涓枃娉ㄩ噴锛氫负 items 寰幆琛ュ厖鍞竴鐨?token 璇嶄綔涓虹ǔ瀹?key锛岄槻姝㈠懡浠よ仈鎯冲埛鏂版椂椤圭姸鎬佷涪澶?(M-20)
                             items(
                                 count = commandSuggestions.size,
                                 key = { index -> commandSuggestions[index].token }
@@ -408,7 +474,6 @@ fun SearchContent(
                                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
                                 )
                             }
-                            // 璇﹀敖涓枃娉ㄩ噴锛氫负 items 寰幆琛ュ厖鍞竴鐨勪功绫?ID 浣滀负绋冲畾涓斿敮涓€鐨?key锛屼娇鎼滅储鍑烘潵鐨勪功绫嶅崱鐗囧嵆浣垮湪鏇存敼鎺掑簭鎴栭噸缁樻椂涔熶笉浼氬彂鐢熼」鍐呭閿欎贡涓庡姞杞介敊浣?(M-20)
                             items(
                                 count = searchResults.size,
                                 key = { index -> searchResults[index].book.id }
@@ -420,7 +485,7 @@ fun SearchContent(
                                     narrator = result.book.narrator,
                                     duration = result.book.totalDurationMs,
                                     coverPath = result.book.thumbnailPath ?: result.book.coverPath,
-                                    coverLastUpdated = result.book.lastScannedAt, // 璇﹀敖涓枃娉ㄩ噴锛氭ˉ鎺?Room 灞傜殑 lastScannedAt 鏇存柊鏃堕棿鎴筹紝褰撳皝闈㈣嚜鎰堣Е鍙戞椂寮鸿鍒锋柊 Coil 缂撳瓨浠ユ樉绀烘柊灏侀潰
+                                    coverLastUpdated = result.book.lastScannedAt, 
                                     progressPercent = result.progressPercent,
                                     onClick = { 
                                         focusManager.clearFocus()

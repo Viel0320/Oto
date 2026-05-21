@@ -1,6 +1,8 @@
 package com.viel.aplayer.ui.settings
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -46,6 +48,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             // Route entry calls this explicitly because the SettingsViewModel may be created before navigation.
             libraryRepository.refreshLibraryRootStatuses()
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：
+    // 在设置页中选择媒体库目录后的回调逻辑，负责获取持久化 SAF 授权，将其存入数据库并异步触发 USER 手动增量扫描任务。
+    // 这能让设置页完全独立处理 SAF 动作，从而将 LibraryViewModel 彻底解耦，消除 Activity 切换时的冷启动扫描问题。
+    fun onLibraryRootSelected(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                // 写入数据库，并等待写入完成以保证扫描的即时性
+                libraryRepository.setLibraryRoot(uri)
+                // 触发工作器进行手动媒体库扫描同步
+                libraryRepository.syncLibrary("USER")
+            } catch (e: SecurityException) {
+                // 详尽的中文注释：对捕获的 SecurityException 赋予脱敏日志信息输出，便于追踪定位 SAF 授权失效事件而不吞掉关键错误。
+                android.util.Log.e("SettingsViewModel", "SecurityException occurred while taking persistable URI permission for tree: ${uri.hashCode().toString(16)}", e)
+            }
         }
     }
 
@@ -98,7 +121,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增修改自动跳过静音的判定最小时长阈值（0.5s-5.0s）的交互方法。
+    // 为每一次改动添加详尽的中文注释：新增修改自动跳过静音的判定最小时长值（0.5s-5.0s）的交互方法。
     fun updateSkipSilenceDurationThreshold(duration: Float) {
         viewModelScope.launch {
             settingsRepository.updateSkipSilenceDurationThreshold(duration)
@@ -125,4 +148,4 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             settingsRepository.updateShakeToResetEnabled(enabled)
         }
     }
-}
+}

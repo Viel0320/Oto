@@ -19,22 +19,40 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.detail.DetailOverlay
 import com.viel.aplayer.ui.detail.DetailViewModel
-// 详尽中文注释：导入全局通用的 UI 事件类型 UiEvent，代替旧模块局部的 LibraryUiEvent
-import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.home.ScanResultDialog
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.PlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
+import com.viel.aplayer.ui.search.SearchActivity
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 @Composable
 fun APlayerApp(
     openPlayerOverlayRequest: Boolean = false,
-    onOpenPlayerOverlayConsumed: () -> Unit = {}
+    onOpenPlayerOverlayConsumed: () -> Unit = {},
+    // 为每一次改动添加详尽的中文注释：
+    // 从 MainActivity 传入搜索结果回传状态：待打开详情的书籍 ID。
+    // 非空时触发 DetailViewModel.selectBook 打开详情 Overlay，消费后由 onPendingDetailBookIdConsumed 复位。
+    pendingDetailBookId: String? = null,
+    onPendingDetailBookIdConsumed: () -> Unit = {},
+    // 为每一次改动添加详尽的中文注释：
+    // 从 MainActivity 传入搜索结果回传状态：待立即播放的书籍 ID。
+    // 非空时先 loadBook 再展开全屏播放器，消费后复位。
+    pendingPlayBookId: String? = null,
+    onPendingPlayBookIdConsumed: () -> Unit = {},
+    // 为每一次改动添加详尽的中文注释：
+    // 从 MainActivity 传入搜索结果回传状态：是否仅打开播放器 Overlay（不涉及书籍切换）。
+    openPlayerFromSearchRequest: Boolean = false,
+    onOpenPlayerFromSearchConsumed: () -> Unit = {},
+    // 为每一次改动添加详尽的中文注释：
+    // MainActivity 的 ActivityResultLauncher，用于从 NavHost/HomeScreen 启动 SearchActivity。
+    // 传入 Composable 层而非直接 startActivity，是为了让回传结果能被 MainActivity 统一接收并通过 Compose State 传回来。
+    searchLauncher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>? = null
 ) {
     APlayerTheme {
         val navController = rememberNavController()
@@ -67,9 +85,40 @@ fun APlayerApp(
             }
         }
 
+        // 为每一次改动添加详尽的中文注释：
+        // 消费从 SearchActivity 经由 MainActivity 传入的"打开详情 Overlay"请求。
+        // pendingDetailBookId 非空时，从当前 libraryUiState.audiobooks 中找到对应书籍对象，
+        // 调用 detailViewModel.selectBook 触发详情 Overlay 展开，然后立即通知 MainActivity 复位状态防止重复触发。
+        LaunchedEffect(pendingDetailBookId) {
+            val bookId = pendingDetailBookId ?: return@LaunchedEffect
+            val book = libraryUiState.audiobooks.find { it.book.id == bookId }
+            detailViewModel.selectBook(book)
+            onPendingDetailBookIdConsumed()
+        }
+
+        // 为每一次改动添加详尽的中文注释：
+        // 消费从 SearchActivity 经由 MainActivity 传入的"立即播放"请求。
+        // 先调用 PlayerViewModel.loadBook 加载指定书籍，再展开全屏播放器 Overlay。
+        LaunchedEffect(pendingPlayBookId) {
+            val bookId = pendingPlayBookId ?: return@LaunchedEffect
+            playerViewModel.loadBook(bookId)
+            playerViewModel.setFullPlayerVisible(true)
+            onPendingPlayBookIdConsumed()
+        }
+
+        // 为每一次改动添加详尽的中文注释：
+        // 消费从 SearchActivity 经由 MainActivity 传入的"仅打开播放器 Overlay"请求（不切换书籍）。
+        LaunchedEffect(openPlayerFromSearchRequest) {
+            if (openPlayerFromSearchRequest) {
+                playerViewModel.setFullPlayerVisible(true)
+                onOpenPlayerFromSearchConsumed()
+            }
+        }
+
         LaunchedEffect(currentRoute) {
             playerViewModel.onRouteChanged()
         }
+
 
         // 详尽中文注释：M-19 修复 — 高频单向数据同步管道
         // 监听播放器的当前播放书籍 ID 和实时播放进度百分比。
@@ -177,19 +226,23 @@ fun APlayerApp(
                     playerViewModel = playerViewModel,
                     detailViewModel = detailViewModel,
                     canStartNavigation = canStartNavigation,
-                    navigateBack = navigateBack
+                    navigateBack = navigateBack,
+                    searchLauncher = searchLauncher
                 )
 
-                // 详情页 Overlay
+                // 详尽中文注释：调入详情 Overlay，解耦后的新组件通过 onNavigateToSearch 回调拉起 SearchActivity 启动 Intent。
                 DetailOverlay(
                     detailViewModel = detailViewModel,
-                    navController = navController,
                     canStartNavigation = canStartNavigation,
                     onPlayBook = { bookId ->
                         // 详尽中文注释：M-19 修复 — 在宿主层接收并消费从详情页往上传播的播放事件。
                         // 统一加载书籍并展开全屏播放器，实现了彻底的单向数据流闭环。
                         playerViewModel.loadBook(bookId)
                         playerViewModel.setFullPlayerVisible(true)
+                    },
+                    onNavigateToSearch = { query ->
+                        val intent = SearchActivity.createIntent(context, query)
+                        searchLauncher?.launch(intent)
                     }
                 )
 

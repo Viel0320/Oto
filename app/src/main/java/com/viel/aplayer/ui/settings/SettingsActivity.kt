@@ -1,9 +1,16 @@
 package com.viel.aplayer.ui.settings
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,37 +22,117 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.LinearScale
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.ui.theme.APlayerTheme
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.material3.Slider
 
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * 设置功能的独立 Activity。
+ *
+ * SettingsViewModel 和 LibraryViewModel 均继承自 AndroidViewModel，
+ * 生命周期依附于本 Activity，通过 APlayerApplication.container 访问同一套 Repository 单例，
+ * 因此数据持久化层与 MainActivity 完全共享，无任何状态隔离问题。
+ *
+ * 进入/退出动画由调用方 + 本 Activity finish() 时分别通过系统动画 API 驱动。
+ */
+class SettingsActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 启用全面屏，保持与 MainActivity 一致的边到边体验
+        enableEdgeToEdge()
+
+        setContent {
+            APlayerTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    // 为每一次改动添加详尽的中文注释：
+                    // SettingsViewModel 是 AndroidViewModel，直接通过 viewModel() 在本 Activity 中实例化，
+                    // 其 Repository 实例与 MainActivity 侧共用同一个 LibraryRepository 和 SettingsRepository 单例。
+                    val settingsViewModel: SettingsViewModel = viewModel()
+                    val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
+                    val libraryRoots by settingsViewModel.libraryRoots.collectAsStateWithLifecycle()
+
+                    SettingsScreen(
+                        // 为每一次改动添加详尽的中文注释：返回按钮关闭当前 Activity，系统自动播放退出动画。
+                        onBack = { finish() },
+                        // 为每一次改动添加详尽的中文注释：
+                        // 直接通过 SettingsViewModel 添加媒体库根目录，与其共享同一套 SAF 授权流程。
+                        // 彻底剥离对 LibraryViewModel 的依赖，防止进入设置页时重新创建该 ViewModel 而导致重复触发其 init 块中的 COLD_START 冷启动同步。
+                        onLibraryRootSelected = { uri -> settingsViewModel.onLibraryRootSelected(uri) },
+
+                        onClearHistory = { settingsViewModel.clearSearchHistory() },
+                        onRescan = { settingsViewModel.triggerRescan() },
+                        libraryRoots = libraryRoots,
+                        isChapterProgressMode = settingsState.isChapterProgressMode,
+                        onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },
+                        isCleartextTrafficAllowed = settingsState.isCleartextTrafficAllowed,
+                        onCleartextTrafficAllowedChange = { settingsViewModel.toggleCleartextTrafficAllowed(it) },
+                        onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
+                        isSkipSilenceEnabled = settingsState.isSkipSilenceEnabled,
+                        onSkipSilenceEnabledChange = { settingsViewModel.toggleSkipSilenceEnabled(it) },
+                        skipSilenceDurationThreshold = settingsState.skipSilenceDurationThreshold,
+                        onSkipSilenceDurationThresholdChange = { settingsViewModel.updateSkipSilenceDurationThreshold(it) },
+                        isSkipSilenceNotificationEnabled = settingsState.isSkipSilenceNotificationEnabled,
+                        onSkipSilenceNotificationEnabledChange = { settingsViewModel.toggleSkipSilenceNotificationEnabled(it) },
+                        isSleepFadeOutEnabled = settingsState.isSleepFadeOutEnabled,
+                        onSleepFadeOutEnabledChange = { settingsViewModel.toggleSleepFadeOutEnabled(it) },
+                        isShakeToResetEnabled = settingsState.isShakeToResetEnabled,
+                        onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) }
+                    )
+                }
+            }
+        }
+    }
+
+    companion object {
+        /**
+         * 为每一次改动添加详尽的中文注释：
+         * 构建用于启动 SettingsActivity 的 Intent 的工厂方法。
+         */
+        fun createIntent(context: Context): Intent =
+            Intent(context, SettingsActivity::class.java)
+    }
+}
+
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * 设置主页 Composable，负责渲染全部配置项条目。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -53,33 +140,33 @@ fun SettingsScreen(
     onLibraryRootSelected: (Uri) -> Unit,
     onClearHistory: () -> Unit,
     onRescan: () -> Unit,
-    libraryRoots: List<com.viel.aplayer.data.entity.LibraryRootEntity>,
+    libraryRoots: List<LibraryRootEntity>,
     isChapterProgressMode: Boolean,
     onChapterProgressModeChange: (Boolean) -> Unit,
-    // 详尽的中文注释：新增是否允许明文 HTTP 流量标志及对应的触发方法。
+    // 详尽的中文注释：是否允许明文 HTTP 流量标志及对应的触发方法。
     isCleartextTrafficAllowed: Boolean,
     onCleartextTrafficAllowedChange: (Boolean) -> Unit,
-    // 详尽的中文注释：新增删除库根目录并释放物理授权的触发接口方法。
-    onDeleteLibraryRoot: (com.viel.aplayer.data.entity.LibraryRootEntity) -> Unit,
-    // 为每一次改动添加详尽的中文注释：新增自动跳过静音（Skip Silence）功能是否启用的全局状态标志。
+    // 详尽的中文注释：删除库根目录并释放物理授权的触发接口方法。
+    onDeleteLibraryRoot: (LibraryRootEntity) -> Unit,
+    // 为每一次改动添加详尽的中文注释：自动跳过静音（Skip Silence）功能是否启用的全局状态标志。
     isSkipSilenceEnabled: Boolean,
-    // 为每一次改动添加详尽的中文注释：新增切换自动跳过静音全局开关状态的回调事件。
+    // 为每一次改动添加详尽的中文注释：切换自动跳过静音全局开关状态的回调事件。
     onSkipSilenceEnabledChange: (Boolean) -> Unit,
-    // 为每一次改动添加详尽的中文注释：新增静音判定最小时长阈值（秒，默认2.0f）的状态。
+    // 为每一次改动添加详尽的中文注释：静音判定最小时长值（秒，默认2.0f）的状态。
     skipSilenceDurationThreshold: Float,
-    // 为每一次改动添加详尽的中文注释：新增修改静音判定最小时长阈值的回调事件。
+    // 为每一次改动添加详尽的中文注释：修改静音判定最小时长值的回调事件。
     onSkipSilenceDurationThresholdChange: (Float) -> Unit,
-    // 为每一次改动添加详尽的中文注释：新增静音跳过时是否弹出 Toast 提示的全局状态标志。
+    // 为每一次改动添加详尽的中文注释：静音跳过时是否弹出 Toast 提示的全局状态标志。
     isSkipSilenceNotificationEnabled: Boolean,
-    // 为每一次改动添加详尽的中文注释：新增切换静音跳过 Toast 提示开关的回调事件。
+    // 为每一次改动添加详尽的中文注释：切换静音跳过 Toast 提示开关的回调事件。
     onSkipSilenceNotificationEnabledChange: (Boolean) -> Unit,
-    // 为每一次改动添加详尽的中文注释：新增睡眠倒计时音量渐隐功能是否启用的全局状态标志。
+    // 为每一次改动添加详尽的中文注释：睡眠倒计时音量渐隐功能是否启用的全局状态标志。
     isSleepFadeOutEnabled: Boolean,
-    // 为每一次改动添加详尽的中文注释：新增切换睡眠倒计时音量渐隐开关的回调事件。
+    // 为每一次改动添加详尽的中文注释：切换睡眠倒计时音量渐隐开关的回调事件。
     onSleepFadeOutEnabledChange: (Boolean) -> Unit,
-    // 为每一次改动添加详尽的中文注释：新增摇晃手机重置睡眠定时器功能是否启用的全局状态标志。
+    // 为每一次改动添加详尽的中文注释：摇晃手机重置睡眠定时器功能是否启用的全局状态标志。
     isShakeToResetEnabled: Boolean,
-    // 为每一次改动添加详尽的中文注释：新增切换摇晃手机重置睡眠定时器开关的回调事件。
+    // 为每一次改动添加详尽的中文注释：切换摇晃手机重置睡眠定时器开关的回调事件。
     onShakeToResetEnabledChange: (Boolean) -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
@@ -111,6 +198,11 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // 为每一次改动添加详尽的中文注释：
+            // === 第一分节：媒体库管理 ===
+            item {
+                SettingsSectionHeader(title = "媒体库管理")
+            }
             item {
                 SettingsItem(
                     title = stringResource(R.string.library_folder_title),
@@ -120,7 +212,7 @@ fun SettingsScreen(
                 )
             }
 
-            // 详尽中文注释：M-20 修复 — 添加模式 key，使用库根 treeUri 作为唯一标识，
+            // 详尽中文注释：添加模式 key，使用库根 treeUri 作为唯一标识，
             // 防止列表刷新时 item 状态错位复用导致 UI 错乱。
             items(libraryRoots.size, key = { libraryRoots[it].treeUri }) { index ->
                 val root = libraryRoots[index]
@@ -164,6 +256,20 @@ fun SettingsScreen(
             }
 
             item {
+                SettingsItem(
+                    title = stringResource(R.string.rescan_library_title),
+                    subtitle = stringResource(R.string.rescan_library_subtitle),
+                    icon = Icons.Rounded.Refresh,
+                    onClick = onRescan
+                )
+            }
+
+            // 为每一次改动添加详尽的中文注释：
+            // === 第二分节：播放与网络 ===
+            item {
+                SettingsSectionHeader(title = "播放与网络")
+            }
+            item {
                 SettingsToggleItem(
                     title = stringResource(R.string.chapter_progress_title),
                     subtitle = stringResource(R.string.chapter_progress_subtitle),
@@ -171,6 +277,64 @@ fun SettingsScreen(
                     checked = isChapterProgressMode,
                     onCheckedChange = onChapterProgressModeChange
                 )
+            }
+            item {
+                // 详尽的中文注释：新增“允许明文 HTTP 流量”持久化控制开关。
+                // 默认关闭，开启时客户端代码侧允许流式播放 http 音频文件。
+                SettingsToggleItem(
+                    title = "允许明文 HTTP 流量",
+                    subtitle = "允许应用播放和加载不安全的 http:// 网络有声书源。建议保持关闭以维持最高安全边界。",
+                    icon = Icons.Rounded.LinearScale,
+                    checked = isCleartextTrafficAllowed,
+                    onCheckedChange = onCleartextTrafficAllowedChange
+                )
+            }
+
+            // 为每一次改动添加详尽的中文注释：
+            // === 第三分节：自动跳过静音 ===
+            item {
+                SettingsSectionHeader(title = "自动跳过静音")
+            }
+            item {
+                // 为每一次改动添加详尽的中文注释：新增“自动跳过静音期”全局控制开关项。
+                SettingsToggleItem(
+                    title = "自动跳过静音期",
+                    subtitle = "在播放有声书时，自动跳过主播停顿、换气及章节末尾等无声片段以提高收听效率。",
+                    icon = Icons.Rounded.LinearScale,
+                    checked = isSkipSilenceEnabled,
+                    onCheckedChange = onSkipSilenceEnabledChange
+                )
+            }
+            item {
+                // 为每一次改动添加详尽的中文注释：判定最小时长滑块调节项。子选项常态渲染，但在全局静音跳过禁用时置灰。
+                SettingsSliderItem(
+                    title = "静音判定最小时长",
+                    subtitle = "判定静音的持续时间",
+                    icon = Icons.Rounded.LinearScale,
+                    value = skipSilenceDurationThreshold,
+                    onValueChange = onSkipSilenceDurationThresholdChange,
+                    valueRange = 0.5f..5.0f,
+                    steps = 8,
+                    valueFormatter = { String.format(java.util.Locale.US, "%.1f 秒", it) },
+                    enabled = isSkipSilenceEnabled
+                )
+            }
+            item {
+                // 为每一次改动添加详尽的中文注释：跳过静音时弹出 Toast 温馨提醒开关项。子选项常态渲染，但在全局静音跳过禁用时置灰。
+                SettingsToggleItem(
+                    title = "跳过静音时弹出通知",
+                    subtitle = "当应用跳过静音时，以 Toast 形式在底部进行温馨提示。",
+                    icon = Icons.Rounded.LinearScale,
+                    checked = isSkipSilenceNotificationEnabled,
+                    onCheckedChange = onSkipSilenceNotificationEnabledChange,
+                    enabled = isSkipSilenceEnabled
+                )
+            }
+
+            // 为每一次改动添加详尽的中文注释：
+            // === 第四分节：睡眠定时器 ===
+            item {
+                SettingsSectionHeader(title = "睡眠定时器")
             }
             item {
                 // 为每一次改动添加详尽的中文注释：新增“睡眠倒计时音量渐隐”全局控制开关项。
@@ -192,59 +356,11 @@ fun SettingsScreen(
                     onCheckedChange = onShakeToResetEnabledChange
                 )
             }
+
+            // 为每一次改动添加详尽的中文注释：
+            // === 第五分节：数据清理 ===
             item {
-                // 详尽的中文注释：新增“允许明文 HTTP 流量”持久化持久化控制开关。
-                // 默认关闭，开启时客户端代码侧允许流式播放 http 音频文件。
-                SettingsToggleItem(
-                    title = "允许明文 HTTP 流量",
-                    subtitle = "允许应用播放和加载不安全的 http:// 网络有声书源。建议保持关闭以维持最高安全边界。",
-                    icon = Icons.Rounded.LinearScale,
-                    checked = isCleartextTrafficAllowed,
-                    onCheckedChange = onCleartextTrafficAllowedChange
-                )
-            }
-            item {
-                // 为每一次改动添加详尽的中文注释：新增“自动跳过静音期”全局控制开关项。
-                SettingsToggleItem(
-                    title = "自动跳过静音期",
-                    subtitle = "在播放有声书时，自动跳过主播停顿、换气及章节末尾等无声片段以提高收听效率。",
-                    icon = Icons.Rounded.LinearScale,
-                    checked = isSkipSilenceEnabled,
-                    onCheckedChange = onSkipSilenceEnabledChange
-                )
-            }
-            if (isSkipSilenceEnabled) {
-                item {
-                    // 为每一次改动添加详尽的中文注释：判定最小时长滑块调节项。通过 steps = 8 将范围限制在 0.5s-5.0s，步长精准为 0.5s。
-                    SettingsSliderItem(
-                        title = "静音判定最小时长",
-                        subtitle = "判定静音的持续时间",
-                        icon = Icons.Rounded.LinearScale,
-                        value = skipSilenceDurationThreshold,
-                        onValueChange = onSkipSilenceDurationThresholdChange,
-                        valueRange = 0.5f..5.0f,
-                        steps = 8,
-                        valueFormatter = { String.format(java.util.Locale.US, "%.1f 秒", it) }
-                    )
-                }
-                item {
-                    // 为每一次改动添加详尽的中文注释：跳过静音时弹出 Toast 温馨提醒开关项。
-                    SettingsToggleItem(
-                        title = "跳过静音时弹出通知",
-                        subtitle = "当应用跳过静音时，以 Toast 形式在底部进行温馨提示。",
-                        icon = Icons.Rounded.LinearScale,
-                        checked = isSkipSilenceNotificationEnabled,
-                        onCheckedChange = onSkipSilenceNotificationEnabledChange
-                    )
-                }
-            }
-            item {
-                SettingsItem(
-                    title = stringResource(R.string.rescan_library_title),
-                    subtitle = stringResource(R.string.rescan_library_subtitle),
-                    icon = Icons.Rounded.Refresh,
-                    onClick = onRescan
-                )
+                SettingsSectionHeader(title = "数据清理")
             }
             item {
                 SettingsItem(
@@ -284,18 +400,25 @@ fun SettingsScreen(
     }
 }
 
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * Switch 切换状态组件。新增了 enabled 选项控制，
+ * 当处于禁用状态（enabled = false）时，外层 Row 不可点击，并通过 alpha(0.38f) 将整行内容置灰。
+ */
 @Composable
 private fun SettingsToggleItem(
     title: String,
     subtitle: String,
     icon: ImageVector,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .then(if (enabled) Modifier else Modifier.alpha(0.38f))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -316,11 +439,16 @@ private fun SettingsToggleItem(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            enabled = enabled
         )
     }
 }
 
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * 普通点击设置条目。
+ */
 @Composable
 private fun SettingsItem(
     title: String,
@@ -355,6 +483,10 @@ private fun SettingsItem(
     }
 }
 
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * 设置界面预览。
+ */
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun SettingsScreenPreview() {
@@ -376,17 +508,19 @@ fun SettingsScreenPreview() {
             onSkipSilenceDurationThresholdChange = {},
             isSkipSilenceNotificationEnabled = true,
             onSkipSilenceNotificationEnabledChange = {},
-            // 为每一次改动添加详尽的中文注释：为预览界面注入默认开启的睡眠定时音量渐隐状态。
             isSleepFadeOutEnabled = true,
             onSleepFadeOutEnabledChange = {},
-            // 为每一次改动添加详尽的中文注释：为预览界面注入默认开启的摇晃重置睡眠定时器状态。
             isShakeToResetEnabled = true,
             onShakeToResetEnabledChange = {}
         )
     }
 }
 
-// 为每一次改动添加详尽的中文注释：新增 Slider 专用的设置项辅助组件，便于展示带数值的可滑动条目。
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * 新增 Slider 专用的设置项辅助组件，便于展示带数值的可滑动条目。
+ * 增加了 enabled 属性，在禁用时运用 alpha(0.38f) 将整行内容置灰，同时同步禁用内部的 Slider。
+ */
 @Composable
 private fun SettingsSliderItem(
     title: String,
@@ -396,11 +530,13 @@ private fun SettingsSliderItem(
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
-    valueFormatter: (Float) -> String
+    valueFormatter: (Float) -> String,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (enabled) Modifier else Modifier.alpha(0.38f))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -423,8 +559,30 @@ private fun SettingsSliderItem(
                 onValueChange = onValueChange,
                 valueRange = valueRange,
                 steps = steps,
+                enabled = enabled,
                 modifier = Modifier.fillMaxWidth()
             )
         }
     }
 }
+
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * 设置页面的小标题分节头部组件。
+ *
+ * 采用 Material 3 的 labelLarge 排版样式，辅以 Bold 加粗和 primary 主题色，
+ * 左右对称 16.dp 边距，上下分别配置 24.dp 与 8.dp 外边距以实现精美的排版质感。
+ */
+@Composable
+private fun SettingsSectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 8.dp)
+    )
+}
+
