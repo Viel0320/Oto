@@ -18,7 +18,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+// 详尽中文注释：迁移至 BlurModalBottomSheet，启用原生 Window 背景模糊（API 31+）
+import com.viel.aplayer.ui.common.BlurModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
@@ -107,10 +108,13 @@ fun ChapterListSheet(
         if (LocalInspectionMode.current) {
             ChapterListContent(chapters, currentChapter, totalDuration, onChapterClick, listState)
         } else {
-            ModalBottomSheet(
+            // 详尽中文注释：使用 BlurModalBottomSheet 替代原 ModalBottomSheet，
+            // 自动在 scrim 后景区域应用原生 GPU 模糊（FLAG_BLUR_BEHIND + blurBehindRadius = 50px），
+            // 同时保留所有原有参数：sheetState、自定义拖拽把手、零内边距等。
+            BlurModalBottomSheet(
                 onDismissRequest = onDismissRequest,
                 sheetState = sheetState,
-                containerColor = MaterialTheme.colorScheme.surface,
+                blurBehindRadius = 50,
                 tonalElevation = 8.dp,
                 contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
                 dragHandle = {

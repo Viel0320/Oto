@@ -3,7 +3,9 @@ package com.viel.aplayer.ui.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -35,13 +36,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.ui.common.BlurDialog
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 
 /**
- * 为每一次改动添加详尽的中文注释：
+ * 详尽中文注释：
  * 独立出来的有声书长按管理与确认软删除系列 Dialog 组件。
  * 它将一级管理面板 Dialog 与二级删除确认 Dialog 统一打包封装，
  * 隔离了 Dialog 内部的显隐次序逻辑，极大程度瘦身了 HomeScreen.kt 主文件。
+ *
+ * 升级说明（Android 12+ 原生模糊）：
+ * 将原有的 [AlertDialog] 替换为自定义 [BlurDialog]，
+ * 利用 Android 12（API 31）引入的 Window 级 FLAG_BLUR_BEHIND 和 blurBehindRadius，
+ * 在对话框弹出时对身后内容实施原生 GPU 模糊，呈现玻璃拟态视觉效果。
+ * 由于本项目 minSdk = 31，无需版本分支判断，可直接使用该 API。
  */
 @Composable
 fun AudiobookActionDialogs(
@@ -55,238 +63,294 @@ fun AudiobookActionDialogs(
     if (bookWithProgress == null) return
 
     val book = bookWithProgress.book
-    // 为每一次改动添加详尽的中文注释：内部维护二级软删除防误触确认 Dialog 的显示状态
+    // 详尽中文注释：内部维护二级软删除防误触确认 Dialog 的显示状态
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    // 一级管理 Dialog
+    // ─────────────────────────────────────────────────────────────────────────
+    // 一级管理 Dialog（使用 BlurDialog 实现原生身后模糊玻璃态效果）
+    // ─────────────────────────────────────────────────────────────────────────
     if (!showDeleteConfirm) {
-        AlertDialog(
+        BlurDialog(
             onDismissRequest = onDismissRequest,
-            icon = {
+            // 详尽中文注释：blurBehindRadius = 40px，在主流手机上呈现约 2~3mm 宽度的柔和模糊晕染，
+            // 既能凸显对话框层次感，又不会造成背景完全不可辨认
+            blurBehindRadius = 40,
+            scrollable = true
+        ) {
+            // 详尽中文注释：对话框正文内容区，采用 Column 纵向排列各功能区块
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                // 详尽中文注释：图标区域，居中展示 Tune 管理图标
                 Icon(
                     imageVector = Icons.Rounded.Tune,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier
+                        .size(28.dp)
+                        .align(Alignment.CenterHorizontally)
                 )
-            },
-            title = {
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 详尽中文注释：书籍标题，居中加粗显示，最多两行，溢出省略
                 Text(
                     text = book.title,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    // 为每一次改动添加详尽的中文注释：修复 Material 3 字体样式的命名大小写拼写错误，将小写 titlelarge 修正为大写 titleLarge
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.fillMaxWidth(), // 为每一次改动添加详尽的中文注释：使文本框占满标题栏宽度，以便实现居中对齐
-                    textAlign = TextAlign.Center // 为每一次改动添加详尽的中文注释：设置标题文字水平居中对齐
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
                 )
-            },
-            text = {
+
+                // 详尽中文注释：作者/配音副标题（若有），居中浅色展示
+                if (book.author.isNotBlank() || book.narrator.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = formatPeopleSubtitle(book.author, book.narrator),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 详尽中文注释：微光分割线，透明度 0.5f 以降低视觉重量
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // ─────────────────────────────────────────────────────────────
+                // 详尽中文注释：1. 阅读状态标记区域
+                // 展示三个并排 FilterChip，分别对应"未开始""进行中""已完成"三种状态
+                // ─────────────────────────────────────────────────────────────
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (book.author.isNotBlank() || book.narrator.isNotBlank()) {
-                        Text(
-                            text = formatPeopleSubtitle(book.author, book.narrator),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth(), // 为每一次改动添加详尽的中文注释：填充可用宽度，促成副标题文本水平居中对齐
-                            textAlign = TextAlign.Center // 为每一次改动添加详尽的中文注释：使副标题文字水平居中对齐
-                        )
-                    }
-
-                    // 为每一次改动添加详尽的中文注释：微光分割线
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    Text(
+                        text = "标记阅读状态",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
-
-                    // 为每一次改动添加详尽的中文注释：1. 标记状态区域。展示“标记为”标题和三个状态选择 FilterChip，增加容器居中属性
-                    Column(
-                        modifier = Modifier.fillMaxWidth(), // 为每一次改动添加详尽的中文注释：填充宽度以促成内部元素居中
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally // 为每一次改动添加详尽的中文注释：控制子组件在水平方向上居中对齐
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = "标记阅读状态",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.fillMaxWidth(), // 为每一次改动添加详尽的中文注释：填充整行宽度
-                            textAlign = TextAlign.Center // 为每一次改动添加详尽的中文注释：设置状态说明文字水平居中对齐
+                        val statusList = listOf(
+                            com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.NOT_STARTED to "未开始",
+                            com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.IN_PROGRESS to "进行中",
+                            com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.FINISHED to "已完成"
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            val statusList = listOf(
-                                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.NOT_STARTED to "未开始",
-                                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.IN_PROGRESS to "进行中",
-                                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.FINISHED to "已完成"
+                        statusList.forEach { (status, label) ->
+                            val isSelected = book.readStatus == status
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    onUpdateReadStatus(book.id, status)
+                                    onDismissRequest()
+                                },
+                                label = {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                // 详尽中文注释：weight(1f) 使三个 Chip 均分行宽
+                                modifier = Modifier.weight(1f)
                             )
-                            statusList.forEach { (status, label) ->
-                                val isSelected = book.readStatus == status
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        onUpdateReadStatus(book.id, status)
-                                        onDismissRequest()
-                                    },
-                                    label = { 
-                                        Text(
-                                            text = label, 
-                                            style = MaterialTheme.typography.labelSmall,
-                                            modifier = Modifier.fillMaxWidth(), // 为每一次改动添加详尽的中文注释：使文本填充 Chip 内部的可用空间，以保证完全居中
-                                            textAlign = TextAlign.Center // 为每一次改动添加详尽的中文注释：设置 Chip 内部文字水平居中对齐
-                                        ) 
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    ),
-                                    modifier = Modifier.weight(1f) // 为每一次改动添加详尽的中文注释：使三个 Chip 平分屏幕宽度
-                                )
-                            }
-                        }
-                    }
-
-                    // 为每一次改动添加详尽的中文注释：微光分割线
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-
-                    // 为每一次改动添加详尽的中文注释：2. 重建封面与元数据。提供水波纹点击卡片，强制进行后台媒体重刷
-                    Surface(
-                        onClick = {
-                            onForceRegenerate(book.id)
-                            onDismissRequest()
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Transparent,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Refresh,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                            Column {
-                                Text(
-                                    text = "重建封面与元数据",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = "强制从音频文件中重新提取封面和描述信息",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-
-                    // 为每一次改动添加详尽的中文注释：3. 从媒体库删除（红区软删除警告卡片）
-                    Surface(
-                        onClick = {
-                            showDeleteConfirm = true
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Transparent,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                            Column {
-                                Text(
-                                    text = "从媒体库移除",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                                Text(
-                                    text = "仅从播放列表中移出此书籍，手机源文件仍保留",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
-                                )
-                            }
                         }
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = onDismissRequest) {
-                    Text("取消")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 详尽中文注释：微光分割线
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+
+                // ─────────────────────────────────────────────────────────────
+                // 详尽中文注释：2. 重建封面与元数据。提供水波纹点击卡片，强制进行后台媒体重刷
+                // ─────────────────────────────────────────────────────────────
+                Surface(
+                    onClick = {
+                        onForceRegenerate(book.id)
+                        onDismissRequest()
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                        Column {
+                            Text(
+                                text = "重建封面与元数据",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "强制从音频文件中重新提取封面和描述信息",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
-            },
-            modifier = modifier
-        )
+
+                // ─────────────────────────────────────────────────────────────
+                // 详尽中文注释：3. 从媒体库删除（红区软删除警告卡片）
+                // ─────────────────────────────────────────────────────────────
+                Surface(
+                    onClick = {
+                        showDeleteConfirm = true
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Column {
+                            Text(
+                                text = "从媒体库移除",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                text = "仅从播放列表中移出此书籍，手机源文件仍保留",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 详尽中文注释：底部"取消"按钮，右对齐
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismissRequest) {
+                        Text("取消")
+                    }
+                }
+            }
+        }
     }
 
-    // 二级软删除确认 Dialog
+    // ─────────────────────────────────────────────────────────────────────────
+    // 二级软删除确认 Dialog（同样使用 BlurDialog，略微加深 blurBehindRadius 以强化警示感）
+    // ─────────────────────────────────────────────────────────────────────────
     if (showDeleteConfirm) {
-        AlertDialog(
+        BlurDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            icon = {
+            // 详尽中文注释：确认对话框使用更深的模糊半径（60px），
+            // 与一级对话框形成视觉层次差异，强调当前操作的重要性
+            blurBehindRadius = 60,
+            scrollable = false
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                // 详尽中文注释：删除确认图标，居中展示，使用 error 色调警示用户
                 Icon(
                     imageVector = Icons.Rounded.Delete,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier
+                        .size(28.dp)
+                        .align(Alignment.CenterHorizontally)
                 )
-            },
-            title = {
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 详尽中文注释：确认 Dialog 标题
                 Text(
                     text = "确认从媒体库移除？",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
                 )
-            },
-            text = {
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 详尽中文注释：软删除说明文字，提醒用户仅为播放列表移除，不删除物理文件
                 Text(
                     text = "您确定要从 APlayer 媒体库中移除《${book.title}》吗？\n\n⚠️ 注意：此操作仅为软删除，将从播放列表中移出，但不会删除您手机存储中的物理音频文件。",
                     style = MaterialTheme.typography.bodyMedium
                 )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDeleteBook(book.id)
-                        showDeleteConfirm = false
-                        onDismissRequest()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // 详尽中文注释：确认/取消按钮行，右对齐布局
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                 ) {
-                    Text("确认删除")
+                    TextButton(
+                        onClick = { showDeleteConfirm = false }
+                    ) {
+                        Text("取消")
+                    }
+                    Button(
+                        onClick = {
+                            onDeleteBook(book.id)
+                            showDeleteConfirm = false
+                            onDismissRequest()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text("确认删除")
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDeleteConfirm = false }
-                ) {
-                    Text("取消")
-                }
-            },
-            modifier = modifier
-        )
+            }
+        }
     }
 }
