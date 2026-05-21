@@ -90,4 +90,39 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             ).show()
         }
     }
+
+    // 为每一次改动添加详尽的中文注释：新增切换自动跳过静音（Skip Silence）功能全局总开关的交互方法。
+    fun toggleSkipSilenceEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateSkipSilenceEnabled(enabled)
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：新增修改自动跳过静音的判定最小时长阈值（0.5s-5.0s）的交互方法。
+    fun updateSkipSilenceDurationThreshold(duration: Float) {
+        viewModelScope.launch {
+            settingsRepository.updateSkipSilenceDurationThreshold(duration)
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：新增切换是否在自动跳过静音发生时弹出 Toast 提示的全局开关交互方法。
+    fun toggleSkipSilenceNotificationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateSkipSilenceNotificationEnabled(enabled)
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：新增切换睡眠定时音量渐隐功能全局总开关的交互方法。
+    fun toggleSleepFadeOutEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateSleepFadeOutEnabled(enabled)
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：新增切换“摇晃手机重置睡眠定时器 (Shake-to-Reset)”全局总开关的交互方法。
+    fun toggleShakeToResetEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateShakeToResetEnabled(enabled)
+        }
+    }
 }

@@ -93,7 +93,22 @@ fun APlayerNavHost(
                 onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },
                 isCleartextTrafficAllowed = settingsState.isCleartextTrafficAllowed,
                 onCleartextTrafficAllowedChange = { settingsViewModel.toggleCleartextTrafficAllowed(it) },
-                onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) }
+                onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
+                // 为每一次改动添加详尽的中文注释：绑定自动跳过静音全局控制开关状态与更新事件
+                isSkipSilenceEnabled = settingsState.isSkipSilenceEnabled,
+                onSkipSilenceEnabledChange = { settingsViewModel.toggleSkipSilenceEnabled(it) },
+                // 为每一次改动添加详尽的中文注释：绑定自动跳过静音判定时长阈值状态与更新事件
+                skipSilenceDurationThreshold = settingsState.skipSilenceDurationThreshold,
+                onSkipSilenceDurationThresholdChange = { settingsViewModel.updateSkipSilenceDurationThreshold(it) },
+                // 为每一次改动添加详尽的中文注释：绑定跳过静音提示温馨通知开关状态与更新事件
+                isSkipSilenceNotificationEnabled = settingsState.isSkipSilenceNotificationEnabled,
+                onSkipSilenceNotificationEnabledChange = { settingsViewModel.toggleSkipSilenceNotificationEnabled(it) },
+                // 为每一次改动添加详尽的中文注释：绑定睡眠定时器音量渐隐全局控制开关状态与更新事件
+                isSleepFadeOutEnabled = settingsState.isSleepFadeOutEnabled,
+                onSleepFadeOutEnabledChange = { settingsViewModel.toggleSleepFadeOutEnabled(it) },
+                // 为每一次改动添加详尽的中文注释：绑定摇晃手机重置睡眠定时器全局控制开关状态与更新事件
+                isShakeToResetEnabled = settingsState.isShakeToResetEnabled,
+                onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) }
             )
         }
         composable(

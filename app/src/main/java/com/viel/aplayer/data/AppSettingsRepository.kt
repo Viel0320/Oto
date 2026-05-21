@@ -26,6 +26,16 @@ class AppSettingsRepository private constructor(private val context: Context) {
         val IS_CHAPTER_PROGRESS_MODE = booleanPreferencesKey("is_chapter_progress_mode")
         // 详尽的中文注释：新增 PreferenceKey 存储键名，用于指示是否开启明文 http 连接授权状态。
         val IS_CLEARTEXT_TRAFFIC_ALLOWED = booleanPreferencesKey("is_cleartext_traffic_allowed")
+        // 为每一次改动添加详尽的中文注释：新增自动跳过静音开关持久化存储 Key
+        val IS_SKIP_SILENCE_ENABLED = booleanPreferencesKey("is_skip_silence_enabled")
+        // 为每一次改动添加详尽的中文注释：新增自动跳过静音最小时长阈值持久化存储 Key
+        val SKIP_SILENCE_DURATION_THRESHOLD = floatPreferencesKey("skip_silence_duration_threshold")
+        // 为每一次改动添加详尽的中文注释：新增自动跳过静音温馨通知开关持久化存储 Key
+        val IS_SKIP_SILENCE_NOTIFICATION_ENABLED = booleanPreferencesKey("is_skip_silence_notification_enabled")
+        // 为每一次改动添加详尽的中文注释：新增睡眠定时器音量渐隐机制的持久化存储 Key
+        val IS_SLEEP_FADE_OUT_ENABLED = booleanPreferencesKey("is_sleep_fade_out_enabled")
+        // 为每一次改动添加详尽的中文注释：新增摇晃手机重置睡眠定时器机制的持久化存储 Key
+        val IS_SHAKE_TO_RESET_ENABLED = booleanPreferencesKey("is_shake_to_reset_enabled")
     }
 
     /**
@@ -38,7 +48,17 @@ class AppSettingsRepository private constructor(private val context: Context) {
             globalPlaybackSpeed = preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] ?: 1.0f,
             isChapterProgressMode = preferences[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] ?: false,
             // 详尽的中文注释：从 DataStore 缓存中提取明文 http 流量授权状态，缺失则以 false 默认防御态加载。
-            isCleartextTrafficAllowed = preferences[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] ?: false
+            isCleartextTrafficAllowed = preferences[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] ?: false,
+            // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取自动跳过静音的开关状态，默认值为 false
+            isSkipSilenceEnabled = preferences[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] ?: false,
+            // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取静音判定的最小时长，默认值为 2.0 秒
+            skipSilenceDurationThreshold = preferences[PreferencesKeys.SKIP_SILENCE_DURATION_THRESHOLD] ?: 2.0f,
+            // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取静音跳过时是否弹出 Toast 提示的设置，默认值为 true
+            isSkipSilenceNotificationEnabled = preferences[PreferencesKeys.IS_SKIP_SILENCE_NOTIFICATION_ENABLED] ?: true,
+            // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取睡眠定时音量渐隐的开关状态，默认值为 true
+            isSleepFadeOutEnabled = preferences[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] ?: true,
+            // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取摇晃重置睡眠定时器的开关状态，默认值为 true
+            isShakeToResetEnabled = preferences[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] ?: true
         )
     }
 
@@ -61,6 +81,31 @@ class AppSettingsRepository private constructor(private val context: Context) {
     // 详尽的中文注释：提供外部调用修改明文流量持久化设置的接口函数。
     suspend fun updateCleartextTrafficAllowed(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] = enabled }
+    }
+
+    // 为每一次改动添加详尽的中文注释：提供修改自动跳过静音开关持久化配置的接口函数
+    suspend fun updateSkipSilenceEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] = enabled }
+    }
+
+    // 为每一次改动添加详尽的中文注释：提供修改自动跳过静音判定最小时长阈值持久化配置的接口函数
+    suspend fun updateSkipSilenceDurationThreshold(duration: Float) {
+        context.dataStore.edit { it[PreferencesKeys.SKIP_SILENCE_DURATION_THRESHOLD] = duration }
+    }
+
+    // 为每一次改动添加详尽的中文注释：提供修改自动跳过静音提示温馨通知开关持久化配置的接口函数
+    suspend fun updateSkipSilenceNotificationEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_NOTIFICATION_ENABLED] = enabled }
+    }
+
+    // 为每一次改动添加详尽的中文注释：提供修改睡眠定时器音量渐隐配置的接口函数
+    suspend fun updateSleepFadeOutEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] = enabled }
+    }
+
+    // 为每一次改动添加详尽的中文注释：提供修改摇晃重置睡眠定时器配置的接口函数，由 SettingsViewModel 调用实现持久化写操作。
+    suspend fun updateShakeToResetEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] = enabled }
     }
 
     companion object {

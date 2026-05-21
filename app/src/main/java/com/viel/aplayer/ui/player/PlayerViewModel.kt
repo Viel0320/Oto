@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -52,6 +53,13 @@ class PlayerViewModel : ViewModel() {
     private val _currentBookId = MutableStateFlow<String?>(null)
     val currentBookId: StateFlow<String?> = _currentBookId.asStateFlow()
 
+    // 为每一次改动添加详尽的中文注释：
+    // 新增播放器链路级一次性 UI 反馈共享流 uiEvents（采用 SharedFlow 保证一次性事件的可靠消费）。
+    // 专门用来对外广播由底层 PlaybackManager 捕获并转发的 UI 反馈事件（如静音跳过提示等），
+    // 遵循单向数据流与 MVI 架构设计，杜绝在 ViewModel 或后台服务中直接持有 UI 组件。
+    private val _uiEvents = kotlinx.coroutines.flow.MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
+    val uiEvents = _uiEvents.asSharedFlow()
+
     private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.ui.player.components.SubtitleLine>>(emptyList())
 
     // 详尽的中文注释：用于控制内置歌词与外置字幕异步加载生命周期的 Job。每次切歌或销毁时进行物理取消，防止多协程并发竞争。
@@ -63,10 +71,13 @@ class PlayerViewModel : ViewModel() {
 
     private var bookmarkManager: BookmarkManager? = null
     private var playbackDelegate: MediaPlaybackDelegate? = null
+    // 为每一次改动添加详尽的中文注释：新增持有的 appContext 对象，在 initialize 时进行安全赋值，仅用于构造 lambda 桥接以规避内存泄露风险。
+    private var appContext: Context? = null
     private val settingsManager: PlayerSettingsManager = PlayerSettingsManager(
         scope = viewModelScope,
         playbackManager = { playbackManager },
-        audioManager = { audioManager }
+        audioManager = { audioManager },
+        contextProvider = { appContext }
     )
 
     // =====================================================================
@@ -293,6 +304,7 @@ class PlayerViewModel : ViewModel() {
     fun initialize(context: Context) {
         if (playbackManager != null) return
         val appContext = context.applicationContext
+        this.appContext = appContext
         val container = (appContext as APlayerApplication).container
         // 为每一次改动添加详尽的中文注释：使用局部作用域变量分配，彻底物理规避连续多次 !! 解包引发的 NPE 风险 (H-11)
         val repo = container.libraryRepository
@@ -336,12 +348,27 @@ class PlayerViewModel : ViewModel() {
                 if (settings.isChapterProgressMode != settingsState.value.isChapterProgressMode) {
                     settingsManager.setChapterProgressMode(settings.isChapterProgressMode)
                 }
+                // 为每一次改动添加详尽的中文注释：实时同步持久化配置中的睡眠渐隐开关状态至 PlayerSettingsManager 内部。
+                settingsManager.isSleepFadeOutEnabled = settings.isSleepFadeOutEnabled
+                // 为每一次改动添加详尽的中文注释：实时同步持久化配置中的摇晃重置开关状态至 PlayerSettingsManager 内部。
+                settingsManager.isShakeToResetEnabled = settings.isShakeToResetEnabled
             }
         }
     }
 
     private fun observePlaybackManager() {
         val manager = playbackManager ?: return
+
+        viewModelScope.launch {
+            // 为每一次改动添加详尽的中文注释：
+            // 监听并订阅底层单例 PlaybackManager 广播的全局一次性 UI 事件共享流 uiEvents。
+            // 当接收到事件（如静音跳过 EVENT_SKIP_SILENCE 触发的 UiEvent.ShowToast）时，
+            // 立即将其向下层转发至当前 PlayerViewModel 持有的 uiEvents 流中，
+            // 从而被正在活动的 Composable 宿主（APlayerApp）所收集并渲染展示，完成完整的事件响应环。
+            manager.uiEvents.collect { event ->
+                _uiEvents.emit(event)
+            }
+        }
 
         viewModelScope.launch {
             manager.currentMediaItem.collectLatest { mediaItem ->

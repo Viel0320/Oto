@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 详尽的中文注释：声明震动权限，当睡眠定时器即将归零且用户轻轻摇晃手机成功触发重置倒计时时，为听众提供轻微的物理震动触觉反馈，以提供卓越的夜间盲操体验。 -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <attribution android:tag="media_playback" android:label="@string/app_name" />
     <attribution android:tag="library_sync" android:label="@string/app_name" />

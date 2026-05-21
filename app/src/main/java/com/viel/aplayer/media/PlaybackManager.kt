@@ -57,6 +57,10 @@ class PlaybackManager private constructor(context: Context) {
     private val _embeddedSubtitles = kotlinx.coroutines.flow.MutableSharedFlow<List<SubtitleLine>>(extraBufferCapacity = 1)
     val embeddedSubtitles = _embeddedSubtitles.asSharedFlow()
 
+    // 为每一次改动添加详尽的中文注释：新增一次性 UI 反馈事件流，向外广播由 PlaybackService 发出的自定义界面提示事件（如静音跳过）
+    private val _uiEvents = kotlinx.coroutines.flow.MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
+    val uiEvents = _uiEvents.asSharedFlow()
+
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition = _currentPosition.asStateFlow()
 
@@ -79,7 +83,26 @@ class PlaybackManager private constructor(context: Context) {
 
     private fun initializeController() {
         val sessionToken = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
-        controllerFuture = MediaController.Builder(appContext, sessionToken).buildAsync()
+        // 为每一次改动添加详尽的中文注释：
+        // 重构 MediaController.Builder，向其注入自定义的 MediaController.Listener 接口，
+        // 用以监听并拦截来自后台 PlaybackService 发出的自定义媒体会话命令（如 EVENT_SKIP_SILENCE 静音跳过触发通知），
+        // 收到后将其转换为 UiEvent.ShowToast 分发到全局 uiEvents 共享流中，交由宿主 UI 层进行精致渲染弹出。
+        controllerFuture = MediaController.Builder(appContext, sessionToken)
+            .setListener(object : MediaController.Listener {
+                override fun onCustomCommand(
+                    controller: MediaController,
+                    command: androidx.media3.session.SessionCommand,
+                    args: android.os.Bundle
+                ): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult> {
+                    if (command.customAction == "EVENT_SKIP_SILENCE") {
+                        _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast("已自动跳过空白静音片段"))
+                    }
+                    return com.google.common.util.concurrent.Futures.immediateFuture(
+                        androidx.media3.session.SessionResult(androidx.media3.session.SessionResult.RESULT_SUCCESS)
+                    )
+                }
+            })
+            .buildAsync()
         
         controllerFuture?.addListener({
             try {
@@ -347,6 +370,18 @@ class PlaybackManager private constructor(context: Context) {
     fun pause() {
         executeOnMain { mediaController?.pause() }
     }
+
+    /**
+     * 为每一次改动添加详尽的中文注释：获取或设置当前播放器的内部音量比例（0.0f - 1.0f）。
+     * 用于在音量渐隐机制中实现平滑、无感知的对数音量衰减，而不惊扰系统全局的物理音量设置。
+     */
+    var playerVolume: Float
+        get() = mediaController?.volume ?: 1.0f
+        set(value) {
+            executeOnMain {
+                mediaController?.volume = value.coerceIn(0.0f, 1.0f)
+            }
+        }
 
     fun seekTo(globalPositionMs: Long) {
         val controller = mediaController ?: return

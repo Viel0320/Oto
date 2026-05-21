@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.Slider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +60,27 @@ fun SettingsScreen(
     isCleartextTrafficAllowed: Boolean,
     onCleartextTrafficAllowedChange: (Boolean) -> Unit,
     // 详尽的中文注释：新增删除库根目录并释放物理授权的触发接口方法。
-    onDeleteLibraryRoot: (com.viel.aplayer.data.entity.LibraryRootEntity) -> Unit
+    onDeleteLibraryRoot: (com.viel.aplayer.data.entity.LibraryRootEntity) -> Unit,
+    // 为每一次改动添加详尽的中文注释：新增自动跳过静音（Skip Silence）功能是否启用的全局状态标志。
+    isSkipSilenceEnabled: Boolean,
+    // 为每一次改动添加详尽的中文注释：新增切换自动跳过静音全局开关状态的回调事件。
+    onSkipSilenceEnabledChange: (Boolean) -> Unit,
+    // 为每一次改动添加详尽的中文注释：新增静音判定最小时长阈值（秒，默认2.0f）的状态。
+    skipSilenceDurationThreshold: Float,
+    // 为每一次改动添加详尽的中文注释：新增修改静音判定最小时长阈值的回调事件。
+    onSkipSilenceDurationThresholdChange: (Float) -> Unit,
+    // 为每一次改动添加详尽的中文注释：新增静音跳过时是否弹出 Toast 提示的全局状态标志。
+    isSkipSilenceNotificationEnabled: Boolean,
+    // 为每一次改动添加详尽的中文注释：新增切换静音跳过 Toast 提示开关的回调事件。
+    onSkipSilenceNotificationEnabledChange: (Boolean) -> Unit,
+    // 为每一次改动添加详尽的中文注释：新增睡眠倒计时音量渐隐功能是否启用的全局状态标志。
+    isSleepFadeOutEnabled: Boolean,
+    // 为每一次改动添加详尽的中文注释：新增切换睡眠倒计时音量渐隐开关的回调事件。
+    onSleepFadeOutEnabledChange: (Boolean) -> Unit,
+    // 为每一次改动添加详尽的中文注释：新增摇晃手机重置睡眠定时器功能是否启用的全局状态标志。
+    isShakeToResetEnabled: Boolean,
+    // 为每一次改动添加详尽的中文注释：新增切换摇晃手机重置睡眠定时器开关的回调事件。
+    onShakeToResetEnabledChange: (Boolean) -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -152,6 +173,26 @@ fun SettingsScreen(
                 )
             }
             item {
+                // 为每一次改动添加详尽的中文注释：新增“睡眠倒计时音量渐隐”全局控制开关项。
+                SettingsToggleItem(
+                    title = "睡眠倒计时音量渐隐",
+                    subtitle = "当倒计时走到最后 10 秒（或章节快结束前 10 秒）时，音量将柔和对数式递减到静音，避免突然的无声惊醒您。",
+                    icon = Icons.Rounded.LinearScale,
+                    checked = isSleepFadeOutEnabled,
+                    onCheckedChange = onSleepFadeOutEnabledChange
+                )
+            }
+            item {
+                // 为每一次改动添加详尽的中文注释：新增“摇晃手机重置睡眠定时器”全局控制开关项。
+                SettingsToggleItem(
+                    title = "摇晃手机重置睡眠定时器",
+                    subtitle = "当进入睡眠定时器最后 10 秒音量渐隐阶段时，轻轻摇晃手机即可触发轻微震动反馈并重置定时器。若为“章节结束停止模式”，摇晃重置时若有下一章将自动顺延为 15 分钟常规倒计时并顺延至下一个章节继续播放，免去夜间亮屏解锁的繁琐。",
+                    icon = Icons.Rounded.LinearScale,
+                    checked = isShakeToResetEnabled,
+                    onCheckedChange = onShakeToResetEnabledChange
+                )
+            }
+            item {
                 // 详尽的中文注释：新增“允许明文 HTTP 流量”持久化持久化控制开关。
                 // 默认关闭，开启时客户端代码侧允许流式播放 http 音频文件。
                 SettingsToggleItem(
@@ -161,6 +202,41 @@ fun SettingsScreen(
                     checked = isCleartextTrafficAllowed,
                     onCheckedChange = onCleartextTrafficAllowedChange
                 )
+            }
+            item {
+                // 为每一次改动添加详尽的中文注释：新增“自动跳过静音期”全局控制开关项。
+                SettingsToggleItem(
+                    title = "自动跳过静音期",
+                    subtitle = "在播放有声书时，自动跳过主播停顿、换气及章节末尾等无声片段以提高收听效率。",
+                    icon = Icons.Rounded.LinearScale,
+                    checked = isSkipSilenceEnabled,
+                    onCheckedChange = onSkipSilenceEnabledChange
+                )
+            }
+            if (isSkipSilenceEnabled) {
+                item {
+                    // 为每一次改动添加详尽的中文注释：判定最小时长滑块调节项。通过 steps = 8 将范围限制在 0.5s-5.0s，步长精准为 0.5s。
+                    SettingsSliderItem(
+                        title = "静音判定最小时长",
+                        subtitle = "判定静音的持续时间",
+                        icon = Icons.Rounded.LinearScale,
+                        value = skipSilenceDurationThreshold,
+                        onValueChange = onSkipSilenceDurationThresholdChange,
+                        valueRange = 0.5f..5.0f,
+                        steps = 8,
+                        valueFormatter = { String.format(java.util.Locale.US, "%.1f 秒", it) }
+                    )
+                }
+                item {
+                    // 为每一次改动添加详尽的中文注释：跳过静音时弹出 Toast 温馨提醒开关项。
+                    SettingsToggleItem(
+                        title = "跳过静音时弹出通知",
+                        subtitle = "当应用跳过静音时，以 Toast 形式在底部进行温馨提示。",
+                        icon = Icons.Rounded.LinearScale,
+                        checked = isSkipSilenceNotificationEnabled,
+                        onCheckedChange = onSkipSilenceNotificationEnabledChange
+                    )
+                }
             }
             item {
                 SettingsItem(
@@ -293,7 +369,62 @@ fun SettingsScreenPreview() {
             onChapterProgressModeChange = {},
             isCleartextTrafficAllowed = false,
             onCleartextTrafficAllowedChange = {},
-            onDeleteLibraryRoot = {}
+            onDeleteLibraryRoot = {},
+            isSkipSilenceEnabled = false,
+            onSkipSilenceEnabledChange = {},
+            skipSilenceDurationThreshold = 2.0f,
+            onSkipSilenceDurationThresholdChange = {},
+            isSkipSilenceNotificationEnabled = true,
+            onSkipSilenceNotificationEnabledChange = {},
+            // 为每一次改动添加详尽的中文注释：为预览界面注入默认开启的睡眠定时音量渐隐状态。
+            isSleepFadeOutEnabled = true,
+            onSleepFadeOutEnabledChange = {},
+            // 为每一次改动添加详尽的中文注释：为预览界面注入默认开启的摇晃重置睡眠定时器状态。
+            isShakeToResetEnabled = true,
+            onShakeToResetEnabledChange = {}
         )
+    }
+}
+
+// 为每一次改动添加详尽的中文注释：新增 Slider 专用的设置项辅助组件，便于展示带数值的可滑动条目。
+@Composable
+private fun SettingsSliderItem(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    valueFormatter: (Float) -> String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "$subtitle: ${valueFormatter(value)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Slider(
+                value = value,
+                onValueChange = onValueChange,
+                valueRange = valueRange,
+                steps = steps,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

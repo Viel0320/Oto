@@ -92,6 +92,19 @@ fun APlayerApp() {
             }
         }
 
+        // 为每一次改动添加详尽的中文注释：
+        // 消费由当前播放器 PlayerViewModel 共享并转发过来的一次性 UI 反馈事件。
+        // 直接使用标准的 Toast 进行提示，避免过度包装以保持原生的简明风格。
+        LaunchedEffect(Unit) {
+            playerViewModel.uiEvents.collect { event ->
+                when (event) {
+                    is UiEvent.ShowToast -> {
+                        Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
         val navigateBack: () -> Unit = remember(navController) {
             {
                 if (canStartNavigation() && navController.previousBackStackEntry != null) {
