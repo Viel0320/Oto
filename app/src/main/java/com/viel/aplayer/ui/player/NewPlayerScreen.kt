@@ -88,6 +88,13 @@ enum class PlayerScreenMode(val index: Int) {
     RELATED(2)
 }
 
+// 为每一次改动添加详尽的中文注释：外层 AnimatedContent 的动画目标壳；PLAYER 与 SUBTITLES 共用 PlaybackShell，避免控制面板在二者之间切换时被卸载重挂。
+private enum class PlayerContentShell(val index: Int) {
+    Bookmarks(0),
+    PlaybackShell(1),
+    Related(2)
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NewPlayerScreen(
@@ -315,6 +322,15 @@ fun NewPlayerScreen(
                 val tabModes = remember {
                     listOf(PlayerScreenMode.BOOKMARKS, PlayerScreenMode.SUBTITLES, PlayerScreenMode.RELATED)
                 }
+                // 为每一次改动添加详尽的中文注释：外层 tab 动画按“壳”切换，PLAYER 与 SUBTITLES 共用同一个播放壳以稳定保留 PlayerControlPanel。
+                val contentShell = remember(currentMode) {
+                    when (currentMode) {
+                        PlayerScreenMode.BOOKMARKS -> PlayerContentShell.Bookmarks
+                        PlayerScreenMode.RELATED -> PlayerContentShell.Related
+                        PlayerScreenMode.PLAYER,
+                        PlayerScreenMode.SUBTITLES -> PlayerContentShell.PlaybackShell
+                    }
+                }
                 Box(modifier = Modifier
                     .weight(1f)
                     .pointerInput(currentMode) {
@@ -361,77 +377,105 @@ fun NewPlayerScreen(
                     }
                 ) {
                     AnimatedContent(
-                        targetState = currentMode,
+                        targetState = contentShell,
                         modifier = Modifier.fillMaxSize(),
                         transitionSpec = {
-                            if (initialState == PlayerScreenMode.PLAYER || targetState == PlayerScreenMode.PLAYER) {
-                                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                            // 为每一次改动添加详尽的中文注释：外层仍保留整体 tab 左右滑动；PLAYER/SUBTITLES 共享壳后，二者之间不会触发控制面板级别的外层切换。
+                            if (targetState.index > initialState.index) {
+                                (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300)))
+                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
                             } else {
-                                if (targetState.index > initialState.index) {
-                                    (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300)))
-                                        .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
-                                } else {
-                                    (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300)))
-                                        .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
-                                }
+                                (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300)))
+                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
                             }.using(SizeTransform(clip = false))
                         },
                         label = "player_mode_transition"
-                    ) { mode ->
+                    ) { shell ->
                         Column(modifier = Modifier.fillMaxSize()) {
-                            when (mode) {
-                                PlayerScreenMode.PLAYER -> {
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        // 详尽中文注释：定义封面拖拽手势所需的水平拖拽距离累加器与触发状态标志，用于水平滑动切换上下章节时的去抖动处理。
-                                        var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
-                                        var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
-
-                                        // 详尽的中文注释：在此处将自愈封面最后修改时间戳 metadata.coverLastUpdated 传入，从而强力打通缓存刷新机制。
-                                        // 同时，通过 pointerInput 绑定 detectDragGestures，重构并恢复此前遗失的封面交互手势（上下滑动微调音量，左右滑动切歌/切章节）。
-                                        MainCoverView(
-                                            coverPath = metadata.coverPath,
-                                            isPlaying = controls.isPlaying,
-                                            coverLastUpdated = metadata.coverLastUpdated,
-                                            modifier = Modifier.pointerInput(Unit) {
-                                                detectDragGestures(
-                                                    onDragStart = { 
-                                                        totalHorizontalDrag = 0f
-                                                        hasTriggeredHorizontalDrag = false
-                                                    },
-                                                    onDragEnd = { 
-                                                        totalHorizontalDrag = 0f
-                                                        hasTriggeredHorizontalDrag = false
-                                                    },
-                                                    onDragCancel = { 
-                                                        totalHorizontalDrag = 0f
-                                                        hasTriggeredHorizontalDrag = false
-                                                    },
-                                                    onDrag = { change, dragAmount ->
-                                                        change.consume()
-                                                        if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x)) {
-                                                            // 详尽中文注释：垂直拖拽用于微调系统音量大小，负号是为了拖动方向更符合直觉（向上滑增大，向下滑减小）
-                                                            actions.playback.onAdjustVolume(-dragAmount.y * 0.002f)
-                                                        } else if (!hasTriggeredHorizontalDrag) {
-                                                            // 详尽中文注释：水平拖拽用于切换章节，使用 totalHorizontalDrag 累积滑动距离进行阈值（300f）去抖
-                                                            totalHorizontalDrag += dragAmount.x
-                                                            if (kotlin.math.abs(totalHorizontalDrag) > 300f) {
-                                                                if (totalHorizontalDrag > 0) {
-                                                                    actions.playback.onNextChapter()
-                                                                } else {
-                                                                    actions.playback.onPreviousChapter()
-                                                                }
-                                                                hasTriggeredHorizontalDrag = true
-                                                            }
-                                                        }
-                                                    }
-                                                )
-                                            }
-                                        )
+                            when (shell) {
+                                PlayerContentShell.PlaybackShell -> {
+                                    // 为每一次改动添加详尽的中文注释：播放壳内部只切换上半区；PlayerControlPanel 提升为 PLAYER/SUBTITLES 的共同父层子项，避免进入字幕时闪烁。
+                                    val playbackTopMode = if (currentMode == PlayerScreenMode.SUBTITLES) {
+                                        PlayerScreenMode.SUBTITLES
+                                    } else {
+                                        PlayerScreenMode.PLAYER
                                     }
-                                    // 详尽的中文注释：将 viewModel 注入，并在内部采用局部的进度和章节 Stateful 隔间包装
+                                    AnimatedContent(
+                                        targetState = playbackTopMode,
+                                        modifier = Modifier.weight(1f),
+                                        transitionSpec = {
+                                            // 为每一次改动添加详尽的中文注释：封面与字幕上半区继续使用淡入淡出，维持接近原来的 PLAYER/SUBTITLES 视觉过渡。
+                                            (fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300)))
+                                                .using(SizeTransform(clip = false))
+                                        },
+                                        label = "player_playback_top_transition"
+                                    ) { topMode ->
+                                        when (topMode) {
+                                            PlayerScreenMode.SUBTITLES -> {
+                                                Box(modifier = Modifier.fillMaxSize()) {
+                                                    // 详尽的中文注释：使用 Stateful 局部进度隔间控制歌词字幕高频刷新，而不影响外层
+                                                    SubtitlesViewStateful(
+                                                        viewModel = viewModel,
+                                                        metadata = metadata,
+                                                        actions = actions
+                                                    )
+                                                }
+                                            }
+                                            else -> {
+                                                Box(modifier = Modifier.fillMaxSize()) {
+                                                    // 详尽中文注释：定义封面拖拽手势所需的水平拖拽距离累加器与触发状态标志，用于水平滑动切换上下章节时的去抖动处理。
+                                                    var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
+                                                    var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
+
+                                                    // 详尽的中文注释：在此处将自愈封面最后修改时间戳 metadata.coverLastUpdated 传入，从而强力打通缓存刷新机制。
+                                                    // 同时，通过 pointerInput 绑定 detectDragGestures，重构并恢复此前遗失的封面交互手势（上下滑动微调音量，左右滑动切歌/切章节）。
+                                                    MainCoverView(
+                                                        coverPath = metadata.coverPath,
+                                                        isPlaying = controls.isPlaying,
+                                                        coverLastUpdated = metadata.coverLastUpdated,
+                                                        modifier = Modifier.pointerInput(Unit) {
+                                                            detectDragGestures(
+                                                                onDragStart = {
+                                                                    totalHorizontalDrag = 0f
+                                                                    hasTriggeredHorizontalDrag = false
+                                                                },
+                                                                onDragEnd = {
+                                                                    totalHorizontalDrag = 0f
+                                                                    hasTriggeredHorizontalDrag = false
+                                                                },
+                                                                onDragCancel = {
+                                                                    totalHorizontalDrag = 0f
+                                                                    hasTriggeredHorizontalDrag = false
+                                                                },
+                                                                onDrag = { change, dragAmount ->
+                                                                    change.consume()
+                                                                    if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x)) {
+                                                                        // 详尽中文注释：垂直拖拽用于微调系统音量大小，负号是为了拖动方向更符合直觉（向上滑增大，向下滑减小）
+                                                                        actions.playback.onAdjustVolume(-dragAmount.y * 0.002f)
+                                                                    } else if (!hasTriggeredHorizontalDrag) {
+                                                                        // 详尽中文注释：水平拖拽用于切换章节，使用 totalHorizontalDrag 累积滑动距离进行阈值（300f）去抖
+                                                                        totalHorizontalDrag += dragAmount.x
+                                                                        if (kotlin.math.abs(totalHorizontalDrag) > 300f) {
+                                                                            if (totalHorizontalDrag > 0) {
+                                                                                actions.playback.onNextChapter()
+                                                                            } else {
+                                                                                actions.playback.onPreviousChapter()
+                                                                            }
+                                                                            hasTriggeredHorizontalDrag = true
+                                                                        }
+                                                                    }
+                                                                }
+                                                            )
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // 为每一次改动添加详尽的中文注释：控制面板在播放壳内只挂载一次，PLAYER 与 SUBTITLES 共用同一实例以避免切换闪烁。
                                     PlayerControlPanel(viewModel, metadata, controls, settings, actions, animatedBgColor)
                                 }
-                                PlayerScreenMode.BOOKMARKS -> {
+                                PlayerContentShell.Bookmarks -> {
                                     Box(modifier = Modifier.weight(1f)) {
                                         // 详尽的中文注释：使用 Stateful 局部进度隔间，防止进度刷新引发书签背景重组
                                         BookmarkListViewStateful(
@@ -441,18 +485,7 @@ fun NewPlayerScreen(
                                         )
                                     }
                                 }
-                                PlayerScreenMode.SUBTITLES -> {
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        // 详尽的中文注释：使用 Stateful 局部进度隔间控制歌词字幕高频刷新，而不影响外层
-                                        SubtitlesViewStateful(
-                                            viewModel = viewModel,
-                                            metadata = metadata,
-                                            actions = actions
-                                        )
-                                    }
-                                    PlayerControlPanel(viewModel, metadata, controls, settings, actions, animatedBgColor)
-                                }
-                                PlayerScreenMode.RELATED -> {
+                                PlayerContentShell.Related -> {
                                     Box(modifier = Modifier.weight(1f)) {
                                         RelatedBooksView(
                                             currentBookId = metadata.id,
