@@ -24,10 +24,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,59 +34,74 @@ import androidx.compose.ui.unit.sp
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.ui.common.formatDate
 import com.viel.aplayer.ui.common.formatTime
+import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.theme.APlayerTheme
+
+// =====================================================================
+// 详尽中文注释：M-16 修复 — BookmarkListView 改为无状态组件
+// 原先的 bookmarkToDeleteState / bookmarkToEditState / editTitle 均已
+// 上提至 PlayerViewModel.bookmarkDialogs（StateFlow），此 Composable
+// 现在只消费外部传入的 dialogs 数据与 callback，配置变更时状态不再丢失。
+// =====================================================================
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BookmarkListView(
     bookmarks: List<BookmarkEntity>,
+    // 详尽中文注释：来自 ViewModel 的书签对话框复合状态（M-16）
+    dialogs: PlayerViewModel.BookmarkDialogsState = PlayerViewModel.BookmarkDialogsState(),
     onBookmarkClick: (Long) -> Unit,
-    onDeleteClick: (BookmarkEntity) -> Unit,
+    // 详尽中文注释：触发删除确认对话框的 callback，委托给 ViewModel.requestDeleteBookmark
+    onRequestDelete: (BookmarkEntity) -> Unit = {},
+    // 详尽中文注释：触发编辑对话框的 callback，委托给 ViewModel.requestEditBookmark
+    onRequestEdit: (BookmarkEntity) -> Unit = {},
+    // 详尽中文注释：编辑框内容变更 callback，委托给 ViewModel.onBookmarkEditTitleChange
+    onEditTitleChange: (String) -> Unit = {},
+    // 详尽中文注释：确认删除 callback，委托给 ViewModel.deleteBookmark
+    onConfirmDelete: () -> Unit = {},
+    // 详尽中文注释：确认更新 callback，委托给 ViewModel.updateBookmark
+    onConfirmUpdate: () -> Unit = {},
+    // 详尽中文注释：关闭所有对话框 callback，委托给 ViewModel.dismissBookmarkDialogs
+    onDismissDialogs: () -> Unit = {},
     modifier: Modifier = Modifier,
-    onUpdateClick: (BookmarkEntity, String) -> Unit = { _, _ -> },
     currentPosition: Long = 0L
 ) {
-    val bookmarkToDeleteState = remember { mutableStateOf<BookmarkEntity?>(null) }
-    val bookmarkToDelete = bookmarkToDeleteState.value
-
-    val bookmarkToEditState = remember { mutableStateOf<BookmarkEntity?>(null) }
-    val bookmarkToEdit = bookmarkToEditState.value
-    var editTitle by remember { mutableStateOf("") }
-
-    if (bookmarkToDelete != null) {
+    // 详尽中文注释：删除确认对话框——状态来自 ViewModel，配置变更不丢失
+    if (dialogs.toDelete != null) {
         AlertDialog(
-            onDismissRequest = { bookmarkToDeleteState.value = null },
+            onDismissRequest = onDismissDialogs,
             title = { Text("Delete Bookmark") },
             text = { Text("Are you sure you want to delete this bookmark?") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onDeleteClick(bookmarkToDelete)
-                        bookmarkToDeleteState.value = null
+                        onConfirmDelete()
+                        onDismissDialogs()
                     }
                 ) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { bookmarkToDeleteState.value = null }) {
+                TextButton(onClick = onDismissDialogs) {
                     Text("Cancel")
                 }
             }
         )
     }
 
-    if (bookmarkToEdit != null) {
+    // 详尽中文注释：编辑对话框——状态来自 ViewModel，配置变更（旋转）后 editTitle 不丢失
+    if (dialogs.toEdit != null) {
         AlertDialog(
-            onDismissRequest = { bookmarkToEditState.value = null },
+            onDismissRequest = onDismissDialogs,
             title = { Text("Edit Bookmark") },
             text = {
                 Column {
                     Text("Update bookmark:")
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = editTitle,
-                        onValueChange = { editTitle = it },
+                        value = dialogs.editTitle,
+                        onValueChange = onEditTitleChange,
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -99,15 +110,15 @@ fun BookmarkListView(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onUpdateClick(bookmarkToEdit, editTitle)
-                        bookmarkToEditState.value = null
+                        onConfirmUpdate()
+                        onDismissDialogs()
                     }
                 ) {
                     Text("Save")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { bookmarkToEditState.value = null }) {
+                TextButton(onClick = onDismissDialogs) {
                     Text("Cancel")
                 }
             }
@@ -121,6 +132,7 @@ fun BookmarkListView(
     ) {
         items(
             items = bookmarks,
+            // 详尽中文注释：使用书签 id 作为稳定 key，确保列表更新时 item 状态不错位复用
             key = { it.id }
         ) { bookmark ->
             val isActive = currentPosition >= bookmark.globalPositionMs
@@ -130,10 +142,8 @@ fun BookmarkListView(
                     .fillMaxWidth()
                     .combinedClickable(
                         onClick = { onBookmarkClick(bookmark.globalPositionMs) },
-                        onLongClick = { 
-                            bookmarkToEditState.value = bookmark
-                            editTitle = bookmark.title
-                        }
+                        // 详尽中文注释：长按触发编辑，委托给 ViewModel，不再写入局部 mutableState
+                        onLongClick = { onRequestEdit(bookmark) }
                     )
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -170,8 +180,9 @@ fun BookmarkListView(
                     }
                 }
 
-                IconButton(onClick = { bookmarkToDeleteState.value = bookmark }) {
-                Icon(
+                // 详尽中文注释：点击删除图标，委托给 ViewModel.requestDeleteBookmark，不再直接写局部 mutableState
+                IconButton(onClick = { onRequestDelete(bookmark) }) {
+                    Icon(
                         Icons.Rounded.Delete,
                         contentDescription = "Delete Bookmark",
                         tint = MaterialTheme.colorScheme.onSurface,
@@ -196,9 +207,10 @@ fun BookmarkListViewDarkPreview() {
         Surface(color = Color(0xFF101418)) {
             BookmarkListView(
                 bookmarks = sampleBookmarks,
+                dialogs = PlayerViewModel.BookmarkDialogsState(),
                 onBookmarkClick = {},
-                onDeleteClick = {},
-                onUpdateClick = { _, _ -> },
+                onRequestDelete = {},
+                onRequestEdit = {},
                 currentPosition = 1500000L
             )
         }

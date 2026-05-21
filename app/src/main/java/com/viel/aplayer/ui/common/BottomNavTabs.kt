@@ -7,6 +7,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.Role
 import com.viel.aplayer.ui.player.PlayerScreenMode
 import com.viel.aplayer.ui.theme.APlayerTheme
 
@@ -152,25 +155,30 @@ fun BottomNavTabs(
                 )
             }
 
+            // 详尽中文注释：M-18 修复 — 添加 selectableGroup 让无障碍服务
+            // （TalkBack/切换控制）能识别出这是一组互斥单选的 Tab 容器
             Row(
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp).selectableGroup(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val interactionSource = remember { MutableInteractionSource() }
                 tabs.forEachIndexed { index, (title, mode) ->
-                    // 详尽的中文注释：
-                    // 将 Text 放入一个 weight(1f) 的 Box 中。
-                    // 这样，Text 本身的大小就不会被强制拉伸，而是由其文本自身宽度（Wrap Content）绝对确定。
-                    // 结合 onSizeChanged 我们就能测出 100% 绝对真实的文字宽度，不再受 lineLeft/Right 换行计算之苦。
+                    // 详尽中文注释：M-18 修复 — 每个 Tab 使用独立 MutableInteractionSource，
+                    // 避免原先共享一个 interactionSource 导致按压/悬停状态相互串扰
+                    val tabInteractionSource = remember(mode) { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable(
-                                interactionSource = interactionSource,
+                            // 详尽中文注释：M-18 修复 — 将 .clickable 改为 .selectable，
+                            // 声明 selected 状态与 Role.Tab，让 TalkBack 读出"已选中/未选中"
+                            .selectable(
+                                selected = (selectedTab == mode),
+                                onClick = { onTabSelected(mode) },
+                                role = Role.Tab,
+                                interactionSource = tabInteractionSource,
                                 indication = null
-                            ) { onTabSelected(mode) },
+                            ),
                         contentAlignment = when (index) {
                             0 -> Alignment.CenterStart
                             1 -> Alignment.Center

@@ -184,7 +184,8 @@ fun HomeScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(filters) { (filter, label) ->
+                    // 详尽中文注释：M-20 修复 — 使用 filter.name 作为稳定 key，避免过滤器切换时 FilterChip 动画错位
+                    items(filters, key = { (filter, _) -> filter.name }) { (filter, label) ->
                         APlayerFilterChip(
                             selected = filter == selectedFilter,
                             onClick = { onFilterSelected(filter) },
@@ -217,7 +218,8 @@ fun HomeScreen(
                             contentPadding = PaddingValues(horizontal = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(recentBooks) { book ->
+                            // 详尽中文注释：M-20 修复 — 使用 book.id 作为稳定 key，避免最近添加列表更新时封面加载状态错位
+                            items(recentBooks, key = { it.book.id }) { book ->
                                 RecentlyItem(
                                     title = book.book.title,
                                     author = book.book.author,
@@ -242,7 +244,8 @@ fun HomeScreen(
                         )
                     }
 
-                    items(books) { book ->
+                    // 详尽中文注释：M-20 修复 — 使用 book.id 作为稳定 key，避免书单排序后 item 状态错位
+                    items(books, key = { it.book.id }) { book ->
                         AudiobookListItem(
                             title = book.book.title,
                             author = book.book.author,

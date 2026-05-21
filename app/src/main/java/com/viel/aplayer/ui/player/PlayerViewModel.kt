@@ -24,6 +24,7 @@ import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookmarkEntity
+import kotlinx.coroutines.flow.update
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.media.PlaybackManager
@@ -58,6 +59,44 @@ class PlayerViewModel : ViewModel() {
         playbackManager = { playbackManager },
         audioManager = { audioManager }
     )
+
+    // =====================================================================
+    // 详尽中文注释：M-16 修复 — 书签对话框状态上提到 ViewModel
+    // 将删除/编辑对话框的业务状态从叶子 Composable 中彻底移除，
+    // 改由 ViewModel 持有 StateFlow，防止配置变更（旋转/深色模式切换）时
+    // 用户正在编辑的内容丢失，同时使状态可被单元测试覆盖。
+    // =====================================================================
+
+    /** 书签对话框的复合状态，涵盖待删除/待编辑条目以及编辑中的标题文本 */
+    data class BookmarkDialogsState(
+        val toDelete: BookmarkEntity? = null,
+        val toEdit: BookmarkEntity? = null,
+        val editTitle: String = ""
+    )
+
+    private val _bookmarkDialogs = MutableStateFlow(BookmarkDialogsState())
+    /** 外部 Composable 通过此 StateFlow 观察对话框状态 */
+    val bookmarkDialogs: StateFlow<BookmarkDialogsState> = _bookmarkDialogs.asStateFlow()
+
+    /** 触发删除确认对话框 */
+    fun requestDeleteBookmark(b: BookmarkEntity) {
+        _bookmarkDialogs.update { it.copy(toDelete = b) }
+    }
+
+    /** 触发编辑对话框，同步回填当前标题 */
+    fun requestEditBookmark(b: BookmarkEntity) {
+        _bookmarkDialogs.update { it.copy(toEdit = b, editTitle = b.title) }
+    }
+
+    /** 用户实时修改编辑框内容时更新标题 */
+    fun onBookmarkEditTitleChange(t: String) {
+        _bookmarkDialogs.update { it.copy(editTitle = t) }
+    }
+
+    /** 关闭所有书签对话框并清空状态 */
+    fun dismissBookmarkDialogs() {
+        _bookmarkDialogs.value = BookmarkDialogsState()
+    }
 
     private var _lastDominantColor = ImageProcessor.DEFAULT_BACKGROUND_ARGB
 

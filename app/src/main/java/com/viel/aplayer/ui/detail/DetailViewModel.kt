@@ -4,11 +4,14 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.os.SystemClock
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.media.parse.ImageProcessor
@@ -24,6 +27,36 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _uiState = MutableStateFlow(DetailUiState())
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
+
+    // =====================================================================
+    // 详尽中文注释：M-19 修复 — 3 秒未播放保护期逻辑下沉到 ViewModel
+    // 原先 isUnplayedProtectionActive 和 delay(3000L) 散落在 DetailScreen（叶子 Composable）内部，
+    // 配置变更（屏幕旋转、深色模式切换）后状态就会被重置丢失。
+    // 现在由 ViewModel 持有保护期的开始时刻（playbackStartedAt），
+    // 并在 uiState 中提供经过保护期过滤后的 displayProgressPercent 供 UI 直接渲染。
+    // =====================================================================
+
+    /** 记录点击播放的时刻（以 SystemClock.elapsedRealtime() 为单位），null 表示保护期未激活 */
+    private val _playbackStartedAt = MutableStateFlow<Long?>(null)
+
+    /**
+     * 详尽中文注释：当用户点击播放且当前进度为 0（未播放）时调用。
+     * 开启 3 秒保护期：期间内 displayProgressPercent 强制为 0，
+     * 防止按鈕图标/文案在“Start Listening”和“Continue at X%”之间高频闪烁。
+     */
+    fun onPlayPressed() {
+        if (_uiState.value.progressPercent == 0) {
+            // 详尽中文注释：M-19 — 开始保护期，强制将展示进度置 0，阻止按钮文案闪烁
+            _playbackStartedAt.value = SystemClock.elapsedRealtime()
+            _uiState.update { it.copy(displayProgressPercent = 0) }
+            viewModelScope.launch {
+                delay(3_000L)
+                _playbackStartedAt.value = null
+                // 详尽中文注释：保护期结束，恢复真实进度以驱动按钮文案正确渲染
+                _uiState.update { it.copy(displayProgressPercent = it.progressPercent) }
+            }
+        }
+    }
 
     /**
      * 详尽的中文注释：选中一本书并展示详情页。
@@ -42,6 +75,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 // 详尽的中文注释：异步检查文件可用性前先置为 false，避免闪烁
                 isAvailable = false,
                 progressPercent = book.progressPercent,
+                // 详尽中文注释：M-19 — 选中新书时同步初始化 displayProgressPercent
+                displayProgressPercent = book.progressPercent,
                 // 为每一次改动添加详尽的中文注释：选中新书时，立即把 fullSourcePath 重置为空，防止上一次选中的路径数据残留引起界面闪烁
                 fullSourcePath = ""
             )

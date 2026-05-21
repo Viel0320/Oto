@@ -478,6 +478,7 @@ fun ChapterDisplayStateful(
 // 详尽的中文注释：
 // 3. 书签面板有状态局部隔间 BookmarkListViewStateful
 // 仅在展示 Bookmark 面板时，在此局部隔间内高频消费进度，以防进度刷新让外部关联列表和卡片无端重组。
+// 详尽中文注释：M-16 修复 — 从 viewModel 收集书签对话框复合状态，并桥接回调事件至 viewModel 与 actions。
 @Composable
 fun BookmarkListViewStateful(
     viewModel: PlayerViewModel,
@@ -486,11 +487,33 @@ fun BookmarkListViewStateful(
     modifier: Modifier = Modifier
 ) {
     val progressState by viewModel.playbackProgressState.collectAsStateWithLifecycle()
+    // 详尽中文注释：M-16 — 实时收集书签对话框显示与编辑内容状态，防止配置变更（如屏幕旋转）导致输入内容丢失
+    val dialogs by viewModel.bookmarkDialogs.collectAsStateWithLifecycle()
+
     BookmarkListView(
         bookmarks = metadata.bookmarks,
+        dialogs = dialogs,
         onBookmarkClick = { pos -> actions.playback.onSeek(pos, true) },
-        onDeleteClick = actions.bookmarks.onDelete,
-        onUpdateClick = actions.bookmarks.onUpdate,
+        // 详尽中文注释：M-16 — 请求删除，委托给 ViewModel 记录待删除条目
+        onRequestDelete = { bookmark -> viewModel.requestDeleteBookmark(bookmark) },
+        // 详尽中文注释：M-16 — 请求编辑，委托给 ViewModel 记录待编辑条目并回填初始标题
+        onRequestEdit = { bookmark -> viewModel.requestEditBookmark(bookmark) },
+        // 详尽中文注释：M-16 — 编辑框标题输入变更同步写入 ViewModel
+        onEditTitleChange = { title -> viewModel.onBookmarkEditTitleChange(title) },
+        // 详尽中文注释：M-16 — 确认删除动作，解包并触发 actions 的 onDelete 回调
+        onConfirmDelete = {
+            dialogs.toDelete?.let { bookmark ->
+                actions.bookmarks.onDelete(bookmark)
+            }
+        },
+        // 详尽中文注释：M-16 — 确认更新动作，解包并触发 actions 的 onUpdate 回调
+        onConfirmUpdate = {
+            dialogs.toEdit?.let { bookmark ->
+                actions.bookmarks.onUpdate(bookmark, dialogs.editTitle)
+            }
+        },
+        // 详尽中文注释：M-16 — 关闭/取消对话框，委托给 ViewModel 重置状态
+        onDismissDialogs = { viewModel.dismissBookmarkDialogs() },
         currentPosition = progressState.elapsedMs,
         modifier = modifier
     )

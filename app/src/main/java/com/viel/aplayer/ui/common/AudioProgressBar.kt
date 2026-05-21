@@ -18,6 +18,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.ui.theme.APlayerTheme
@@ -46,6 +53,21 @@ fun AudioProgressBar(
             .fillMaxWidth()
             .height(32.dp)
             .graphicsLayer() // 隔离重绘，减少对父布局的影响
+            // 详尽中文注释：M-17 修复 — 补充无障碍语义节点
+            // 提供 progressBarRangeInfo 以使 TalkBack 识别进度值与范围；
+            // setProgress 自定义动作允许无障碍服务以编程方式设置进度。
+            .semantics(mergeDescendants = true) {
+                contentDescription = "播放进度"
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = progress(),
+                    range = 0f..1f,
+                    steps = 0
+                )
+                setProgress { newValue ->
+                    currentOnProgressChange(newValue.coerceIn(0f, 1f))
+                    true
+                }
+            }
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     val newProgress = (offset.x / size.width).coerceIn(0f, 1f)

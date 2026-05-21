@@ -106,6 +106,10 @@ fun DetailScreen(
     uiState: DetailUiState,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
+    // 详尽中文注释：M-19 修复 — 增加 onPlayPressed 参数，
+    // 保护期逻辑已全部下沉到 DetailViewModel.onPlayPressed，
+    // 此参数将在点击播放时在调用 onPlayClick 前一并触发
+    onPlayPressed: () -> Unit = {},
     onPlayClick: () -> Unit = {},
     onMoreClick: () -> Unit = {},
     onSearchClick: (String) -> Unit = {},
@@ -117,9 +121,8 @@ fun DetailScreen(
     var predictiveBackProgress by remember { mutableStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
-
-    // 详尽中文注释：定义 3 秒播放状态保护期锁，若从“未播放”状态点击播放，则 3 秒内强制在 UI 渲染时将其视为“未播放”状态，防止按钮图标与文字由于进度异步加载发生闪烁
-    var isUnplayedProtectionActive by remember { mutableStateOf(false) }
+    // 详尽中文注释：M-19 修复 — 3 秒保护期状态已全部移至 DetailViewModel，
+    // 此处不再持有 isUnplayedProtectionActive，展示进度直接使用 uiState.displayProgressPercent。
 
     val animatedBgColor by animateColorAsState(
         targetValue = Color(uiState.backgroundColorArgb),
@@ -434,20 +437,16 @@ fun DetailScreen(
 
                 }
 
-                // 详尽中文注释：根据保护期状态计算实际展示的进度。如果在 3 秒保护期内，则强制展示为 0（未播放状态），避免按钮在“Start Listening”和进度更新后高频跳变闪烁
-                val displayProgress = if (isUnplayedProtectionActive) 0 else uiState.progressPercent
+                // 详尽中文注释：M-19 修复 — 直接使用 ViewModel 提供的 displayProgressPercent，
+                // 配置变更后保护期状态不就丢失。
+                val displayProgress = uiState.displayProgressPercent
 
                 Button(
                     onClick = { 
                         if (uiState.isAvailable) {
-                            // 详尽中文注释：若当前处于未播放状态（进度为 0），点击播放时开启 3 秒的保护期，强行锁死状态，防止闪烁
-                            if (uiState.progressPercent == 0) {
-                                isUnplayedProtectionActive = true
-                                scope.launch {
-                                    kotlinx.coroutines.delay(3000L)
-                                    isUnplayedProtectionActive = false
-                                }
-                            }
+                            // 详尽中文注释：M-19 修复 — 将保护期逻辑局全委托给 ViewModel.onPlayPressed，
+                            // Composable 内不再持有任何进度锁定状态。
+                            onPlayPressed()
                             onPlayClick()
                         }
                     },

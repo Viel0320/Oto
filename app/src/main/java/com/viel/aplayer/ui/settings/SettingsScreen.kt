@@ -99,7 +99,9 @@ fun SettingsScreen(
                 )
             }
 
-            items(libraryRoots.size) { index ->
+            // 详尽中文注释：M-20 修复 — 添加模式 key，使用库根 treeUri 作为唯一标识，
+            // 防止列表刷新时 item 状态错位复用导致 UI 错乱。
+            items(libraryRoots.size, key = { libraryRoots[it].treeUri }) { index ->
                 val root = libraryRoots[index]
                 val decodedPath = try {
                     Uri.decode(root.treeUri).substringAfterLast(":")

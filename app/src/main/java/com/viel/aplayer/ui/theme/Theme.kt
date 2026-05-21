@@ -13,6 +13,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+// =====================================================================
+// 详尽中文注释：M-21 修复 — 完整的 DarkColorScheme，
+// 补齐了在 dynamicColor=false 时的 secondary, tertiary, error 及其 container 角色。
+// =====================================================================
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryDark,
     onPrimary = OnPrimaryDark,
@@ -22,23 +26,51 @@ private val DarkColorScheme = darkColorScheme(
     onSecondary = OnSecondaryDark,
     secondaryContainer = SecondaryContainerDark,
     onSecondaryContainer = OnSecondaryContainerDark,
+    tertiary = TertiaryDark,
+    onTertiary = OnTertiaryDark,
+    tertiaryContainer = TertiaryContainerDark,
+    onTertiaryContainer = OnTertiaryContainerDark,
+    error = ErrorDark,
+    onError = OnErrorDark,
+    errorContainer = ErrorContainerDark,
+    onErrorContainer = OnErrorContainerDark,
     background = SurfaceDark,
     surface = SurfaceDark,
     surfaceVariant = SurfaceContainerDark,
     onBackground = OnSurfaceDark,
     onSurface = OnSurfaceDark,
-    onSurfaceVariant = OnSurfaceVariantDark
+    onSurfaceVariant = OnSurfaceVariantDark,
+    outline = OutlineDark
 )
 
+// =====================================================================
+// 详尽中文注释：M-21 修复 — 完整的 LightColorScheme，
+// 补齐了在 dynamicColor=false 时的 secondary, tertiary, error 及其 container 角色。
+// =====================================================================
 private val LightColorScheme = lightColorScheme(
     primary = PrimaryLight,
     onPrimary = OnPrimaryLight,
     primaryContainer = PrimaryContainerLight,
     onPrimaryContainer = OnPrimaryContainerLight,
+    secondary = SecondaryLight,
+    onSecondary = OnSecondaryLight,
+    secondaryContainer = SecondaryContainerLight,
+    onSecondaryContainer = OnSecondaryContainerLight,
+    tertiary = TertiaryLight,
+    onTertiary = OnTertiaryLight,
+    tertiaryContainer = TertiaryContainerLight,
+    onTertiaryContainer = OnTertiaryContainerLight,
+    error = ErrorLight,
+    onError = OnErrorLight,
+    errorContainer = ErrorContainerLight,
+    onErrorContainer = OnErrorContainerLight,
     background = SurfaceLight,
     surface = SurfaceLight,
+    surfaceVariant = SurfaceVariantLight,
     onBackground = OnSurfaceLight,
-    onSurface = OnSurfaceLight
+    onSurface = OnSurfaceLight,
+    onSurfaceVariant = OnSurfaceVariantLight,
+    outline = OutlineLight
 )
 
 @Composable

@@ -37,7 +37,8 @@ fun RelatedBooksView(
                 item {
                     RelatedSectionHeader("More by ${section.name}")
                 }
-                items(section.books) { book ->
+                // 详尽中文注释：M-20 修复 — 添加 key 让 Compose 跟踪列表项身份，避免相关书单刷新时 item 状态错位复用
+                items(section.books, key = { it.book.id }) { book ->
                     RelatedAudiobookItem(book, onBookClick)
                 }
             }
@@ -48,7 +49,9 @@ fun RelatedBooksView(
                 item {
                     RelatedSectionHeader("More by ${section.name}")
                 }
-                items(section.books) { book ->
+                // 详尽中文注释：M-20 修复 — 旁白分区迹不同一个 section 可能包含相同 id 的书，
+                // 使用 "迹 narrator:book.id" 复合键保证跨 section 唯一性
+                items(section.books, key = { "n:${it.book.id}" }) { book ->
                     RelatedAudiobookItem(book, onBookClick)
                 }
             }
@@ -58,7 +61,9 @@ fun RelatedBooksView(
             item {
                 RelatedSectionHeader("Recently Added")
             }
-            items(recentBooks) { book ->
+            // 详尽中文注释：M-20 修复 — recentBooks 也可能与前面 section 重叠，
+            // 使用 "r:book.id" 前缀复合键保证不同 section 间的公局唯一性
+            items(recentBooks, key = { "r:${it.book.id}" }) { book ->
                 RelatedAudiobookItem(book, onBookClick)
             }
         }

@@ -40,12 +40,19 @@ fun DetailOverlay(
         DetailScreen(
             // 详尽的中文注释：当详情页展示的书籍与当前正在播放的书籍一致，且 ViewModel 已产出有效进度时，
             // 使用 ViewModel 预计算的实时百分比覆盖数据库中的静态进度值，实现实时同步。
+            // M-19 修复：同步覆盖 displayProgressPercent，避免展示进度与实时进度不一致。
             uiState = if (currentBookId == detailUiState.book?.book?.id && playbackPercent > 0) {
-                detailUiState.copy(progressPercent = playbackPercent)
+                detailUiState.copy(
+                    progressPercent = playbackPercent,
+                    displayProgressPercent = playbackPercent
+                )
             } else {
                 detailUiState
             },
             onBackClick = { detailViewModel.setVisible(false) },
+            // 详尽中文注释：M-19 修复 — 点击播放时先通知 ViewModel 开启保护期，
+            // 再触发真正的播放逻辑，Composable 层无需自持任何进度锁定状态。
+            onPlayPressed = { detailViewModel.onPlayPressed() },
             onSearchClick = { query ->
                 detailViewModel.setVisible(false)
                 if (canStartNavigation()) {
