@@ -30,7 +30,7 @@ import java.io.File
 
 /**
  * 详尽中文注释：全屏播放器的主封面视图。
- * 从 NewPlayerScreen.kt 提取为独立组件，负责展示有声书封面图片，
+ * 从 PlayerScreen.kt 提取为独立组件，负责展示有声书封面图片，
  * 并在播放/暂停状态切换时实现轻微缩放动画效果。
  *
  * @param coverPath 封面图的本地物理文件路径
