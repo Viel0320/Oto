@@ -55,8 +55,8 @@ import dev.chrisbanes.haze.HazeState
 fun AudiobookActionDialogs(
     bookWithProgress: BookWithProgress?,
     hazeState: HazeState,
-    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式；未传入时默认 Material，避免独立调用时自动启用 Haze。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由主页从设置状态显式传入，避免 Dialog 封装内部私自声明默认值。
+    glassEffectMode: GlassEffectMode,
     onDismissRequest: () -> Unit,
     onUpdateReadStatus: (String, String) -> Unit,
     onForceRegenerate: (String) -> Unit,

@@ -62,10 +62,10 @@ class AppSettingsRepository private constructor(private val context: Context) {
             isSleepFadeOutEnabled = preferences[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] ?: true,
             // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取摇晃重置睡眠定时器的开关状态，默认值为 true
             isShakeToResetEnabled = preferences[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] ?: true,
-            // 为每一次改动添加详尽的中文注释：从 DataStore 读取玻璃效果模式，非法历史值兜底为 Material 以优先使用稳定的原生效果。
+            // 为每一次改动添加详尽的中文注释：从 DataStore 读取玻璃效果模式，缺失或非法历史值统一回落到 AppSettings 声明的设置默认值。
             glassEffectMode = preferences[PreferencesKeys.GLASS_EFFECT_MODE]
                 ?.let { runCatching { GlassEffectMode.valueOf(it) }.getOrNull() }
-                ?: GlassEffectMode.Material
+                ?: AppSettings.DEFAULT_GLASS_EFFECT_MODE
         )
     }
 

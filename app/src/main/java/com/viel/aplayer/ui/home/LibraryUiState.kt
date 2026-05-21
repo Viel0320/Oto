@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.home
 
 import androidx.annotation.StringRes
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 
 /**
@@ -36,6 +37,6 @@ data class LibraryUiState(
     val shouldShowRecentBooks: Boolean = false,
 
     /** 为每一次改动添加详尽的中文注释：当前悬浮层玻璃效果模式，供主页 Dialog 与播放器 BottomSheet 共用同一全局设置。 */
-    // 为每一次改动添加详尽的中文注释：LibraryUiState 初始值默认 Material，确保设置流首帧尚未到达时不主动启用 Haze。
-    val glassEffectMode: GlassEffectMode = GlassEffectMode.Material
+    // 为每一次改动添加详尽的中文注释：UiState 首帧缺省值引用设置模型的默认值，避免 UI 状态层另行硬编码 Material。
+    val glassEffectMode: GlassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
 )

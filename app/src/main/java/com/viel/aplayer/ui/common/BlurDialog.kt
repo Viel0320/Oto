@@ -43,8 +43,8 @@ import dev.chrisbanes.haze.hazeEffect
 fun BlurDialog(
     onDismissRequest: () -> Unit,
     hazeState: HazeState,
-    // 为每一次改动添加详尽的中文注释：组件被单独调用且未显式传入模式时，默认使用 Material 原生效果。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由调用方从设置状态显式传入，避免 Dialog 内部私自声明默认值。
+    glassEffectMode: GlassEffectMode,
     hazeBlurRadius: Dp = 160.dp,
     scrollable: Boolean = true,
     content: @Composable () -> Unit

@@ -25,8 +25,8 @@ fun DetailOverlay(
     canStartNavigation: () -> Boolean,
     onPlayBook: (String) -> Unit,
     onNavigateToSearch: (String) -> Unit,
-    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式并传给详情页内部的更多菜单。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由 App 容器从设置状态显式传入，详情悬浮层不再声明默认值。
+    glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()

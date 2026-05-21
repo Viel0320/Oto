@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
@@ -50,8 +51,8 @@ fun PlayerAppBar(
     onToggleProgressMode: (() -> Unit)? = null,
     onDeleteBook: (() -> Unit)? = null,
     isChapterProgressMode: Boolean = false,
-    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，用于控制播放器更多菜单是否启用 Haze。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由播放页从设置状态显式传入，播放器顶部栏不再声明 Material 默认值。
+    glassEffectMode: GlassEffectMode,
     // 为每一次改动添加详尽的中文注释：菜单复用播放器背景 source 的 HazeState；独立预览时默认创建本地状态。
     dropdownMenuHazeState: HazeState = rememberHazeState(),
     containerColor: Color = Color.Transparent,
@@ -159,6 +160,8 @@ fun PlayerAppBarPreview() {
                 author = "Preview Author",
                 narrator = "Preview Narrator",
                 onNavigationClick = {},
+                // 为每一次改动添加详尽的中文注释：Preview 显式引用设置模型里的默认玻璃效果，避免 PlayerAppBar 参数重新拥有局部默认值。
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
                 contentColor = Color.White
             )
         }

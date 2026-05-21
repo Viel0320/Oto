@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.theme.APlayerTheme
 
@@ -593,8 +594,8 @@ fun SettingsScreenPreview() {
             onSleepFadeOutEnabledChange = {},
             isShakeToResetEnabled = true,
             onShakeToResetEnabledChange = {},
-            // 为每一次改动添加详尽的中文注释：Preview 默认展示 Material，和新安装用户的默认设置保持一致。
-            glassEffectMode = GlassEffectMode.Material,
+            // 为每一次改动添加详尽的中文注释：Preview 显式引用设置模型里的默认玻璃效果，避免设置页预览另行硬编码默认值。
+            glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
             onGlassEffectModeChange = {}
         )
     }

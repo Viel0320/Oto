@@ -97,6 +97,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.formatFileSize
@@ -120,8 +121,8 @@ fun DetailScreen(
     onPlayClick: () -> Unit = {},
     onMoreClick: () -> Unit = {},
     onSearchClick: (String) -> Unit = {},
-    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，用于控制详情页右上角菜单是否启用 Haze。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由详情 Overlay 从设置状态显式传入，详情页内部不再声明 Material 默认值。
+    glassEffectMode: GlassEffectMode,
 ) {
     val bookWithProgress = uiState.book
     val book = bookWithProgress?.book
@@ -791,7 +792,9 @@ fun DetailScreenPreview() {
                 isAvailable = true,
                 progressPercent = 45
             ),
-            onBackClick = {}
+            onBackClick = {},
+            // 为每一次改动添加详尽的中文注释：Preview 显式引用设置模型里的默认玻璃效果，避免 DetailScreen 参数重新拥有局部默认值。
+            glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
         )
     }
 }

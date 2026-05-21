@@ -31,6 +31,11 @@ data class AppSettings(
     val isSleepFadeOutEnabled: Boolean = true,
     // 为每一次改动添加详尽的中文注释：新增摇晃手机重置睡眠定时器的全局控制开关，默认开启以提供夜间无需亮屏的极致贴心盲操交互。
     val isShakeToResetEnabled: Boolean = true,
-    // 为每一次改动添加详尽的中文注释：新增悬浮层玻璃效果模式持久化属性，默认 Material 以优先使用稳定的 Material 3 原生容器层次。
-    val glassEffectMode: GlassEffectMode = GlassEffectMode.Material
-)
+    // 为每一次改动添加详尽的中文注释：新增悬浮层玻璃效果模式持久化属性，默认值只由设置模型统一声明，UI 页面和组件不再各自声明默认值。
+    val glassEffectMode: GlassEffectMode = DEFAULT_GLASS_EFFECT_MODE
+) {
+    companion object {
+        // 为每一次改动添加详尽的中文注释：集中定义玻璃效果设置默认值，所有设置流缺省值与预览示例都应引用这里，避免默认值散落到页面组件。
+        val DEFAULT_GLASS_EFFECT_MODE: GlassEffectMode = GlassEffectMode.Material
+    }
+}

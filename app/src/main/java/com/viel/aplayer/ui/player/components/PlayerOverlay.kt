@@ -43,8 +43,8 @@ fun PlayerOverlay(
     miniPlayerActions: MiniPlayerActions,
     playerNavigationActions: PlayerNavigationActions,
     currentRoute: String?,
-    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式并向全屏播放器透传；未传入时默认 Material。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由 App 容器从设置状态显式传入，播放器悬浮层不再声明默认值。
+    glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier
 ) {
     // 仅监听播放器可见性（低频信号）

@@ -63,6 +63,7 @@ import com.viel.aplayer.R
 import kotlinx.coroutines.launch
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerFilterChip
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
@@ -100,8 +101,8 @@ fun HomeScreen(
     @StringRes recentTitleRes: Int = 0,
     onFilterSelected: (HomeFilter) -> Unit = {},
     isMiniPlayerVisible: Boolean = false,
-    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，用于控制主页背景是否参与 Haze 采样；未传入时默认 Material。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由 NavHost 从设置状态显式传入，主页本身不再声明 Material 默认值。
+    glassEffectMode: GlassEffectMode,
     onNavigateToSearch: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
@@ -353,7 +354,9 @@ fun HomeScreenNotStartedPreview() {
             recentBooks = mockBooks,
             shouldShowRecentBooks = true,
             recentTitleRes = R.string.recently_added_title,
-            isMiniPlayerVisible = false
+            isMiniPlayerVisible = false,
+            // 为每一次改动添加详尽的中文注释：Preview 显式引用设置模型里的默认玻璃效果，避免 HomeScreen 参数重新拥有局部默认值。
+            glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
         )
     }
 }

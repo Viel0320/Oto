@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.common.formatTime
@@ -67,8 +68,8 @@ fun ChapterListSheet(
     onDismissRequest: () -> Unit,
     onChapterClick: (Long) -> Unit,
     hazeState: HazeState,
-    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，控制章节列表底部弹层是否启用 Haze 毛玻璃；未传入时默认 Material。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由播放页从设置状态显式传入，章节 BottomSheet 不再声明 Material 默认值。
+    glassEffectMode: GlassEffectMode,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 ) {
     val density = LocalDensity.current
@@ -174,8 +175,8 @@ fun ChapterListContent(
     listState: LazyListState,
     modifier: Modifier = Modifier,
     bottomSpacerHeight: Dp = 0.dp,
-    // 为每一次改动添加详尽的中文注释：接收玻璃效果模式，用于让当前章节选中态适配 Material 原生背景和 Haze 毛玻璃背景。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由章节 BottomSheet 显式传入，列表内容不再声明 Material 默认值。
+    glassEffectMode: GlassEffectMode
 ) {
 
     Column(
@@ -303,8 +304,8 @@ fun ChapterListSheetPreview() {
                 totalDuration = sampleChapters.last().startPositionMs + sampleChapters.last().durationMs,
                 onChapterClick = {},
                 listState = rememberLazyListState(initialFirstVisibleItemIndex = 15),
-                // 为每一次改动添加详尽的中文注释：预览默认展示 Material 选中态，和应用全局默认值保持一致。
-                glassEffectMode = GlassEffectMode.Material
+                // 为每一次改动添加详尽的中文注释：Preview 显式引用设置模型里的默认玻璃效果，避免 ChapterListContent 参数重新拥有局部默认值。
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
             )
         }
     }

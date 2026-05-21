@@ -33,8 +33,8 @@ fun BlurDropdownMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     hazeState: HazeState,
-    // 为每一次改动添加详尽的中文注释：未显式传入时默认 Material，和全局默认视觉效果保持一致。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由调用方从设置状态显式传入，避免通用菜单内部私自声明默认值。
+    glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(0.dp, 0.dp),
     scrollState: ScrollState = rememberScrollState(),

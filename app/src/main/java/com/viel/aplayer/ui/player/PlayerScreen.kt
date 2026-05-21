@@ -101,8 +101,8 @@ fun NewPlayerScreen(
     viewModel: PlayerViewModel,
     actions: PlayerActions,
     navigationActions: PlayerNavigationActions,
-    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，用于控制章节列表背景是否启用 Haze 采样；未传入时默认 Material。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由播放器 Overlay 从设置状态显式传入，播放页内部不再声明 Material 默认值。
+    glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
 ) {
     val metadata by viewModel.metadataState.collectAsStateWithLifecycle()
