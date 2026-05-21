@@ -111,3 +111,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+
+// 为每一次改动添加详尽的中文注释：配置 KSP 插件传入 Room Schema 物理导出相对路径，激活编译时 Schema 文件自动落盘，保证数据库版本可留痕追溯 (H-16, H-17)
+ksp {
+    arg("room.schemaLocation", "${projectDir}/schemas")
+}

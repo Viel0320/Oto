@@ -246,17 +246,19 @@ class PlayerViewModel : ViewModel() {
         if (playbackManager != null) return
         val appContext = context.applicationContext
         val container = (appContext as APlayerApplication).container
-        libraryRepository = container.libraryRepository
+        // 为每一次改动添加详尽的中文注释：使用局部作用域变量分配，彻底物理规避连续多次 !! 解包引发的 NPE 风险 (H-11)
+        val repo = container.libraryRepository
+        libraryRepository = repo
         settingsRepository = container.settingsRepository
         
-        getRelatedBooksUseCase = GetRelatedBooksUseCase(libraryRepository!!)
+        getRelatedBooksUseCase = GetRelatedBooksUseCase(repo)
         audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         playbackManager = PlaybackManager.getInstance(appContext)
 
-        bookmarkManager = BookmarkManager(libraryRepository!!, viewModelScope)
+        bookmarkManager = BookmarkManager(repo, viewModelScope)
         playbackDelegate = MediaPlaybackDelegate(
             playbackManager = { playbackManager },
-            repository = libraryRepository!!,
+            repository = repo,
             scope = viewModelScope
         )
 
@@ -471,6 +473,7 @@ class PlayerViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
-        playbackManager?.release()
+        // H-21: 不再释放进程级单例 PlaybackManager，避免破坏其他持有者（迷你播放器、Service）的会话。
+        // PlaybackManager 的生命周期由进程管理，不应由单个 ViewModel 控制。
     }
 }

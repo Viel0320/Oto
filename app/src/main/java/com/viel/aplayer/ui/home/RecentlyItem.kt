@@ -21,6 +21,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+// 为每一次改动添加详尽的中文注释：补充导入 getValue 和 setValue 扩展函数以完美适配 Composable 的 by 属性代理逻辑 (H-15)
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,7 +62,9 @@ fun RecentlyItem(
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            if ((coverPath != null) && File(coverPath).exists()) {
+            // 为每一次改动添加详尽的中文注释：利用 Coil 的 onError 物理防抖回调，完全剥离 Composable 重组中主线程同步调用 File.exists() 的性能隐患 (H-15)
+            var isImageError by androidx.compose.runtime.remember(coverPath) { androidx.compose.runtime.mutableStateOf(false) }
+            if ((coverPath != null) && !isImageError) {
                 // 详尽中文注释：使用 LocalContext 构建附带 lastScannedAt 作为更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
                 val context = androidx.compose.ui.platform.LocalContext.current
                 val request = remember(coverPath, coverLastUpdated) {
@@ -76,6 +81,7 @@ fun RecentlyItem(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                     onError = { state ->
+                        isImageError = true
                         // 详尽中文注释：当封面物理文件损坏、Scoped Storage 权限临时受阻等加载失败时，在控制台打印高清晰的可调试路径和根本原因
                         android.util.Log.e(
                             "RecentlyItem",

@@ -33,3 +33,11 @@
 # 忽略常见的三方库辅助类警告
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.**
+
+# 详尽的中文注释：根据代码审查 H-03 规定，暂不进行日志信息混淆，但由 R8 在编译 Release 发行版时彻底物理剥离 android.util.Log 的 Log.v/d/i 级别的日志，防止敏感路径等用户隐私信息泄露。
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}

@@ -82,6 +82,7 @@ fun APlayerNavHost(
             }
             val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
             val libraryRoots by settingsViewModel.libraryRoots.collectAsStateWithLifecycle()
+            // 详尽的中文注释：在此绑定新增的 isCleartextTrafficAllowed 状态、开关修改动作以及级联物理删除/释放 SAF 授权的方法 (H-01, H-04)
             SettingsScreen(
                 onBack = navigateBack,
                 onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
@@ -89,7 +90,10 @@ fun APlayerNavHost(
                 onRescan = { settingsViewModel.triggerRescan() },
                 libraryRoots = libraryRoots,
                 isChapterProgressMode = settingsState.isChapterProgressMode,
-                onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) }
+                onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },
+                isCleartextTrafficAllowed = settingsState.isCleartextTrafficAllowed,
+                onCleartextTrafficAllowedChange = { settingsViewModel.toggleCleartextTrafficAllowed(it) },
+                onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) }
             )
         }
         composable(

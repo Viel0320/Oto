@@ -30,11 +30,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.media.NotificationProgressPlayer
 import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.media.SubtitleFileResolver
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
@@ -246,6 +248,19 @@ class PlaybackService : MediaSessionService() {
         unavailableSkipKey = skipKey
 
         serviceScope.launch {
+            // 详尽的中文注释：网络音频源加载拦截安全守门狗。
+            // 如果音频源属于明文 http 连接且用户尚未在设置中显式授予明文允许，直接弹出安全拦截 Toast 并暂停终止播放，保障系统高度安全。
+            val currentUri = mediaItem.localConfiguration?.uri?.toString() ?: ""
+            if (currentUri.startsWith("http://")) {
+                val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
+                if (!isAllowed) {
+                    Toast.makeText(this@PlaybackService, "安全拦截：明文 HTTP 播放未授权。请在设置中允许。", Toast.LENGTH_LONG).show()
+                    player.pause()
+                    player.stop()
+                    return@launch
+                }
+            }
+
             // The service owns playback failures: mark the bad file, notify once, then continue if possible.
             libraryRepository.markPlaybackFileUnavailable(bookId, queueIndex)
             Toast.makeText(this@PlaybackService, "文件不可用", Toast.LENGTH_SHORT).show()
@@ -270,12 +285,27 @@ class PlaybackService : MediaSessionService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo
         ): MediaSession.ConnectionResult {
-            val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
-                .add(rewindButton.sessionCommand!!)
-                .add(forwardButton.sessionCommand!!)
-                .add(bookmarkButton.sessionCommand!!)
-                .build()
+            // 详尽的中文注释：对外暴露服务的动态包名安全审计（白名单机制）。
+            // 仅对当前应用自身、系统 UI（通知栏）、Android Auto、以及系统搜索/语音助手允许绑定建立连接；非可信包名予以拦截拒绝，防范未授权的外部客户端劫持播放器服务。
+            val callingPackage = controller.packageName
+            val allowedPackages = listOf(
+                packageName,
+                "com.android.systemui",
+                "com.google.android.projection.gearhead",
+                "com.google.android.googlequicksearchbox"
+            )
+            if (callingPackage !in allowedPackages) {
+                return MediaSession.ConnectionResult.reject()
+            }
 
+            val sessionCommandsBuilder = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+            
+            // 详尽的中文注释：移除高风险强制非空解包，利用安全的 let 块和条件调用逐个装载自定义快退、快进、书签命令。
+            rewindButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
+            forwardButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
+            bookmarkButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
+
+            val sessionCommands = sessionCommandsBuilder.build()
             val customLayout = listOf(rewindButton, forwardButton, bookmarkButton)
 
             val playerCommands = Player.Commands.Builder()

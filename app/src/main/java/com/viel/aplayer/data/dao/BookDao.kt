@@ -195,4 +195,8 @@ interface BookDao {
     // 使用局部 UPDATE 避免覆盖其他并发更新的字段，防止引发多线程写入竞态。此外，通过更新 lastScannedAt 强制让 Flow 重发以触发布局重绘自动刷新。
     @Query("UPDATE books SET coverPath = :coverPath, thumbnailPath = :thumbnailPath, backgroundColorArgb = :backgroundColorArgb, lastScannedAt = :lastScannedAt WHERE id = :id")
     suspend fun updateCoverPaths(id: String, coverPath: String?, thumbnailPath: String?, backgroundColorArgb: Int?, lastScannedAt: Long)
+
+    // 为每一次改动添加详尽的中文注释：根据书库根目录ID查询该书库下所有的书籍实体，专用于在书库被删除释放权限时，安全地物理清理关联的封面和缩略图物理缓存文件，避免造成文件垃圾残留
+    @Query("SELECT * FROM books WHERE rootId = :rootId")
+    suspend fun getBooksByRootId(rootId: String): List<BookEntity>
 }

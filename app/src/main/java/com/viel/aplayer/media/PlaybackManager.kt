@@ -14,7 +14,9 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlin.coroutines.resume
 import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.media.service.PlaybackService
 import com.viel.aplayer.ui.player.components.SubtitleLine
@@ -23,8 +25,14 @@ import com.viel.aplayer.ui.player.components.SubtitleLine
 class PlaybackManager private constructor(context: Context) {
 
     private val appContext = context.applicationContext
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    // 详尽的中文注释：新增 CoroutineExceptionHandler 以捕获全局协程中由于未知原因（如文件损坏、网络请求失败等）抛出的异常，防止异常直接导致进程 Crash。
+    private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
+        android.util.Log.e("PlaybackManager", "Unhandled coroutine exception in PlaybackManager", exception)
+    }
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
     private val libraryRepository = LibraryRepository.getInstance(appContext)
+    // 详尽的中文注释：实例化 AppSettingsRepository 以便动态获取和监控用户的 HTTP 明文流量配置权限。
+    private val settingsRepository = AppSettingsRepository.getInstance(appContext)
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
@@ -55,6 +63,10 @@ class PlaybackManager private constructor(context: Context) {
     val playbackSpeed = _playbackSpeed.asStateFlow()
 
     private var currentPlan: BookPlaybackPlan? = null
+
+    /** 当前播放计划的 bookId，非挂起，可从任意线程安全读取。 */
+    val currentPlayingBookId: String?
+        get() = currentPlan?.bookId
 
     init {
         initializeController()
@@ -232,32 +244,49 @@ class PlaybackManager private constructor(context: Context) {
         _currentPosition.value = plan.startGlobalPositionMs
         _duration.value = totalDur
 
-        executeOnMain {
-            val mediaItems = plan.files.map { file ->
-                val metadata = MediaMetadata.Builder()
-                    .setTitle(plan.title)
-                    .setArtist(plan.author)
-                    .setAlbumTitle(plan.title)
-                    .setArtworkUri(plan.artworkUri)
-                    .setArtworkData(plan.artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
-                    .build()
-                val builder = MediaItem.Builder()
-                    .setMediaId("${plan.bookId}:${file.index}")
-                    .setUri(file.uri)
-                    .setMediaMetadata(metadata)
-                // 启动时不挂载全书字幕附件，避免为了多文件字幕扫描/解析阻塞 setMediaItems。
-                builder.build()
+        // 检查是否包含 HTTP 明文源，若有则异步校验设置后再加载
+        val hasHttp = plan.files.any { it.uri.startsWith("http://") }
+        if (hasHttp) {
+            scope.launch {
+                val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
+                if (!isAllowed) {
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(appContext, "安全拦截：明文 HTTP 播放未授权。请在设置中允许。", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+                withContext(Dispatchers.Main) { applyPlaybackPlan(plan) }
             }
-            val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
-            
-            mediaController?.let { controller ->
-                controller.setMediaItems(mediaItems, fileIndex, positionInFile)
-                controller.prepare()
-                // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
-                _currentSubtitles.value = emptyList()
-                // Loading a book should create/update BookProgress immediately, even before playback events fire.
-                persistProgress(plan.bookId, fileIndex, positionInFile)
-            }
+        } else {
+            executeOnMain { applyPlaybackPlan(plan) }
+        }
+    }
+
+    private fun applyPlaybackPlan(plan: BookPlaybackPlan) {
+        val mediaItems = plan.files.map { file ->
+            val metadata = MediaMetadata.Builder()
+                .setTitle(plan.title)
+                .setArtist(plan.author)
+                .setAlbumTitle(plan.title)
+                .setArtworkUri(plan.artworkUri)
+                .setArtworkData(plan.artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                .build()
+            val builder = MediaItem.Builder()
+                .setMediaId("${plan.bookId}:${file.index}")
+                .setUri(file.uri)
+                .setMediaMetadata(metadata)
+            // 启动时不挂载全书字幕附件，避免为了多文件字幕扫描/解析阻塞 setMediaItems。
+            builder.build()
+        }
+        val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
+        
+        mediaController?.let { controller ->
+            controller.setMediaItems(mediaItems, fileIndex, positionInFile)
+            controller.prepare()
+            // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
+            _currentSubtitles.value = emptyList()
+            // Loading a book should create/update BookProgress immediately, even before playback events fire.
+            persistProgress(plan.bookId, fileIndex, positionInFile)
         }
     }
 
@@ -311,6 +340,85 @@ class PlaybackManager private constructor(context: Context) {
         }
         mediaController = null
         INSTANCE = null
+    }
+
+    /**
+     * 为每一次改动添加详尽的中文注释：异步获取已连接的 MediaController 实例。
+     * 如果当前 mediaController 已建立连接则立即返回；
+     * 如果 controllerFuture 处于连接中，则通过 suspendCancellableCoroutine 挂起并等待连接完成，
+     * 以便在 Activity 已销毁或后台重建的异步时序下依然能获取到真实的 MediaController，
+     * 解决删除书库时因连接尚未就绪导致 getCurrentBookId() 漏判后台播放的缺陷。
+     */
+    suspend fun getController(): MediaController? {
+        val controller = mediaController
+        if (controller != null) return controller
+
+        val future = controllerFuture ?: return null
+        if (future.isDone) {
+            return try {
+                future.get().also { mediaController = it }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        return suspendCancellableCoroutine { continuation ->
+            future.addListener({
+                try {
+                    val conn = future.get()
+                    mediaController = conn
+                    if (continuation.isActive) {
+                        continuation.resume(conn)
+                    }
+                } catch (e: Exception) {
+                    if (continuation.isActive) {
+                        continuation.resume(null)
+                    }
+                }
+            }, ContextCompat.getMainExecutor(appContext))
+
+            continuation.invokeOnCancellation {
+                // 协程取消无需物理取消 future，由 PlaybackManager 单例共享生命周期
+            }
+        }
+    }
+
+    /**
+     * 为每一次改动添加详尽的中文注释：异步获取当前正在播放或计划播放的书籍 ID。
+     * 优先等待 MediaController 异步连接就绪后再行检索 currentMediaItem，
+     * 确保在 UI 退出且 PlaybackManager 被 release 重新获取单例的极端生命周期下，
+     * 依然能准确捕捉后台真实的播放书籍 ID。
+     */
+    suspend fun getCurrentBookId(): String? {
+        val controller = getController()
+        val mediaId = controller?.currentMediaItem?.mediaId ?: currentPlan?.bookId
+        return if (mediaId != null && mediaId.contains(":")) {
+            mediaId.substringBefore(":")
+        } else {
+            mediaId
+        }
+    }
+
+    /**
+     * 为每一次改动添加详尽的中文注释：异步停止并清空受影响的书籍播放队列，重置播放状态 Flow。
+     * 首先挂起等待 MediaController 异步连接完毕，以防在未就绪时调用导致底层 ExoPlayer 无法接收到 pause 和 stop 指令，
+     * 确保即使在后台被动调用的时序下也能彻底切断底层音频播放流。
+     */
+    suspend fun stopPlayback() {
+        val controller = getController()
+        withContext(Dispatchers.Main) {
+            controller?.let { conn ->
+                conn.pause()
+                conn.stop()
+                conn.clearMediaItems()
+            }
+            currentPlan = null
+            _currentMediaItem.value = null
+            _currentPosition.value = 0L
+            _duration.value = 0L
+            _isPlaying.value = false
+            _playbackState.value = Player.STATE_IDLE
+        }
     }
 
     private fun executeOnMain(action: () -> Unit) {

@@ -10,9 +10,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
-import com.viel.aplayer.data.entity.SearchHistoryEntity
 
 private val Context.searchHistoryDataStore: DataStore<Preferences> by preferencesDataStore(name = "search_history")
+
+/** 搜索历史条目�?*/
+data class SearchHistoryEntry(
+    val query: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
 
 /**
  * Search history is lightweight UI state, so it lives in DataStore instead of the main Room database.
@@ -25,7 +30,7 @@ class SearchHistoryStore private constructor(context: Context) {
         val ITEMS_JSON = stringPreferencesKey("items_json")
     }
 
-    val history: Flow<List<SearchHistoryEntity>> = context.searchHistoryDataStore.data.map { preferences ->
+    val history: Flow<List<SearchHistoryEntry>> = context.searchHistoryDataStore.data.map { preferences ->
         // Bad or old values should not break search UI; they are treated as an empty history list.
         decodeHistory(preferences[PreferencesKeys.ITEMS_JSON])
     }
@@ -35,14 +40,14 @@ class SearchHistoryStore private constructor(context: Context) {
         if (normalizedQuery.isBlank()) return
         context.searchHistoryDataStore.edit { preferences ->
             // Re-adding the same query moves it to the top, matching the previous primary-key replacement behavior.
-            val updated = listOf(SearchHistoryEntity(normalizedQuery, System.currentTimeMillis())) +
+            val updated = listOf(SearchHistoryEntry(normalizedQuery, System.currentTimeMillis())) +
                 decodeHistory(preferences[PreferencesKeys.ITEMS_JSON])
                     .filterNot { it.query == normalizedQuery }
             preferences[PreferencesKeys.ITEMS_JSON] = encodeHistory(updated.take(MAX_HISTORY_ITEMS))
         }
     }
 
-    suspend fun delete(history: SearchHistoryEntity) {
+    suspend fun delete(history: SearchHistoryEntry) {
         context.searchHistoryDataStore.edit { preferences ->
             // Single-item deletion only compares the query text because it is the stable user-visible identity.
             val updated = decodeHistory(preferences[PreferencesKeys.ITEMS_JSON])
@@ -62,7 +67,7 @@ class SearchHistoryStore private constructor(context: Context) {
         }
     }
 
-    private fun decodeHistory(rawJson: String?): List<SearchHistoryEntity> {
+    private fun decodeHistory(rawJson: String?): List<SearchHistoryEntry> {
         if (rawJson.isNullOrBlank()) return emptyList()
         return runCatching {
             val array = JSONArray(rawJson)
@@ -72,7 +77,7 @@ class SearchHistoryStore private constructor(context: Context) {
                     val query = item.optString(FIELD_QUERY).trim()
                     if (query.isNotBlank()) {
                         // Missing timestamps are placed at the end but kept readable for older values.
-                        add(SearchHistoryEntity(query, item.optLong(FIELD_TIMESTAMP, 0L)))
+                        add(SearchHistoryEntry(query, item.optLong(FIELD_TIMESTAMP, 0L)))
                     }
                 }
             }.distinctBy { it.query }
@@ -81,7 +86,7 @@ class SearchHistoryStore private constructor(context: Context) {
         }.getOrDefault(emptyList())
     }
 
-    private fun encodeHistory(history: List<SearchHistoryEntity>): String {
+    private fun encodeHistory(history: List<SearchHistoryEntry>): String {
         val array = JSONArray()
         history.take(MAX_HISTORY_ITEMS).forEach { item ->
             // JSON encoding avoids delimiter bugs for queries containing tabs, commas, or line breaks.

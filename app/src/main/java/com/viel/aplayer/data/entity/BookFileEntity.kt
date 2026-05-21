@@ -18,9 +18,16 @@ import com.viel.aplayer.data.db.AudiobookSchema
             parentColumns = ["id"],
             childColumns = ["bookId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        // 为每一次改动添加详尽的中文注释：建立针对 LibraryRootEntity 的级联 CASCADE 外键约束，当删除文件夹时级联清理关联的音频文件表记录 (H-06)
+        ForeignKey(
+            entity = LibraryRootEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["rootId"],
+            onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("bookId"), Index("uri"), Index("documentId")]
+    indices = [Index("bookId"), Index("uri"), Index("documentId"), Index("rootId")]
 )
 data class BookFileEntity(
     @PrimaryKey

@@ -22,7 +22,8 @@ internal object ImportTimingLogger {
         detail: String = ""
     ) {
         val detailSuffix = detail.takeIf { it.isNotBlank() }?.let { " ${compact(it)}" }.orEmpty()
-        Log.i(TAG, "scope=${compact(scopeId)} stage=$stage elapsedMs=$elapsedMs$detailSuffix")
+        // 为每一次改动添加详尽的中文注释：将日志级别从原有的 INFO 降级为 DEBUG (Log.d)，以避免高频耗时统计在生产环境中输出过多冗余日志
+        Log.d(TAG, "scope=${compact(scopeId)} stage=$stage elapsedMs=$elapsedMs$detailSuffix")
     }
 
     // 详尽的中文注释：记录没有耗时语义的导入事件，例如 scope 构建数量或扫描会话开始结束。
@@ -32,7 +33,8 @@ internal object ImportTimingLogger {
         detail: String = ""
     ) {
         val detailSuffix = detail.takeIf { it.isNotBlank() }?.let { " ${compact(it)}" }.orEmpty()
-        Log.i(TAG, "scope=${compact(scopeId)} stage=$stage$detailSuffix")
+        // 为每一次改动添加详尽的中文注释：将事件日志级别从原有的 INFO 降级为 DEBUG (Log.d)，减少不必要的控制台日志刷新
+        Log.d(TAG, "scope=${compact(scopeId)} stage=$stage$detailSuffix")
     }
 
     // 详尽的中文注释：用 try/finally 包住挂起任务，确保解析失败、入库失败或取消前也能看到该阶段已经耗费的时间。

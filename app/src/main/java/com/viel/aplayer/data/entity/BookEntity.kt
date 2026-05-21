@@ -6,7 +6,19 @@ import androidx.room.PrimaryKey
 import com.viel.aplayer.data.db.AudiobookSchema
 
 // New model: Book is the logical title; file ownership lives in BookFileEntity.
-@Entity(tableName = "books", indices = [Index("rootId"), Index("status")])
+@Entity(
+    tableName = "books",
+    indices = [Index("rootId"), Index("status")],
+    foreignKeys = [
+        // 为每一次改动添加详尽的中文注释：建立针对 LibraryRootEntity 的级联外键，保证在 SAF 根目录删除释放后，级联物理清除相关书籍 entity (H-06)
+        androidx.room.ForeignKey(
+            entity = LibraryRootEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["rootId"],
+            onDelete = androidx.room.ForeignKey.CASCADE
+        )
+    ]
+)
 data class BookEntity(
     @PrimaryKey
     val id: String,

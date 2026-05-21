@@ -262,7 +262,10 @@ fun DetailScreen(
                 ) {
                     val coverPath = book?.coverPath
                     val coverLastUpdated = book?.lastScannedAt ?: 0L
-                    if ((coverPath != null) && File(coverPath).exists()) {
+                    // 详尽的中文注释：定义用于追踪大封面异步加载是否失败的局部状态。如果加载发生错误（例如文件物理丢失），则异步降级为占位符渲染，彻底消除主线程 File.exists() 磁盘 I/O 同步阻塞 (H-12)
+                    var isImageError by remember(coverPath) { mutableStateOf(false) }
+
+                    if ((coverPath != null) && !isImageError) {
                         // 详尽中文注释：使用 LocalContext 构建附带 lastScannedAt 更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
                         val context = androidx.compose.ui.platform.LocalContext.current
                         val request = remember(coverPath, coverLastUpdated) {
@@ -279,6 +282,7 @@ fun DetailScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
                             onError = { state ->
+                                isImageError = true
                                 // 详尽中文注释：若大封面加载失败，向 Logcat 打印明确的文件路径与异常根本原因以利于线上诊断
                                 android.util.Log.e(
                                     "DetailScreen",
@@ -420,10 +424,14 @@ fun DetailScreen(
                         icon = Icons.Rounded.Timelapse,
                         value = formatTime(book?.totalDurationMs ?: 0L)
                     )
-                    DetailInfoChip(
-                        icon = Icons.Rounded.Storage,
-                        value = if ((book?.totalFileSize ?: 0L) > 0) formatFileSize(book!!.totalFileSize) else "Unknown"
-                    )
+                    // 为每一次改动添加详尽的中文注释：通过安全链式调用规避 book!!.totalFileSize 强制解包漏洞 (H-09)
+                    if ((book?.totalFileSize ?: 0L) > 0) {
+                        DetailInfoChip(
+                            icon = Icons.Rounded.Storage,
+                            value = formatFileSize(book?.totalFileSize ?: 0L)
+                        )
+                    }
+
                 }
 
                 // 详尽中文注释：根据保护期状态计算实际展示的进度。如果在 3 秒保护期内，则强制展示为 0（未播放状态），避免按钮在“Start Listening”和进度更新后高频跳变闪烁
@@ -538,13 +546,16 @@ fun DetailScreen(
             },
             title = { infoDialogTitle?.let { Text(it) } },
             text = {
-                SelectableTextView(
-                    text = infoDialogText!!,
-                    modifier = Modifier.fillMaxWidth(),
-                    textColor = MaterialTheme.colorScheme.onSurface,
-                    textSizeSp = 16f,
-                    lineSpacingExtraSp = 4f
-                )
+                // 为每一次改动添加详尽的中文注释：使用安全的 let 作用域替代 infoDialogText!! 强制解包，防止发生 NPE 崩溃 (H-10)
+                infoDialogText?.let { dialogText ->
+                    SelectableTextView(
+                        text = dialogText,
+                        modifier = Modifier.fillMaxWidth(),
+                        textColor = MaterialTheme.colorScheme.onSurface,
+                        textSizeSp = 16f,
+                        lineSpacingExtraSp = 4f
+                    )
+                }
             }
         )
     }

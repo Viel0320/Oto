@@ -232,9 +232,27 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 // Root insertion is awaited so the following scan can see the selected root immediately.
                 repository.setLibraryRoot(uri)
                 enqueueLibrarySync("USER")
-            } catch (_: SecurityException) {
-                // Keep import flow non-blocking if the user selects an inaccessible folder.
+            } catch (e: SecurityException) {
+                // 详尽的中文注释：对捕获的 SecurityException 赋予脱敏日志信息输出，便于追踪定位 SAF 授权失效事件而不吞掉关键错误。
+                android.util.Log.e("LibraryViewModel", "SecurityException occurred while taking persistable URI permission for tree: ${uri.hashCode().toString(16)}", e)
             }
+        }
+    }
+
+    // 删除库根目录并释放 SAF 授权，通过 Toast 通知用户结果。
+    fun deleteLibraryRoot(root: com.viel.aplayer.data.entity.LibraryRootEntity) {
+        viewModelScope.launch {
+            val playbackWasStopped = repository.deleteLibraryRoot(root)
+            val message = if (playbackWasStopped) {
+                "媒体库已移除，当前播放已停止"
+            } else {
+                "媒体库已移除"
+            }
+            android.widget.Toast.makeText(
+                getApplication(),
+                message,
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -251,12 +269,26 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun enqueueLibrarySync(trigger: String = "USER") {
+        // 为每一次改动添加详尽的中文注释：配置 WorkManager 物理存储空间非低水平硬件条件约束，防止极低磁盘下扫描导致系统资源崩溃 (H-20)
+        val constraints = androidx.work.Constraints.Builder()
+            .setRequiresStorageNotLow(true)
+            .build()
+
         val syncRequest = OneTimeWorkRequestBuilder<LibrarySyncWorker>()
+            .setConstraints(constraints)
             .setInputData(androidx.work.Data.Builder().putString("trigger", trigger).build())
             .build()
+
+        // H-20: 对用户触发使用 APPEND_OR_REPLACE，等待当前扫描完成后再追加新任务，而非直接取消进行中的扫描。
+        val policy = if (trigger == "COLD_START") {
+            ExistingWorkPolicy.KEEP
+        } else {
+            ExistingWorkPolicy.APPEND_OR_REPLACE
+        }
+
         workManager.enqueueUniqueWork(
             "LibrarySync",
-            ExistingWorkPolicy.REPLACE,
+            policy,
             syncRequest
         )
     }

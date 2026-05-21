@@ -66,4 +66,28 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             settingsRepository.updateChapterProgressMode(enabled)
         }
     }
+
+    // 详尽的中文注释：新增切换是否允许 HTTP 明文流量持久化配置的交互方法。
+    fun toggleCleartextTrafficAllowed(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateCleartextTrafficAllowed(enabled)
+        }
+    }
+
+    // 删除库根目录并释放 SAF 授权。返回结果通过 Toast 通知用户。
+    fun deleteLibraryRoot(root: LibraryRootEntity) {
+        viewModelScope.launch {
+            val playbackWasStopped = libraryRepository.deleteLibraryRoot(root)
+            val message = if (playbackWasStopped) {
+                "媒体库已移除，当前播放已停止"
+            } else {
+                "媒体库已移除"
+            }
+            android.widget.Toast.makeText(
+                getApplication(),
+                message,
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
 }

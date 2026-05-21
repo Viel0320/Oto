@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.entity.SearchHistoryEntity
+import com.viel.aplayer.data.store.SearchHistoryEntry
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = LibraryRepository.getInstance(application)
@@ -26,7 +26,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val _query = MutableStateFlow(TextFieldValue(""))
     val query: StateFlow<TextFieldValue> = _query.asStateFlow()
 
-    val searchHistory: StateFlow<List<SearchHistoryEntity>> = repository.searchHistory
+    val searchHistory: StateFlow<List<SearchHistoryEntry>> = repository.searchHistory
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -95,7 +95,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         saveSearchHistory(query)
     }
 
-    fun deleteHistory(history: SearchHistoryEntity) {
+    fun deleteHistory(history: SearchHistoryEntry) {
         viewModelScope.launch {
             repository.deleteFromHistory(history)
         }

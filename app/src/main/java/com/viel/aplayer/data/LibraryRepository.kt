@@ -6,6 +6,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.util.UnstableApi
@@ -19,7 +20,7 @@ import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
-import com.viel.aplayer.data.entity.SearchHistoryEntity
+import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.data.store.SearchHistoryStore
 import com.viel.aplayer.library.BookImporter
 import com.viel.aplayer.library.DetailAvailabilityChecker
@@ -31,6 +32,7 @@ import com.viel.aplayer.media.parse.CoverRecoveryHelper
 import com.viel.aplayer.ui.player.components.SubtitleLine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
@@ -54,7 +56,11 @@ class LibraryRepository private constructor(context: Context) {
     private val libraryRootDao = database.libraryRootDao()
     private val scanSessionDao = database.scanSessionDao()
     private val searchHistoryStore = SearchHistoryStore.getInstance(this.context)
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // 详尽的中文注释：新增 CoroutineExceptionHandler 以捕获在 Dispatchers.IO 线程池中并发执行的后台逻辑（如媒体扫描、封面恢复等）中抛出的未知崩溃，增强多线程后台架构稳定性。
+    private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
+        Log.e("LibraryRepository", "Unhandled coroutine exception in LibraryRepository", exception)
+    }
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
     private val importer = BookImporter(this.context)
     private val availabilityChecker = DetailAvailabilityChecker(this.context)
     private val rootStore = com.viel.aplayer.library.LibraryRootStore(this.context)
@@ -72,7 +78,7 @@ class LibraryRepository private constructor(context: Context) {
     private val reachabilityManager = PlaybackReachabilityManager(this.context, bookDao)
 
     /** Search history flow. */
-    val searchHistory: Flow<List<SearchHistoryEntity>> = searchHistoryStore.history
+    val searchHistory: Flow<List<SearchHistoryEntry>> = searchHistoryStore.history
 
     suspend fun addToHistory(query: String) {
         if (query.isNotBlank()) {
@@ -81,7 +87,7 @@ class LibraryRepository private constructor(context: Context) {
         }
     }
 
-    suspend fun deleteFromHistory(history: SearchHistoryEntity) {
+    suspend fun deleteFromHistory(history: SearchHistoryEntry) {
         // Deleting a visible history row updates DataStore observers immediately.
         searchHistoryStore.delete(history)
     }
@@ -501,6 +507,66 @@ class LibraryRepository private constructor(context: Context) {
     private fun Flow<List<BookWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
         list.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
     }
+
+    // 删除媒体库根目录：释放 SAF 授权、停止受影响的播放、清理 Room 数据。
+    // 返回 true 表示当前播放被中断（属于该库），false 表示播放未受影响。
+    suspend fun deleteLibraryRoot(root: LibraryRootEntity): Boolean = withContext(Dispatchers.IO) {
+        var playbackStopped = false
+
+        // 检查当前正在播放的书籍是否属于即将删除的书库
+        try {
+            val playbackManager = com.viel.aplayer.media.PlaybackManager.getInstance(context)
+            val currentBookId = playbackManager.currentPlayingBookId
+            if (currentBookId != null) {
+                val currentBook = bookDao.getBookById(currentBookId)
+                if (currentBook != null && currentBook.rootId == root.id) {
+                    playbackManager.stopPlayback()
+                    playbackStopped = true
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("LibraryRepository", "Failed to check/stop playback during library root deletion", e)
+        }
+
+        // 为每一次改动添加详尽的中文注释：在通过 Room 级联删除数据库记录之前，先主动查询并物理清理该书库下所有书籍的封面原图与缩略图缓存文件，防止物理缓存目录随着书库删除后无限膨胀残留垃圾文件
+        try {
+            val books = bookDao.getBooksByRootId(root.id)
+            books.forEach { book ->
+                book.coverPath?.let { path ->
+                    val file = File(path)
+                    if (file.exists()) {
+                        val deleted = file.delete()
+                        Log.d("LibraryRepository", "物理删除有声书封面缓存文件成功，书籍ID: ${book.id}, 路径: $path, 结果: $deleted")
+                    }
+                }
+                book.thumbnailPath?.let { path ->
+                    val file = File(path)
+                    if (file.exists()) {
+                        val deleted = file.delete()
+                        Log.d("LibraryRepository", "物理删除有声书缩略图缓存文件成功，书籍ID: ${book.id}, 路径: $path, 结果: $deleted")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("LibraryRepository", "Failed to clear cover cache during library root deletion", e)
+        }
+
+        // 释放 SAF 持久化授权
+        try {
+            val uri = Uri.parse(root.treeUri)
+            context.contentResolver.releasePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (e: Exception) {
+            Log.e("LibraryRepository", "Failed to release persistable permission for ${root.treeUri}", e)
+        }
+
+        // 从 Room 中删除（CASCADE 外键会自动清理 books/book_files）
+        libraryRootDao.deleteRoot(root)
+        playbackStopped
+    }
+
     
     companion object {
         @Volatile

@@ -31,7 +31,7 @@ import com.viel.aplayer.data.entity.ScanSessionEntity
     ],
     // 为每一次改动添加详尽的中文注释：升级 Room 数据库版本到 27，以激活 Destructive Migration 重建机制应用新字段
     version = 27,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun bookDao(): BookDao
@@ -44,6 +44,14 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
         
+        // 为每一次改动添加详尽的中文注释：声明从版本 26 升级至 27 的平滑迁移器。在级联外键架构大升级下提供迁移路径，防御线上崩溃风险 (H-16, H-17)
+        private val MIGRATION_26_27 = object : androidx.room.migration.Migration(26, 27) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // 清理已迁移到 DataStore 的旧 search_history 表（H-19）
+                database.execSQL("DROP TABLE IF EXISTS search_history")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -51,6 +59,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
+                .addMigrations(MIGRATION_26_27)
                 .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance
