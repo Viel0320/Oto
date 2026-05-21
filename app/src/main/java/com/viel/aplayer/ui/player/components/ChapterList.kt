@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.player.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
@@ -35,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -111,7 +114,15 @@ fun ChapterListSheet(
 
     if (isVisible) {
         if (LocalInspectionMode.current) {
-            ChapterListContent(chapters, currentChapter, totalDuration, onChapterClick, listState)
+            ChapterListContent(
+                chapters = chapters,
+                currentChapter = currentChapter,
+                totalDuration = totalDuration,
+                onChapterClick = onChapterClick,
+                listState = listState,
+                // 为每一次改动添加详尽的中文注释：Preview/Inspection 路径同样传入模式，避免调试渲染和真实 BottomSheet 选中态不一致。
+                glassEffectMode = glassEffectMode
+            )
         } else {
             // 详尽中文注释：使用 Haze 版 BlurModalBottomSheet 替代原 Window blur 版封装，
             // hazeState 来自播放器 Surface 的 hazeSource，因此章节列表能采样播放器画面形成毛玻璃。
@@ -145,7 +156,9 @@ fun ChapterListSheet(
                         }
                     },
                     listState = listState,
-                    bottomSpacerHeight = dynamicSpacerHeight
+                    bottomSpacerHeight = dynamicSpacerHeight,
+                    // 为每一次改动添加详尽的中文注释：章节列表内容根据 Material/Haze 模式选择不同的当前章节高亮样式。
+                    glassEffectMode = glassEffectMode
                 )
             }
         }
@@ -160,7 +173,9 @@ fun ChapterListContent(
     onChapterClick: (Long) -> Unit,
     listState: LazyListState,
     modifier: Modifier = Modifier,
-    bottomSpacerHeight: Dp = 0.dp
+    bottomSpacerHeight: Dp = 0.dp,
+    // 为每一次改动添加详尽的中文注释：接收玻璃效果模式，用于让当前章节选中态适配 Material 原生背景和 Haze 毛玻璃背景。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material
 ) {
 
     Column(
@@ -196,6 +211,23 @@ fun ChapterListContent(
                     key = { _, chapter -> chapter.id }
                 ) { index, chapter ->
                     val isCurrent = chapter.id == currentChapter?.id
+                    // 为每一次改动添加详尽的中文注释：Haze 模式使用更轻的圆角玻璃高亮，Material 模式保留更明确的 primaryContainer 选中反馈。
+                    val selectedContainerColor = when (glassEffectMode) {
+                        GlassEffectMode.Haze -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.22f)
+                        GlassEffectMode.Material -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.36f)
+                    }
+                    // 为每一次改动添加详尽的中文注释：Haze 模式用细描边替代大面积蓝色块，让选中态在毛玻璃上更精致、更不抢背景焦点。
+                    val selectedBorderModifier = if (isCurrent && glassEffectMode == GlassEffectMode.Haze) {
+                        Modifier.border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    } else {
+                        Modifier
+                    }
+                    // 为每一次改动添加详尽的中文注释：统一给当前章节行增加圆角，避免 Haze 背景上出现生硬的整块矩形高亮。
+                    val rowShape = RoundedCornerShape(8.dp)
                     ListItem(
                         headlineContent = {
                             Text(
@@ -220,12 +252,16 @@ fun ChapterListContent(
                             )
                         },
                         modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp)
+                            .clip(rowShape)
+                            .then(selectedBorderModifier)
                             .clickable {
                                 onChapterClick(chapter.startPositionMs)
                             },
                         colors = ListItemDefaults.colors(
                             containerColor = if (isCurrent)
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                selectedContainerColor
                             else Color.Transparent
                         )
                     )
@@ -266,7 +302,9 @@ fun ChapterListSheetPreview() {
                 currentChapter = sampleChapters[17],
                 totalDuration = sampleChapters.last().startPositionMs + sampleChapters.last().durationMs,
                 onChapterClick = {},
-                listState = rememberLazyListState(initialFirstVisibleItemIndex = 15)
+                listState = rememberLazyListState(initialFirstVisibleItemIndex = 15),
+                // 为每一次改动添加详尽的中文注释：预览默认展示 Material 选中态，和应用全局默认值保持一致。
+                glassEffectMode = GlassEffectMode.Material
             )
         }
     }
