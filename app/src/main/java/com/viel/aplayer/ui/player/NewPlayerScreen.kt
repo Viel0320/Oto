@@ -17,6 +17,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -247,7 +248,62 @@ fun NewPlayerScreen(
                     }
                 )
 
-                Box(modifier = Modifier.weight(1f)) {
+                // 详尽中文注释：为非 PLAYER 三种 tab（书签/字幕/推荐）的内容区域添加左右滑动手势。
+                // 使用 detectHorizontalDragGestures 累积水平位移，超过 swipeThresholdPx 阈值（80dp）后触发切换。
+                // 三个 tab 按 index 排列：BOOKMARKS(0) → SUBTITLES(1) → RELATED(2)。
+                // 左滑（负向）切换到更大 index 的 tab；右滑（正向）切换到更小 index 的 tab。
+                // 当已到达边界时继续同方向滑动则返回 PLAYER 主播放页面。
+                // PLAYER 模式本身不响应此手势，封面区有独立的水平切章手势不会产生冲突。
+                val swipeThresholdPx = with(density) { 80.dp.toPx() }
+                // 详尽中文注释：按 index 顺序排列的 tab 模式列表，用于边界计算和相邻导航
+                val tabModes = remember {
+                    listOf(PlayerScreenMode.BOOKMARKS, PlayerScreenMode.SUBTITLES, PlayerScreenMode.RELATED)
+                }
+                Box(modifier = Modifier
+                    .weight(1f)
+                    .pointerInput(currentMode) {
+                        // 详尽中文注释：仅在非 PLAYER 模式下拦截水平拖拽手势
+                        if (currentMode == PlayerScreenMode.PLAYER) return@pointerInput
+                        var accumulatedX = 0f  // 累积水平位移，重置于每次 drag 开始
+                        var hasSwipeTriggered = false  // 去抖标志：同一次手势只触发一次切换
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                accumulatedX = 0f
+                                hasSwipeTriggered = false
+                            },
+                            onDragEnd = {
+                                accumulatedX = 0f
+                                hasSwipeTriggered = false
+                            },
+                            onDragCancel = {
+                                accumulatedX = 0f
+                                hasSwipeTriggered = false
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                // 详尽中文注释：未触发过切换时持续累积位移，超阈值后执行一次切换并标记去抖
+                                if (!hasSwipeTriggered) {
+                                    accumulatedX += dragAmount
+                                    if (kotlin.math.abs(accumulatedX) > swipeThresholdPx) {
+                                        val currentIndex = tabModes.indexOf(currentMode)
+                                        val nextMode = if (accumulatedX < 0) {
+                                            // 详尽中文注释：左滑（手指向左）→ 切换到 index 更大的下一个 tab；已在最右则返回 PLAYER
+                                            if (currentIndex < tabModes.lastIndex) tabModes[currentIndex + 1]
+                                            else PlayerScreenMode.PLAYER
+                                        } else {
+                                            // 详尽中文注释：右滑（手指向右）→ 切换到 index 更小的上一个 tab；已在最左则返回 PLAYER
+                                            if (currentIndex > 0) tabModes[currentIndex - 1]
+                                            else PlayerScreenMode.PLAYER
+                                        }
+                                        currentMode = nextMode
+                                        actions.content.onSelectedTabChange(nextMode.index)
+                                        hasSwipeTriggered = true
+                                    }
+                                }
+                                change.consume()
+                            }
+                        )
+                    }
+                ) {
                     AnimatedContent(
                         targetState = currentMode,
                         modifier = Modifier.fillMaxSize(),
