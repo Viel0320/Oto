@@ -642,6 +642,7 @@ fun PlaybackProgressStateful(
     modifier: Modifier = Modifier
 ) {
     val progressState by viewModel.playbackProgressState.collectAsStateWithLifecycle()
+    // 中文注释：已在此处取消了封面主导颜色取色（metadata.backgroundColorArgb）的绑定传递，使 PlaybackProgress 使用默认主题色
     PlaybackProgress(
         currentPosition = progressState.elapsedMs,
         totalDuration = progressState.durationMs,
@@ -649,9 +650,7 @@ fun PlaybackProgressStateful(
         chapters = metadata.chapters,
         markers = metadata.getChapterMarkers(progressState.durationMs),
         onSeek = { pos -> actions.playback.onSeek(pos, true) },
-        modifier = modifier,
-        // 为每一次改动添加详尽的中文注释：将封面取色所得的背景/主导 ARGB 色值转换为 Compose Color，传给进度条用于已阅读轨道及圆点 dot 着色
-        color = Color(metadata.backgroundColorArgb)
+        modifier = modifier
     )
 }
 
