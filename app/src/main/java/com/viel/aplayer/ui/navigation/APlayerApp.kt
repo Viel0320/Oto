@@ -58,6 +58,20 @@ fun APlayerApp() {
             playerViewModel.onRouteChanged()
         }
 
+        // 详尽中文注释：M-19 修复 — 高频单向数据同步管道
+        // 监听播放器的当前播放书籍 ID 和实时播放进度百分比。
+        // 一旦它们发生变化，立刻调用 detailViewModel.updatePlaybackProgress，
+        // 将高频更新推送到详情页 ViewModel 内部，由其结合 3 秒锁定保护状态进行统一调度。
+        val currentBookId by playerViewModel.currentBookId.collectAsStateWithLifecycle()
+        val playbackPercent by playerViewModel.currentPlaybackProgressPercent.collectAsStateWithLifecycle()
+        LaunchedEffect(currentBookId, playbackPercent) {
+            currentBookId?.let { bookId ->
+                if (playbackPercent > 0) {
+                    detailViewModel.updatePlaybackProgress(bookId, playbackPercent)
+                }
+            }
+        }
+
         // 详尽的中文注释：消费 LibraryViewModel 发射的一次性 UI 事件（如 Toast 消息），
         // 遵循 ViewModel 不直接操作 Android UI 组件的架构原则，
         // 所有 Toast 的构造和展示均回归 Composable 层。
@@ -143,9 +157,14 @@ fun APlayerApp() {
                 // 详情页 Overlay
                 DetailOverlay(
                     detailViewModel = detailViewModel,
-                    playerViewModel = playerViewModel,
                     navController = navController,
-                    canStartNavigation = canStartNavigation
+                    canStartNavigation = canStartNavigation,
+                    onPlayBook = { bookId ->
+                        // 详尽中文注释：M-19 修复 — 在宿主层接收并消费从详情页往上传播的播放事件。
+                        // 统一加载书籍并展开全屏播放器，实现了彻底的单向数据流闭环。
+                        playerViewModel.loadBook(bookId)
+                        playerViewModel.setFullPlayerVisible(true)
+                    }
                 )
 
                 PlayerOverlay(

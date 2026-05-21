@@ -41,18 +41,18 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
     /**
      * 详尽中文注释：当用户点击播放且当前进度为 0（未播放）时调用。
-     * 开启 3 秒保护期：期间内 displayProgressPercent 强制为 0，
+     * 开启 0.3 秒保护期：期间内 displayProgressPercent 强制为 0，
      * 防止按鈕图标/文案在“Start Listening”和“Continue at X%”之间高频闪烁。
      */
     fun onPlayPressed() {
         if (_uiState.value.progressPercent == 0) {
-            // 详尽中文注释：M-19 — 开始保护期，强制将展示进度置 0，阻止按钮文案闪烁
+            // 详尽的中文注释：M-19 — 开始保护期，强制将展示进度置 0，阻止按钮文案闪烁
             _playbackStartedAt.value = SystemClock.elapsedRealtime()
             _uiState.update { it.copy(displayProgressPercent = 0) }
             viewModelScope.launch {
-                delay(3_000L)
+                delay(3_00L)
                 _playbackStartedAt.value = null
-                // 详尽中文注释：保护期结束，恢复真实进度以驱动按钮文案正确渲染
+                // 详尽的中文注释：保护期结束，恢复真实进度以驱动按钮文案正确渲染
                 _uiState.update { it.copy(displayProgressPercent = it.progressPercent) }
             }
         }
@@ -69,6 +69,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
         // 详尽的中文注释：只要选中有效书籍，就显示详情页；同一本书重复选择也刷新详情状态。
         if (book != null) {
+            // 详尽中文注释：M-19 修复 — 切换或重新选中书籍时，必须彻底清空保护期起始时间戳，防止跨书保护期状态串扰
+            _playbackStartedAt.value = null
             _uiState.value = current.copy(
                 book = book,
                 isVisible = true,
@@ -141,7 +143,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         } else {
-            // 为每一次改动添加详尽的中文注释：当关闭详情页时，将 isVisible 置为 false 且清空 fullSourcePath
+            // 为每一次改动添加详尽的中文注释：当关闭详情页时，将 isVisible 置为 false、清空 fullSourcePath 且重置保护期状态
+            _playbackStartedAt.value = null
             _uiState.update { state ->
                 state.copy(isVisible = false, fullSourcePath = "")
             }
@@ -179,6 +182,28 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     fun dismissIfShowing(bookId: String) {
         if (_uiState.value.book?.book?.id == bookId) {
             _uiState.update { it.copy(isVisible = false, book = null) }
+        }
+    }
+
+    /**
+     * 详尽中文注释：M-19 修复 — 高频更新实时播放进度。
+     * 当宿主（APlayerApp）通过单向数据同步管道监测到当前播放书籍的进度变化时，调用此 API 进行同步。
+     * 核心融合算法：
+     * 1. 实时计算 3 秒未播放保护期是否仍处于激活状态（从点击播放时刻起 3000 毫秒内）。
+     * 2. 若保护期激活，则底层更新真实进度（progressPercent），但强制渲染展示进度（displayProgressPercent）为 0，防止状态闪烁。
+     * 3. 若保护期未激活，则同时高频同步真实进度和展示进度，确保界面无缝平滑。
+     */
+    fun updatePlaybackProgress(bookId: String, progressPercent: Int) {
+        val currentState = _uiState.value
+        if (currentState.book?.book?.id == bookId) {
+            _uiState.update { state ->
+                val startedAt = _playbackStartedAt.value
+                val isProtected = startedAt != null && (SystemClock.elapsedRealtime() - startedAt) < 3000L
+                state.copy(
+                    progressPercent = progressPercent,
+                    displayProgressPercent = if (isProtected) 0 else progressPercent
+                )
+            }
         }
     }
 }

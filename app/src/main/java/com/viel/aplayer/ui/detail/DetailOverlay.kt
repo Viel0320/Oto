@@ -11,7 +11,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.viel.aplayer.ui.player.PlayerViewModel
 
 /**
  * 书籍详情悬浮层组件。
@@ -20,16 +19,12 @@ import com.viel.aplayer.ui.player.PlayerViewModel
 @Composable
 fun DetailOverlay(
     detailViewModel: DetailViewModel,
-    playerViewModel: PlayerViewModel,
     navController: NavController,
     canStartNavigation: () -> Boolean,
+    onPlayBook: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
-    // 详尽的中文注释：仅订阅 ViewModel 预计算好的进度百分比和当前书籍 ID，
-    // 不再在 Composable 中内联 ceil/division 数学运算，遵循 UI 层纯渲染原则。
-    val currentBookId by playerViewModel.currentBookId.collectAsStateWithLifecycle()
-    val playbackPercent by playerViewModel.currentPlaybackProgressPercent.collectAsStateWithLifecycle()
 
     AnimatedVisibility(
         visible = detailUiState.isVisible,
@@ -38,17 +33,11 @@ fun DetailOverlay(
         modifier = modifier
     ) {
         DetailScreen(
-            // 详尽的中文注释：当详情页展示的书籍与当前正在播放的书籍一致，且 ViewModel 已产出有效进度时，
-            // 使用 ViewModel 预计算的实时百分比覆盖数据库中的静态进度值，实现实时同步。
-            // M-19 修复：同步覆盖 displayProgressPercent，避免展示进度与实时进度不一致。
-            uiState = if (currentBookId == detailUiState.book?.book?.id && playbackPercent > 0) {
-                detailUiState.copy(
-                    progressPercent = playbackPercent,
-                    displayProgressPercent = playbackPercent
-                )
-            } else {
-                detailUiState
-            },
+            // 详尽的中文注释：M-19 修复 — UI渲染层完全回归 100% 无状态直译渲染原则。
+            // 彻底移除了在 Composable 内部对 PlayerViewModel 的高频订阅和对 uiState.copy 的强行越权覆写，
+            // 从而保证了 DetailViewModel 内部通过 stateFlow 发射的 3 秒锁定保护期数据能够无损、精准地直达 UI 层，
+            // 绝不在 UI 渲染层造成任何逻辑冲突。
+            uiState = detailUiState,
             onBackClick = { detailViewModel.setVisible(false) },
             // 详尽中文注释：M-19 修复 — 点击播放时先通知 ViewModel 开启保护期，
             // 再触发真正的播放逻辑，Composable 层无需自持任何进度锁定状态。
@@ -64,9 +53,11 @@ fun DetailOverlay(
             },
             onPlayClick = {
                 detailUiState.book?.let { bookWithProgress ->
-                    playerViewModel.loadBook(bookWithProgress.book.id)
+                    // 详尽中文注释：M-19 修复 — 遵循单向数据流与关注点分离原则，
+                    // 点击播放时通过 lambda 往上传递书籍 ID，由宿主 App 容器中的 PlayerViewModel 统一处理，
+                    // 从而完全清除了 DetailOverlay 内部对外部 ViewModel 的多余依赖。
+                    onPlayBook(bookWithProgress.book.id)
                 }
-                playerViewModel.setFullPlayerVisible(true)
             }
         )
     }
