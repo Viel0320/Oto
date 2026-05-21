@@ -203,4 +203,8 @@ interface BookDao {
     // 为每一次改动添加详尽的中文注释：根据书库根目录ID查询该书库下所有的书籍实体，专用于在书库被删除释放权限时，安全地物理清理关联的封面和缩略图物理缓存文件，避免造成文件垃圾残留
     @Query("SELECT * FROM books WHERE rootId = :rootId")
     suspend fun getBooksByRootId(rootId: String): List<BookEntity>
+
+    // 为每一次改动添加详尽的中文注释：根据书籍 ID 更新书籍的阅读状态（未开始/进行中/已完成）到 Room 数据库中，用于响应长按菜单状态修改和播放位置自动更新
+    @Query("UPDATE books SET readStatus = :readStatus WHERE id = :id")
+    suspend fun updateBookReadStatus(id: String, readStatus: String)
 }

@@ -277,6 +277,22 @@ class LibraryRepository private constructor(context: Context) {
                     lastPlayedAt = System.currentTimeMillis()
                 ))
             }
+
+            // 为每一次改动添加详尽的中文注释：根据当前播放进度，在后台自动物理判定并推进有声书的阅读状态（未开始/进行中/已完成），实现进度与状态的最终一致性
+            val book = bookDao.getBookById(bookId)
+            if (book != null) {
+                val isFinished = position >= (book.totalDurationMs * 0.99).toLong()
+                val nextStatus = if (isFinished) {
+                    AudiobookSchema.ReadStatus.FINISHED
+                } else if (position > 0) {
+                    AudiobookSchema.ReadStatus.IN_PROGRESS
+                } else {
+                    AudiobookSchema.ReadStatus.NOT_STARTED
+                }
+                if (book.readStatus != nextStatus) {
+                    bookDao.updateBookReadStatus(bookId, nextStatus)
+                }
+            }
         }
     }
 
@@ -477,6 +493,56 @@ class LibraryRepository private constructor(context: Context) {
         if (book != null) {
             // Soft delete keeps BookFile ownership so rescans do not immediately re-import the same files.
             bookDao.updateBookStatus(bookId, AudiobookSchema.BookStatus.DELETED)
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：根据书籍 ID 更新有声书的阅读状态（未开始/进行中/已完成）
+    suspend fun updateBookReadStatus(bookId: String, readStatus: String) = withContext(Dispatchers.IO) {
+        bookDao.updateBookReadStatus(bookId, readStatus)
+    }
+
+    // 为每一次改动添加详尽的中文注释：强制重新生成指定有声书的物理封面与元数据（包括章节信息），
+    // 专门用于长按菜单中的“重建封面与元数据”功能，实现从音频物理原文件中执行全量提取与数据库覆盖写入，并强行打破缓存刷新 UI
+    suspend fun forceRegenerateCoverAndMetadata(bookId: String) = withContext(Dispatchers.IO) {
+        try {
+            val book = bookDao.getBookById(bookId) ?: return@withContext
+            val files = bookDao.getFilesForBookList(bookId)
+            if (files.isEmpty()) return@withContext
+
+            // 1. 提取主要音频文件的物理元数据
+            val primaryFile = files.firstOrNull { it.status == AudiobookSchema.FileStatus.READY } ?: files.first()
+            val uri = Uri.parse(primaryFile.uri)
+            val metadata = metadataExtractor.extract(uri)
+
+            // 2. 将全新提取出来的有声书基本元数据和年份字段覆盖更新回 Room 数据库中
+            bookDao.updateMetadata(
+                id = bookId,
+                title = metadata.album.trim().ifBlank { metadata.title.trim() }.ifBlank { book.title },
+                author = metadata.author,
+                narrator = metadata.narrator,
+                description = metadata.description,
+                duration = metadata.durationMs.takeIf { it > 0 } ?: book.totalDurationMs
+            )
+            bookDao.updateBookDetails(
+                id = bookId,
+                title = metadata.album.trim().ifBlank { metadata.title.trim() }.ifBlank { book.title },
+                author = metadata.author,
+                narrator = metadata.narrator,
+                description = metadata.description,
+                year = metadata.year
+            )
+
+            // 3. 重置物理章节，安全清除旧有章节并批量重新插入全新提取的章节
+            if (metadata.chapters.isNotEmpty()) {
+                chapterDao.deleteChaptersForBook(bookId)
+                val chaptersWithBookId = metadata.chapters.map { it.copy(bookId = bookId) }
+                chapterDao.insertChapters(chaptersWithBookId)
+            }
+
+            // 4. 强行重新触发物理封面的后台非阻塞重建与缓存强刷
+            coverRecoveryHelper.forceRegenerateCover(bookId)
+        } catch (e: Exception) {
+            Log.e("LibraryRepository", "物理强制重建有声书 $bookId 的封面与元数据失败，原因: ", e)
         }
     }
 

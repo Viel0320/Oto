@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -18,8 +19,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -31,12 +35,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +64,7 @@ import kotlinx.coroutines.launch
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.ui.common.APlayerFilterChip
+import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 /**
@@ -83,7 +103,15 @@ fun HomeScreen(
     onNavigateToPlayer: () -> Unit = {},
     onLoadBook: (String) -> Unit = {},
     onLibraryRootSelected: (Uri) -> Unit = {},
+    // 为每一次改动添加详尽的中文注释：新增修改阅读状态事件回调，供长按Dialog菜单中的标记操作响应
+    onUpdateReadStatus: (String, String) -> Unit = { _, _ -> },
+    // 为每一次改动添加详尽的中文注释：新增强制重建封面与元数据回调，供长按菜单中的重建触发
+    onForceRegenerate: (String) -> Unit = {},
+    // 为每一次改动添加详尽的中文注释：新增删除书籍的回调，供长按菜单中的二次确认软删除触发
+    onDeleteBook: (String) -> Unit = {},
 ) {
+    // 为每一次改动添加详尽的中文注释：使用 remember 级联监听当前被长按的有声书状态，决定一级Dialog的渲染
+    var activeBookForMenu by remember { mutableStateOf<BookWithProgress?>(null) }
     // 详尽中文注释：Filter Chip 的标签映射，这是纯 UI 文本，保留在 Composable 中
     val filters = listOf(
         HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
@@ -227,7 +255,9 @@ fun HomeScreen(
                                     progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
                                     coverPath = book.book.thumbnailPath ?: book.book.coverPath,
                                     coverLastUpdated = book.book.lastScannedAt, // 详尽中文注释：桥接 Room 中的扫描/更新时间戳，令 Coil 声明式打破缓存以即时更新界面
-                                    onClick = { onNavigateToDetail(book.book.id) }
+                                    onClick = { onNavigateToDetail(book.book.id) },
+                                    // 为每一次改动添加详尽的中文注释：绑定长按RecentlyItem卡片事件以唤起操作一级菜单
+                                    onLongClick = { activeBookForMenu = book }
                                 )
                             }
                         }
@@ -254,7 +284,9 @@ fun HomeScreen(
                             coverPath = book.book.thumbnailPath ?: book.book.coverPath,
                             coverLastUpdated = book.book.lastScannedAt, // 详尽中文注释：桥接 Room 层中的扫描/自愈重建毫秒时间戳，使用声明式设计促成图片同步强绘刷新
                             progressPercent = book.progressPercent,
-                            onClick = { onNavigateToDetail(book.book.id) }
+                            onClick = { onNavigateToDetail(book.book.id) },
+                            // 为每一次改动添加详尽的中文注释：长按有声书列表项时将当前书籍状态记录到 activeBookForMenu 中，用以唤起操作 Dialog 菜单
+                            onLongClick = { activeBookForMenu = book }
                         ) { 
                             onLoadBook(book.book.id)
                             onNavigateToPlayer()
@@ -264,6 +296,15 @@ fun HomeScreen(
             }
         }
     }
+
+    // 为每一次改动添加详尽的中文注释：引入独立封装的长按操作系列 Dialog，保持主页 UI 布局清晰明了
+    AudiobookActionDialogs(
+        bookWithProgress = activeBookForMenu,
+        onDismissRequest = { activeBookForMenu = null },
+        onUpdateReadStatus = onUpdateReadStatus,
+        onForceRegenerate = onForceRegenerate,
+        onDeleteBook = onDeleteBook
+    )
 }
 
 @Preview(showBackground = true, apiLevel = 36)

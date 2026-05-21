@@ -85,6 +85,23 @@ class CoverRecoveryHelper(
     }
 
     /**
+     * 为每一次改动添加详尽的中文注释：强行且物理地重新生成指定有声书的封面缓存，不管当前是否存在。
+     * 本方法会物理清除 alreadyAttempted 的失败去重标记拦截器，并在 Dispatchers.IO 上以高优先级信号量限制并发提取，
+     * 完美保证强制更新封面图像和背景调色板颜色重新注入数据库，并自动触发 Flow 刷新重绘。
+     */
+    suspend fun forceRegenerateCover(bookId: String): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        alreadyAttempted.remove(bookId)
+        try {
+            regenerationSemaphore.withPermit {
+                regenerateCoverForBook(bookId)
+            }
+        } catch (e: Exception) {
+            Log.e("CoverRecoveryHelper", "强制后台重新提取有声书 $bookId 封面发生异常，详情: ", e)
+            false
+        }
+    }
+
+    /**
      * 详尽的中文注释：在后台协程中深度重新提取特定有声书封面图像的主逻辑。
      * 本方法严格遵循「1. 首个 READY 音频的内嵌封面 -> 2. 父目录 Sidecar 外部图像 -> 3. 备用音频内嵌封面」三重漏斗型高优先级覆盖提取算法。
      * 提取成功后，通过 BookDao 的 updateCoverPaths 局部写入最新绝对路径和调色板主色，触发 Room 的 Flow 物理重发，进而让 UI 丝滑自动重绘刷新。

@@ -2,6 +2,7 @@ package com.viel.aplayer.data.entity
 
 import androidx.room.Embedded
 import androidx.room.Relation
+import com.viel.aplayer.data.db.AudiobookSchema
 
 data class BookWithProgress(
     @Embedded val book: BookEntity,
@@ -18,13 +19,15 @@ data class BookWithProgress(
             0
         }
 
+    // 为每一次改动添加详尽的中文注释：重构 isFinished 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
     val isFinished: Boolean
-        get() = progress != null && book.totalDurationMs > 0 && 
-                progress.globalPositionMs >= (book.totalDurationMs * 0.99).toLong()
+        get() = book.readStatus == AudiobookSchema.ReadStatus.FINISHED
 
+    // 为每一次改动添加详尽的中文注释：重构 isInProgress 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
     val isInProgress: Boolean
-        get() = progress != null && progress.globalPositionMs > 0 && !isFinished
+        get() = book.readStatus == AudiobookSchema.ReadStatus.IN_PROGRESS
 
+    // 为每一次改动添加详尽的中文注释：重构 isNotStarted 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
     val isNotStarted: Boolean
-        get() = progress == null || progress.globalPositionMs <= 0L
+        get() = book.readStatus == AudiobookSchema.ReadStatus.NOT_STARTED
 }

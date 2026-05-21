@@ -72,6 +72,20 @@ fun APlayerNavHost(
                     if (canStartNavigation()) {
                         navController.navigate("settings")
                     }
+                },
+                // 为每一次改动添加详尽的中文注释：桥接长按菜单中的标记阅读状态修改事件，将更新结果写入数据库中
+                onUpdateReadStatus = { bookId, status ->
+                    libraryViewModel.updateBookReadStatus(bookId, status)
+                },
+                // 为每一次改动添加详尽的中文注释：桥接长按菜单中的强制重建封面和元数据事件，通知 ViewModel 在后台协程执行重建
+                onForceRegenerate = { bookId ->
+                    libraryViewModel.forceRegenerateCoverAndMetadata(bookId)
+                },
+                // 为每一次改动添加详尽的中文注释：桥接长按菜单中的删除书籍事件，触发软删除以及释放文件占用。
+                // 如果删除的是当前正在播放的书籍，需要先通知播放器 ViewModel 清理播放状态，关闭前台迷你播放器与全屏播放器界面，以确保端到端的前后台同步级联销毁逻辑。
+                onDeleteBook = { bookId ->
+                    playerViewModel.closePlayback(bookId)
+                    libraryViewModel.deleteBook(bookId)
                 }
             )
         }

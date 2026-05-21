@@ -2,6 +2,8 @@ package com.viel.aplayer.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -37,6 +39,7 @@ import java.io.File
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.theme.APlayerTheme
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecentlyItem(
     title: String,
@@ -46,13 +49,19 @@ fun RecentlyItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     coverPath: String? = null,
-    coverLastUpdated: Long = 0L // 详尽中文注释：用于传递封面文件自愈重建时间戳，用以触发响应式强打破缓存
+    coverLastUpdated: Long = 0L, // 详尽中文注释：用于传递封面文件自愈重建时间戳，用以触发响应式强打破缓存
+    // 为每一次改动添加详尽的中文注释：新增长按回调函数，用于支持最近添加/播放区域的长按快捷菜单
+    onLongClick: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
             .width(160.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable { onClick() }
+            // 为每一次改动添加详尽的中文注释：改用 combinedClickable 手势监听器响应点击和长按事件
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(8.dp)
     ) {
         Box(

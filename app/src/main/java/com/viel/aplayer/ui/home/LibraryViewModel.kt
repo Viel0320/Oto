@@ -200,6 +200,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteBook(bookId: String) {
         viewModelScope.launch {
+            // 为每一次改动添加详尽的中文注释：检测被删除的书籍是否是当前正在播放的书，如果是，则停止后台播放服务，切断音频输出与会话连接
+            val playbackManager = com.viel.aplayer.media.PlaybackManager.getInstance(getApplication())
+            val currentPlayingId = playbackManager.getCurrentBookId()
+            if (currentPlayingId == bookId) {
+                playbackManager.stopPlayback()
+            }
+
             // 详尽的中文注释：检测被删除书籍的源文件存在状态，用于向用户反馈删除结果
             val fileExists = repository.getPrimaryAudioUri(bookId)?.let { repository.checkFileExists(it) } ?: false
 
@@ -209,6 +216,29 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             val fileStatus = if (fileExists) "源文件已保留" else "源文件已丢失或不存在"
             val message = "书籍已从媒体库移除\n$fileStatus"
             _uiEvents.tryEmit(UiEvent.ShowToast(message))
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：更新有声书的阅读状态（未开始/进行中/已完成）到持久化数据库中，并展示高交互性轻量 Toast 提示
+    fun updateBookReadStatus(bookId: String, readStatus: String) {
+        viewModelScope.launch {
+            repository.updateBookReadStatus(bookId, readStatus)
+            val message = when (readStatus) {
+                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.NOT_STARTED -> "已标记为：未开始"
+                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.IN_PROGRESS -> "已标记为：进行中"
+                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.FINISHED -> "已标记为：已完成"
+                else -> "状态已更新"
+            }
+            _uiEvents.tryEmit(UiEvent.ShowToast(message))
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：强制触发后台协程重建有声书的封面文件与全部元数据信息，并在开始与完成时展示轻量 Toast 反馈
+    fun forceRegenerateCoverAndMetadata(bookId: String) {
+        viewModelScope.launch {
+            _uiEvents.tryEmit(UiEvent.ShowToast("正在重建封面与元数据..."))
+            repository.forceRegenerateCoverAndMetadata(bookId)
+            _uiEvents.tryEmit(UiEvent.ShowToast("封面与元数据重建已完成"))
         }
     }
 

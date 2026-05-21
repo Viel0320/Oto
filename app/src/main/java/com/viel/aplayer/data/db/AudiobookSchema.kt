@@ -66,4 +66,11 @@ object AudiobookSchema {
         const val REVOKED = "REVOKED"
         const val ERROR = "ERROR"
     }
+
+    // 为每一次改动添加详尽的中文注释：新增 ReadStatus 常量对象，统一管理有声书的阅读状态，包含“未开始”、“进行中”和“已完成”三种状态，规避拼写错误
+    object ReadStatus {
+        const val NOT_STARTED = "NOT_STARTED"
+        const val IN_PROGRESS = "IN_PROGRESS"
+        const val FINISHED = "FINISHED"
+    }
 }

@@ -32,8 +32,8 @@ import com.viel.aplayer.data.entity.DirectoryCacheEntity
         PendingScanActionEntity::class,
         DirectoryCacheEntity::class
     ],
-    // 为每一次改动添加详尽的中文注释：升级 Room 数据库版本至 28，以引入增量扫描文件夹时间戳状态缓存表 (directory_cache)
-    version = 28,
+    // 为每一次改动添加详尽的中文注释：升级 Room 数据库版本至 29，以引入有声书的阅读状态（未开始/进行中/已完成）持久化字段 (readStatus)
+    version = 29,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -71,6 +71,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // 为每一次改动添加详尽的中文注释：声明从版本 28 升级至 29 的物理平滑迁移器。
+        // 在 SQLite 数据库引擎中为 `books` 表新增 `readStatus` 字段，且类型为 TEXT，默认值设为 'NOT_STARTED'，
+        // 这一平滑的物理迁移架构确保了已有用户的任何本地听书历史和数据 100% 绝不损坏、绝不丢失。
+        private val MIGRATION_28_29 = object : androidx.room.migration.Migration(28, 29) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `books` ADD COLUMN `readStatus` TEXT NOT NULL DEFAULT 'NOT_STARTED'")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -78,7 +87,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
-                .addMigrations(MIGRATION_26_27, MIGRATION_27_28)
+                // 为每一次改动添加详尽的中文注释：将 MIGRATION_28_29 添加至迁移器链中，实现安全迁移
+                .addMigrations(MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29)
                 .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance

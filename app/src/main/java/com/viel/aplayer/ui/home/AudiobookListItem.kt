@@ -1,6 +1,10 @@
 package com.viel.aplayer.ui.home
 
 import androidx.compose.foundation.clickable
+// 为每一次改动添加详尽的中文注释：新增 combinedClickable 导入以响应列表项目长按的高阶手势监听
+import androidx.compose.foundation.combinedClickable
+// 为每一次改动添加详尽的中文注释：新增 ExperimentalFoundationApi 导入，由于 combinedClickable 在旧版中是实验性 API，这里作为安全屏障防御编译期缺陷
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +43,7 @@ import com.viel.aplayer.ui.common.formatCompactDuration
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.theme.APlayerTheme
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AudiobookListItem(
     title: String,
@@ -50,10 +55,16 @@ fun AudiobookListItem(
     coverPath: String? = null,
     coverLastUpdated: Long = 0L, // 详尽中文注释：用于传递封面文件自愈重建时间戳，用以触发响应式强打破缓存
     progressPercent: Int? = null,
+    // 为每一次改动添加详尽的中文注释：新增 onLongClick 参数以接收长按列表项目触发的事件回调
+    onLongClick: () -> Unit = {},
     onPlayClick: () -> Unit = {}
 ) {
     ListItem(
-        modifier = modifier.clickable { onClick() },
+        // 为每一次改动添加详尽的中文注释：使用 combinedClickable 替换原本的 clickable，以高阶手势监听 onClick 及 onLongClick 交互
+        modifier = modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick
+        ),
         headlineContent = {
             Column(verticalArrangement = Arrangement.Center) {
                 Text(

@@ -42,5 +42,7 @@ data class BookEntity(
     val backgroundColorArgb: Int? = null,
     val addedAt: Long = System.currentTimeMillis(),
     val lastScannedAt: Long = 0L,
-    val status: String = AudiobookSchema.BookStatus.READY
+    val status: String = AudiobookSchema.BookStatus.READY,
+    // 为每一次改动添加详尽的中文注释：新增 readStatus 字段用于持久化有声书的阅读状态（未开始/进行中/已完成），默认值设为 NOT_STARTED 以保证最佳平滑兼容性
+    val readStatus: String = AudiobookSchema.ReadStatus.NOT_STARTED
 )
