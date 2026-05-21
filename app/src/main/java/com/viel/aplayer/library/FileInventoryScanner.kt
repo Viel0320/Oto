@@ -127,7 +127,9 @@ class FileInventoryScanner(private val context: Context) {
                     cueFiles = cueFiles.sortedByStableFileKey(),
                     m3u8Files = m3u8Files.sortedByStableFileKey(),
                     audioFiles = audioFiles.sortedByStableFileKey(),
-                    imageFiles = imageFiles.sortedByStableFileKey()
+                    imageFiles = imageFiles.sortedByStableFileKey(),
+                    // 为每一次改动添加详尽的中文注释：提取当前正在遍历的物理文件夹的最新修改时间，作为增量判断的核心数据源
+                    lastModified = directory.lastModified()
                 )
             )
         }

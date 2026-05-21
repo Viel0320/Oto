@@ -79,7 +79,9 @@ data class DirectoryInventory(
     val cueFiles: List<FileRef>,
     val m3u8Files: List<FileRef>,
     val audioFiles: List<FileRef>,
-    val imageFiles: List<FileRef>
+    val imageFiles: List<FileRef>,
+    // 为每一次改动添加详尽的中文注释：新增物理文件夹最后修改时间属性，默认赋予 0L 以确保最大化的反射及兼容安全性
+    val lastModified: Long = 0L
 ) {
     // 详尽的中文注释：保留 root 目录识别能力，供后续需要按授权根统计或切换释放策略时复用。
     val isRootDirectory: Boolean get() = relativePath.isBlank()

@@ -42,6 +42,8 @@ class RescanCoordinator(
     private val rootDao = database.libraryRootDao()
     private val bookDao = database.bookDao()
     private val scanSessionDao = database.scanSessionDao()
+    // 为每一次改动添加详尽的中文注释：声明增量扫描目录缓存表的 DAO 引用
+    private val directoryCacheDao = database.directoryCacheDao()
     private val scanner = FileInventoryScanner(context)
     private val orchestrator = ImportOrchestrator(context)
     private val importer = BookImporter(context)
@@ -366,9 +368,27 @@ class RescanCoordinator(
         }
 
         scanner.scanDirectories(roots).collect { directory ->
+            // 为每一次改动添加详尽的中文注释：执行增量秒级扫描自愈与物理拦截跳过逻辑。
+            // 当且仅当该文件夹在数据库中存在 lastModified 缓存，且其值等于当前物理文件夹的修改时间，
+            // 且该文件夹旗下的所有音频文件早已被数据库导入占用（在动态已导入内存索引 currentExistingIndex 中全量存在）时，
+            // 证明其物理结构没有任何改动。此时直接跳过整个目录后续的一切物理文件分析、CUE/M3U8 认领与深度 ID3 元数据提取，实现毫秒级“零开销”增量重扫！
+            val cachedDir = directoryCacheDao.getByUri(directory.directoryUri)
+            val isCacheValid = cachedDir != null && 
+                               cachedDir.lastModified == directory.lastModified && 
+                               directory.audioFiles.all { currentExistingIndex.has(it.identity) }
+            
+            if (isCacheValid) {
+                ImportTimingLogger.logEvent(
+                    scopeId = "directory:${directory.directoryUri}",
+                    stage = "scan.skipByCache",
+                    detail = "relativePath=${directory.relativePath.ifBlank { "<root>" }} files=${directory.audioFiles.size} - 缓存完全命中，快速跳过物理文件分析与元数据读取"
+                )
+                return@collect
+            }
+
             // 详尽的中文注释：冷启动轻量扫描在 DirectoryInventory 层过滤已认领文件，保持旧版 onlyUnclaimed 语义并减少后续 scope 噪声。
             val importDirectory = if (type == RescanType.COLD_START_LIGHT) {
-                directory.onlyUnclaimed(existingIndex)
+                directory.onlyUnclaimed(currentExistingIndex)
             } else {
                 directory
             }
@@ -379,6 +399,20 @@ class RescanCoordinator(
                 detail = "relativePath=${importDirectory.relativePath.ifBlank { "<root>" }} scopes=${scopes.size} cue=${importDirectory.cueFiles.size} m3u8=${importDirectory.m3u8Files.size} audio=${importDirectory.audioFiles.size}"
             )
             applyScopes(scopes)
+
+            // 为每一次改动添加详尽的中文注释：该文件夹从未被跳过且经过 scopes 解析、导入流程闭合后，
+            // 自动将其当前的物理 lastModified 时间戳与 rootId 持久化更新存储到数据库缓存中，为下次增量重扫建立加速基线，实现物理缓存生命周期闭环。
+            try {
+                directoryCacheDao.insert(
+                    com.viel.aplayer.data.entity.DirectoryCacheEntity(
+                        directoryUri = directory.directoryUri,
+                        lastModified = directory.lastModified,
+                        rootId = directory.root.id
+                    )
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("RescanCoordinator", "Failed to cache directory lastModified for ${directory.directoryUri}", e)
+            }
         }
         // 详尽的中文注释：扫描流结束后调用 finish，当前目录级策略通常为空，后续跨目录策略仍可在这里收尾。
         applyScopes(scopeBuilder.finish())

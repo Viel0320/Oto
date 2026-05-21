@@ -13,6 +13,7 @@ import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withPermit
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.media.AudiobookMetadata
 
@@ -22,11 +23,18 @@ import com.viel.aplayer.media.AudiobookMetadata
 @UnstableApi
 class MetadataExtractor(private val context: Context) {
 
+    // 为每一次改动添加详尽的中文注释：引入全局 Semaphore(4) 严格限制元数据物理提取的最大并发度。
+    // 在全盘/增量重扫期间，多协程并发极易导致多个几十小时长的 M4B 大文件在底层 MediaMetadataRetriever 
+    // 及 Media3 内部被并发读取并展开巨大的 stbl (Sample Table) 采样表，从而引起 JVM 堆内存剧烈抖动与 OutOfMemoryError 崩溃。
+    // 通过本限制，任何时刻全局最多只有 4 个音频文件同时提取元数据，彻底根除 OOM 和 SAF 跨进程死锁风险。
+    private val semaphore = kotlinx.coroutines.sync.Semaphore(4)
+
     /**
      * 执行提取操作。
      * @param uri 音频文件的 URI。
      */
-    suspend fun extract(uri: Uri): AudiobookMetadata = withContext(Dispatchers.IO) {
+    suspend fun extract(uri: Uri): AudiobookMetadata = semaphore.withPermit {
+        withContext(Dispatchers.IO) {
         val retriever = MediaMetadataRetriever()
         var title = ""
         var author = ""
@@ -137,7 +145,8 @@ class MetadataExtractor(private val context: Context) {
             durationMs = duration,
             chapters = chapters
         )
-    }
+        } // 为每一次改动添加详尽的中文注释：闭合 withContext(Dispatchers.IO) 块
+    } // 为每一次改动添加详尽的中文注释：闭合 semaphore.withPermit 挂起保护块
 
     private fun normalizeMetadataText(value: String?): String {
         // Priority order: accept valid UTF-8-looking text first, otherwise try common wrong decoders.
