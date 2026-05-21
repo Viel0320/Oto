@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryRepository
@@ -51,6 +53,13 @@ class PlayerViewModel : ViewModel() {
     val currentBookId: StateFlow<String?> = _currentBookId.asStateFlow()
 
     private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.ui.player.components.SubtitleLine>>(emptyList())
+
+    // 详尽的中文注释：用于控制内置歌词与外置字幕异步加载生命周期的 Job。每次切歌或销毁时进行物理取消，防止多协程并发竞争。
+    private var subtitleLoadJob: kotlinx.coroutines.Job? = null
+
+    // 详尽的中文注释：内置歌词检索激活状态闸门。若为 true，说明当前处于 500ms 等待内置歌词的窗口期；
+    // 一旦超时回退或成功匹配到内置歌词，立即物理置为 false，从而无条件过滤并丢弃任何底层延迟到达 of onMetadata 内置字幕回调。
+    private var isEmbeddedSearchActive = false
 
     private var bookmarkManager: BookmarkManager? = null
     private var playbackDelegate: MediaPlaybackDelegate? = null
@@ -343,11 +352,38 @@ class PlayerViewModel : ViewModel() {
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
 
-                        // 只在当前媒体文件切换后加载当前文件字幕，避免播放计划预解析整本多文件书的字幕。
+                        // 详尽的中文注释：切歌时，物理重置并取消上一个章节/分轨的字幕加载协程，清空上一音轨的字幕缓存
+                        subtitleLoadJob?.cancel()
+                        isEmbeddedSearchActive = false
+                        _currentSubtitles.value = emptyList()
+
                         mediaItem.localConfiguration?.uri?.let { uri ->
-                            _currentSubtitles.value = emptyList()
-                            val subs = libraryRepository?.loadSubtitlesForUri(uri) ?: emptyList()
-                            _currentSubtitles.value = subs
+                            // 详尽的中文注释：启动全新的字幕加载与 Fallback 竞争协程。
+                            // 优先通过 500ms 的 withTimeoutOrNull 监听来自底层 Media3 播放器提取抛出的内置 embeddedSubtitles；
+                            // 只要有任何合法非空的内置歌词到来，且窗口期处于激活状态，直接装载并拉闸锁定，杜绝外置检索；
+                            // 若超时触发（返回 null）或者被动异常，拉闸锁定内置状态，回退检索物理同级外置字幕文件，实现平滑降级。
+                            subtitleLoadJob = viewModelScope.launch {
+                                isEmbeddedSearchActive = true
+                                val embeddedSubs = try {
+                                    withTimeoutOrNull(500) {
+                                        manager.embeddedSubtitles.first { it.isNotEmpty() }
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("PlayerViewModel", "等待内置字幕时抛出异常", e)
+                                    null
+                                }
+
+                                if (embeddedSubs != null && isEmbeddedSearchActive) {
+                                    // 详尽的中文注释：在 500ms 窗口期内拿到了合法的内置歌词，立即拉闸锁死状态，并装载内置歌词
+                                    isEmbeddedSearchActive = false
+                                    _currentSubtitles.value = embeddedSubs
+                                } else {
+                                    // 详尽的中文注释：500ms 超时已到或异常触发，拉闸锁死内置歌词搜寻，开始回退并加载物理同级外置字幕文件
+                                    isEmbeddedSearchActive = false
+                                    val subs = libraryRepository?.loadSubtitlesForUri(uri) ?: emptyList()
+                                    _currentSubtitles.value = subs
+                                }
+                            }
                         }
                     }
                 }
@@ -374,6 +410,9 @@ class PlayerViewModel : ViewModel() {
     }
 
     fun loadBook(id: String, playWhenReady: Boolean = true) {
+        // 详尽的中文注释：加载新书时，必须彻底取消并物理回收正在运行的上一本书的字幕加载协程，重置闸门以杜绝残留回调污染新会话
+        subtitleLoadJob?.cancel()
+        isEmbeddedSearchActive = false
         _currentBookId.value = id
         _currentSubtitles.value = emptyList() // 重置上一本书的字幕
         settingsManager.setUndoSeekVisible(false)
@@ -400,6 +439,9 @@ class PlayerViewModel : ViewModel() {
      */
     fun closePlayback(bookId: String) {
         if (_currentBookId.value == bookId) {
+            // 详尽的中文注释：停止播放新书或关闭物理会话时，必须物理取消正在运行的字幕检索协程并彻底闭锁状态阀门
+            subtitleLoadJob?.cancel()
+            isEmbeddedSearchActive = false
             _currentBookId.value = null
             _currentSubtitles.value = emptyList()
             playbackManager?.pause()

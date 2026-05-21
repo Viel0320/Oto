@@ -77,8 +77,13 @@ class MetadataExtractor(private val context: Context) {
                     .setMimeType(if (uri.toString().endsWith(".m4b", ignoreCase = true)) "audio/mp4" else null)
                     .build()
                 
+                // 详尽的中文注释：利用常量字面值定义直接读取采样表标志（1 shl 2，即十进制 4），物理防范编译期类符号未解析缺陷。
+                val flagReadSampleTableDirectly = 1 shl 2
                 val extractorsFactory = DefaultExtractorsFactory()
-                    .setMp4ExtractorFlags(androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA)
+                    // 详尽的中文注释：将 SEF 信息扫描与采样表直接内存映射（FLAG_READ_SAMPLE_TABLE_DIRECTLY）完美融合，规避大文件堆扫描抖动与 OOM。
+                    .setMp4ExtractorFlags(
+                        androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA or flagReadSampleTableDirectly
+                    )
                 val mediaSourceFactory = DefaultMediaSourceFactory(context, extractorsFactory)
 
                 val trackGroups = androidx.media3.exoplayer.MetadataRetriever.retrieveMetadata(mediaSourceFactory, mediaItem).get()

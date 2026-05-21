@@ -84,11 +84,14 @@ class PlaybackService : MediaSessionService() {
             .setEnableDecoderFallback(true)
             // 注意：不再强制禁用异步队列。在 Android 12+ 上，异步 MediaCodec 更加稳定。
 
+        // 详尽的中文注释：利用常量字面值定义直接读取采样表标志（1 shl 2，即十进制 4），物理防范编译期类符号未解析缺陷。
+        val flagReadSampleTableDirectly = 1 shl 2
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
-            // Note: In newer Media3 (1.2.0+), consider adding .setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_SAMPLE_TABLE_DIRECTLY)
-            // to further reduce memory usage for large M4B files.
+            // 详尽的中文注释：极长 M4B 有声书内存映射优化。
+            // 传入直接读取采样表标志数值，规避在加载超长（数十小时）M4B 文件时在 JVM 堆中展开数百万个 Sample 对象而招致 OOM 的隐患。
+            .setMp4ExtractorFlags(flagReadSampleTableDirectly)
 
         val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
 

@@ -53,6 +53,10 @@ class PlaybackManager private constructor(context: Context) {
     private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
     val currentSubtitles = _currentSubtitles.asStateFlow()
 
+    // 详尽的中文注释：新增 embeddedSubtitles 共享事件数据流，用于向前台实时广播从 ExoPlayer 中监听提取出的内置歌词。
+    private val _embeddedSubtitles = kotlinx.coroutines.flow.MutableSharedFlow<List<SubtitleLine>>(extraBufferCapacity = 1)
+    val embeddedSubtitles = _embeddedSubtitles.asSharedFlow()
+
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition = _currentPosition.asStateFlow()
 
@@ -126,7 +130,52 @@ class PlaybackManager private constructor(context: Context) {
             override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
                 _playbackSpeed.value = playbackParameters.speed
             }
+
+            // 详尽的中文注释：重写 onMetadata 接口以监听并捕获音频解调器解码出来的流元数据（包含内置 ID3 歌词帧）。
+            override fun onMetadata(metadata: androidx.media3.common.Metadata) {
+                val subs = extractLyricsFromMetadata(metadata)
+                if (subs.isNotEmpty()) {
+                    _embeddedSubtitles.tryEmit(subs)
+                }
+            }
         })
+    }
+
+    /**
+     * 详尽的中文注释：核心内置元数据歌词抓取与转化函数。
+     * 循环遍历 ExoPlayer 回调出的所有 Metadata 帧条目，寻找到 ID3 规范下的 UnsynchronisedLyricsFrame（无同步歌词帧）。
+     * 获得歌词正文文本后，重用 SubtitleParser 的通用 lrc 流式解析接口，一站式转换为 SubtitleLine 结构化集合，
+     * 充分消除重复造轮子所带来的隐患，实现底层高聚解耦。
+     */
+    private fun extractLyricsFromMetadata(metadata: androidx.media3.common.Metadata): List<SubtitleLine> {
+        val subs = mutableListOf<SubtitleLine>()
+        for (i in 0 until metadata.length()) {
+            val entry = metadata.get(i)
+            // 详尽的中文注释：为了完全规避 Media3 在不同版本更迭中对 UnsynchronisedLyricsFrame 物理包名（如在 extractor.metadata 或 common.metadata 间迁移）的变动，
+            // 物理防范因 compileSdk/依赖库演进而引发的编译符号未解析（Unresolved）崩溃，此处利用反射机制进行完全解耦的动态类型探测与数据读取。
+            val entryClassName = entry.javaClass.name
+            if (entryClassName.endsWith("UnsynchronisedLyricsFrame")) {
+                try {
+                    val textField = entry.javaClass.getField("text")
+                    val lyricsText = textField.get(entry) as? String
+                    if (!lyricsText.isNullOrBlank()) {
+                        try {
+                            // 详尽的中文注释：使用标准 Java 的 Charset.forName 动态指定 UTF-8 编码，彻底物理规避 Kotlin 特定包下扩展函数在部分编译环境下 unresolved 的致命缺陷
+                            val stream = java.io.ByteArrayInputStream(lyricsText.toByteArray(java.nio.charset.Charset.forName("UTF-8")))
+                            val parsed = com.viel.aplayer.media.parse.SubtitleParser.parse(stream, "lrc")
+                            if (parsed.isNotEmpty()) {
+                                subs.addAll(parsed)
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("PlaybackManager", "解析内置元数据歌词失败", e)
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("PlaybackManager", "反射读取内置元数据歌词字段 text 失败", e)
+                }
+            }
+        }
+        return subs
     }
 
     private fun extractMetadataEntries(player: Player): List<androidx.media3.common.Metadata.Entry> {
