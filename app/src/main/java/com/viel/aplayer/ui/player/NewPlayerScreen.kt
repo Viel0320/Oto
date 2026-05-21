@@ -43,11 +43,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
@@ -72,6 +75,8 @@ import com.viel.aplayer.ui.theme.APlayerTheme
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import coil.compose.AsyncImage
+import java.io.File
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -133,6 +138,8 @@ fun NewPlayerScreen(
 
     // 详尽中文注释：移除原先硬编码的 darkTheme = true，使全屏播放器跟随系统/应用主题设置
     APlayerTheme {
+        // 为每一次改动添加详尽的中文注释：播放器封面背景同样使用 Coil，本地 context 用于构建带缓存戳的 ImageRequest。
+        val context = LocalContext.current
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         // 为每一次改动添加详尽的中文注释：为章节列表 BottomSheet 创建 HazeState；播放器 Surface 作为 source，章节面板作为 effect。
@@ -196,6 +203,26 @@ fun NewPlayerScreen(
                 )
             }
         }
+        // 为每一次改动添加详尽的中文注释：Haze 模式优先使用原始封面，缺失时退回缩略图，作为真正模糊背景的图片来源。
+        val playerBackgroundCoverFile = remember(
+            metadata.coverPath,
+            metadata.thumbnailPath,
+            metadata.coverLastUpdated
+        ) {
+            (metadata.coverPath ?: metadata.thumbnailPath)
+                ?.let(::File)
+                ?.takeIf { it.exists() }
+        }
+        // 为每一次改动添加详尽的中文注释：给 Coil 请求加入 coverLastUpdated 缓存戳，保证封面自愈重建后模糊背景也会即时刷新。
+        val playerBackgroundCoverRequest = remember(playerBackgroundCoverFile, metadata.coverLastUpdated, context) {
+            playerBackgroundCoverFile?.let { coverFile ->
+                coil.request.ImageRequest.Builder(context)
+                    .data(coverFile)
+                    .memoryCacheKey("${coverFile.absolutePath}_player_bg_${metadata.coverLastUpdated}")
+                    .diskCacheKey("${coverFile.absolutePath}_player_bg_${metadata.coverLastUpdated}")
+                    .build()
+            }
+        }
 
         // 详尽的中文注释：计算最大的向下位移像素值，顺应全屏播放器“向下滑动收起”的最小化退出特征
         val maxPredictiveTranslationY = with(density) { 120.dp.toPx() }
@@ -223,51 +250,61 @@ fun NewPlayerScreen(
                 .then(chapterSheetHazeSourceModifier),
             color = Color.Transparent
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                PlayerAppBar(
-                    title = metadata.title,
-                    author = metadata.author,
-                    narrator = metadata.narrator,
-                    onNavigationClick = {
-                        focusManager.clearFocus()
-                        actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
-                        navigationActions.onMinimize()
-                    },
-                    onToggleProgressMode = actions.content.onToggleProgressMode,
-                    onDeleteBook = actions.content.onDeleteBook,
-                    isChapterProgressMode = settings.isChapterProgressMode,
-                    // 为每一次改动添加详尽的中文注释：播放器顶部更多菜单复用播放器 Surface 的 HazeState，并跟随全局 Material/Haze 模式。
-                    glassEffectMode = glassEffectMode,
-                    dropdownMenuHazeState = chapterSheetHazeState,
-                    modifier = Modifier.pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onVerticalDrag = { change, dragAmount ->
-                                val newOffset = (offsetY.value + dragAmount).coerceAtLeast(0f)
-                                scope.launch {
-                                    offsetY.snapTo(newOffset)
-                                }
-                                change.consume()
-                            },
-                            onDragEnd = {
-                                scope.launch {
-                                    if (offsetY.value > dismissThreshold) {
-                                        actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
-                                        navigationActions.onMinimize()
-                                    } else {
-                                        offsetY.animateTo(0f, animationSpec = tween(300))
-                                    }
-                                }
-                            },
-                            onDragCancel = {
-                                scope.launch { offsetY.animateTo(0f, animationSpec = tween(300)) }
-                            }
-                        )
-                    }
-                )
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 为每一次改动添加详尽的中文注释：只有 Haze 模式渲染真实封面模糊背景，Material 模式保持原有主色渐变背景不变。
+                if (glassEffectMode == GlassEffectMode.Haze && playerBackgroundCoverRequest != null) {
+                    PlayerCoverBlurredBackground(
+                        imageRequest = playerBackgroundCoverRequest,
+                        backgroundColor = bgColor,
+                        isDarkTheme = isDarkTheme
+                    )
+                }
 
-                // 详尽中文注释：为非 PLAYER 三种 tab（书签/字幕/推荐）的内容区域添加左右滑动手势。
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    PlayerAppBar(
+                        title = metadata.title,
+                        author = metadata.author,
+                        narrator = metadata.narrator,
+                        onNavigationClick = {
+                            focusManager.clearFocus()
+                            actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
+                            navigationActions.onMinimize()
+                        },
+                        onToggleProgressMode = actions.content.onToggleProgressMode,
+                        onDeleteBook = actions.content.onDeleteBook,
+                        isChapterProgressMode = settings.isChapterProgressMode,
+                        // 为每一次改动添加详尽的中文注释：播放器顶部更多菜单复用播放器 Surface 的 HazeState，并跟随全局 Material/Haze 模式。
+                        glassEffectMode = glassEffectMode,
+                        dropdownMenuHazeState = chapterSheetHazeState,
+                        modifier = Modifier.pointerInput(Unit) {
+                            detectVerticalDragGestures(
+                                onVerticalDrag = { change, dragAmount ->
+                                    val newOffset = (offsetY.value + dragAmount).coerceAtLeast(0f)
+                                    scope.launch {
+                                        offsetY.snapTo(newOffset)
+                                    }
+                                    change.consume()
+                                },
+                                onDragEnd = {
+                                    scope.launch {
+                                        if (offsetY.value > dismissThreshold) {
+                                            actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
+                                            navigationActions.onMinimize()
+                                        } else {
+                                            offsetY.animateTo(0f, animationSpec = tween(300))
+                                        }
+                                    }
+                                },
+                                onDragCancel = {
+                                    scope.launch { offsetY.animateTo(0f, animationSpec = tween(300)) }
+                                }
+                            )
+                        }
+                    )
+
+                    // 详尽中文注释：为非 PLAYER 三种 tab（书签/字幕/推荐）的内容区域添加左右滑动手势。
                 // 使用 detectHorizontalDragGestures 累积水平位移，超过 swipeThresholdPx 阈值（80dp）后触发切换。
                 // 三个 tab 按 index 排列：BOOKMARKS(0) → SUBTITLES(1) → RELATED(2)。
                 // 左滑（负向）切换到更大 index 的 tab；右滑（正向）切换到更小 index 的 tab。
@@ -481,6 +518,8 @@ fun NewPlayerScreen(
                 )
             }
         }
+        // 为每一次改动添加详尽的中文注释：关闭播放器 Surface 内容层，确保章节列表弹窗和书签 Dialog 仍作为同级浮层挂在 APlayerTheme 下。
+        }
 
         // 详尽的中文注释：采用 Stateful 局部隔间包裹章节列表弹窗，在弹窗不可见时完全停摆以防高频重组
         ChapterListSheetStateful(
@@ -503,6 +542,52 @@ fun NewPlayerScreen(
                 actions.bookmarks.onSave()
             },
             onDismiss = actions.bookmarks.onDismissDialog
+        )
+    }
+}
+
+@Composable
+private fun PlayerCoverBlurredBackground(
+    imageRequest: coil.request.ImageRequest,
+    backgroundColor: Color,
+    isDarkTheme: Boolean
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 为每一次改动添加详尽的中文注释：使用封面图本身铺满播放器背景，并通过 Compose blur 产生真正的像素级模糊，而不是仅使用主色渐变。
+        AsyncImage(
+            model = imageRequest,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                // 为每一次改动添加详尽的中文注释：先轻微放大再模糊，避免 blur 半径在边缘产生透明留白。
+                .graphicsLayer {
+                    scaleX = 1.12f
+                    scaleY = 1.12f
+                }
+                // 为每一次改动添加详尽的中文注释：64.dp 提供足够强的真实模糊，让背景只保留封面色块和氛围，不干扰播放器文字。
+                .blur(64.dp)
+        )
+
+        // 为每一次改动添加详尽的中文注释：叠加主题背景遮罩，暗色/亮色分别控制可读性，避免封面高亮区域压住文字和控件。
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backgroundColor.copy(alpha = if (isDarkTheme) 0.62f else 0.74f))
+        )
+
+        // 为每一次改动添加详尽的中文注释：底部稍微加深，保证播放控制区在不同封面颜色下仍保持稳定对比度。
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            backgroundColor.copy(alpha = if (isDarkTheme) 0.46f else 0.34f)
+                        )
+                    )
+                )
         )
     }
 }
