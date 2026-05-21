@@ -96,6 +96,8 @@ dependencies {
 
     // 为每一次改动添加详尽的中文注释：使用 Haze 1.7.2 稳定核心模块，避免 2.0 alpha 的拆分 blur 模块带来背景闪烁。
     implementation(libs.haze)
+    // 为每一次改动添加详尽的中文注释：接入官方 Haze Materials 模板模块，让毛玻璃浮层统一使用 HazeMaterials.regular()。
+    implementation(libs.haze.materials)
 
     // 为本次桌面 widget Glance 迁移添加注释：引入 Jetpack Glance AppWidget 与 Material3 动态色支持，用声明式 API 生成桌面小组件 RemoteViews。
     implementation(libs.androidx.glance.appwidget)

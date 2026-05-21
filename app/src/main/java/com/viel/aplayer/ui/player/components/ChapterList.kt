@@ -134,8 +134,7 @@ fun ChapterListSheet(
                 hazeState = hazeState,
                 // 为每一次改动添加详尽的中文注释：把 Material/Haze 选择传入通用 BottomSheet 封装，统一控制内部 hazeEffect 是否启用。
                 glassEffectMode = glassEffectMode,
-                // 详尽中文注释：章节列表覆盖面积较大，使用 24.dp Haze 半径保证玻璃感且避免列表文字被背景抢视觉焦点。
-                hazeBlurRadius = 24.dp,
+                // 为每一次改动添加详尽的中文注释：章节列表的 Haze 参数由 BlurModalBottomSheet 直接调用官方 HazeMaterials.regular()，不再在调用处单独传半径。
                 tonalElevation = 8.dp,
                 contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
                 dragHandle = {

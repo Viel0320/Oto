@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
 /**
  * 详尽中文注释：
@@ -43,7 +43,6 @@ import dev.chrisbanes.haze.hazeEffect
  * @param onDismissRequest 点击 scrim 或下滑关闭时的回调
  * @param hazeState 与背景 hazeSource 共用的状态容器
  * @param glassEffectMode 当前玻璃效果模式，Material 模式不挂载 Haze modifier
- * @param hazeBlurRadius Haze 背景模糊半径，单位 dp
  * @param sheetState BottomSheet 状态，控制展开/收起/半展开
  * @param shape BottomSheet 面板顶部圆角形状，默认使用 Material3 规范的 BottomSheetDefaults.ExpandedShape
  * @param containerColor 面板背景颜色，默认 surfaceContainerLow + 0.9f alpha
@@ -55,14 +54,14 @@ import dev.chrisbanes.haze.hazeEffect
  * @param modifier 修饰符
  * @param content BottomSheet 正文内容（ColumnScope）
  */
-@OptIn(ExperimentalMaterial3Api::class)
+// 为每一次改动添加详尽的中文注释：BottomSheet 同时 OptIn Material3 与官方 haze-materials API，直接使用官方模板预设。
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurModalBottomSheet(
     onDismissRequest: () -> Unit,
     hazeState: HazeState,
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由调用方从设置状态显式传入，避免 BottomSheet 内部私自声明默认值。
     glassEffectMode: GlassEffectMode,
-    hazeBlurRadius: Dp = 160.dp,
     modifier: Modifier = Modifier,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
     shape: Shape = BottomSheetDefaults.ExpandedShape,
@@ -91,8 +90,8 @@ fun BlurModalBottomSheet(
         val glassModifier = if (glassEffectMode == GlassEffectMode.Haze) {
             Modifier.hazeEffect(
                 state = hazeState,
-                // 详尽中文注释：只指定模糊半径，透明玻璃底色继续交给 ModalBottomSheet containerColor，降低展开时闪烁概率。
-                style = HazeStyle(tints = emptyList(), blurRadius = hazeBlurRadius)
+                // 为每一次改动添加详尽的中文注释：BottomSheet 直接调用官方 HazeMaterials.regular()，避免项目内中间层隐藏真实模板来源。
+                style = dev.chrisbanes.haze.materials.HazeMaterials.regular()
             )
         } else {
             Modifier

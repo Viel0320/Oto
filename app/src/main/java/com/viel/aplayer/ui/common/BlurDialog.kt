@@ -14,14 +14,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
 /**
  * 详尽中文注释：
@@ -35,17 +34,17 @@ import dev.chrisbanes.haze.hazeEffect
  * @param onDismissRequest 点击对话框外部或按系统返回键时的关闭回调
  * @param hazeState 与背景 hazeSource 共用的状态容器
  * @param glassEffectMode 当前玻璃效果模式，Material 模式不挂载 Haze modifier
- * @param hazeBlurRadius Haze 背景模糊半径，单位 dp
  * @param scrollable 内容区域是否允许纵向滚动，内容较多时设为 true
  * @param content 对话框正文 Composable 内容
  */
+// 为每一次改动添加详尽的中文注释：组件直接 OptIn 官方 haze-materials API，避免再经过应用内 HazeMaterials 中间封装。
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurDialog(
     onDismissRequest: () -> Unit,
     hazeState: HazeState,
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由调用方从设置状态显式传入，避免 Dialog 内部私自声明默认值。
     glassEffectMode: GlassEffectMode,
-    hazeBlurRadius: Dp = 160.dp,
     scrollable: Boolean = true,
     content: @Composable () -> Unit
 ) {
@@ -99,7 +98,7 @@ fun BlurDialog(
                 shape = MaterialTheme.shapes.extraLarge,
                 // 详尽中文注释：半透明底色让 Haze 模糊纹理透出，同时保留文字可读的 Material 3 层次。
                 color = dialogContainerColor,
-                tonalElevation = 8.dp,
+                tonalElevation = 6.dp,
                 shadowElevation = 8.dp
             ) {
                 // 详尽中文注释：按 scrollable 参数决定是否附加纵向滚动能力
@@ -112,8 +111,8 @@ fun BlurDialog(
                 val glassModifier = if (glassEffectMode == GlassEffectMode.Haze) {
                     Modifier.hazeEffect(
                         state = hazeState,
-                        // 详尽中文注释：只指定模糊半径，透明玻璃底色继续交给外层 Surface，减少 Dialog 背景闪烁概率。
-                        style = HazeStyle(tints = emptyList(), blurRadius = hazeBlurRadius)
+                        // 为每一次改动添加详尽的中文注释：Dialog 直接调用官方 HazeMaterials.regular()，不再依赖应用内中间层。
+                        style = dev.chrisbanes.haze.materials.HazeMaterials.regular()
                     )
                 } else {
                     Modifier

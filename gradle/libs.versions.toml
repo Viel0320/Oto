@@ -55,6 +55,8 @@ androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidge
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 # 为每一次改动添加详尽的中文注释：Haze 1.7.2 稳定版将背景模糊能力放在核心模块内，不再依赖 2.x 的 haze-blur 拆分模块。
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
+# 为每一次改动添加详尽的中文注释：引入官方 Haze Materials 模板模块，复用 HazeMaterials.regular() 而不是在业务组件里手写 HazeStyle 参数。
+haze-materials = { group = "dev.chrisbanes.haze", name = "haze-materials-android", version.ref = "haze" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

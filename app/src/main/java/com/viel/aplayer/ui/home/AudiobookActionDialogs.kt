@@ -79,8 +79,7 @@ fun AudiobookActionDialogs(
             hazeState = hazeState,
             // 为每一次改动添加详尽的中文注释：把用户设置传给 BlurDialog，Material 模式会跳过内部 Haze modifier。
             glassEffectMode = glassEffectMode,
-            // 详尽中文注释：一级操作面板使用 22.dp Haze 半径，保持背景可辨识与文本可读性之间的平衡。
-            hazeBlurRadius = 22.dp,
+            // 为每一次改动添加详尽的中文注释：Haze 具体半径、底色和 tint 由 BlurDialog 直接调用官方 HazeMaterials.regular()，不再由 Dialog 调用点传参。
             scrollable = true
         ) {
             // 详尽中文注释：对话框正文内容区，采用 Column 纵向排列各功能区块
@@ -294,8 +293,7 @@ fun AudiobookActionDialogs(
             hazeState = hazeState,
             // 为每一次改动添加详尽的中文注释：删除确认 Dialog 同步遵循用户选择的玻璃效果模式。
             glassEffectMode = glassEffectMode,
-            // 详尽中文注释：确认对话框使用更深的 28.dp Haze 半径，与一级对话框形成视觉层次差异。
-            hazeBlurRadius = 28.dp,
+            // 为每一次改动添加详尽的中文注释：删除确认 Dialog 同样交给 BlurDialog 直接调用官方 HazeMaterials.regular()，避免二级 Dialog 私自加深模糊参数。
             scrollable = false
         ) {
             Column(
