@@ -20,6 +20,7 @@ import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.media.service.PlaybackService
 import com.viel.aplayer.ui.player.components.SubtitleLine
+import com.viel.aplayer.widget.PlayerWidgetProvider
 
 @OptIn(UnstableApi::class)
 class PlaybackManager private constructor(context: Context) {
@@ -36,6 +37,8 @@ class PlaybackManager private constructor(context: Context) {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
+    // 为本次桌面 widget 改动添加注释：记录异步连接 MediaController 期间的 autoplay 意图，确保 widget 冷启动恢复播放不会因为控制器尚未就绪而丢指令。
+    private var pendingPlayWhenReady = false
 
     // Exposed Flows for UI to observe
     private val _playbackState = MutableStateFlow(Player.STATE_IDLE)
@@ -111,6 +114,8 @@ class PlaybackManager private constructor(context: Context) {
                     setupController(controller)
                     // Cold-start restore may set the playback plan before MediaController connects; apply it once ready.
                     currentPlan?.let { setBookPlaybackPlan(it) }
+                    // 为本次桌面 widget 改动添加注释：控制器连上后立即刷新小组件，让桌面状态跟随真实 MediaSession。
+                    PlayerWidgetProvider.updateAll(appContext)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -129,6 +134,8 @@ class PlaybackManager private constructor(context: Context) {
         controller.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
+                // 为本次桌面 widget 改动添加注释：播放/暂停按钮图标依赖此状态，变化后立即刷新所有播放器小组件。
+                PlayerWidgetProvider.updateAll(appContext)
                 saveProgress()
             }
 
@@ -138,6 +145,8 @@ class PlaybackManager private constructor(context: Context) {
                     updateGlobalPositionAndDuration(controller)
                     _metadataEntries.value = extractMetadataEntries(controller)
                 }
+                // 为本次桌面 widget 改动添加注释：播放队列准备、结束或空闲时刷新小组件文案与按钮状态。
+                PlayerWidgetProvider.updateAll(appContext)
                 saveProgress()
             }
 
@@ -147,6 +156,8 @@ class PlaybackManager private constructor(context: Context) {
                 _currentSubtitles.value = emptyList()
                 updateGlobalPositionAndDuration(controller)
                 _metadataEntries.value = extractMetadataEntries(controller)
+                // 为本次桌面 widget 改动添加注释：切换分轨时刷新小组件，确保封面和书名仍对应当前播放书籍。
+                PlayerWidgetProvider.updateAll(appContext)
                 saveProgress()
             }
 
@@ -308,13 +319,17 @@ class PlaybackManager private constructor(context: Context) {
         }
     }
 
-    fun setBookPlaybackPlan(plan: BookPlaybackPlan) {
+    fun setBookPlaybackPlan(plan: BookPlaybackPlan, playWhenReady: Boolean = false) {
         this.currentPlan = plan
+        // 为本次桌面 widget Glance 迁移添加注释：保存加载后的播放意图，既服务应用内点击播放，也服务 Glance 按钮在后台唤起播放。
+        this.pendingPlayWhenReady = playWhenReady
         
         // 性能优化：立即将计划中的初始进度和总时长推送到 UI 流，避免闪烁
         val totalDur = plan.files.sumOf { it.durationMs }
         _currentPosition.value = plan.startGlobalPositionMs
         _duration.value = totalDur
+        // 为本次桌面 widget 改动添加注释：播放计划一旦切换，桌面小组件可以立即显示目标书籍，而不必等 MediaController 回调。
+        PlayerWidgetProvider.updateAll(appContext)
 
         // 检查是否包含 HTTP 明文源，若有则异步校验设置后再加载
         val hasHttp = plan.files.any { it.uri.startsWith("http://") }
@@ -355,6 +370,11 @@ class PlaybackManager private constructor(context: Context) {
         mediaController?.let { controller ->
             controller.setMediaItems(mediaItems, fileIndex, positionInFile)
             controller.prepare()
+            if (pendingPlayWhenReady) {
+                // 为本次桌面 widget 改动添加注释：在 prepare 之后消费 autoplay 请求，避免先 play 后 setMediaItems 的异步时序丢失。
+                pendingPlayWhenReady = false
+                controller.play()
+            }
             // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
             _currentSubtitles.value = emptyList()
             // Loading a book should create/update BookProgress immediately, even before playback events fire.
@@ -384,28 +404,26 @@ class PlaybackManager private constructor(context: Context) {
         }
 
     fun seekTo(globalPositionMs: Long) {
-        val controller = mediaController ?: return
-        val mediaId = controller.currentMediaItem?.mediaId ?: return
-        if (!mediaId.contains(":")) return
-        val bookId = mediaId.substringBefore(":")
-
+        // 为本次桌面 widget 崩溃修复添加注释：MediaController 只能在创建它的 application thread 上访问；widget 会从后台广播线程触发 seek，因此这里先切回 PlaybackManager 的主线程 scope 再读取 currentMediaItem。
         scope.launch {
+            val controller = mediaController ?: return@launch
+            val mediaId = controller.currentMediaItem?.mediaId ?: return@launch
+            if (!mediaId.contains(":")) return@launch
+            val bookId = mediaId.substringBefore(":")
             val files = libraryRepository.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val totalDuration = files.sumOf { it.durationMs }
                 val targetGlobal = globalPositionMs.coerceIn(0L, totalDuration.coerceAtLeast(0L))
                 val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(targetGlobal, files)
-                executeOnMain {
-                    // UI 传入全书位置；这里用当前书籍文件列表恢复到真实播放队列位置。
-                    controller.seekTo(fileIndex, positionInFile)
-                    controller.play()
-                    _currentPosition.value = targetGlobal
-                    _duration.value = totalDuration
-                    // 跳转后的字幕由 currentMediaItem 变化触发懒加载，避免 seek 时同步解析字幕。
-                    _currentSubtitles.value = emptyList()
-                    // User-initiated seek must persist immediately so BookProgress is not dependent on later callbacks.
-                    persistProgress(bookId, fileIndex, positionInFile)
-                }
+                // UI 传入全书位置；这里用当前书籍文件列表恢复到真实播放队列位置。
+                controller.seekTo(fileIndex, positionInFile)
+                controller.play()
+                _currentPosition.value = targetGlobal
+                _duration.value = totalDuration
+                // 跳转后的字幕由 currentMediaItem 变化触发懒加载，避免 seek 时同步解析字幕。
+                _currentSubtitles.value = emptyList()
+                // User-initiated seek must persist immediately so BookProgress is not dependent on later callbacks.
+                persistProgress(bookId, fileIndex, positionInFile)
             }
         }
     }
@@ -474,8 +492,8 @@ class PlaybackManager private constructor(context: Context) {
      * 依然能准确捕捉后台真实的播放书籍 ID。
      */
     suspend fun getCurrentBookId(): String? {
-        val controller = getController()
-        val mediaId = controller?.currentMediaItem?.mediaId ?: currentPlan?.bookId
+        // 为本次桌面 widget 崩溃修复添加注释：该方法可能被 IO 协程调用，优先读取 StateFlow 快照，避免跨线程直接访问 MediaController.currentMediaItem。
+        val mediaId = currentMediaItem.value?.mediaId ?: currentPlan?.bookId
         return if (mediaId != null && mediaId.contains(":")) {
             mediaId.substringBefore(":")
         } else {

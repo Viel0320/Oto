@@ -94,6 +94,10 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.datastore.preferences)
 
+    // 为本次桌面 widget Glance 迁移添加注释：引入 Jetpack Glance AppWidget 与 Material3 动态色支持，用声明式 API 生成桌面小组件 RemoteViews。
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
+
     // Room (local database)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

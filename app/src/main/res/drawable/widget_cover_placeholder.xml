@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 为本次桌面 widget 改动添加注释：无封面时的霓虹渐变占位图，呼应用户参考图里的紫蓝色音乐氛围。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <corners android:radius="18dp" />
+    <gradient
+        android:angle="135"
+        android:centerColor="#722A8E"
+        android:endColor="#20112D"
+        android:startColor="#17345F"
+        android:type="linear" />
+</shape>

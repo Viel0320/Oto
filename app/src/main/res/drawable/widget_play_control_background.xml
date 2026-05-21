@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 为本次桌面 widget 改动添加注释：中心播放按钮使用浅粉圆底，复刻参考图中最醒目的圆形播放焦点。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <corners android:radius="21dp" />
+    <solid android:color="#F2C5F3" />
+</shape>

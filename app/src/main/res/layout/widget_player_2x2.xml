@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 为本次桌面 widget 布局修正添加注释：外层改用 RelativeLayout，方便封面铺满背景，同时把底部内容稳定贴到父容器底部。 -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_click_area"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#111111">
+
+    <!-- 为本次桌面 widget 布局修正添加注释：封面继续作为完整背景铺满父布局，不参与内容测量，避免挤压按钮或标题。 -->
+    <ImageView
+        android:id="@+id/widget_cover"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:adjustViewBounds="false"
+        android:contentDescription="@string/player_widget_cover_description"
+        android:scaleType="centerCrop" />
+
+    <!-- 为本次桌面 widget 可读性改动添加注释：在完整封面上覆盖一层全局暗色遮罩，避免浅色封面区域把标题、副标题和按钮图标冲淡。 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#66000000" />
+
+    <!-- 为本次桌面 widget 布局修正添加注释：底部蒙层用 RelativeLayout 贴底，覆盖标题和按钮所在区域，保证封面较亮时仍可读。 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="108dp"
+        android:layout_alignParentBottom="true"
+        android:background="@drawable/widget_bottom_scrim" />
+
+    <!-- 为本次桌面 widget 布局修正添加注释：内层改用垂直 LinearLayout 统一承载标题和控制区，让标题自然上移到按钮上方。 -->
+    <LinearLayout
+        android:id="@+id/widget_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="9dp"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <!-- 为本次桌面 widget 布局修正添加注释：标题组放在控制区上方，并缩小左右边距，避免长标题在 2x2 小宽度下被过早裁切。 -->
+        <LinearLayout
+            android:id="@+id/widget_text_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:layout_marginBottom="26dp"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:shadowColor="#CC000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_subtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:ellipsize="end"
+                android:fontFamily="sans"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:shadowColor="#CC000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:textColor="#EDEDED"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- 为本次桌面 widget 布局修正添加注释：控制区改成三等分线性槽位，左右图标不再因为固定总宽超过 2x2 实际宽度而被截断。 -->
+        <LinearLayout
+            android:id="@+id/widget_controls"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:weightSum="3">
+
+            <ImageButton
+                android:id="@+id/widget_skip_backward"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/player_widget_skip_backward"
+                android:padding="6dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_replay_10" />
+
+            <ImageButton
+                android:id="@+id/widget_play_pause"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/widget_play_control_background"
+                android:contentDescription="@string/player_widget_play_pause"
+                android:padding="10dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_widget_play" />
+
+            <ImageButton
+                android:id="@+id/widget_skip_forward"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/player_widget_skip_forward"
+                android:padding="6dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_forward_30" />
+        </LinearLayout>
+    </LinearLayout>
+</RelativeLayout>

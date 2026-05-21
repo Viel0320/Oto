@@ -32,8 +32,8 @@ class MediaPlaybackDelegate(
         onCoverUpdate: (String?) -> Unit
     ) {
         playbackManager()?.let { manager ->
-            manager.setBookPlaybackPlan(plan)
-            if (playWhenReady) manager.play()
+            // 为本次桌面 widget 改动添加注释：将“加载后是否立即播放”下沉给 PlaybackManager，保证桌面小组件冷启动连接 MediaController 时也能可靠 autoplay。
+            manager.setBookPlaybackPlan(plan, playWhenReady)
         }
 
         // 轮询封面路径

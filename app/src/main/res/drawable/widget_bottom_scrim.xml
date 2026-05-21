@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 为本次桌面 widget 改动添加注释：底部渐变蒙层避免封面亮部压低文字和控制按钮对比度。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:endColor="#E0181022"
+        android:startColor="#00181022"
+        android:type="linear" />
+</shape>

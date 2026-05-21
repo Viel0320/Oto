@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 为本次桌面 widget 改动添加注释：两侧快退/快进按钮使用半透明圆底，既可点击又不抢播放按钮主视觉。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <corners android:radius="18dp" />
+    <solid android:color="#33FFFFFF" />
+</shape>

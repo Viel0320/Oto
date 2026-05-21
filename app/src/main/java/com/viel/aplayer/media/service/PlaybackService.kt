@@ -1,5 +1,6 @@
 package com.viel.aplayer.media.service
 
+import android.app.PendingIntent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -22,6 +23,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +70,8 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_REWIND = "ACTION_REWIND"
         const val ACTION_FORWARD = "ACTION_FORWARD"
         const val ACTION_BOOKMARK = "ACTION_BOOKMARK"
+        // 为本次媒体通知点击修复添加注释：给通知 sessionActivity 使用稳定 requestCode，避免复用到其他 PendingIntent 后丢失打开播放 overlay 的 extra。
+        private const val REQUEST_OPEN_PLAYER_OVERLAY_FROM_NOTIFICATION = 4100
     }
 
     @OptIn(UnstableApi::class)
@@ -258,15 +262,27 @@ class PlaybackService : MediaSessionService() {
             .setEnabled(true)
             .build()
 
+        // 为本次媒体通知点击修复添加注释：复用桌面 widget 已使用的 overlay Intent，让通知点击进入应用时也携带 OPEN_PLAYER_OVERLAY=true。
+        val playerOverlayPendingIntent = PendingIntent.getActivity(
+            this,
+            REQUEST_OPEN_PLAYER_OVERLAY_FROM_NOTIFICATION,
+            MainActivity.createOpenPlayerOverlayIntent(this),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         mediaSession = MediaSession.Builder(this, player)
             // App/UI controller 连接默认 session，必须看到真实文件级播放状态。
             .setId("ui")
+            // 为本次媒体通知点击修复添加注释：UI session 也绑定同一播放页入口，避免外部媒体控制器点击会话时只回到首页。
+            .setSessionActivity(playerOverlayPendingIntent)
             .setCallback(CustomCallback())
             .build()
 
         notificationSession = MediaSession.Builder(this, notificationPlayer)
             // 通知专用 session 可以包装进度，不影响 App/UI 的真实 controller。
             .setId("notification")
+            // 为本次媒体通知点击修复添加注释：系统媒体通知实际由 notificationSession 生成，因此这里必须显式设置点击通知后的播放页 overlay 入口。
+            .setSessionActivity(playerOverlayPendingIntent)
             .setCallback(CustomCallback())
             .build()
             

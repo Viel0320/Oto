@@ -32,7 +32,10 @@ import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 @Composable
-fun APlayerApp() {
+fun APlayerApp(
+    openPlayerOverlayRequest: Boolean = false,
+    onOpenPlayerOverlayConsumed: () -> Unit = {}
+) {
     APlayerTheme {
         val navController = rememberNavController()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -52,6 +55,16 @@ fun APlayerApp() {
 
         LaunchedEffect(Unit) {
             playerViewModel.initialize(context)
+        }
+
+        // 为本次桌面 widget 改动添加注释：消费 MainActivity 从桌面小组件转交的外部入口请求，直接切回主播放页并显示全屏播放器 overlay。
+        LaunchedEffect(openPlayerOverlayRequest) {
+            if (openPlayerOverlayRequest) {
+                playerViewModel.setSelectedContentTab(-1)
+                playerViewModel.setMiniPlayerHidden(false)
+                playerViewModel.setFullPlayerVisible(true)
+                onOpenPlayerOverlayConsumed()
+            }
         }
 
         LaunchedEffect(currentRoute) {
