@@ -453,7 +453,9 @@ fun PlaybackProgressStateful(
         chapters = metadata.chapters,
         markers = metadata.getChapterMarkers(progressState.durationMs),
         onSeek = { pos -> actions.playback.onSeek(pos, true) },
-        modifier = modifier
+        modifier = modifier,
+        // 为每一次改动添加详尽的中文注释：将封面取色所得的背景/主导 ARGB 色值转换为 Compose Color，传给进度条用于已阅读轨道及圆点 dot 着色
+        color = Color(metadata.backgroundColorArgb)
     )
 }
 

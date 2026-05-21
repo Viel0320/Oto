@@ -33,6 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import coil.compose.AsyncImage
 import java.io.File
 import com.viel.aplayer.ui.common.AudioProgressBar
@@ -53,6 +54,8 @@ fun CompactMediaPlayer(
     coverLastUpdated: Long = 0L,
     progress: () -> Float = { 0f },
     showProgressBar: Boolean = true,
+    // 为每一次改动添加详尽的中文注释：新增 color 参数用以接收封面取色所得的主导颜色，默认使用 Material 主色调进行兜底
+    color: Color = MaterialTheme.colorScheme.primary,
     isMediaAvailable: Boolean = true,
     actions: MiniPlayerActions = MiniPlayerActions(),
 ) {
@@ -76,7 +79,8 @@ fun CompactMediaPlayer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp),
-                    color = MaterialTheme.colorScheme.primary,
+                    // 为每一次改动添加详尽的中文注释：在此处将外部由封面提取并传入的主导颜色值绑定到 AudioProgressBar 的 color 属性中
+                    color = color,
                     showKnob = false
                 )
             }

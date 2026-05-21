@@ -22,6 +22,9 @@ import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.NewPlayerScreen
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
+// 为每一次改动添加详尽的中文注释：引入 Compose 的 Color 类，用于定义由封面提取出来的进度条着色色值
+import androidx.compose.ui.graphics.Color
+import com.viel.aplayer.ui.player.components.CompactMediaPlayer
 
 /**
  * 播放器悬浮层组件。
@@ -129,6 +132,8 @@ private fun MiniPlayerContent(
             coverLastUpdated = metadata.coverLastUpdated,
             // 详尽的中文注释：传递 ViewModel 预计算的进度值，UI 层不再包含任何业务计算
             progress = { displayProgress },
+            // 为每一次改动添加详尽的中文注释：将封面取色所得的背景/主导 ARGB 色值转换为 Compose Color，传给迷你播放器进度条用于着色
+            color = Color(metadata.backgroundColorArgb),
             isMediaAvailable = isMediaAvailable,
             actions = actions
         )

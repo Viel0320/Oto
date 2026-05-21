@@ -75,7 +75,8 @@ fun AudiobookActionDialogs(
                     text = book.title,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titlelarge,
+                    // 为每一次改动添加详尽的中文注释：修复 Material 3 字体样式的命名大小写拼写错误，将小写 titlelarge 修正为大写 titleLarge
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.fillMaxWidth(), // 为每一次改动添加详尽的中文注释：使文本框占满标题栏宽度，以便实现居中对齐
                     textAlign = TextAlign.Center // 为每一次改动添加详尽的中文注释：设置标题文字水平居中对齐

@@ -11,6 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+// 为每一次改动添加详尽的中文注释：引入 Compose 的 Color 类，用于定义由封面提取出来的进度条着色色值
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.ChapterEntity
@@ -31,7 +33,9 @@ fun PlaybackProgress(
     chapters: List<ChapterEntity>,
     markers: List<Float>,
     onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 为每一次改动添加详尽的中文注释：新增 color 参数用以接收封面取色所得的主导颜色，默认使用 Material 主色调进行兜底
+    color: Color = MaterialTheme.colorScheme.primary
 ) {
     // 1. 实时查找当前位置所在的章节
     val currentChapter = remember(currentPosition, chapters) {
@@ -68,6 +72,8 @@ fun PlaybackProgress(
             },
             // 在章节模式下隐藏全书的章节标记点
             markers = if (isChapterMode) emptyList() else markers,
+            // 为每一次改动添加详尽的中文注释：在此处将外部由封面提取并传入的主导颜色值绑定到 AudioProgressBar 的 color 属性中
+            color = color,
             modifier = Modifier.fillMaxWidth()
         )
 
