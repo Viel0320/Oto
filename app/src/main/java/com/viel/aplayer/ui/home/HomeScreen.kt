@@ -63,9 +63,12 @@ import com.viel.aplayer.R
 import kotlinx.coroutines.launch
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerFilterChip
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.theme.APlayerTheme
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 /**
  * 首页图书馆的过滤选项枚举。
@@ -97,6 +100,8 @@ fun HomeScreen(
     @StringRes recentTitleRes: Int = 0,
     onFilterSelected: (HomeFilter) -> Unit = {},
     isMiniPlayerVisible: Boolean = false,
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，用于控制主页背景是否参与 Haze 采样；未传入时默认 Material。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     onNavigateToSearch: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
@@ -112,6 +117,8 @@ fun HomeScreen(
 ) {
     // 为每一次改动添加详尽的中文注释：使用 remember 级联监听当前被长按的有声书状态，决定一级Dialog的渲染
     var activeBookForMenu by remember { mutableStateOf<BookWithProgress?>(null) }
+    // 为每一次改动添加详尽的中文注释：为长按操作 Dialog 创建 HazeState；Scaffold 作为 source，Dialog 面板作为 effect。
+    val actionDialogHazeState = rememberHazeState()
     // 详尽中文注释：Filter Chip 的标签映射，这是纯 UI 文本，保留在 Composable 中
     val filters = listOf(
         HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
@@ -128,9 +135,18 @@ fun HomeScreen(
 
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    // 为每一次改动添加详尽的中文注释：只有 Haze 模式才将主页完整内容注册为采样源；Material 模式跳过以节省渲染成本。
+    val hazeSourceModifier = if (glassEffectMode == GlassEffectMode.Haze) {
+        Modifier.hazeSource(state = actionDialogHazeState)
+    } else {
+        Modifier
+    }
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            // 为每一次改动添加详尽的中文注释：主页完整内容作为 AudiobookActionDialogs 的 Haze 背景采样源。
+            .then(hazeSourceModifier),
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -300,6 +316,8 @@ fun HomeScreen(
     // 为每一次改动添加详尽的中文注释：引入独立封装的长按操作系列 Dialog，保持主页 UI 布局清晰明了
     AudiobookActionDialogs(
         bookWithProgress = activeBookForMenu,
+        hazeState = actionDialogHazeState,
+        glassEffectMode = glassEffectMode,
         onDismissRequest = { activeBookForMenu = null },
         onUpdateReadStatus = onUpdateReadStatus,
         onForceRegenerate = onForceRegenerate,

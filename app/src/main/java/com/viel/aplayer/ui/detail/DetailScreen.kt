@@ -50,7 +50,6 @@ import androidx.compose.material.icons.rounded.Timelapse
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -98,9 +97,13 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.formatFileSize
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.theme.APlayerTheme
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 
 
@@ -117,6 +120,8 @@ fun DetailScreen(
     onPlayClick: () -> Unit = {},
     onMoreClick: () -> Unit = {},
     onSearchClick: (String) -> Unit = {},
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，用于控制详情页右上角菜单是否启用 Haze。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     val bookWithProgress = uiState.book
     val book = bookWithProgress?.book
@@ -127,6 +132,8 @@ fun DetailScreen(
     var infoDialogText by remember { mutableStateOf<String?>(null) }
     // 为每一次改动添加详尽的中文注释：控制详情页右上角 TopAppBar 折叠菜单的显示隐藏状态
     var showMenu by remember { mutableStateOf(false) }
+    // 为每一次改动添加详尽的中文注释：为详情页更多菜单创建 HazeState；详情页 Surface 作为 source，菜单内容作为 effect。
+    val dropdownMenuHazeState = rememberHazeState()
     // 详尽中文注释：M-19 修复 — 3 秒保护期状态已全部移至 DetailViewModel，
     // 此处不再持有 isUnplayedProtectionActive，展示进度直接使用 uiState.displayProgressPercent。
 
@@ -180,6 +187,12 @@ fun DetailScreen(
             )
         }
     }
+    // 为每一次改动添加详尽的中文注释：只有 Haze 模式才把详情页背景注册为菜单采样源，Material 模式不启用额外渲染。
+    val dropdownMenuHazeSourceModifier = if (glassEffectMode == GlassEffectMode.Haze) {
+        Modifier.hazeSource(state = dropdownMenuHazeState)
+    } else {
+        Modifier
+    }
 
     // 详尽的中文注释：计算最大的向下位移像素值，顺应详情页向下滑动退出的特征
     val maxPredictiveTranslationY = with(density) { 120.dp.toPx() }
@@ -201,7 +214,9 @@ fun DetailScreen(
             }
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
             .background(bgColor)
-            .background(backgroundBrush),
+            .background(backgroundBrush)
+            // 为每一次改动添加详尽的中文注释：详情页完整内容作为右上角 BlurDropdownMenu 的 Haze 背景采样源。
+            .then(dropdownMenuHazeSourceModifier),
         color = Color.Transparent
     ) {
         Scaffold(
@@ -225,9 +240,13 @@ fun DetailScreen(
                                     contentDescription = stringResource(R.string.more_content_description)
                                 )
                             }
-                            DropdownMenu(
+                            BlurDropdownMenu(
                                 expanded = showMenu,
-                                onDismissRequest = { showMenu = false }
+                                onDismissRequest = { showMenu = false },
+                                // 为每一次改动添加详尽的中文注释：把详情页 Surface 共用的 hazeState 传给菜单 effect。
+                                hazeState = dropdownMenuHazeState,
+                                // 为每一次改动添加详尽的中文注释：更多菜单跟随设置页选择在 Material 与 Haze 之间切换。
+                                glassEffectMode = glassEffectMode
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("修改书籍信息") },

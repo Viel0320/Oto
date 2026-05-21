@@ -36,8 +36,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDialog
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
+import dev.chrisbanes.haze.HazeState
 
 /**
  * 详尽中文注释：
@@ -45,15 +47,16 @@ import com.viel.aplayer.ui.common.formatPeopleSubtitle
  * 它将一级管理面板 Dialog 与二级删除确认 Dialog 统一打包封装，
  * 隔离了 Dialog 内部的显隐次序逻辑，极大程度瘦身了 HomeScreen.kt 主文件。
  *
- * 升级说明（Android 12+ 原生模糊）：
- * 将原有的 [AlertDialog] 替换为自定义 [BlurDialog]，
- * 利用 Android 12（API 31）引入的 Window 级 FLAG_BLUR_BEHIND 和 blurBehindRadius，
- * 在对话框弹出时对身后内容实施原生 GPU 模糊，呈现玻璃拟态视觉效果。
- * 由于本项目 minSdk = 31，无需版本分支判断，可直接使用该 API。
+ * 升级说明（Haze 毛玻璃）：
+ * 将此前 Window 级 blurBehindRadius 模糊替换为 [BlurDialog] 内部的 Haze hazeEffect，
+ * 调用方传入与主页 hazeSource 共用的 [HazeState]，让 Dialog 面板直接采样主页内容形成毛玻璃效果。
  */
 @Composable
 fun AudiobookActionDialogs(
     bookWithProgress: BookWithProgress?,
+    hazeState: HazeState,
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式；未传入时默认 Material，避免独立调用时自动启用 Haze。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     onDismissRequest: () -> Unit,
     onUpdateReadStatus: (String, String) -> Unit,
     onForceRegenerate: (String) -> Unit,
@@ -67,14 +70,17 @@ fun AudiobookActionDialogs(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 一级管理 Dialog（使用 BlurDialog 实现原生身后模糊玻璃态效果）
+    // 一级管理 Dialog（使用 BlurDialog + Haze 实现主页内容采样的毛玻璃效果）
     // ─────────────────────────────────────────────────────────────────────────
     if (!showDeleteConfirm) {
         BlurDialog(
             onDismissRequest = onDismissRequest,
-            // 详尽中文注释：blurBehindRadius = 40px，在主流手机上呈现约 2~3mm 宽度的柔和模糊晕染，
-            // 既能凸显对话框层次感，又不会造成背景完全不可辨认
-            blurBehindRadius = 40,
+            // 详尽中文注释：传入主页共享的 hazeState，确保一级操作面板能采样当前书架背景。
+            hazeState = hazeState,
+            // 为每一次改动添加详尽的中文注释：把用户设置传给 BlurDialog，Material 模式会跳过内部 Haze modifier。
+            glassEffectMode = glassEffectMode,
+            // 详尽中文注释：一级操作面板使用 22.dp Haze 半径，保持背景可辨识与文本可读性之间的平衡。
+            hazeBlurRadius = 22.dp,
             scrollable = true
         ) {
             // 详尽中文注释：对话框正文内容区，采用 Column 纵向排列各功能区块
@@ -279,14 +285,17 @@ fun AudiobookActionDialogs(
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 二级软删除确认 Dialog（同样使用 BlurDialog，略微加深 blurBehindRadius 以强化警示感）
+    // 二级软删除确认 Dialog（同样使用 BlurDialog + Haze，略微加深模糊以强化警示感）
     // ─────────────────────────────────────────────────────────────────────────
     if (showDeleteConfirm) {
         BlurDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            // 详尽中文注释：确认对话框使用更深的模糊半径（60px），
-            // 与一级对话框形成视觉层次差异，强调当前操作的重要性
-            blurBehindRadius = 60,
+            // 详尽中文注释：二级确认面板复用主页共享 hazeState，保持与一级面板一致的背景采样来源。
+            hazeState = hazeState,
+            // 为每一次改动添加详尽的中文注释：删除确认 Dialog 同步遵循用户选择的玻璃效果模式。
+            glassEffectMode = glassEffectMode,
+            // 详尽中文注释：确认对话框使用更深的 28.dp Haze 半径，与一级对话框形成视觉层次差异。
+            hazeBlurRadius = 28.dp,
             scrollable = false
         ) {
             Column(

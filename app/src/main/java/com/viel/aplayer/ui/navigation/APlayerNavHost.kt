@@ -60,6 +60,8 @@ fun APlayerNavHost(
                 recentTitleRes = libraryUiState.recentTitleRes,
                 onFilterSelected = { libraryViewModel.setFilter(it) },
                 isMiniPlayerVisible = playerUiState.hasActiveTrack,
+                // 为每一次改动添加详尽的中文注释：把设置页持久化的玻璃效果模式传入首页，控制长按操作 Dialog 的 Material/Haze 切换。
+                glassEffectMode = libraryUiState.glassEffectMode,
                 onNavigateToDetail = { id: String ->
                     val book = libraryUiState.audiobooks.find { it.book.id == id }
                     detailViewModel.selectBook(book)

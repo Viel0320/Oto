@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.home
 
 import androidx.annotation.StringRes
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.store.GlassEffectMode
 
 /**
  * 图书馆主页的 UI 状态聚合类。
@@ -32,5 +33,9 @@ data class LibraryUiState(
     @param:StringRes val recentTitleRes: Int = 0,
 
     /** 是否应当展示"最近"横向滚动区域 */
-    val shouldShowRecentBooks: Boolean = false
+    val shouldShowRecentBooks: Boolean = false,
+
+    /** 为每一次改动添加详尽的中文注释：当前悬浮层玻璃效果模式，供主页 Dialog 与播放器 BottomSheet 共用同一全局设置。 */
+    // 为每一次改动添加详尽的中文注释：LibraryUiState 初始值默认 Material，确保设置流首帧尚未到达时不主动启用 Haze。
+    val glassEffectMode: GlassEffectMode = GlassEffectMode.Material
 )

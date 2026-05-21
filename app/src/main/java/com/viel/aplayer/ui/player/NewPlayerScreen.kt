@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.bookmarks.BookmarkListView
 import com.viel.aplayer.ui.common.BottomNavTabs
@@ -68,6 +69,9 @@ import com.viel.aplayer.ui.player.components.RelatedBooksView
 import com.viel.aplayer.ui.player.components.SubtitlesView
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import com.viel.aplayer.ui.theme.APlayerTheme
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -85,6 +89,8 @@ fun NewPlayerScreen(
     viewModel: PlayerViewModel,
     actions: PlayerActions,
     navigationActions: PlayerNavigationActions,
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，用于控制章节列表背景是否启用 Haze 采样；未传入时默认 Material。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     modifier: Modifier = Modifier,
 ) {
     val metadata by viewModel.metadataState.collectAsStateWithLifecycle()
@@ -129,6 +135,14 @@ fun NewPlayerScreen(
     APlayerTheme {
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+        // 为每一次改动添加详尽的中文注释：为章节列表 BottomSheet 创建 HazeState；播放器 Surface 作为 source，章节面板作为 effect。
+        val chapterSheetHazeState = rememberHazeState()
+        // 为每一次改动添加详尽的中文注释：只有 Haze 模式才把播放器完整界面注册为采样源；Material 模式不启用 Haze 渲染管线。
+        val chapterSheetHazeSourceModifier = if (glassEffectMode == GlassEffectMode.Haze) {
+            Modifier.hazeSource(state = chapterSheetHazeState)
+        } else {
+            Modifier
+        }
 
         // 详尽的中文注释：当处于书签/歌词/推荐等面板时，使用 PredictiveBackHandler 平滑返回主播放页面
         androidx.activity.compose.PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
@@ -204,7 +218,9 @@ fun NewPlayerScreen(
                 }
                 .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
                 .background(bgColor)
-                .background(backgroundBrush),
+                .background(backgroundBrush)
+                // 为每一次改动添加详尽的中文注释：播放器完整沉浸界面作为 ChapterListSheet 的 Haze 背景采样源。
+                .then(chapterSheetHazeSourceModifier),
             color = Color.Transparent
         ) {
             Column(
@@ -222,6 +238,9 @@ fun NewPlayerScreen(
                     onToggleProgressMode = actions.content.onToggleProgressMode,
                     onDeleteBook = actions.content.onDeleteBook,
                     isChapterProgressMode = settings.isChapterProgressMode,
+                    // 为每一次改动添加详尽的中文注释：播放器顶部更多菜单复用播放器 Surface 的 HazeState，并跟随全局 Material/Haze 模式。
+                    glassEffectMode = glassEffectMode,
+                    dropdownMenuHazeState = chapterSheetHazeState,
                     modifier = Modifier.pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onVerticalDrag = { change, dragAmount ->
@@ -469,7 +488,10 @@ fun NewPlayerScreen(
             metadata = metadata,
             settings = settings,
             actions = actions,
-            sheetState = sheetState
+            sheetState = sheetState,
+            hazeState = chapterSheetHazeState,
+            // 为每一次改动添加详尽的中文注释：章节列表 Stateful 层继续透传用户选择的 Material/Haze 模式。
+            glassEffectMode = glassEffectMode
         )
 
         // 详尽的中文注释：桥接就近打字隔离后的 BookmarkDialog。通过回调 localTitle 执行 onTitleChange 和 onSave，无损向下兼容原契约
@@ -609,7 +631,10 @@ fun ChapterListSheetStateful(
     metadata: BookMetadataState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
-    sheetState: androidx.compose.material3.SheetState
+    sheetState: androidx.compose.material3.SheetState,
+    hazeState: HazeState,
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式并传给实际的 ChapterListSheet。
+    glassEffectMode: GlassEffectMode
 ) {
     if (settings.isChapterListVisible) {
         val progressState by viewModel.playbackProgressState.collectAsStateWithLifecycle()
@@ -626,7 +651,11 @@ fun ChapterListSheetStateful(
                 actions.playback.onSeek(pos, true)
                 actions.content.onDismissChapterList()
             },
-            sheetState = sheetState
+            sheetState = sheetState,
+            // 为每一次改动添加详尽的中文注释：将播放器背景 source 共用的 hazeState 传入章节列表面板 effect。
+            hazeState = hazeState,
+            // 为每一次改动添加详尽的中文注释：Material 模式会让章节列表回到原生 BottomSheet 容器层次。
+            glassEffectMode = glassEffectMode
         )
     }
 }

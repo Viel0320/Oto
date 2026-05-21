@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -32,8 +31,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.theme.APlayerTheme
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.rememberHazeState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +50,10 @@ fun PlayerAppBar(
     onToggleProgressMode: (() -> Unit)? = null,
     onDeleteBook: (() -> Unit)? = null,
     isChapterProgressMode: Boolean = false,
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，用于控制播放器更多菜单是否启用 Haze。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：菜单复用播放器背景 source 的 HazeState；独立预览时默认创建本地状态。
+    dropdownMenuHazeState: HazeState = rememberHazeState(),
     containerColor: Color = Color.Transparent,
     contentColor: Color = LocalContentColor.current
 ) {
@@ -97,9 +104,13 @@ fun PlayerAppBar(
                     )
                 }
                 
-                DropdownMenu(
+                BlurDropdownMenu(
                     expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
+                    onDismissRequest = { showMenu = false },
+                    // 为每一次改动添加详尽的中文注释：把播放器 Surface 共用的 hazeState 传给菜单 effect。
+                    hazeState = dropdownMenuHazeState,
+                    // 为每一次改动添加详尽的中文注释：播放器更多菜单跟随设置页选择在 Material 与 Haze 之间切换。
+                    glassEffectMode = glassEffectMode
                 ) {
                     // 1. 进度模式切换
                     DropdownMenuItem(

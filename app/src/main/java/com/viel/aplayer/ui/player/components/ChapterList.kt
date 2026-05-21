@@ -48,9 +48,11 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.theme.APlayerTheme
+import dev.chrisbanes.haze.HazeState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +63,9 @@ fun ChapterListSheet(
     totalDuration: Long,
     onDismissRequest: () -> Unit,
     onChapterClick: (Long) -> Unit,
+    hazeState: HazeState,
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式，控制章节列表底部弹层是否启用 Haze 毛玻璃；未传入时默认 Material。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 ) {
     val density = LocalDensity.current
@@ -108,13 +113,17 @@ fun ChapterListSheet(
         if (LocalInspectionMode.current) {
             ChapterListContent(chapters, currentChapter, totalDuration, onChapterClick, listState)
         } else {
-            // 详尽中文注释：使用 BlurModalBottomSheet 替代原 ModalBottomSheet，
-            // 自动在 scrim 后景区域应用原生 GPU 模糊（FLAG_BLUR_BEHIND + blurBehindRadius = 50px），
+            // 详尽中文注释：使用 Haze 版 BlurModalBottomSheet 替代原 Window blur 版封装，
+            // hazeState 来自播放器 Surface 的 hazeSource，因此章节列表能采样播放器画面形成毛玻璃。
             // 同时保留所有原有参数：sheetState、自定义拖拽把手、零内边距等。
             BlurModalBottomSheet(
                 onDismissRequest = onDismissRequest,
                 sheetState = sheetState,
-                blurBehindRadius = 50,
+                hazeState = hazeState,
+                // 为每一次改动添加详尽的中文注释：把 Material/Haze 选择传入通用 BottomSheet 封装，统一控制内部 hazeEffect 是否启用。
+                glassEffectMode = glassEffectMode,
+                // 详尽中文注释：章节列表覆盖面积较大，使用 24.dp Haze 半径保证玻璃感且避免列表文字被背景抢视觉焦点。
+                hazeBlurRadius = 24.dp,
                 tonalElevation = 8.dp,
                 contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
                 dragHandle = {

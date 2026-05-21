@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.NewPlayerScreen
@@ -42,6 +43,8 @@ fun PlayerOverlay(
     miniPlayerActions: MiniPlayerActions,
     playerNavigationActions: PlayerNavigationActions,
     currentRoute: String?,
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式并向全屏播放器透传；未传入时默认 Material。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     modifier: Modifier = Modifier
 ) {
     // 仅监听播放器可见性（低频信号）
@@ -69,7 +72,9 @@ fun PlayerOverlay(
             NewPlayerScreen(
                 viewModel = playerViewModel,
                 actions = playerActions,
-                navigationActions = playerNavigationActions
+                navigationActions = playerNavigationActions,
+                // 为每一次改动添加详尽的中文注释：全屏播放器内部负责创建章节列表的 Haze source/effect，因此这里仅透传模式。
+                glassEffectMode = glassEffectMode
             )
         }
 

@@ -125,7 +125,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             groupedByAuthor = groupedByAuthor,
             recentBooks = recentBooks,
             recentTitleRes = recentTitleRes,
-            shouldShowRecentBooks = shouldShowRecentBooks
+            shouldShowRecentBooks = shouldShowRecentBooks,
+            // 为每一次改动添加详尽的中文注释：把全局玻璃效果模式随主页 UiState 下发，确保 Home/Dialog/Player 使用同一个持久化选择。
+            glassEffectMode = appSettings.glassEffectMode
         )
     }.stateIn(
         scope = viewModelScope,

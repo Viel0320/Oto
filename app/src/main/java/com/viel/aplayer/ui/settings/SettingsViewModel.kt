@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.data.store.GlassEffectMode
 
 /**
  * 设置页面的 ViewModel，负责管理持久化配置的交互。
@@ -148,4 +149,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             settingsRepository.updateShakeToResetEnabled(enabled)
         }
     }
-}
+
+    // 为每一次改动添加详尽的中文注释：新增设置页切换悬浮层视觉效果模式的交互方法，统一写入 DataStore 供主页和播放器实时响应。
+    fun updateGlassEffectMode(mode: GlassEffectMode) {
+        viewModelScope.launch {
+            settingsRepository.updateGlassEffectMode(mode)
+        }
+    }
+}

@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.data.store.GlassEffectMode
 /**
  * 为每一次改动添加详尽的中文注释：
  * 书籍详情悬浮层组件。
@@ -24,6 +25,8 @@ fun DetailOverlay(
     canStartNavigation: () -> Boolean,
     onPlayBook: (String) -> Unit,
     onNavigateToSearch: (String) -> Unit,
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式并传给详情页内部的更多菜单。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     modifier: Modifier = Modifier
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
@@ -59,7 +62,9 @@ fun DetailOverlay(
                     // 从而完全清除了 DetailOverlay 内部对外部 ViewModel 的多余依赖。
                     onPlayBook(bookWithProgress.book.id)
                 }
-            }
+            },
+            // 为每一次改动添加详尽的中文注释：详情页下拉菜单与其他浮层统一遵循 Material/Haze 设置。
+            glassEffectMode = glassEffectMode
         )
     }
 }

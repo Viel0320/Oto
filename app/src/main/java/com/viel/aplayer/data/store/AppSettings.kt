@@ -4,6 +4,12 @@ package com.viel.aplayer.data.store
 /**
  * 应用全局持久化设置数据类。
  */
+// 为每一次改动添加详尽的中文注释：定义悬浮层视觉效果模式，Material 表示停用 Haze 采样并回到 Material 3 原生容器层次，Haze 表示启用毛玻璃背景模糊。
+enum class GlassEffectMode {
+    Material,
+    Haze
+}
+
 data class AppSettings(
     /** 首页过滤状态 */
     val homeFilter: String = "NotStarted",
@@ -24,5 +30,7 @@ data class AppSettings(
     // 为每一次改动添加详尽的中文注释：新增睡眠定时器音量渐隐机制的全局控制开关，默认开启以提供无缝且温和的睡眠暂停体验。
     val isSleepFadeOutEnabled: Boolean = true,
     // 为每一次改动添加详尽的中文注释：新增摇晃手机重置睡眠定时器的全局控制开关，默认开启以提供夜间无需亮屏的极致贴心盲操交互。
-    val isShakeToResetEnabled: Boolean = true
+    val isShakeToResetEnabled: Boolean = true,
+    // 为每一次改动添加详尽的中文注释：新增悬浮层玻璃效果模式持久化属性，默认 Material 以优先使用稳定的 Material 3 原生容器层次。
+    val glassEffectMode: GlassEffectMode = GlassEffectMode.Material
 )

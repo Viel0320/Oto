@@ -234,6 +234,8 @@ fun APlayerApp(
                 DetailOverlay(
                     detailViewModel = detailViewModel,
                     canStartNavigation = canStartNavigation,
+                    // 为每一次改动添加详尽的中文注释：详情页更多菜单也读取同一个玻璃效果设置，保持全应用浮层体验一致。
+                    glassEffectMode = libraryUiState.glassEffectMode,
                     onPlayBook = { bookId ->
                         // 详尽中文注释：M-19 修复 — 在宿主层接收并消费从详情页往上传播的播放事件。
                         // 统一加载书籍并展开全屏播放器，实现了彻底的单向数据流闭环。
@@ -251,7 +253,9 @@ fun APlayerApp(
                     playerActions = playerActions,
                     miniPlayerActions = miniPlayerActions,
                     playerNavigationActions = playerNavigationActions,
-                    currentRoute = currentRoute
+                    currentRoute = currentRoute,
+                    // 为每一次改动添加详尽的中文注释：播放器悬浮层也读取同一个设置值，确保章节列表 BottomSheet 与首页 Dialog 模式一致。
+                    glassEffectMode = libraryUiState.glassEffectMode
                 )
 
                 scanResult?.let { session ->

@@ -14,33 +14,48 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.viel.aplayer.data.store.GlassEffectMode
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
 
 /**
  * 详尽中文注释：
- * BlurDialog —— 支持原生 Window 背景模糊的通用浮层对话框（Android 12+ / API 31+）。
+ * BlurDialog —— 使用 Haze 重写后的通用毛玻璃浮层对话框。
  *
  * 实现原理：
- * - 使用 Compose [Dialog] 而非 [androidx.compose.material3.AlertDialog]，以便直接访问底层 Window。
- * - 在 Dialog lambda 内部调用 [ApplyWindowBlur]（位于 WindowBlurHelper.kt），
- *   由其负责定位 Dialog Window 并写入 FLAG_BLUR_BEHIND / blurBehindRadius 属性。
- * - Window 背景置透明，让自定义圆角 Surface 正确渲染无遮挡。
- * - 面板颜色使用 surfaceContainerHigh + 0.92f alpha，与身后模糊叠加出玻璃拟态层次感。
+ * - 调用方必须把同一个 [HazeState] 传给背景层的 hazeSource 与此处的 hazeEffect。
+ * - 这能让 Dialog 即使运行在独立 Window 中，也通过 Haze 采样宿主 Compose 背景完成模糊。
+ * - 面板颜色使用半透明 surfaceContainerHigh，Haze 1.7.2 只负责稳定采样和模糊，底色仍由 Surface 控制。
  *
  * @param onDismissRequest 点击对话框外部或按系统返回键时的关闭回调
- * @param blurBehindRadius 对话框"身后"（scrim）区域的模糊半径，单位 px，默认 40px
+ * @param hazeState 与背景 hazeSource 共用的状态容器
+ * @param glassEffectMode 当前玻璃效果模式，Material 模式不挂载 Haze modifier
+ * @param hazeBlurRadius Haze 背景模糊半径，单位 dp
  * @param scrollable 内容区域是否允许纵向滚动，内容较多时设为 true
  * @param content 对话框正文 Composable 内容
  */
 @Composable
 fun BlurDialog(
     onDismissRequest: () -> Unit,
-    blurBehindRadius: Int = 40,
+    hazeState: HazeState,
+    // 为每一次改动添加详尽的中文注释：组件被单独调用且未显式传入模式时，默认使用 Material 原生效果。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    hazeBlurRadius: Dp = 160.dp,
     scrollable: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    // 为每一次改动添加详尽的中文注释：Haze 模式沿用当前透明度配置；Material 模式使用不透明容器回到原生 Material 层次并停用模糊采样。
+    val dialogContainerColor = if (glassEffectMode == GlassEffectMode.Haze) {
+        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 1f)
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
@@ -50,10 +65,6 @@ fun BlurDialog(
             decorFitsSystemWindows = false
         )
     ) {
-        // 详尽中文注释：在 Dialog lambda 内调用 ApplyWindowBlur，
-        // 此时 LocalView 已指向 Dialog 自己的 AndroidComposeView，Window 定位准确。
-        ApplyWindowBlur(blurBehindRadius = blurBehindRadius)
-
         // 详尽中文注释：全屏 Box 作为定位容器。配置了 clickable 修饰符，
         // 在 usePlatformDefaultWidth = false 时替代失效的原生 Outside Touch，
         // 使得用户点击对话框外围模糊空白处时，能灵敏触发 onDismissRequest()。
@@ -72,7 +83,7 @@ fun BlurDialog(
         ) {
             // 详尽中文注释：对话框面板 Surface。
             // - 采用系统 extraLarge 圆角符合 Material 3 Dialog 规范，支持主题自适应
-            // - surfaceContainerHigh + 0.92f alpha 与身后模糊形成玻璃拟态视觉层次
+            // - surfaceContainerHigh + 0.78f alpha 与 Haze 采样模糊形成玻璃拟态视觉层次
             // - tonalElevation = 6.dp：暗色模式下产生色调差，强化层次感
             // - shadowElevation = 8.dp：轻微投影强化悬浮感
             // - 关键改动：添加无波纹 clickable 以拦截并消费点击手势，阻止其错误向上穿透触发 dismiss 关闭
@@ -86,8 +97,9 @@ fun BlurDialog(
                         // 详尽的中文注释：空操作，单纯用于拦截手势，防止点击对话框主体错误触发 dismiss
                     },
                 shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
-                tonalElevation = 6.dp,
+                // 详尽中文注释：半透明底色让 Haze 模糊纹理透出，同时保留文字可读的 Material 3 层次。
+                color = dialogContainerColor,
+                tonalElevation = 8.dp,
                 shadowElevation = 8.dp
             ) {
                 // 详尽中文注释：按 scrollable 参数决定是否附加纵向滚动能力
@@ -96,7 +108,19 @@ fun BlurDialog(
                 } else {
                     Modifier
                 }
-                Box(modifier = scrollModifier) {
+                // 为每一次改动添加详尽的中文注释：仅在 Haze 模式挂载 hazeEffect；Material 模式完全跳过采样，避免额外渲染成本。
+                val glassModifier = if (glassEffectMode == GlassEffectMode.Haze) {
+                    Modifier.hazeEffect(
+                        state = hazeState,
+                        // 详尽中文注释：只指定模糊半径，透明玻璃底色继续交给外层 Surface，减少 Dialog 背景闪烁概率。
+                        style = HazeStyle(tints = emptyList(), blurRadius = hazeBlurRadius)
+                    )
+                } else {
+                    Modifier
+                }
+                Box(
+                    modifier = scrollModifier.then(glassModifier)
+                ) {
                     content()
                 }
             }

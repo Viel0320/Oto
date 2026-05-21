@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.data.store.GlassEffectMode
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
 
@@ -36,6 +37,8 @@ class AppSettingsRepository private constructor(private val context: Context) {
         val IS_SLEEP_FADE_OUT_ENABLED = booleanPreferencesKey("is_sleep_fade_out_enabled")
         // 为每一次改动添加详尽的中文注释：新增摇晃手机重置睡眠定时器机制的持久化存储 Key
         val IS_SHAKE_TO_RESET_ENABLED = booleanPreferencesKey("is_shake_to_reset_enabled")
+        // 为每一次改动添加详尽的中文注释：新增悬浮层玻璃效果模式持久化存储 Key，字符串值直接保存 GlassEffectMode.name 方便兼容未来扩展。
+        val GLASS_EFFECT_MODE = stringPreferencesKey("glass_effect_mode")
     }
 
     /**
@@ -58,7 +61,11 @@ class AppSettingsRepository private constructor(private val context: Context) {
             // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取睡眠定时音量渐隐的开关状态，默认值为 true
             isSleepFadeOutEnabled = preferences[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] ?: true,
             // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取摇晃重置睡眠定时器的开关状态，默认值为 true
-            isShakeToResetEnabled = preferences[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] ?: true
+            isShakeToResetEnabled = preferences[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] ?: true,
+            // 为每一次改动添加详尽的中文注释：从 DataStore 读取玻璃效果模式，非法历史值兜底为 Material 以优先使用稳定的原生效果。
+            glassEffectMode = preferences[PreferencesKeys.GLASS_EFFECT_MODE]
+                ?.let { runCatching { GlassEffectMode.valueOf(it) }.getOrNull() }
+                ?: GlassEffectMode.Material
         )
     }
 
@@ -106,6 +113,11 @@ class AppSettingsRepository private constructor(private val context: Context) {
     // 为每一次改动添加详尽的中文注释：提供修改摇晃重置睡眠定时器配置的接口函数，由 SettingsViewModel 调用实现持久化写操作。
     suspend fun updateShakeToResetEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] = enabled }
+    }
+
+    // 为每一次改动添加详尽的中文注释：提供修改悬浮层玻璃效果模式的持久化接口，由设置页切换 Material/Haze 时调用。
+    suspend fun updateGlassEffectMode(mode: GlassEffectMode) {
+        context.dataStore.edit { it[PreferencesKeys.GLASS_EFFECT_MODE] = mode.name }
     }
 
     companion object {

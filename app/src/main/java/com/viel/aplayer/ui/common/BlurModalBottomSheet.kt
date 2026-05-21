@@ -1,7 +1,10 @@
 package com.viel.aplayer.ui.common
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -9,37 +12,41 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.data.store.GlassEffectMode
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
 
 /**
  * 详尽中文注释：
- * BlurModalBottomSheet —— 支持原生 Window 背景模糊的 BottomSheet（Android 12+ / API 31+）。
+ * BlurModalBottomSheet —— 使用 Haze 重写后的毛玻璃 BottomSheet。
  *
  * 实现原理：
- * Material3 的 [ModalBottomSheet] 内部使用一个独立的系统 Dialog Window 托管内容，
- * 与 Compose [Dialog] 共享相同的 Window 创建机制。
- * 因此，在其内容 lambda 顶部调用 [ApplyWindowBlur]，即可利用相同的 context 链 unwrap
- * 逻辑定位到 BottomSheet 的 Window，并写入 FLAG_BLUR_BEHIND / blurBehindRadius 属性，
- * 实现 scrim 后景原生 GPU 模糊效果。
+ * Material3 的 [ModalBottomSheet] 内部使用独立 Dialog Window 托管内容，Haze 需要调用方
+ * 在宿主背景层挂载同一个 [HazeState] 的 hazeSource，再由本组件内部的 hazeEffect 采样模糊。
  *
  * 与 [ModalBottomSheet] 的关系：
  * 此组件是对 Material3 [ModalBottomSheet] 的薄封装，所有原始参数均透传，
- * 仅额外插入 [ApplyWindowBlur] 调用和模糊半径参数，调用方无需修改其他逻辑。
+ * 仅把拖拽把手与正文统一包进 Haze 1.7.2 稳定毛玻璃层，调用方无需改写内容结构。
  *
  * 容器颜色策略：
- * 默认使用 surfaceContainerLow + 0.94f alpha（比 Dialog 稍高透明度），
+ * 默认使用 surfaceContainerLow + 0.9f alpha，
  * 更适合 BottomSheet 大面积覆盖时的玻璃拟态视觉平衡。
  * 调用方可通过 [containerColor] 覆盖默认值。
  *
  * @param onDismissRequest 点击 scrim 或下滑关闭时的回调
- * @param blurBehindRadius BottomSheet"身后"（scrim 可见区域）的模糊半径，单位 px，默认 50px
+ * @param hazeState 与背景 hazeSource 共用的状态容器
+ * @param glassEffectMode 当前玻璃效果模式，Material 模式不挂载 Haze modifier
+ * @param hazeBlurRadius Haze 背景模糊半径，单位 dp
  * @param sheetState BottomSheet 状态，控制展开/收起/半展开
  * @param shape BottomSheet 面板顶部圆角形状，默认使用 Material3 规范的 BottomSheetDefaults.ExpandedShape
- * @param containerColor 面板背景颜色，默认 surfaceContainerLow + 0.94f alpha
+ * @param containerColor 面板背景颜色，默认 surfaceContainerLow + 0.9f alpha
  * @param contentColor 内容默认前景色
  * @param tonalElevation 色调高程
  * @param scrimColor scrim 遮罩颜色（建议保持默认透明/半透明，模糊效果即为视觉遮罩）
@@ -52,13 +59,16 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun BlurModalBottomSheet(
     onDismissRequest: () -> Unit,
-    blurBehindRadius: Int = 50,
+    hazeState: HazeState,
+    // 为每一次改动添加详尽的中文注释：组件被单独调用且未显式传入模式时，默认使用 Material 原生 BottomSheet 效果。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    hazeBlurRadius: Dp = 160.dp,
     modifier: Modifier = Modifier,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
     shape: Shape = BottomSheetDefaults.ExpandedShape,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.94f),
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 1f),
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
-    tonalElevation: Dp = 0.dp,
+    tonalElevation: Dp = 8.dp,
     scrimColor: Color = BottomSheetDefaults.ScrimColor,
     dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
     contentWindowInsets: @Composable () -> WindowInsets = { BottomSheetDefaults.windowInsets },
@@ -73,16 +83,38 @@ fun BlurModalBottomSheet(
         contentColor = contentColor,
         tonalElevation = tonalElevation,
         scrimColor = scrimColor,
-        dragHandle = dragHandle,
+        // 详尽中文注释：将原本由 ModalBottomSheet 单独绘制的 dragHandle 移入 Haze 内容层，保证把手区域也拥有同一块毛玻璃背景。
+        dragHandle = null,
         contentWindowInsets = contentWindowInsets,
     ) {
-        // 详尽中文注释：在 ModalBottomSheet 内容 lambda 顶部调用 ApplyWindowBlur。
-        // 此时 LocalView.current 已指向 BottomSheet 内部的 AndroidComposeView，
-        // 其 context 链同样包含 android.app.Dialog 实例（Material3 内部实现），
-        // ApplyWindowBlur 通过 unwrap 链精准定位 Window 并设置模糊属性。
-        ApplyWindowBlur(blurBehindRadius = blurBehindRadius)
+        // 为每一次改动添加详尽的中文注释：仅在 Haze 模式挂载 hazeEffect；Material 模式保留 ModalBottomSheet 原生容器、scrim 与 tonalElevation。
+        val glassModifier = if (glassEffectMode == GlassEffectMode.Haze) {
+            Modifier.hazeEffect(
+                state = hazeState,
+                // 详尽中文注释：只指定模糊半径，透明玻璃底色继续交给 ModalBottomSheet containerColor，降低展开时闪烁概率。
+                style = HazeStyle(tints = emptyList(), blurRadius = hazeBlurRadius)
+            )
+        } else {
+            Modifier
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(glassModifier)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // 详尽中文注释：Material3 原 dragHandle slot 默认居中；移入 Haze 内容层后需要手动恢复 fillMaxWidth + Center 对齐。
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // 详尽中文注释：在同一个 Haze 面板内绘制拖拽把手，避免顶部把手区域和正文区域玻璃质感断层。
+                    dragHandle?.invoke()
+                }
 
-        // 详尽中文注释：透传调用方提供的正文内容
-        content()
+                // 详尽中文注释：透传调用方提供的正文内容，业务层无需感知 Haze 内部包装。
+                content()
+            }
+        }
     }
 }

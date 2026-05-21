@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,7 +35,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -55,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 /**
@@ -112,7 +117,10 @@ class SettingsActivity : ComponentActivity() {
                         isSleepFadeOutEnabled = settingsState.isSleepFadeOutEnabled,
                         onSleepFadeOutEnabledChange = { settingsViewModel.toggleSleepFadeOutEnabled(it) },
                         isShakeToResetEnabled = settingsState.isShakeToResetEnabled,
-                        onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) }
+                        onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) },
+                        // 为每一次改动添加详尽的中文注释：将 DataStore 中的玻璃效果模式传入设置页，并把用户选择回写到 SettingsViewModel。
+                        glassEffectMode = settingsState.glassEffectMode,
+                        onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) }
                     )
                 }
             }
@@ -167,7 +175,11 @@ fun SettingsScreen(
     // 为每一次改动添加详尽的中文注释：摇晃手机重置睡眠定时器功能是否启用的全局状态标志。
     isShakeToResetEnabled: Boolean,
     // 为每一次改动添加详尽的中文注释：切换摇晃手机重置睡眠定时器开关的回调事件。
-    onShakeToResetEnabledChange: (Boolean) -> Unit
+    onShakeToResetEnabledChange: (Boolean) -> Unit,
+    // 为每一次改动添加详尽的中文注释：当前悬浮层视觉效果模式，控制 Material 原生容器与 Haze 毛玻璃之间的切换。
+    glassEffectMode: GlassEffectMode,
+    // 为每一次改动添加详尽的中文注释：切换悬浮层视觉效果模式的回调事件。
+    onGlassEffectModeChange: (GlassEffectMode) -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -265,7 +277,23 @@ fun SettingsScreen(
             }
 
             // 为每一次改动添加详尽的中文注释：
-            // === 第二分节：播放与网络 ===
+            // === 第二分节：界面效果 ===
+            item {
+                SettingsSectionHeader(title = "界面效果")
+            }
+            item {
+                // 为每一次改动添加详尽的中文注释：新增 Material/Haze 双态分段选择，让用户可在原生 Material 层次与 Haze 毛玻璃之间即时切换。
+                SettingsSegmentedItem(
+                    title = "悬浮层玻璃效果",
+                    subtitle = "控制章节列表和书籍操作弹窗的背景效果",
+                    icon = Icons.Rounded.LinearScale,
+                    selectedMode = glassEffectMode,
+                    onModeSelected = onGlassEffectModeChange
+                )
+            }
+
+            // 为每一次改动添加详尽的中文注释：
+            // === 第三分节：播放与网络 ===
             item {
                 SettingsSectionHeader(title = "播放与网络")
             }
@@ -291,7 +319,7 @@ fun SettingsScreen(
             }
 
             // 为每一次改动添加详尽的中文注释：
-            // === 第三分节：自动跳过静音 ===
+            // === 第四分节：自动跳过静音 ===
             item {
                 SettingsSectionHeader(title = "自动跳过静音")
             }
@@ -332,7 +360,7 @@ fun SettingsScreen(
             }
 
             // 为每一次改动添加详尽的中文注释：
-            // === 第四分节：睡眠定时器 ===
+            // === 第五分节：睡眠定时器 ===
             item {
                 SettingsSectionHeader(title = "睡眠定时器")
             }
@@ -358,7 +386,7 @@ fun SettingsScreen(
             }
 
             // 为每一次改动添加详尽的中文注释：
-            // === 第五分节：数据清理 ===
+            // === 第六分节：数据清理 ===
             item {
                 SettingsSectionHeader(title = "数据清理")
             }
@@ -397,6 +425,59 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+}
+
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * 悬浮层玻璃效果分段选择设置项。
+ * 使用 Material 3 SingleChoiceSegmentedButtonRow 呈现互斥选项，避免用单个 Switch 表达两种命名模式造成语义歧义。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsSegmentedItem(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    selectedMode: GlassEffectMode,
+    onModeSelected: (GlassEffectMode) -> Unit
+) {
+    val modes = listOf(GlassEffectMode.Material, GlassEffectMode.Haze)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            // 为每一次改动添加详尽的中文注释：在说明文字与分段按钮之间保留 8.dp 呼吸间距，避免控件显得拥挤。
+            Spacer(modifier = Modifier.height(8.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                modes.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = selectedMode == mode,
+                        onClick = { onModeSelected(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
+                    ) {
+                        // 为每一次改动添加详尽的中文注释：按钮文案直接对应内部枚举，Material 表示停用 Haze，Haze 表示启用毛玻璃采样。
+                        Text(text = if (mode == GlassEffectMode.Material) "Material" else "Haze")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -511,7 +592,10 @@ fun SettingsScreenPreview() {
             isSleepFadeOutEnabled = true,
             onSleepFadeOutEnabledChange = {},
             isShakeToResetEnabled = true,
-            onShakeToResetEnabledChange = {}
+            onShakeToResetEnabledChange = {},
+            // 为每一次改动添加详尽的中文注释：Preview 默认展示 Material，和新安装用户的默认设置保持一致。
+            glassEffectMode = GlassEffectMode.Material,
+            onGlassEffectModeChange = {}
         )
     }
 }
@@ -585,4 +669,3 @@ private fun SettingsSectionHeader(title: String) {
             .padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 8.dp)
     )
 }
-
