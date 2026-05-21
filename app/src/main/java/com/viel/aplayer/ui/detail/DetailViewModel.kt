@@ -25,6 +25,10 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     // 详尽的中文注释：通过 Application 容器获取数据仓库依赖
     private val repository = (application as APlayerApplication).container.libraryRepository
 
+    // 为每一次改动添加详尽的中文注释：订阅观察书籍元数据变更的协程 Job，用于响应式实时刷新详情页展示的数据
+    private var bookObserveJob: kotlinx.coroutines.Job? = null
+
+
     private val _uiState = MutableStateFlow(DetailUiState())
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
 
@@ -65,6 +69,9 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
      * @param book 选中的书籍实体，传入 null 表示关闭详情页。
      */
     fun selectBook(book: BookWithProgress?) {
+        // 为每一次改动添加详尽的中文注释：每次选中新书或关闭详情时，务必先取消前一次的数据库 Flow 监听，防止跨书数据串扰和内存泄漏
+        bookObserveJob?.cancel()
+        bookObserveJob = null
         val current = _uiState.value
 
         // 详尽的中文注释：只要选中有效书籍，就显示详情页；同一本书重复选择也刷新详情状态。
@@ -140,6 +147,22 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 val isAvailable = repository.checkDetailAvailability(book.book.id)
                 _uiState.update { state ->
                     state.copy(isAvailable = isAvailable)
+                }
+            }
+
+            // 为每一次改动添加详尽的中文注释：异步订阅观察该图书底层的数据库记录 Flow。
+            // 当 EditBookActivity 在外部编辑并写入数据库后，此处自动感知并刷新 _uiState.book，实现 UI 响应式无缝更新
+            bookObserveJob = viewModelScope.launch {
+                repository.observeBookById(book.book.id).collect { updatedBook ->
+                    if (updatedBook != null) {
+                        _uiState.update { state ->
+                            state.book?.let { currentBwp ->
+                                state.copy(
+                                    book = currentBwp.copy(book = updatedBook)
+                                )
+                            } ?: state
+                        }
+                    }
                 }
             }
         } else {

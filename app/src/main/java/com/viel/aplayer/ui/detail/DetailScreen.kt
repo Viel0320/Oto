@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,6 +50,8 @@ import androidx.compose.material.icons.rounded.Timelapse
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,6 +64,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
+import com.viel.aplayer.ui.edit.EditBookActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -121,6 +125,8 @@ fun DetailScreen(
     var predictiveBackProgress by remember { mutableStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
+    // 为每一次改动添加详尽的中文注释：控制详情页右上角 TopAppBar 折叠菜单的显示隐藏状态
+    var showMenu by remember { mutableStateOf(false) }
     // 详尽中文注释：M-19 修复 — 3 秒保护期状态已全部移至 DetailViewModel，
     // 此处不再持有 isUnplayedProtectionActive，展示进度直接使用 uiState.displayProgressPercent。
 
@@ -211,11 +217,31 @@ fun DetailScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = onMoreClick) {
-                            Icon(
-                                Icons.Rounded.MoreVert,
-                                contentDescription = stringResource(R.string.more_content_description)
-                            )
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(
+                                    Icons.Rounded.MoreVert,
+                                    contentDescription = stringResource(R.string.more_content_description)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("修改书籍信息") },
+                                    onClick = {
+                                        showMenu = false
+                                        book?.id?.let { bookId ->
+                                            val intent = Intent(context, EditBookActivity::class.java).apply {
+                                                putExtra(EditBookActivity.EXTRA_BOOK_ID, bookId)
+                                            }
+                                            context.startActivity(intent)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -258,7 +284,9 @@ fun DetailScreen(
             ) {
                 Surface(
                     modifier = Modifier
-                        .size(260.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .aspectRatio(1f)
                         .clip(RoundedCornerShape(24.dp)),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shadowElevation = 8.dp

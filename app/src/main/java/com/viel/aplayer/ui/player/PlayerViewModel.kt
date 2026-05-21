@@ -124,18 +124,6 @@ class PlayerViewModel : ViewModel() {
     val sleepTimerMillis: StateFlow<Long> = settingsManager.sleepTimerMillis
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private val _relatedData = _currentBookId
-        .flatMapLatest { id ->
-            if (id == null) return@flatMapLatest flowOf(RelatedData(emptyList(), emptyList(), emptyList()))
-            
-            val meta = metadataState.value
-            val author = meta.author
-            val narrator = meta.narrator
-            getRelatedBooksUseCase?.invoke(id, author, narrator) ?: flowOf(RelatedData(emptyList(), emptyList(), emptyList()))
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RelatedData(emptyList(), emptyList(), emptyList()))
-
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val metadataState: StateFlow<BookMetadataState> = _currentBookId
         .flatMapLatest { id ->
             val repo = libraryRepository ?: return@flatMapLatest flowOf(BookMetadataState())
@@ -164,6 +152,26 @@ class PlayerViewModel : ViewModel() {
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BookMetadataState())
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val _relatedData = metadataState
+        .flatMapLatest { meta ->
+            val id = meta.id
+            if (id.isBlank() || id == "Unknown") {
+                return@flatMapLatest flowOf(RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
+            }
+            
+            val author = meta.author
+            val narrator = meta.narrator
+            // 为每一次改动添加详尽的中文注释：
+            // 将推荐数据源绑定到 metadataState 响应式流上。
+            // 这样，只要元数据从 Room 成功加载，或者用户在信息修改器中对属性进行了保存，
+            // 都会触发 flatMapLatest 自动以正确的实机属性调用 usecase，彻底修复了原先 _currentBookId 刚更新时
+            // 静态读取 metadataState.value 快照所导致的全空 Bug！
+            getRelatedBooksUseCase?.invoke(id, author, narrator) 
+                ?: flowOf(RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val playbackState: StateFlow<PlaybackState> = _currentBookId
@@ -286,7 +294,9 @@ class PlayerViewModel : ViewModel() {
             settings = settings,
             relatedAuthorSections = related.authorSections,
             relatedNarratorSections = related.narratorSections,
-            recentlyAddedBooks = related.recentlyAdded
+            recentlyAddedBooks = related.recentlyAdded,
+            // 为每一次改动添加详尽的中文注释：映射注入启发式推荐数据到全局 uiState 流，实现端到端数据传输
+            heuristicRecommendedBooks = related.heuristicRecommended
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlayerUiState())
 

@@ -52,6 +52,13 @@
             </intent-filter>
         </activity>
 
+        <!-- 为每一次改动添加详尽的中文注释：在此注册全新独立且用于修改书籍元数据的 Activity，设置 exported=false 以限制外部应用非法调用，共用 Theme.APlayer 主题 -->
+        <activity
+            android:name=".ui.edit.EditBookActivity"
+            android:exported="false"
+            android:label="修改书籍信息"
+            android:theme="@style/Theme.APlayer" />
+
         <!-- 为本次桌面 widget Glance 迁移添加注释：注册 2x2 播放器 Glance 小组件接收器，系统仍通过标准 AppWidget 更新广播触发 Glance 渲染。 -->
         <receiver
             android:name=".widget.PlayerWidgetProvider"

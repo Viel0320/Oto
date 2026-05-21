@@ -373,6 +373,13 @@ class LibraryRepository private constructor(context: Context) {
             }
         }
     }
+
+    /**
+     * 为每一次改动添加详尽的中文注释：异步更新特定书籍的完整元数据（书名、作者、讲述人、简介、年份），专门供修改器页面使用以保存用户修改
+     */
+    suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String) = withContext(Dispatchers.IO) {
+        bookDao.updateBookDetails(id, title, author, narrator, description, year)
+    }
     
     suspend fun saveProgress(progress: BookProgressEntity) = withContext(Dispatchers.IO) {
         // Playback callbacks may arrive on the main thread, so progress upserts are forced onto IO.

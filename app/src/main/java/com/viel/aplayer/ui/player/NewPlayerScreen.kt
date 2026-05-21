@@ -344,6 +344,8 @@ fun NewPlayerScreen(
                                     Box(modifier = Modifier.weight(1f)) {
                                         RelatedBooksView(
                                             currentBookId = metadata.id,
+                                            // 为每一次改动添加详尽的中文注释：在此传入由 ViewModel 响应式流动汇聚的“启发式智能推荐”书籍列表，完成端到端数据的完美交接与置顶呈现。
+                                            heuristicBooks = fullUiState.heuristicRecommendedBooks,
                                             authorSections = fullUiState.relatedAuthorSections,
                                             narratorSections = fullUiState.relatedNarratorSections,
                                             recentBooks = fullUiState.recentlyAddedBooks,
