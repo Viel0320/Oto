@@ -53,8 +53,10 @@ fun MainCoverView(
 
     Box(
         modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 32.dp),
+            // 为每一次改动添加详尽的中文注释：
+            // 按用户最新要求，为了将播放页左栏封面“宽度顶满”且不留边缘横向多余空余，并且在其下方支持 weight(1f) 自适应拉伸占位，
+            // 我们在此处将外层 Box 的占满尺寸由 .fillMaxSize() 改为 .fillMaxWidth()，且移除了原先阻碍顶满的 horizontal / vertical padding。
+            .fillMaxWidth(),
         contentAlignment = Alignment.TopCenter
     ) {
         // 详尽中文注释：将 coverLastUpdated 纳入 remember 的 keys，确保当数据库自愈更新时间戳改变后，强行使 File 对象及其后的分支重新判断与重绘

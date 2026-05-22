@@ -24,6 +24,11 @@ import com.viel.aplayer.ui.player.NewPlayerScreen
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.CompactMediaPlayer
+// 为每一次改动添加详尽的中文注释：引入 PillCompactMediaPlayer，在满足横屏大屏配置时进行替换渲染
+import com.viel.aplayer.ui.player.components.PillCompactMediaPlayer
+// 为每一次改动添加详尽的中文注释：引入 LocalConfiguration 与 Configuration，用于在迷你播放器组件内实时识别屏幕状态
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 // 为每一次改动添加详尽的中文注释：引入 HazeState 类型
 import dev.chrisbanes.haze.HazeState
 
@@ -64,6 +69,15 @@ fun PlayerOverlay(
         playerViewModel.settingsState.map { it.isMiniPlayerHidden }.distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
 
+    // 为每一次改动添加详尽的中文注释：获取设备配置，以在播放器悬浮层最外层决策自适应对齐位置
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isLargeScreen = configuration.screenWidthDp >= 600 || configuration.smallestScreenWidthDp >= 600
+    val usePillPlayer = isLandscape || isLargeScreen
+
+    // 为每一次改动添加详尽的中文注释：根据是否为药丸播放器自适应对齐。若为药丸播放器，依附在右下角 (Alignment.BottomEnd)；普通底栏播放器居中依附在底部 (Alignment.BottomCenter)
+    val playerAlignment = if (usePillPlayer) Alignment.BottomEnd else Alignment.BottomCenter
+
     Box(modifier = modifier.fillMaxSize()) {
         // 全屏播放器层
         AnimatedVisibility(
@@ -96,7 +110,8 @@ fun PlayerOverlay(
                 targetOffsetY = { it },
                 animationSpec = tween(400)
             ) + fadeOut(animationSpec = tween(400)),
-            modifier = Modifier.align(Alignment.BottomCenter)
+            // 为每一次改动添加详尽的中文注释：根据设备屏幕状态，横屏/大屏下对齐右下角以达成精致非对称排版，竖屏手机对齐底部中心
+            modifier = Modifier.align(playerAlignment)
         ) {
             // 重要：将高频状态（进度、播放状态）隔离在此组件内部
             // 详尽的中文注释：向下游透传模糊背景状态与玻璃模式状态，隔离刷新源
@@ -136,26 +151,61 @@ private fun MiniPlayerContent(
         viewModel.currentBookAvailability(metadata.id)
     }.collectAsStateWithLifecycle(initialValue = true)
 
-    Box(modifier = Modifier.clickable {
-        viewModel.setFullPlayerVisible(true)
-    }) {
-        // 中文注释：已在此处取消了迷你播放器进度条的封面颜色（metadata.backgroundColorArgb）绑定，不再向 CompactMediaPlayer 传入自定义 color 属性
-        // 详尽的中文注释：向迷你播放器透传 hazeState 和 glassEffectMode 以实现背景的高斯模糊效果
-        CompactMediaPlayer(
-            isPlaying = playback.isPlaying,
-            title = metadata.title,
-            author = metadata.author,
-            narrator = metadata.narrator,
-            coverPath = metadata.thumbnailPath,
-            // 详尽的中文注释：桥接封面最后更新时间戳，用以打破 Coil 等的缓存，确保发生重组后强制渲染最新文件
-            coverLastUpdated = metadata.coverLastUpdated,
-            // 详尽的中文注释：传递 ViewModel 预计算的进度值，UI 层不再包含任何业务计算
-            progress = { displayProgress },
-            isMediaAvailable = isMediaAvailable,
-            actions = actions,
-            // 详尽的中文注释：透传磨砂背景参数
-            hazeState = hazeState,
-            glassEffectMode = glassEffectMode
-        )
+    // 为每一次改动添加详尽的中文注释：获取设备配置，用于动态识别屏幕方向和分辨率大小
+    val configuration = LocalConfiguration.current
+    // 为每一次改动添加详尽的中文注释：判断是否处于横屏方向
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // 为每一次改动添加详尽的中文注释：判断屏幕宽度或最小宽度是否达到 600dp（平板、折叠屏大屏设备的通用阈值）
+    val isLargeScreen = configuration.screenWidthDp >= 600 || configuration.smallestScreenWidthDp >= 600
+    // 为每一次改动添加详尽的中文注释：若处于横屏或大屏模式，则决策切换到药丸悬浮样式的迷你播放器以优化整体的视觉宽高比例
+    val usePillPlayer = isLandscape || isLargeScreen
+
+    // 为每一次改动添加详尽的中文注释：
+    // 移除原本包裹在外层的 Box 的 Modifier.clickable { ... }。
+    // 因为这会把药丸卡片的外边距（padding）与底部避让区（navigationBarsPadding）也计入点击区，且导致水波纹呈矩形溢出。
+    // 我们改由各自的内部 Surface 通过 onClick 回调独立处理点击事件，从而让点击区域与水波纹能够完美贴合圆角形状。
+    Box {
+        if (usePillPlayer) {
+            // 为每一次改动添加详尽的中文注释：在横屏和大屏模式下展示药丸悬浮样式的 PillCompactMediaPlayer 组件以提升 premium 质感
+            PillCompactMediaPlayer(
+                isPlaying = playback.isPlaying,
+                title = metadata.title,
+                author = metadata.author,
+                narrator = metadata.narrator,
+                coverPath = metadata.thumbnailPath,
+                // 详尽的中文注释：桥接封面最后更新时间戳，用以打破 Coil 等的缓存，确保发生重组后强制渲染最新文件
+                coverLastUpdated = metadata.coverLastUpdated,
+                // 详尽的中文注释：传递 ViewModel 预计算的进度值，UI 层设计中不再包含业务逻辑计算
+                progress = { displayProgress },
+                isMediaAvailable = isMediaAvailable,
+                actions = actions,
+                // 详尽的中文注释：透传磨砂玻璃背景采样状态，以便在 Haze 模糊玻璃模式下折射背景色彩
+                hazeState = hazeState,
+                // 为每一次改动添加详尽的中文注释：向药丸播放器组件传入点击回调，令其内部 Surface 触发精确圆角的点击波纹
+                onClick = { viewModel.setFullPlayerVisible(true) },
+                glassEffectMode = glassEffectMode
+            )
+        } else {
+            // 中文注释：已在此处取消了迷你播放器进度条的封面颜色（metadata.backgroundColorArgb）绑定，不再向 CompactMediaPlayer 传入自定义 color 属性
+            // 详尽的中文注释：向迷你播放器透传 hazeState 和 glassEffectMode 以实现背景的高斯模糊效果
+            CompactMediaPlayer(
+                isPlaying = playback.isPlaying,
+                title = metadata.title,
+                author = metadata.author,
+                narrator = metadata.narrator,
+                coverPath = metadata.thumbnailPath,
+                // 详尽的中文注释：桥接封面最后更新时间戳，用以打破 Coil 等的缓存，确保发生重组后强制渲染最新文件
+                coverLastUpdated = metadata.coverLastUpdated,
+                // 详尽的中文注释：传递 ViewModel 预计算的进度值，UI 层不再包含任何 business 计算
+                progress = { displayProgress },
+                isMediaAvailable = isMediaAvailable,
+                actions = actions,
+                // 详尽的中文注释：透传磨砂背景参数
+                hazeState = hazeState,
+                // 为每一次改动添加详尽的中文注释：传入点击回调，令 CompactMediaPlayer 内部 Surface 自主管理点击事件以呈现正常水波纹
+                onClick = { viewModel.setFullPlayerVisible(true) },
+                glassEffectMode = glassEffectMode
+            )
+        }
     }
 }

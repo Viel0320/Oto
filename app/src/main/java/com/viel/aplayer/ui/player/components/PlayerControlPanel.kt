@@ -17,6 +17,8 @@ import com.viel.aplayer.ui.player.ChapterDisplayStateful
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
 
+import androidx.compose.foundation.layout.fillMaxWidth
+
 /**
  * 详尽中文注释：全屏播放器下半区控制面板。
  * 纵向编排章节标题、进度条、播放控制按钮三个子区域。
@@ -32,6 +34,7 @@ import dev.chrisbanes.haze.HazeState
  * @param buttonColor 控制按钮的主色调（动画过渡后的封面主色）
  * @param glassEffectMode 播放器当前玻璃视效模式 (Material/Haze)
  * @param hazeState 采样源的 HazeState
+ * @param modifier 外部传入的布局修饰符，便于弹性控制宽度及对齐排版
  */
 @Composable
 fun PlayerControlPanel(
@@ -42,26 +45,36 @@ fun PlayerControlPanel(
     actions: PlayerActions,
     buttonColor: Color,
     glassEffectMode: GlassEffectMode,
-    hazeState: HazeState?
+    hazeState: HazeState?,
+    // 为每一次改动添加详尽的中文注释：新增 modifier 参数以支持外部传入自定义布局修饰符
+    modifier: Modifier = Modifier
 ) {
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-        // 详尽中文注释：章节标题显示局部隔间，订阅极其低频的章节变化流，同时在此传入玻璃效果选项与模糊状态采样源
+    Column(
+        // 为每一次改动添加详尽的中文注释：剥离硬编码的 padding(horizontal = 24.dp)，将布局内边距的控制权移交给外部调用者，以实现彻底顶满屏幕或者按需缩进
+        modifier = modifier
+            .fillMaxWidth()
+    ) {
+        // 详尽中文注释：章节标题显示局部隔间，传入 fillMaxWidth 确保能在行中占据全宽，并且在左右添加合适内距
         ChapterDisplayStateful(
             viewModel = viewModel,
             metadata = metadata,
             actions = actions,
             glassEffectMode = glassEffectMode,
-            hazeState = hazeState
+            hazeState = hazeState,
+            modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(16.dp))
 
-        // 详尽中文注释：进度条显示局部隔间，只在此内部高频重组
+        // 详尽中文注释：进度条显示局部隔间，传入 fillMaxWidth 确保进度条横轴完美铺满
         PlaybackProgressStateful(
             viewModel = viewModel,
             metadata = metadata,
-            actions = actions
+            actions = actions,
+            modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(24.dp))
+        
+        // 详尽中文注释：播放控制组件，传入 fillMaxWidth 让底部的五个控制按钮横向等距均匀排开，自适应各尺寸容器宽度
         PlaybackControls(
             isPlaying = controls.isPlaying,
             playbackSpeed = controls.playbackSpeed,
@@ -70,7 +83,8 @@ fun PlayerControlPanel(
             actions = actions.playback,
             buttonColor = buttonColor,
             glassEffectMode = glassEffectMode,
-            hazeState = hazeState
+            hazeState = hazeState,
+            modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(12.dp))
     }

@@ -29,6 +29,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
@@ -354,348 +357,701 @@ fun DetailScreen(
             },
             containerColor = Color.Transparent,
         ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(padding),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(24.dp)),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shadowElevation = 8.dp
-                ) {
-                    val coverPath = book?.coverPath
-                    val coverLastUpdated = book?.lastScannedAt ?: 0L
-                    // 详尽的中文注释：定义用于追踪大封面异步加载是否失败的局部状态。如果加载发生错误（例如文件物理丢失），则异步降级为占位符渲染，彻底消除主线程 File.exists() 磁盘 I/O 同步阻塞 (H-12)
-                    var isImageError by remember(coverPath) { mutableStateOf(false) }
+            // 为每一次改动添加详尽的中文注释：使用 LocalConfiguration 检测屏幕方向，动态分流横竖屏自适应布局
+            val configuration = LocalConfiguration.current
+            val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-                    if ((coverPath != null) && !isImageError) {
-                        // 详尽中文注释：使用 LocalContext 构建附带 lastScannedAt 更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
-                        val context = androidx.compose.ui.platform.LocalContext.current
-                        val request = remember(coverPath, coverLastUpdated) {
-                            coil.request.ImageRequest.Builder(context)
-                                .data(File(coverPath))
-                                .memoryCacheKey("$coverPath?t=$coverLastUpdated")
-                                .diskCacheKey("$coverPath?t=$coverLastUpdated")
-                                .crossfade(true)
-                                .build()
-                        }
-                        AsyncImage(
-                            model = request,
-                            contentDescription = "Cover",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            onError = { state ->
-                                isImageError = true
-                                // 详尽中文注释：若大封面加载失败，向 Logcat 打印明确的文件路径与异常根本原因以利于线上诊断
-                                android.util.Log.e(
-                                    "DetailScreen",
-                                    "DetailScreen 大封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
-                                    state.result.throwable
+            if (isLandscape) {
+                // 为每一次改动添加详尽的中文注释：使用 smallestScreenWidthDp 判断是否为大屏平板模式，sw >= 600dp 为大屏
+                val isLargeScreen = configuration.smallestScreenWidthDp >= 600
+
+                // 为每一次改动添加详尽的中文注释：针对小屏手机横屏与大屏平板横屏进行顶端占位高度的自适应适配。
+                // 手机横屏高度较窄，减半以防内容需要滚动；平板高度充裕，完整保留以防视觉上过于靠上。
+                val topSpacerHeight = if (isLargeScreen) padding.calculateTopPadding() else padding.calculateTopPadding() / 2
+
+                // 为每一次改动添加详尽的中文注释：将原本左侧圈中的播放控制区、芯片组及物理文件路径抽取为统一的 Composable 局部组件变量，以便于在手机与平板设备横屏模式下进行流式自适应渲染
+                val controlPanel = @Composable {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // 为每一次改动添加详尽的中文注释：元数据标签组，采用自适应流式 FlowRow，确保年份、时长及大小自适应编排
+                        androidx.compose.foundation.layout.FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            DetailInfoChip(
+                                icon = Icons.Rounded.Event,
+                                value = book?.year?.takeIf { it.isNotBlank() } ?: "Unknown",
+                                glassEffectMode = glassEffectMode,
+                                hazeState = coverHazeState
+                            )
+                            DetailInfoChip(
+                                icon = Icons.Rounded.Timelapse,
+                                value = formatTime(book?.totalDurationMs ?: 0L),
+                                glassEffectMode = glassEffectMode,
+                                hazeState = coverHazeState
+                            )
+                            if ((book?.totalFileSize ?: 0L) > 0) {
+                                DetailInfoChip(
+                                    icon = Icons.Rounded.Storage,
+                                    value = formatFileSize(book?.totalFileSize ?: 0L),
+                                    glassEffectMode = glassEffectMode,
+                                    hazeState = coverHazeState
                                 )
                             }
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Rounded.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 为每一次改动添加详尽的中文注释：播放主控制按钮与进度展示
+                        val displayProgress = uiState.displayProgressPercent
+                        if (isHaze && uiState.isAvailable) {
+                            Surface(
+                                onClick = {
+                                    onPlayPressed()
+                                    onPlayClick()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .hazeEffect(state = coverHazeState, style = HazePresets.HazeStyle),
+                                shape = RoundedCornerShape(12.dp),
+                                color = HazePresets.BackgroundColor,
+                                border = HazePresets.Border,
+                                contentColor = MaterialTheme.colorScheme.primary
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (displayProgress > 0) Icons.Rounded.History else Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (displayProgress > 0) "Continue at $displayProgress%" else "Start Listening",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        } else {
+                            Button(
+                                onClick = { 
+                                    if (uiState.isAvailable) {
+                                        onPlayPressed()
+                                        onPlayClick()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = if (uiState.isAvailable) {
+                                    ButtonDefaults.buttonColors()
+                                } else {
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage 
+                                    else if (displayProgress > 0) Icons.Rounded.History 
+                                    else Icons.Rounded.PlayArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (!uiState.isAvailable) "File not found"
+                                           else if (displayProgress > 0) "Continue at $displayProgress%" 
+                                           else "Start Listening",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                )
+                            }
+                        }
+
+                        if (uiState.fullSourcePath.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = uiState.fullSourcePath,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LocalContentColor.current.copy(alpha = 0.8f),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                SelectableTextView(
-                    text = book?.title?.takeIf { it.isNotBlank() } ?: "Unknown",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    textColor = MaterialTheme.colorScheme.onSurface,
-                    textSizeSp = 28f,
-                    lineSpacingExtraSp = 0f,
-                    gravity = Gravity.CENTER,
-                    typefaceStyle = android.graphics.Typeface.BOLD
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
+                // 与全屏播放器的横大屏排版规范保持高度一致。
+                // 两侧占位（sidePadding）缩减至屏幕宽度的 3%（0.03f），双栏间隙（middleSpacing）缩减至 4%（0.04f），
+                // 在极力拓宽书籍封面大图、元数据面板与右侧概要信息阅读版面的同时，提供完美的流体一致性视觉比例。
+                val screenWidthDp = configuration.screenWidthDp.dp
+                val sidePadding = screenWidthDp * 0.04f
+                val middleSpacing = screenWidthDp * 0.06f
 
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxSize()
+                        // 为每一次改动添加详尽的中文注释：横屏双栏大屏下不把 Scaffold padding（包含状态栏和 TopBar 的高度）作为 Row 本身的物理 padding，
+                        // 这样整个 Row 的绘制区域会充满屏幕，避免滚动时内容在 TopBar 下边缘被直接生硬裁切。
+                        // 我们只在 Row 本身保留水平安全边距，将垂直方向的 padding 占位推迟到滚动容器内部通过 Spacer 来完成。
+                        .padding(horizontal = sidePadding),
+                    horizontalArrangement = Arrangement.spacedBy(middleSpacing)
                 ) {
-                    Column(
+                    // 为每一次改动添加详尽的中文注释：左侧固定书籍元数据面板 (与右侧 1f:1f 等宽分配)。
+                    // 为满足最新视觉需求与流畅度体验，将原有的透明 Surface 容器替换为 Box 容器，并彻底去除 .clip(RoundedCornerShape) 裁剪修饰符，从而杜绝在滚动时内容于隐藏的圆角边界发生生硬裁切的问题，使背景与封面等元素滚动时能够完美延伸与过渡。
+                    Box(
                         modifier = Modifier
+                            // 为每一次改动添加详尽的中文注释：横屏双栏大屏等宽平分设计，左侧元数据面板分配比重为 1f，去除任何形式的边缘裁剪以确保内容滚动时不被截断
                             .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .combinedClickable(
-                                onClick = { 
-                                    book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Author:$it ") } 
-                                },
-                                onLongClick = { 
-                                    if (!book?.author.isNullOrBlank() && !book.author.equals("unknown", true)) {
-                                        infoDialogTitle = "Author"
-                                        infoDialogText = book.author
+                            .fillMaxHeight()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                // 为每一次改动添加详尽的中文注释：由于外部移除了 Row 容器的 padding 限制，这里左栏 Column 的内边距只保留水平方向 and 紧凑的 8.dp，垂直大屏占位全部移交给内部顶底 Spacer 处理
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // 为每一次改动添加详尽的中文注释：使用自适应顶端占位高度，平板大屏保留完整边距以保美观，手机窄屏减半防滑动
+                            Spacer(modifier = Modifier.height(topSpacerHeight))
+                            // 为每一次改动添加详尽的中文注释：左侧栏内部的封面显示，不再限制固定 150.dp 大小，
+                            // 而是根据左侧栏可用宽度的比例自适应渲染，长宽比例统一按比例设为 60% 宽度 (fillMaxWidth(0.6f)) 配合 1:1 宽高比 (aspectRatio(1f))，
+                            // 在普通大屏下相当于将长宽各增加一倍（放大至约 300.dp），并完美实现流体自适应伸缩，拥有阴影和精美圆角。
+                            Surface(
+                                modifier = Modifier
+                                    // 为每一次改动添加详尽的中文注释：左侧栏内部的封面显示，不再限制固定 150.dp 大小，
+                                    // 而是根据左侧栏可用宽度的比例自适应渲染，长宽比例统一按比例设为 60% 宽度 (fillMaxWidth(0.6f)) 配合 1:1 宽高比 (aspectRatio(1f))，
+                                    // 在普通大屏下相当于将长宽各增加一倍（放大至约 300.dp），并完美实现流体自适应伸缩，拥有阴影和精美圆角。
+                                    .fillMaxWidth(0.6f)
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(16.dp)),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shadowElevation = 4.dp
+                            ) {
+                                val coverPath = book?.coverPath
+                                val coverLastUpdated = book?.lastScannedAt ?: 0L
+                                var isImageError by remember(coverPath) { mutableStateOf(false) }
+
+                                if ((coverPath != null) && !isImageError) {
+                                    val context = androidx.compose.ui.platform.LocalContext.current
+                                    val request = remember(coverPath, coverLastUpdated) {
+                                        coil.request.ImageRequest.Builder(context)
+                                            .data(File(coverPath))
+                                            .memoryCacheKey("$coverPath?t=$coverLastUpdated")
+                                            .diskCacheKey("$coverPath?t=$coverLastUpdated")
+                                            .crossfade(true)
+                                            .build()
+                                    }
+                                    AsyncImage(
+                                        model = request,
+                                        contentDescription = "Cover",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop,
+                                        onError = { state ->
+                                            isImageError = true
+                                            android.util.Log.e(
+                                                "DetailScreen",
+                                                "DetailScreen 横屏大图封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
+                                                state.result.throwable
+                                            )
+                                        }
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.PlayArrow,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(48.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                                        )
                                     }
                                 }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // 为每一次改动添加详尽的中文注释：书籍标题，横屏下字号轻微缩减为 22f 保持紧凑协调
+                            SelectableTextView(
+                                text = book?.title?.takeIf { it.isNotBlank() } ?: "Unknown",
+                                modifier = Modifier.fillMaxWidth(),
+                                textColor = MaterialTheme.colorScheme.onSurface,
+                                textSizeSp = 22f,
+                                lineSpacingExtraSp = 0f,
+                                gravity = Gravity.CENTER,
+                                typefaceStyle = android.graphics.Typeface.BOLD
                             )
-                            .padding(vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = stringResource(R.string.author_label),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = book?.author?.takeIf { it.isNotBlank() } ?: "Unknown",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 为每一次改动添加详尽的中文注释：作者与朗读者信息栏，保持横向并排紧凑显示
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .combinedClickable(
+                                            onClick = { 
+                                                book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Author:$it ") } 
+                                            },
+                                            onLongClick = { 
+                                                if (!book?.author.isNullOrBlank() && !book.author.equals("unknown", true)) {
+                                                    infoDialogTitle = "Author"
+                                                    infoDialogText = book.author
+                                                }
+                                            }
+                                        )
+                                        .padding(vertical = 2.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.author_label),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = book?.author?.takeIf { it.isNotBlank() } ?: "Unknown",
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                VerticalDivider(
+                                    modifier = Modifier
+                                        .height(20.dp)
+                                        .padding(horizontal = 4.dp),
+                                    thickness = 1.dp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(0.3f)
+                                )
+
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .combinedClickable(
+                                            onClick = {
+                                                book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Narrator:$it ") } 
+                                            },
+                                            onLongClick = { 
+                                                if (!book?.narrator.isNullOrBlank() && !book.narrator.equals("unknown", true)) {
+                                                    infoDialogTitle = "Narrator"
+                                                    infoDialogText = book.narrator
+                                                }
+                                            }
+                                        )
+                                        .padding(vertical = 2.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.narrator_label),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = book?.narrator?.takeIf { it.isNotBlank() } ?: "Unknown",
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            // 为每一次改动添加详尽的中文注释：若是大屏模式，则将控制按钮面板留在左侧元数据区底部
+                            if (isLargeScreen) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                controlPanel()
+                            }
+                            // 为每一次改动添加详尽的中文注释：在 Column 最下方放置一个与 Scaffold bottomBar / 底部导航栏相同高度的 Spacer，在初始状态下留出安全底距，但滚动时允许内容完全显示且不被屏幕物理边缘切断
+                            Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
+                        }
                     }
 
-                    VerticalDivider(
-                        modifier = Modifier
-                            .height(32.dp)
-                            .padding(horizontal = 8.dp),
-                        thickness = 2.dp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(0.5f)
-                    )
-
+                    // 为每一次改动添加详尽的中文注释：右侧独立滚动的书籍概要简介信息面板 (占比约 60%)
                     Column(
                         modifier = Modifier
+                            // 为每一次改动添加详尽的中文注释：横屏双栏大屏等宽平分设计，右侧概要滚动面板分配比重为 1f
                             .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .combinedClickable(
-                                onClick = {
-                                    book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Narrator:$it ") } 
-                                },
-                                onLongClick = { 
-                                    if (!book?.narrator.isNullOrBlank() && !book.narrator.equals("unknown", true)) {
-                                        infoDialogTitle = "Narrator"
-                                        infoDialogText = book.narrator
-                                    }
-                                }
-                            )
-                            .padding(vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
+                        // 为每一次改动添加详尽的中文注释：使用自适应顶端占位高度，右侧概要区域与左侧对齐，平板保留完整，手机减半
+                        Spacer(modifier = Modifier.height(topSpacerHeight))
+
+                        // 为每一次改动添加详尽的中文注释：如果当前处于手机窄屏横屏模式，左侧空间窄，则在此处（右侧顶部）率先渲染播放控制标签面板，实现流畅自适应流式布局
+                        if (!isLargeScreen) {
+                            controlPanel()
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
                         Text(
-                            text = stringResource(R.string.narrator_label),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = stringResource(R.string.summary_label),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
                         )
-                        Text(
-                            text = book?.narrator?.takeIf { it.isNotBlank() } ?: "Unknown",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                        Spacer(modifier = Modifier.height(12.dp))
+                        val htmlDescription = book?.description ?: ""
+                        val summaryDescription = remember(htmlDescription) {
+                            renderDescriptionText(htmlDescription)
+                        }
+                        
+                        SelectableTextView(
+                            text = summaryDescription,
+                            modifier = Modifier.fillMaxWidth(),
+                            textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textSizeSp = 16f,
+                            lineSpacingExtraSp = 4f,
+                            firstLineIndentEm = 2f
                         )
+                        Spacer(modifier = Modifier.height(32.dp))
+                        // 为每一次改动添加详尽的中文注释：在 Column 最下方放置一个与 Scaffold bottomBar / 底部导航栏相同高度的 Spacer，在初始状态下留出安全底距，但滚动时允许内容完全显示
+                        Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
                     }
                 }
-
-                // 使用 FlowRow 实现自适应布局：
-                // 1. 空间足够时，3 个 Chip 自动并排成一行。
-                // 2. 空间不足时，自动换行，并保持居中对齐。
-                androidx.compose.foundation.layout.FlowRow(
+            } else {
+                // 为每一次改动添加详尽的中文注释：现有的竖屏单列 Column 编排布局，并在底部自适应底部栏间距
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(padding),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 为每一次改动添加详尽的中文注释：
-                    // 将年份、时长、文件大小这三个 Chip 组件全部升级为“高雅白羽雾化”毛玻璃方案。
-                    // 传入全局 glassEffectMode 及专属 coverHazeState 采样源，并引用统一的 HazePresets 模板，
-                    // 使得 Chip 在 Haze 开启时同样呈现磨砂圆角效果，而在 Material 模式下完美实现 0 渲染开销降级。
-                    DetailInfoChip(
-                        icon = Icons.Rounded.Event,
-                        value = book?.year?.takeIf { it.isNotBlank() } ?: "Unknown",
-                        glassEffectMode = glassEffectMode,
-                        hazeState = coverHazeState
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(24.dp)),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shadowElevation = 8.dp
+                    ) {
+                        val coverPath = book?.coverPath
+                        val coverLastUpdated = book?.lastScannedAt ?: 0L
+                        // 详尽的中文注释：定义用于追踪大封面异步加载是否失败的局部状态。如果加载发生错误（例如文件物理丢失），则异步降级为占位符渲染，彻底消除主线程 File.exists() 磁盘 I/O 同步阻塞 (H-12)
+                        var isImageError by remember(coverPath) { mutableStateOf(false) }
+
+                        if ((coverPath != null) && !isImageError) {
+                            // 详尽中文注释：使用 LocalContext 构建附带 lastScannedAt 更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            val request = remember(coverPath, coverLastUpdated) {
+                                coil.request.ImageRequest.Builder(context)
+                                    .data(File(coverPath))
+                                    .memoryCacheKey("$coverPath?t=$coverLastUpdated")
+                                    .diskCacheKey("$coverPath?t=$coverLastUpdated")
+                                    .crossfade(true)
+                                    .build()
+                            }
+                            AsyncImage(
+                                model = request,
+                                contentDescription = "Cover",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                onError = { state ->
+                                    isImageError = true
+                                    // 详尽中文注释：若大封面加载失败，向 Logcat 打印明确的文件路径与异常根本原因以利于线上诊断
+                                    android.util.Log.e(
+                                        "DetailScreen",
+                                        "DetailScreen 大封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
+                                        state.result.throwable
+                                    )
+                                }
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Rounded.PlayArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    SelectableTextView(
+                        text = book?.title?.takeIf { it.isNotBlank() } ?: "Unknown",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        textColor = MaterialTheme.colorScheme.onSurface,
+                        textSizeSp = 28f,
+                        lineSpacingExtraSp = 0f,
+                        gravity = Gravity.CENTER,
+                        typefaceStyle = android.graphics.Typeface.BOLD
                     )
-                    DetailInfoChip(
-                        icon = Icons.Rounded.Timelapse,
-                        value = formatTime(book?.totalDurationMs ?: 0L),
-                        glassEffectMode = glassEffectMode,
-                        hazeState = coverHazeState
-                    )
-                    // 为每一次改动添加详尽的中文注释：通过安全链式调用规避 book!!.totalFileSize 强制解包漏洞 (H-09)
-                    if ((book?.totalFileSize ?: 0L) > 0) {
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .combinedClickable(
+                                    onClick = { 
+                                        book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Author:$it ") } 
+                                    },
+                                    onLongClick = { 
+                                        if (!book?.author.isNullOrBlank() && !book.author.equals("unknown", true)) {
+                                            infoDialogTitle = "Author"
+                                            infoDialogText = book.author
+                                        }
+                                    }
+                                )
+                                .padding(vertical = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = stringResource(R.string.author_label),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = book?.author?.takeIf { it.isNotBlank() } ?: "Unknown",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        VerticalDivider(
+                            modifier = Modifier
+                                .height(32.dp)
+                                .padding(horizontal = 8.dp),
+                            thickness = 2.dp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.5f)
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .combinedClickable(
+                                    onClick = {
+                                        book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Narrator:$it ") } 
+                                    },
+                                    onLongClick = { 
+                                        if (!book?.narrator.isNullOrBlank() && !book.narrator.equals("unknown", true)) {
+                                            infoDialogTitle = "Narrator"
+                                            infoDialogText = book.narrator
+                                        }
+                                    }
+                                )
+                                .padding(vertical = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = stringResource(R.string.narrator_label),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = book?.narrator?.takeIf { it.isNotBlank() } ?: "Unknown",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    // 使用 FlowRow 实现自适应布局：
+                    // 1. 空间足够时，3 个 Chip 自动并排成一行。
+                    // 2. 空间不足时，自动换行，并保持居中对齐。
+                    androidx.compose.foundation.layout.FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         DetailInfoChip(
-                            icon = Icons.Rounded.Storage,
-                            value = formatFileSize(book?.totalFileSize ?: 0L),
+                            icon = Icons.Rounded.Event,
+                            value = book?.year?.takeIf { it.isNotBlank() } ?: "Unknown",
                             glassEffectMode = glassEffectMode,
                             hazeState = coverHazeState
                         )
-                    }
-
-                }
-
-                // 详尽中文注释：M-19 修复 — 直接使用 ViewModel 提供的 displayProgressPercent，
-                // 配置变更后保护期状态不就丢失。
-                val displayProgress = uiState.displayProgressPercent
-
-                if (isHaze && uiState.isAvailable) {
-                    // 为每一次改动添加详尽的中文注释：
-                    // 在 Haze 磨砂玻璃模式下，将播放按钮重构为极致至尊的“高雅白羽雾化”Surface。
-                    // 彻底废弃原先的 border 生硬描边与完全透明导致的边界模糊缺失，
-                    // 1. 材质预设调整为更具呼吸感和清透漫反射的 HazeMaterials.thick()。
-                    // 2. 引入极淡的乳白色蒙版背景 (Color.White.copy(0.15f))，建立温润高级的物理面域与几何实体分量。
-                    // 3. 搭配 0.5.dp 极细微透轮廓白边 (Color.White.copy(0.3f))，在高分屏下展现若隐若现的玲珑光泽。
-                    // 4. 在 modifier 链首部调用 .clip 物理裁剪出 16.dp 圆角，使超厚毛玻璃光晕在极度清透高级的同时，与详情页整体设计完美融为一体。
-                    // 为每一次改动添加详尽的中文注释：
-                    // 在 Haze 磨砂玻璃模式下，将播放按钮重构为极致至尊的“高雅白羽雾化”Surface。
-                    // 统一引用 HazePresets 预设模板，确保设计语言和视觉精度的高一致性与低冗余度。
-                    Surface(
-                        onClick = {
-                            onPlayPressed()
-                            onPlayClick()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .height(56.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            // 引用统一的 Haze 材质预设模板 HazePresets.HazeStyle
-                            .hazeEffect(state = coverHazeState, style = HazePresets.HazeStyle),
-                        shape = RoundedCornerShape(16.dp),
-                        // 引用统一的乳白蒙版背景色 HazePresets.BackgroundColor
-                        color = HazePresets.BackgroundColor,
-                        // 引用统一的 0.5.dp 微光轮廓白边描边模板 HazePresets.Border
-                        border = HazePresets.Border,
-                        contentColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = if (displayProgress > 0) Icons.Rounded.History else Icons.Rounded.PlayArrow,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (displayProgress > 0) "Continue at $displayProgress%" else "Start Listening",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                } else {
-                    Button(
-                        onClick = { 
-                            if (uiState.isAvailable) {
-                                // 详尽中文注释：M-19 修复 — 将保护期逻辑局全委托给 ViewModel.onPlayPressed，
-                                // Composable 内不再持有任何进度锁定状态。
-                                onPlayPressed()
-                                onPlayClick()
+                        DetailInfoChip(
+                            icon = Icons.Rounded.Timelapse,
+                            value = formatTime(book?.totalDurationMs ?: 0L),
+                            glassEffectMode = glassEffectMode,
+                            hazeState = coverHazeState
+                        )
+                        if ((book?.totalFileSize ?: 0L) > 0) {
+                            DetailInfoChip(
+                                icon = Icons.Rounded.Storage,
+                                    value = formatFileSize(book?.totalFileSize ?: 0L),
+                                    glassEffectMode = glassEffectMode,
+                                    hazeState = coverHazeState
+                                )
                             }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = if (uiState.isAvailable) {
-                            ButtonDefaults.buttonColors()
+                        }
+
+                        val displayProgress = uiState.displayProgressPercent
+
+                        if (isHaze && uiState.isAvailable) {
+                            Surface(
+                                onClick = {
+                                    onPlayPressed()
+                                    onPlayClick()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .height(56.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .hazeEffect(state = coverHazeState, style = HazePresets.HazeStyle),
+                                shape = RoundedCornerShape(16.dp),
+                                color = HazePresets.BackgroundColor,
+                                border = HazePresets.Border,
+                                contentColor = MaterialTheme.colorScheme.primary
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (displayProgress > 0) Icons.Rounded.History else Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (displayProgress > 0) "Continue at $displayProgress%" else "Start Listening",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
                         } else {
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            Button(
+                                onClick = { 
+                                    if (uiState.isAvailable) {
+                                        onPlayPressed()
+                                        onPlayClick()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = if (uiState.isAvailable) {
+                                    ButtonDefaults.buttonColors()
+                                } else {
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage 
+                                    else if (displayProgress > 0) Icons.Rounded.History 
+                                    else Icons.Rounded.PlayArrow,
+                                    contentDescription = null
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (!uiState.isAvailable) "File not found"
+                                           else if (displayProgress > 0) "Continue at $displayProgress%" 
+                                           else "Start Listening",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+
+                        if (uiState.fullSourcePath.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = uiState.fullSourcePath,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = LocalContentColor.current.copy(alpha = 0.8f),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        } else {
+                            Spacer(modifier = Modifier.height(32.dp))
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.summary_label),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            val htmlDescription = book?.description ?: ""
+                            val summaryDescription = remember(htmlDescription) {
+                                renderDescriptionText(htmlDescription)
+                            }
+                            
+                            SelectableTextView(
+                                text = summaryDescription,
+                                modifier = Modifier.fillMaxWidth(),
+                                textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textSizeSp = 16f,
+                                lineSpacingExtraSp = 4f,
+                                firstLineIndentEm = 2f
                             )
                         }
-                    ) {
-                        Icon(
-                            imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage 
-                            else if (displayProgress > 0) Icons.Rounded.History 
-                            else Icons.Rounded.PlayArrow,
-                            contentDescription = null
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (!uiState.isAvailable) "File not found"
-                                   else if (displayProgress > 0) "Continue at $displayProgress%" 
-                                   else "Start Listening",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                    }
-                }
-                // 为每一次改动添加详尽的中文注释：直接从 uiState.fullSourcePath 中读取已经在 ViewModel 侧预先计算好的源路径字符串进行渲染。
-                // 这样能使 Compose UI 层保持绝对的纯净，避免在重组（Recomposition）中执行任何复杂的字符串分割和解码操作。
-                // 为了完美适配详情页的深色/彩色适配背景并提升对比度，此处的文字颜色与字号样式完全参考了 Chip 内容的显示风格（使用 LocalContentColor.current.copy(alpha = 0.8f) 配合 labelMedium），高雅且易读。
-                if (uiState.fullSourcePath.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = uiState.fullSourcePath,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = LocalContentColor.current.copy(alpha = 0.8f),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                } else {
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.summary_label),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    val htmlDescription = book?.description ?: ""
-                    val summaryDescription = remember(htmlDescription) {
-                        // Plain txt sidecar descriptions must keep literal line breaks; only real HTML goes through HtmlCompat.
-                        renderDescriptionText(htmlDescription)
+                        Spacer(modifier = Modifier.height(100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
                     }
-                    
-                    SelectableTextView(
-                        text = summaryDescription,
-                        modifier = Modifier.fillMaxWidth(),
-                        textColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textSizeSp = 16f,
-                        lineSpacingExtraSp = 4f,
-                        firstLineIndentEm = 2f
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
             }
         }
-        } // 为每一次改动添加详尽的中文注释：在此处闭合我们在底层 Surface 内新增的毛玻璃封面容器 Box
     }
+}
 
     if (infoDialogText != null) {
         if (isHaze) {
@@ -974,7 +1330,23 @@ fun DetailInfoChip(
     }
 }
 
-@Preview(showBackground = true, apiLevel = 36)
+// 为每一次改动添加详尽的中文注释：为 DetailScreenPreview 增加多重自适应 Preview。
+// 1. Phone Portrait: 手机常规竖屏模式。
+// 2. Phone Landscape: 手机横屏窄高模式 (smallest width < 600dp)，用来预览我们刚做好的播放控制流转至右侧顶部的流式自适应新排版。
+// 3. Tablet Landscape: 平板/折叠屏大屏横屏模式 (smallest width >= 600dp)，用来预览原有的左侧经典双栏卡片式排版。
+@Preview(name = "Phone Portrait", showBackground = true, apiLevel = 36)
+@Preview(
+    name = "Phone Landscape",
+    showBackground = true,
+    device = "spec:width=720dp,height=360dp,orientation=landscape,dpi=440",
+    apiLevel = 36
+)
+@Preview(
+    name = "Tablet Landscape",
+    showBackground = true,
+    device = "spec:width=1280dp,height=800dp,orientation=landscape,dpi=240",
+    apiLevel = 36
+)
 @Composable
 fun DetailScreenPreview() {
     APlayerTheme {

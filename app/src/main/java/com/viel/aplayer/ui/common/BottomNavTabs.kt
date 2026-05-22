@@ -214,8 +214,14 @@ fun BottomNavTabs(
             
         }
         
-        // 详尽的中文注释：在 Tab 点击内容区 Box 的正下方放置 16.dp 的物理防误触隔离 Spacer，垂直撑开空间
-        Spacer(modifier = Modifier.height(16.dp))
+        // 为每一次改动添加详尽的中文注释：获取设备配置以识别屏幕方向
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+        // 为每一次改动添加详尽的中文注释：在 Tab 点击内容区 Box 的正下方放置防误触隔离 Spacer。
+        // 横屏状态下垂直空间极其宝贵，且系统手势小白条通常移至侧边，故将占位缩减为 0.dp；竖屏时则保持 16.dp 保护手势防误触。
+        val bottomSpacerHeight = if (isLandscape) 0.dp else 16.dp
+        Spacer(modifier = Modifier.height(bottomSpacerHeight))
         
         // 详尽的中文注释：使用独立的 Spacer 来应用系统底栏安全边距，确保交互区域完美安全抬升而不产生双重 Padding
         Spacer(modifier = Modifier.navigationBarsPadding())

@@ -36,16 +36,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import java.io.File
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Color
 import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.theme.APlayerTheme
-// 为每一次改动添加详尽的中文注释：引入 Haze 高斯模糊背景支持及 Glass 模式定义
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
+// 为每一次改动添加详尽的中文注释：引入全局的 HazePresets 类以获取高度呼吸感的白羽雾化毛玻璃材质预设
+import com.viel.aplayer.ui.common.HazePresets
 import dev.chrisbanes.haze.materials.HazeMaterials
 import com.viel.aplayer.data.store.GlassEffectMode
-import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -66,6 +70,8 @@ fun CompactMediaPlayer(
     actions: MiniPlayerActions = MiniPlayerActions(),
     // 详尽的中文注释：新增 hazeState 参数，供模糊玻璃背景采样
     hazeState: HazeState? = null,
+    // 为每一次改动添加详尽的中文注释：新增 onClick 参数，用于接管迷你播放器的全屏展开点击事件，在其 Surface 最外层处理以获取优良的水波纹点击波澜
+    onClick: () -> Unit = {},
     // 详尽的中文注释：新增 glassEffectMode 参数，以区分是毛玻璃高斯模糊还是标准 Material 纯色背景
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
@@ -79,13 +85,39 @@ fun CompactMediaPlayer(
     // 详尽的中文注释：根据传入的 glassEffectMode 和 hazeState 判断当前是否要启用磨砂玻璃高斯模糊背景效果。
     val isHazeMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
+    // 为每一次改动添加详尽的中文注释：获取当前系统的亮暗色主题状态，以实现毛玻璃自适应
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+
+    // 为每一次改动添加详尽的中文注释：在 Composable 主作用域中安全提取带有 @Composable 标记的全局 HazeStyle 预设，避免在 remember 闭包内部非法调用
+    val baseStyle = HazePresets.HazeStyle
+
+    // 为每一次改动添加详尽的中文注释：
+    // 创建普通迷你播放器专属的高保真磨砂玻璃滤镜样式 (compactHazeStyle)。
+    // 同样采用 .copy 深度自适应定制：设置 backgroundColor = Color.Transparent (杜绝实体纯色遮挡底色渲染)，
+    // 并且根据系统深色/浅色主题自适应调整蒙版色 Tint，实现白天“温润白羽”(亮色下 80% 白) 与黑夜“暗夜玄羽”(暗色下 40% 黑) 的高级磨砂通透感。
+    val compactHazeStyle = remember(isDark, baseStyle) {
+        baseStyle.copy(
+            backgroundColor = Color.Transparent,
+            tints = listOf(
+                dev.chrisbanes.haze.HazeTint(
+                    if (isDark) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.8f)
+                )
+            )
+        )
+    }
+
+    // 为每一次改动添加详尽的中文注释：
+    // 将 Surface 改为支持 onClick 的重载，并将传入 of onClick 动作直接挂载在此。
+    // 这将实现该紧凑栏样式播放器卡片本体的完全可点击化，且拥有与 Material 3 一致的水波纹动效表现。
     Surface(
+        onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .let {
                 if (isHazeMode) {
-                    // 详尽的中文注释：在 Haze 模式下链式追加 hazeEffect 高斯模糊修饰符，折射下方主页 NavHost 像素（利用 Kotlin 智能转换省去非空断言）
-                    it.hazeEffect(state = hazeState, style = HazeMaterials.regular())
+                    // 为每一次改动添加详尽的中文注释：在 Haze 模式下链式追加 hazeEffect 高斯模糊修饰符，折射下方主页 NavHost 像素
+                    // 为每一次改动添加详尽的中文注释：使用自定义自适应系统的 compactHazeStyle 样式，呈现极其通透呼吸感的白羽与玄羽毛玻璃底色
+                    it.hazeEffect(state = hazeState, style = compactHazeStyle)
                 } else {
                     it
                 }
@@ -263,4 +295,4 @@ fun CompactMediaPlayerAuthorOnlyPreview() {
             progress = { 0.12f }
         )
     }
-}
+}

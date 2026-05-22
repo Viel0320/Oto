@@ -63,6 +63,9 @@ fun APlayerApp(
         val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
         val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
         val scanResult by libraryViewModel.scanResultDialogState.collectAsStateWithLifecycle()
+        // 为每一次改动添加详尽的中文注释：在此收集详情页 detailViewModel 的 uiState 状态。
+        // 用以在后续渲染迷你播放器 PlayerOverlay 时感知详情页是否处于可见状态，以进行 Haze 模糊采样源的动态自动切换映射。
+        val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
         val canStartNavigation = rememberNavigationThrottle()
 
@@ -259,18 +262,22 @@ fun APlayerApp(
                     }
                 )
 
-                // 为每一次改动添加详尽的中文注释：
-                // 播放器悬浮层 (PlayerOverlay)。位于详情页之上，包含全屏播放器 and 迷你播放器组件。
-                // 向其透传全局 appHazeState，使得底部 CompactMediaPlayer能实时且极致 premium 地高斯模糊折射 HomeScreen 书籍卡片色彩。
-                PlayerOverlay(
-                    playerViewModel = playerViewModel,
-                    playerActions = playerActions,
-                    miniPlayerActions = miniPlayerActions,
-                    playerNavigationActions = playerNavigationActions,
-                    currentRoute = currentRoute,
-                    glassEffectMode = libraryUiState.glassEffectMode,
-                    hazeState = appHazeState
-                )
+                 // 为每一次改动添加详尽的中文注释：
+                 // 播放器悬浮层 (PlayerOverlay)。位于详情页之上，包含全屏播放器 and 迷你播放器组件。
+                 // 核心模糊采样源自适应修复：
+                 // - 当详情页 DetailOverlay 显示（detailUiState.isVisible 为 true）时，迷你播放器底部的物理图层其实是详情页，
+                 //   此时我们将其 hazeState 动态切换为 detailHazeState，使得模糊的磨砂玻璃能以极其精致真实的物理透射展现详情页的背景颜色。
+                 // - 当详情页隐藏时，则安全地切回 appHazeState 采样底层的 HomeScreen 界面。
+                 // 从而彻底规避 Haze 在多层悬浮重叠时，由于强制采样最底层 HomeScreen 而引起的背景折射透视穿帮错误。
+                 PlayerOverlay(
+                     playerViewModel = playerViewModel,
+                     playerActions = playerActions,
+                     miniPlayerActions = miniPlayerActions,
+                     playerNavigationActions = playerNavigationActions,
+                     currentRoute = currentRoute,
+                     glassEffectMode = libraryUiState.glassEffectMode,
+                     hazeState = if (detailUiState.isVisible) detailHazeState else appHazeState
+                 )
 
                 // 为每一次改动添加详尽的中文注释：
                 // 书籍信息修改悬浮层 (EditBookOverlay)。
