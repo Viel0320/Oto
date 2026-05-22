@@ -63,7 +63,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
-import com.viel.aplayer.ui.edit.EditBookActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -99,16 +98,27 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.BlurDialog
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.formatFileSize
 import com.viel.aplayer.ui.common.formatTime
+import com.viel.aplayer.ui.common.HazePresets
 import com.viel.aplayer.ui.theme.APlayerTheme
+// 为每一次改动添加详尽的中文注释：在此处引入 dev.chrisbanes.haze 相关的 HazeState, hazeSource, rememberHazeState 以及 hazeEffect 与 HazeMaterials，实现以封面采样为中心的完美毛玻璃模糊效果。
+import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalFoundationApi::class,
+    dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class
+)
 @Composable
 fun DetailScreen(
     uiState: DetailUiState,
@@ -123,6 +133,10 @@ fun DetailScreen(
     onSearchClick: (String) -> Unit = {},
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由详情 Overlay 从设置状态显式传入，详情页内部不再声明 Material 默认值。
     glassEffectMode: GlassEffectMode,
+    // 为每一次改动添加详尽的中文注释：添加来自 APlayerApp 全局共享的 Haze 模糊背景状态以实现折射模糊效果。
+    hazeState: HazeState? = null,
+    // 为每一次改动添加详尽的中文注释：增加元数据编辑点击的回调函数，以实现非 Activity Overlay 化无缝跳转
+    onEditClick: (String) -> Unit = {},
 ) {
     val bookWithProgress = uiState.book
     val book = bookWithProgress?.book
@@ -135,6 +149,10 @@ fun DetailScreen(
     var showMenu by remember { mutableStateOf(false) }
     // 为每一次改动添加详尽的中文注释：为详情页更多菜单创建 HazeState；详情页 Surface 作为 source，菜单内容作为 effect。
     val dropdownMenuHazeState = rememberHazeState()
+    // 为每一次改动添加详尽的中文注释：创建专门用于详情页大封面毛玻璃效果的专属 HazeState 采样源，以封面图像实现毛玻璃背景的高级渲染。
+    val coverHazeState = rememberHazeState()
+    // 为每一次改动添加详尽的中文注释：感知当前 Haze 磨砂玻璃模式是否已被开启。
+    val isHaze = glassEffectMode == GlassEffectMode.Haze
     // 详尽中文注释：M-19 修复 — 3 秒保护期状态已全部移至 DetailViewModel，
     // 此处不再持有 isUnplayedProtectionActive，展示进度直接使用 uiState.displayProgressPercent。
 
@@ -178,14 +196,24 @@ fun DetailScreen(
     }
 
     val bgColor = MaterialTheme.colorScheme.background
-    val backgroundBrush by remember(animatedBgColor, bgColor) {
+    val backgroundBrush by remember(animatedBgColor, bgColor, isHaze) {
         derivedStateOf {
-            Brush.verticalGradient(
-                colors = listOf(
-                    animatedBgColor.copy(alpha = 0.9f),
-                    bgColor.copy(alpha = 0.95f)
+            if (isHaze) {
+                // 为每一次改动添加详尽的中文注释：在 Haze 磨砂玻璃背景下，调色盘自动降为半透明 (0.35f / 0.5f)，使得封面高斯图能细腻透出
+                Brush.verticalGradient(
+                    colors = listOf(
+                        animatedBgColor.copy(alpha = 0.35f),
+                        bgColor.copy(alpha = 0.5f)
+                    )
                 )
-            )
+            } else {
+                Brush.verticalGradient(
+                    colors = listOf(
+                        animatedBgColor.copy(alpha = 0.9f),
+                        bgColor.copy(alpha = 0.95f)
+                    )
+                )
+            }
         }
     }
     // 为每一次改动添加详尽的中文注释：只有 Haze 模式才把详情页背景注册为菜单采样源，Material 模式不启用额外渲染。
@@ -220,8 +248,40 @@ fun DetailScreen(
             .then(dropdownMenuHazeSourceModifier),
         color = Color.Transparent
     ) {
-        Scaffold(
-            topBar = {
+        // 为每一次改动添加详尽的中文注释：
+        // 在最外层使用一个 fillMaxSize 的 Box 容器，用以在底层异步渲染铺满的全屏大封面，
+        // 挂载 hazeSource(coverHazeState) 并在上层 Box 叠加 hazeEffect，使得详情页大背景呈现基于封面采样的毛玻璃高斯模糊底色。
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (isHaze && book?.coverPath != null) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val bgRequest = remember(book.coverPath, book.lastScannedAt) {
+                    coil.request.ImageRequest.Builder(context)
+                        .data(File(book.coverPath))
+                        .memoryCacheKey("${book.coverPath}?bg=true&t=${book.lastScannedAt}")
+                        .diskCacheKey("${book.coverPath}?bg=true&t=${book.lastScannedAt}")
+                        .crossfade(true)
+                        .build()
+                }
+                AsyncImage(
+                    model = bgRequest,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeSource(state = coverHazeState),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeEffect(
+                            state = coverHazeState,
+                            style = dev.chrisbanes.haze.materials.HazeMaterials.regular()
+                        )
+                )
+            }
+
+            Scaffold(
+                topBar = {
                 TopAppBar(
                     title = { },
                     navigationIcon = {
@@ -254,10 +314,9 @@ fun DetailScreen(
                                     onClick = {
                                         showMenu = false
                                         book?.id?.let { bookId ->
-                                            val intent = Intent(context, EditBookActivity::class.java).apply {
-                                                putExtra(EditBookActivity.EXTRA_BOOK_ID, bookId)
-                                            }
-                                            context.startActivity(intent)
+                                            // 为每一次改动添加详尽的中文注释：
+                                            // 废弃原跨 Activity 物理启动，改用全内存 lambda 回调拉起编辑悬浮 Overlay。
+                                            onEditClick(bookId)
                                         }
                                     }
                                 )
@@ -467,19 +526,29 @@ fun DetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    // 为每一次改动添加详尽的中文注释：
+                    // 将年份、时长、文件大小这三个 Chip 组件全部升级为“高雅白羽雾化”毛玻璃方案。
+                    // 传入全局 glassEffectMode 及专属 coverHazeState 采样源，并引用统一的 HazePresets 模板，
+                    // 使得 Chip 在 Haze 开启时同样呈现磨砂圆角效果，而在 Material 模式下完美实现 0 渲染开销降级。
                     DetailInfoChip(
                         icon = Icons.Rounded.Event,
-                        value = book?.year?.takeIf { it.isNotBlank() } ?: "Unknown"
+                        value = book?.year?.takeIf { it.isNotBlank() } ?: "Unknown",
+                        glassEffectMode = glassEffectMode,
+                        hazeState = coverHazeState
                     )
                     DetailInfoChip(
                         icon = Icons.Rounded.Timelapse,
-                        value = formatTime(book?.totalDurationMs ?: 0L)
+                        value = formatTime(book?.totalDurationMs ?: 0L),
+                        glassEffectMode = glassEffectMode,
+                        hazeState = coverHazeState
                     )
                     // 为每一次改动添加详尽的中文注释：通过安全链式调用规避 book!!.totalFileSize 强制解包漏洞 (H-09)
                     if ((book?.totalFileSize ?: 0L) > 0) {
                         DetailInfoChip(
                             icon = Icons.Rounded.Storage,
-                            value = formatFileSize(book?.totalFileSize ?: 0L)
+                            value = formatFileSize(book?.totalFileSize ?: 0L),
+                            glassEffectMode = glassEffectMode,
+                            hazeState = coverHazeState
                         )
                     }
 
@@ -489,42 +558,92 @@ fun DetailScreen(
                 // 配置变更后保护期状态不就丢失。
                 val displayProgress = uiState.displayProgressPercent
 
-                Button(
-                    onClick = { 
-                        if (uiState.isAvailable) {
-                            // 详尽中文注释：M-19 修复 — 将保护期逻辑局全委托给 ViewModel.onPlayPressed，
-                            // Composable 内不再持有任何进度锁定状态。
+                if (isHaze && uiState.isAvailable) {
+                    // 为每一次改动添加详尽的中文注释：
+                    // 在 Haze 磨砂玻璃模式下，将播放按钮重构为极致至尊的“高雅白羽雾化”Surface。
+                    // 彻底废弃原先的 border 生硬描边与完全透明导致的边界模糊缺失，
+                    // 1. 材质预设调整为更具呼吸感和清透漫反射的 HazeMaterials.thick()。
+                    // 2. 引入极淡的乳白色蒙版背景 (Color.White.copy(0.15f))，建立温润高级的物理面域与几何实体分量。
+                    // 3. 搭配 0.5.dp 极细微透轮廓白边 (Color.White.copy(0.3f))，在高分屏下展现若隐若现的玲珑光泽。
+                    // 4. 在 modifier 链首部调用 .clip 物理裁剪出 16.dp 圆角，使超厚毛玻璃光晕在极度清透高级的同时，与详情页整体设计完美融为一体。
+                    // 为每一次改动添加详尽的中文注释：
+                    // 在 Haze 磨砂玻璃模式下，将播放按钮重构为极致至尊的“高雅白羽雾化”Surface。
+                    // 统一引用 HazePresets 预设模板，确保设计语言和视觉精度的高一致性与低冗余度。
+                    Surface(
+                        onClick = {
                             onPlayPressed()
                             onPlayClick()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .height(56.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            // 引用统一的 Haze 材质预设模板 HazePresets.HazeStyle
+                            .hazeEffect(state = coverHazeState, style = HazePresets.HazeStyle),
+                        shape = RoundedCornerShape(16.dp),
+                        // 引用统一的乳白蒙版背景色 HazePresets.BackgroundColor
+                        color = HazePresets.BackgroundColor,
+                        // 引用统一的 0.5.dp 微光轮廓白边描边模板 HazePresets.Border
+                        border = HazePresets.Border,
+                        contentColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (displayProgress > 0) Icons.Rounded.History else Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (displayProgress > 0) "Continue at $displayProgress%" else "Start Listening",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = if (uiState.isAvailable) {
-                        ButtonDefaults.buttonColors()
-                    } else {
-                        ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    }
+                } else {
+                    Button(
+                        onClick = { 
+                            if (uiState.isAvailable) {
+                                // 详尽中文注释：M-19 修复 — 将保护期逻辑局全委托给 ViewModel.onPlayPressed，
+                                // Composable 内不再持有任何进度锁定状态。
+                                onPlayPressed()
+                                onPlayClick()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = if (uiState.isAvailable) {
+                            ButtonDefaults.buttonColors()
+                        } else {
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage 
+                            else if (displayProgress > 0) Icons.Rounded.History 
+                            else Icons.Rounded.PlayArrow,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (!uiState.isAvailable) "File not found"
+                                   else if (displayProgress > 0) "Continue at $displayProgress%" 
+                                   else "Start Listening",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
-                ) {
-                    Icon(
-                        imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage 
-                        else if (displayProgress > 0) Icons.Rounded.History 
-                        else Icons.Rounded.PlayArrow,
-                        contentDescription = null
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (!uiState.isAvailable) "File not found"
-                               else if (displayProgress > 0) "Continue at $displayProgress%" 
-                               else "Start Listening",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
                 }
                 // 为每一次改动添加详尽的中文注释：直接从 uiState.fullSourcePath 中读取已经在 ViewModel 侧预先计算好的源路径字符串进行渲染。
                 // 这样能使 Compose UI 层保持绝对的纯净，避免在重组（Recomposition）中执行任何复杂的字符串分割和解码操作。
@@ -575,36 +694,88 @@ fun DetailScreen(
                 Spacer(modifier = Modifier.height(100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
             }
         }
+        } // 为每一次改动添加详尽的中文注释：在此处闭合我们在底层 Surface 内新增的毛玻璃封面容器 Box
     }
 
     if (infoDialogText != null) {
-        AlertDialog(
-            onDismissRequest = {
-                infoDialogText = null
-                infoDialogTitle = null
-            },
-            confirmButton = {
-                TextButton(onClick = {
+        if (isHaze) {
+            // 为每一次改动添加详尽的中文注释：
+            // 在 Haze 磨砂玻璃模式下，将详情页 info 弹窗重构为基于封面 coverHazeState 的 BlurDialog。
+            // 点击外部或点击 OK 均能顺畅退出，且毛玻璃视觉同源。
+            BlurDialog(
+                onDismissRequest = {
                     infoDialogText = null
                     infoDialogTitle = null
-                }) {
-                    Text("OK")
-                }
-            },
-            title = { infoDialogTitle?.let { Text(it) } },
-            text = {
-                // 为每一次改动添加详尽的中文注释：使用安全的 let 作用域替代 infoDialogText!! 强制解包，防止发生 NPE 崩溃 (H-10)
-                infoDialogText?.let { dialogText ->
-                    SelectableTextView(
-                        text = dialogText,
+                },
+                hazeState = coverHazeState,
+                glassEffectMode = glassEffectMode
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    infoDialogTitle?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    infoDialogText?.let { dialogText ->
+                        SelectableTextView(
+                            text = dialogText,
+                            modifier = Modifier.fillMaxWidth(),
+                            textColor = MaterialTheme.colorScheme.onSurface,
+                            textSizeSp = 16f,
+                            lineSpacingExtraSp = 4f
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        textColor = MaterialTheme.colorScheme.onSurface,
-                        textSizeSp = 16f,
-                        lineSpacingExtraSp = 4f
-                    )
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = {
+                                infoDialogText = null
+                                infoDialogTitle = null
+                            }
+                        ) {
+                            Text("OK")
+                        }
+                    }
                 }
             }
-        )
+        } else {
+            AlertDialog(
+                onDismissRequest = {
+                    infoDialogText = null
+                    infoDialogTitle = null
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        infoDialogText = null
+                        infoDialogTitle = null
+                    }) {
+                        Text("OK")
+                    }
+                },
+                title = { infoDialogTitle?.let { Text(it) } },
+                text = {
+                    // 为每一次改动添加详尽的中文注释：使用安全的 let 作用域替代 infoDialogText!! 强制解包，防止发生 NPE 崩溃 (H-10)
+                    infoDialogText?.let { dialogText ->
+                        SelectableTextView(
+                            text = dialogText,
+                            modifier = Modifier.fillMaxWidth(),
+                            textColor = MaterialTheme.colorScheme.onSurface,
+                            textSizeSp = 16f,
+                            lineSpacingExtraSp = 4f
+                        )
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -728,21 +899,56 @@ private class ProcessTextMenuCallback(
     }
 }
 
+
+
+/**
+ * 为每一次改动添加详尽的中文注释：
+ * 重构后的详情元数据卡片 (DetailInfoChip)。
+ * 完美支持在 Haze 模式下动态应用“高雅白羽雾化”设计规范，同时在传统不透明模式下退回为原生 Material3 经典微光描边，确保零额外开销。
+ */
+@OptIn(dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class)
 @Composable
 fun DetailInfoChip(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     value: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 为每一次改动添加详尽的中文注释：传入全局玻璃效果模式，默认值设为已存在的 GlassEffectMode.Material
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // 为每一次改动添加详尽的中文注释：传入全局 Haze 背景模糊状态
+    hazeState: HazeState? = null
 ) {
-    // 使用自定义布局替代 SuggestionChip，以获得更紧凑的间距且不带有额外的点击透明区域
+    val isHaze = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+
+    // 使用自定义 Surface 替代 SuggestionChip，以获得更紧凑的间距且不带有额外的点击透明区域
     Surface(
-        modifier = modifier,
+        modifier = modifier
+            .then(
+                if (isHaze) {
+                    Modifier
+                        // 首先在 Modifier 链最前端裁剪 12.dp 圆角，杜绝毛玻璃直角溢出穿帮
+                        .clip(RoundedCornerShape(12.dp))
+                        // 挂载 Haze 模糊并应用统一的 HazeStyle 材质
+                        .hazeEffect(state = hazeState, style = HazePresets.HazeStyle)
+                } else {
+                    Modifier
+                }
+            ),
         shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
-            color = LocalContentColor.current.copy(alpha = 0.5f)
-        ),
-        color = Color.Transparent
+        border = if (isHaze) {
+            // Haze 模式下引用统一的 0.5.dp 微光轮廓白边描边
+            HazePresets.Border
+        } else {
+            androidx.compose.foundation.BorderStroke(
+                width = 1.dp,
+                color = LocalContentColor.current.copy(alpha = 0.5f)
+            )
+        },
+        color = if (isHaze) {
+            // Haze 模式下使用极低饱和度 15% 透明乳白蒙版
+            HazePresets.BackgroundColor
+        } else {
+            Color.Transparent
+        }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),

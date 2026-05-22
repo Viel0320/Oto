@@ -17,15 +17,15 @@ import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.player.PlayerViewModel
 import androidx.compose.ui.platform.LocalContext
-import com.viel.aplayer.ui.search.SearchActivity
 import com.viel.aplayer.ui.settings.SettingsActivity
 
 /**
  * 为每一次改动添加详尽的中文注释：
  * 系统导航管理容器，承载应用核心页面。
  *
- * 移除了 settings 和 search 的内联 compose 路由，改成通过启动对应的独立 Activity。
- * 同时接收 searchLauncher 以拉起独立的 SearchActivity 并且能统一回传选中的书籍 ID 进行交互。
+ * 移除了 settings 的独立 compose 路由，改成通过启动对应的独立 Activity。
+ * 其中，为了实现 100% 完美的防穿帮毛玻璃效果，搜索页重构为在同一个 Activity 内部的 SearchOverlay 悬浮层，
+ * 因此我们移除了 searchLauncher 字段，引入了非独立的 searchViewModel。
  */
 @Composable
 fun APlayerNavHost(
@@ -38,8 +38,9 @@ fun APlayerNavHost(
     canStartNavigation: () -> Boolean,
     navigateBack: () -> Unit,
     // 为每一次改动添加详尽的中文注释：
-    // 传递 searchLauncher，使得 HomeScreen 的搜索点击事件能够通过它启动 SearchActivity
-    searchLauncher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>? = null
+    // 引入非独立的 SearchViewModel，点击搜索按钮时将通过修改其显隐状态来打开悬浮层，
+    // 能够零延迟地共享全局 appHazeState 毛玻璃模糊背景，并且 100% 杜绝桌面穿帮问题。
+    searchViewModel: com.viel.aplayer.ui.search.SearchViewModel
 ) {
     val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
@@ -52,7 +53,7 @@ fun APlayerNavHost(
     ) {
         composable("home") {
             HomeScreen(
-                // 详尽中文注释：从 ViewModel 预计算的 UiState 中直接传入各字段，UI 层不做任何运算
+                // 详尽中文注释：从 ViewModel 预计算 of UiState 中直接传入各字段，UI 层不做任何运算
                 selectedFilter = libraryUiState.selectedFilter,
                 groupedByAuthor = libraryUiState.groupedByAuthor,
                 recentBooks = libraryUiState.recentBooks,
@@ -67,12 +68,12 @@ fun APlayerNavHost(
                     detailViewModel.selectBook(book)
                 },
                 // 为每一次改动添加详尽的中文注释：
-                // 当点击搜索时，不再通过 navController 导航到 compose 路由，
-                // 而是调用 searchLauncher 启动 SearchActivity 并自动应用系统默认切换动画，保持回传机制可用。
+                // 点击搜索按钮时，不再拉起独立的 Activity（以防窗口模糊透出系统桌面壁纸），
+                // 而是直接调用 searchViewModel.setVisible(true)，以展开同一个 Activity 内部的 SearchOverlay 搜索悬浮层，
+                // 以获得完全真实的、共享全局 appHazeState 采样源的超凡磨砂玻璃透光体验。
                 onNavigateToSearch = {
                     if (canStartNavigation()) {
-                        val intent = SearchActivity.createIntent(context)
-                        searchLauncher?.launch(intent)
+                        searchViewModel.setVisible(true)
                     }
                 },
                 onLoadBook = { id: String ->

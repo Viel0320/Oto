@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
@@ -19,19 +20,29 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.HazePresets
 import com.viel.aplayer.ui.theme.APlayerTheme
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 
+@OptIn(dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class)
 @Composable
 fun ChapterDisplay(
     currentChapterTitle: String?,
     onChapterClick: () -> Unit,
     onBookmarkClick: () -> Unit,
     modifier: Modifier = Modifier,
-    title: String? = null
+    title: String? = null,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    hazeState: HazeState? = null
 ) {
+    val isHaze = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -39,7 +50,18 @@ fun ChapterDisplay(
     ) {
         SuggestionChip(
             onClick = onChapterClick,
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .then(
+                    if (isHaze) {
+                        Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            // 为每一次改动添加详尽的中文注释：在此引入全局高灵动性“高雅白羽雾化”毛玻璃 HazeStyle，对章节选择胶囊背景开启背景高斯模糊渲染管线
+                            .hazeEffect(state = hazeState, style = HazePresets.HazeStyle)
+                    } else {
+                        Modifier
+                    }
+                ),
             label = {
                 Text(
                     text = currentChapterTitle ?: title ?: "No Chapters",
@@ -55,14 +77,28 @@ fun ChapterDisplay(
                 )
             },
             shape = RoundedCornerShape(12.dp),
-            colors = SuggestionChipDefaults.suggestionChipColors(
-                labelColor = LocalContentColor.current,
-                iconContentColor = LocalContentColor.current
-            ),
-            border = SuggestionChipDefaults.suggestionChipBorder(
-                enabled = true,
-                borderColor = LocalContentColor.current
-            )
+            colors = if (isHaze) {
+                // 为每一次改动添加详尽的中文注释：Haze 模式下选用全局高透光率的半透蒙版背景色与主色图标，展现晶莹剔透的高奢质感
+                SuggestionChipDefaults.suggestionChipColors(
+                    containerColor = HazePresets.BackgroundColor,
+                    labelColor = MaterialTheme.colorScheme.primary,
+                    iconContentColor = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                SuggestionChipDefaults.suggestionChipColors(
+                    labelColor = LocalContentColor.current,
+                    iconContentColor = LocalContentColor.current
+                )
+            },
+            border = if (isHaze) {
+                // 为每一次改动添加详尽的中文注释：Haze 模式下采用全局微光描边规范，精致亮眼
+                HazePresets.Border
+            } else {
+                SuggestionChipDefaults.suggestionChipBorder(
+                    enabled = true,
+                    borderColor = LocalContentColor.current
+                )
+            }
         )
 
         IconButton(

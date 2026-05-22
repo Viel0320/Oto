@@ -24,6 +24,8 @@ import com.viel.aplayer.ui.player.NewPlayerScreen
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.CompactMediaPlayer
+// 为每一次改动添加详尽的中文注释：引入 HazeState 类型
+import dev.chrisbanes.haze.HazeState
 
 /**
  * 播放器悬浮层组件。
@@ -43,7 +45,9 @@ fun PlayerOverlay(
     currentRoute: String?,
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由 App 容器从设置状态显式传入，播放器悬浮层不再声明默认值。
     glassEffectMode: GlassEffectMode,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 为每一次改动添加详尽的中文注释：新增接收 appHazeState 的参数，用于透传到迷你播放器
+    hazeState: HazeState? = null
 ) {
     // 仅监听播放器可见性（低频信号）
     val isFullPlayerVisible by remember(playerViewModel) {
@@ -95,7 +99,13 @@ fun PlayerOverlay(
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             // 重要：将高频状态（进度、播放状态）隔离在此组件内部
-            MiniPlayerContent(playerViewModel, miniPlayerActions)
+            // 详尽的中文注释：向下游透传模糊背景状态与玻璃模式状态，隔离刷新源
+            MiniPlayerContent(
+                viewModel = playerViewModel,
+                actions = miniPlayerActions,
+                hazeState = hazeState,
+                glassEffectMode = glassEffectMode
+            )
         }
     }
 }
@@ -109,9 +119,13 @@ fun PlayerOverlay(
 @Composable
 private fun MiniPlayerContent(
     viewModel: PlayerViewModel,
-    actions: MiniPlayerActions
+    actions: MiniPlayerActions,
+    // 详尽的中文注释：接收透传的 HazeState 实例
+    hazeState: HazeState?,
+    // 详尽的中文注释：接收透传的 GlassEffectMode 模式
+    glassEffectMode: GlassEffectMode
 ) {
-    // 详尽的中文注释：在此处收集高频状态，进度更新只会引起这个 Box 及其子项重组
+    // 详尽的中文注释：在此处收集 high-frequency 更新的状态（PlaybackState），从而将重组范围控制在最小范围内。
     val playback by viewModel.playbackState.collectAsStateWithLifecycle()
     val metadata by viewModel.metadataState.collectAsStateWithLifecycle()
     // 详尽的中文注释：订阅 ViewModel 预计算好的迷你播放器进度，
@@ -126,6 +140,7 @@ private fun MiniPlayerContent(
         viewModel.setFullPlayerVisible(true)
     }) {
         // 中文注释：已在此处取消了迷你播放器进度条的封面颜色（metadata.backgroundColorArgb）绑定，不再向 CompactMediaPlayer 传入自定义 color 属性
+        // 详尽的中文注释：向迷你播放器透传 hazeState 和 glassEffectMode 以实现背景的高斯模糊效果
         CompactMediaPlayer(
             isPlaying = playback.isPlaying,
             title = metadata.title,
@@ -137,7 +152,10 @@ private fun MiniPlayerContent(
             // 详尽的中文注释：传递 ViewModel 预计算的进度值，UI 层不再包含任何业务计算
             progress = { displayProgress },
             isMediaAvailable = isMediaAvailable,
-            actions = actions
+            actions = actions,
+            // 详尽的中文注释：透传磨砂背景参数
+            hazeState = hazeState,
+            glassEffectMode = glassEffectMode
         )
     }
 }

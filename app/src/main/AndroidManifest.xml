@@ -40,10 +40,13 @@
         tools:targetApi="36"
         android:largeHeap="true"
         android:networkSecurityConfig="@xml/network_security_config">
+        <!-- 为每一次改动添加详尽的中文注释：
+             明确强制指定 MainActivity 的 windowSoftInputMode 为 adjustResize，坚决阻止各手机厂商定制 ROM 弹出键盘时回退到默认的 adjustPan（窗口整体物理平移）而造成标题栏和返回键移出屏幕、背景毛玻璃被切割穿帮，确保顶级 App 栏与磨砂背景静止不动 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.APlayer">
             <!-- 为本次桌面 widget 改动添加注释：singleTop 让桌面小组件点击正在运行的应用时复用现有 MainActivity，并通过 onNewIntent 拉起播放页 overlay。 -->
             <intent-filter>
@@ -52,23 +55,9 @@
             </intent-filter>
         </activity>
 
-        <!-- 为每一次改动添加详尽的中文注释：在此注册全新独立且用于修改书籍元数据的 Activity，设置 exported=false 以限制外部应用非法调用，共用 Theme.APlayer 主题 -->
-        <activity
-            android:name=".ui.edit.EditBookActivity"
-            android:exported="false"
-            android:label="修改书籍信息"
-            android:theme="@style/Theme.APlayer" />
 
-        <!-- 为每一次改动添加详尽的中文注释：注册独立的搜索 Activity。
-             exported=false 限制外部调用；
-             windowAnimationStyle 留空，由调用方通过 ActivityOptionsCompat.makeCustomAnimation
-             传入系统内置 @android:anim/activity_open_enter 等资源驱动进入/退出动画，
-             兼容 Predictive Back 手势。 -->
-        <activity
-            android:name=".ui.search.SearchActivity"
-            android:exported="false"
-            android:label="搜索"
-            android:theme="@style/Theme.APlayer" />
+
+
 
         <!-- 为每一次改动添加详尽的中文注释：注册独立的设置 Activity。
              同样不在 Manifest 级别配置动画样式，由调用方 ActivityOptions 统一控制，

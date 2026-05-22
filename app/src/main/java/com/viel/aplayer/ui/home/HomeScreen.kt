@@ -274,7 +274,11 @@ fun HomeScreen(
                                     coverLastUpdated = book.book.lastScannedAt, // 详尽中文注释：桥接 Room 中的扫描/更新时间戳，令 Coil 声明式打破缓存以即时更新界面
                                     onClick = { onNavigateToDetail(book.book.id) },
                                     // 为每一次改动添加详尽的中文注释：绑定长按RecentlyItem卡片事件以唤起操作一级菜单
-                                    onLongClick = { activeBookForMenu = book }
+                                    onLongClick = { activeBookForMenu = book },
+                                    // 为每一次改动添加详尽的中文注释：向 RecentlyItem 传递当前全局的磨砂玻璃模式状态以进行极致毛玻璃视觉适配
+                                    glassEffectMode = glassEffectMode,
+                                    // 为每一次改动添加详尽的中文注释：将 Room 数据库中持久化缓存的书籍封面 ARGB 主色调传递给卡片组件
+                                    coverColorArgb = book.book.backgroundColorArgb
                                 )
                             }
                         }

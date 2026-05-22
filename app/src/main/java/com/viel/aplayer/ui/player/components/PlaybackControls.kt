@@ -43,10 +43,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.HazePresets
 import com.viel.aplayer.ui.player.PlaybackControlActions
 import com.viel.aplayer.ui.theme.APlayerTheme
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class)
 @Composable
 fun PlaybackControls(
     isPlaying: Boolean,
@@ -55,7 +59,9 @@ fun PlaybackControls(
     isSpeedManualMode: Boolean,
     actions: PlaybackControlActions,
     modifier: Modifier = Modifier,
-    buttonColor: Color = MaterialTheme.colorScheme.primaryContainer
+    buttonColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    hazeState: HazeState? = null
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -134,24 +140,57 @@ fun PlaybackControls(
             )
         }
 
-        FilledIconButton(
-            onClick = actions.onPlayPauseClick,
-            modifier = Modifier.size(80.dp),
-            shape = CircleShape,
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = buttonColor,
-                contentColor = contentColor
-            )
-        ) {
-            Icon(
-                imageVector = if (isPlaying) {
-                    Icons.Rounded.Pause
-                } else {
-                    Icons.Rounded.PlayArrow
-                },
-                contentDescription = if (isPlaying) "Pause" else "Play",
-                modifier = Modifier.size(40.dp)
-            )
+        val isHaze = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+
+        if (isHaze) {
+            // 为每一次改动添加详尽的中文注释：
+            // Haze 磨砂效果激活时，将播放暂停按钮升级为至尊白羽雾化大圆钮 Surface。
+            // 使用 hazeEffect 融合 chapterSheetHazeState 的实时画面层，乳白底色加超细描边，兼备极高可读性与无上设计感。
+            Surface(
+                onClick = actions.onPlayPauseClick,
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .hazeEffect(state = hazeState, style = HazePresets.HazeStyle),
+                shape = CircleShape,
+                color = HazePresets.BackgroundColor,
+                border = HazePresets.Border,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isPlaying) {
+                            Icons.Rounded.Pause
+                        } else {
+                            Icons.Rounded.PlayArrow
+                        },
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        } else {
+            // 为每一次改动添加详尽的中文注释：Material 默认模式下维持原本色彩的 FilledIconButton 实色设计
+            FilledIconButton(
+                onClick = actions.onPlayPauseClick,
+                modifier = Modifier.size(80.dp),
+                shape = CircleShape,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = buttonColor,
+                    contentColor = contentColor
+                )
+            ) {
+                Icon(
+                    imageVector = if (isPlaying) {
+                        Icons.Rounded.Pause
+                    } else {
+                        Icons.Rounded.PlayArrow
+                    },
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         }
 
         IconButton(onClick = actions.onSkipForward, modifier = Modifier.size(56.dp)) {

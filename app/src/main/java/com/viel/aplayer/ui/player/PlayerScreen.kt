@@ -478,8 +478,17 @@ fun NewPlayerScreen(
                                                     }
                                                 }
                                             }
-                                            // 为每一次改动添加详尽的中文注释：控制面板在播放壳内只挂载一次，PLAYER 与 SUBTITLES 共用同一实例以避免切换闪烁。
-                                            PlayerControlPanel(viewModel, metadata, controls, settings, actions, animatedBgColor)
+                                            // 为每一次改动添加详尽的中文注释：控制面板在播放壳内只挂载一次，PLAYER 与 SUBTITLES 共用同一实例以避免切换闪烁。同时在此传入玻璃效果选项与模糊状态采样源
+                                            PlayerControlPanel(
+                                                viewModel = viewModel,
+                                                metadata = metadata,
+                                                controls = controls,
+                                                settings = settings,
+                                                actions = actions,
+                                                buttonColor = animatedBgColor,
+                                                glassEffectMode = glassEffectMode,
+                                                hazeState = chapterSheetHazeState
+                                            )
                                         }
                                         PlayerContentShell.Bookmarks -> {
                                             Box(modifier = Modifier.weight(1f)) {
@@ -674,6 +683,8 @@ fun ChapterDisplayStateful(
     viewModel: PlayerViewModel,
     metadata: BookMetadataState,
     actions: PlayerActions,
+    glassEffectMode: GlassEffectMode,
+    hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
     val currentChapter by viewModel.currentChapterState.collectAsStateWithLifecycle()
@@ -681,6 +692,8 @@ fun ChapterDisplayStateful(
         currentChapterTitle = currentChapter?.title ?: metadata.title,
         onChapterClick = actions.content.onShowChapterList,
         onBookmarkClick = actions.bookmarks.onShowDialog,
+        glassEffectMode = glassEffectMode,
+        hazeState = hazeState,
         modifier = modifier
     )
 }

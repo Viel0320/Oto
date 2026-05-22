@@ -1,3 +1,4 @@
+@file:OptIn(dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class)
 package com.viel.aplayer.ui.player.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -39,10 +40,17 @@ import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.theme.APlayerTheme
+// 为每一次改动添加详尽的中文注释：引入 Haze 高斯模糊背景支持及 Glass 模式定义
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.aplayer.data.store.GlassEffectMode
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 // 中文注释：已取消封面取色着色功能，移除了 color 参数，迷你播放器进度条直接采用系统默认的 Material 3 主色调
+// 详尽的中文注释：新增 hazeState 和 glassEffectMode 两个参数，用来在启用毛玻璃效果时折射底部 NavHost 的画面内容，保持跟搜索/详情页的设计一致。
 fun CompactMediaPlayer(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
@@ -56,6 +64,10 @@ fun CompactMediaPlayer(
     showProgressBar: Boolean = true,
     isMediaAvailable: Boolean = true,
     actions: MiniPlayerActions = MiniPlayerActions(),
+    // 详尽的中文注释：新增 hazeState 参数，供模糊玻璃背景采样
+    hazeState: HazeState? = null,
+    // 详尽的中文注释：新增 glassEffectMode 参数，以区分是毛玻璃高斯模糊还是标准 Material 纯色背景
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     LaunchedEffect(isMediaAvailable) {
         if (!isMediaAvailable) {
@@ -64,9 +76,21 @@ fun CompactMediaPlayer(
         }
     }
 
+    // 详尽的中文注释：根据传入的 glassEffectMode 和 hazeState 判断当前是否要启用磨砂玻璃高斯模糊背景效果。
+    val isHazeMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier
+            .fillMaxWidth()
+            .let {
+                if (isHazeMode) {
+                    // 详尽的中文注释：在 Haze 模式下链式追加 hazeEffect 高斯模糊修饰符，折射下方主页 NavHost 像素（利用 Kotlin 智能转换省去非空断言）
+                    it.hazeEffect(state = hazeState, style = HazeMaterials.regular())
+                } else {
+                    it
+                }
+            },
+        color = if (isHazeMode) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(0.dp)
     ) {
         Column(modifier = Modifier.navigationBarsPadding()) {

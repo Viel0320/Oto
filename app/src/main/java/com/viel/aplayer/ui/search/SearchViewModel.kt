@@ -23,6 +23,18 @@ import com.viel.aplayer.data.store.SearchHistoryEntry
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = LibraryRepository.getInstance(application)
 
+    // 为每一次改动添加详尽的中文注释：
+    // 控制同 Activity 内非独立搜索悬浮层 (SearchOverlay) 是否可见的响应式状态流。
+    // 设为 true 时展现滑入与渐显动画，设为 false 时进行滑出隐藏。
+    private val _isVisible = MutableStateFlow(false)
+    val isVisible: StateFlow<Boolean> = _isVisible.asStateFlow()
+
+    // 为每一次改动添加详尽的中文注释：
+    // 提供修改非独立搜索悬浮层 (SearchOverlay) 可见状态的公共接口。
+    fun setVisible(visible: Boolean) {
+        _isVisible.value = visible
+    }
+
     private val _query = MutableStateFlow(TextFieldValue(""))
     val query: StateFlow<TextFieldValue> = _query.asStateFlow()
 
