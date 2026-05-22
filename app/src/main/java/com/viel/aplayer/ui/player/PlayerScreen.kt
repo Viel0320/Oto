@@ -61,6 +61,7 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.bookmarks.BookmarkListView
 import com.viel.aplayer.ui.common.BottomNavTabs
+import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterDisplay
 import com.viel.aplayer.ui.player.components.ChapterListSheet
@@ -252,307 +253,317 @@ fun NewPlayerScreen(
                 }
                 .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
                 .background(bgColor)
-                .background(backgroundBrush)
-                // 为每一次改动添加详尽的中文注释：播放器完整沉浸界面作为 ChapterListSheet 的 Haze 背景采样源。
-                .then(chapterSheetHazeSourceModifier),
+                .background(backgroundBrush),
             color = Color.Transparent
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // 为每一次改动添加详尽的中文注释：只有 Haze 模式渲染真实封面模糊背景，Material 模式保持原有主色渐变背景不变。
-                if (glassEffectMode == GlassEffectMode.Haze && playerBackgroundCoverRequest != null) {
-                    PlayerCoverBlurredBackground(
-                        imageRequest = playerBackgroundCoverRequest,
-                        backgroundColor = bgColor,
-                        isDarkTheme = isDarkTheme
-                    )
-                }
-
-                Column(
-                    modifier = Modifier.fillMaxSize()
+                // 为每一次改动添加详尽的中文注释：使用内层容器包裹背景封面、主体 UI Column 及底部 tabs，并在此应用 hazeSource。
+                // 这样，外部 Box 中的 Snackbar 将作为兄弟节点运行在 hazeSource 之外，从而彻底规避 Haze 1.x 中由于父子生命周期导致的采样失效与绘制冲突。
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(chapterSheetHazeSourceModifier)
                 ) {
-                    PlayerAppBar(
-                        title = metadata.title,
-                        author = metadata.author,
-                        narrator = metadata.narrator,
-                        onNavigationClick = {
-                            focusManager.clearFocus()
-                            actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
-                            navigationActions.onMinimize()
-                        },
-                        onToggleProgressMode = actions.content.onToggleProgressMode,
-                        onDeleteBook = actions.content.onDeleteBook,
-                        isChapterProgressMode = settings.isChapterProgressMode,
-                        // 为每一次改动添加详尽的中文注释：播放器顶部更多菜单复用播放器 Surface 的 HazeState，并跟随全局 Material/Haze 模式。
-                        glassEffectMode = glassEffectMode,
-                        dropdownMenuHazeState = chapterSheetHazeState,
-                        modifier = Modifier.pointerInput(Unit) {
-                            detectVerticalDragGestures(
-                                onVerticalDrag = { change, dragAmount ->
-                                    val newOffset = (offsetY.value + dragAmount).coerceAtLeast(0f)
-                                    scope.launch {
-                                        offsetY.snapTo(newOffset)
-                                    }
-                                    change.consume()
-                                },
-                                onDragEnd = {
-                                    scope.launch {
-                                        if (offsetY.value > dismissThreshold) {
-                                            actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
-                                            navigationActions.onMinimize()
-                                        } else {
-                                            offsetY.animateTo(0f, animationSpec = tween(300))
-                                        }
-                                    }
-                                },
-                                onDragCancel = {
-                                    scope.launch { offsetY.animateTo(0f, animationSpec = tween(300)) }
-                                }
-                            )
-                        }
-                    )
-
-                    // 详尽中文注释：为非 PLAYER 三种 tab（书签/字幕/推荐）的内容区域添加左右滑动手势。
-                // 使用 detectHorizontalDragGestures 累积水平位移，超过 swipeThresholdPx 阈值（80dp）后触发切换。
-                // 三个 tab 按 index 排列：BOOKMARKS(0) → SUBTITLES(1) → RELATED(2)。
-                // 左滑（负向）切换到更大 index 的 tab；右滑（正向）切换到更小 index 的 tab。
-                // 当已到达边界时继续同方向滑动则返回 PLAYER 主播放页面。
-                // PLAYER 模式本身不响应此手势，封面区有独立的水平切章手势不会产生冲突。
-                val swipeThresholdPx = with(density) { 80.dp.toPx() }
-                // 详尽中文注释：按 index 顺序排列的 tab 模式列表，用于边界计算和相邻导航
-                val tabModes = remember {
-                    listOf(PlayerScreenMode.BOOKMARKS, PlayerScreenMode.SUBTITLES, PlayerScreenMode.RELATED)
-                }
-                // 为每一次改动添加详尽的中文注释：外层 tab 动画按“壳”切换，PLAYER 与 SUBTITLES 共用同一个播放壳以稳定保留 PlayerControlPanel。
-                val contentShell = remember(currentMode) {
-                    when (currentMode) {
-                        PlayerScreenMode.BOOKMARKS -> PlayerContentShell.Bookmarks
-                        PlayerScreenMode.RELATED -> PlayerContentShell.Related
-                        PlayerScreenMode.PLAYER,
-                        PlayerScreenMode.SUBTITLES -> PlayerContentShell.PlaybackShell
-                    }
-                }
-                Box(modifier = Modifier
-                    .weight(1f)
-                    .pointerInput(currentMode) {
-                        // 详尽中文注释：仅在非 PLAYER 模式下拦截水平拖拽手势
-                        if (currentMode == PlayerScreenMode.PLAYER) return@pointerInput
-                        var accumulatedX = 0f  // 累积水平位移，重置于每次 drag 开始
-                        var hasSwipeTriggered = false  // 去抖标志：同一次手势只触发一次切换
-                        detectHorizontalDragGestures(
-                            onDragStart = {
-                                accumulatedX = 0f
-                                hasSwipeTriggered = false
-                            },
-                            onDragEnd = {
-                                accumulatedX = 0f
-                                hasSwipeTriggered = false
-                            },
-                            onDragCancel = {
-                                accumulatedX = 0f
-                                hasSwipeTriggered = false
-                            },
-                            onHorizontalDrag = { change, dragAmount ->
-                                // 详尽中文注释：未触发过切换时持续累积位移，超阈值后执行一次切换并标记去抖
-                                if (!hasSwipeTriggered) {
-                                    accumulatedX += dragAmount
-                                    if (kotlin.math.abs(accumulatedX) > swipeThresholdPx) {
-                                        val currentIndex = tabModes.indexOf(currentMode)
-                                        val nextMode = if (accumulatedX < 0) {
-                                            // 详尽中文注释：左滑（手指向左）→ 切换到 index 更大的下一个 tab；已在最右则返回 PLAYER
-                                            if (currentIndex < tabModes.lastIndex) tabModes[currentIndex + 1]
-                                            else PlayerScreenMode.PLAYER
-                                        } else {
-                                            // 详尽中文注释：右滑（手指向右）→ 切换到 index 更小的上一个 tab；已在最左则返回 PLAYER
-                                            if (currentIndex > 0) tabModes[currentIndex - 1]
-                                            else PlayerScreenMode.PLAYER
-                                        }
-                                        currentMode = nextMode
-                                        actions.content.onSelectedTabChange(nextMode.index)
-                                        hasSwipeTriggered = true
-                                    }
-                                }
-                                change.consume()
-                            }
+                    // 为每一次改动添加详尽的中文注释：只有 Haze 模式渲染真实封面模糊背景，Material 模式保持原有主色渐变背景不变。
+                    if (glassEffectMode == GlassEffectMode.Haze && playerBackgroundCoverRequest != null) {
+                        PlayerCoverBlurredBackground(
+                            imageRequest = playerBackgroundCoverRequest,
+                            backgroundColor = bgColor,
+                            isDarkTheme = isDarkTheme
                         )
                     }
-                ) {
-                    AnimatedContent(
-                        targetState = contentShell,
-                        modifier = Modifier.fillMaxSize(),
-                        transitionSpec = {
-                            // 为每一次改动添加详尽的中文注释：外层仍保留整体 tab 左右滑动；PLAYER/SUBTITLES 共享壳后，二者之间不会触发控制面板级别的外层切换。
-                            if (targetState.index > initialState.index) {
-                                (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300)))
-                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
-                            } else {
-                                (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300)))
-                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
-                            }.using(SizeTransform(clip = false))
-                        },
-                        label = "player_mode_transition"
-                    ) { shell ->
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            when (shell) {
-                                PlayerContentShell.PlaybackShell -> {
-                                    // 为每一次改动添加详尽的中文注释：播放壳内部只切换上半区；PlayerControlPanel 提升为 PLAYER/SUBTITLES 的共同父层子项，避免进入字幕时闪烁。
-                                    val playbackTopMode = if (currentMode == PlayerScreenMode.SUBTITLES) {
-                                        PlayerScreenMode.SUBTITLES
-                                    } else {
-                                        PlayerScreenMode.PLAYER
-                                    }
-                                    AnimatedContent(
-                                        targetState = playbackTopMode,
-                                        modifier = Modifier.weight(1f),
-                                        transitionSpec = {
-                                            // 为每一次改动添加详尽的中文注释：封面与字幕上半区继续使用淡入淡出，维持接近原来的 PLAYER/SUBTITLES 视觉过渡。
-                                            (fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300)))
-                                                .using(SizeTransform(clip = false))
-                                        },
-                                        label = "player_playback_top_transition"
-                                    ) { topMode ->
-                                        when (topMode) {
-                                            PlayerScreenMode.SUBTITLES -> {
-                                                Box(modifier = Modifier.fillMaxSize()) {
-                                                    // 详尽的中文注释：使用 Stateful 局部进度隔间控制歌词字幕高频刷新，而不影响外层
-                                                    SubtitlesViewStateful(
-                                                        viewModel = viewModel,
-                                                        metadata = metadata,
-                                                        actions = actions
-                                                    )
-                                                }
-                                            }
-                                            else -> {
-                                                Box(modifier = Modifier.fillMaxSize()) {
-                                                    // 详尽中文注释：定义封面拖拽手势所需的水平拖拽距离累加器与触发状态标志，用于水平滑动切换上下章节时的去抖动处理。
-                                                    var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
-                                                    var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
 
-                                                    // 详尽的中文注释：在此处将自愈封面最后修改时间戳 metadata.coverLastUpdated 传入，从而强力打通缓存刷新机制。
-                                                    // 同时，通过 pointerInput 绑定 detectDragGestures，重构并恢复此前遗失的封面交互手势（上下滑动微调音量，左右滑动切歌/切章节）。
-                                                    MainCoverView(
-                                                        coverPath = metadata.coverPath,
-                                                        isPlaying = controls.isPlaying,
-                                                        coverLastUpdated = metadata.coverLastUpdated,
-                                                        modifier = Modifier.pointerInput(Unit) {
-                                                            detectDragGestures(
-                                                                onDragStart = {
-                                                                    totalHorizontalDrag = 0f
-                                                                    hasTriggeredHorizontalDrag = false
-                                                                },
-                                                                onDragEnd = {
-                                                                    totalHorizontalDrag = 0f
-                                                                    hasTriggeredHorizontalDrag = false
-                                                                },
-                                                                onDragCancel = {
-                                                                    totalHorizontalDrag = 0f
-                                                                    hasTriggeredHorizontalDrag = false
-                                                                },
-                                                                onDrag = { change, dragAmount ->
-                                                                    change.consume()
-                                                                    if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x)) {
-                                                                        // 详尽中文注释：垂直拖拽用于微调系统音量大小，负号是为了拖动方向更符合直觉（向上滑增大，向下滑减小）
-                                                                        actions.playback.onAdjustVolume(-dragAmount.y * 0.002f)
-                                                                    } else if (!hasTriggeredHorizontalDrag) {
-                                                                        // 详尽中文注释：水平拖拽用于切换章节，使用 totalHorizontalDrag 累积滑动距离进行阈值（300f）去抖
-                                                                        totalHorizontalDrag += dragAmount.x
-                                                                        if (kotlin.math.abs(totalHorizontalDrag) > 300f) {
-                                                                            if (totalHorizontalDrag > 0) {
-                                                                                actions.playback.onNextChapter()
-                                                                            } else {
-                                                                                actions.playback.onPreviousChapter()
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        PlayerAppBar(
+                            title = metadata.title,
+                            author = metadata.author,
+                            narrator = metadata.narrator,
+                            onNavigationClick = {
+                                focusManager.clearFocus()
+                                actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
+                                navigationActions.onMinimize()
+                            },
+                            onToggleProgressMode = actions.content.onToggleProgressMode,
+                            onDeleteBook = actions.content.onDeleteBook,
+                            isChapterProgressMode = settings.isChapterProgressMode,
+                            // 为每一次改动添加详尽的中文注释：播放器顶部更多菜单复用播放器 Surface 的 HazeState，并跟随全局 Material/Haze 模式。
+                            glassEffectMode = glassEffectMode,
+                            dropdownMenuHazeState = chapterSheetHazeState,
+                            modifier = Modifier.pointerInput(Unit) {
+                                detectVerticalDragGestures(
+                                    onVerticalDrag = { change, dragAmount ->
+                                        val newOffset = (offsetY.value + dragAmount).coerceAtLeast(0f)
+                                        scope.launch {
+                                            offsetY.snapTo(newOffset)
+                                        }
+                                        change.consume()
+                                    },
+                                    onDragEnd = {
+                                        scope.launch {
+                                            if (offsetY.value > dismissThreshold) {
+                                                actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
+                                                navigationActions.onMinimize()
+                                            } else {
+                                                offsetY.animateTo(0f, animationSpec = tween(300))
+                                            }
+                                        }
+                                    },
+                                    onDragCancel = {
+                                        scope.launch { offsetY.animateTo(0f, animationSpec = tween(300)) }
+                                    }
+                                )
+                            }
+                        )
+
+                        // 详尽中文注释：为非 PLAYER 三种 tab（书签/字幕/推荐）的内容区域添加左右滑动手势。
+                        // 使用 detectHorizontalDragGestures 累积水平位移，超过 swipeThresholdPx 阈值（80dp）后触发切换。
+                        // 三个 tab 按 index 排列：BOOKMARKS(0) → SUBTITLES(1) → RELATED(2)。
+                        // 左滑（负向）切换到更大 index 的 tab；右滑（正向）切换到更小 index 的 tab。
+                        // 当已到达边界时继续同方向滑动则返回 PLAYER 主播放页面。
+                        // PLAYER 模式本身不响应此手势，封面区有独立的水平切章手势不会产生冲突。
+                        val swipeThresholdPx = with(density) { 80.dp.toPx() }
+                        // 详尽中文注释：按 index 顺序排列的 tab 模式列表，用于边界计算和相邻导航
+                        val tabModes = remember {
+                            listOf(PlayerScreenMode.BOOKMARKS, PlayerScreenMode.SUBTITLES, PlayerScreenMode.RELATED)
+                        }
+                        // 为每一次改动添加详尽的中文注释：外层 tab 动画按“壳”切换，PLAYER 与 SUBTITLES 共用同一个播放壳以稳定保留 PlayerControlPanel。
+                        val contentShell = remember(currentMode) {
+                            when (currentMode) {
+                                PlayerScreenMode.BOOKMARKS -> PlayerContentShell.Bookmarks
+                                PlayerScreenMode.RELATED -> PlayerContentShell.Related
+                                PlayerScreenMode.PLAYER,
+                                PlayerScreenMode.SUBTITLES -> PlayerContentShell.PlaybackShell
+                            }
+                        }
+                        Box(modifier = Modifier
+                            .weight(1f)
+                            .pointerInput(currentMode) {
+                                // 详尽中文注释：仅在非 PLAYER 模式下拦截水平拖拽手势
+                                if (currentMode == PlayerScreenMode.PLAYER) return@pointerInput
+                                var accumulatedX = 0f  // 累积水平位移，重置于每次 drag 开始
+                                var hasSwipeTriggered = false  // 去抖标志：同一次手势只触发一次切换
+                                detectHorizontalDragGestures(
+                                    onDragStart = {
+                                        accumulatedX = 0f
+                                        hasSwipeTriggered = false
+                                    },
+                                    onDragEnd = {
+                                        accumulatedX = 0f
+                                        hasSwipeTriggered = false
+                                    },
+                                    onDragCancel = {
+                                        accumulatedX = 0f
+                                        hasSwipeTriggered = false
+                                    },
+                                    onHorizontalDrag = { change, dragAmount ->
+                                        // 详尽中文注释：未触发过切换时持续累积位移，超阈值后执行一次切换并标记去抖
+                                        if (!hasSwipeTriggered) {
+                                            accumulatedX += dragAmount
+                                            if (kotlin.math.abs(accumulatedX) > swipeThresholdPx) {
+                                                val currentIndex = tabModes.indexOf(currentMode)
+                                                val nextMode = if (accumulatedX < 0) {
+                                                    // 详尽中文注释：左滑（手指向左）→ 切换到 index 更大的下一个 tab；已在最右则返回 PLAYER
+                                                    if (currentIndex < tabModes.lastIndex) tabModes[currentIndex + 1]
+                                                    else PlayerScreenMode.PLAYER
+                                                } else {
+                                                    // 详尽中文注释：右滑（手指向右）→ 切换到 index 更小的上一个 tab；已在最左则返回 PLAYER
+                                                    if (currentIndex > 0) tabModes[currentIndex - 1]
+                                                    else PlayerScreenMode.PLAYER
+                                                }
+                                                currentMode = nextMode
+                                                actions.content.onSelectedTabChange(nextMode.index)
+                                                hasSwipeTriggered = true
+                                            }
+                                        }
+                                        change.consume()
+                                    }
+                                )
+                            }
+                        ) {
+                            AnimatedContent(
+                                targetState = contentShell,
+                                modifier = Modifier.fillMaxSize(),
+                                transitionSpec = {
+                                    // 为每一次改动添加详尽的中文注释：外层仍保留整体 tab 左右滑动；PLAYER/SUBTITLES 共享壳后，二者之间不会触发控制面板级别的外层切换。
+                                    if (targetState.index > initialState.index) {
+                                        (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300)))
+                                            .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
+                                    } else {
+                                        (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300)))
+                                            .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
+                                    }.using(SizeTransform(clip = false))
+                                },
+                                label = "player_mode_transition"
+                            ) { shell ->
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    when (shell) {
+                                        PlayerContentShell.PlaybackShell -> {
+                                            // 为每一次改动添加详尽的中文注释：播放壳内部只切换上半区；PlayerControlPanel 提升为 PLAYER/SUBTITLES 的共同父层子项，避免进入字幕时闪烁。
+                                            val playbackTopMode = if (currentMode == PlayerScreenMode.SUBTITLES) {
+                                                PlayerScreenMode.SUBTITLES
+                                            } else {
+                                                PlayerScreenMode.PLAYER
+                                            }
+                                            AnimatedContent(
+                                                targetState = playbackTopMode,
+                                                modifier = Modifier.weight(1f),
+                                                transitionSpec = {
+                                                    // 为每一次改动添加详尽的中文注释：封面与字幕上半区继续使用淡入淡出，维持接近原来的 PLAYER/SUBTITLES 视觉过渡。
+                                                    (fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300)))
+                                                        .using(SizeTransform(clip = false))
+                                                },
+                                                label = "player_playback_top_transition"
+                                            ) { topMode ->
+                                                when (topMode) {
+                                                    PlayerScreenMode.SUBTITLES -> {
+                                                        Box(modifier = Modifier.fillMaxSize()) {
+                                                            // 详尽的中文注释：使用 Stateful 局部进度隔间控制歌词字幕高频刷新，而不影响外层
+                                                            SubtitlesViewStateful(
+                                                                viewModel = viewModel,
+                                                                metadata = metadata,
+                                                                actions = actions
+                                                            )
+                                                        }
+                                                    }
+                                                    else -> {
+                                                        Box(modifier = Modifier.fillMaxSize()) {
+                                                            // 详尽中文注释：定义封面拖拽手势所需的水平拖拽距离累加器与触发状态标志，用于水平滑动切换上下章节时的去抖动处理。
+                                                            var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
+                                                            var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
+
+                                                            // 详尽的中文注释：在此处将自愈封面最后修改时间戳 metadata.coverLastUpdated 传入，从而强力打通缓存刷新机制。
+                                                            // 同时，通过 pointerInput 绑定 detectDragGestures，重构并恢复此前遗失的封面交互手势（上下滑动微调音量，左右滑动切歌/切章节）。
+                                                            MainCoverView(
+                                                                coverPath = metadata.coverPath,
+                                                                isPlaying = controls.isPlaying,
+                                                                coverLastUpdated = metadata.coverLastUpdated,
+                                                                modifier = Modifier.pointerInput(Unit) {
+                                                                    detectDragGestures(
+                                                                        onDragStart = {
+                                                                            totalHorizontalDrag = 0f
+                                                                            hasTriggeredHorizontalDrag = false
+                                                                        },
+                                                                        onDragEnd = {
+                                                                            totalHorizontalDrag = 0f
+                                                                            hasTriggeredHorizontalDrag = false
+                                                                        },
+                                                                        onDragCancel = {
+                                                                            totalHorizontalDrag = 0f
+                                                                            hasTriggeredHorizontalDrag = false
+                                                                        },
+                                                                        onDrag = { change, dragAmount ->
+                                                                            change.consume()
+                                                                            if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x)) {
+                                                                                // 详尽中文注释：垂直拖拽用于微调系统音量大小，负号是为了拖动方向更符合直觉（向上滑增大，向下滑减小）
+                                                                                actions.playback.onAdjustVolume(-dragAmount.y * 0.002f)
+                                                                            } else if (!hasTriggeredHorizontalDrag) {
+                                                                                // 详尽中文注释：水平拖拽用于切换章节，使用 totalHorizontalDrag 累积滑动距离进行阈值（300f）去抖
+                                                                                totalHorizontalDrag += dragAmount.x
+                                                                                if (kotlin.math.abs(totalHorizontalDrag) > 300f) {
+                                                                                    if (totalHorizontalDrag > 0) {
+                                                                                        actions.playback.onNextChapter()
+                                                                                    } else {
+                                                                                        actions.playback.onPreviousChapter()
+                                                                                    }
+                                                                                    hasTriggeredHorizontalDrag = true
+                                                                                }
                                                                             }
-                                                                            hasTriggeredHorizontalDrag = true
                                                                         }
-                                                                    }
+                                                                    )
                                                                 }
                                                             )
                                                         }
-                                                    )
+                                                    }
                                                 }
                                             }
+                                            // 为每一次改动添加详尽的中文注释：控制面板在播放壳内只挂载一次，PLAYER 与 SUBTITLES 共用同一实例以避免切换闪烁。
+                                            PlayerControlPanel(viewModel, metadata, controls, settings, actions, animatedBgColor)
                                         }
-                                    }
-                                    // 为每一次改动添加详尽的中文注释：控制面板在播放壳内只挂载一次，PLAYER 与 SUBTITLES 共用同一实例以避免切换闪烁。
-                                    PlayerControlPanel(viewModel, metadata, controls, settings, actions, animatedBgColor)
-                                }
-                                PlayerContentShell.Bookmarks -> {
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        // 详尽的中文注释：使用 Stateful 局部进度隔间，防止进度刷新引发书签背景重组
-                                        BookmarkListViewStateful(
-                                            viewModel = viewModel,
-                                            metadata = metadata,
-                                            actions = actions
-                                        )
-                                    }
-                                }
-                                PlayerContentShell.Related -> {
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        RelatedBooksView(
-                                            currentBookId = metadata.id,
-                                            // 为每一次改动添加详尽的中文注释：在此传入由 ViewModel 响应式流动汇聚的“启发式智能推荐”书籍列表，完成端到端数据的完美交接与置顶呈现。
-                                            heuristicBooks = fullUiState.heuristicRecommendedBooks,
-                                            authorSections = fullUiState.relatedAuthorSections,
-                                            narratorSections = fullUiState.relatedNarratorSections,
-                                            recentBooks = fullUiState.recentlyAddedBooks,
-                                            onBookClick = actions.content.onLoadRelatedBook
-                                        )
+                                        PlayerContentShell.Bookmarks -> {
+                                            Box(modifier = Modifier.weight(1f)) {
+                                                // 详尽的中文注释：使用 Stateful 局部进度隔间，防止进度刷新引发书签背景重组
+                                                BookmarkListViewStateful(
+                                                    viewModel = viewModel,
+                                                    metadata = metadata,
+                                                    actions = actions
+                                                )
+                                            }
+                                        }
+                                        PlayerContentShell.Related -> {
+                                            Box(modifier = Modifier.weight(1f)) {
+                                                RelatedBooksView(
+                                                    currentBookId = metadata.id,
+                                                    // 为每一次改动添加详尽的中文注释：在此传入由 ViewModel 响应式流动汇聚的“启发式智能推荐”书籍列表，完成端到端数据的完美交接与置顶呈现。
+                                                    heuristicBooks = fullUiState.heuristicRecommendedBooks,
+                                                    authorSections = fullUiState.relatedAuthorSections,
+                                                    narratorSections = fullUiState.relatedNarratorSections,
+                                                    recentBooks = fullUiState.recentlyAddedBooks,
+                                                    onBookClick = actions.content.onLoadRelatedBook
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // Undo seek Snackbar 使用 150ms 上滑淡入/下滑淡出，3 秒可见窗口仍由 ViewModel 控制。
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = settings.showUndoSeek,
-                        enter = slideInVertically(
-                            animationSpec = tween(150),
-                            initialOffsetY = { it }
-                        ) + fadeIn(animationSpec = tween(150)),
-                        exit = slideOutVertically(
-                            animationSpec = tween(150),
-                            targetOffsetY = { it }
-                        ) + fadeOut(animationSpec = tween(150)),
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        // 详尽的中文注释：根据 Material 3 规范与 APlayer 播放器暗色主题优化 Snackbar 视觉样式
-                        // 使用 surfaceVariant 作为背景色以防止在深色界面中显得过于刺眼，结合 primary 主色调动作按钮提升视觉品质，配以 12.dp 圆角
-                        Snackbar(
-                            action = {
-                                TextButton(onClick = actions.playback.onUndoSeek) {
-                                    Text(
-                                        text = "Undo",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            },
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(
-                                text = "Jumped to a new position",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
+                        // 为每一次改动添加详尽的中文注释：将 BottomNavTabs 放置在内部 Column 的最底部，保证主内容在 tabs 之上，且共享 hazeSource 模糊采样背景。
+                        BottomNavTabs(
+                            selectedTab = currentMode,
+                            onTabSelected = { 
+                                val nextMode = if (currentMode == it) PlayerScreenMode.PLAYER else it
+                                currentMode = nextMode
+                                actions.content.onSelectedTabChange(nextMode.index)
+                            }
+                        )
                     }
                 }
 
-                BottomNavTabs(
-                    selectedTab = currentMode,
-                    onTabSelected = { 
-                        val nextMode = if (currentMode == it) PlayerScreenMode.PLAYER else it
-                        currentMode = nextMode
-                        actions.content.onSelectedTabChange(nextMode.index)
+                // 为每一次改动添加详尽的中文注释：可切换 Haze 模糊的 Snackbar，作为兄弟节点直接放置在最外层 Box 的底部层叠位置。
+                // 采用 150ms 上滑淡入/下滑淡出，显示时长控制仍由 ViewModel 管理。
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = settings.showUndoSeek,
+                    enter = slideInVertically(
+                        animationSpec = tween(150),
+                        initialOffsetY = { it }
+                    ) + fadeIn(animationSpec = tween(150)),
+                    exit = slideOutVertically(
+                        animationSpec = tween(150),
+                        targetOffsetY = { it }
+                    ) + fadeOut(animationSpec = tween(150)),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        // 详尽的中文注释：由于 Snackbar 是悬浮在 BottomNavTabs 之上的独立层级，我们将底边距提升至 96.dp，以防它与下方的 BottomNavTabs 发生视觉重叠遮挡。
+                        .padding(horizontal = 16.dp, vertical = 96.dp)
+                ) {
+                    // 为每一次改动添加详尽的中文注释：使用新创建的 BlurSnackbar，支持在 Haze 模式下采样兄弟节点的背景模糊效果，Material 模式下展示原生样式。
+                    BlurSnackbar(
+                        hazeState = chapterSheetHazeState,
+                        glassEffectMode = glassEffectMode,
+                        action = {
+                            TextButton(onClick = actions.playback.onUndoSeek) {
+                                Text(
+                                    text = "Undo",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Jumped to a new position",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
-                )
+                }
             }
         }
         // 为每一次改动添加详尽的中文注释：关闭播放器 Surface 内容层，确保章节列表弹窗和书签 Dialog 仍作为同级浮层挂在 APlayerTheme 下。
-        }
 
         // 详尽的中文注释：采用 Stateful 局部隔间包裹章节列表弹窗，在弹窗不可见时完全停摆以防高频重组
         ChapterListSheetStateful(
