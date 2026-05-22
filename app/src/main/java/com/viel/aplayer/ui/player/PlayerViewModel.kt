@@ -450,6 +450,17 @@ class PlayerViewModel : ViewModel() {
     }
 
     fun loadBook(id: String, playWhenReady: Boolean = true) {
+        // 为每一次改动添加详尽的中文注释：
+        // 如果当前请求加载的音频书籍 ID 与当前正在播放的音频书籍 ID 相同，则无需重新加载该书。
+        // 这可以防止因为重复加载媒体播放计划（loadBook）而打断当前的连续播放状态，提升播放体验的连贯性。
+        if (_currentBookId.value == id) {
+            // 如果外部传入期望在就绪后立即播放，且目前底层播放器实际处于暂停/非播放状态，则只需直接恢复播放即可，无需执行重载打断当前会话。
+            if (playWhenReady && !playbackState.value.isPlaying) {
+                play()
+            }
+            return
+        }
+
         // 详尽的中文注释：加载新书时，必须彻底取消并物理回收正在运行的上一本书的字幕加载协程，重置闸门以杜绝残留回调污染新会话
         subtitleLoadJob?.cancel()
         isEmbeddedSearchActive = false
