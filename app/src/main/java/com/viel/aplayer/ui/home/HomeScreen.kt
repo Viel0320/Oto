@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,12 +15,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
@@ -134,7 +141,27 @@ fun HomeScreen(
         uri?.let(onLibraryRootSelected)
     }
 
-    val listState = rememberLazyListState()
+    // 为每一次改动添加详尽的中文注释：获取屏幕当前物理与逻辑配置，提取方向和最小逻辑宽度以决定自适应排版
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isTablet = configuration.smallestScreenWidthDp >= 600
+    val isWideScreen = isTablet || isLandscape
+
+    // 为每一次改动添加详尽的中文注释：根据屏幕逻辑宽度（dp）动态确定网格列数：
+    // - 小屏手机竖屏（宽度 < 600dp）时为 1 列经典列表；
+    // - 普通平板或手机横屏（600dp <= 宽度 < 840dp）时为 2 列网格卡片；
+    // - 宽屏平板或大显示器（宽度 >= 840dp）时自动扩展为 3 列网格卡片，实现现代且紧凑的布局结构。
+    val columnsCount = when {
+        configuration.screenWidthDp >= 840 -> 3
+        isWideScreen -> 2
+        else -> 1
+    }
+
+    // 为每一次改动添加详尽的中文注释：大屏与横屏下自动增大边距为 24.dp 以带来强烈的呼吸感与统一对齐，小屏保持原有的 16.dp 满格排列。
+    val screenHorizontalPadding = if (isWideScreen) 24.dp else 16.dp
+
+    // 为每一次改动添加详尽的中文注释：将滚动状态 remember 由 LazyListState 迁移至自适应网格 GridState，完成底座升级。
+    val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     // 为每一次改动添加详尽的中文注释：只有 Haze 模式才将主页完整内容注册为采样源；Material 模式跳过以节省渲染成本。
     val hazeSourceModifier = if (glassEffectMode == GlassEffectMode.Haze) {
@@ -161,7 +188,8 @@ fun HomeScreen(
                             detectTapGestures(
                                 onDoubleTap = {
                                     scope.launch {
-                                        listState.scrollToItem(0)
+                                        // 为每一次改动添加详尽的中文注释：双击 TopAppBar 时滚动至顶映射至自适应 gridState 以实现完美兼容。
+                                        gridState.scrollToItem(0)
                                     }
                                 }
                             )
@@ -226,7 +254,8 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp, bottom = 12.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    // 为每一次改动添加详尽的中文注释：应用动态的 screenHorizontalPadding，在大屏上拥有更舒展高级的横向留白。
+                    contentPadding = PaddingValues(horizontal = screenHorizontalPadding),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // 详尽中文注释：M-20 修复 — 使用 filter.name 作为稳定 key，避免过滤器切换时 FilterChip 动画错位
@@ -240,27 +269,36 @@ fun HomeScreen(
                 }
             }
 
-            LazyColumn(
-                state = listState,
+            // 为每一次改动添加详尽的中文注释：
+            // 将原有的单列 LazyColumn 升级重构为全新且强大的 LazyVerticalGrid。
+            // 依靠 columns 参数接收 Fixed(columnsCount)，能在超宽屏幕、平板以及普通横屏模式下流畅自适应划分多列，
+            // 所有非主列表书籍项（如 RecentlyAdded Row，Author Headers 等）全部通过 span 设置 GridItemSpan(maxLineSpan) 强制其跨满全宽，
+            // 从而构建出无懈可击、极具 premium 高级观感的流体自适应卡片式网格。
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columnsCount),
+                state = gridState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
                 )
             ) {
                 if (shouldShowRecentBooks) {
-                    item {
+                    // 为每一次改动添加详尽的中文注释：Recently Added 标题通过 span 指定其必须占满全宽。
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = recentTitle,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp)
+                            // 为每一次改动添加详尽的中文注释：左外边距使用动态 screenHorizontalPadding 适配完美的上下一致中轴线对齐。
+                            modifier = Modifier.padding(start = screenHorizontalPadding, top = 8.dp, end = screenHorizontalPadding, bottom = 16.dp)
                         )
                     }
 
-                    item {
+                    // 为每一次改动添加详尽的中文注释：横向滚动的 Recently Items 同样跨列占满整宽，并动态计算左边缘的缩进。
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         LazyRow(
                             modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            contentPadding = PaddingValues(horizontal = screenHorizontalPadding - 4.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // 详尽中文注释：M-20 修复 — 使用 book.id 作为稳定 key，避免最近添加列表更新时封面加载状态错位
@@ -286,17 +324,28 @@ fun HomeScreen(
                 }
 
                 groupedByAuthor.forEach { (author, books) ->
-                    item {
+                    // 为每一次改动添加详尽的中文注释：作者分组 Header 栏通过 span 设置最大跨度占满全宽。
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = author.takeIf { it.isNotBlank() } ?: "Unknown",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
+                            // 为每一次改动添加详尽的中文注释：左外边距使用动态 screenHorizontalPadding 适配完美的上下一致中轴线对齐。
+                            modifier = Modifier.padding(start = screenHorizontalPadding, end = screenHorizontalPadding, top = 24.dp, bottom = 8.dp)
                         )
                     }
 
                     // 详尽中文注释：M-20 修复 — 使用 book.id 作为稳定 key，避免书单排序后 item 状态错位
                     items(books, key = { it.book.id }) { book ->
+                        // 为每一次改动添加详尽的中文注释：
+                        // 当列数 columnsCount 大于 1 时（横屏或平板网格展示模式），为了防止相邻网格的书籍项目物理上过于黏连，
+                        // 我们只为其注入适度的内外边距，不需要加任何卡片背景与圆角，保持最本真的极简透光观感。
+                        val itemModifier = if (columnsCount > 1) {
+                            Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        } else {
+                            Modifier
+                        }
+
                         AudiobookListItem(
                             title = book.book.title,
                             author = book.book.author,
@@ -307,7 +356,8 @@ fun HomeScreen(
                             progressPercent = book.progressPercent,
                             onClick = { onNavigateToDetail(book.book.id) },
                             // 为每一次改动添加详尽的中文注释：长按有声书列表项时将当前书籍状态记录到 activeBookForMenu 中，用以唤起操作 Dialog 菜单
-                            onLongClick = { activeBookForMenu = book }
+                            onLongClick = { activeBookForMenu = book },
+                            modifier = itemModifier
                         ) { 
                             onLoadBook(book.book.id)
                             onNavigateToPlayer()
