@@ -77,6 +77,22 @@ class LibraryRepository private constructor(context: Context) {
     private val coverRecoveryHelper = CoverRecoveryHelper(this.context, bookDao, database.libraryRootDao(), coverExtractor, scope)
     private val reachabilityManager = PlaybackReachabilityManager(this.context, bookDao)
 
+    // 详尽的中文注释：在内存中持久维护一份媒体库根目录的最新缓存，随 Repository 全局单例生命周期存活，用于向设置页等冷启动界面提供零延迟的首帧数据
+    @Volatile
+    private var cachedRoots: List<LibraryRootEntity> = emptyList()
+
+    init {
+        scope.launch {
+            // 详尽的中文注释：在单例初始化时立即订阅媒体库数据流，实时将最新数据同步至内存缓存中，确保首帧数据的强一致性
+            observeLibraryRoots().collect {
+                cachedRoots = it
+            }
+        }
+    }
+
+    // 详尽的中文注释：暴露一个同步获取内存中缓存的媒体库根目录列表的公开方法，避免冷启动时由于 Room 异步查询导致的 UI 布局大幅度抖动
+    fun getCachedLibraryRoots(): List<LibraryRootEntity> = cachedRoots
+
     /** Search history flow. */
     val searchHistory: Flow<List<SearchHistoryEntry>> = searchHistoryStore.history
 

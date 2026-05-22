@@ -35,12 +35,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
+            initialValue = libraryRepository.getCachedLibraryRoots() // 详尽的中文注释：使用全局单例 LibraryRepository 内存中的最新缓存作为初始值，确保首帧瞬间加载出目录，杜绝首帧空白引起的布局抖动
         )
 
     init {
         viewModelScope.launch {
             // Settings entry should show current SAF grant status, including revoked roots.
+            // 详尽的中文注释：延迟 500 毫秒后再触发系统的 SAF 物理授权检测，以完美避开 Activity 启动转场动画及首帧绘制的核心渲染时间，保证界面展示绝对丝滑
+            kotlinx.coroutines.delay(500)
             libraryRepository.refreshLibraryRootStatuses()
         }
     }
@@ -48,6 +50,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun refreshLibraryRootStatuses() {
         viewModelScope.launch {
             // Route entry calls this explicitly because the SettingsViewModel may be created before navigation.
+            // 详尽的中文注释：手动触发的刷新依然走异步协程检测，保证物理可达性更新。
             libraryRepository.refreshLibraryRootStatuses()
         }
     }
@@ -150,7 +153,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增设置页切换悬浮层视觉效果模式的交互方法，统一写入 DataStore 供主页和播放器实时响应。
+    // 为每一次改动添加详尽的中文注释：新增设置页切换悬浮层视觉效果模式的交互方法，统一写入 DataStore 供主页 and 播放器实时响应。
     fun updateGlassEffectMode(mode: GlassEffectMode) {
         viewModelScope.launch {
             settingsRepository.updateGlassEffectMode(mode)

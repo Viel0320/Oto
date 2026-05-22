@@ -11,9 +11,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +23,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
@@ -191,9 +195,27 @@ fun SettingsScreen(
     // 详尽的中文注释：定义用于记录用户即将触发删除动作的媒体库目录 State 变量，用来拉起强提醒的 AlertDialog 二次确认弹窗。
     var rootToDelete by remember { mutableStateOf<LibraryRootEntity?>(null) }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
+    // 详尽的中文注释：获取设备当前的屏幕配置信息，用于自适应判定
+    val configuration = LocalConfiguration.current
+    // 详尽的中文注释：判定当前设备是否为横屏方向
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // 详尽的中文注释：判定当前设备是否为大屏平板或大折叠屏（宽度 >= 600dp）
+    val isWideScreen = configuration.screenWidthDp >= 600
+    // 详尽的中文注释：如果处于横屏或者大屏状态，则启用尊贵的容器化集中布局，使内容左右两侧各自空出 20% 的宽度（总计填充 60% 宽度，即 0.6f 比例）
+    val useWideLayout = isLandscape || isWideScreen
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(if (useWideLayout) 0.6f else 1f)
+        ) {
+            Scaffold(
+                topBar = {
+                    CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -399,6 +421,8 @@ fun SettingsScreen(
                     onClick = onClearHistory
                 )
             }
+        }
+    }
         }
     }
 
