@@ -38,13 +38,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
-// 为每一次改动添加详尽的中文注释：导入 BoxWithConstraints 和 size，以支持动态测量父容器短边，自适应缩放正方形封面
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -96,7 +92,7 @@ import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterDisplay
 import com.viel.aplayer.ui.player.components.ChapterListSheet
-import com.viel.aplayer.ui.player.components.MainCoverView
+import com.viel.aplayer.ui.player.components.PlayerCover
 import com.viel.aplayer.ui.player.components.PlaybackProgress
 import com.viel.aplayer.ui.player.components.PlayerAppBar
 import com.viel.aplayer.ui.player.components.PlayerControlPanel
@@ -338,17 +334,19 @@ fun NewPlayerScreen(
                         alpha = 1f - playerBackProgress * 0.3f
                     }
                 }
-                .clip(playerSurfaceShape)
-                .background(bgColor)
-                .background(backgroundBrush),
-            color = Color.Transparent
+                .clip(playerSurfaceShape),
+            // 为每一次改动添加详尽的中文注释：将 bgColor 设置为 Surface 的 container color，充当最牢固的主题底层背景，杜绝任何透明漏光发生
+            color = bgColor
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 // 为每一次改动添加详尽的中文注释：使用内层容器包裹背景封面、主体 UI Column 及底部 tabs，并在此应用 hazeSource。
                 // 这样，外部 Box 中的 Snackbar 将作为兄弟节点运行在 hazeSource 之外，从而彻底规避 Haze 1.x 中由于父子生命周期导致的采样失效与绘制冲突。
+                // 我们将 backgroundBrush 渐变背景移至此处 Box 挂载，并将其置于 chapterSheetHazeSourceModifier 之前，
+                // 确保渐变层像素能够先于采样器绘制出来并被 hazeSource 100% 完整捕获，从而为兄弟节点 BlurSnackbar 提供饱满绚丽的磨砂高斯模糊效果。
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .background(backgroundBrush)
                         .then(chapterSheetHazeSourceModifier)
                 ) {
                     // 为每一次改动添加详尽的中文注释：只有 Haze 模式渲染真实封面模糊背景，Material 模式保持原有主色渐变背景不变。
@@ -521,63 +519,15 @@ fun NewPlayerScreen(
                                                             }
                                                         }
                                                         else -> {
-                                                            // 为每一次改动添加详尽的中文注释：
-                                                            // 在大屏/横屏左栏的封面外层升级为 BoxWithConstraints 宿主，以动态捕获其最大可用宽高。
-                                                            // 比较长宽两边，取较短的一边乘以 0.8f 作为封面的目标尺寸，从而在任何分屏、横屏或设备下，
-                                                            // 都能自适应缩放呈现带精致呼吸感的 1:1 悬浮正方形封面，物理上彻底杜绝尺寸溢出并保留上下留白。
-                                                            BoxWithConstraints(
-                                                                modifier = Modifier.fillMaxSize(),
-                                                                contentAlignment = Alignment.Center
-                                                            ) {
-                                                                val minDimension = minOf(maxWidth, maxHeight)
-                                                                val coverSize = minDimension  * 0.8f
-
-                                                                var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
-                                                                var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
-                                                                MainCoverView(
-                                                                    coverPath = metadata.coverPath,
-                                                                    isPlaying = controls.isPlaying,
-                                                                    coverLastUpdated = metadata.coverLastUpdated,
-                                                                    modifier = Modifier
-                                                                        .size(coverSize)
-                                                                        .pointerInput(Unit) {
-                                                                            detectDragGestures(
-                                                                                onDragStart = {
-                                                                                    totalHorizontalDrag = 0f
-                                                                                    hasTriggeredHorizontalDrag = false
-                                                                                },
-                                                                                onDragEnd = {
-                                                                                    totalHorizontalDrag = 0f
-                                                                                    hasTriggeredHorizontalDrag = false
-                                                                                },
-                                                                                onDragCancel = {
-                                                                                    totalHorizontalDrag = 0f
-                                                                                    hasTriggeredHorizontalDrag = false
-                                                                                },
-                                                                                onDrag = { change, dragAmount ->
-                                                                                    change.consume()
-                                                                                    if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x)) {
-                                                                                        actions.playback.onAdjustVolume(-dragAmount.y * 0.002f)
-                                                                                    } else if (!hasTriggeredHorizontalDrag) {
-                                                                                        totalHorizontalDrag += dragAmount.x
-                                                                                        if (kotlin.math.abs(totalHorizontalDrag) > 300f) {
-                                                                                            // 为每一次改动添加详尽的中文注释：
-                                                                                            // 此前在水平滑动手势中将“循环切换播放速度 (onCyclePlaybackSpeed)”与“撤销 Seek (onUndoSeek)”
-                                                                                            // 和切章动作重叠绑定在了同一阈值判断下，导致用户在使用手势进行切章时必然会被动更改播放速度或触发撤销。
-                                                                                            // 现彻底移除这两个冲突调用，将左右滑动手势恢复为仅执行纯粹的“下一章 (onNextChapter)”与“上一章 (onPreviousChapter)”控制。
-                                                                                            if (totalHorizontalDrag > 0) {
-                                                                                                actions.playback.onNextChapter()
-                                                                                            } else {
-                                                                                                actions.playback.onPreviousChapter()
-                                                                                            }
-                                                                                            hasTriggeredHorizontalDrag = true
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                            )
-                                                                        }
-                                                                )
-                                                            }
+                                                            // 为每一次改动添加详尽的中文注释：使用独立封装的自适应手势封面组件 PlayerCover，解耦布局层级
+                                                            PlayerCover(
+                                                                coverPath = metadata.coverPath,
+                                                                isPlaying = controls.isPlaying,
+                                                                coverLastUpdated = metadata.coverLastUpdated,
+                                                                onAdjustVolume = { actions.playback.onAdjustVolume(it) },
+                                                                onNextChapter = { actions.playback.onNextChapter() },
+                                                                onPreviousChapter = { actions.playback.onPreviousChapter() }
+                                                            )
                                                         }
                                                     }
                                                 }
@@ -858,48 +808,15 @@ fun NewPlayerScreen(
                                                             }
                                                         }
                                                         else -> {
-                                                            Box(modifier = Modifier.fillMaxSize()) {
-                                                                var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
-                                                                var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
-
-                                                                MainCoverView(
-                                                                    coverPath = metadata.coverPath,
-                                                                    isPlaying = controls.isPlaying,
-                                                                    coverLastUpdated = metadata.coverLastUpdated,
-                                                                    modifier = Modifier.pointerInput(Unit) {
-                                                                        detectDragGestures(
-                                                                            onDragStart = {
-                                                                                totalHorizontalDrag = 0f
-                                                                                hasTriggeredHorizontalDrag = false
-                                                                            },
-                                                                            onDragEnd = {
-                                                                                totalHorizontalDrag = 0f
-                                                                                hasTriggeredHorizontalDrag = false
-                                                                            },
-                                                                            onDragCancel = {
-                                                                                totalHorizontalDrag = 0f
-                                                                                hasTriggeredHorizontalDrag = false
-                                                                            },
-                                                                            onDrag = { change, dragAmount ->
-                                                                                change.consume()
-                                                                                if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x)) {
-                                                                                    actions.playback.onAdjustVolume(-dragAmount.y * 0.002f)
-                                                                                } else if (!hasTriggeredHorizontalDrag) {
-                                                                                    totalHorizontalDrag += dragAmount.x
-                                                                                    if (kotlin.math.abs(totalHorizontalDrag) > 300f) {
-                                                                                        if (totalHorizontalDrag > 0) {
-                                                                                            actions.playback.onNextChapter()
-                                                                                        } else {
-                                                                                            actions.playback.onPreviousChapter()
-                                                                                        }
-                                                                                        hasTriggeredHorizontalDrag = true
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                        )
-                                                                    }
-                                                                )
-                                                            }
+                                                            // 为每一次改动添加详尽的中文注释：使用独立封装的自适应手势封面组件 PlayerCover，解耦布局层级
+                                                            PlayerCover(
+                                                                coverPath = metadata.coverPath,
+                                                                isPlaying = controls.isPlaying,
+                                                                coverLastUpdated = metadata.coverLastUpdated,
+                                                                onAdjustVolume = { actions.playback.onAdjustVolume(it) },
+                                                                onNextChapter = { actions.playback.onNextChapter() },
+                                                                onPreviousChapter = { actions.playback.onPreviousChapter() }
+                                                            )
                                                         }
                                                     }
                                                 }
@@ -1316,7 +1233,7 @@ fun PlayerScreenLandscapePreview() {
             NewPlayerScreen(
                 viewModel = PlayerViewModel(),
                 actions = PlayerActions(),
-                navigationActions = com.viel.aplayer.ui.navigation.PlayerNavigationActions(),
+                navigationActions = PlayerNavigationActions(),
                 glassEffectMode = GlassEffectMode.Material
             )
         }

@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,14 +59,39 @@ fun BlurSnackbar(
     dismissActionContentColor: Color = SnackbarDefaults.dismissActionContentColor,
     content: @Composable () -> Unit
 ) {
+    // 为每一次改动添加详尽的中文注释：根据用户要求，限制 Snackbar 的最大宽度为 480dp，以便在大屏/横屏设备上提供更好的视觉排版与可读性
+    val constrainedModifier = modifier.widthIn(max = 480.dp)
+
     if (glassEffectMode == GlassEffectMode.Haze) {
-        // 为每一次改动添加详尽的中文注释：Haze 模式下，自定义无阴影的 Surface，强制阴影高度与色彩高度为 0.dp，斩断投影伪像
+        // 为每一次改动添加详尽的中文注释：获取当前系统的深色模式状态，以便为毛玻璃做双态色彩自适应
+        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+        val baseStyle = HazePresets.HazeStyle
+        // 为每一次改动添加详尽的中文注释：为 Snackbar 定制精美通透且具备高度可读性的磨砂高斯模糊风格，
+        // 采用 baseStyle.copy，并根据亮暗主题分别配置 75% 纯白与 65% 深灰的 HazeTint 涂抹着色，
+        // 从而彻底解决在 Color.Transparent 底色下没有高斯模糊的视觉折射以及文字对比度穿帮的问题。
+        val snackbarHazeStyle = remember(isDark, baseStyle) {
+            baseStyle.copy(
+                backgroundColor = Color.Transparent,
+                tints = listOf(
+                    dev.chrisbanes.haze.HazeTint(
+                        if (isDark) {
+                            Color(0xFF2C2C2C).copy(alpha = 0.65f) // 暗色模式：高质感微晶深灰
+                        } else {
+                            Color.White.copy(alpha = 0.75f) // 亮色模式：温润白羽纯白
+                        }
+                    )
+                )
+            )
+        }
+
+        // 为每一次改动添加详尽的中文注释：Haze 模式下，自定义无阴影的 Surface，强制阴影与色调高度为 0.dp 以杜绝黑边投影伪像，
+        // 并通过挂载定制了 HazeTint 自适应色彩的 snackbarHazeStyle 修饰符，实现极其华丽、通透且清晰的高阶毛玻璃效果。
         Surface(
-            modifier = modifier
+            modifier = constrainedModifier
                 .clip(shape)
                 .hazeEffect(
                     state = hazeState,
-                    style = dev.chrisbanes.haze.materials.HazeMaterials.regular()
+                    style = snackbarHazeStyle
                 ),
             shape = shape,
             color = Color.Transparent,
@@ -121,7 +148,7 @@ fun BlurSnackbar(
     } else {
         // 为每一次改动添加详尽的中文注释：Material 原生模式，直接沿用官方标准 Snackbar，保留最佳底层绘制兼容性
         Snackbar(
-            modifier = modifier,
+            modifier = constrainedModifier,
             action = action,
             dismissAction = dismissAction,
             actionOnNewLine = actionOnNewLine,

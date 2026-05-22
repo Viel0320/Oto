@@ -51,8 +51,10 @@ fun PlayerControlPanel(
 ) {
     Column(
         // 为每一次改动添加详尽的中文注释：剥离硬编码的 padding(horizontal = 24.dp)，将布局内边距的控制权移交给外部调用者，以实现彻底顶满屏幕或者按需缩进
+        // 详尽中文注释：为整个播放控制面板容器添加 4dp 的内边距，以避免控制面板的子元素紧贴边缘，提升视觉美观度与触控体验
         modifier = modifier
             .fillMaxWidth()
+            .padding(8.dp)
     ) {
         // 详尽中文注释：章节标题显示局部隔间，传入 fillMaxWidth 确保能在行中占据全宽，并且在左右添加合适内距
         ChapterDisplayStateful(

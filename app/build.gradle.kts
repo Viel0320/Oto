@@ -18,7 +18,8 @@ android {
 
     defaultConfig {
         applicationId = "com.viel.aplayer"
-        minSdk = 31
+        // 为每一次改动添加详尽的中文注释：根据用户要求，将 minSdk 从 31 提升至 33 (Android 13)，以适配 miuix-blur 模糊库所需的硬件级高阶模糊渲染。
+        minSdk = 33
         //noinspection OldTargetApi
         targetSdk = 36
         versionCode = 1
