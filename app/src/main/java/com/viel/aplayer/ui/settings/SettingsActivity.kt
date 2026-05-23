@@ -142,7 +142,10 @@ class SettingsActivity : ComponentActivity() {
                         onSleepModeChange = { settingsViewModel.updateSleepMode(it) },
                         // 为每一次改动添加详尽的中文注释：将 DataStore 中的玻璃效果模式传入设置页，并把用户选择回写到 SettingsViewModel。
                         glassEffectMode = settingsState.glassEffectMode,
-                        onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) }
+                        onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },
+                        // 为每一次改动添加详尽的中文注释：将 DataStore 中的自动回退时长传入设置页，并把用户选择回写到 SettingsViewModel。
+                        autoRewindSeconds = settingsState.autoRewindSeconds,
+                        onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) }
                     )
                 }
             }
@@ -205,7 +208,11 @@ fun SettingsScreen(
     // 为每一次改动添加详尽的中文注释：当前悬浮层视觉效果模式，控制 Material 原生容器与 miuix-blur 毛玻璃之间的切换。
     glassEffectMode: GlassEffectMode,
     // 为每一次改动添加详尽的中文注释：切换悬浮层视觉效果模式的回调事件。
-    onGlassEffectModeChange: (GlassEffectMode) -> Unit
+    onGlassEffectModeChange: (GlassEffectMode) -> Unit,
+    // 为每一次改动添加详尽的中文注释：当前自动回退时长状态。
+    autoRewindSeconds: Int,
+    // 为每一次改动添加详尽的中文注释：修改自动回退时长的回调事件。
+    onAutoRewindSecondsChange: (Int) -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -217,18 +224,6 @@ fun SettingsScreen(
     var rootToDelete by remember { mutableStateOf<LibraryRootEntity?>(null) }
 
     val context = LocalContext.current
-
-    // 为每一次改动添加详尽的中文注释：定义动态权限请求启动器，用于申请活动识别权限（Activity Recognition），支持睡眠跟踪功能所需的底层健康状态监听。
-    val activityRecognitionPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            onSleepModeChange(SleepMode.SleepTracking)
-            android.widget.Toast.makeText(context, "睡眠跟踪所需活动识别权限已授权，模式启用成功", android.widget.Toast.LENGTH_SHORT).show()
-        } else {
-            android.widget.Toast.makeText(context, "权限被拒绝，无法开启睡眠跟踪模式", android.widget.Toast.LENGTH_SHORT).show()
-        }
-    }
 
     // 详尽的中文注释：获取设备当前的屏幕配置信息，用于自适应判定
     val configuration = LocalConfiguration.current
@@ -450,27 +445,8 @@ fun SettingsScreen(
                     icon = Icons.Rounded.LinearScale,
                     selectedMode = sleepMode,
                     onModeSelected = { selectedMode ->
-                        if (selectedMode == SleepMode.SleepTracking) {
-                            val hasPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                                ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.ACTIVITY_RECOGNITION
-                                ) == PackageManager.PERMISSION_GRANTED
-                            } else {
-                                true
-                            }
-                            if (hasPermission) {
-                                onSleepModeChange(SleepMode.SleepTracking)
-                            } else {
-                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                                    activityRecognitionPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
-                                } else {
-                                    onSleepModeChange(SleepMode.SleepTracking)
-                                }
-                            }
-                        } else {
-                            onSleepModeChange(selectedMode)
-                        }
+                        // 为每一次改动添加详尽的中文注释：重构优化 — 睡眠跟踪模式纯基于加速度传感器（免除高隐私级别的活动识别权限 ACTIVITY_RECOGNITION），直接应用新模式状态以实现极简的用户体验。
+                        onSleepModeChange(selectedMode)
                     }
                 )
             }
@@ -496,7 +472,28 @@ fun SettingsScreen(
             }
 
             // 为每一次改动添加详尽的中文注释：
-            // === 第六分节：数据清理 ===
+            // === 第六分节：自动回放 ===
+            item {
+                SettingsSectionHeader(title = "自动回放")
+            }
+            item {
+                SettingsSliderItem(
+                    title = "暂停自动回放",
+                    subtitle = "暂停或以任何方式停止播放时自动回退的时长",
+                    icon = Icons.Rounded.LinearScale,
+                    value = autoRewindSeconds.toFloat(),
+                    onValueChange = { onAutoRewindSecondsChange(it.toInt()) },
+                    valueRange = 0f..30f,
+                    steps = 29, // 0s到30s共有31个刻度点，除去两端，所以 steps = 31 - 2 = 29，能够极其精准完美对齐整数秒
+                    valueFormatter = {
+                        if (it.toInt() == 0) "已关闭" else String.format(java.util.Locale.US, "%d 秒", it.toInt())
+                    },
+                    enabled = true
+                )
+            }
+
+            // 为每一次改动添加详尽的中文注释：
+            // === 第七分节：数据清理 ===
             item {
                 SettingsSectionHeader(title = "数据清理")
             }
@@ -649,12 +646,12 @@ private fun SettingsSegmentedSleepModeItem(
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            // 为每一次改动添加详尽的中文注释：修正睡眠模式的动态提示说明。将无条件“平滑暂停”修改为“暂停播放”，以防与另一个独立的“音量渐隐”控制开关产生歧义。
+            // 为每一次改动添加详尽的中文注释：修正睡眠模式的动态提示说明。将睡眠检测的说明更新为 10 分钟接近静止且包含微小动作容错，与底层物理算法设计完美对齐。
             Text(
                 text = when (selectedMode) {
                     SleepMode.Regular -> "说明：倒计时启动后持续计时，并在倒计时结束时暂停播放。"
-                    SleepMode.MotionTracking -> "说明：设备静止时才扣减时间，一旦移动手机则自动暂停倒计时。"
-                    SleepMode.SleepTracking -> "说明：设备持续静止 15 秒以上（模拟入睡）后，才正式启动倒计时。"
+                    SleepMode.MotionTracking -> "说明：设备静止时才扣减时间，一旦移动手机则自动暂停倒计时一分钟。"
+                    SleepMode.SleepTracking -> "说明：设备接近静止 10 分钟（判定入睡，保留微小动作容错）后，启动倒计时。"
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
@@ -779,7 +776,10 @@ fun SettingsScreenPreview() {
             onSleepModeChange = {},
             // 为每一次改动添加详尽的中文注释：Preview 显式引用设置模型里的默认玻璃效果，避免设置页预览另行硬编码默认值。
             glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
-            onGlassEffectModeChange = {}
+            onGlassEffectModeChange = {},
+            // 为每一次改动添加详尽的中文注释：Preview 中传入默认的自动回退秒数（0秒，已关闭）。
+            autoRewindSeconds = 0,
+            onAutoRewindSecondsChange = {}
         )
     }
 }

@@ -79,6 +79,9 @@ class PlaybackManager private constructor(context: Context) {
 
     private var currentPlan: BookPlaybackPlan? = null
 
+    // 为每一次改动添加详尽的中文注释：物理记录播放器前一时刻真实的播放状态，用以作为核心依据检测用户点击暂停、耳机拔出等导致的“播放->暂停”状态跃迁，以无缝触发自动回退功能。
+    private var lastIsPlaying = false
+
     /** 当前播放计划的 bookId，非挂起，可从任意线程安全读取。 */
     val currentPlayingBookId: String?
         get() = currentPlan?.bookId
@@ -134,6 +137,8 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     private fun setupController(controller: MediaController) {
+        // 为每一次改动添加详尽的中文注释：在控制器连接成功进行初始化赋值时，同步设定 lastIsPlaying 初始状态快照。
+        lastIsPlaying = controller.isPlaying
         _isPlaying.value = controller.isPlaying
         _playbackState.value = controller.playbackState
         _currentMediaItem.value = controller.currentMediaItem
@@ -143,10 +148,19 @@ class PlaybackManager private constructor(context: Context) {
 
         controller.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                val wasPlaying = lastIsPlaying
+                lastIsPlaying = isPlaying
                 _isPlaying.value = isPlaying
                 // 为本次桌面 widget 改动添加注释：播放/暂停按钮图标依赖此状态，变化后立即刷新所有播放器小组件。
                 PlayerWidgetProvider.updateAll(appContext)
                 saveProgress()
+
+                // 为每一次改动添加详尽的中文注释：
+                // 如果先前处于正在播放状态（wasPlaying 为 true），当前变化为了暂停或停止播放状态（isPlaying 为 false），
+                // 且用户在设置里开启了大于 0 秒的自动回退时间，则自动执行位置定位回退。
+                if (wasPlaying && !isPlaying) {
+                    applyAutoRewind()
+                }
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -405,6 +419,39 @@ class PlaybackManager private constructor(context: Context) {
 
     fun pause() {
         executeOnMain { mediaController?.pause() }
+    }
+
+    /**
+     * 为每一次改动添加详尽的中文注释：
+     * 执行暂停自动回退功能的核心逻辑。
+     * 从持久化设置中异步读取 autoRewindSeconds 属性。如果其值大于 0，
+     * 则计算目标毫秒位置（当前单文件位置减去回退时长），并使用 coerceAtLeast(0) 限制不超前当前文件的开头。
+     * 最后，调用底层 MediaController 进行寻址定位，在更新全局位置流后立即持久化同步保存到数据库中，
+     * 消除因突然进程中断或卸载引起的位置丢失风险。
+     */
+    private fun applyAutoRewind() {
+        val controller = mediaController ?: return
+        scope.launch {
+            try {
+                // 详尽的中文注释：使用 first() 挂起并获取 DataStore 中的最新设置快照，确保数据一致性。
+                val settings = settingsRepository.settingsFlow.first()
+                val rewindSeconds = settings.autoRewindSeconds
+                if (rewindSeconds > 0) {
+                    val rewindMs = rewindSeconds * 1000L
+                    val currentPos = controller.currentPosition
+                    val targetPos = (currentPos - rewindMs).coerceAtLeast(0L)
+                    
+                    // 详尽的中文注释：在主线程中执行 seekTo 寻址，并刷新全局进度流
+                    controller.seekTo(targetPos)
+                    updateGlobalPositionAndDuration(controller)
+                    
+                    // 详尽的中文注释：回退完成后立即向本地数据库落盘保存进度，防丢失防倒退
+                    saveProgress()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("PlaybackManager", "执行暂停自动回退失败", e)
+            }
+        }
     }
 
     /**

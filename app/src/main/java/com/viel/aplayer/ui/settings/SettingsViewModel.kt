@@ -167,4 +167,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             settingsRepository.updateGlassEffectMode(mode)
         }
     }
+
+    // 为每一次改动添加详尽的中文注释：新增设置页修改自动回退播放进度秒数（0-30s）的交互方法，通过协程异步写入持久化 DataStore。
+    fun updateAutoRewindSeconds(seconds: Int) {
+        viewModelScope.launch {
+            settingsRepository.updateAutoRewindSeconds(seconds)
+        }
+    }
 }

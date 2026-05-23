@@ -103,12 +103,15 @@ class SleepTimerManager(
                     // 为每一次改动添加详尽的中文注释：计算当前 G 力偏离标准 1.0g 重力的绝对差值，以此作为衡量物理抖动的核心指标，彻底免疫倾斜和角度旋转变化。
                     val gDeviation = kotlin.math.abs(gForce - 1.0f)
 
-                    // 为每一次改动添加详尽的中文注释：若 G力偏离度超过高灵敏度且经过多轮降噪验证的 0.035g 阈值，则判定设备正处于运动状态。
-                    if (gDeviation > 0.035f) {
-                        // 为每一次改动添加详尽的中文注释：进入运动瞬间发射 UI 弹窗通知以提醒听众倒计时已暂停
+                    // 为每一次改动添加详尽的中文注释：在睡眠检测模式下，为防范翻身、微弱震动或呼吸导致的误判，特将判定运动的 G 力偏离阈值放宽至 0.08g，从而保留一定的容错空间；而常规运动跟踪仍采用 0.035g。
+                    val movementThreshold = if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking) 0.08f else 0.035f
+
+                    // 若 G力偏离度超过计算出的运动阈值，则判定设备正处于运动状态。
+                    if (gDeviation > movementThreshold) {
+                        // 进入运动瞬间发射 UI 弹窗通知以提醒听众倒计时已暂停
                         if (!isDeviceMoving) {
                             if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking) {
-                                playbackManager()?.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("动作跟踪：检测到运动，睡眠定时器已暂停计时，一分钟内保持暂停"))
+                                playbackManager()?.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("动作跟踪：检测到运动，睡眠定时器已暂停计时，一分钟内保持暂停"))  //todo 正式上线要移除toast
                             }
                         }
                         isDeviceMoving = true
@@ -119,7 +122,7 @@ class SleepTimerManager(
                         // 如果处于睡眠跟踪模式且判定为已入睡，检测到运动则立刻提示重置入睡状态以实现智能流转
                         if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking && hasUserFallenAsleep) {
                             hasUserFallenAsleep = false
-                            showToast("检测到身体活动，睡眠跟踪暂停，待您静止后继续")
+                            showToast("检测到身体活动，睡眠跟踪暂停，待您接近静止后继续")
                         }
                     } else {
                         // 为每一次改动添加详尽的中文注释：只有当距离上一次检测到有效物理运动的时间超过了 3 秒（保护保持期），才允许静止计数递增并切回静止状态，实现科学防抖。
@@ -129,7 +132,7 @@ class SleepTimerManager(
                                 // 为每一次改动添加详尽的中文注释：进入静止瞬间发射 UI 弹窗通知以提醒听众倒计时已恢复
                                 if (isDeviceMoving) {
                                     if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking) {
-                                        playbackManager()?.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("动作跟踪：检测到静止，睡眠定时器恢复计时"))
+                                        playbackManager()?.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("动作跟踪：检测到静止，睡眠定时器恢复计时"))  //todo 正式上线要移除toast
                                     }
                                 }
                                 isDeviceMoving = false
@@ -440,10 +443,10 @@ class SleepTimerManager(
                                     if (!hasUserFallenAsleep) {
                                         if (!isDeviceMoving) {
                                             timeInStaticMs += 1000L
-                                            // 累计静止 15 秒以上，判定为已入睡
-                                            if (timeInStaticMs >= 15000L) {
+                                            // 为每一次改动添加详尽的中文注释：累计接近静止满 10 分钟（600000 毫秒），判定为已安稳入睡，开始倒计时
+                                            if (timeInStaticMs >= 600000L) {
                                                 hasUserFallenAsleep = true
-                                                showToast("睡眠跟踪：检测到已安稳入睡，开始睡眠倒计时")
+                                                showToast("睡眠检测：检测到已安稳入睡，开始睡眠倒计时")
                                             }
                                         } else {
                                             timeInStaticMs = 0L

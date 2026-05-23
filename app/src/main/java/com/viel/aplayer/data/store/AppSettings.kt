@@ -45,7 +45,9 @@ data class AppSettings(
     // 为每一次改动添加详尽的中文注释：新增睡眠模式属性，支持常规模式、运动跟踪模式和睡眠跟踪模式，默认为常规模式。
     val sleepMode: SleepMode = SleepMode.Regular,
     // 为每一次改动添加详尽的中文注释：新增悬浮层玻璃效果模式持久化属性，默认值只由设置模型统一声明，UI 页面和组件不再各自声明默认值。
-    val glassEffectMode: GlassEffectMode = DEFAULT_GLASS_EFFECT_MODE
+    val glassEffectMode: GlassEffectMode = DEFAULT_GLASS_EFFECT_MODE,
+    // 为每一次改动添加详尽的中文注释：新增自动回退播放进度时长属性（秒），默认值为 0 秒，表示处于关闭状态。
+    val autoRewindSeconds: Int = 0
 ) {
     companion object {
         // 为每一次改动添加详尽的中文注释：集中定义玻璃效果设置默认值，所有设置流缺省值与预览示例都应引用这里，避免默认值散落到页面组件。

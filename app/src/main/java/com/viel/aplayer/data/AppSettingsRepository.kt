@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +43,8 @@ class AppSettingsRepository private constructor(private val context: Context) {
         val SLEEP_MODE = stringPreferencesKey("sleep_mode")
         // 为每一次改动添加详尽的中文注释：新增悬浮层玻璃效果模式持久化存储 Key，字符串值直接保存 GlassEffectMode.name 方便兼容未来扩展。
         val GLASS_EFFECT_MODE = stringPreferencesKey("glass_effect_mode")
+        // 为每一次改动添加详尽的中文注释：新增自动回退播放进度秒数（0-30s）持久化存储 Key，0 表示不开启自动回退。
+        val AUTO_REWIND_SECONDS = intPreferencesKey("auto_rewind_seconds")
     }
 
     /**
@@ -72,7 +75,9 @@ class AppSettingsRepository private constructor(private val context: Context) {
             // 为每一次改动添加详尽的中文注释：从 DataStore 读取玻璃效果模式，缺失或非法历史值统一回落到 AppSettings 声明 of 设置默认值。
             glassEffectMode = preferences[PreferencesKeys.GLASS_EFFECT_MODE]
                 ?.let { runCatching { GlassEffectMode.valueOf(it) }.getOrNull() }
-                ?: AppSettings.DEFAULT_GLASS_EFFECT_MODE
+                ?: AppSettings.DEFAULT_GLASS_EFFECT_MODE,
+            // 为每一次改动添加详尽的中文注释：从 DataStore 中读取自动回退秒数，默认为 0 秒（已关闭）。
+            autoRewindSeconds = preferences[PreferencesKeys.AUTO_REWIND_SECONDS] ?: 0
         )
     }
     suspend fun updateHomeFilter(filter: String) {
@@ -129,6 +134,11 @@ class AppSettingsRepository private constructor(private val context: Context) {
     // 为每一次改动添加详尽的中文注释：提供修改悬浮层玻璃效果模式的持久化接口，由设置页切换 Material/miuix-blur 时调用。
     suspend fun updateGlassEffectMode(mode: GlassEffectMode) {
         context.dataStore.edit { it[PreferencesKeys.GLASS_EFFECT_MODE] = mode.name }
+    }
+
+    // 为每一次改动添加详尽的中文注释：提供修改自动回退播放进度秒数（0-30s）持久化配置的接口函数，由 ViewModel 调用并写入 DataStore。
+    suspend fun updateAutoRewindSeconds(seconds: Int) {
+        context.dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = seconds }
     }
 
     companion object {
