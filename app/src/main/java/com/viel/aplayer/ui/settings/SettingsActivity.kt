@@ -497,7 +497,7 @@ fun SettingsScreen(
             item {
                 SettingsSliderItem(
                     title = "暂停自动回放",
-                    subtitle = "暂停或以任何方式停止播放时自动回退的时长",
+                    subtitle = "暂停或以任何方式（通知避让除外）停止播放时自动回退的时长",
                     icon = Icons.Rounded.LinearScale,
                     value = autoRewindSeconds.toFloat(),
                     onValueChange = { onAutoRewindSecondsChange(it.toInt()) },
