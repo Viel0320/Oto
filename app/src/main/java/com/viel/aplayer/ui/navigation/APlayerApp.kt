@@ -27,6 +27,7 @@ import com.viel.aplayer.ui.home.ScanResultDialog
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.PlayerOverlay
+import com.viel.aplayer.ui.player.components.MiniPlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -265,46 +266,47 @@ fun APlayerApp(
                     }
                 )
 
-                 // 为每一次改动添加详尽的中文注释：
-                  // 播放器悬浮层 (PlayerOverlay)。位于详情页之上，包含全屏播放器 and 迷你播放器组件。
-                  // 核心模糊采样源自适应修复：
-                  // - 当详情页 DetailOverlay 显示（detailUiState.isVisible 为 true）时，迷你播放器底部的物理图层其实是详情页，
-                  //   此时我们将其 backdrop 动态切换为 detailBackdrop，使得模糊的磨砂玻璃能以极其精致真实的物理透射展现详情页的背景颜色。
-                  // - 当详情页隐藏时，则安全地切回 appBackdrop 采样底层的 HomeScreen 界面。
-                  // 从而彻底规避 miuix-blur 在多层悬浮重叠时，由于强制采样最底层 HomeScreen 而引起的背景折射透视穿帮错误。
-                  // 为每一次改动添加详尽的中文注释：
-                  // 针对详情页的可见性变化，采用自适应延迟切换采样源策略：
-                  // 1. 进入详情页时（目标为 detailBackdrop）：由于 slide-up 动画时间为 400ms，此处延迟 450ms 切换采样源，
-                  //    此时转场动画已完全静止，详情页上的文字与组件均已绘制完毕，从而能够完美捕捉到完整的含前景文字的高清画面。
-                  // 2. 退出详情页时（目标为 appBackdrop）：延迟 150ms 切换以平稳退场。
-                  val targetBackdrop = if (detailUiState.isVisible) detailBackdrop else appBackdrop
-                  val delayedBackdropState = remember(appBackdrop, detailBackdrop) { 
-                      androidx.compose.runtime.mutableStateOf(targetBackdrop) 
-                  }
-                  LaunchedEffect(targetBackdrop) {
-                      val delayMs =  150L
-                      kotlinx.coroutines.delay(delayMs)
-                      delayedBackdropState.value = targetBackdrop
-                  }
-
-                  PlayerOverlay(
-                      playerViewModel = playerViewModel,
-                      playerActions = playerActions,
-                      miniPlayerActions = miniPlayerActions,
-                      playerNavigationActions = playerNavigationActions,
-                      currentRoute = currentRoute,
-                      glassEffectMode = libraryUiState.glassEffectMode,
-                      // 为每一次改动添加详尽的中文注释：使用延迟 150ms 后的采样源，避免动画转场闪烁，提升平滑质感。
-                      backdrop = delayedBackdropState.value
-                  )
+                // 为每一次改动添加详尽的中文注释：
+                // 【物理 Z-index 层级调整说明】：
+                // 根据主 Activity 窗口内部的物理层级规范，由底至顶精确重排所有悬浮组件的绘制顺序。
+                // 此时在 Jetpack Compose 的 Box 容器中，后声明的组件会拥有更高的物理渲染和交互优先级（即 Z-index 更高）：
+                // 1. 底层 APlayerNavHost (已在上方声明)
+                // 2. 详情页 DetailOverlay (已在上方声明)
+                // 3. 迷你播放器 MiniPlayerOverlay 浮于详情页之上
+                // 4. 书籍信息编辑悬浮层 EditBookOverlay (全屏编辑界面) 彻底覆盖详情页和迷你播放器
+                // 5. 全屏播放器 PlayerOverlay 展开时彻底遮盖迷你播放器、编辑层与详情页
+                // 6. 搜索悬浮层 SearchOverlay 最顶层，覆盖全屏播放器及一切内容
 
                 // 为每一次改动添加详尽的中文注释：
-                // 书籍信息修改悬浮层 (EditBookOverlay)。
-                // 【核心层级变动】：为了确保编辑悬浮层遮盖在 compact 播放器（迷你播放器，属于 PlayerOverlay 内部组件）的上方，
-                // 我们在 Box 容器中将 EditBookOverlay 的物理挂载位置调整到 PlayerOverlay 之后。
-                // 从而使 EditBookOverlay 的 Z-index 处于更高层，完美防止迷你播放器错误遮盖编辑层。
-                // 此外，它依然以同级兄弟节点形式挂载在 appBackdrop 外部以彻底规避 miuix-blur 渲染无限死锁；
-                // 并且将全局 detailBackdrop 作为其 miuix-blur 磨砂背景模糊源，以极其精致透亮地模糊折射底层的详情页面。
+                // 3. 迷你播放器悬浮层 (MiniPlayerOverlay)。
+                // 核心模糊采样源自适应修复与延迟策略：
+                // - 当详情页 DetailOverlay 显示（detailUiState.isVisible 为 true）时，迷你播放器底部的物理图层其实是详情页，
+                //   此时我们将其 backdrop 动态切换为 detailBackdrop，使得模糊的磨砂玻璃能以极其精致真实的物理透射展现详情页的背景颜色。
+                // - 当详情页隐藏时，则安全地切回 appBackdrop 采样底层的 HomeScreen 界面。
+                // 针对详情页的可见性变化，采用自适应延迟切换采样源策略以平滑转场动画：
+                val targetBackdrop = if (detailUiState.isVisible) detailBackdrop else appBackdrop
+                val delayedBackdropState = remember(appBackdrop, detailBackdrop) { 
+                    androidx.compose.runtime.mutableStateOf(targetBackdrop) 
+                }
+                LaunchedEffect(targetBackdrop) {
+                    val delayMs = 401L
+                    kotlinx.coroutines.delay(delayMs)
+                    delayedBackdropState.value = targetBackdrop
+                }
+
+                MiniPlayerOverlay(
+                    playerViewModel = playerViewModel,
+                    miniPlayerActions = miniPlayerActions,
+                    currentRoute = currentRoute,
+                    glassEffectMode = libraryUiState.glassEffectMode,
+                    // 使用延迟后的采样源，避免转场动画残影与闪烁，提升极致平滑感
+                    backdrop = delayedBackdropState.value
+                )
+
+                // 为每一次改动添加详尽的中文注释：
+                // 4. 书籍信息修改悬浮层 (EditBookOverlay)。
+                // 【核心层级变动】：为了确保全屏编辑悬浮层能遮盖在迷你播放器的上方（覆盖详情页和迷你播放器），
+                // 在 Box 容器中将其声明在 MiniPlayerOverlay 之后。同时使用专属 detailBackdrop 提供精致的磨砂毛玻璃透光质感。
                 EditBookOverlay(
                     editViewModel = editViewModel,
                     glassEffectMode = libraryUiState.glassEffectMode,
@@ -315,12 +317,20 @@ fun APlayerApp(
                 )
 
                 // 为每一次改动添加详尽的中文注释：
-                // 非独立搜索悬浮层 (SearchOverlay)。在 Z 轴绘制顺序上摆在 PlayerOverlay 之后，
-                // 以获得高于迷你播放器 (CompactMediaPlayer) 和有声书详情页的最高渲染层级。
-                // 彻底废弃原本的跨 Window 桥接，利用全内存 lambda 表达式实现无缝的零延迟通信：
-                // 1. 点击书籍跳转详情：隐去搜索悬浮层并立即同步拉起详情 Overlay，状态转换无缝顺畅。
-                // 2. 点击直接播放：隐去搜索悬浮层，加载书籍并开启全屏播放器。
-                // 3. 共享全局的 appBlurBackdrop 采样源，呈现极致 premium 的磨砂毛玻璃透光质感。
+                // 5. 全屏播放器悬浮层 (PlayerOverlay)。
+                // 【核心层级变动】：为了确保全屏播放器在展开时彻底遮盖下方的迷你播放器、全屏编辑界面与详情页，
+                // 在 Box 容器中将 PlayerOverlay 的物理声明位置后移至 EditBookOverlay 之后。
+                PlayerOverlay(
+                    playerViewModel = playerViewModel,
+                    playerActions = playerActions,
+                    playerNavigationActions = playerNavigationActions,
+                    glassEffectMode = libraryUiState.glassEffectMode
+                )
+
+                // 为每一次改动添加详尽的中文注释：
+                // 6. 非独立搜索悬浮层 (SearchOverlay)。
+                // 【核心层级变动】：为了确保搜索功能作为全局最顶层容器运行，可覆盖全屏播放器及一切内容，
+                // 我们在 Z 轴物理声明上将其摆在 PlayerOverlay 之后，拥有除扫码结果之外的最高物理渲染层级。
                 com.viel.aplayer.ui.search.SearchOverlay(
                     searchViewModel = searchViewModel,
                     backdrop = appBackdrop,

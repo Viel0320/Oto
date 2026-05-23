@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+// 为每一次改动添加详尽的中文注释：显式导入 WindowInsets.ime 扩展属性，用以在 exclude 排除计算中精准定位软键盘区域
+import top.yukonga.miuix.kmp.blur.layerBackdrop // 注意：确保在此处或者后面导入正确的 ime 属性，或者是 androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -155,8 +158,9 @@ fun HomeScreen(
     // 当业务边距升至 24dp 时，需额外补回 8dp 以前后对齐。
     val appBarIconPadding = (screenHorizontalPadding - 16.dp).coerceAtLeast(0.dp)
 
-    // 为每一次改动添加详尽的中文注释：利用 WindowInsets.safeDrawing 动态获取当前设备（无论横竖屏、左旋、右旋）的状态栏、导航栏与物理刘海安全区域，完全零硬编码
-    val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+    // 为每一次改动添加详尽的中文注释：利用 WindowInsets.safeDrawing 动态获取当前设备的状态栏、导航栏与物理刘海，并显式使用 exclude(WindowInsets.ime)
+    // 彻底切断软键盘 (IME) 对主页所感知的安全区 padding 的物理影响，从而规避由于 Insets 物理高度变化导致的主页（HomeScreen）不必要重组。
+    val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     // 为每一次改动添加详尽的中文注释：
     // 重构网格内边距策略：此处 gridStart/EndPadding 仅保留物理安全区域（如刘海、侧边导航栏）。
@@ -180,13 +184,16 @@ fun HomeScreen(
             .fillMaxSize()
             // 为每一次改动添加详尽的中文注释：主页完整内容作为 AudiobookActionDialogs 的 miuix-blur 背景采样源。
             .then(blurSourceModifier),
+        // 为每一次改动添加详尽的中文注释：显式将默认的 contentWindowInsets 排除掉 ime。
+        // 这能彻底阻断软键盘弹出时通过 Scaffold 自动向下传导 innerPadding 变化引起的布局重测和不必要的主页重组。
+        contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
         topBar = {
             CenterAlignedTopAppBar(
                 // 为每一次改动添加详尽的中文注释：恢复默认修饰符，不在容器外侧加 Padding，使顶部栏背景底色或磨砂折射面能够极致平铺至屏幕物理左右边缘
                 modifier = Modifier,
-                // 为每一次改动添加详尽的中文注释：将 windowInsets 设为统一的 safeDrawing.exclude，
-                // 依靠系统完美自适应托管状态栏与横屏刘海的侧边规避，彻底去除 IconButton 上多余的手动 Padding
-                windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
+                // 为每一次改动添加详尽的中文注释：在 safeDrawing.exclude(navigationBars) 的基础上再次显式排除 WindowInsets.ime，
+                // 确保顶部栏在软键盘弹起时不受任何 Insets 物理高度波及，保持完美的静止状态，拒绝任何不必要的重组。
+                windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                 title = {
                     Text(
                         text = stringResource(R.string.app_name),
