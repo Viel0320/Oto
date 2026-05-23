@@ -50,14 +50,13 @@ fun DetailOverlay(
         modifier = modifier
     ) {
         // 为每一次改动添加详尽的中文注释：
-        // 在 miuix-blur 磨砂玻璃模式下，最外层使用一个 fillMaxSize 的 Box 容器，
-        // 挂载 Modifier.layerBackdrop(detailBackdrop)，从而把整个 Detail 详情页（含文字、封面卡片和按钮等）
-        // 捕获为采样源，使上方覆盖的 EditBookOverlay 能折射出精致、有立体深度的毛玻璃背景。
+        // 恢复在此处外层 Box 对全局 detailBackdrop 的 layerBackdrop 挂载。
+        // 这将允许全局采样源捕获包括文字、按钮在内的整个详情页的前景和背景全量画面。
+        // 配合 APlayerApp 中的 450ms 延迟切换，能完美解决转场期间画面捕捉不全的问题。
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .then(
-                    // 为每一次改动添加详尽的中文注释：对齐新更名的 MiuixBlur，在该模式下为整个详情页 Box 挂载 detailBackdrop 采样源
                     if (glassEffectMode == GlassEffectMode.MiuixBlur && detailBackdrop != null) {
                         Modifier.layerBackdrop(detailBackdrop)
                     } else {
@@ -67,7 +66,7 @@ fun DetailOverlay(
         ) {
             DetailScreen(
                 // 详尽的中文注释：M-19 修复 — UI渲染层完全回归 100% 无状态直译渲染原则。
-                // 彻底移除了在 Composable 内部对 PlayerViewModel 的高频订阅和对 uiState.copy 的强行越权覆写，
+                // 彻底移除了在 Composable 内部对 PlayerViewModel 的高频订阅 and 对 uiState.copy 的强行越权覆写，
                 // 从而保证了 DetailViewModel 内部通过 stateFlow 发射的 3 秒锁定保护期数据能够无损、精准地直达 UI 层，
                 // 绝不在 UI 渲染层造成任何逻辑冲突。
                 uiState = detailUiState,

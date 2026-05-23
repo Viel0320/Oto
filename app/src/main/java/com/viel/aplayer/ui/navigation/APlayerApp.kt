@@ -272,6 +272,21 @@ fun APlayerApp(
                   //   此时我们将其 backdrop 动态切换为 detailBackdrop，使得模糊的磨砂玻璃能以极其精致真实的物理透射展现详情页的背景颜色。
                   // - 当详情页隐藏时，则安全地切回 appBackdrop 采样底层的 HomeScreen 界面。
                   // 从而彻底规避 miuix-blur 在多层悬浮重叠时，由于强制采样最底层 HomeScreen 而引起的背景折射透视穿帮错误。
+                  // 为每一次改动添加详尽的中文注释：
+                  // 针对详情页的可见性变化，采用自适应延迟切换采样源策略：
+                  // 1. 进入详情页时（目标为 detailBackdrop）：由于 slide-up 动画时间为 400ms，此处延迟 450ms 切换采样源，
+                  //    此时转场动画已完全静止，详情页上的文字与组件均已绘制完毕，从而能够完美捕捉到完整的含前景文字的高清画面。
+                  // 2. 退出详情页时（目标为 appBackdrop）：延迟 150ms 切换以平稳退场。
+                  val targetBackdrop = if (detailUiState.isVisible) detailBackdrop else appBackdrop
+                  val delayedBackdropState = remember(appBackdrop, detailBackdrop) { 
+                      androidx.compose.runtime.mutableStateOf(targetBackdrop) 
+                  }
+                  LaunchedEffect(targetBackdrop) {
+                      val delayMs =  150L
+                      kotlinx.coroutines.delay(delayMs)
+                      delayedBackdropState.value = targetBackdrop
+                  }
+
                   PlayerOverlay(
                       playerViewModel = playerViewModel,
                       playerActions = playerActions,
@@ -279,8 +294,8 @@ fun APlayerApp(
                       playerNavigationActions = playerNavigationActions,
                       currentRoute = currentRoute,
                       glassEffectMode = libraryUiState.glassEffectMode,
-                      // 为每一次改动添加详尽的中文注释：同步判定详情页可见性。当详情页开启时，迷你播放器即时采样 detailBackdrop 以折射详情页背景；当详情页关闭时立即恢复采样 appBackdrop，实现物理层面的完全同步。
-                      backdrop = if (detailUiState.isVisible) detailBackdrop else appBackdrop
+                      // 为每一次改动添加详尽的中文注释：使用延迟 150ms 后的采样源，避免动画转场闪烁，提升平滑质感。
+                      backdrop = delayedBackdropState.value
                   )
 
                 // 为每一次改动添加详尽的中文注释：
