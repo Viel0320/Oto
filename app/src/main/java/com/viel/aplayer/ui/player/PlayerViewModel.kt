@@ -365,6 +365,8 @@ class PlayerViewModel : ViewModel() {
                 settingsManager.isSleepFadeOutEnabled = settings.isSleepFadeOutEnabled
                 // 为每一次改动添加详尽的中文注释：实时同步持久化配置中的摇晃重置开关状态至 PlayerSettingsManager 内部。
                 settingsManager.isShakeToResetEnabled = settings.isShakeToResetEnabled
+                // 为每一次改动添加详尽的中文注释：实时同步持久化配置中的睡眠模式状态至 PlayerSettingsManager 内部，实现三态计时的底层业务流转。
+                settingsManager.sleepMode = settings.sleepMode
             }
         }
     }

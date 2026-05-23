@@ -74,6 +74,11 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.SleepMode
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 /**
@@ -132,6 +137,9 @@ class SettingsActivity : ComponentActivity() {
                         onSleepFadeOutEnabledChange = { settingsViewModel.toggleSleepFadeOutEnabled(it) },
                         isShakeToResetEnabled = settingsState.isShakeToResetEnabled,
                         onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) },
+                        // 为每一次改动添加详尽的中文注释：将 DataStore 中的睡眠模式传入设置页，并把用户选择回写到 SettingsViewModel。
+                        sleepMode = settingsState.sleepMode,
+                        onSleepModeChange = { settingsViewModel.updateSleepMode(it) },
                         // 为每一次改动添加详尽的中文注释：将 DataStore 中的玻璃效果模式传入设置页，并把用户选择回写到 SettingsViewModel。
                         glassEffectMode = settingsState.glassEffectMode,
                         onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) }
@@ -190,6 +198,10 @@ fun SettingsScreen(
     isShakeToResetEnabled: Boolean,
     // 为每一次改动添加详尽的中文注释：切换摇晃手机重置睡眠定时器开关的回调事件。
     onShakeToResetEnabledChange: (Boolean) -> Unit,
+    // 为每一次改动添加详尽的中文注释：当前睡眠模式状态。
+    sleepMode: SleepMode,
+    // 为每一次改动添加详尽的中文注释：睡眠模式状态修改的回调事件。
+    onSleepModeChange: (SleepMode) -> Unit,
     // 为每一次改动添加详尽的中文注释：当前悬浮层视觉效果模式，控制 Material 原生容器与 miuix-blur 毛玻璃之间的切换。
     glassEffectMode: GlassEffectMode,
     // 为每一次改动添加详尽的中文注释：切换悬浮层视觉效果模式的回调事件。
@@ -203,6 +215,20 @@ fun SettingsScreen(
 
     // 详尽的中文注释：定义用于记录用户即将触发删除动作的媒体库目录 State 变量，用来拉起强提醒的 AlertDialog 二次确认弹窗。
     var rootToDelete by remember { mutableStateOf<LibraryRootEntity?>(null) }
+
+    val context = LocalContext.current
+
+    // 为每一次改动添加详尽的中文注释：定义动态权限请求启动器，用于申请活动识别权限（Activity Recognition），支持睡眠跟踪功能所需的底层健康状态监听。
+    val activityRecognitionPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            onSleepModeChange(SleepMode.SleepTracking)
+            android.widget.Toast.makeText(context, "睡眠跟踪所需活动识别权限已授权，模式启用成功", android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+            android.widget.Toast.makeText(context, "权限被拒绝，无法开启睡眠跟踪模式", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // 详尽的中文注释：获取设备当前的屏幕配置信息，用于自适应判定
     val configuration = LocalConfiguration.current
@@ -417,6 +443,38 @@ fun SettingsScreen(
                 SettingsSectionHeader(title = "睡眠定时器")
             }
             item {
+                // 为每一次改动添加详尽的中文注释：新增“睡眠模式三态选择”组件，允许用户在常规倒计时、基于动作静止检测的运动跟踪及睡眠跟踪之间自主切换。
+                SettingsSegmentedSleepModeItem(
+                    title = "睡眠模式",
+                    subtitle = "选择计时触发机制（常规: 设定时间即计时；运动跟踪: 静止才计时，运动则暂停；睡眠跟踪: 熟睡才计时）",
+                    icon = Icons.Rounded.LinearScale,
+                    selectedMode = sleepMode,
+                    onModeSelected = { selectedMode ->
+                        if (selectedMode == SleepMode.SleepTracking) {
+                            val hasPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACTIVITY_RECOGNITION
+                                ) == PackageManager.PERMISSION_GRANTED
+                            } else {
+                                true
+                            }
+                            if (hasPermission) {
+                                onSleepModeChange(SleepMode.SleepTracking)
+                            } else {
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                    activityRecognitionPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                                } else {
+                                    onSleepModeChange(SleepMode.SleepTracking)
+                                }
+                            }
+                        } else {
+                            onSleepModeChange(selectedMode)
+                        }
+                    }
+                )
+            }
+            item {
                 // 为每一次改动添加详尽的中文注释：新增“睡眠倒计时音量渐隐”全局控制开关项。
                 SettingsToggleItem(
                     title = "睡眠倒计时音量渐隐",
@@ -538,6 +596,64 @@ private fun SettingsSegmentedItem(
 
 /**
  * 为每一次改动添加详尽的中文注释：
+ * 睡眠模式分段选择设置项。
+ * 运用 SingleChoiceSegmentedButtonRow 支持常规、运动跟踪、睡眠跟踪三种模式互斥切换，设计高保真且科技感十足。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsSegmentedSleepModeItem(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    selectedMode: SleepMode,
+    onModeSelected: (SleepMode) -> Unit
+) {
+    val modes = listOf(SleepMode.Regular, SleepMode.MotionTracking, SleepMode.SleepTracking)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                modes.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = selectedMode == mode,
+                        onClick = { onModeSelected(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
+                    ) {
+                        Text(
+                            text = when (mode) {
+                                SleepMode.Regular -> "常规模式"
+                                SleepMode.MotionTracking -> "运动跟踪"
+                                SleepMode.SleepTracking -> "睡眠跟踪"
+                            },
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 为每一次改动添加详尽的中文注释：
  * Switch 切换状态组件。新增了 enabled 选项控制，
  * 当处于禁用状态（enabled = false）时，外层 Row 不可点击，并通过 alpha(0.38f) 将整行内容置灰。
  */
@@ -648,6 +764,8 @@ fun SettingsScreenPreview() {
             onSleepFadeOutEnabledChange = {},
             isShakeToResetEnabled = true,
             onShakeToResetEnabledChange = {},
+            sleepMode = SleepMode.Regular,
+            onSleepModeChange = {},
             // 为每一次改动添加详尽的中文注释：Preview 显式引用设置模型里的默认玻璃效果，避免设置页预览另行硬编码默认值。
             glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
             onGlassEffectModeChange = {}

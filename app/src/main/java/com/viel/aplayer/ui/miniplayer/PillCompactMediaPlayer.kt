@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,19 +41,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.player.MiniPlayerActions
-import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import java.io.File
 
@@ -326,63 +321,6 @@ fun PillCompactMediaPlayer(
                     )
                 }
             }
-        }
-    }
-}
-
-@Preview(showBackground = true, name = "Pill Style - Paused", apiLevel = 36)
-@Composable
-fun PillCompactMediaPlayerPreview() {
-    APlayerTheme {
-        // 详尽的中文注释：全新药丸悬浮样式（暂停状态）的 Compose 预览函数
-        PillCompactMediaPlayer(
-            isPlaying = false
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Pill Style - Playing", apiLevel = 36)
-@Composable
-fun PillCompactMediaPlayerPlayingPreview() {
-    APlayerTheme {
-        // 详尽的中文注释：全新药丸悬浮样式（播放状态）的 Compose 预览函数
-        PillCompactMediaPlayer(
-            isPlaying = true
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Pill Style - miuix-blur Effect", apiLevel = 36)
-@Composable
-fun PillCompactMediaPlayerBlurPreview() {
-    APlayerTheme {
-        // 详尽的中文注释：为了展示高斯模糊效果，我们需要创建一个 LayerBackdrop 并将其关联到背景容器上
-        val appBackdrop = rememberLayerBackdrop()
-        
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                // 详尽的中文注释：使用鲜艳的线性渐变背景，以便肉眼能清晰分辨出毛玻璃的模糊与颜色渗透效果
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFFBB86FC),
-                            Color(0xFF6200EE),
-                            Color(0xFF03DAC6)
-                        )
-                    )
-                )
-                // 详尽的中文注释：关键步骤！在背景容器上应用 .layerBackdrop(appBackdrop) 进行内容采样
-                .layerBackdrop(appBackdrop)
-        ) {
-            PillCompactMediaPlayer(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                isPlaying = true,
-                // 详尽的中文注释：将采样状态传递给播放器组件，并开启 miuix-blur 模式
-                backdrop = appBackdrop,
-                glassEffectMode = GlassEffectMode.MiuixBlur
-            )
         }
     }
 }

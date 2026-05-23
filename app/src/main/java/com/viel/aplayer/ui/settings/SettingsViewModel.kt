@@ -13,6 +13,7 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.SleepMode
 
 /**
  * 设置页面的 ViewModel，负责管理持久化配置的交互。
@@ -150,6 +151,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun toggleShakeToResetEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateShakeToResetEnabled(enabled)
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：新增设置页切换睡眠模式的交互方法，通过协程异步更新 DataStore 持久化配置，由 UI 组件触发。
+    fun updateSleepMode(mode: SleepMode) {
+        viewModelScope.launch {
+            settingsRepository.updateSleepMode(mode)
         }
     }
 

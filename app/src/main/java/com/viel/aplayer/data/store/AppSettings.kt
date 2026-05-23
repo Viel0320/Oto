@@ -10,6 +10,17 @@ enum class GlassEffectMode {
     MiuixBlur
 }
 
+// 为每一次改动添加详尽的中文注释：
+// 定义睡眠模式枚举。
+// Regular：常规模式，设定睡眠时间后开始倒计时。
+// MotionTracking：运动跟踪模式，检测到设备静止才计时，检测到运动则暂停/停止计时。
+// SleepTracking：睡眠跟踪模式，请求活动识别权限，检测到用户进入睡眠状态才开始计时。
+enum class SleepMode {
+    Regular,
+    MotionTracking,
+    SleepTracking
+}
+
 data class AppSettings(
     /** 首页过滤状态 */
     val homeFilter: String = "NotStarted",
@@ -31,6 +42,8 @@ data class AppSettings(
     val isSleepFadeOutEnabled: Boolean = true,
     // 为每一次改动添加详尽的中文注释：新增摇晃手机重置睡眠定时器的全局控制开关，默认开启以提供夜间无需亮屏的极致贴心盲操交互。
     val isShakeToResetEnabled: Boolean = true,
+    // 为每一次改动添加详尽的中文注释：新增睡眠模式属性，支持常规模式、运动跟踪模式和睡眠跟踪模式，默认为常规模式。
+    val sleepMode: SleepMode = SleepMode.Regular,
     // 为每一次改动添加详尽的中文注释：新增悬浮层玻璃效果模式持久化属性，默认值只由设置模型统一声明，UI 页面和组件不再各自声明默认值。
     val glassEffectMode: GlassEffectMode = DEFAULT_GLASS_EFFECT_MODE
 ) {

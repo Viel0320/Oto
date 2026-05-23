@@ -63,6 +63,11 @@ class PlaybackManager private constructor(context: Context) {
     private val _uiEvents = MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
     val uiEvents = _uiEvents.asSharedFlow()
 
+    // 为每一次改动添加详尽的中文注释：公开事件分发方法，供外部组件（如 PlayerSettingsManager 动作检测）安全向 UI 线程发射一次性弹窗提示。
+    fun sendUiEvent(event: com.viel.aplayer.ui.common.UiEvent) {
+        _uiEvents.tryEmit(event)
+    }
+
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition = _currentPosition.asStateFlow()
 
