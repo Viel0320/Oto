@@ -26,14 +26,14 @@ import androidx.compose.runtime.remember
 // 为每一次改动添加详尽的中文注释：补充导入 getValue 和 setValue 扩展函数以完美适配 Composable 的 by 属性代理逻辑 (H-15)
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.HazeState
+import androidx.compose.ui.Alignment
+// 为每一次改动添加详尽的中文注释：引入 miuix-blur 模糊视效相关的依赖，绘制极致性能的毛玻璃效果
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.drawBackdrop
+import top.yukonga.miuix.kmp.blur.blur
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.HazePresets
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
@@ -64,15 +64,15 @@ fun RecentlyItem(
     // 为每一次改动添加详尽的中文注释：新增 coverColorArgb 可选参数，传递当前书籍封面的 ARGB 取色，默认为空，用于实现文字颜色同源取色融合
     coverColorArgb: Int? = null
 ) {
-    // 为每一次改动添加详尽的中文注释：判断当前是否启用 Haze 毛玻璃视效，并在局部创建专属的 HazeState 以实现对背景封面图片的精细采样与高阶磨砂模糊
-    val isHaze = glassEffectMode == GlassEffectMode.Haze
-    val localHazeState = rememberHazeState()
+    // 为每一次改动添加详尽的中文注释：判断当前是否启用 miuix-blur 模糊视效，对齐新命名的 miuix_blur 枚举类型
+    val isBlur = glassEffectMode == GlassEffectMode.miuix_blur
+    val localBackdrop = rememberLayerBackdrop()
 
     Column(
         modifier = modifier
             .width(160.dp)
             .clip(RoundedCornerShape(16.dp))
-            // 为每一次改动添加详尽的中文注释：改用 combinedClickable 手势监听器响应点击和长按事件
+            // 为每一次改动添加详尽的中文注释：改用 combinedClickable 手势监听器响应点击 and 长按事件
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -88,15 +88,16 @@ fun RecentlyItem(
         ) {
             // Background Cover (Sampling Source Only)
             // 为每一次改动添加详尽的中文注释：
-            // 将封面图或占位图包裹在独立的背景 Box 中，并仅将该背景 Box 注册为 hazeSource。
+            // 将封面图或占位图包裹在独立的背景 Box 中，并仅将该背景 Box 注册为 layerBackdrop 采样源。
             // 这使进度 Badge（Surface）成为背景的“同级兄弟组件（Sibling）”而非“子组件（Child）”，
             // 从而彻底避免 Badge 在采样时将自己也画进模糊源中，实现极致纯净、完全正确的物理磨砂渲染层级。
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
-                        if (isHaze) {
-                            Modifier.hazeSource(state = localHazeState)
+                        if (isBlur) {
+                            // 为每一次改动添加详尽的中文注释：挂载 layerBackdrop 以便让 localBackdrop 能够正确捕获背景的渲染像素
+                            Modifier.layerBackdrop(localBackdrop)
                         } else {
                             Modifier
                         }
@@ -146,8 +147,8 @@ fun RecentlyItem(
             }
             
             // Progress Badge
-            // 为每一次改动添加详尽的中文注释：重构进度 Badge 容器为支持 Haze 雾化的高雅白羽 Surface。
-            // 当启用毛玻璃时，引入定制后可灵动调节透明度的 HazeStyle 材质、透光 0.5.dp 微光描边边框；在传统模式下平滑退回为原生 Material 经典高饱和度小圆角容器。
+            // 为每一次改动添加详尽的中文注释：重构进度 Badge 容器为支持 miuix-blur 雾化的高雅白羽 Surface。
+            // 当启用毛玻璃时，引入定制后可灵动调节透明度的模糊材质、透光 0.5.dp 微光描边边框；在传统模式下平滑退回为原生 Material 经典高饱和度小圆角容器。
             val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
             // 为每一次改动添加详尽的中文注释：
@@ -191,44 +192,40 @@ fun RecentlyItem(
                     .align(Alignment.BottomEnd)
                     .padding(8.dp)
                     .then(
-                        if (isHaze) {
+                        if (isBlur) {
                             Modifier
-                                // 首先在 Modifier 链最前端裁剪圆角，杜绝毛玻璃溢出穿帮
+                                // 为每一次改动添加详尽的中文注释：首先在 Modifier 链最前端裁剪圆角，杜绝毛玻璃溢出穿帮
                                 .clip(RoundedCornerShape(12.dp))
-                                // 为每一次改动添加详尽的中文注释：利用 copy 深度定制全局统一材质 HazePresets.HazeStyle。
-                                // 强制将内置底色覆盖为完全透明，并根据系统深色状态（isDark）进行毛玻璃色彩自适应：
-                                // - 亮色模式下使用“温润白羽”乳白半透底（20% alpha 白色），清亮轻盈。
-                                // - 深色模式下使用“暗夜玄羽”深邃黑半透底（40% alpha 黑色），形成暗灰色现代磨砂毛玻璃。
-                                // 从而彻底解决外部 Surface color 透明度调整被材质底层阻碍不生效的问题。
-                                .hazeEffect(
-                                    state = localHazeState,
-                                    style = HazePresets.HazeStyle.copy(
-                                        backgroundColor = androidx.compose.ui.graphics.Color.Transparent,
-                                        tints = listOf(
-                                            dev.chrisbanes.haze.HazeTint(
-                                                if (isDark) {
-                                                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f)
-                                                } else {
-                                                    androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f)
-                                                }
-                                            )
-                                        )
-                                    )
+                                // 为每一次改动添加详尽的中文注释：使用 drawBackdrop 绘制高阶毛玻璃模糊背景
+                                .drawBackdrop(
+                                    backdrop = localBackdrop,
+                                    shape = { RoundedCornerShape(12.dp) },
+                                    effects = {
+                                        blur(20f)
+                                    }
+                                )
+                                // 为每一次改动添加详尽的中文注释：使用 background 蒙版混合底色，亮色模式采用白羽半透底，深色模式采用玄羽半透底，保证最佳边缘对比度
+                                .background(
+                                    if (isDark) {
+                                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f)
+                                    } else {
+                                        androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f)
+                                    }
                                 )
                         } else {
                             Modifier
                         }
                     ),
-                color = if (isHaze) {
-                    // 为每一次改动添加详尽的中文注释：毛玻璃模式下，由于底层的 .hazeEffect 已精细混合了 20% 的白羽 tint，
+                color = if (isBlur) {
+                    // 为每一次改动添加详尽的中文注释：毛玻璃模式下，由于底层的 drawBackdrop 已精细融合了半透明蒙版底色，
                     // 此处 Surface 应置为完全透明（Color.Transparent），防止双重蒙版物理重叠导致玻璃失去透光感与呼吸感。
                     androidx.compose.ui.graphics.Color.Transparent
                 } else {
                     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
                 },
-                // 为每一次改动添加详尽的中文注释：根据用户要求去掉胶囊描边以确立极简平滑的无边界透光感，此处不再传递 HazePresets.Border 描边
+                // 为每一次改动添加详尽的中文注释：根据用户要求去掉胶囊描边以确立极简平滑的无边界透光感，此处不再传递任何描边配置
                 border = null,
-                shape = if (isHaze) {
+                shape = if (isBlur) {
                     RoundedCornerShape(12.dp)
                 } else {
                     RoundedCornerShape(8.dp)
@@ -241,7 +238,7 @@ fun RecentlyItem(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     // 为每一次改动添加详尽的中文注释：使用 .copy(fontWeight = FontWeight.ExtraBold) 显式融于 Style 中，强制启用 ExtraBold (超强加粗) 字重，以在细小字号及毛玻璃背景下压榨出极致的边缘清晰度与轮廓质感
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
-                    color = if (isHaze) {
+                    color = if (isBlur) {
                         // 为每一次改动添加详尽的中文注释：胶囊 chip 文字使用封面取色与智能拉伸配色体系。
                         // 优先选用精细对比度处理后的 coverColor，在数据缺省时自动安全降级：
                         // - 亮色模式下使用原生 primary 强调色。
@@ -307,8 +304,8 @@ fun RecentlyItemProgressPreview() {
                 narrator = "Unknown",
                 progressText = "45%",
                 onClick = {},
-                // 详尽中文注释：在预览中显式开启毛玻璃，以便在设计面板中即时校验白羽雾化 Badge 效果
-                glassEffectMode = GlassEffectMode.Haze
+                // 详尽中文注释：在预览中显式开启毛玻璃，对齐更名后的 miuix_blur 枚举
+                glassEffectMode = GlassEffectMode.miuix_blur
             )
         }
     }
