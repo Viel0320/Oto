@@ -641,13 +641,24 @@ private fun SettingsSegmentedSleepModeItem(
                             text = when (mode) {
                                 SleepMode.Regular -> "常规模式"
                                 SleepMode.MotionTracking -> "运动跟踪"
-                                SleepMode.SleepTracking -> "睡眠跟踪"
+                                SleepMode.SleepTracking -> "睡眠检测"
                             },
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            // 为每一次改动添加详尽的中文注释：修正睡眠模式的动态提示说明。将无条件“平滑暂停”修改为“暂停播放”，以防与另一个独立的“音量渐隐”控制开关产生歧义。
+            Text(
+                text = when (selectedMode) {
+                    SleepMode.Regular -> "说明：倒计时启动后持续计时，并在倒计时结束时暂停播放。"
+                    SleepMode.MotionTracking -> "说明：设备静止时才扣减时间，一旦移动手机则自动暂停倒计时。"
+                    SleepMode.SleepTracking -> "说明：设备持续静止 15 秒以上（模拟入睡）后，才正式启动倒计时。"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+            )
         }
     }
 }
