@@ -34,6 +34,38 @@ class CoverExtractor(private val context: Context) {
     }
 
     /**
+     * 为每一次改动添加详尽的中文注释：
+     * 保存用户手动上传的自定义封面。
+     * 将已经按最短边居中裁剪为正方形的临时封面文件物理复制到正式的 covers 缓存目录下，
+     * 重新为其生成配套的封面缩略图，并异步提取主色调背景色。
+     * 采用时间戳命名以彻底打破 Coil 的缓存机制，实现即时、流畅刷新。
+     */
+    suspend fun saveCustomCover(bookId: String, tempCoverPath: String): CoverResult = withContext(Dispatchers.IO) {
+        try {
+            val tempFile = File(tempCoverPath)
+            if (!tempFile.exists()) return@withContext CoverResult(null, null)
+
+            val timestamp = System.currentTimeMillis()
+            val originalFile = File(coversDir, "${bookId.hashCode()}_custom_${timestamp}_orig.jpg")
+            // 为每一次改动添加详尽的中文注释：确保 cache/covers 目录 100% 存在，防止系统自动清理缓存导致目录缺失引发 ENOENT 异常
+            originalFile.parentFile?.mkdirs()
+
+            // 物理复制临时文件到正式封面存放路径
+            tempFile.copyTo(originalFile, overwrite = true)
+
+            // 利用 createThumbnailFromFile 异步生成 300x300 像素的高清缩略图
+            val thumbPath = createThumbnailFromFile(originalFile, "${bookId}_custom_${timestamp}")
+            // 提取该自定义封面图像的主色调，用于沉浸式模糊背景的渲染
+            val color = ImageProcessor.getDominantColor(thumbPath ?: originalFile.absolutePath)
+
+            CoverResult(originalFile.absolutePath, thumbPath, color)
+        } catch (e: Exception) {
+            Log.e("CoverExtractor", "保存有声书 $bookId 的自定义封面失败，原因: ", e)
+            CoverResult(null, null)
+        }
+    }
+
+    /**
      * 从 MediaMetadataRetriever 中提取内嵌封面。
      */
     suspend fun extractFromRetriever(retriever: MediaMetadataRetriever, sourceId: String): CoverResult = withContext(Dispatchers.IO) {

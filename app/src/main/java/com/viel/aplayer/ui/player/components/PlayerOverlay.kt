@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.map
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.MiniPlayerActions
-import com.viel.aplayer.ui.player.NewPlayerScreen
+import com.viel.aplayer.ui.player.PlayerScreen
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
 // 为每一次改动添加详尽的中文注释：引入 LocalConfiguration 与 Configuration，用于在迷你播放器组件内实时识别屏幕状态
@@ -81,7 +81,7 @@ fun PlayerOverlay(
             enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)),
             exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
         ) {
-            NewPlayerScreen(
+            PlayerScreen(
                 viewModel = playerViewModel,
                 actions = playerActions,
                 navigationActions = playerNavigationActions,

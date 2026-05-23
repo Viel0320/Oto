@@ -407,10 +407,59 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：异步更新特定书籍的完整元数据（书名、作者、讲述人、简介、年份），专门供修改器页面使用以保存用户修改
+     * 为每一次改动添加详尽的中文注释：
+     * 异步更新特定书籍的完整元数据（书名、作者、讲述人、简介、年份），专门供修改器页面使用以保存用户修改
      */
     suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String) = withContext(Dispatchers.IO) {
         bookDao.updateBookDetails(id, title, author, narrator, description, year)
+    }
+
+    /**
+     * 为每一次改动添加详尽的中文注释：
+     * 保存手动上传并裁剪好的自定义封面文件。
+     * 首先调用 coverExtractor 执行物理复制、缩略图重建及主色调计算，
+     * 随后安全且物理地删除该书籍原有的旧封面与旧缩略图文件以杜绝垃圾文件膨胀，
+     * 最后将新封面的物理绝对路径、缩略图路径以及提取的主色调，连同当前系统时间戳更新回 Room 数据库，即刻触发 UI 强刷。
+     */
+    suspend fun saveCustomCover(bookId: String, tempCoverPath: String) = withContext(Dispatchers.IO) {
+        try {
+            val book = bookDao.getBookById(bookId) ?: return@withContext
+
+            // 1. 调用 coverExtractor 保存封面并计算主色调与缩略图
+            val result = coverExtractor.saveCustomCover(bookId, tempCoverPath)
+            if (result.originalPath != null) {
+                // 2. 物理清除旧封面的原图和缩略图文件，释放磁盘空间
+                book.coverPath?.let { oldPath ->
+                    val oldFile = File(oldPath)
+                    if (oldFile.exists()) {
+                        oldFile.delete()
+                    }
+                }
+                book.thumbnailPath?.let { oldPath ->
+                    val oldFile = File(oldPath)
+                    if (oldFile.exists()) {
+                        oldFile.delete()
+                    }
+                }
+
+                // 3. 将新生成的封面相关路径、主色调、以及当前毫秒时间戳更新回数据库，迫使 Flow 重发以触发布局即时重绘
+                bookDao.updateCoverPaths(
+                    id = bookId,
+                    coverPath = result.originalPath,
+                    thumbnailPath = result.thumbnailPath,
+                    backgroundColorArgb = result.backgroundColor,
+                    lastScannedAt = System.currentTimeMillis()
+                )
+
+                // 4. 清理裁剪后留在临时存储目录下的临时 temp 文件
+                val tempFile = File(tempCoverPath)
+                if (tempFile.exists()) {
+                    tempFile.delete()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("LibraryRepository", "手动为有声书 $bookId 保存自定义封面发生异常: ", e)
+        }
     }
     
     suspend fun saveProgress(progress: BookProgressEntity) = withContext(Dispatchers.IO) {

@@ -262,40 +262,10 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            // 详尽中文注释：当 selectedFilter 为 null 时（combine 管道尚未就绪），
-            // 不渲染 FilterChip 行，避免 stateIn 初始值导致的首帧假选中状态以及随后的跳变动画闪烁。
-            if (selectedFilter != null) {
-                // 详尽中文注释：使用全新重构的 Material 3 APlayerFilterChip 构建横向滚动的首页 Filter Chip Group。
-                // 将 LazyRow 的底部外边距微调至 12.dp，既确保了点击 FilterChip 时其原生水波纹与按压阴影等视觉微反馈
-                // 有足够的溢出展示空间不被强行截断，又为下方内容区域带来更加宽敞、透气的大师级呼吸感间距。
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 12.dp),
-                    // 为每一次改动添加详尽的中文注释：
-                    // 因外部容器不再统一提供业务边距，FilterChip 行需手动补回 screenHorizontalPadding。
-                    // 这样既保证了首个 Chip 与上方标题对齐，又允许其在滚动时穿透业务边距区域，直至触碰屏幕物理安全边缘。
-                    contentPadding = PaddingValues(
-                        start = gridStartPadding + screenHorizontalPadding,
-                        end = gridEndPadding + screenHorizontalPadding
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // 详尽中文注释：M-20 修复 — 使用 filter.name 作为稳定 key，避免过滤器切换时 FilterChip 动画错位
-                    items(filters, key = { (filter, _) -> filter.name }) { (filter, label) ->
-                        APlayerFilterChip(
-                            selected = filter == selectedFilter,
-                            onClick = { onFilterSelected(filter) },
-                            label = label
-                        )
-                    }
-                }
-            }
-
             // 为每一次改动添加详尽的中文注释：
             // 将原有的单列 LazyColumn 升级重构为全新且强大的 LazyVerticalGrid。
             // 依靠 columns 参数接收 Fixed(columnsCount)，能在超宽屏幕、平板以及普通横屏模式下流畅自适应划分多列，
-            // 所有非主列表书籍项（如 RecentlyAdded Row，Author Headers 等）全部通过 span 设置 GridItemSpan(maxLineSpan) 强制其跨满全宽，
+            // 所有非主列表书籍项（如 FilterChipRow, RecentlyAdded Row，Author Headers 等）全部通过 span 设置 GridItemSpan(maxLineSpan) 强制其跨满全宽，
             // 从而构建出无懈可击、极具 premium 高级观感的流体自适应卡片式网格。
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columnsCount),
@@ -308,6 +278,34 @@ fun HomeScreen(
                     bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
                 )
             ) {
+                // 详尽中文注释：将 FilterChip 过滤器栏从固定顶部移动至可滚动网格的第一项。
+                // 当 selectedFilter 为 null 时（combine 管道尚未就绪），不渲染该项以避免跳变。
+                // 通过 span 设置 GridItemSpan(maxLineSpan) 确保过滤器行在多列布局下依然横向占满全宽。
+                if (selectedFilter != null) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        // 详尽中文注释：使用 APlayerFilterChip 构建横向滚动的过滤器组。
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            // 为每一次改动添加详尽的中文注释：
+                            // 过滤器行需手动补回 screenHorizontalPadding 以对齐视觉安全线，同时允许滚动时穿透业务边距。
+                            contentPadding = PaddingValues(
+                                start = screenHorizontalPadding,
+                                end = screenHorizontalPadding
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filters, key = { (filter, _) -> filter.name }) { (filter, label) ->
+                                APlayerFilterChip(
+                                    selected = filter == selectedFilter,
+                                    onClick = { onFilterSelected(filter) },
+                                    label = label
+                                )
+                            }
+                        }
+                    }
+                }
+
                 if (shouldShowRecentBooks) {
                     // 为每一次改动添加详尽的中文注释：Recently Added 标题通过 span 指定其必须占满全宽。
                     item(span = { GridItemSpan(maxLineSpan) }) {
