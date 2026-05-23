@@ -27,7 +27,7 @@ import com.viel.aplayer.ui.home.ScanResultDialog
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.PlayerOverlay
-import com.viel.aplayer.ui.player.components.MiniPlayerOverlay
+import com.viel.aplayer.ui.miniplayer.MiniPlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -36,7 +36,6 @@ import com.viel.aplayer.ui.edit.EditBookViewModel
 
 // 为每一次改动添加详尽的中文注释：
 // 引入 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现更加清透的视口级高斯模糊折射效果
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 

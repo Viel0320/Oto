@@ -1,6 +1,6 @@
+package com.viel.aplayer.ui.miniplayer
 
-package com.viel.aplayer.ui.player.components
-
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -36,10 +36,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import java.io.File
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import coil.request.ImageRequest
 import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.player.MiniPlayerActions
@@ -86,7 +86,7 @@ fun CompactMediaPlayer(
     val isBlurMode = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
 
     // 为每一次改动添加详尽的中文注释：获取当前系统的亮暗色主题状态，以实现毛玻璃自适应
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = isSystemInDarkTheme()
 
     // 为每一次改动添加详尽的中文注释：
     // 将 Surface 改为支持 onClick 的重载，并将传入 of onClick 动作直接挂载在此。
@@ -158,7 +158,7 @@ fun CompactMediaPlayer(
                         // 并使用具有更新时间戳的 memoryCacheKey 和 diskCacheKey 来打破 Coil 的加载失败及缓存记录，
                         // 迫使 Coil 在物理封面重建后，能够立刻重新读取新的物理文件内容。
                         AsyncImage(
-                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                            model = ImageRequest.Builder(LocalContext.current)
                                 .data(coverFile)
                                 .memoryCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
                                 .diskCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
@@ -170,7 +170,7 @@ fun CompactMediaPlayer(
                             contentScale = ContentScale.Crop,
                             // 详尽的中文注释：监听 Coil 加载封面图片失败的回调，打印具体的文件绝对路径及异常信息，便于排查 Scoped Storage 或是其它解码错误
                             onError = { errorState ->
-                                android.util.Log.e("CompactMediaPlayer", "加载封面图片失败: ${coverFile.absolutePath}, 原因: ", errorState.result.throwable)
+                                Log.e("CompactMediaPlayer", "加载封面图片失败: ${coverFile.absolutePath}, 原因: ", errorState.result.throwable)
                             }
                         )
                     } else {
