@@ -1,4 +1,3 @@
-@file:OptIn(dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class)
 package com.viel.aplayer.ui.search
 
 import androidx.compose.animation.AnimatedVisibility
@@ -25,6 +24,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+// 为每一次改动添加详尽的中文注释：导入运行时系统安全区 Insets 物理避让依赖，用以防范横屏刘海及导航栏遮挡
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Clear
@@ -65,25 +69,27 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SearchHistoryEntry
-import com.viel.aplayer.ui.home.AudiobookListItem
+import com.viel.aplayer.ui.home.ListItem
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 // 为每一次改动添加详尽的中文注释：
-// 引入 Haze 磨砂玻璃修饰符和官方标准毛玻璃材质配置，提供极致视觉反馈。
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.HazeMaterials
+// 引入 miuix-blur 模糊视效相关的类，实现高阶磨砂折射模糊。
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.drawBackdrop
+import androidx.compose.foundation.background
+import top.yukonga.miuix.kmp.blur.blur
+import androidx.compose.ui.graphics.RectangleShape
 
 /**
  * 为每一次改动添加详尽的中文注释：
  * 全新设计的同 Activity 内非独立搜索悬浮层。
  * 包裹在带有垂直滑入滑出以及优雅渐显渐隐动画的 AnimatedVisibility 中。
- * 能够直接与底部的主页共享同一个 appHazeState，实现防穿帮、极致 premium 的毛玻璃视效。
+ * 能够直接与底部的主页共享同一个 appBackdrop 采样源，实现防穿帮、极致 premium 的毛玻璃视效。
  */
 @Composable
 fun SearchOverlay(
     searchViewModel: SearchViewModel,
-    hazeState: dev.chrisbanes.haze.HazeState?,
+    backdrop: LayerBackdrop?,
     glassEffectMode: GlassEffectMode,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
@@ -93,18 +99,19 @@ fun SearchOverlay(
     val isVisible by searchViewModel.isVisible.collectAsState()
 
     // 为每一次改动添加详尽的中文注释：
-    // 当全局设置开启了 Haze 模式时，我们将搜索悬浮层的展开与隐藏动画限制为“纯淡入淡出 (fadeIn/fadeOut)”。
+    // 当全局设置开启了 miuix-blur 模式时，我们将搜索悬浮层的展开与隐藏动画限制为“纯淡入淡出 (fadeIn/fadeOut)”。
     // 这能有效规避高斯模糊采样图层在高速滑入/滑出时可能产生的边缘裁剪或渲染闪烁，令磨砂玻璃的显隐动画更加极致、 premium 和平滑；
-    // 而在常规非 Haze 模式下，则继续沿用原生的“滑入滑出 + 淡入淡出”丰富过渡效果。
-    val isHaze = glassEffectMode == GlassEffectMode.Haze
+    // 而在常规非 miuix-blur 模式下，则继续沿用原生的“滑入滑出 + 淡入淡出”丰富过渡效果。
+    // 为每一次改动添加详尽的中文注释：对齐新命名的 MiuixBlur 枚举类型，判定是否开启高阶毛玻璃视效
+    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
     AnimatedVisibility(
         visible = isVisible,
-        enter = if (isHaze) {
+        enter = if (isBlur) {
             fadeIn(animationSpec = tween(400))
         } else {
             slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400))
         },
-        exit = if (isHaze) {
+        exit = if (isBlur) {
             fadeOut(animationSpec = tween(400))
         } else {
             slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400))
@@ -114,9 +121,8 @@ fun SearchOverlay(
         Surface(
             modifier = Modifier.fillMaxSize(),
             // 为每一次改动添加详尽的中文注释：
-            // 如果开启 Haze，将外层 Surface 容器背景置为透明，使系统渲染引擎可以将下方的 APlayerNavHost 内容透过来；
-            // 否则退回原生 M3 background 背景填充。
-            color = if (glassEffectMode == GlassEffectMode.Haze) Color.Transparent else MaterialTheme.colorScheme.background
+            // 为每一次改动添加详尽的中文注释：如果开启了新命名的 MiuixBlur，将外层 Surface 容器背景置为透明，使渲染引擎可以透出下方底层内容以实现透光
+            color = if (glassEffectMode == GlassEffectMode.MiuixBlur) Color.Transparent else MaterialTheme.colorScheme.background
         ) {
             SearchScreen(
                 onBack = { searchViewModel.setVisible(false) },
@@ -124,7 +130,7 @@ fun SearchOverlay(
                 onLoadBook = onLoadBook,
                 onNavigateToPlayer = onNavigateToPlayer,
                 viewModel = searchViewModel,
-                hazeState = hazeState,
+                backdrop = backdrop,
                 glassEffectMode = glassEffectMode
             )
         }
@@ -139,7 +145,7 @@ fun SearchScreen(
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
     viewModel: SearchViewModel,
-    hazeState: HazeState?,
+    backdrop: LayerBackdrop?,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier
 ) {
@@ -165,7 +171,7 @@ fun SearchScreen(
         onLoadBook = onLoadBook,
         onNavigateToPlayer = onNavigateToPlayer,
         autoFocus = true,
-        hazeState = hazeState,
+        backdrop = backdrop,
         glassEffectMode = glassEffectMode,
         modifier = modifier
     )
@@ -187,7 +193,7 @@ fun SearchContent(
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
-    hazeState: HazeState?,
+    backdrop: LayerBackdrop?,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     autoFocus: Boolean = true,
@@ -195,6 +201,12 @@ fun SearchContent(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val scrollState = rememberLazyListState()
+
+    // 为每一次改动添加详尽的中文注释：基于运行时系统 WindowInsets.safeDrawing 动态感知侧向刘海屏及横屏导航栏，完全零硬编码避让
+    val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+    val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
+    val searchStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection) + 16.dp
+    val searchEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection) + 16.dp
 
     LaunchedEffect(scrollState.isScrollInProgress) {
         if (scrollState.isScrollInProgress) {
@@ -213,26 +225,40 @@ fun SearchContent(
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：
-    // 感知 Haze 毛玻璃模式是否已被开启。
-    val isHaze = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    // 为每一次改动添加详尽的中文注释：感知 miuix-blur 磨砂玻璃模式是否已被开启且采样源不为空，修改引用至 MiuixBlur
+    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
 
     Scaffold(
         // 为每一次改动添加详尽的中文注释：
-        // 如果启用 Haze 模式，将 Scaffold 容器底色改为透明，并挂载 hazeEffect 修饰符。
+        // 如果启用 miuix-blur 模式，将 Scaffold 容器底色改为透明，并挂载 drawBackdrop 修饰符与 background 半透混色底。
         // 这会令整个搜索界面实时折射下方的 APlayerNavHost 内容，形成美轮美奂的磨砂质感；
-        // 非 Haze 模式下恢复原生 M3 background 色。
+        // 非 miuix-blur 模式下恢复原生 M3 background 色。
         modifier = modifier
             .fillMaxSize()
             .then(
-                if (isHaze) {
-                    // 为每一次改动添加详尽的中文注释：在 Haze 模式下链式追加 hazeEffect 高斯模糊修饰符，折射下方主页 NavHost 像素（利用 Kotlin 智能转换省去非空断言）
-                    Modifier.hazeEffect(state = hazeState, style = HazeMaterials.regular())
+                if (isBlur) {
+                    Modifier
+                        // 为每一次改动添加详尽的中文注释：使用 drawBackdrop 渲染折射模糊效果，并补全必填的 shape 参数
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { RectangleShape },
+                            effects = {
+                                blur(20f)
+                            }
+                        )
+                        // 使用 background 链式附加一层偏亮的半透明蒙版底色（亮/暗自适应），防止搜索界面内容被下方主页文本影响而视觉穿帮
+                        .background(
+                            if (androidx.compose.foundation.isSystemInDarkTheme()) {
+                                Color.Black.copy(alpha = 0.6f)
+                            } else {
+                                Color.White.copy(alpha = 0.6f)
+                            }
+                        )
                 } else {
                     Modifier
                 }
             ),
-        containerColor = if (isHaze) Color.Transparent else MaterialTheme.colorScheme.background,
+        containerColor = if (isBlur) Color.Transparent else MaterialTheme.colorScheme.background,
         topBar = {
             SearchBar(
                 inputField = {
@@ -241,7 +267,13 @@ fun SearchContent(
                         onValueChange = onQueryChange,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .focusRequester(focusRequester),
+                            .focusRequester(focusRequester)
+                            // 为每一次改动添加详尽的中文注释：在此处应用 WindowInsets.safeDrawing 运行时左右物理安全边距避让，
+                            // 确保输入区域内部的返回图标与清除图标在横屏状态下不被刘海物理裁切，同时保证 SearchBar 的背景色能够彻底铺满屏幕
+                            .padding(
+                                start = safeDrawingPadding.calculateStartPadding(layoutDirection),
+                                end = safeDrawingPadding.calculateEndPadding(layoutDirection)
+                            ),
                         placeholder = { 
                             Text(
                                 text = "Search or use year: author: narrator:",
@@ -288,17 +320,22 @@ fun SearchContent(
                     if (!it) handleBack()
                 },
                 // 为每一次改动添加详尽的中文注释：
-                // 搜索栏也参与磨砂磨砂，若开启 Haze，搜索框设为透明偏亮的遮罩，否则退回 SearchBar 原生色。
+                // 搜索栏也参与磨砂，若开启 miuix-blur，搜索框设为透明偏亮的遮罩，否则退回 SearchBar 原生色。
                 colors = SearchBarDefaults.colors(
-                    containerColor = if (isHaze) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh
+                    containerColor = if (isBlur) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // 为每一次改动添加详尽的中文注释：搜索栏容器本身宽度完全平铺以填满整个物理屏幕，不再在外部强加 Padding，保证背景磨砂或填充色极致沉浸铺满
             ) {
                 if (query.text.isBlank()) {
                     LazyColumn(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
+                        // 为每一次改动添加详尽的中文注释：应用动态算出的 start/end 物理安全区 Padding，彻底解决横屏刘海物理裁切
                         contentPadding = PaddingValues(
+                            start = searchStartPadding,
+                            end = searchEndPadding,
                             top = 16.dp,
                             // 为每一次改动添加详尽的中文注释：
                             // 将 bottom padding 绑定为 WindowInsets.ime 替代原本只计算 navigationBars，
@@ -385,7 +422,10 @@ fun SearchContent(
                     LazyColumn(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
+                        // 为每一次改动添加详尽的中文注释：应用动态算出的左右物理避让区，确保搜索结果列表防刘海遮挡
                         contentPadding = PaddingValues(
+                            start = searchStartPadding,
+                            end = searchEndPadding,
                             top = 16.dp,
                             // 为每一次改动添加详尽的中文注释：
                             // 同样此处也将 bottom padding 自适应绑定为 WindowInsets.ime，确保搜索有结果时最后几项在键盘拉起状态下依然 100% 可滚动并展示出来，消除遮挡盲区。
@@ -480,7 +520,7 @@ fun SearchContent(
                                 key = { index -> searchResults[index].book.id }
                             ) { index ->
                                 val result = searchResults[index]
-                                AudiobookListItem(
+                                ListItem(
                                     title = result.book.title,
                                     author = result.book.author,
                                     narrator = result.book.narrator,
@@ -555,7 +595,7 @@ fun SearchScreenEmptyPreview() {
             onNavigateToDetail = {},
             onLoadBook = {},
             onNavigateToPlayer = {},
-            hazeState = null,
+            backdrop = null,
             glassEffectMode = GlassEffectMode.Material,
             autoFocus = false
         )
@@ -595,7 +635,7 @@ fun SearchScreenResultsPreview() {
             onNavigateToDetail = {},
             onLoadBook = {},
             onNavigateToPlayer = {},
-            hazeState = null,
+            backdrop = null,
             glassEffectMode = GlassEffectMode.Material,
             autoFocus = false
         )

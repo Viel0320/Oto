@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -23,14 +22,11 @@ import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.NewPlayerScreen
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
-import com.viel.aplayer.ui.player.components.CompactMediaPlayer
-// 为每一次改动添加详尽的中文注释：引入 PillCompactMediaPlayer，在满足横屏大屏配置时进行替换渲染
-import com.viel.aplayer.ui.player.components.PillCompactMediaPlayer
 // 为每一次改动添加详尽的中文注释：引入 LocalConfiguration 与 Configuration，用于在迷你播放器组件内实时识别屏幕状态
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
-// 为每一次改动添加详尽的中文注释：引入 HazeState 类型
-import dev.chrisbanes.haze.HazeState
+// 为每一次改动添加详尽的中文注释：引入 LayerBackdrop 类型
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
  * 播放器悬浮层组件。
@@ -51,8 +47,8 @@ fun PlayerOverlay(
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由 App 容器从设置状态显式传入，播放器悬浮层不再声明默认值。
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // 为每一次改动添加详尽的中文注释：新增接收 appHazeState 的参数，用于透传到迷你播放器
-    hazeState: HazeState? = null
+    // 为每一次改动添加详尽的中文注释：新增接收 backdrop 的参数，用于透传到迷你播放器
+    backdrop: LayerBackdrop? = null
 ) {
     // 仅监听播放器可见性（低频信号）
     val isFullPlayerVisible by remember(playerViewModel) {
@@ -89,7 +85,7 @@ fun PlayerOverlay(
                 viewModel = playerViewModel,
                 actions = playerActions,
                 navigationActions = playerNavigationActions,
-                // 为每一次改动添加详尽的中文注释：全屏播放器内部负责创建章节列表的 Haze source/effect，因此这里仅透传模式。
+                // 为每一次改动添加详尽的中文注释：全屏播放器内部负责创建章节列表的 miuix-blur 模糊视效，因此这里仅透传模式。
                 glassEffectMode = glassEffectMode
             )
         }
@@ -118,7 +114,7 @@ fun PlayerOverlay(
             MiniPlayerContent(
                 viewModel = playerViewModel,
                 actions = miniPlayerActions,
-                hazeState = hazeState,
+                backdrop = backdrop,
                 glassEffectMode = glassEffectMode
             )
         }
@@ -135,8 +131,8 @@ fun PlayerOverlay(
 private fun MiniPlayerContent(
     viewModel: PlayerViewModel,
     actions: MiniPlayerActions,
-    // 详尽的中文注释：接收透传的 HazeState 实例
-    hazeState: HazeState?,
+    // 详尽的中文注释：接收透传的 LayerBackdrop 实例
+    backdrop: LayerBackdrop?,
     // 详尽的中文注释：接收透传的 GlassEffectMode 模式
     glassEffectMode: GlassEffectMode
 ) {
@@ -169,25 +165,21 @@ private fun MiniPlayerContent(
             // 为每一次改动添加详尽的中文注释：在横屏和大屏模式下展示药丸悬浮样式的 PillCompactMediaPlayer 组件以提升 premium 质感
             PillCompactMediaPlayer(
                 isPlaying = playback.isPlaying,
-                title = metadata.title,
-                author = metadata.author,
-                narrator = metadata.narrator,
                 coverPath = metadata.thumbnailPath,
                 // 详尽的中文注释：桥接封面最后更新时间戳，用以打破 Coil 等的缓存，确保发生重组后强制渲染最新文件
                 coverLastUpdated = metadata.coverLastUpdated,
                 // 详尽的中文注释：传递 ViewModel 预计算的进度值，UI 层设计中不再包含业务逻辑计算
-                progress = { displayProgress },
                 isMediaAvailable = isMediaAvailable,
                 actions = actions,
-                // 详尽的中文注释：透传磨砂玻璃背景采样状态，以便在 Haze 模糊玻璃模式下折射背景色彩
-                hazeState = hazeState,
+                // 详尽的中文注释：透传磨砂玻璃背景采样状态，以便在 miuix-blur 模糊玻璃模式下折射背景色彩
+                backdrop = backdrop,
                 // 为每一次改动添加详尽的中文注释：向药丸播放器组件传入点击回调，令其内部 Surface 触发精确圆角的点击波纹
                 onClick = { viewModel.setFullPlayerVisible(true) },
                 glassEffectMode = glassEffectMode
             )
         } else {
             // 中文注释：已在此处取消了迷你播放器进度条的封面颜色（metadata.backgroundColorArgb）绑定，不再向 CompactMediaPlayer 传入自定义 color 属性
-            // 详尽的中文注释：向迷你播放器透传 hazeState 和 glassEffectMode 以实现背景的高斯模糊效果
+            // 详尽的中文注释：向迷你播放器透传 backdrop 和 glassEffectMode 以实现背景的高斯模糊效果
             CompactMediaPlayer(
                 isPlaying = playback.isPlaying,
                 title = metadata.title,
@@ -201,7 +193,7 @@ private fun MiniPlayerContent(
                 isMediaAvailable = isMediaAvailable,
                 actions = actions,
                 // 详尽的中文注释：透传磨砂背景参数
-                hazeState = hazeState,
+                backdrop = backdrop,
                 // 为每一次改动添加详尽的中文注释：传入点击回调，令 CompactMediaPlayer 内部 Surface 自主管理点击事件以呈现正常水波纹
                 onClick = { viewModel.setFullPlayerVisible(true) },
                 glassEffectMode = glassEffectMode

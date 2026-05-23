@@ -245,7 +245,7 @@ fun DetailInfoChip(
                         .clip(RoundedCornerShape(12.dp))
                         // 挂载 Backdrop 模糊并应用高阶模糊效果
                         .drawBackdrop(
-                            backdrop = backdrop!!,
+                            backdrop = backdrop,
                             shape = { RoundedCornerShape(12.dp) },
                             effects = { blur(20f) }
                         )

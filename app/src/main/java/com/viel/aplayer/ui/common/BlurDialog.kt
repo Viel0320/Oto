@@ -17,48 +17,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.graphics.Color
 import com.viel.aplayer.data.store.GlassEffectMode
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+// 为每一次改动添加详尽的中文注释：使用 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurBlendMode
 
 /**
  * 详尽中文注释：
- * BlurDialog —— 使用 Haze 重写后的通用毛玻璃浮层对话框。
+ * BlurDialog —— 使用 miuix-blur 重写后的通用毛玻璃浮层对话框。
  *
  * 实现原理：
- * - 调用方必须把同一个 [HazeState] 传给背景层的 hazeSource 与此处的 hazeEffect。
- * - 这能让 Dialog 即使运行在独立 Window 中，也通过 Haze 采样宿主 Compose 背景完成模糊。
- * - 面板颜色使用半透明 surfaceContainerHigh，Haze 1.7.2 只负责稳定采样和模糊，底色仍由 Surface 控制。
+ * - 调用方将最外层 Activity 的 LayerBackdrop 传给此处的 backdrop 参数。
+ * - drawBackdrop 修饰符会就地渲染出基于该 LayerBackdrop 的高阶毛玻璃质感。
+ * - 容器面板通过 0.78f 极佳半透明底色，与底下的模糊图层交织，达到极致清透、极佳设计感的呼吸美学。
  *
  * @param onDismissRequest 点击对话框外部或按系统返回键时的关闭回调
- * @param hazeState 与背景 hazeSource 共用的状态容器
- * @param glassEffectMode 当前玻璃效果模式，Material 模式不挂载 Haze modifier
+ * @param backdrop 与主渲染背景关联的模糊描述符状态机
+ * @param glassEffectMode 当前悬浮层玻璃效果模式，Material 模式不挂载模糊修饰符
  * @param scrollable 内容区域是否允许纵向滚动，内容较多时设为 true
  * @param content 对话框正文 Composable 内容
  */
-// 为每一次改动添加详尽的中文注释：组件直接 OptIn 官方 haze-materials API，避免再经过应用内 HazeMaterials 中间封装。
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurDialog(
     onDismissRequest: () -> Unit,
-    hazeState: HazeState,
+    backdrop: LayerBackdrop,
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由调用方从设置状态显式传入，避免 Dialog 内部私自声明默认值。
     glassEffectMode: GlassEffectMode,
     scrollable: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    // 为每一次改动添加详尽的中文注释：Haze 模式沿用当前透明度配置；Material 模式使用不透明容器回到原生 Material 层次并停用模糊采样。
-    val dialogContainerColor = if (glassEffectMode == GlassEffectMode.Haze) {
-        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 1f)
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerHigh
-    }
+    // 为每一次改动添加详尽的中文注释：获取当前系统的亮暗色主题状态，以实现对话框底色自适应着色混合
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
-            // 详尽中文注释：关闭平台默认宽度限制，由 widthIn 精确约束宽度
+            // 详尽中文注释：关闭 platform 默认宽度限制，由 widthIn 精确约束宽度
             usePlatformDefaultWidth = false,
             // 详尽中文注释：允许内容延伸至系统窗口内边距区域
             decorFitsSystemWindows = false
@@ -80,15 +78,39 @@ fun BlurDialog(
                 .padding(horizontal = 24.dp, vertical = 48.dp),
             contentAlignment = Alignment.Center
         ) {
+            // 为每一次改动添加详尽的中文注释：仅在 MiuixBlur 模式挂载高阶 textureBlur 质感磨砂效果；Material 模式完全跳过采样以绝缘开销。
+            val glassModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
+                val dialogShape = MaterialTheme.shapes.extraLarge
+                Modifier.textureBlur(
+                    backdrop = backdrop,
+                    shape = dialogShape,
+                    blurRadius = 80f, // thick -> 进一步拉大模糊半径以提供更宽的混色渐变
+                    noiseCoefficient = 0.05f, // texture -> 加强噪点以呈现真实的磨砂漫反纹理
+                    colors = BlurColors(
+                        blendColors = listOf(
+                            BlendColorEntry(
+                                color = if (isDark) Color.Black.copy(alpha = 0.62f) else Color.White.copy(alpha = 0.82f), // colored -> 适度加深蒙版遮罩不透明度以淡化底层交界
+                                mode = BlurBlendMode.SrcOver
+                            )
+                        ),
+                        brightness = if (isDark) -0.12f else -0.05f, // 详尽中文注释：调低亮度，削弱底层高亮反差
+                        contrast = 0.65f, // 详尽中文注释：大幅压缩对比度，抹平 Recently Added 列表物理硬切分界线
+                        saturation = 1.0f
+                    )
+                )
+            } else {
+                Modifier
+            }
+
             // 详尽中文注释：对话框面板 Surface。
             // - 采用系统 extraLarge 圆角符合 Material 3 Dialog 规范，支持主题自适应
-            // - surfaceContainerHigh + 0.78f alpha 与 Haze 采样模糊形成玻璃拟态视觉层次
             // - tonalElevation = 6.dp：暗色模式下产生色调差，强化层次感
             // - shadowElevation = 8.dp：轻微投影强化悬浮感
             // - 关键改动：添加无波纹 clickable 以拦截并消费点击手势，阻止其错误向上穿透触发 dismiss 关闭
             Surface(
                 modifier = Modifier
                     .widthIn(min = 280.dp, max = 460.dp)
+                    .then(glassModifier)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -96,10 +118,13 @@ fun BlurDialog(
                         // 详尽的中文注释：空操作，单纯用于拦截手势，防止点击对话框主体错误触发 dismiss
                     },
                 shape = MaterialTheme.shapes.extraLarge,
-                // 详尽中文注释：半透明底色让 Haze 模糊纹理透出，同时保留文字可读的 Material 3 层次。
-                color = dialogContainerColor,
-                tonalElevation = 6.dp,
-                shadowElevation = 8.dp
+                // 详尽中文注释：MiuixBlur 模式下设为透明以展现完美的着色器材质模糊；Material 模式使用不透明容器。
+                color = if (glassEffectMode == GlassEffectMode.MiuixBlur) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
+                // 详尽的中文注释：
+                // 在 MiuixBlur 模式下，由于 Surface 设为完全透明，必须硬性把 elevation 投影调为 0.dp。
+                // 否则 Android 系统的 RenderNode 阴影投影垫片会在透明底层产生极其难看的硬件级灰色“边缘残影/重影”泄露。
+                tonalElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else 6.dp,
+                shadowElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else 8.dp
             ) {
                 // 详尽中文注释：按 scrollable 参数决定是否附加纵向滚动能力
                 val scrollModifier = if (scrollable) {
@@ -107,18 +132,8 @@ fun BlurDialog(
                 } else {
                     Modifier
                 }
-                // 为每一次改动添加详尽的中文注释：仅在 Haze 模式挂载 hazeEffect；Material 模式完全跳过采样，避免额外渲染成本。
-                val glassModifier = if (glassEffectMode == GlassEffectMode.Haze) {
-                    Modifier.hazeEffect(
-                        state = hazeState,
-                        // 为每一次改动添加详尽的中文注释：Dialog 直接调用官方 HazeMaterials.regular()，不再依赖应用内中间层。
-                        style = dev.chrisbanes.haze.materials.HazeMaterials.regular()
-                    )
-                } else {
-                    Modifier
-                }
                 Box(
-                    modifier = scrollModifier.then(glassModifier)
+                    modifier = scrollModifier
                 ) {
                     content()
                 }

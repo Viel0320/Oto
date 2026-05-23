@@ -19,6 +19,45 @@ import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.theme.APlayerTheme
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.ui.player.BookMetadataState
+import com.viel.aplayer.ui.player.PlayerActions
+import com.viel.aplayer.ui.player.PlayerViewModel
+
+/**
+ * 播放进度条的有状态包装组件。
+ * 局部订阅高频的 elapsedMs 进度状态，确保每 500ms 一次的进度更新
+ * 仅在 PlaybackProgress 内部引起局部重组，防止 PlayerScreen 的大面积重绘。
+ */
+@Composable
+fun PlaybackProgressStateful(
+    viewModel: PlayerViewModel,
+    metadata: BookMetadataState,
+    actions: PlayerActions,
+    modifier: Modifier = Modifier
+) {
+    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    val progressState = if (isPreview) {
+        PlayerViewModel.PlaybackProgressViewState(
+            elapsedMs = 120000L,
+            durationMs = 360000L,
+            isChapterProgressMode = false
+        )
+    } else {
+        viewModel.playbackProgressState.collectAsStateWithLifecycle().value
+    }
+
+    PlaybackProgress(
+        currentPosition = progressState.elapsedMs,
+        totalDuration = progressState.durationMs,
+        isChapterMode = progressState.isChapterProgressMode,
+        chapters = metadata.chapters,
+        markers = metadata.getChapterMarkers(progressState.durationMs),
+        onSeek = { pos -> actions.playback.onSeek(pos, true) },
+        modifier = modifier
+    )
+}
+
 /**
  * 播放进度条组件。
  * 内部封装了“全书进度”与“当前章节进度”的切换逻辑。
@@ -97,6 +136,21 @@ fun PlaybackProgress(
             Text(
                 text = formatTime(displayDur),
                 style = MaterialTheme.typography.labelMedium
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, apiLevel = 36)
+@Composable
+fun PlaybackProgressStatefulPreview() {
+    APlayerTheme {
+        Surface {
+            PlaybackProgressStateful(
+                viewModel = PlayerViewModel(),
+                metadata = BookMetadataState(title = "三体"),
+                actions = PlayerActions(),
+                modifier = Modifier.padding(16.dp)
             )
         }
     }

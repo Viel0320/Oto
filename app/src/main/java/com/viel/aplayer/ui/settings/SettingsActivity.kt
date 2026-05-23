@@ -23,6 +23,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+// 为每一次改动添加详尽的中文注释：导入运行时系统安全区 Insets 与 PaddingValues，以支持设置页面横竖屏下的自适应刘海与系统栏避让
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
 import androidx.compose.material.icons.Icons
@@ -181,7 +190,7 @@ fun SettingsScreen(
     isShakeToResetEnabled: Boolean,
     // 为每一次改动添加详尽的中文注释：切换摇晃手机重置睡眠定时器开关的回调事件。
     onShakeToResetEnabledChange: (Boolean) -> Unit,
-    // 为每一次改动添加详尽的中文注释：当前悬浮层视觉效果模式，控制 Material 原生容器与 Haze 毛玻璃之间的切换。
+    // 为每一次改动添加详尽的中文注释：当前悬浮层视觉效果模式，控制 Material 原生容器与 miuix-blur 毛玻璃之间的切换。
     glassEffectMode: GlassEffectMode,
     // 为每一次改动添加详尽的中文注释：切换悬浮层视觉效果模式的回调事件。
     onGlassEffectModeChange: (GlassEffectMode) -> Unit
@@ -204,6 +213,12 @@ fun SettingsScreen(
     // 详尽的中文注释：如果处于横屏或者大屏状态，则启用尊贵的容器化集中布局，使内容左右两侧各自空出 20% 的宽度（总计填充 60% 宽度，即 0.6f 比例）
     val useWideLayout = isLandscape || isWideScreen
 
+    // 为每一次改动添加详尽的中文注释：利用 WindowInsets.safeDrawing 动态获取当前横屏侧边物理刘海及导航栏宽度，完全零硬编码
+    val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+    val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
+    val settingsStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
+    val settingsEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -211,27 +226,41 @@ fun SettingsScreen(
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .fillMaxWidth(if (useWideLayout) 0.6f else 1f)
+                .fillMaxWidth(if (useWideLayout) 0.8f else 1f)
         ) {
             Scaffold(
                 topBar = {
                     CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.back_content_description)
-                        )
-                    }
-                }
-            )
+                        // 为每一次改动添加详尽的中文注释：恢复普通修饰符，不在容器外侧加 Padding，使 AppBar 背景底色优雅拉满至屏幕左右边缘
+                        modifier = Modifier,
+                        // 为每一次改动添加详尽的中文注释：将 WindowInsets.statusBars.exclude(navigationBars) 作为顶栏的 safe insets，
+                        // 自适应处理状态栏和横屏左右避让，彻底摆脱返回按钮上的手写 padding
+                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
+                        title = { Text(stringResource(R.string.settings_title)) },
+                        navigationIcon = {
+                            IconButton(
+                                onClick = onBack,
+                                // 为每一次改动添加详尽的中文注释：由顶栏自带的 windowInsets 完美托管侧向刘海物理避让，故在此安全移除手动 padding
+                                modifier = Modifier
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Rounded.ArrowBack,
+                                    contentDescription = stringResource(R.string.back_content_description)
+                                )
+                            }
+                        }
+                    )
         }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
+            // 为每一次改动添加详尽的中文注释：注入运行时算出的 start/end 物理避让 padding，保障设置项文字与开关在任何物理刘海/侧边导航栏前完全安全
+            contentPadding = PaddingValues(
+                start = settingsStartPadding,
+                end = settingsEndPadding
+            )
         ) {
             // 为每一次改动添加详尽的中文注释：
             // === 第一分节：媒体库管理 ===
@@ -305,7 +334,7 @@ fun SettingsScreen(
                 SettingsSectionHeader(title = "界面效果")
             }
             item {
-                // 为每一次改动添加详尽的中文注释：新增 Material/Haze 双态分段选择，让用户可在原生 Material 层次与 Haze 毛玻璃之间即时切换。
+                // 为每一次改动添加详尽的中文注释：新增 Material/miuix-blur 双态分段选择，让用户可在原生 Material 层次与 miuix-blur 毛玻璃之间即时切换。
                 SettingsSegmentedItem(
                     title = "悬浮层玻璃效果",
                     subtitle = "控制章节列表和书籍操作弹窗的背景效果",
@@ -467,7 +496,8 @@ private fun SettingsSegmentedItem(
     selectedMode: GlassEffectMode,
     onModeSelected: (GlassEffectMode) -> Unit
 ) {
-    val modes = listOf(GlassEffectMode.Material, GlassEffectMode.Haze)
+    // 为每一次改动添加详尽的中文注释：将选项列表中的 miuix 改为全新更名且没有旧模糊机制影子残留的 MiuixBlur
+    val modes = listOf(GlassEffectMode.Material, GlassEffectMode.MiuixBlur)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -497,8 +527,8 @@ private fun SettingsSegmentedItem(
                         onClick = { onModeSelected(mode) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
                     ) {
-                        // 为每一次改动添加详尽的中文注释：按钮文案直接对应内部枚举，Material 表示停用 Haze，Haze 表示启用毛玻璃采样。
-                        Text(text = if (mode == GlassEffectMode.Material) "Material" else "Haze")
+                        // 为每一次改动添加详尽的中文注释：按钮显示文案，Material 表示原生实色层，MiuixBlur 对应显示为更为尊贵的 "miuix-blur" 模糊磨砂效果。
+                        Text(text = if (mode == GlassEffectMode.Material) "Material" else "MiuixBlur")
                     }
                 }
             }

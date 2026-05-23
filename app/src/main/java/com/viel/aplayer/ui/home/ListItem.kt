@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.home
 
-import androidx.compose.foundation.clickable
 // 为每一次改动添加详尽的中文注释：新增 combinedClickable 导入以响应列表项目长按的高阶手势监听
 import androidx.compose.foundation.combinedClickable
 // 为每一次改动添加详尽的中文注释：新增 ExperimentalFoundationApi 导入，由于 combinedClickable 在旧版中是实验性 API，这里作为安全屏障防御编译期缺陷
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,7 +43,7 @@ import com.viel.aplayer.ui.theme.APlayerTheme
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun AudiobookListItem(
+fun ListItem(
     title: String,
     author: String,
     narrator: String,
@@ -109,15 +107,6 @@ fun AudiobookListItem(
                         style = textStyle,
                         color = textColor
                     )
-//
-//                    if (addedAt != null) {
-//                        Text(text = separator, style = textStyle, color = textColor)
-//                        Text(
-//                            text = formatShortDate(addedAt) + " added at " + formatShortDate(addedAt) ,
-//                            style = textStyle,
-//                            color = textColor
-//                        )
-//                    }
                 }
             }
         },
@@ -149,8 +138,8 @@ fun AudiobookListItem(
                             isImageError = true
                             // 详尽中文注释：当封面物理文件损坏或系统读取失败时，在控制台打印可供调试的具体物理路径和错误原委
                             android.util.Log.e(
-                                "AudiobookListItem",
-                                "AudiobookListItem 封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
+                                "ListItem",
+                                "ListItem 封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
                                 state.result.throwable
                             )
                         }
@@ -176,10 +165,10 @@ fun AudiobookListItem(
 
 @Preview(showBackground = true, name = "New Book", apiLevel = 36)
 @Composable
-fun AudiobookListItemNewPreview() {
+fun ListItemNewPreview() {
     APlayerTheme(dynamicColor = false) {
         Surface {
-            AudiobookListItem(
+            ListItem(
                 title = "The Great Adventure",
                 author = "John Doe",
                 narrator = "Jane Smith",
@@ -194,10 +183,10 @@ fun AudiobookListItemNewPreview() {
 
 @Preview(showBackground = true, name = "In Progress", apiLevel = 36)
 @Composable
-fun AudiobookListItemProgressPreview() {
+fun ListItemProgressPreview() {
     APlayerTheme(dynamicColor = false) {
         Surface {
-            AudiobookListItem(
+            ListItem(
                 title = "Mystery in the Woods",
                 author = "Arthur Conan Doyle",
                 narrator = "Stephen Fry",

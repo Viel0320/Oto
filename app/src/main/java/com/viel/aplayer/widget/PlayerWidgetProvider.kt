@@ -3,13 +3,10 @@ package com.viel.aplayer.widget
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Build
 import android.util.TypedValue
 import androidx.compose.runtime.Composable
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -49,7 +46,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
+import androidx.glance.color.ColorProvider
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 import com.viel.aplayer.data.LibraryRepository
@@ -159,8 +156,9 @@ private fun PlayerWidgetContent(
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            // 为本次桌面 widget Glance 迁移添加注释：标记 widget 背景并应用系统 dialogCornerRadius，规避 Android 12+ launcher 圆角裁切溢出。
-            .background(ColorProvider(Color(0xFF111111)))
+            // 为本次桌面 widget Glance 迁移添加注释：改用 androidx.glance.color.ColorProvider 
+            // 并同时指定 day/night 颜色以绕过新版本 Glance 的 API 限制，确保背景色在所有模式下保持一致。
+            .background(ColorProvider(day = Color(0xFF111111), night = Color(0xFF111111)))
             .appWidgetBackground()
             .cornerRadius(cornerRadius)
             .clickable(openPlayerAction)
@@ -180,7 +178,7 @@ private fun PlayerWidgetContent(
         Spacer(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(ColorProvider(Color(0x66000000)))
+                .background(ColorProvider(day = Color(0x66000000), night = Color(0x66000000)))
                 .cornerRadius(cornerRadius)
         )
 
@@ -196,7 +194,7 @@ private fun PlayerWidgetContent(
                 text = snapshot.title,
                 maxLines = 1,
                 style = TextStyle(
-                    color = ColorProvider(Color.White),
+                    color = ColorProvider(day = Color.White, night = Color.White),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
@@ -207,7 +205,7 @@ private fun PlayerWidgetContent(
                 text = snapshot.subtitle,
                 maxLines = 1,
                 style = TextStyle(
-                    color = ColorProvider(Color(0xFFEDEDED)),
+                    color = ColorProvider(day = Color(0xFFEDEDED), night = Color(0xFFEDEDED)),
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center
                 ),
@@ -256,8 +254,9 @@ private fun RowScope.CenterPlayButton(isPlaying: Boolean) {
         Box(
             modifier = GlanceModifier
                 .size(40.dp)
-                // 为本次桌面 widget Glance 迁移添加注释：中心播放按钮保留浅粉圆形焦点，Glance 中使用圆角背景实现。
-                .background(ColorProvider(Color(0xFFF2C5F3)))
+                // 为本次桌面 widget Glance 迁移添加注释：中心播放按钮保留浅粉圆形焦点。
+                // 同样应用 day/night 显式参数以符合新版 API 规范。
+                .background(ColorProvider(day = Color(0xFFF2C5F3), night = Color(0xFFF2C5F3)))
                 .cornerRadius(20.dp)
                 .clickable(actionRunCallback<TogglePlayPauseAction>()),
             contentAlignment = Alignment.Center
@@ -379,12 +378,9 @@ private object PlayerWidgetActions {
 
 private fun Context.resolveSystemWidgetCornerRadius(): Dp {
     val typedValue = TypedValue()
-    val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    val resolved =
         // 为本次桌面 widget Glance 迁移添加注释：Android 12+ 读取系统 dialogCornerRadius，让 widget 内部圆角匹配 launcher 强制圆角裁切。
         theme.resolveAttribute(android.R.attr.dialogCornerRadius, typedValue, true)
-    } else {
-        false
-    }
     if (!resolved) return 28.dp
     val px = TypedValue.complexToDimension(typedValue.data, resources.displayMetrics)
     return (px / resources.displayMetrics.density).dp
@@ -392,16 +388,10 @@ private fun Context.resolveSystemWidgetCornerRadius(): Dp {
 
 private fun Context.resolveWidgetColorProviders(): androidx.glance.color.ColorProviders {
     // 为本次桌面 widget Glance 迁移添加注释：Android 12+ 从系统动态色生成 Glance Material3 ColorProviders，旧系统回退到稳定 Material3 色板。
-    val light = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    val light =
         dynamicLightColorScheme(this)
-    } else {
-        lightColorScheme()
-    }
-    val dark = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    val dark =
         dynamicDarkColorScheme(this)
-    } else {
-        darkColorScheme()
-    }
     return ColorProviders(light, dark)
 }
 

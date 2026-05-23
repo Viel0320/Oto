@@ -18,8 +18,9 @@ coil = "2.7.0"
 palette = "1.0.0"
 datastore = "1.2.1"
 glance = "1.2.0-rc01"
-# 为每一次改动添加详尽的中文注释：将 Haze 从 2.0 alpha 回退到 1.7.2 稳定版，规避 alpha 渲染闪烁风险。
-haze = "1.7.2"
+# 为每一次改动添加详尽的中文注释：引入 miuix 库版本声明，用于引入硬件级高阶模糊效果组件 miuix-blur。
+miuix = "0.9.1"
+
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -53,10 +54,8 @@ androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", versi
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
-# 为每一次改动添加详尽的中文注释：Haze 1.7.2 稳定版将背景模糊能力放在核心模块内，不再依赖 2.x 的 haze-blur 拆分模块。
-haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
-# 为每一次改动添加详尽的中文注释：引入官方 Haze Materials 模板模块，复用 HazeMaterials.regular() 而不是在业务组件里手写 HazeStyle 参数。
-haze-materials = { group = "dev.chrisbanes.haze", name = "haze-materials-android", version.ref = "haze" }
+miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur", version.ref = "miuix" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

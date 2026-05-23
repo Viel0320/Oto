@@ -1,36 +1,37 @@
 package com.viel.aplayer.ui.home
 
+// 为每一次改动添加详尽的中文注释：导入运行时动态安全区 Insets 计算所需的系统 API 依赖，以支持无硬编码刘海屏/导航栏避让
+import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
-import android.content.res.Configuration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -42,41 +43,30 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
-import kotlinx.coroutines.launch
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerFilterChip
-import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.theme.APlayerTheme
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
  * 首页图书馆的过滤选项枚举。
@@ -125,8 +115,8 @@ fun HomeScreen(
 ) {
     // 为每一次改动添加详尽的中文注释：使用 remember 级联监听当前被长按的有声书状态，决定一级Dialog的渲染
     var activeBookForMenu by remember { mutableStateOf<BookWithProgress?>(null) }
-    // 为每一次改动添加详尽的中文注释：为长按操作 Dialog 创建 HazeState；Scaffold 作为 source，Dialog 面板作为 effect。
-    val actionDialogHazeState = rememberHazeState()
+    // 为每一次改动添加详尽的中文注释：为长按操作 Dialog 创建 LayerBackdrop 状态机；Scaffold 作为采样源，Dialog 面板作为模糊渲染面。
+    val actionDialogBackdrop = rememberLayerBackdrop()
     // 详尽中文注释：Filter Chip 的标签映射，这是纯 UI 文本，保留在 Composable 中
     val filters = listOf(
         HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
@@ -147,12 +137,12 @@ fun HomeScreen(
     val isTablet = configuration.smallestScreenWidthDp >= 600
     val isWideScreen = isTablet || isLandscape
 
-    // 为每一次改动添加详尽的中文注释：根据屏幕逻辑宽度（dp）动态确定网格列数：
-    // - 小屏手机竖屏（宽度 < 600dp）时为 1 列经典列表；
-    // - 普通平板或手机横屏（600dp <= 宽度 < 840dp）时为 2 列网格卡片；
-    // - 宽屏平板或大显示器（宽度 >= 840dp）时自动扩展为 3 列网格卡片，实现现代且紧凑的布局结构。
+    // 为每一次改动添加详尽的中文注释：根据屏幕逻辑宽度（dp）与设备类型动态确定网格列数：
+    // - 只有在平板设备（sw >= 600dp）且宽度充足（>= 840dp）时，才开启 3 列网格，确保大屏展示效率。
+    // - 对于普通手机横屏或较窄的平板，统一使用 2 列网格，避免手机横屏下 3 列布局过于拥挤、封面过小导致的信息堆叠感。
+    // - 手机竖屏保持 1 列经典列表。
     val columnsCount = when {
-        configuration.screenWidthDp >= 840 -> 3
+        isTablet && configuration.screenWidthDp >= 840 -> 3
         isWideScreen -> 2
         else -> 1
     }
@@ -160,12 +150,27 @@ fun HomeScreen(
     // 为每一次改动添加详尽的中文注释：大屏与横屏下自动增大边距为 24.dp 以带来强烈的呼吸感与统一对齐，小屏保持原有的 16.dp 满格排列。
     val screenHorizontalPadding = if (isWideScreen) 24.dp else 16.dp
 
-    // 为每一次改动添加详尽的中文注释：将滚动状态 remember 由 LazyListState 迁移至自适应网格 GridState，完成底座升级。
+    // 为每一次改动添加详尽的中文注释：计算 TopAppBar 图标的补偿边距。
+    // M3 顶栏图标默认起始位是 16dp（4dp 容器间距 + 12dp 按钮居中偏移）。
+    // 当业务边距升至 24dp 时，需额外补回 8dp 以前后对齐。
+    val appBarIconPadding = (screenHorizontalPadding - 16.dp).coerceAtLeast(0.dp)
+
+    // 为每一次改动添加详尽的中文注释：利用 WindowInsets.safeDrawing 动态获取当前设备（无论横竖屏、左旋、右旋）的状态栏、导航栏与物理刘海安全区域，完全零硬编码
+    val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+    val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
+    // 为每一次改动添加详尽的中文注释：
+    // 重构网格内边距策略：此处 gridStart/EndPadding 仅保留物理安全区域（如刘海、侧边导航栏）。
+    // 将 16dp/24dp 的业务逻辑边距从 Grid 容器层剥离，下沉到具体的标题和列表项中自行实现。
+    // 这样做能够确保 ListItem 的点击水波纹（Ripple）和滑动的滚动条能够紧贴屏幕物理边缘，实现极致的 Edge-to-Edge 视觉高级感。
+    val gridStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
+    val gridEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
+
+    // 为每一次改动添加详详尽的中文注释：将滚动状态 remember 由 LazyListState 迁移至自适应网格 GridState，完成底座升级。
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-    // 为每一次改动添加详尽的中文注释：只有 Haze 模式才将主页完整内容注册为采样源；Material 模式跳过以节省渲染成本。
-    val hazeSourceModifier = if (glassEffectMode == GlassEffectMode.Haze) {
-        Modifier.hazeSource(state = actionDialogHazeState)
+    // 为每一次改动添加详尽的中文注释：只有 miuix-blur 模式才将主页完整内容注册为采样源；Material 模式跳过以节省渲染成本。将遗留的模糊源修饰符重命名为 blurSourceModifier。
+    val blurSourceModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
+        Modifier.layerBackdrop(actionDialogBackdrop)
     } else {
         Modifier
     }
@@ -173,10 +178,15 @@ fun HomeScreen(
     Scaffold(
         modifier = modifier
             .fillMaxSize()
-            // 为每一次改动添加详尽的中文注释：主页完整内容作为 AudiobookActionDialogs 的 Haze 背景采样源。
-            .then(hazeSourceModifier),
+            // 为每一次改动添加详尽的中文注释：主页完整内容作为 AudiobookActionDialogs 的 miuix-blur 背景采样源。
+            .then(blurSourceModifier),
         topBar = {
             CenterAlignedTopAppBar(
+                // 为每一次改动添加详尽的中文注释：恢复默认修饰符，不在容器外侧加 Padding，使顶部栏背景底色或磨砂折射面能够极致平铺至屏幕物理左右边缘
+                modifier = Modifier,
+                // 为每一次改动添加详尽的中文注释：将 windowInsets 设为统一的 safeDrawing.exclude，
+                // 依靠系统完美自适应托管状态栏与横屏刘海的侧边规避，彻底去除 IconButton 上多余的手动 Padding
+                windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
                 title = {
                     Text(
                         text = stringResource(R.string.app_name),
@@ -197,7 +207,11 @@ fun HomeScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateToSearch) {
+                    IconButton(
+                        onClick = onNavigateToSearch,
+                        // 为每一次改动添加详尽的中文注释：应用 appBarIconPadding 补偿，使搜索图标在横屏/大屏模式下与下方内容精准对齐
+                        modifier = Modifier.padding(start = appBarIconPadding)
+                    ) {
                         Icon(
                             Icons.Rounded.Search,
                             contentDescription = stringResource(R.string.search_content_description)
@@ -205,7 +219,11 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToSettings) {
+                    IconButton(
+                        onClick = onNavigateToSettings,
+                        // 为每一次改动添加详尽的中文注释：应用 appBarIconPadding 补偿，使设置图标在右侧也能保持对称的视觉边界对齐
+                        modifier = Modifier.padding(end = appBarIconPadding)
+                    ) {
                         Icon(
                             Icons.Rounded.Tune,
                             contentDescription = stringResource(R.string.settings_content_description)
@@ -254,8 +272,13 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp, bottom = 12.dp),
-                    // 为每一次改动添加详尽的中文注释：应用动态的 screenHorizontalPadding，在大屏上拥有更舒展高级的横向留白。
-                    contentPadding = PaddingValues(horizontal = screenHorizontalPadding),
+                    // 为每一次改动添加详尽的中文注释：
+                    // 因外部容器不再统一提供业务边距，FilterChip 行需手动补回 screenHorizontalPadding。
+                    // 这样既保证了首个 Chip 与上方标题对齐，又允许其在滚动时穿透业务边距区域，直至触碰屏幕物理安全边缘。
+                    contentPadding = PaddingValues(
+                        start = gridStartPadding + screenHorizontalPadding,
+                        end = gridEndPadding + screenHorizontalPadding
+                    ),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // 详尽中文注释：M-20 修复 — 使用 filter.name 作为稳定 key，避免过滤器切换时 FilterChip 动画错位
@@ -278,7 +301,10 @@ fun HomeScreen(
                 columns = GridCells.Fixed(columnsCount),
                 state = gridState,
                 modifier = Modifier.fillMaxSize(),
+                // 为每一次改动添加详尽的中文注释：将动态算出的左右物理安全区 Padding 注入到网格容器作为统一滚动边界，消除硬编码遮挡隐患
                 contentPadding = PaddingValues(
+                    start = gridStartPadding,
+                    end = gridEndPadding,
                     bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
                 )
             ) {
@@ -289,8 +315,10 @@ fun HomeScreen(
                             text = recentTitle,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            // 为每一次改动添加详尽的中文注释：左外边距使用动态 screenHorizontalPadding 适配完美的上下一致中轴线对齐。
-                            modifier = Modifier.padding(start = screenHorizontalPadding, top = 8.dp, end = screenHorizontalPadding, bottom = 16.dp)
+                            // 为每一次改动添加详尽的中文注释：
+                            // 此处显式注入 screenHorizontalPadding。由于父容器 Grid 的 contentPadding 仅包含物理安全区，
+                            // 这里的手动边距确保了标题文字能精准对齐设计的 16dp/24dp “视觉安全线”。
+                            modifier = Modifier.padding(horizontal = screenHorizontalPadding, vertical = 16.dp)
                         )
                     }
 
@@ -298,7 +326,11 @@ fun HomeScreen(
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         LazyRow(
                             modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = screenHorizontalPadding - 4.dp),
+                            // 为每一次改动添加详尽的中文注释：
+                            // RecentlyItem 内部自带 8dp padding 用于卡片间距。
+                            // 为了让首张封面的“物理左边缘”与上方的标题文字垂直对齐，
+                            // 此处 contentPadding 需设为 (业务边距 - 8dp)，实现完美的视觉补偿。
+                            contentPadding = PaddingValues(horizontal = screenHorizontalPadding - 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // 详尽中文注释：M-20 修复 — 使用 book.id 作为稳定 key，避免最近添加列表更新时封面加载状态错位
@@ -330,8 +362,14 @@ fun HomeScreen(
                             text = author.takeIf { it.isNotBlank() } ?: "Unknown",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            // 为每一次改动添加详尽的中文注释：左外边距使用动态 screenHorizontalPadding 适配完美的上下一致中轴线对齐。
-                            modifier = Modifier.padding(start = screenHorizontalPadding, end = screenHorizontalPadding, top = 24.dp, bottom = 8.dp)
+                            // 为每一次改动添加详尽的中文注释：
+                            // 同样显式注入 screenHorizontalPadding，确保作者分组名与页面主标题在同一条垂线上对齐。
+                            modifier = Modifier.padding(
+                                start = screenHorizontalPadding,
+                                end = screenHorizontalPadding,
+                                top = 24.dp,
+                                bottom = 8.dp
+                            )
                         )
                     }
 
@@ -346,7 +384,7 @@ fun HomeScreen(
                             Modifier
                         }
 
-                        AudiobookListItem(
+                        ListItem(
                             title = book.book.title,
                             author = book.book.author,
                             narrator = book.book.narrator,
@@ -371,7 +409,7 @@ fun HomeScreen(
     // 为每一次改动添加详尽的中文注释：引入独立封装的长按操作系列 Dialog，保持主页 UI 布局清晰明了
     AudiobookActionDialogs(
         bookWithProgress = activeBookForMenu,
-        hazeState = actionDialogHazeState,
+        backdrop = actionDialogBackdrop,
         glassEffectMode = glassEffectMode,
         onDismissRequest = { activeBookForMenu = null },
         onUpdateReadStatus = onUpdateReadStatus,

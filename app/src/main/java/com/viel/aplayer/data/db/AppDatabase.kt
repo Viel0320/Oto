@@ -51,9 +51,9 @@ abstract class AppDatabase : RoomDatabase() {
         
         // 为每一次改动添加详尽的中文注释：声明从版本 26 升级至 27 的平滑迁移器。在级联外键架构大升级下提供迁移路径，防御线上崩溃风险 (H-16, H-17)
         private val MIGRATION_26_27 = object : androidx.room.migration.Migration(26, 27) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // 清理已迁移到 DataStore 的旧 search_history 表（H-19）
-                database.execSQL("DROP TABLE IF EXISTS search_history")
+                db.execSQL("DROP TABLE IF EXISTS search_history")
             }
         }
 
@@ -61,11 +61,11 @@ abstract class AppDatabase : RoomDatabase() {
         // 在 SQLite 引擎中物理创建增量目录扫描缓存表 `directory_cache` 并建立 CASCADE 级联外键级联，同时在 rootId 外键字段上建立索引，
         // 确保新表完美支持根目录删除级联清除规则，且检索效率达到最优，且绝不会导致存量用户数据发生清空丢失。
         private val MIGRATION_27_28 = object : androidx.room.migration.Migration(27, 28) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL(
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
                     "CREATE TABLE IF NOT EXISTS `directory_cache` (`directoryUri` TEXT NOT NULL, `lastModified` INTEGER NOT NULL, `rootId` TEXT NOT NULL, PRIMARY KEY(`directoryUri`), FOREIGN KEY(`rootId`) REFERENCES `library_roots`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
                 )
-                database.execSQL(
+                db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_directory_cache_rootId` ON `directory_cache` (`rootId`)"
                 )
             }
@@ -75,8 +75,8 @@ abstract class AppDatabase : RoomDatabase() {
         // 在 SQLite 数据库引擎中为 `books` 表新增 `readStatus` 字段，且类型为 TEXT，默认值设为 'NOT_STARTED'，
         // 这一平滑的物理迁移架构确保了已有用户的任何本地听书历史和数据 100% 绝不损坏、绝不丢失。
         private val MIGRATION_28_29 = object : androidx.room.migration.Migration(28, 29) {
-            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `books` ADD COLUMN `readStatus` TEXT NOT NULL DEFAULT 'NOT_STARTED'")
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `books` ADD COLUMN `readStatus` TEXT NOT NULL DEFAULT 'NOT_STARTED'")
             }
         }
 

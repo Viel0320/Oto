@@ -12,10 +12,8 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
-import com.viel.aplayer.ui.player.PlaybackProgressStateful
-import com.viel.aplayer.ui.player.ChapterDisplayStateful
 import com.viel.aplayer.ui.settings.PlayerSettingsState
-import dev.chrisbanes.haze.HazeState
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 import androidx.compose.foundation.layout.fillMaxWidth
 
@@ -32,8 +30,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
  * @param settings 播放器 UI 设置状态
  * @param actions 播放器操作回调聚合
  * @param buttonColor 控制按钮的主色调（动画过渡后的封面主色）
- * @param glassEffectMode 播放器当前玻璃视效模式 (Material/Haze)
- * @param hazeState 采样源的 HazeState
+ * @param glassEffectMode 播放器当前玻璃视效模式 (Material/miuix-blur)
+ * @param backdrop 采样源的 LayerBackdrop
  * @param modifier 外部传入的布局修饰符，便于弹性控制宽度及对齐排版
  */
 @Composable
@@ -45,7 +43,7 @@ fun PlayerControlPanel(
     actions: PlayerActions,
     buttonColor: Color,
     glassEffectMode: GlassEffectMode,
-    hazeState: HazeState?,
+    backdrop: LayerBackdrop?,
     // 为每一次改动添加详尽的中文注释：新增 modifier 参数以支持外部传入自定义布局修饰符
     modifier: Modifier = Modifier
 ) {
@@ -62,7 +60,7 @@ fun PlayerControlPanel(
             metadata = metadata,
             actions = actions,
             glassEffectMode = glassEffectMode,
-            hazeState = hazeState,
+            backdrop = backdrop,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(16.dp))
@@ -85,7 +83,7 @@ fun PlayerControlPanel(
             actions = actions.playback,
             buttonColor = buttonColor,
             glassEffectMode = glassEffectMode,
-            hazeState = hazeState,
+            backdrop = backdrop,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(12.dp))

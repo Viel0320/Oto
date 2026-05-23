@@ -23,6 +23,18 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.consumeWindowInsets
+// 为每一次改动添加详尽的中文注释：导入运行时系统安全区 Insets 物理避让依赖，用以防范编辑页横屏下的摄像头孔及物理刘海遮挡
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -65,10 +77,10 @@ import coil.compose.AsyncImage
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.HazePresets
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.HazeMaterials
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.drawBackdrop
+import top.yukonga.miuix.kmp.blur.blur
+import androidx.compose.ui.graphics.RectangleShape
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -155,8 +167,8 @@ fun EditBookOverlay(
     editViewModel: EditBookViewModel,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // 为每一次改动添加详尽的中文注释：增加 detailHazeState 参数，接收来自详情页渲染出来的模糊采样源
-    hazeState: HazeState? = null,
+    // 为每一次改动添加详尽的中文注释：增加 detailBackdrop 参数，接收来自详情页渲染出来的模糊采样源
+    backdrop: LayerBackdrop? = null,
     onSaveSuccess: () -> Unit = {}
 ) {
     val isVisible by editViewModel.isVisible.collectAsStateWithLifecycle()
@@ -175,7 +187,7 @@ fun EditBookOverlay(
                 editViewModel.setVisible(false)
             },
             glassEffectMode = glassEffectMode,
-            detailHazeState = hazeState
+            detailBackdrop = backdrop
         )
     }
 }
@@ -186,8 +198,7 @@ fun EditBookOverlay(
  * 支持磨砂玻璃视效以及向原生 Material 3 不透明样式的高性能无损回退。
  */
 @OptIn(
-    ExperimentalMaterial3Api::class,
-    dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class
+    ExperimentalMaterial3Api::class
 )
 @Composable
 fun EditBookScreen(
@@ -196,7 +207,7 @@ fun EditBookScreen(
     onSaveSuccess: () -> Unit,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    detailHazeState: HazeState? = null
+    detailBackdrop: LayerBackdrop? = null
 ) {
     val book by viewModel.bookState.collectAsStateWithLifecycle()
 
@@ -210,15 +221,18 @@ fun EditBookScreen(
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：判断是否开启 Haze 效果且存在有效的背景模糊采样源（即 Detail 页面）
-    val isHaze = glassEffectMode == GlassEffectMode.Haze && detailHazeState != null
+    // 为每一次改动添加详尽的中文注释：判断是否开启 miuix-blur 效果且存在有效的背景模糊采样源（即 Detail 页面）。
+    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur && detailBackdrop != null
+
+    // 为每一次改动添加详尽的中文注释：利用运行时 WindowInsets 统一规避系统物理安全边界，在此移除手写冗余的 Padding 变量
+    val layoutDirection = LocalLayoutDirection.current
 
     val animatedBgColor = MaterialTheme.colorScheme.surfaceVariant
     val bgColor = MaterialTheme.colorScheme.background
 
-    // 为每一次改动添加详尽的中文注释：定义背景调色层，Haze 模式下采用高透光的半透明色以便看清底部的详情页折射
-    val backgroundBrush = remember(animatedBgColor, bgColor, isHaze) {
-        if (isHaze) {
+    // 为每一次改动添加详尽的中文注释：定义背景调色层，isBlur 模式下采用高透光的半透明色以便看清底部的详情页折射
+    val backgroundBrush = remember(animatedBgColor, bgColor, isBlur) {
+        if (isBlur) {
             Brush.verticalGradient(
                 colors = listOf(
                     animatedBgColor.copy(alpha = 0.35f),
@@ -239,14 +253,18 @@ fun EditBookScreen(
         modifier = modifier
             .fillMaxSize()
             .then(
-                if (isHaze) {
-                    // 为每一次改动添加详尽的中文注释：采用全局公共模板 HazePresets.HazeStyle 确立“高雅白羽雾化”高密度毛玻璃基底，并在背后采样底层的 detailHazeState
-                    Modifier.hazeEffect(state = detailHazeState, style = HazePresets.HazeStyle)
+                if (isBlur) {
+                    // 为每一次改动添加详尽的中文注释：彻底清除原本截断、冲突的旧代码，使用全新的 drawBackdrop 修饰符提供清透、防漏的高阶硬件模糊
+                    Modifier.drawBackdrop(
+                        backdrop = detailBackdrop,
+                        shape = { RectangleShape },
+                        effects = { blur(20f) }
+                    )
                 } else {
                     Modifier
                 }
             )
-            .background(if (isHaze) Color.Transparent else MaterialTheme.colorScheme.background),
+            .background(if (isBlur) Color.Transparent else MaterialTheme.colorScheme.background),
         color = Color.Transparent
     ) {
         Box(
@@ -255,12 +273,15 @@ fun EditBookScreen(
                 .background(backgroundBrush)
         ) {
             Scaffold(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding(),
+                // 为每一次改动添加详尽的中文注释：移除 Scaffold 上的 statusBarsPadding 与 navigationBarsPadding，
+                // 以允许背景和 TopAppBar 沉浸式通铺到屏幕顶端及底端，通过 contentWindowInsets 托管给系统进行统一物理规避
+                modifier = Modifier.fillMaxSize(),
+                contentWindowInsets = WindowInsets.safeDrawing,
                 topBar = {
                     TopAppBar(
+                        // 为每一次改动添加详尽的中文注释：移除最外层左右 Padding，使用 WindowInsets 托管避让，使顶栏背景极致通铺
+                        modifier = Modifier,
+                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
                         title = {
                             Text(
                                 text = "修改书籍信息",
@@ -269,7 +290,11 @@ fun EditBookScreen(
                             )
                         },
                         navigationIcon = {
-                            IconButton(onClick = onNavigationBack) {
+                            IconButton(
+                                onClick = onNavigationBack,
+                                // 为每一次改动添加详尽的中文注释：移除手写的左右 padding，改由 TopAppBar 的 windowInsets 参数自动规避左右刘海屏
+                                modifier = Modifier
+                            ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                                     contentDescription = "返回"
@@ -302,8 +327,8 @@ fun EditBookScreen(
                     var year by remember(currentBook) { mutableStateOf(currentBook.year) }
                     var description by remember(currentBook) { mutableStateOf(currentBook.description) }
 
-                    // 为每一次改动添加详尽的中文注释：在 Haze 磨砂玻璃下，配置输入框背景为轻微半透融合色，极大增强透光的质感层级
-                    val textFieldColors = if (isHaze) {
+                    // 为每一次改动添加详尽的中文注释：在 miuix-blur 磨砂玻璃下，配置输入框背景为轻微半透融合色，极大增强透光的质感层级
+                    val textFieldColors = if (isBlur) {
                         OutlinedTextFieldDefaults.colors(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
                             focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
@@ -318,8 +343,10 @@ fun EditBookScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
+                            .consumeWindowInsets(paddingValues)
                             .imePadding()
                             .verticalScroll(rememberScrollState())
+                            // 为每一次改动添加详尽的中文注释：借助 consumeWindowInsets 精确规避双重 padding，在此仅增加 24.dp 的纯界面视觉呼吸留白边距
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -410,10 +437,10 @@ fun EditBookScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // 保存修改按钮
-                        if (isHaze) {
+                        if (isBlur) {
                             // 为每一次改动添加详尽的中文注释：
-                            // 在 Haze 模式下，将保存按钮重构为与详情页播放按钮同样高品质的磨砂玻璃 Surface。
-                            // 共享底部的 detailHazeState，底色采用半透主色 (0.12f) 并用 1.dp 精细主色边框勾勒 (0.25f)。
+                            // 在 miuix-blur 模式下，将保存按钮重构为与详情页播放按钮同样高品质的磨砂玻璃 Surface。
+                            // 共享底部的 detailBackdrop，底色采用半透主色 (0.12f) 并用 1.dp 精细主色边框勾勒 (0.25f)。
                             Surface(
                                 onClick = {
                                     if (title.isBlank()) {
@@ -431,8 +458,18 @@ fun EditBookScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(56.dp)
-                                    // 为每一次改动添加详尽的中文注释：在此处引入全局的 HazePresets.HazeStyle 磨砂材质，使保存按钮与整个编辑页面的白羽雾化透光质感达到高度和谐与视觉统一
-                                    .hazeEffect(state = detailHazeState, style = HazePresets.HazeStyle),
+                                    // 为每一次改动添加详尽的中文注释：在此处使用 drawBackdrop 渲染按钮的毛玻璃背景，使其与主背景高度和谐与视觉统一
+                                    .then(
+                                        if (isBlur) {
+                                            Modifier.drawBackdrop(
+                                                backdrop = detailBackdrop,
+                                                shape = { RoundedCornerShape(16.dp) },
+                                                effects = { blur(20f) }
+                                            )
+                                        } else {
+                                            Modifier
+                                        }
+                                    ),
                                 shape = RoundedCornerShape(16.dp),
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                 border = androidx.compose.foundation.BorderStroke(

@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -23,8 +25,10 @@ import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
 import com.viel.aplayer.ui.detail.components.DetailHeader
 import com.viel.aplayer.ui.detail.components.DetailSummary
-import com.viel.aplayer.ui.player.components.PlayerCover
+import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
  * 竖屏自适应布局 (Compact)
@@ -113,5 +117,25 @@ fun DetailPortrait(
         )
 
         Spacer(modifier = Modifier.height(100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
+    }
+}
+
+@Preview(showBackground = true, apiLevel = 36)
+@Composable
+fun DetailPortraitPreview() {
+    APlayerTheme {
+        Surface {
+            DetailPortrait(
+                book = BookEntity(id = "1", rootId = "root", sourceType = "LOCAL", title = "三体", author = "刘慈欣", narrator = "王明", description = "这是一部科幻巨著。"),
+                uiState = DetailUiState(),
+                padding = PaddingValues(0.dp),
+                glassEffectMode = GlassEffectMode.Material,
+                detailBackdrop = rememberLayerBackdrop(),
+                onPlayPressed = {},
+                onPlayClick = {},
+                onSearchClick = {},
+                onShowInfo = { _, _ -> }
+            )
+        }
     }
 }

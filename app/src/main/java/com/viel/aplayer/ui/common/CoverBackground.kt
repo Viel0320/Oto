@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.detail.components
+package com.viel.aplayer.ui.common
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -21,7 +21,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -29,32 +28,33 @@ import java.io.File
 
 /**
  * 为每一次改动添加详尽的中文注释：
- * 重构后的详情页背景组件。
- * 1. 集成了原 DetailScreen 中的背景渐变逻辑、动画逻辑及 miuix-blur 采样源挂载逻辑。
- * 2. 只有在 miuix-blur 模式下才会渲染强模糊封面背景，以对齐播放页视觉。
- * 3. 统一管理背景遮罩与渐变，确保 UI 逻辑内聚，简化 DetailScreen 结构。
+ * 全局通用的背景封面强模糊氛围组件，适用于播放页与详情页。
+ * 1. 自动处理背景主色的平滑颜色动画。
+ * 2. 在 MiuixBlur 模式下挂载 layerBackdrop 采样源，并渲染 64.dp 强模糊封面。
+ * 3. 自动适配亮暗色主题遮罩，确保前景 UI 的识别度。
  */
 @Composable
 fun CoverBackground(
-    book: BookEntity?,
+    coverPath: String?,
+    lastUpdated: Long,
     backgroundColorArgb: Int,
     glassEffectMode: GlassEffectMode,
-    detailBackdrop: LayerBackdrop,
+    backdrop: LayerBackdrop,
     modifier: Modifier = Modifier
 ) {
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
     val isDark = isSystemInDarkTheme()
     val bgColor = MaterialTheme.colorScheme.background
 
-    // 为每一次改动添加详尽的中文注释：动态监听并平滑过渡背景主色调，确保封面切换时视觉连贯。
+    // 为每一次改动添加详尽的中文注释：平滑过渡背景主色调，确保切换书籍时视觉无缝衔接。
     val animatedBgColor by animateColorAsState(
         targetValue = Color(backgroundColorArgb),
         animationSpec = tween(300),
         label = "bg_color"
     )
 
-    // 为每一次改动添加详尽的中文注释：根据是否开启毛玻璃模式，动态计算背景渐变笔刷。
-    // 在 miuix-blur 模式下大幅降低透明度，以便透出底层的封面强模糊图。
+    // 为每一次改动添加详尽的中文注释：根据是否开启毛玻璃模式计算背景渐变笔刷。
+    // 在 MiuixBlur 模式下大幅降低透明度以透出底层模糊图。
     val backgroundBrush by remember(animatedBgColor, bgColor, isBlur) {
         derivedStateOf {
             if (isBlur) {
@@ -80,28 +80,26 @@ fun CoverBackground(
             .fillMaxSize()
             .background(backgroundBrush)
             .then(
-                // 为每一次改动添加详尽的中文注释：在此节点挂载采样源。所有兄弟节点（如菜单、弹窗）
-                // 均可基于此层生成的图像进行实时磨砂采样。
+                // 为每一次改动添加详尽的中文注释：挂载采样源，为前景组件提供磨砂背景图像源。
                 if (isBlur) {
-                    Modifier.layerBackdrop(detailBackdrop)
+                    Modifier.layerBackdrop(backdrop)
                 } else {
                     Modifier
                 }
             )
     ) {
-        // 为每一次改动添加详尽的中文注释：只有在 miuix-blur 模式且存在有效封面路径时，才渲染全屏封面背景。
-        if (isBlur && book?.coverPath != null) {
+        // 为每一次改动添加详尽的中文注释：只有在 MiuixBlur 模式下才渲染全屏封面模糊背景。
+        if (isBlur && coverPath != null) {
             val context = LocalContext.current
-            val bgRequest = remember(book.coverPath, book.lastScannedAt) {
+            val bgRequest = remember(coverPath, lastUpdated) {
                 ImageRequest.Builder(context)
-                    .data(File(book.coverPath))
-                    .memoryCacheKey("${book.coverPath}?bg=true&t=${book.lastScannedAt}")
-                    .diskCacheKey("${book.coverPath}?bg=true&t=${book.lastScannedAt}")
+                    .data(File(coverPath))
+                    .memoryCacheKey("${coverPath}_bg_blur_$lastUpdated")
+                    .diskCacheKey("${coverPath}_bg_blur_$lastUpdated")
                     .crossfade(true)
                     .build()
             }
 
-            // 为每一次改动添加详尽的中文注释：使用详情页封面本身铺满背景，并通过 Compose 自身强模糊（64.dp）打造流体氛围背景。
             AsyncImage(
                 model = bgRequest,
                 contentDescription = null,
@@ -109,21 +107,20 @@ fun CoverBackground(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        // 微调放大比例防止模糊溢出黑边
                         scaleX = 1.12f
                         scaleY = 1.12f
                     }
                     .blur(64.dp)
             )
 
-            // 为每一次改动添加详尽的中文注释：叠加主题背景自适应遮罩层，提升文字和元数据前景色对比度。
+            // 为每一次改动添加详尽的中文注释：叠加自适应主题遮罩层。
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(bgColor.copy(alpha = if (isDark) 0.62f else 0.74f))
             )
 
-            // 为每一次改动添加详尽的中文注释：底部微调遮罩渐变层，保持全局排版底部的对比度一致性。
+            // 为每一次改动添加详尽的中文注释：底部渐变加深层。
             Box(
                 modifier = Modifier
                     .fillMaxSize()

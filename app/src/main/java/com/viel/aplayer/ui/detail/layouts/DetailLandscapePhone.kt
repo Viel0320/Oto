@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.detail.layouts
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,11 +16,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -27,8 +30,10 @@ import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
 import com.viel.aplayer.ui.detail.components.DetailHeader
 import com.viel.aplayer.ui.detail.components.DetailSummary
-import com.viel.aplayer.ui.player.components.PlayerCover
+import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
  * 手机横屏优化布局 (Phone Landscape)
@@ -69,11 +74,16 @@ fun DetailLandscapePhone(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(topSpacerHeight))
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
             PlayerCover(
                 coverPath = book?.coverPath,
                 isPlaying = false,
@@ -81,10 +91,10 @@ fun DetailLandscapePhone(
                 onAdjustVolume = {},
                 onNextChapter = {},
                 onPreviousChapter = {},
-                sizeRatio = 0.7f,
+                sizeRatio = 1f,
                 gesturesEnabled = false,
-                modifier = Modifier.fillMaxWidth().aspectRatio(1f)
-            )
+                modifier = Modifier.fillMaxWidth()
+            )}
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -95,8 +105,18 @@ fun DetailLandscapePhone(
                 onAuthorClick = { 
                     book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Author:$it ") } 
                 },
+                onAuthorLongClick = { 
+                    if (!book?.author.isNullOrBlank() && !book.author.equals("unknown", true)) {
+                        onShowInfo("Author", book.author)
+                    }
+                },
                 onNarratorClick = {
                     book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Narrator:$it ") } 
+                },
+                onNarratorLongClick = { 
+                    if (!book?.narrator.isNullOrBlank() && !book.narrator.equals("unknown", true)) {
+                        onShowInfo("Narrator", book.narrator)
+                    }
                 },
                 isLandscape = true
             )
@@ -128,6 +148,27 @@ fun DetailLandscapePhone(
             DetailSummary(description = book?.description ?: "")
             
             Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
+        }
+    }
+}
+
+@Preview(showBackground = true, apiLevel = 36, widthDp = 720, heightDp = 360)
+@Composable
+fun DetailLandscapePhonePreview() {
+    APlayerTheme {
+        Surface {
+            DetailLandscapePhone(
+                book = BookEntity(id = "1", rootId = "root", sourceType = "LOCAL", title = "三体", author = "刘慈欣", narrator = "王明", description = "这是一部科幻巨著。"),
+                uiState = DetailUiState(),
+                padding = PaddingValues(16.dp),
+                safeDrawingPadding = PaddingValues(0.dp),
+                glassEffectMode = GlassEffectMode.Material,
+                detailBackdrop = rememberLayerBackdrop(),
+                onPlayPressed = {},
+                onPlayClick = {},
+                onSearchClick = {},
+                onShowInfo = { _, _ -> }
+            )
         }
     }
 }

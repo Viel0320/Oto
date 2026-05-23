@@ -4,10 +4,10 @@ package com.viel.aplayer.data.store
 /**
  * 应用全局持久化设置数据类。
  */
-// 为每一次改动添加详尽的中文注释：定义悬浮层视觉效果模式，Material 表示停用 Haze 采样并回到 Material 3 原生容器层次，Haze 表示启用毛玻璃背景模糊。
+// 为每一次改动添加详尽的中文注释：定义悬浮层视觉效果模式，Material 表示停用模糊采样并回到 Material 3 原生容器层次，MiuixBlur 表示启用 miuix-blur 硬件磨砂玻璃效果。
 enum class GlassEffectMode {
     Material,
-    Haze
+    MiuixBlur
 }
 
 data class AppSettings(

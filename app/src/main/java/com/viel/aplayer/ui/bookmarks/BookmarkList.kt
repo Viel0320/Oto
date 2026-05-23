@@ -44,6 +44,67 @@ import com.viel.aplayer.ui.theme.APlayerTheme
 // 现在只消费外部传入的 dialogs 数据与 callback，配置变更时状态不再丢失。
 // =====================================================================
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.ui.player.BookMetadataState
+import com.viel.aplayer.ui.player.PlayerActions
+
+// 详尽的中文注释：
+// 书签面板有状态局部隔间 BookmarkListViewStateful
+// 仅在展示 Bookmark 面板时，在此局部隔间内高频消费进度，以防进度刷新让外部关联列表和卡片无端重组。
+// 详尽中文注释：M-16 修复 — 从 viewModel 收集书签对话框复合状态，并桥接回调事件至 viewModel 与 actions。
+@Composable
+fun BookmarkListViewStateful(
+    viewModel: PlayerViewModel,
+    metadata: BookMetadataState,
+    actions: PlayerActions,
+    modifier: Modifier = Modifier
+) {
+    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    val progressState = if (isPreview) {
+        PlayerViewModel.PlaybackProgressViewState(
+            elapsedMs = 120000L,
+            durationMs = 360000L,
+            isChapterProgressMode = false
+        )
+    } else {
+        viewModel.playbackProgressState.collectAsStateWithLifecycle().value
+    }
+    // 详尽中文注释：M-16 — 实时收集书签对话框显示与编辑内容状态，防止配置变更（如屏幕旋转）导致输入内容丢失
+    val dialogs = if (isPreview) {
+        PlayerViewModel.BookmarkDialogsState()
+    } else {
+        viewModel.bookmarkDialogs.collectAsStateWithLifecycle().value
+    }
+
+    BookmarkListView(
+        bookmarks = metadata.bookmarks,
+        dialogs = dialogs,
+        onBookmarkClick = { pos -> actions.playback.onSeek(pos, true) },
+        // 详尽中文注释：M-16 — 请求删除，委托给 ViewModel 记录待删除条目
+        onRequestDelete = { bookmark -> viewModel.requestDeleteBookmark(bookmark) },
+        // 详尽中文注释：M-16 — 请求编辑，委托给 ViewModel 记录待编辑条目并回填初始标题
+        onRequestEdit = { bookmark -> viewModel.requestEditBookmark(bookmark) },
+        // 详尽中文注释：M-16 — 编辑框标题输入变更同步写入 ViewModel
+        onEditTitleChange = { title -> viewModel.onBookmarkEditTitleChange(title) },
+        // 详尽中文注释：M-16 — 确认删除动作，解包并触发 actions 的 onDelete 回调
+        onConfirmDelete = {
+            dialogs.toDelete?.let { bookmark ->
+                actions.bookmarks.onDelete(bookmark)
+            }
+        },
+        // 详尽中文注释：M-16 — 确认更新动作，解包并触发 actions 的 onUpdate 回调
+        onConfirmUpdate = {
+            dialogs.toEdit?.let { bookmark ->
+                actions.bookmarks.onUpdate(bookmark, dialogs.editTitle)
+            }
+        },
+        // 详尽中文注释：M-16 — 关闭/取消对话框，委托给 ViewModel 重置状态
+        onDismissDialogs = { viewModel.dismissBookmarkDialogs() },
+        currentPosition = progressState.elapsedMs,
+        modifier = modifier
+    )
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BookmarkListView(
@@ -190,6 +251,21 @@ fun BookmarkListView(
                     )
                 }
             }
+        }
+    }
+}
+
+@Preview(name = "Bookmark List View Stateful", apiLevel = 36)
+@Composable
+fun BookmarkListViewStatefulPreview() {
+    APlayerTheme {
+        Surface {
+            BookmarkListViewStateful(
+                viewModel = PlayerViewModel(),
+                metadata = BookMetadataState(title = "三体"),
+                actions = PlayerActions(),
+                modifier = Modifier.padding(16.dp)
+            )
         }
     }
 }

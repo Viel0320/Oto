@@ -34,9 +34,10 @@ import com.viel.aplayer.ui.edit.EditBookOverlay
 import com.viel.aplayer.ui.edit.EditBookViewModel
 
 // 为每一次改动添加详尽的中文注释：
-// 引入 Haze 磨砂玻璃的核心依赖组件，以便能在同一个 Activity 内对底层 APlayerNavHost 进行高保真毛玻璃模糊采样。
-import dev.chrisbanes.haze.rememberHazeState
-import dev.chrisbanes.haze.hazeSource
+// 引入 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现更加清透的视口级高斯模糊折射效果
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 @Composable
 fun APlayerApp(
@@ -64,23 +65,23 @@ fun APlayerApp(
         val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
         val scanResult by libraryViewModel.scanResultDialogState.collectAsStateWithLifecycle()
         // 为每一次改动添加详尽的中文注释：在此收集详情页 detailViewModel 的 uiState 状态。
-        // 用以在后续渲染迷你播放器 PlayerOverlay 时感知详情页是否处于可见状态，以进行 Haze 模糊采样源的动态自动切换映射。
+        // 用以在后续渲染迷你播放器 PlayerOverlay 时感知详情页是否处于可见状态，以进行 miuix-blur 模糊采样源的动态自动切换映射。
         val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
         val canStartNavigation = rememberNavigationThrottle()
 
         // 为每一次改动添加详尽的中文注释：
-        // 实例化全局共享的 HazeState 采样源。
-        // 当用户全局开启 Haze 磨砂玻璃效果时，整个 APlayerNavHost 容器会被作为采样源挂载，
+        // 实例化全局共享的 LayerBackdrop 采样源。
+        // 当用户全局开启磨砂玻璃效果时，整个 APlayerNavHost 容器会被作为采样源挂载，
         // 从而使得位于其上方悬浮的迷你播放器 (CompactMediaPlayer) 以及非独立的搜索悬浮层 (SearchOverlay)
         // 能够以 100% 实时的超高性能直接模糊下方的 HomeScreen 主页面卡片，杜绝一切由于跨 Activity 物理模糊导致的系统桌面穿帮隐患。
-        val appHazeState = rememberHazeState()
+        val appBackdrop = rememberLayerBackdrop()
 
         // 为每一次改动添加详尽的中文注释：
-        // 实例化专门用来采集整个详情页（DetailOverlay）视觉渲染画面的 detailHazeState 采样源。
-        // 当编辑悬浮层 (EditBookOverlay) 弹出覆盖在详情页之上时，能通过 detailHazeState
+        // 实例化专门用来采集整个详情页（DetailOverlay）视觉渲染画面的 detailBackdrop 采样源。
+        // 当编辑悬浮层 (EditBookOverlay) 弹出覆盖在详情页之上时，能通过 detailBackdrop
         // 渲染出把底下详情页上的文字、封面卡片和按钮等融为一体的极其精致的高斯磨砂毛玻璃视觉背景。
-        val detailHazeState = rememberHazeState()
+        val detailBackdrop = rememberLayerBackdrop()
 
         LaunchedEffect(Unit) {
             playerViewModel.initialize(context)
@@ -203,22 +204,24 @@ fun APlayerApp(
             color = MaterialTheme.colorScheme.background,
         ) {
             // 为每一次改动添加详尽的中文注释：
-            // 在最外层使用一个没有挂载 hazeSource 的全屏顶级 Box 容器，仅作为所有悬浮层的坐标对齐和兄弟节点布局容器。
-            // 这能够彻底隔离 hazeSource 采样源的层级，避免因为悬浮层在内部使用 hazeEffect 采样自身父容器而导致无限递归死锁渲染失效。
+            // 在最外层使用一个没有挂载 layerBackdrop 的全屏顶级 Box 容器，仅作为所有悬浮层的坐标对齐和兄弟节点布局容器。
+            // 这能够彻底隔离 layerBackdrop 采样源的层级，避免因为悬浮层在内部使用 textureBlur 采样自身父容器而导致无限递归死锁渲染失效。
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
                 // 为每一次改动添加详尽的中文注释：
-                // 使用独立的 Box 容器专门包裹底层 APlayerNavHost（即 HomeScreen 主页面卡片所在的主视图），并在此 Box 上挂载 Modifier.hazeSource(state = appHazeState)。
-                // 这样，当用户在全局设置中开启 Haze 效果时，appHazeState 采样源只采集主导航页的画面数据，
+                // 为每一次改动添加详尽的中文注释：
+                // 使用独立的 Box 容器专门包裹底层 APlayerNavHost（即 HomeScreen 主页面卡片所在的主视图），并在此 Box 上挂载 Modifier.layerBackdrop(state = appBackdrop)。
+                // 这样，当用户在全局设置中开启 miuix-blur 效果时，appBackdrop 采样源只采集主导航页的画面数据，
                 // 而上方的 DetailOverlay、PlayerOverlay、SearchOverlay 则以同级兄弟节点形式存在于其外部。
                 // 这样既能实现完全的 Z 轴遮盖与高斯模糊渲染，又彻底打破了“子采样父”导致的图形绘制死锁，使磨砂玻璃视效完美还原。
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(
-                            if (libraryUiState.glassEffectMode == GlassEffectMode.Haze) {
-                                Modifier.hazeSource(state = appHazeState)
+                            // 为每一次改动添加详尽的中文注释：对齐新命名的 MiuixBlur，如果是该模式则为底层视图容器注册 appBackdrop 采样源
+                            if (libraryUiState.glassEffectMode == GlassEffectMode.MiuixBlur) {
+                                Modifier.layerBackdrop(appBackdrop)
                             } else {
                                 Modifier
                             }
@@ -237,17 +240,17 @@ fun APlayerApp(
                 }
 
                 // 为每一次改动添加详尽的中文注释：
-                // 详情页悬浮层 (DetailOverlay)。现在作为同级兄弟节点挂载于 hazeSource 外部，避免模糊死锁问题。
+                // 详情页悬浮层 (DetailOverlay)。现在作为同级兄弟节点挂载于 layerBackdrop 外部，避免模糊死锁问题。
                 // 彻底废弃原本的拉起 SearchActivity 的 Intent 启动契约，改用内存 Lambda 同步桥接：
                 // 当在书籍详情页点击搜索按钮时，直接在同一个 Activity 内部零延迟地唤醒非独立 SearchOverlay，并同步传入初始 query 以快速搜索相关作者/播音。
                 DetailOverlay(
                     detailViewModel = detailViewModel,
                     canStartNavigation = canStartNavigation,
                     glassEffectMode = libraryUiState.glassEffectMode,
-                    // 为每一次改动添加详尽的中文注释：将全局 appHazeState 传入详情页，实现与背景相同的毛玻璃折射效果。
-                    hazeState = appHazeState,
-                    // 为每一次改动添加详尽的中文注释：将专属的 detailHazeState 传入详情页，让其注册为该采样源的 source，用以采集全量详情页画面
-                    detailHazeState = detailHazeState,
+                    // 为每一次改动添加详尽的中文注释：将全局 appBackdrop 传入详情页，实现与背景相同的毛玻璃折射效果。
+                    backdrop = appBackdrop,
+                    // 为每一次改动添加详尽的中文注释：将专属的 detailBackdrop 传入详情页，让其注册为该采样源的 source，用以采集全量详情页画面
+                    detailBackdrop = detailBackdrop,
                     onPlayBook = { bookId ->
                         playerViewModel.loadBook(bookId)
                         playerViewModel.setFullPlayerVisible(true)
@@ -263,33 +266,34 @@ fun APlayerApp(
                 )
 
                  // 为每一次改动添加详尽的中文注释：
-                 // 播放器悬浮层 (PlayerOverlay)。位于详情页之上，包含全屏播放器 and 迷你播放器组件。
-                 // 核心模糊采样源自适应修复：
-                 // - 当详情页 DetailOverlay 显示（detailUiState.isVisible 为 true）时，迷你播放器底部的物理图层其实是详情页，
-                 //   此时我们将其 hazeState 动态切换为 detailHazeState，使得模糊的磨砂玻璃能以极其精致真实的物理透射展现详情页的背景颜色。
-                 // - 当详情页隐藏时，则安全地切回 appHazeState 采样底层的 HomeScreen 界面。
-                 // 从而彻底规避 Haze 在多层悬浮重叠时，由于强制采样最底层 HomeScreen 而引起的背景折射透视穿帮错误。
-                 PlayerOverlay(
-                     playerViewModel = playerViewModel,
-                     playerActions = playerActions,
-                     miniPlayerActions = miniPlayerActions,
-                     playerNavigationActions = playerNavigationActions,
-                     currentRoute = currentRoute,
-                     glassEffectMode = libraryUiState.glassEffectMode,
-                     hazeState = if (detailUiState.isVisible) detailHazeState else appHazeState
-                 )
+                  // 播放器悬浮层 (PlayerOverlay)。位于详情页之上，包含全屏播放器 and 迷你播放器组件。
+                  // 核心模糊采样源自适应修复：
+                  // - 当详情页 DetailOverlay 显示（detailUiState.isVisible 为 true）时，迷你播放器底部的物理图层其实是详情页，
+                  //   此时我们将其 backdrop 动态切换为 detailBackdrop，使得模糊的磨砂玻璃能以极其精致真实的物理透射展现详情页的背景颜色。
+                  // - 当详情页隐藏时，则安全地切回 appBackdrop 采样底层的 HomeScreen 界面。
+                  // 从而彻底规避 miuix-blur 在多层悬浮重叠时，由于强制采样最底层 HomeScreen 而引起的背景折射透视穿帮错误。
+                  PlayerOverlay(
+                      playerViewModel = playerViewModel,
+                      playerActions = playerActions,
+                      miniPlayerActions = miniPlayerActions,
+                      playerNavigationActions = playerNavigationActions,
+                      currentRoute = currentRoute,
+                      glassEffectMode = libraryUiState.glassEffectMode,
+                      // 为每一次改动添加详尽的中文注释：同步判定详情页可见性。当详情页开启时，迷你播放器即时采样 detailBackdrop 以折射详情页背景；当详情页关闭时立即恢复采样 appBackdrop，实现物理层面的完全同步。
+                      backdrop = if (detailUiState.isVisible) detailBackdrop else appBackdrop
+                  )
 
                 // 为每一次改动添加详尽的中文注释：
                 // 书籍信息修改悬浮层 (EditBookOverlay)。
                 // 【核心层级变动】：为了确保编辑悬浮层遮盖在 compact 播放器（迷你播放器，属于 PlayerOverlay 内部组件）的上方，
                 // 我们在 Box 容器中将 EditBookOverlay 的物理挂载位置调整到 PlayerOverlay 之后。
                 // 从而使 EditBookOverlay 的 Z-index 处于更高层，完美防止迷你播放器错误遮盖编辑层。
-                // 此外，它依然以同级兄弟节点形式挂载在 appHazeState 外部以彻底规避 Haze 渲染无限死锁；
-                // 并且将全局 detailHazeState 作为其 Haze 磨砂背景模糊源，以极其精致透亮地模糊折射底层的详情页面。
+                // 此外，它依然以同级兄弟节点形式挂载在 appBackdrop 外部以彻底规避 miuix-blur 渲染无限死锁；
+                // 并且将全局 detailBackdrop 作为其 miuix-blur 磨砂背景模糊源，以极其精致透亮地模糊折射底层的详情页面。
                 EditBookOverlay(
                     editViewModel = editViewModel,
                     glassEffectMode = libraryUiState.glassEffectMode,
-                    hazeState = detailHazeState,
+                    backdrop = detailBackdrop,
                     onSaveSuccess = {
                         // 保存成功后响应式流程会通过 Room Flow 自动刷新并重绘详情页，此处无需执行额外 UI 强制刷新的脏操作
                     }
@@ -301,10 +305,10 @@ fun APlayerApp(
                 // 彻底废弃原本的跨 Window 桥接，利用全内存 lambda 表达式实现无缝的零延迟通信：
                 // 1. 点击书籍跳转详情：隐去搜索悬浮层并立即同步拉起详情 Overlay，状态转换无缝顺畅。
                 // 2. 点击直接播放：隐去搜索悬浮层，加载书籍并开启全屏播放器。
-                // 3. 共享全局的 appHazeState 采样源，呈现极致 premium 的磨砂毛玻璃透光质感。
+                // 3. 共享全局的 appBlurBackdrop 采样源，呈现极致 premium 的磨砂毛玻璃透光质感。
                 com.viel.aplayer.ui.search.SearchOverlay(
                     searchViewModel = searchViewModel,
-                    hazeState = appHazeState,
+                    backdrop = appBackdrop,
                     glassEffectMode = libraryUiState.glassEffectMode,
                     onNavigateToDetail = { bookId ->
                         searchViewModel.setVisible(false)

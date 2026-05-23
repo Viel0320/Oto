@@ -115,7 +115,7 @@ class AppSettingsRepository private constructor(private val context: Context) {
         context.dataStore.edit { it[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] = enabled }
     }
 
-    // 为每一次改动添加详尽的中文注释：提供修改悬浮层玻璃效果模式的持久化接口，由设置页切换 Material/Haze 时调用。
+    // 为每一次改动添加详尽的中文注释：提供修改悬浮层玻璃效果模式的持久化接口，由设置页切换 Material/miuix-blur 时调用。
     suspend fun updateGlassEffectMode(mode: GlassEffectMode) {
         context.dataStore.edit { it[PreferencesKeys.GLASS_EFFECT_MODE] = mode.name }
     }

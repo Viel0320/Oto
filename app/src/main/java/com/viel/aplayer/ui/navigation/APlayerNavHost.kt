@@ -39,7 +39,7 @@ fun APlayerNavHost(
     navigateBack: () -> Unit,
     // 为每一次改动添加详尽的中文注释：
     // 引入非独立的 SearchViewModel，点击搜索按钮时将通过修改其显隐状态来打开悬浮层，
-    // 能够零延迟地共享全局 appHazeState 毛玻璃模糊背景，并且 100% 杜绝桌面穿帮问题。
+    // 能够零延迟地共享全局 appBlurBackdrop 毛玻璃模糊背景，并且 100% 杜绝桌面穿帮问题。
     searchViewModel: com.viel.aplayer.ui.search.SearchViewModel
 ) {
     val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
@@ -61,7 +61,7 @@ fun APlayerNavHost(
                 recentTitleRes = libraryUiState.recentTitleRes,
                 onFilterSelected = { libraryViewModel.setFilter(it) },
                 isMiniPlayerVisible = playerUiState.hasActiveTrack,
-                // 为每一次改动添加详尽的中文注释：把设置页持久化的玻璃效果模式传入首页，控制长按操作 Dialog 的 Material/Haze 切换。
+                // 为每一次改动添加详尽的中文注释：把设置页持久化的玻璃效果模式传入首页，控制长按操作 Dialog 的 Material/miuix-blur 切换。
                 glassEffectMode = libraryUiState.glassEffectMode,
                 onNavigateToDetail = { id: String ->
                     val book = libraryUiState.audiobooks.find { it.book.id == id }
@@ -70,7 +70,7 @@ fun APlayerNavHost(
                 // 为每一次改动添加详尽的中文注释：
                 // 点击搜索按钮时，不再拉起独立的 Activity（以防窗口模糊透出系统桌面壁纸），
                 // 而是直接调用 searchViewModel.setVisible(true)，以展开同一个 Activity 内部的 SearchOverlay 搜索悬浮层，
-                // 以获得完全真实的、共享全局 appHazeState 采样源的超凡磨砂玻璃透光体验。
+                // 以获得完全真实的、共享全局 appBlurBackdrop 采样源的超凡磨砂玻璃透光体验。
                 onNavigateToSearch = {
                     if (canStartNavigation()) {
                         searchViewModel.setVisible(true)

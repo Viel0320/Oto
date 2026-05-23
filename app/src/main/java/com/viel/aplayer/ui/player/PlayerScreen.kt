@@ -1,30 +1,9 @@
 package com.viel.aplayer.ui.player
 
-import android.view.RoundedCorner
+// 为每一次改动添加详尽的中文注释：导入用于计算 PaddingValues 水平安全边距的扩展函数，解决横屏下防裁切的安全边距叠加计算编译依赖
 import android.content.res.Configuration
-import androidx.compose.ui.platform.LocalConfiguration
+import android.view.RoundedCorner
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MoreVert
-import com.viel.aplayer.ui.common.BlurDropdownMenu
-import com.viel.aplayer.ui.player.components.PlaybackControls
-import dev.chrisbanes.haze.hazeEffect
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -39,22 +18,25 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.asPaddingValues
-// 为每一次改动添加详尽的中文注释：导入用于计算 PaddingValues 水平安全边距的扩展函数，解决横屏下防裁切的安全边距叠加计算编译依赖
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -77,35 +59,34 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.bookmarks.BookmarkDialog
-import com.viel.aplayer.ui.bookmarks.BookmarkListView
-import com.viel.aplayer.ui.common.BottomNavTabs
+import com.viel.aplayer.ui.bookmarks.BookmarkListViewStateful
 import com.viel.aplayer.ui.common.BlurSnackbar
+import com.viel.aplayer.ui.common.BottomNavTabs
+import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
-import com.viel.aplayer.ui.player.components.ChapterDisplay
-import com.viel.aplayer.ui.player.components.ChapterListSheet
-import com.viel.aplayer.ui.player.components.PlayerCover
-import com.viel.aplayer.ui.player.components.PlaybackProgress
-import com.viel.aplayer.ui.player.components.PlayerAppBar
+import com.viel.aplayer.ui.player.components.ChapterListSheetStateful
 import com.viel.aplayer.ui.player.components.PlayerControlPanel
+import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.player.components.PlayerLandscapeHeader
+import com.viel.aplayer.ui.player.components.PlayerVerticalAppBar
 import com.viel.aplayer.ui.player.components.RelatedBooksView
-import com.viel.aplayer.ui.player.components.SubtitlesView
-import com.viel.aplayer.ui.settings.PlayerSettingsState
+import com.viel.aplayer.ui.player.components.SubtitlesViewStateful
 import com.viel.aplayer.ui.theme.APlayerTheme
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
-import coil.compose.AsyncImage
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import java.io.File
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 
@@ -221,18 +202,13 @@ fun NewPlayerScreen(
 
     // 详尽中文注释：移除原先硬编码的 darkTheme = true，使全屏播放器跟随系统/应用主题设置
     APlayerTheme {
-        // 为每一次改动添加详尽的中文注释：播放器封面背景同样使用 Coil，本地 context 用于构建带缓存戳的 ImageRequest。
-        val context = LocalContext.current
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-        // 为每一次改动添加详尽的中文注释：为章节列表 BottomSheet 创建 HazeState；播放器 Surface 作为 source，章节面板作为 effect。
-        val chapterSheetHazeState = rememberHazeState()
-        // 为每一次改动添加详尽的中文注释：只有 Haze 模式才把播放器完整界面注册为采样源；Material 模式不启用 Haze 渲染管线。
-        val chapterSheetHazeSourceModifier = if (glassEffectMode == GlassEffectMode.Haze) {
-            Modifier.hazeSource(state = chapterSheetHazeState)
-        } else {
-            Modifier
-        }
+        // 为每一次改动添加详尽的中文注释：
+        // 重新在 LocalComposables 环境下声明全局 chapterSheetBackdrop 状态机采样源，修复未解析引用的编译错误。
+        // 将其作为背景层专属采样源，并与前景组件隔离为同级兄弟，彻底规避 Vulkan feedback loop 死锁崩溃。
+        val chapterSheetBackdrop = rememberLayerBackdrop()
+
 
         // 详尽的中文注释：当处于书签/歌词/推荐等面板时，使用 PredictiveBackHandler 平滑返回主播放页面
         androidx.activity.compose.PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
@@ -270,42 +246,7 @@ fun NewPlayerScreen(
             animationSpec = tween(300),
             label = "bg_color"
         )
-
         val bgColor = MaterialTheme.colorScheme.background
-        // 详尽中文注释：根据当前主题模式动态调整封面主色渐变的不透明度。
-        // 暗色模式使用 0.5f 保持沉浸感；亮色模式降至 0.15f 使渐变清淡通透，避免深色主色在浅背景上显得浑浊。
-        val isDarkTheme = isSystemInDarkTheme()
-        val gradientAlpha = if (isDarkTheme) 0.5f else 0.15f
-        val backgroundBrush by remember(animatedBgColor, bgColor, gradientAlpha) {
-            derivedStateOf {
-                Brush.verticalGradient(
-                    colors = listOf(
-                        animatedBgColor.copy(alpha = gradientAlpha),
-                        bgColor
-                    )
-                )
-            }
-        }
-        // 为每一次改动添加详尽的中文注释：Haze 模式优先使用原始封面，缺失时退回缩略图，作为真正模糊背景的图片来源。
-        val playerBackgroundCoverFile = remember(
-            metadata.coverPath,
-            metadata.thumbnailPath,
-            metadata.coverLastUpdated
-        ) {
-            (metadata.coverPath ?: metadata.thumbnailPath)
-                ?.let(::File)
-                ?.takeIf { it.exists() }
-        }
-        // 为每一次改动添加详尽的中文注释：给 Coil 请求加入 coverLastUpdated 缓存戳，保证封面自愈重建后模糊背景也会即时刷新。
-        val playerBackgroundCoverRequest = remember(playerBackgroundCoverFile, metadata.coverLastUpdated, context) {
-            playerBackgroundCoverFile?.let { coverFile ->
-                coil.request.ImageRequest.Builder(context)
-                    .data(coverFile)
-                    .memoryCacheKey("${coverFile.absolutePath}_player_bg_${metadata.coverLastUpdated}")
-                    .diskCacheKey("${coverFile.absolutePath}_player_bg_${metadata.coverLastUpdated}")
-                    .build()
-            }
-        }
 
         // 详尽的中文注释：计算最大的向下位移像素值，顺应全屏播放器“向下滑动收起”的最小化退出特征
         val maxPredictiveTranslationY = with(density) { 120.dp.toPx() }
@@ -339,24 +280,30 @@ fun NewPlayerScreen(
             color = bgColor
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // 为每一次改动添加详尽的中文注释：使用内层容器包裹背景封面、主体 UI Column 及底部 tabs，并在此应用 hazeSource。
-                // 这样，外部 Box 中的 Snackbar 将作为兄弟节点运行在 hazeSource 之外，从而彻底规避 Haze 1.x 中由于父子生命周期导致的采样失效与绘制冲突。
-                // 我们将 backgroundBrush 渐变背景移至此处 Box 挂载，并将其置于 chapterSheetHazeSourceModifier 之前，
-                // 确保渐变层像素能够先于采样器绘制出来并被 hazeSource 100% 完整捕获，从而为兄弟节点 BlurSnackbar 提供饱满绚丽的磨砂高斯模糊效果。
+                // 为每一次改动添加详尽的中文注释：使用内层容器包裹背景封面、主体 UI Column 及底部 tabs，并在此应用 layerBackdrop。
+                // 这样，外部 Box 中的 Snackbar 将作为兄弟节点运行在 layerBackdrop 之外，从而彻底规避旧版中由于父子生命周期导致的采样失效与绘制冲突。
+                // 我们将 backgroundBrush 渐变背景移至此处 Box 挂载，并将其置于 chapterSheetBackdrop 之前，
+                // 确保渐变层像素能够先于采样器绘制出来并被 chapterSheetBackdrop 100% 完整捕获，从而为兄弟节点 BlurSnackbar 提供饱满绚丽的磨砂高斯模糊效果。
+                // 为每一次改动添加详尽的中文注释：
+                // 彻底修复特定的 OPLUS (一加) 设备在启用 miuix-blur 模糊效果后，由于父子循环嵌套采样导致的 RenderThread SIGSEGV 段错误闪退。
+                // 我们在此重构了 NewPlayerScreen 的根布局层级，将挂载了 layerBackdrop 采样器的背景图层，与使用 drawBackdrop 绘制毛玻璃的前景内容组件完全剥离为同级的【兄弟节点】。
+                // 这样能确保采样源中仅包含渐变和模糊封面，前景组件采样时不会引起 Self-sampling Feedback Loop，从图形渲染树根源上斩断死锁，根治 Vulkan 崩溃，且继续维持精美的磨砂玻璃胶囊和按钮视觉。
+
+                // 1. 纯净背景图层 (同级兄弟节点)
+                // 为每一次改动添加详尽的中文注释：接入通用的 CoverBackground 组件，统一管理播放器背景逻辑。
+                // 内部处理了颜色过渡动画、miuix-blur 采样源挂载以及 64.dp 强模糊封面渲染。
+                CoverBackground(
+                    coverPath = metadata.coverPath ?: metadata.thumbnailPath,
+                    lastUpdated = metadata.coverLastUpdated,
+                    backgroundColorArgb = metadata.backgroundColorArgb,
+                    glassEffectMode = glassEffectMode,
+                    backdrop = chapterSheetBackdrop
+                )
+
+                // 2. 纯净前景操作图层 (同级兄弟节点，内部所有组件均可安全 drawBackdrop 进行背景采样折射，彻底斩断循环死锁)
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(backgroundBrush)
-                        .then(chapterSheetHazeSourceModifier)
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    // 为每一次改动添加详尽的中文注释：只有 Haze 模式渲染真实封面模糊背景，Material 模式保持原有主色渐变背景不变。
-                    if (glassEffectMode == GlassEffectMode.Haze && playerBackgroundCoverRequest != null) {
-                        PlayerCoverBlurredBackground(
-                            imageRequest = playerBackgroundCoverRequest,
-                            backgroundColor = bgColor,
-                            isDarkTheme = isDarkTheme
-                        )
-                    }
 
                     if (isLandscape) {
                         // 为每一次改动添加详尽的中文注释：
@@ -569,7 +516,7 @@ fun NewPlayerScreen(
                             }
 
                             // 为每一次改动添加详尽的中文注释：右侧固定控制区域。
-                            // 根据用户要求，在横屏/大屏模式下，已彻底去掉了原本的 Haze 模糊卡片背景（hazeEffect）、半透明底色以及边框描边，
+                            // 根据用户要求，在横屏/大屏模式下，已彻底去掉了原本的 miuix-blur 模糊卡片背景（blurEffect）、半透明底色以及边框描边，
                             // 让书名、进度条、播放按钮等控制项直接悬浮在全屏播放器精美大气的流光封面渐变背景之上，实现更通透扁平的高保真视觉质感。
                             Surface(
                                 modifier = Modifier
@@ -589,66 +536,14 @@ fun NewPlayerScreen(
                                         // 我们在此处移除了 .verticalScroll(rememberScrollState()) 修饰符，从而避免 Compose 发生测量冲突。
 //                                        .padding(20.dp)
                                 ) {
-                                    // 为每一次改动添加详尽的中文注释：大字号书籍标题行，在最右侧放置折叠菜单 MoreVert 图标入口以彻底隐藏左侧最小化按钮
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = metadata.title.takeIf { it.isNotBlank() } ?: "Unknown Title",
-                                                style = MaterialTheme.typography.titleLarge,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Text(
-                                                text = com.viel.aplayer.ui.common.formatPeopleSubtitle(metadata.author, metadata.narrator),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-
-                                        var showLandscapeMenu by remember { mutableStateOf(false) }
-                                        Box {
-                                            IconButton(onClick = { showLandscapeMenu = true }) {
-                                                Icon(
-                                                    imageVector = androidx.compose.material.icons.Icons.Rounded.MoreVert,
-                                                    contentDescription = "More",
-                                                    tint = MaterialTheme.colorScheme.onSurface
-                                                )
-                                            }
-                                            BlurDropdownMenu(
-                                                expanded = showLandscapeMenu,
-                                                onDismissRequest = { showLandscapeMenu = false },
-                                                hazeState = chapterSheetHazeState,
-                                                glassEffectMode = glassEffectMode
-                                            ) {
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(if (settings.isChapterProgressMode) "Show Total Progress" else "Show Chapter Progress")
-                                                    },
-                                                    onClick = {
-                                                        actions.content.onToggleProgressMode()
-                                                        showLandscapeMenu = false
-                                                    }
-                                                )
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text("Delete from Library", color = MaterialTheme.colorScheme.error)
-                                                    },
-                                                    onClick = {
-                                                        actions.content.onDeleteBook()
-                                                        showLandscapeMenu = false
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
+                                    // 为每一次改动添加详尽的中文注释：使用新抽离的 PlayerLandscapeHeader 组件，统一横屏下的标题、作者信息及更多操作入口。
+                                    PlayerLandscapeHeader(
+                                        metadata = metadata,
+                                        settings = settings,
+                                        actions = actions,
+                                        glassEffectMode = glassEffectMode,
+                                        backdrop = chapterSheetBackdrop
+                                    )
 
                                     // 为每一次改动添加详尽的中文注释：
                                     // 将 Spacer 修改为 weight(1f) 自适应占满剩余垂直空余，将章节名和播放控制等组件向下压实沉底对齐。
@@ -661,7 +556,7 @@ fun NewPlayerScreen(
                                         actions = actions,
                                         buttonColor = animatedBgColor,
                                         glassEffectMode = glassEffectMode,
-                                        hazeState = chapterSheetHazeState,
+                                        backdrop = chapterSheetBackdrop,
                                         // 为每一次改动添加详尽的中文注释：在横屏模式下为控制面板传入 fillMaxWidth 以撑满右侧布局区域
                                         modifier = Modifier.fillMaxWidth()
                                     )
@@ -673,45 +568,19 @@ fun NewPlayerScreen(
                         Column(
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            PlayerAppBar(
-                                title = metadata.title,
-                                author = metadata.author,
-                                narrator = metadata.narrator,
-                                onNavigationClick = {
-                                    focusManager.clearFocus()
-                                    actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
-                                    navigationActions.onMinimize()
-                                },
-                                onToggleProgressMode = actions.content.onToggleProgressMode,
-                                onDeleteBook = actions.content.onDeleteBook,
-                                isChapterProgressMode = settings.isChapterProgressMode,
-                                glassEffectMode = glassEffectMode,
-                                dropdownMenuHazeState = chapterSheetHazeState,
-                                modifier = Modifier.pointerInput(Unit) {
-                                    detectVerticalDragGestures(
-                                        onVerticalDrag = { change, dragAmount ->
-                                            val newOffset = (offsetY.value + dragAmount).coerceAtLeast(0f)
-                                            scope.launch {
-                                                offsetY.snapTo(newOffset)
-                                            }
-                                            change.consume()
-                                        },
-                                        onDragEnd = {
-                                            scope.launch {
-                                                if (offsetY.value > dismissThreshold) {
-                                                    actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
-                                                    navigationActions.onMinimize()
-                                                } else {
-                                                    offsetY.animateTo(0f, animationSpec = tween(300))
-                                                }
-                                            }
-                                        },
-                                        onDragCancel = {
-                                            scope.launch { offsetY.animateTo(0f, animationSpec = tween(300)) }
-                                        }
-                                    )
-                                }
-                            )
+                        // 为每一次改动添加详尽的中文注释：使用新抽离的 PlayerVerticalAppBar 组件，封装顶部栏及其下拉最小化的手势逻辑
+                        PlayerVerticalAppBar(
+                            metadata = metadata,
+                            settings = settings,
+                            actions = actions,
+                            navigationActions = navigationActions,
+                            focusManager = focusManager,
+                            glassEffectMode = glassEffectMode,
+                            backdrop = chapterSheetBackdrop,
+                            offsetY = offsetY,
+                            scope = scope,
+                            dismissThreshold = dismissThreshold
+                        )
 
                             val swipeThresholdPx = with(density) { 80.dp.toPx() }
                             val tabModes = remember {
@@ -828,7 +697,7 @@ fun NewPlayerScreen(
                                                     actions = actions,
                                                     buttonColor = animatedBgColor,
                                                     glassEffectMode = glassEffectMode,
-                                                    hazeState = chapterSheetHazeState,
+                                                    backdrop = chapterSheetBackdrop,
                                                     // 为每一次改动添加详尽的中文注释：在默认竖屏模式下传入 fillMaxWidth 并添加左右 24.dp padding 保持原有的安全内缩距离，以维持舒适的视觉美感
                                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
                                                 )
@@ -872,7 +741,7 @@ fun NewPlayerScreen(
 
                 }
 
-                // 为每一次改动添加详尽的中文注释：可切换 Haze 模糊的 Snackbar，作为兄弟节点直接放置在最外层 Box 的底部层叠位置。
+                // 为每一次改动添加详尽的中文注释：可切换 miuix-blur 模糊的 Snackbar，作为兄弟节点直接放置在最外层 Box 的底部层叠位置。
                 // 采用 150ms 上滑淡入/下滑淡出，显示时长控制仍由 ViewModel 管理。
                 androidx.compose.animation.AnimatedVisibility(
                     visible = settings.showUndoSeek,
@@ -889,9 +758,9 @@ fun NewPlayerScreen(
                         // 详尽的中文注释：由于 Snackbar 是悬浮在 BottomNavTabs 之上的独立层级，我们将底边距提升至 96.dp，以防它与下方的 BottomNavTabs 发生视觉重叠遮挡。
                         .padding(horizontal = 16.dp, vertical = 96.dp)
                 ) {
-                    // 为每一次改动添加详尽的中文注释：使用新创建的 BlurSnackbar，支持在 Haze 模式下采样兄弟节点的背景模糊效果，Material 模式下展示原生样式。
+                    // 为每一次改动添加详尽的中文注释：使用新创建的 BlurSnackbar，支持在 miuix-blur 模式下采样兄弟节点的背景模糊效果，Material 模式下展示原生样式。
                     BlurSnackbar(
-                        hazeState = chapterSheetHazeState,
+                        backdrop = chapterSheetBackdrop,
                         glassEffectMode = glassEffectMode,
                         action = {
                             TextButton(onClick = actions.playback.onUndoSeek) {
@@ -923,8 +792,8 @@ fun NewPlayerScreen(
             settings = settings,
             actions = actions,
             sheetState = sheetState,
-            hazeState = chapterSheetHazeState,
-            // 为每一次改动添加详尽的中文注释：章节列表 Stateful 层继续透传用户选择的 Material/Haze 模式。
+            backdrop = chapterSheetBackdrop,
+            // 为每一次改动添加详尽的中文注释：章节列表 Stateful 层继续透传用户选择的 Material/miuix-blur 模式。
             glassEffectMode = glassEffectMode
         )
 
@@ -941,262 +810,10 @@ fun NewPlayerScreen(
     }
 }
 
-@Composable
-private fun PlayerCoverBlurredBackground(
-    imageRequest: coil.request.ImageRequest,
-    backgroundColor: Color,
-    isDarkTheme: Boolean
-) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 为每一次改动添加详尽的中文注释：使用封面图本身铺满播放器背景，并通过 Compose blur 产生真正的像素级模糊，而不是仅使用主色渐变。
-        AsyncImage(
-            model = imageRequest,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                // 为每一次改动添加详尽的中文注释：先轻微放大再模糊，避免 blur 半径在边缘产生透明留白。
-                .graphicsLayer {
-                    scaleX = 1.12f
-                    scaleY = 1.12f
-                }
-                // 为每一次改动添加详尽的中文注释：64.dp 提供足够强的真实模糊，让背景只保留封面色块和氛围，不干扰播放器文字。
-                .blur(64.dp)
-        )
-
-        // 为每一次改动添加详尽的中文注释：叠加主题背景遮罩，暗色/亮色分别控制可读性，避免封面高亮区域压住文字和控件。
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(backgroundColor.copy(alpha = if (isDarkTheme) 0.62f else 0.74f))
-        )
-
-        // 为每一次改动添加详尽的中文注释：底部稍微加深，保证播放控制区在不同封面颜色下仍保持稳定对比度。
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            backgroundColor.copy(alpha = if (isDarkTheme) 0.46f else 0.34f)
-                        )
-                    )
-                )
-        )
-    }
-}
-
-
 // ==========================================
 // 详尽的中文注释：APlayer 5 大局部 Stateful 隔间设计物理隔离区
 // ==========================================
 
-
-// 详尽的中文注释：
-// 1. 进度条有状态局部隔间 PlaybackProgressStateful
-// 本组件局部订阅高频 elapsedMs 进度状态，确保每 500ms 一次的高频进度改变
-// 仅仅在 PlaybackProgress 内部引起局部微观重组，防止大范围 UI 污染。
-@Composable
-fun PlaybackProgressStateful(
-    viewModel: PlayerViewModel,
-    metadata: BookMetadataState,
-    actions: PlayerActions,
-    modifier: Modifier = Modifier
-) {
-    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    val progressState = if (isPreview) {
-        PlayerViewModel.PlaybackProgressViewState(
-            elapsedMs = 120000L,
-            durationMs = 360000L,
-            isChapterProgressMode = false
-        )
-    } else {
-        viewModel.playbackProgressState.collectAsStateWithLifecycle().value
-    }
-    // 中文注释：已在此处取消了封面主导颜色取色（metadata.backgroundColorArgb）的绑定传递，使 PlaybackProgress 使用默认主题色
-    PlaybackProgress(
-        currentPosition = progressState.elapsedMs,
-        totalDuration = progressState.durationMs,
-        isChapterMode = progressState.isChapterProgressMode,
-        chapters = metadata.chapters,
-        markers = metadata.getChapterMarkers(progressState.durationMs),
-        onSeek = { pos -> actions.playback.onSeek(pos, true) },
-        modifier = modifier
-    )
-}
-
-// 详尽的中文注释：
-// 2. 章节标题显示有状态局部隔间 ChapterDisplayStateful
-// 本组件局部订阅极其低频的章节变化通道 currentChapterState。
-// 只有在真正切换音频章节的边界临界点时才会触发重组，实现了极致的重组频率隔离。
-@Composable
-fun ChapterDisplayStateful(
-    viewModel: PlayerViewModel,
-    metadata: BookMetadataState,
-    actions: PlayerActions,
-    glassEffectMode: GlassEffectMode,
-    hazeState: HazeState?,
-    modifier: Modifier = Modifier
-) {
-    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    val currentChapter = if (isPreview) {
-        com.viel.aplayer.data.entity.ChapterEntity(
-            id = "chapter_1",
-            bookId = "book_1",
-            bookFileId = "file_1",
-            index = 1,
-            title = "第一章：危机纪元",
-            startPositionMs = 0L,
-            durationMs = 360000L,
-            fileOffsetMs = 0L,
-            source = "EMBEDDED"
-        )
-    } else {
-        viewModel.currentChapterState.collectAsStateWithLifecycle().value
-    }
-    ChapterDisplay(
-        currentChapterTitle = currentChapter?.title ?: metadata.title,
-        onChapterClick = actions.content.onShowChapterList,
-        onBookmarkClick = actions.bookmarks.onShowDialog,
-        glassEffectMode = glassEffectMode,
-        hazeState = hazeState,
-        modifier = modifier
-    )
-}
-
-// 详尽的中文注释：
-// 3. 书签面板有状态局部隔间 BookmarkListViewStateful
-// 仅在展示 Bookmark 面板时，在此局部隔间内高频消费进度，以防进度刷新让外部关联列表和卡片无端重组。
-// 详尽中文注释：M-16 修复 — 从 viewModel 收集书签对话框复合状态，并桥接回调事件至 viewModel 与 actions。
-@Composable
-fun BookmarkListViewStateful(
-    viewModel: PlayerViewModel,
-    metadata: BookMetadataState,
-    actions: PlayerActions,
-    modifier: Modifier = Modifier
-) {
-    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    val progressState = if (isPreview) {
-        PlayerViewModel.PlaybackProgressViewState(
-            elapsedMs = 120000L,
-            durationMs = 360000L,
-            isChapterProgressMode = false
-        )
-    } else {
-        viewModel.playbackProgressState.collectAsStateWithLifecycle().value
-    }
-    // 详尽中文注释：M-16 — 实时收集书签对话框显示与编辑内容状态，防止配置变更（如屏幕旋转）导致输入内容丢失
-    val dialogs = if (isPreview) {
-        PlayerViewModel.BookmarkDialogsState()
-    } else {
-        viewModel.bookmarkDialogs.collectAsStateWithLifecycle().value
-    }
-
-    BookmarkListView(
-        bookmarks = metadata.bookmarks,
-        dialogs = dialogs,
-        onBookmarkClick = { pos -> actions.playback.onSeek(pos, true) },
-        // 详尽中文注释：M-16 — 请求删除，委托给 ViewModel 记录待删除条目
-        onRequestDelete = { bookmark -> viewModel.requestDeleteBookmark(bookmark) },
-        // 详尽中文注释：M-16 — 请求编辑，委托给 ViewModel 记录待编辑条目并回填初始标题
-        onRequestEdit = { bookmark -> viewModel.requestEditBookmark(bookmark) },
-        // 详尽中文注释：M-16 — 编辑框标题输入变更同步写入 ViewModel
-        onEditTitleChange = { title -> viewModel.onBookmarkEditTitleChange(title) },
-        // 详尽中文注释：M-16 — 确认删除动作，解包并触发 actions 的 onDelete 回调
-        onConfirmDelete = {
-            dialogs.toDelete?.let { bookmark ->
-                actions.bookmarks.onDelete(bookmark)
-            }
-        },
-        // 详尽中文注释：M-16 — 确认更新动作，解包并触发 actions 的 onUpdate 回调
-        onConfirmUpdate = {
-            dialogs.toEdit?.let { bookmark ->
-                actions.bookmarks.onUpdate(bookmark, dialogs.editTitle)
-            }
-        },
-        // 详尽中文注释：M-16 — 关闭/取消对话框，委托给 ViewModel 重置状态
-        onDismissDialogs = { viewModel.dismissBookmarkDialogs() },
-        currentPosition = progressState.elapsedMs,
-        modifier = modifier
-    )
-}
-// 详尽的中文注释：
-// 4. 歌词字幕有状态局部隔间 SubtitlesViewStateful
-// 局部订阅高频进度，维持流畅高频的歌词定位，阻断该高频对外部容器和 AppBar 等的刷新污染。
-@Composable
-fun SubtitlesViewStateful(
-    viewModel: PlayerViewModel,
-    metadata: BookMetadataState,
-    actions: PlayerActions,
-    modifier: Modifier = Modifier
-) {
-    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    val progressState = if (isPreview) {
-        PlayerViewModel.PlaybackProgressViewState(
-            elapsedMs = 120000L,
-            durationMs = 360000L,
-            isChapterProgressMode = false
-        )
-    } else {
-        viewModel.playbackProgressState.collectAsStateWithLifecycle().value
-    }
-    SubtitlesView(
-        subtitles = metadata.subtitles,
-        currentPosition = progressState.elapsedMs,
-        onSeek = { pos -> actions.playback.onSeek(pos, true) },
-        modifier = modifier
-    )
-}
-
-// 详尽的中文注释：
-// 5. 章节列表弹窗有状态局部隔间 ChapterListSheetStateful
-// 本隔间仅当弹窗真正可见（isVisible == true）时才订阅高频流以获取进度和高亮，
-// 在弹窗关闭（isVisible == false）时整个有状态隔间不执行内部订阅代码，完全停摆，避免无意义的高频空耗。
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ChapterListSheetStateful(
-    viewModel: PlayerViewModel,
-    metadata: BookMetadataState,
-    settings: PlayerSettingsState,
-    actions: PlayerActions,
-    sheetState: androidx.compose.material3.SheetState,
-    hazeState: HazeState,
-    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式并传给实际的 ChapterListSheet。
-    glassEffectMode: GlassEffectMode
-) {
-    if (settings.isChapterListVisible) {
-        val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-        val progressState = if (isPreview) {
-            PlayerViewModel.PlaybackProgressViewState(
-                elapsedMs = 120000L,
-                durationMs = 360000L,
-                isChapterProgressMode = false
-            )
-        } else {
-            viewModel.playbackProgressState.collectAsStateWithLifecycle().value
-        }
-        val currentChapter = remember(progressState.elapsedMs, metadata.chapters) {
-            com.viel.aplayer.media.ChapterTimeline.currentChapter(metadata.chapters, progressState.elapsedMs)
-        }
-        ChapterListSheet(
-            isVisible = true,
-            chapters = metadata.chapters,
-            currentChapter = currentChapter,
-            totalDuration = progressState.durationMs,
-            onDismissRequest = actions.content.onDismissChapterList,
-            onChapterClick = { pos ->
-                actions.playback.onSeek(pos, true)
-                actions.content.onDismissChapterList()
-            },
-            sheetState = sheetState,
-            // 为每一次改动添加详尽的中文注释：将播放器背景 source 共用的 hazeState 传入章节列表面板 effect。
-            hazeState = hazeState,
-            // 为每一次改动添加详尽的中文注释：Material 模式会让章节列表回到原生 BottomSheet 容器层次。
-            glassEffectMode = glassEffectMode
-        )
-    }
-}
 
 // ==========================================
 // 详尽的中文注释：自适应播放器界面 Compose Previews 调试区
@@ -1211,10 +828,13 @@ fun PlayerScreenPreview() {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
+            // 为每一次改动添加详尽的中文注释：
+            // 竖屏预览模式。注入默认的 ViewModel 和 Actions。
+            // 此时组件会展示 PlayerContentShell.PlaybackShell 中的封面内容。
             NewPlayerScreen(
                 viewModel = PlayerViewModel(),
                 actions = PlayerActions(),
-                navigationActions = com.viel.aplayer.ui.navigation.PlayerNavigationActions(),
+                navigationActions = PlayerNavigationActions(),
                 glassEffectMode = GlassEffectMode.Material
             )
         }
@@ -1230,11 +850,14 @@ fun PlayerScreenLandscapePreview() {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
+            // 为每一次改动添加详尽的中文注释：
+            // 横屏预览模式。显式开启 GlassEffectMode.MiuixBlur，
+            // 用于调试横屏双栏布局在大屏/平板下的自适应间距以及背景模糊的穿透效果。
             NewPlayerScreen(
                 viewModel = PlayerViewModel(),
                 actions = PlayerActions(),
                 navigationActions = PlayerNavigationActions(),
-                glassEffectMode = GlassEffectMode.Material
+                glassEffectMode = GlassEffectMode.MiuixBlur
             )
         }
     }

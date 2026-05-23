@@ -44,13 +44,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.HazePresets
 import com.viel.aplayer.ui.player.PlaybackControlActions
 import com.viel.aplayer.ui.theme.APlayerTheme
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.drawBackdrop
+import top.yukonga.miuix.kmp.blur.blur
 
-@OptIn(ExperimentalFoundationApi::class, dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class)
+// 为每一次改动添加详尽的中文注释：导入基础 background 修饰符，修复 miuix-blur 磨砂玻璃大圆钮的背景修饰符编译未解析引用问题
+import androidx.compose.foundation.background
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlaybackControls(
     isPlaying: Boolean,
@@ -61,7 +64,7 @@ fun PlaybackControls(
     modifier: Modifier = Modifier,
     buttonColor: Color = MaterialTheme.colorScheme.primaryContainer,
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    hazeState: HazeState? = null
+    backdrop: LayerBackdrop? = null
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -140,21 +143,31 @@ fun PlaybackControls(
             )
         }
 
-        val isHaze = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+        // 为每一次改动添加详尽的中文注释：对齐 MiuixBlur，感知当前是否启用了磨砂高斯模糊效果，统一重命名逻辑引用
+        val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
 
-        if (isHaze) {
+        if (isBlur) {
             // 为每一次改动添加详尽的中文注释：
-            // Haze 磨砂效果激活时，将播放暂停按钮升级为至尊白羽雾化大圆钮 Surface。
-            // 使用 hazeEffect 融合 chapterSheetHazeState 的实时画面层，乳白底色加超细描边，兼备极高可读性与无上设计感。
+            // miuix-blur 磨砂效果激活时，将播放暂停按钮升级为清透灵动的磨砂玻璃大圆钮 Surface。
+            // 彻底去除对 drawBackdrop 实时采样的物理依赖，在播放器自带的 blur(64.dp) 超强大半径氛围模糊背景之上，
+            // 级联自适应亮/暗色调的半透明圆形蒙版底色，并在此处结合自适应本地声明 0.5.dp 微光银丝描边。
+            // 这在视觉层面上构建出极佳的 iOS 级轮廓光实体呼吸感，且彻底消除了高通 Vulkan 驱动在平移变换时的 Feedback Loop 闪退死锁。
+            val playPauseShape = CircleShape
+            val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+            // 为每一次改动添加详尽的中文注释：自适应本地声明 0.5.dp 微光银丝描边，深色模式用 20% 透明白，浅色用 12% 透明黑。
+            val borderStrokeColor = if (isDark) Color.White.copy(alpha = 0.20f) else Color.Black.copy(alpha = 0.12f)
+            val borderStroke = androidx.compose.foundation.BorderStroke(0.5.dp, borderStrokeColor)
             Surface(
                 onClick = actions.onPlayPauseClick,
                 modifier = Modifier
                     .size(80.dp)
-                    .clip(CircleShape)
-                    .hazeEffect(state = hazeState, style = HazePresets.HazeStyle),
-                shape = CircleShape,
-                color = HazePresets.BackgroundColor,
-                border = HazePresets.Border,
+                    .clip(playPauseShape)
+                    .background(
+                        if (isDark) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.45f)
+                    ),
+                shape = playPauseShape,
+                color = Color.Transparent,
+                border = borderStroke,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
                 Box(contentAlignment = Alignment.Center) {

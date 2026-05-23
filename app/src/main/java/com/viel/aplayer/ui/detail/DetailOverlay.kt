@@ -12,9 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import com.viel.aplayer.data.store.GlassEffectMode
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
 
 
 /**
@@ -34,10 +34,10 @@ fun DetailOverlay(
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由 App 容器从设置状态显式传入，详情悬浮层不再声明默认值。
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // 为每一次改动添加详尽的中文注释：添加可选的 hazeState 参数，接收来自于 Activity 共享的 Haze 采样状态（主页采样源）。
-    hazeState: HazeState? = null,
-    // 为每一次改动添加详尽的中文注释：添加专门用于采集详情页本身画面的专属 detailHazeState 采样源。
-    detailHazeState: HazeState? = null,
+    // 为每一次改动添加详尽的中文注释：添加可选的 backdrop 参数，接收来自于 Activity 共享的 Backdrop 采样状态（主页采样源）。
+    backdrop: LayerBackdrop? = null,
+    // 为每一次改动添加详尽的中文注释：添加专门用于采集详情页本身画面的专属 detailBackdrop 采样源。
+    detailBackdrop: LayerBackdrop? = null,
     // 为每一次改动添加详尽的中文注释：增加编辑书籍点击的回调，向上层 Activity 传递
     onEditClick: (String) -> Unit = {},
 ) {
@@ -50,15 +50,16 @@ fun DetailOverlay(
         modifier = modifier
     ) {
         // 为每一次改动添加详尽的中文注释：
-        // 在 Haze 磨砂玻璃模式下，最外层使用一个 fillMaxSize 的 Box 容器，
-        // 挂载 Modifier.hazeSource(state = detailHazeState)，从而把整个 Detail 详情页（含文字、封面卡片和按钮等）
+        // 在 miuix-blur 磨砂玻璃模式下，最外层使用一个 fillMaxSize 的 Box 容器，
+        // 挂载 Modifier.layerBackdrop(detailBackdrop)，从而把整个 Detail 详情页（含文字、封面卡片和按钮等）
         // 捕获为采样源，使上方覆盖的 EditBookOverlay 能折射出精致、有立体深度的毛玻璃背景。
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .then(
-                    if (glassEffectMode == GlassEffectMode.Haze && detailHazeState != null) {
-                        Modifier.hazeSource(state = detailHazeState)
+                    // 为每一次改动添加详尽的中文注释：对齐新更名的 MiuixBlur，在该模式下为整个详情页 Box 挂载 detailBackdrop 采样源
+                    if (glassEffectMode == GlassEffectMode.MiuixBlur && detailBackdrop != null) {
+                        Modifier.layerBackdrop(detailBackdrop)
                     } else {
                         Modifier
                     }
@@ -90,10 +91,10 @@ fun DetailOverlay(
                         onPlayBook(bookWithProgress.book.id)
                     }
                 },
-                // 为每一次改动添加详尽的中文注释：详情页下拉菜单与其他浮层统一遵循 Material/Haze 设置。
+                // 为每一次改动添加详尽的中文注释：详情页下拉菜单与其他浮层统一遵循 Material/miuix-blur 设置。
                 glassEffectMode = glassEffectMode,
-                // 为每一次改动添加详尽的中文注释：将 HazeState 进一步向下透传给 DetailScreen，用以渲染自身封面高斯背景。
-                hazeState = hazeState,
+                // 为每一次改动添加详尽的中文注释：将 Backdrop 进一步向下透传给 DetailScreen，用以渲染自身封面高斯背景。
+                backdrop = backdrop,
                 // 为每一次改动添加详尽的中文注释：向下透传编辑书籍元数据内存 lambda 回调
                 onEditClick = onEditClick
             )

@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.player.components
+package com.viel.aplayer.ui.common
 
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.Alignment
@@ -14,7 +14,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
+import com.viel.aplayer.ui.player.components.MainCoverView
 import com.viel.aplayer.ui.theme.APlayerTheme
+import kotlin.math.abs
 
 /**
  * 详尽中文注释：自适应手势播放器封面组件。
@@ -75,12 +77,12 @@ fun PlayerCover(
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x)) {
+                        if (abs(dragAmount.y) > abs(dragAmount.x)) {
                             // 详尽中文注释：上下滑动时，触发音量调节回调
                             onAdjustVolume(-dragAmount.y * 0.002f)
                         } else if (!hasTriggeredHorizontalDrag) {
                             totalHorizontalDrag += dragAmount.x
-                            if (kotlin.math.abs(totalHorizontalDrag) > 300f) {
+                            if (abs(totalHorizontalDrag) > 300f) {
                                 // 详尽中文注释：水平滑动超过阈值（300px）时，触发切章回调
                                 if (totalHorizontalDrag > 0) {
                                     onNextChapter()

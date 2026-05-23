@@ -1,9 +1,12 @@
 package com.viel.aplayer.ui.detail.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,11 +27,13 @@ import com.viel.aplayer.R
 @Composable
 fun DetailSummary(
     description: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isScrollable: Boolean = false // 新增参数：控制内容区域是否允许滚动
 ) {
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
+        // 1. 固定标题部分：始终显示在组件顶部
         Text(
             text = stringResource(R.string.summary_label),
             style = MaterialTheme.typography.titleLarge,
@@ -40,14 +45,25 @@ fun DetailSummary(
             renderDescriptionText(description)
         }
         
-        SelectableTextView(
-            text = summaryDescription,
-            modifier = Modifier.fillMaxWidth(),
-            textColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            textSizeSp = 16f,
-            lineSpacingExtraSp = 4f,
-            firstLineIndentEm = 2f
-        )
+        // 2. 可滚动的内容区域：如果开启 isScrollable，则占据剩余空间并允许内部滚动
+        val contentModifier = if (isScrollable) {
+            Modifier
+                .weight(1f) // 当父布局高度固定时，占据除标题外的所有剩余高度
+                .verticalScroll(rememberScrollState())
+        } else {
+            Modifier
+        }
+
+        Box(modifier = contentModifier.fillMaxWidth()) {
+            SelectableTextView(
+                text = summaryDescription,
+                modifier = Modifier.fillMaxWidth(),
+                textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                textSizeSp = 16f,
+                lineSpacingExtraSp = 4f,
+                firstLineIndentEm = 2f
+            )
+        }
     }
 }
 

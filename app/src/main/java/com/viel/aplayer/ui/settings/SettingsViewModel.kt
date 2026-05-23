@@ -31,7 +31,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
 
     /** 暴露给 UI 的媒体库根目录流 */
-    val libraryRoots: StateFlow<List<com.viel.aplayer.data.entity.LibraryRootEntity>> = libraryRepository.observeLibraryRoots()
+    val libraryRoots: StateFlow<List<LibraryRootEntity>> = libraryRepository.observeLibraryRoots()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

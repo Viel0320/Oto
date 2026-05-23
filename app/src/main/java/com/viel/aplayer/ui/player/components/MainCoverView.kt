@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,11 +15,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -59,10 +58,6 @@ fun MainCoverView(
             .fillMaxWidth(),
         contentAlignment = Alignment.TopCenter
     ) {
-        // 详尽中文注释：将 coverLastUpdated 纳入 remember 的 keys，确保当数据库自愈更新时间戳改变后，强行使 File 对象及其后的分支重新判断与重绘
-        val coverFile = remember(coverPath, coverLastUpdated) {
-            if (coverPath != null) File(coverPath) else null
-        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -73,28 +68,44 @@ fun MainCoverView(
                     transformOrigin = TransformOrigin(0.5f, 0.0f)
                 }
                 .clip(RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            if (coverFile != null && coverFile.exists()) {
+            // 详尽中文注释：定义用于追踪封面异步加载是否失败的局部状态。
+            // 结合 Coil 的 onError 回调，可以彻底消除主线程同步调用 File.exists() 的磁盘 I/O 阻塞隐患，
+            // 同时也能够处理文件物理存在但格式损坏无法解码的情况，自动平滑切换至占位图。
+            var isImageError by remember(coverPath) { androidx.compose.runtime.mutableStateOf(false) }
+
+            if (coverPath != null && !isImageError) {
                 // 详尽中文注释：使用 ImageRequest.Builder 重新构建 data model，
                 // 并利用具有更新时间戳后缀的 memoryCacheKey 和 diskCacheKey 来打破 Coil 对该图片的加载失败或已有缓存，
                 // 确保在封面文件被自愈重建后，Coil 能够丢弃原有失败记忆、即刻从物理文件中拉取并渲染最新的封面。
                 AsyncImage(
                     model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                        .data(coverFile)
-                        .memoryCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
-                        .diskCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
+                        .data(File(coverPath))
+                        .memoryCacheKey("${coverPath}_$coverLastUpdated")
+                        .diskCacheKey("${coverPath}_$coverLastUpdated")
+                        .crossfade(true)
                         .build(),
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                     onError = { errorState ->
-                        android.util.Log.e("MainCoverView", "全屏播放器加载封面图片失败: ${coverFile.absolutePath}, 原因: ", errorState.result.throwable)
+                        isImageError = true
+                        android.util.Log.e("MainCoverView", "全屏播放器加载封面图片失败: $coverPath, 原因: ", errorState.result.throwable)
                     }
                 )
             } else {
-                // 详尽中文注释：无封面时展示灰色占位背景 + 播放图标
-                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.PlayArrow, null, Modifier.size(80.dp), tint = Color.Gray)
+                // 详尽中文注释：当封面路径为空或加载发生异常时，展示统一的占位背景 + 播放图标，视觉对齐详情页规范
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(80.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                    )
                 }
             }
         }

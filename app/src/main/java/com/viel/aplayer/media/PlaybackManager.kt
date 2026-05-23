@@ -14,7 +14,6 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlin.coroutines.resume
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.entity.BookProgressEntity
@@ -57,11 +56,11 @@ class PlaybackManager private constructor(context: Context) {
     val currentSubtitles = _currentSubtitles.asStateFlow()
 
     // 详尽的中文注释：新增 embeddedSubtitles 共享事件数据流，用于向前台实时广播从 ExoPlayer 中监听提取出的内置歌词。
-    private val _embeddedSubtitles = kotlinx.coroutines.flow.MutableSharedFlow<List<SubtitleLine>>(extraBufferCapacity = 1)
+    private val _embeddedSubtitles = MutableSharedFlow<List<SubtitleLine>>(extraBufferCapacity = 1)
     val embeddedSubtitles = _embeddedSubtitles.asSharedFlow()
 
     // 为每一次改动添加详尽的中文注释：新增一次性 UI 反馈事件流，向外广播由 PlaybackService 发出的自定义界面提示事件（如静音跳过）
-    private val _uiEvents = kotlinx.coroutines.flow.MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
+    private val _uiEvents = MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
     val uiEvents = _uiEvents.asSharedFlow()
 
     private val _currentPosition = MutableStateFlow(0L)
@@ -96,7 +95,7 @@ class PlaybackManager private constructor(context: Context) {
                     controller: MediaController,
                     command: androidx.media3.session.SessionCommand,
                     args: android.os.Bundle
-                ): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult> {
+                ): ListenableFuture<androidx.media3.session.SessionResult> {
                     if (command.customAction == "EVENT_SKIP_SILENCE") {
                         _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast("已自动跳过空白静音片段"))
                     }
@@ -108,17 +107,23 @@ class PlaybackManager private constructor(context: Context) {
             .buildAsync()
         
         controllerFuture?.addListener({
-            try {
-                mediaController = controllerFuture?.get()
-                mediaController?.let { controller ->
-                    setupController(controller)
-                    // Cold-start restore may set the playback plan before MediaController connects; apply it once ready.
-                    currentPlan?.let { setBookPlaybackPlan(it) }
-                    // 为本次桌面 widget 改动添加注释：控制器连上后立即刷新小组件，让桌面状态跟随真实 MediaSession。
-                    PlayerWidgetProvider.updateAll(appContext)
+            // 详尽的中文注释：使用 scope.launch 开启协程，并在其中通过 withContext(Dispatchers.IO) 安全地调用 
+            // ListenableFuture.get()。虽然此时 Future 已完成，但 get() 仍被 IDE 视为阻塞方法，
+            // 这样做可以消除“在非阻塞上下文中调用阻塞方法”的警告，并符合协程架构规范。
+            scope.launch {
+                try {
+                    val controller = withContext(Dispatchers.IO) { controllerFuture?.get() }
+                    mediaController = controller
+                    controller?.let { conn ->
+                        setupController(conn)
+                        // Cold-start restore may set the playback plan before MediaController connects; apply it once ready.
+                        currentPlan?.let { setBookPlaybackPlan(it) }
+                        // 为本次桌面 widget 改动添加注释：控制器连上后立即刷新小组件，让桌面状态跟随真实 MediaSession。
+                        PlayerWidgetProvider.updateAll(appContext)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }, ContextCompat.getMainExecutor(appContext))
     }
@@ -165,11 +170,17 @@ class PlaybackManager private constructor(context: Context) {
                 _playbackSpeed.value = playbackParameters.speed
             }
 
-            // 详尽的中文注释：重写 onMetadata 接口以监听并捕获音频解调器解码出来的流元数据（包含内置 ID3 歌词帧）。
+            // 详尽的中文注释：重写 onMetadata 接口以监听流元数据。
+            // 由于解析元数据（尤其是提取内置歌词）涉及流式读取（InputStream.read），属于阻塞 I/O 操作，
+            // 因此必须开启协程并分发到 Dispatchers.IO 线程执行，以规避主线程卡顿并消除编译警告。
             override fun onMetadata(metadata: androidx.media3.common.Metadata) {
-                val subs = extractLyricsFromMetadata(metadata)
-                if (subs.isNotEmpty()) {
-                    _embeddedSubtitles.tryEmit(subs)
+                scope.launch {
+                    val subs = withContext(Dispatchers.IO) {
+                        extractLyricsFromMetadata(metadata)
+                    }
+                    if (subs.isNotEmpty()) {
+                        _embeddedSubtitles.emit(subs)
+                    }
                 }
             }
         })
@@ -451,37 +462,25 @@ class PlaybackManager private constructor(context: Context) {
      * 以便在 Activity 已销毁或后台重建的异步时序下依然能获取到真实的 MediaController，
      * 解决删除书库时因连接尚未就绪导致 getCurrentBookId() 漏判后台播放的缺陷。
      */
+    /**
+     * 为每一次改动添加详详尽的中文注释：异步获取已连接的 MediaController 实例。
+     * 直接利用 withContext(Dispatchers.IO) 包装阻塞式的 ListenableFuture.get() 调用。
+     * 该方式能完美消除 IDE 对“非阻塞上下文调用阻塞方法”的警告，因为 Dispatchers.IO 允许阻塞。
+     * 协程会在此处挂起并释放主线程，直到控制器连接完成并返回结果，代码逻辑大幅精简且类型安全。
+     */
     suspend fun getController(): MediaController? {
         val controller = mediaController
         if (controller != null) return controller
 
         val future = controllerFuture ?: return null
-        if (future.isDone) {
-            return try {
-                future.get().also { mediaController = it }
-            } catch (e: Exception) {
-                null
-            }
-        }
-
-        return suspendCancellableCoroutine { continuation ->
-            future.addListener({
-                try {
-                    val conn = future.get()
-                    mediaController = conn
-                    if (continuation.isActive) {
-                        continuation.resume(conn)
-                    }
-                } catch (e: Exception) {
-                    if (continuation.isActive) {
-                        continuation.resume(null)
-                    }
-                }
-            }, ContextCompat.getMainExecutor(appContext))
-
-            continuation.invokeOnCancellation {
-                // 协程取消无需物理取消 future，由 PlaybackManager 单例共享生命周期
-            }
+        return try {
+            withContext(Dispatchers.IO) {
+                // 即使 Future 已 Done，.get() 依然是阻塞调用，必须在 IO 线程中执行。
+                future.get()
+            }.also { mediaController = it }
+        } catch (e: Exception) {
+            android.util.Log.e("PlaybackManager", "获取 MediaController 失败", e)
+            null
         }
     }
 
@@ -491,7 +490,7 @@ class PlaybackManager private constructor(context: Context) {
      * 确保在 UI 退出且 PlaybackManager 被 release 重新获取单例的极端生命周期下，
      * 依然能准确捕捉后台真实的播放书籍 ID。
      */
-    suspend fun getCurrentBookId(): String? {
+    fun getCurrentBookId(): String? {
         // 为本次桌面 widget 崩溃修复添加注释：该方法可能被 IO 协程调用，优先读取 StateFlow 快照，避免跨线程直接访问 MediaController.currentMediaItem。
         val mediaId = currentMediaItem.value?.mediaId ?: currentPlan?.bookId
         return if (mediaId != null && mediaId.contains(":")) {

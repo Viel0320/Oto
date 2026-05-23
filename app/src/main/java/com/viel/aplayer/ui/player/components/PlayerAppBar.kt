@@ -4,6 +4,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreVert
@@ -36,8 +40,8 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.theme.APlayerTheme
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.rememberHazeState
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,16 +57,20 @@ fun PlayerAppBar(
     isChapterProgressMode: Boolean = false,
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由播放页从设置状态显式传入，播放器顶部栏不再声明 Material 默认值。
     glassEffectMode: GlassEffectMode,
-    // 为每一次改动添加详尽的中文注释：菜单复用播放器背景 source 的 HazeState；独立预览时默认创建本地状态。
-    dropdownMenuHazeState: HazeState = rememberHazeState(),
+    // 为每一次改动添加详尽的中文注释：菜单复用播放器背景的 LayerBackdrop 采样源；独立预览或未传参时默认自愈。
+    backdrop: LayerBackdrop? = null,
     containerColor: Color = Color.Transparent,
     contentColor: Color = LocalContentColor.current
 ) {
     val navIcon = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
+    // 为每一次改动添加详尽的中文注释：在内部安全创建本地 backdrop 采样器，确保当外部 backdrop 为 null 时仍能获得优雅的高清模糊背景
+    val localBackdrop = backdrop ?: rememberLayerBackdrop()
 
     CenterAlignedTopAppBar(
-        modifier = modifier.statusBarsPadding(),
+        // 为每一次改动添加详尽的中文注释：移除修饰符上的 statusBarsPadding()，改由更专业的 windowInsets 直接自适应管理，彻底斩断双重 Padding
+        modifier = modifier,
+        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
         title = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -108,9 +116,9 @@ fun PlayerAppBar(
                 BlurDropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
-                    // 为每一次改动添加详尽的中文注释：把播放器 Surface 共用的 hazeState 传给菜单 effect。
-                    hazeState = dropdownMenuHazeState,
-                    // 为每一次改动添加详尽的中文注释：播放器更多菜单跟随设置页选择在 Material 与 Haze 之间切换。
+                    // 为每一次改动添加详尽的中文注释：将播放器 Surface 采样的 LayerBackdrop 传入下拉菜单以生成毛玻璃效果。
+                    backdrop = localBackdrop,
+                    // 为每一次改动添加详尽的中文注释：播放器更多菜单跟随设置页选择在 Material 与 miuix-blur 之间切换。
                     glassEffectMode = glassEffectMode
                 ) {
                     // 1. 进度模式切换

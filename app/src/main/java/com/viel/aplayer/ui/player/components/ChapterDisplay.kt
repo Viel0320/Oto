@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+// 为每一次改动添加详尽的中文注释：引入 Spacer 和 width 布局扩展，用以精细编排自定义磨砂药丸内的图标与文字间距
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
@@ -25,12 +28,61 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.HazePresets
 import com.viel.aplayer.ui.theme.APlayerTheme
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
-@OptIn(dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class)
+
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.ui.player.BookMetadataState
+import com.viel.aplayer.ui.player.PlayerActions
+import com.viel.aplayer.ui.player.PlayerViewModel
+
+/**
+ * 章节标题显示的有状态局部隔间。
+ * 本组件局部订阅极其低频的章节变化通道 currentChapterState。
+ * 只有在真正切换音频章节的边界临界点时才会触发重组，实现了极致的重组频率隔离。
+ */
+@Composable
+fun ChapterDisplayStateful(
+    viewModel: PlayerViewModel,
+    metadata: BookMetadataState,
+    actions: PlayerActions,
+    glassEffectMode: GlassEffectMode,
+    backdrop: LayerBackdrop?,
+    modifier: Modifier = Modifier
+) {
+    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    val currentChapter = if (isPreview) {
+        com.viel.aplayer.data.entity.ChapterEntity(
+            id = "chapter_1",
+            bookId = "book_1",
+            bookFileId = "file_1",
+            index = 1,
+            title = "第一章：危机纪元",
+            startPositionMs = 0L,
+            durationMs = 360000L,
+            fileOffsetMs = 0L,
+            source = "EMBEDDED"
+        )
+    } else {
+        viewModel.currentChapterState.collectAsStateWithLifecycle().value
+    }
+    ChapterDisplay(
+        currentChapterTitle = currentChapter?.title ?: metadata.title,
+        onChapterClick = actions.content.onShowChapterList,
+        onBookmarkClick = actions.bookmarks.onShowDialog,
+        glassEffectMode = glassEffectMode,
+        backdrop = backdrop,
+        modifier = modifier
+    )
+}
+
 @Composable
 fun ChapterDisplay(
     currentChapterTitle: String?,
@@ -39,67 +91,92 @@ fun ChapterDisplay(
     modifier: Modifier = Modifier,
     title: String? = null,
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    hazeState: HazeState? = null
+    backdrop: LayerBackdrop? = null
 ) {
-    val isHaze = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    // 为每一次改动添加详尽的中文注释：
+    // 为每一次改动添加详尽的中文注释：全屏播放器背景已具有大半径 (64.dp) 的高阶氛围模糊，因此前景卡片在 miuix-blur 模式下无需重复采样高斯模糊。
+    // 我们直接开启 isBlur 蒙版绘制，免去了 drawBackdrop 的高昂 GPU 计算，彻底避开 Vulkan Feedback Loop 崩溃温床。同时对齐 isBlur。
+    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
 
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        SuggestionChip(
-            onClick = onChapterClick,
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .then(
-                    if (isHaze) {
-                        Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            // 为每一次改动添加详尽的中文注释：在此引入全局高灵动性“高雅白羽雾化”毛玻璃 HazeStyle，对章节选择胶囊背景开启背景高斯模糊渲染管线
-                            .hazeEffect(state = hazeState, style = HazePresets.HazeStyle)
-                    } else {
-                        Modifier
-                    }
-                ),
-            label = {
-                Text(
-                    text = currentChapterTitle ?: title ?: "No Chapters",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            },
-            icon = {
-                Icon(
-                    Icons.AutoMirrored.Rounded.List,
-                    contentDescription = null,
-                    modifier = Modifier.size(SuggestionChipDefaults.IconSize)
-                )
-            },
-            shape = RoundedCornerShape(12.dp),
-            colors = if (isHaze) {
-                // 为每一次改动添加详尽的中文注释：Haze 模式下选用全局高透光率的半透蒙版背景色与主色图标，展现晶莹剔透的高奢质感
-                SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = HazePresets.BackgroundColor,
-                    labelColor = MaterialTheme.colorScheme.primary,
-                    iconContentColor = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                SuggestionChipDefaults.suggestionChipColors(
+        if (isBlur) {
+            // 为每一次改动添加详尽的中文注释：
+            // 彻底弃用任何 Material 3 高度封装交互容器（如 SuggestionChip 或 Surface），
+            // 直接采用最底层的纯净 Box 容器，并按照极其规范的 Modifier 链排列：
+            // Modifier.clip -> background(半透蒙版) -> clickable(接管水波纹) -> border(0.5.dp微光描边) -> padding
+            // 这能够强制所有的测量边界、水波纹波澜、乳白底色和极细白透描边百分之百完美地基于同心 chipShape 进行同心绘制。
+            // 从而在任何短字长（如单个字符 "3"）或极端宽度下，实现像素级绝对尺寸自适应，彻底根治内外双重圆角边框嵌套与尺寸截断冲突的严重视觉 Bug。
+            val chipShape = RoundedCornerShape(12.dp)
+            // 为每一次改动添加详尽的中文注释：通过 local state 获取系统是否为深色模式，以精准施加自适应对比度蒙版与轮廓银丝描边，完全摆脱对外部描边预设的物理耦合。
+            val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+            // 为每一次改动添加详尽的中文注释：深色模式使用 12% 不透明度的高雅乳白蒙版，浅色模式使用 8% 不透明度玄羽压亮蒙版，彻底保障磨砂玻璃药丸内的文字清晰可辨。
+            val maskColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)
+            // 为每一次改动添加详尽的中文注释：深色模式使用 20% 高频漫反射白光描边，浅色模式使用 12% 压暗描边，本地精细构建 0.5.dp 轮廓描边。
+            val borderStrokeColor = if (isDark) Color.White.copy(alpha = 0.20f) else Color.Black.copy(alpha = 0.12f)
+            val borderStroke = androidx.compose.foundation.BorderStroke(0.5.dp, borderStrokeColor)
+            Box(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .clip(chipShape)
+                    .background(maskColor)
+                    .clickable(onClick = onChapterClick)
+                    .border(borderStroke, chipShape)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.List,
+                        contentDescription = null,
+                        modifier = Modifier.size(SuggestionChipDefaults.IconSize),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = currentChapterTitle ?: title ?: "No Chapters",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        } else {
+            // 为每一次改动添加详尽的中文注释：Material 模式下维持原有高度封装的 Material 3 实色 SuggestionChip，完美向下兼容
+            SuggestionChip(
+                onClick = onChapterClick,
+                modifier = Modifier.weight(1f, fill = false),
+                label = {
+                    Text(
+                        text = currentChapterTitle ?: title ?: "No Chapters",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                icon = {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.List,
+                        contentDescription = null,
+                        modifier = Modifier.size(SuggestionChipDefaults.IconSize)
+                    )
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = SuggestionChipDefaults.suggestionChipColors(
                     labelColor = LocalContentColor.current,
                     iconContentColor = LocalContentColor.current
-                )
-            },
-            border = if (isHaze) {
-                // 为每一次改动添加详尽的中文注释：Haze 模式下采用全局微光描边规范，精致亮眼
-                HazePresets.Border
-            } else {
-                SuggestionChipDefaults.suggestionChipBorder(
+                ),
+                border = SuggestionChipDefaults.suggestionChipBorder(
                     enabled = true,
                     borderColor = LocalContentColor.current
                 )
-            }
-        )
+            )
+        }
 
         IconButton(
             onClick = onBookmarkClick,
@@ -112,6 +189,23 @@ fun ChapterDisplay(
 
 // Added apiLevel = 36 to resolve layout fidelity warning in Android Studio Preview
 // when using a compileSdk higher than the layout editor's supported range.
+@Preview(showBackground = true, apiLevel = 36)
+@Composable
+fun ChapterDisplayStatefulPreview() {
+    APlayerTheme {
+        Surface {
+            ChapterDisplayStateful(
+                viewModel = PlayerViewModel(),
+                metadata = BookMetadataState(title = "三体"),
+                actions = PlayerActions(),
+                glassEffectMode = GlassEffectMode.Material,
+                backdrop = rememberLayerBackdrop(),
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun ChapterDisplayPreview() {

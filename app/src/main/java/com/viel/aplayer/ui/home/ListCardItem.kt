@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
@@ -64,8 +63,8 @@ fun RecentlyItem(
     // 为每一次改动添加详尽的中文注释：新增 coverColorArgb 可选参数，传递当前书籍封面的 ARGB 取色，默认为空，用于实现文字颜色同源取色融合
     coverColorArgb: Int? = null
 ) {
-    // 为每一次改动添加详尽的中文注释：判断当前是否启用 miuix-blur 模糊视效，对齐新命名的 miuix_blur 枚举类型
-    val isBlur = glassEffectMode == GlassEffectMode.miuix_blur
+    // 为每一次改动添加详尽的中文注释：判断当前是否启用 miuix-blur 模糊视效，对齐新命名的 MiuixBlur 枚举类型
+    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
     val localBackdrop = rememberLayerBackdrop()
 
     Column(
@@ -304,8 +303,8 @@ fun RecentlyItemProgressPreview() {
                 narrator = "Unknown",
                 progressText = "45%",
                 onClick = {},
-                // 详尽中文注释：在预览中显式开启毛玻璃，对齐更名后的 miuix_blur 枚举
-                glassEffectMode = GlassEffectMode.miuix_blur
+                // 详尽中文注释：在预览中显式开启毛玻璃，对齐更名后的 MiuixBlur 枚举
+                glassEffectMode = GlassEffectMode.MiuixBlur
             )
         }
     }

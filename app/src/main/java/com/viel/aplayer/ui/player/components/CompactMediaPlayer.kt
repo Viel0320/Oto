@@ -1,4 +1,4 @@
-@file:OptIn(dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi::class)
+
 package com.viel.aplayer.ui.player.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -44,17 +44,17 @@ import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.theme.APlayerTheme
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-// 为每一次改动添加详尽的中文注释：引入全局的 HazePresets 类以获取高度呼吸感的白羽雾化毛玻璃材质预设
-import com.viel.aplayer.ui.common.HazePresets
-import dev.chrisbanes.haze.materials.HazeMaterials
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import com.viel.aplayer.data.store.GlassEffectMode
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 // 中文注释：已取消封面取色着色功能，移除了 color 参数，迷你播放器进度条直接采用系统默认的 Material 3 主色调
-// 详尽的中文注释：新增 hazeState 和 glassEffectMode 两个参数，用来在启用毛玻璃效果时折射底部 NavHost 的画面内容，保持跟搜索/详情页的设计一致。
+// 详尽的中文注释：新增 backdrop 和 glassEffectMode 两个参数，用来在启用毛玻璃效果时折射底部 NavHost 的画面内容，保持跟搜索/详情页的设计一致。
 fun CompactMediaPlayer(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
@@ -68,8 +68,8 @@ fun CompactMediaPlayer(
     showProgressBar: Boolean = true,
     isMediaAvailable: Boolean = true,
     actions: MiniPlayerActions = MiniPlayerActions(),
-    // 详尽的中文注释：新增 hazeState 参数，供模糊玻璃背景采样
-    hazeState: HazeState? = null,
+    // 为每一次改动添加详尽的中文注释：将共享的模糊状态变更为 miuix-blur 的 LayerBackdrop 采样源参数
+    backdrop: LayerBackdrop? = null,
     // 为每一次改动添加详尽的中文注释：新增 onClick 参数，用于接管迷你播放器的全屏展开点击事件，在其 Surface 最外层处理以获取优良的水波纹点击波澜
     onClick: () -> Unit = {},
     // 详尽的中文注释：新增 glassEffectMode 参数，以区分是毛玻璃高斯模糊还是标准 Material 纯色背景
@@ -82,47 +82,41 @@ fun CompactMediaPlayer(
         }
     }
 
-    // 详尽的中文注释：根据传入的 glassEffectMode 和 hazeState 判断当前是否要启用磨砂玻璃高斯模糊背景效果。
-    val isHazeMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    // 为每一次改动添加详尽的中文注释：对齐新更名的 MiuixBlur，基于 LayerBackdrop 与新枚举判断是否启用毛玻璃渲染
+    val isBlurMode = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
 
     // 为每一次改动添加详尽的中文注释：获取当前系统的亮暗色主题状态，以实现毛玻璃自适应
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
-    // 为每一次改动添加详尽的中文注释：在 Composable 主作用域中安全提取带有 @Composable 标记的全局 HazeStyle 预设，避免在 remember 闭包内部非法调用
-    val baseStyle = HazePresets.HazeStyle
-
-    // 为每一次改动添加详尽的中文注释：
-    // 创建普通迷你播放器专属的高保真磨砂玻璃滤镜样式 (compactHazeStyle)。
-    // 同样采用 .copy 深度自适应定制：设置 backgroundColor = Color.Transparent (杜绝实体纯色遮挡底色渲染)，
-    // 并且根据系统深色/浅色主题自适应调整蒙版色 Tint，实现白天“温润白羽”(亮色下 80% 白) 与黑夜“暗夜玄羽”(暗色下 40% 黑) 的高级磨砂通透感。
-    val compactHazeStyle = remember(isDark, baseStyle) {
-        baseStyle.copy(
-            backgroundColor = Color.Transparent,
-            tints = listOf(
-                dev.chrisbanes.haze.HazeTint(
-                    if (isDark) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.8f)
-                )
-            )
-        )
-    }
-
     // 为每一次改动添加详尽的中文注释：
     // 将 Surface 改为支持 onClick 的重载，并将传入 of onClick 动作直接挂载在此。
-    // 这将实现该紧凑栏样式播放器卡片本体的完全可点击化，且拥有与 Material 3 一致的水波纹动效表现。
+    // 这将实现该紧凑样式播放器卡片本体的完全可点击化，且拥有与 Material 3 一致的水波纹动效表现。
     Surface(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .let {
-                if (isHazeMode) {
-                    // 为每一次改动添加详尽的中文注释：在 Haze 模式下链式追加 hazeEffect 高斯模糊修饰符，折射下方主页 NavHost 像素
-                    // 为每一次改动添加详尽的中文注释：使用自定义自适应系统的 compactHazeStyle 样式，呈现极其通透呼吸感的白羽与玄羽毛玻璃底色
-                    it.hazeEffect(state = hazeState, style = compactHazeStyle)
+                if (isBlurMode) {
+                    // 为每一次改动添加详尽的中文注释：使用与 Pill 播放器完全一致的 let 链式动态判定绑定高保真 textureBlur 模糊
+                    it.textureBlur(
+                        backdrop = backdrop,
+                        shape = RoundedCornerShape(0.dp),
+                        blurRadius = 60f,
+                        noiseCoefficient = 0.05f,
+                        colors = BlurColors(
+                            blendColors = listOf(
+                                BlendColorEntry(
+                                    color = if (isDark) Color.Black.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.76f),
+                                    mode = BlurBlendMode.SrcOver
+                                )
+                            )
+                        )
+                    )
                 } else {
                     it
                 }
             },
-        color = if (isHazeMode) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
+            color = if (isBlurMode) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(0.dp)
     ) {
         Column(modifier = Modifier.navigationBarsPadding()) {
@@ -295,4 +289,4 @@ fun CompactMediaPlayerAuthorOnlyPreview() {
             progress = { 0.12f }
         )
     }
-}
+}

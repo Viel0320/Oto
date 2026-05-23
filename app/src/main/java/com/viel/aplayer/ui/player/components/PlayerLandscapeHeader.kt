@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,12 +23,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.settings.PlayerSettingsState
+import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 // 为每一次改动添加详尽的中文注释：
 // 抽离横屏播放器头部组件到独立文件。
@@ -98,6 +104,23 @@ fun PlayerLandscapeHeader(
                     }
                 )
             }
+        }
+    }
+}
+
+@Preview(showBackground = true, apiLevel = 36, widthDp = 600)
+@Composable
+fun PlayerLandscapeHeaderPreview() {
+    APlayerTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            PlayerLandscapeHeader(
+                metadata = BookMetadataState(title = "三体：黑暗森林", author = "刘慈欣", narrator = "王明"),
+                settings = PlayerSettingsState(),
+                actions = PlayerActions(),
+                glassEffectMode = GlassEffectMode.Material,
+                backdrop = rememberLayerBackdrop(),
+                modifier = Modifier.padding(16.dp)
+            )
         }
     }
 }

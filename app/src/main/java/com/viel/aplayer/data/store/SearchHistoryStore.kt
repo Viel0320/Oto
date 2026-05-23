@@ -13,7 +13,7 @@ import org.json.JSONObject
 
 private val Context.searchHistoryDataStore: DataStore<Preferences> by preferencesDataStore(name = "search_history")
 
-/** 搜索历史条目�?*/
+/** 搜索历史条目 */
 data class SearchHistoryEntry(
     val query: String,
     val timestamp: Long = System.currentTimeMillis()

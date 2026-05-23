@@ -39,7 +39,7 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDialog
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
-import dev.chrisbanes.haze.HazeState
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
  * 详尽中文注释：
@@ -47,14 +47,14 @@ import dev.chrisbanes.haze.HazeState
  * 它将一级管理面板 Dialog 与二级删除确认 Dialog 统一打包封装，
  * 隔离了 Dialog 内部的显隐次序逻辑，极大程度瘦身了 HomeScreen.kt 主文件。
  *
- * 升级说明（Haze 毛玻璃）：
- * 将此前 Window 级 blurBehindRadius 模糊替换为 [BlurDialog] 内部的 Haze hazeEffect，
- * 调用方传入与主页 hazeSource 共用的 [HazeState]，让 Dialog 面板直接采样主页内容形成毛玻璃效果。
+ * 升级说明（miuix-blur 磨砂玻璃）：
+ * 将此前 Window 级 blurBehindRadius 模糊替换为 [BlurDialog] 内部的 miuix-blur 绘制，
+ * 调用方传入与主页共用的 [LayerBackdrop]，让 Dialog 面板直接采样主页内容形成清透的高密度磨砂毛玻璃效果。
  */
 @Composable
 fun AudiobookActionDialogs(
     bookWithProgress: BookWithProgress?,
-    hazeState: HazeState,
+    backdrop: LayerBackdrop,
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由主页从设置状态显式传入，避免 Dialog 封装内部私自声明默认值。
     glassEffectMode: GlassEffectMode,
     onDismissRequest: () -> Unit,
@@ -70,16 +70,16 @@ fun AudiobookActionDialogs(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 一级管理 Dialog（使用 BlurDialog + Haze 实现主页内容采样的毛玻璃效果）
+    // 一级管理 Dialog（使用 BlurDialog + miuix-blur 实现主页内容采样的毛玻璃效果）
     // ─────────────────────────────────────────────────────────────────────────
     if (!showDeleteConfirm) {
         BlurDialog(
             onDismissRequest = onDismissRequest,
-            // 详尽中文注释：传入主页共享的 hazeState，确保一级操作面板能采样当前书架背景。
-            hazeState = hazeState,
-            // 为每一次改动添加详尽的中文注释：把用户设置传给 BlurDialog，Material 模式会跳过内部 Haze modifier。
+            // 详尽中文注释：传入主页共享的 backdrop，确保一级操作面板能采样当前书架背景。
+            backdrop = backdrop,
+            // 为每一次改动添加详尽的中文注释：把用户设置传给 BlurDialog，Material 模式会跳过内部 miuix-blur 相关的 textureBlur 修饰符。
             glassEffectMode = glassEffectMode,
-            // 为每一次改动添加详尽的中文注释：Haze 具体半径、底色和 tint 由 BlurDialog 直接调用官方 HazeMaterials.regular()，不再由 Dialog 调用点传参。
+            // 为每一次改动添加详尽的中文注释：模糊具体半径、底色和 tint 由 BlurDialog 内部自适应配置，不再由 Dialog 调用点传参。
             scrollable = true
         ) {
             // 详尽中文注释：对话框正文内容区，采用 Column 纵向排列各功能区块
@@ -284,16 +284,16 @@ fun AudiobookActionDialogs(
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 二级软删除确认 Dialog（同样使用 BlurDialog + Haze，略微加深模糊以强化警示感）
+    // 二级软删除确认 Dialog（同样使用 BlurDialog + miuix-blur，略微加深模糊以强化警示感）
     // ─────────────────────────────────────────────────────────────────────────
     if (showDeleteConfirm) {
         BlurDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            // 详尽中文注释：二级确认面板复用主页共享 hazeState，保持与一级面板一致的背景采样来源。
-            hazeState = hazeState,
+            // 详尽中文注释：二级确认面板复用主页共享 backdrop，保持与一级面板一致的背景采样来源。
+            backdrop = backdrop,
             // 为每一次改动添加详尽的中文注释：删除确认 Dialog 同步遵循用户选择的玻璃效果模式。
             glassEffectMode = glassEffectMode,
-            // 为每一次改动添加详尽的中文注释：删除确认 Dialog 同样交给 BlurDialog 直接调用官方 HazeMaterials.regular()，避免二级 Dialog 私自加深模糊参数。
+            // 为每一次改动添加详尽的中文注释：删除确认 Dialog 同样交给 BlurDialog 内部配置，避免二级 Dialog 私自加深模糊参数。
             scrollable = false
         ) {
             Column(

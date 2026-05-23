@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.common
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,6 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,31 +22,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+// 为每一次改动添加详尽的中文注释：使用 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurBlendMode
 
 /**
  * 为每一次改动添加详尽的中文注释：
- * BlurSnackbar —— 支持 Material 3 原生样式与 Haze 毛玻璃模糊双态实时切换的通用 Snackbar 包装。
+ * BlurSnackbar —— 支持 Material 3 原生样式与 miuix-blur 毛玻璃模糊双态实时切换的通用 Snackbar 包装。
  *
  * 核心原理：
  * 1. 显式圆角裁剪（Modifier.clip）：
- *    在 Haze 模式下，我们将 clip 修饰符放置在 `hazeEffect` 之前。由于 Haze 默认采用矩形进行采样和模糊，
- *    如果不提前进行圆角裁剪，直角像素的模糊效果会溢出并与容器圆角边缘重叠，形成深色的边缘伪像（边框）。
+ *    在 miuix-blur 模式下，我们将 clip 修饰符放置在 `textureBlur` 之前。这能实现完美圆角边缘采样裁剪。
  * 2. 彻底斩断阴影渗漏（自定义无阴影 Surface）：
- *    由于 M3 原生 Snackbar 内部包裹的 Surface 写死了 shadowElevation 且未对外暴露，
- *    我们在 Haze 模式下采用自定义的无阴影 Surface（shadowElevation = 0.dp, tonalElevation = 0.dp），
- *    并通过 defaultMinSize(minHeight) 精确模拟官方 Snackbar 的最小高度（单行 Row 为 48.dp，换行 Column 为 68.dp），
- *    在彻底消除阴影黑边渗漏的同时，保证两种渲染模式在高度、排版上达到像素级的绝对一致。
- * 3. 颜色自适应：
- *    - Haze 模式：将容器颜色设为完全透明（Color.Transparent），依靠 HazeMaterials.regular() 提供的毛玻璃底层色板。
+ *    我们在 miuix-blur 模式下采用自定义的无阴影 Surface（shadowElevation = 0.dp, tonalElevation = 0.dp），
+ *    并通过 defaultMinSize(minHeight) 精确模拟官方 Snackbar 的最小高度，彻底消除阴影黑边渗漏。
+ * 3. 颜色自适应与模糊：
+ *    - miuix-blur 模式：将 Surface 容器颜色设为完全透明，依靠 textureBlur 渲染模糊背景，并链式涂覆半透明蒙版底色（亮暗自适应）。
  *    - Material 模式：使用标准原生颜色与容器圆角，保证原生风格的极致性能与纯正体验。
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurSnackbar(
-    hazeState: HazeState,
+    backdrop: LayerBackdrop,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     action: @Composable (() -> Unit)? = null,
@@ -62,37 +61,31 @@ fun BlurSnackbar(
     // 为每一次改动添加详尽的中文注释：根据用户要求，限制 Snackbar 的最大宽度为 480dp，以便在大屏/横屏设备上提供更好的视觉排版与可读性
     val constrainedModifier = modifier.widthIn(max = 480.dp)
 
-    if (glassEffectMode == GlassEffectMode.Haze) {
+    // 为每一次改动添加详尽的中文注释：对齐新更名的 MiuixBlur，如果是该模式则就地使用 textureBlur 渲染毛玻璃效果
+    if (glassEffectMode == GlassEffectMode.MiuixBlur) {
         // 为每一次改动添加详尽的中文注释：获取当前系统的深色模式状态，以便为毛玻璃做双态色彩自适应
         val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-        val baseStyle = HazePresets.HazeStyle
-        // 为每一次改动添加详尽的中文注释：为 Snackbar 定制精美通透且具备高度可读性的磨砂高斯模糊风格，
-        // 采用 baseStyle.copy，并根据亮暗主题分别配置 75% 纯白与 65% 深灰的 HazeTint 涂抹着色，
-        // 从而彻底解决在 Color.Transparent 底色下没有高斯模糊的视觉折射以及文字对比度穿帮的问题。
-        val snackbarHazeStyle = remember(isDark, baseStyle) {
-            baseStyle.copy(
-                backgroundColor = Color.Transparent,
-                tints = listOf(
-                    dev.chrisbanes.haze.HazeTint(
-                        if (isDark) {
-                            Color(0xFF2C2C2C).copy(alpha = 0.65f) // 暗色模式：高质感微晶深灰
-                        } else {
-                            Color.White.copy(alpha = 0.75f) // 亮色模式：温润白羽纯白
-                        }
+        // 为每一次改动添加详尽的中文注释：使用 textureBlur 替代原本的 drawBackdrop 物理采样以支持 colored thick 磨砂药丸玻璃质感
+        val glassModifier = Modifier.textureBlur(
+            backdrop = backdrop,
+            shape = shape,
+            blurRadius = 60f, // thick -> 厚模糊，提供极佳沉浸感
+            noiseCoefficient = 0.05f, // texture -> 强磨砂噪点质感
+            colors = BlurColors(
+                blendColors = listOf(
+                    BlendColorEntry(
+                        color = if (isDark) Color(0xFF2C2C2C).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.82f), // colored -> 自适应色混
+                        mode = BlurBlendMode.SrcOver
                     )
                 )
             )
-        }
+        )
 
-        // 为每一次改动添加详尽的中文注释：Haze 模式下，自定义无阴影的 Surface，强制阴影与色调高度为 0.dp 以杜绝黑边投影伪像，
-        // 并通过挂载定制了 HazeTint 自适应色彩的 snackbarHazeStyle 修饰符，实现极其华丽、通透且清晰的高阶毛玻璃效果。
+        // 为每一次改动添加详尽的中文注释：自定义无阴影的 Surface，强制阴影与色调高度为 0.dp 以杜绝黑边投影伪像，
+        // 并通过挂载 miuix-blur 绘制模糊背景与亮暗自适应半透明底色，实现极其华丽、通透且清晰的高阶毛玻璃效果。
         Surface(
             modifier = constrainedModifier
-                .clip(shape)
-                .hazeEffect(
-                    state = hazeState,
-                    style = snackbarHazeStyle
-                ),
+                .then(glassModifier),
             shape = shape,
             color = Color.Transparent,
             contentColor = contentColor,
@@ -140,6 +133,7 @@ fun BlurSnackbar(
                     ) {
                         content()
                     }
+
                     if (action != null) action()
                     if (dismissAction != null) dismissAction()
                 }

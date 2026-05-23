@@ -4,19 +4,29 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
 import com.viel.aplayer.ui.settings.PlayerSettingsState
+import com.viel.aplayer.ui.theme.APlayerTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 // 为每一次改动添加详尽的中文注释：
 // 抽离竖屏播放器顶部栏组件。
@@ -75,4 +85,25 @@ fun PlayerVerticalAppBar(
             )
         }
     )
+}
+
+@Preview(showBackground = true, apiLevel = 36)
+@Composable
+fun PlayerVerticalAppBarPreview() {
+    APlayerTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            PlayerVerticalAppBar(
+                metadata = BookMetadataState(title = "三体：黑暗森林", author = "刘慈欣", narrator = "王明"),
+                settings = PlayerSettingsState(),
+                actions = PlayerActions(),
+                navigationActions = PlayerNavigationActions(),
+                focusManager = LocalFocusManager.current,
+                glassEffectMode = GlassEffectMode.Material,
+                backdrop = rememberLayerBackdrop(),
+                offsetY = remember { Animatable(0f) },
+                scope = rememberCoroutineScope(),
+                dismissThreshold = 100f
+            )
+        }
+    }
 }

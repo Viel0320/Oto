@@ -56,7 +56,64 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.theme.APlayerTheme
-import dev.chrisbanes.haze.HazeState
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.ui.player.BookMetadataState
+import com.viel.aplayer.ui.player.PlayerActions
+import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.settings.PlayerSettingsState
+
+// 详尽的中文注释：
+// 5. 章节列表弹窗有状态局部隔间 ChapterListSheetStateful
+// 本隔间仅当弹窗真正可见（isVisible == true）时才订阅高频流以获取进度和高亮，
+// 在弹窗关闭（isVisible == false）时整个有状态隔间不执行内部订阅代码，完全停摆，避免无意义的高频空耗。
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChapterListSheetStateful(
+    viewModel: PlayerViewModel,
+    metadata: BookMetadataState,
+    settings: PlayerSettingsState,
+    actions: PlayerActions,
+    sheetState: SheetState,
+    // 为每一次改动添加详尽的中文注释：将失效的旧模糊状态类型替换为 miuix-blur 核心的 LayerBackdrop，保证顶层宿主组件的类型传递一致性
+    backdrop: LayerBackdrop,
+    // 为每一次改动添加详尽的中文注释：接收全局玻璃效果模式并传给实际的 ChapterListSheet。
+    glassEffectMode: GlassEffectMode
+) {
+    if (settings.isChapterListVisible) {
+        val isPreview = LocalInspectionMode.current
+        val progressState = if (isPreview) {
+            PlayerViewModel.PlaybackProgressViewState(
+                elapsedMs = 120000L,
+                durationMs = 360000L,
+                isChapterProgressMode = false
+            )
+        } else {
+            viewModel.playbackProgressState.collectAsStateWithLifecycle().value
+        }
+        val currentChapter = remember(progressState.elapsedMs, metadata.chapters) {
+            ChapterTimeline.currentChapter(metadata.chapters, progressState.elapsedMs)
+        }
+        ChapterListSheet(
+            isVisible = true,
+            chapters = metadata.chapters,
+            currentChapter = currentChapter,
+            totalDuration = progressState.durationMs,
+            onDismissRequest = actions.content.onDismissChapterList,
+            onChapterClick = { pos ->
+                actions.playback.onSeek(pos, true)
+                actions.content.onDismissChapterList()
+            },
+            sheetState = sheetState,
+            // 为每一次改动添加详尽的中文注释：将播放器背景 source 共用的 backdrop 传入章节列表面板 effect。
+            backdrop = backdrop,
+            // 为每一次改动添加详尽的中文注释：Material 模式会让章节列表回到原生 BottomSheet 容器层次。
+            glassEffectMode = glassEffectMode
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +124,7 @@ fun ChapterListSheet(
     totalDuration: Long,
     onDismissRequest: () -> Unit,
     onChapterClick: (Long) -> Unit,
-    hazeState: HazeState,
+    backdrop: LayerBackdrop,
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由播放页从设置状态显式传入，章节 BottomSheet 不再声明 Material 默认值。
     glassEffectMode: GlassEffectMode,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
@@ -125,16 +182,17 @@ fun ChapterListSheet(
                 glassEffectMode = glassEffectMode
             )
         } else {
-            // 详尽中文注释：使用 Haze 版 BlurModalBottomSheet 替代原 Window blur 版封装，
-            // hazeState 来自播放器 Surface 的 hazeSource，因此章节列表能采样播放器画面形成毛玻璃。
+            // 详尽中文注释：使用 miuix-blur 版 BlurModalBottomSheet 替代原 Window blur 版封装，
+            // backdrop 来自播放器 Surface 的采样源，因此章节列表能采样播放器画面形成毛玻璃。
             // 同时保留所有原有参数：sheetState、自定义拖拽把手、零内边距等。
             BlurModalBottomSheet(
                 onDismissRequest = onDismissRequest,
                 sheetState = sheetState,
-                hazeState = hazeState,
-                // 为每一次改动添加详尽的中文注释：把 Material/Haze 选择传入通用 BottomSheet 封装，统一控制内部 hazeEffect 是否启用。
+                // 为每一次改动添加详尽的中文注释：传递播放器背景共用的 LayerBackdrop 采样源，以在 BottomSheet 浮层渲染高精度的磨砂玻璃效果。
+                backdrop = backdrop,
+                // 为每一次改动添加详尽的中文注释：把 Material/miuix-blur 选择传入通用 BottomSheet 封装，统一控制内部 drawBackdrop 是否启用。
                 glassEffectMode = glassEffectMode,
-                // 为每一次改动添加详尽的中文注释：章节列表的 Haze 参数由 BlurModalBottomSheet 直接调用官方 HazeMaterials.regular()，不再在调用处单独传半径。
+                // 为每一次改动添加详尽的中文注释：章节列表的模糊参数由 BlurModalBottomSheet 直接配置，不再在调用处单独传半径。
                 tonalElevation = 8.dp,
                 contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
                 dragHandle = {
@@ -157,7 +215,7 @@ fun ChapterListSheet(
                     },
                     listState = listState,
                     bottomSpacerHeight = dynamicSpacerHeight,
-                    // 为每一次改动添加详尽的中文注释：章节列表内容根据 Material/Haze 模式选择不同的当前章节高亮样式。
+                    // 为每一次改动添加详尽的中文注释：章节列表内容根据 Material/miuix-blur 模式选择不同的当前章节高亮样式。
                     glassEffectMode = glassEffectMode
                 )
             }
@@ -211,13 +269,13 @@ fun ChapterListContent(
                     key = { _, chapter -> chapter.id }
                 ) { index, chapter ->
                     val isCurrent = chapter.id == currentChapter?.id
-                    // 为每一次改动添加详尽的中文注释：Haze 模式使用更轻的圆角玻璃高亮，Material 模式保留更明确的 primaryContainer 选中反馈。
+                    // 为每一次改动添加详尽的中文注释：MiuixBlur 模式使用更轻的圆角玻璃高亮，Material 模式保留更明确的 primaryContainer 选中反馈。修改引用至 MiuixBlur。
                     val selectedContainerColor = when (glassEffectMode) {
-                        GlassEffectMode.Haze -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.22f)
+                        GlassEffectMode.MiuixBlur -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.22f)
                         GlassEffectMode.Material -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.36f)
                     }
-                    // 为每一次改动添加详尽的中文注释：Haze 模式用细描边替代大面积蓝色块，让选中态在毛玻璃上更精致、更不抢背景焦点。
-                    val selectedBorderModifier = if (isCurrent && glassEffectMode == GlassEffectMode.Haze) {
+                    // 为每一次改动添加详尽的中文注释：MiuixBlur 模式用细描边替代大面积蓝色块，让选中态在毛玻璃上更精致、更不抢背景焦点。修改引用至 MiuixBlur
+                    val selectedBorderModifier = if (isCurrent && glassEffectMode == GlassEffectMode.MiuixBlur) {
                         Modifier.border(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f),
@@ -226,7 +284,7 @@ fun ChapterListContent(
                     } else {
                         Modifier
                     }
-                    // 为每一次改动添加详尽的中文注释：统一给当前章节行增加圆角，避免 Haze 背景上出现生硬的整块矩形高亮。
+                    // 为每一次改动添加详尽的中文注释：统一给当前章节行增加圆角，避免 miuix-blur 背景上出现生硬的整块矩形高亮。
                     val rowShape = RoundedCornerShape(8.dp)
                     ListItem(
                         headlineContent = {
@@ -273,6 +331,25 @@ fun ChapterListContent(
                 }
 
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, apiLevel = 36)
+@Composable
+fun ChapterListSheetStatefulPreview() {
+    APlayerTheme {
+        Surface {
+            ChapterListSheetStateful(
+                viewModel = PlayerViewModel(),
+                metadata = BookMetadataState(title = "三体"),
+                settings = PlayerSettingsState(isChapterListVisible = true),
+                actions = PlayerActions(),
+                sheetState = rememberModalBottomSheetState(),
+                backdrop = rememberLayerBackdrop(),
+                glassEffectMode = GlassEffectMode.Material
+            )
         }
     }
 }
