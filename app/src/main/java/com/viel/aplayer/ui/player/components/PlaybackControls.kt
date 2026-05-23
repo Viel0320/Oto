@@ -49,6 +49,12 @@ import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.blur
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurBlendMode
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Brush
 
 // 为每一次改动添加详尽的中文注释：导入基础 background 修饰符，修复 miuix-blur 磨砂玻璃大圆钮的背景修饰符编译未解析引用问题
 import androidx.compose.foundation.background
@@ -154,20 +160,76 @@ fun PlaybackControls(
             // 这在视觉层面上构建出极佳的 iOS 级轮廓光实体呼吸感，且彻底消除了高通 Vulkan 驱动在平移变换时的 Feedback Loop 闪退死锁。
             val playPauseShape = CircleShape
             val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-            // 为每一次改动添加详尽的中文注释：自适应本地声明 0.5.dp 微光银丝描边，深色模式用 20% 透明白，浅色用 12% 透明黑。
-            val borderStrokeColor = if (isDark) Color.White.copy(alpha = 0.20f) else Color.Black.copy(alpha = 0.12f)
-            val borderStroke = androidx.compose.foundation.BorderStroke(0.5.dp, borderStrokeColor)
+            // 为每一次改动添加详尽的中文注释：
+            // 在 miuix-blur 磨砂效果下，将播放按钮改造为高透液态玻璃物理圆钮。
+            // 1. 如果 backdrop 采样源存在，使用 textureBlur 对大圆钮进行物理高斯模糊渲染，添加细腻磨砂噪声；
+            // 2. 链式覆盖高光斜向线性渐变 Specular Glare 层，形成晶莹的水滴反光面；
+            // 3. 链式追加 1.dp 极细自适应 Refraction Edge 折射渐变边框，重塑 3D 精致轮廓。
+            // 4. 若为 null，优雅安全降级回无描边的半透材质背景以维持极致稳定。
+            val glassModifier = Modifier
+                .size(80.dp)
+                .let { modifier ->
+                    if (backdrop != null) {
+                        modifier.textureBlur(
+                            backdrop = backdrop,
+                            shape = playPauseShape,
+                            blurRadius = 60f,
+                            noiseCoefficient = 0.05f,
+                            colors = BlurColors(
+                                blendColors = listOf(
+                                    BlendColorEntry(
+                                        color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f),
+                                        mode = BlurBlendMode.SrcOver
+                                    )
+                                )
+                            )
+                        )
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.12f),
+                                    Color.White.copy(alpha = 0.03f),
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.06f)
+                                )
+                            ),
+                            shape = playPauseShape
+                        )
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.linearGradient(
+                                colors = if (isDark) {
+                                    listOf(
+                                        Color.White.copy(alpha = 0.18f),
+                                        Color.White.copy(alpha = 0.02f),
+                                        Color.Transparent,
+                                        Color.White.copy(alpha = 0.08f)
+                                    )
+                                } else {
+                                    listOf(
+                                        Color.White.copy(alpha = 0.45f),
+                                        Color.White.copy(alpha = 0.10f),
+                                        Color.Transparent,
+                                        Color.White.copy(alpha = 0.25f)
+                                    )
+                                }
+                            ),
+                            shape = playPauseShape
+                        )
+                    } else {
+                        modifier
+                            .clip(playPauseShape)
+                            .background(
+                                if (isDark) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.45f)
+                            )
+                    }
+                }
             Surface(
                 onClick = actions.onPlayPauseClick,
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(playPauseShape)
-                    .background(
-                        if (isDark) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.45f)
-                    ),
+                modifier = glassModifier,
                 shape = playPauseShape,
                 color = Color.Transparent,
-                border = borderStroke,
+                border = null, // 完全交由上方的渐变 border 修饰符进行渲染
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
                 Box(contentAlignment = Alignment.Center) {

@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.common
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.DropdownMenu
@@ -9,6 +10,7 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -54,7 +56,7 @@ fun BlurDropdownMenu(
     // 为每一次改动添加详尽的中文注释：获取当前系统的亮暗色主题状态，以实现下拉菜单底色自适应着色混合
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
-    // 为每一次改动添加详尽的中文注释：modifier 会被 Material3 应用到内部滚动 Column，使用 miuix-blur 就地绘制模糊并涂覆半透明蒙版底色。将引用修改为新更名的 MiuixBlur
+    // 为每一次改动添加详尽的中文注释：modifier 会被 Material3 应用到内部滚动 Column，使用 miuix-blur 就地绘制模糊与液态高光折光并涂覆半透明蒙版底色。将引用修改为新更名的 MiuixBlur
     val menuModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
         Modifier.textureBlur(
             backdrop = backdrop,
@@ -64,11 +66,47 @@ fun BlurDropdownMenu(
             colors = BlurColors(
                 blendColors = listOf(
                     BlendColorEntry(
-                        color = if (isDark) Color.Black.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.76f), // colored -> 自适应色混
+                        color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 为每一次改动添加详尽的中文注释：微调蒙版深度，以供底层氛围折光与高光显示
                         mode = BlurBlendMode.SrcOver
                     )
                 )
             )
+        )
+        // 为每一次改动添加详尽的中文注释：
+        // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，模拟真实水晶玻璃表面对光源的物理折射反光。
+        .background(
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.12f),
+                    Color.White.copy(alpha = 0.03f),
+                    Color.Transparent,
+                    Color.White.copy(alpha = 0.06f)
+                )
+            ),
+            shape = menuShape
+        )
+        // 为每一次改动添加详尽的中文注释：
+        // 4. 链式追加 1.dp 极细自适应渐变微光折射边框 (Refraction Edge)，大幅提升下拉菜单的品质与立体质感。
+        .border(
+            width = 1.dp,
+            brush = Brush.linearGradient(
+                colors = if (isDark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.18f),
+                        Color.White.copy(alpha = 0.02f),
+                        Color.Transparent,
+                        Color.White.copy(alpha = 0.08f)
+                    )
+                } else {
+                    listOf(
+                        Color.White.copy(alpha = 0.45f),
+                        Color.White.copy(alpha = 0.10f),
+                        Color.Transparent,
+                        Color.White.copy(alpha = 0.25f)
+                    )
+                }
+            ),
+            shape = menuShape
         )
     } else {
         Modifier

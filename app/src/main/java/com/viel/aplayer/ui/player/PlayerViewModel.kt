@@ -563,7 +563,15 @@ class PlayerViewModel : ViewModel() {
         dismissBookmarkDialog()
     }
     fun setSelectedContentTab(tab: Int) = settingsManager.setSelectedContentTab(tab)
-    fun setFullPlayerVisible(visible: Boolean) = settingsManager.setFullPlayerVisible(visible)
+    fun setFullPlayerVisible(visible: Boolean) {
+        settingsManager.setFullPlayerVisible(visible)
+        if (visible) {
+            // 为每一次改动添加详尽的中文注释：
+            // 当进入全屏播放器界面时（visible 为 true），自动重置并解除迷你播放器的隐藏状态（设置为 false）。
+            // 从而保证当用户后续关闭/收起全屏播放器时，底部的迷你播放器能够自动重新显示，不会因为之前的 hide 状态而消失。
+            settingsManager.setMiniPlayerHidden(false)
+        }
+    }
     fun setMiniPlayerHidden(hidden: Boolean) = settingsManager.setMiniPlayerHidden(hidden)
 
     fun currentBookAvailability(bookId: String): kotlinx.coroutines.flow.Flow<Boolean> = flow {

@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.detail.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +46,10 @@ import com.viel.aplayer.ui.detail.DetailUiState
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurBlendMode
 
 /**
  * 为每一次改动添加详尽的中文注释：
@@ -116,19 +123,68 @@ fun DetailControlPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(buttonHeight)
-                    .clip(RoundedCornerShape(cornerRadius))
-                    .then(
+                    .let {
                         if (backdrop != null) {
-                            Modifier.drawBackdrop(
+                            // 为每一次改动添加详尽的中文注释：
+                            // 1. 使用 textureBlur 对按钮进行硬件级高斯模糊渲染，增加细腻的 0.05f 磨砂噪点。
+                            // 2. 将 blendColors 的不透明度（暗色 0.35f，亮色 0.65f）作为背景主基调，确保亮暗环境下出色的底色透射。
+                            it.textureBlur(
                                 backdrop = backdrop,
-                                shape = { RoundedCornerShape(cornerRadius) },
-                                effects = { blur(20f) }
+                                shape = RoundedCornerShape(cornerRadius),
+                                blurRadius = 60f,
+                                noiseCoefficient = 0.05f,
+                                colors = BlurColors(
+                                    blendColors = listOf(
+                                        BlendColorEntry(
+                                            color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f),
+                                            mode = BlurBlendMode.SrcOver
+                                        )
+                                    )
+                                )
                             )
-                        } else Modifier
-                    ),
+                            // 为每一次改动添加详尽的中文注释：
+                            // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，模拟真实水晶玻璃表面对光源的物理折射反光。
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.12f),
+                                        Color.White.copy(alpha = 0.03f),
+                                        Color.Transparent,
+                                        Color.White.copy(alpha = 0.06f)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(cornerRadius)
+                            )
+                            // 为每一次改动添加详尽的中文注释：
+                            // 4. 链式追加 1.dp 极细微光渐变折射边缘描边 (Refraction Edge)，在任何杂乱背景下都能凸显极佳的立体层次。
+                            .border(
+                                width = 1.dp,
+                                brush = Brush.linearGradient(
+                                    colors = if (isDark) {
+                                        listOf(
+                                            Color.White.copy(alpha = 0.18f),
+                                            Color.White.copy(alpha = 0.02f),
+                                            Color.Transparent,
+                                            Color.White.copy(alpha = 0.08f)
+                                        )
+                                    } else {
+                                        listOf(
+                                            Color.White.copy(alpha = 0.45f),
+                                            Color.White.copy(alpha = 0.10f),
+                                            Color.Transparent,
+                                            Color.White.copy(alpha = 0.25f)
+                                        )
+                                    }
+                                ),
+                                shape = RoundedCornerShape(cornerRadius)
+                            )
+                        } else {
+                            it
+                        }
+                    },
                 shape = RoundedCornerShape(cornerRadius),
-                color = localBlurBackgroundColor,
-                border = localBlurBorder,
+                color = Color.Transparent, // 为每一次改动添加详尽的中文注释：设置背景完全透明，防止传统底色遮蔽底层磨砂与液态偏光的精妙呈现
+                border = null, // 为每一次改动添加详尽的中文注释：设为 null，废弃传统实色 border，完全交由上方的渐变 border 修饰符渲染
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
                 Row(
@@ -238,25 +294,68 @@ fun DetailInfoChip(
     // 使用自定义 Surface 替代 SuggestionChip，以获得更紧凑的间距且不带有额外的点击透明区域
     Surface(
         modifier = modifier
-            .then(
+            .let {
                 if (isBlur) {
-                    Modifier
-                        // 首先在 Modifier 链最前端裁剪 12.dp 圆角，杜绝毛玻璃直角溢出穿帮
-                        .clip(RoundedCornerShape(12.dp))
-                        // 挂载 Backdrop 模糊并应用高阶模糊效果
-                        .drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { RoundedCornerShape(12.dp) },
-                            effects = { blur(20f) }
+                    // 为每一次改动添加详尽的中文注释：
+                    // 1. 使用 textureBlur 对元数据芯片进行高斯模糊渲染（半径 40f 保障小文字极佳可读性），加入 0.03f 细腻噪点质感。
+                    // 2. 将 blendColors 的不透明度（暗色 0.3f，亮色 0.6f）作为背景主基调，确保亮暗环境下出色的底色透射。
+                    it.textureBlur(
+                        backdrop = backdrop,
+                        shape = RoundedCornerShape(12.dp),
+                        blurRadius = 40f,
+                        noiseCoefficient = 0.03f,
+                        colors = BlurColors(
+                            blendColors = listOf(
+                                BlendColorEntry(
+                                    color = if (isDark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.6f),
+                                    mode = BlurBlendMode.SrcOver
+                                )
+                            )
                         )
+                    )
+                    // 为每一次改动添加详尽的中文注释：
+                    // 3. 链式覆盖高光斜向白色物理扫掠折射层 (Specular Glare)，赋予药丸微缩水滴的剔透立体感。
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.08f),
+                                Color.White.copy(alpha = 0.02f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.04f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    // 为每一次改动添加详尽的中文注释：
+                    // 4. 链式添加 0.5.dp 极致精细的“微光折射渐变描边 (Refraction Edge)”，防止在大面积杂色背景上边缘发生粘连。
+                    .border(
+                        width = 0.5.dp,
+                        brush = Brush.linearGradient(
+                            colors = if (isDark) {
+                                listOf(
+                                    Color.White.copy(alpha = 0.15f),
+                                    Color.White.copy(alpha = 0.02f),
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.06f)
+                                )
+                            } else {
+                                listOf(
+                                    Color.White.copy(alpha = 0.35f),
+                                    Color.White.copy(alpha = 0.08f),
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.18f)
+                                )
+                            }
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
                 } else {
-                    Modifier
+                    it
                 }
-            ),
+            },
         shape = RoundedCornerShape(12.dp),
         border = if (isBlur) {
-            // 为每一次改动添加详尽的中文注释：使用本地高级亮暗自适应的极细 0.5.dp 描边，展现更高级别的细节质感
-            localBlurBorder
+            null // 为每一次改动添加详尽的中文注释：在模糊状态下将原生 border 设为 null，完美移交上方的渐变 border 修饰符进行自定义精细绘制
         } else {
             androidx.compose.foundation.BorderStroke(
                 width = 1.dp,
@@ -264,8 +363,7 @@ fun DetailInfoChip(
             )
         },
         color = if (isBlur) {
-            // 为每一次改动添加详尽的中文注释：使用本地亮暗自适应的半透明蒙版底色，取代旧的全局模糊预设配置
-            localBlurBackgroundColor
+            Color.Transparent // 为每一次改动添加详尽的中文注释：在模糊状态下使 Surface 背景完全透明，杜绝背景色彩叠加穿帮
         } else {
             Color.Transparent
         }

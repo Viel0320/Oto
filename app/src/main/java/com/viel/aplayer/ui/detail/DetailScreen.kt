@@ -97,6 +97,8 @@ fun DetailScreen(
     glassEffectMode: GlassEffectMode,
     // 为每一次改动添加详尽的中文注释：将共享的模糊状态变更为 miuix-blur 的 LayerBackdrop 采样源参数
     backdrop: LayerBackdrop? = null,
+    // 为每一次改动添加详尽的中文注释：接收从 DetailOverlay 穿透进来的详情页整页包含前景组件的采样源，用以为子浮层组件提供无穿帮高质感模糊。
+    fullPageBackdrop: LayerBackdrop? = null,
     // 为每一次改动添加详尽的中文注释：增加元数据编辑点击的回调函数，以实现非 Activity Overlay 化无缝跳转
     onEditClick: (String) -> Unit = {},
 ) {
@@ -109,8 +111,8 @@ fun DetailScreen(
     var infoDialogText by remember { mutableStateOf<String?>(null) }
     // 为每一次改动添加详尽的中文注释：控制详情页右上角 TopAppBar 折叠菜单的显示隐藏状态
     var showMenu by remember { mutableStateOf(false) }
-    // 为每一次改动添加详尽的中文注释：合并原 dropdownMenuBackdrop 与 coverBackdrop 状态机，统一使用 detailBackdrop 作为全局兄弟采样源以实现高保真磨砂折射。
-    val detailBackdrop = rememberLayerBackdrop()
+    // 为每一次改动添加详尽的中文注释：专用于背景与页面内 sibling 组件防环路渲染死锁的局部仅背景采样源。
+    val coverBackdrop = rememberLayerBackdrop()
     // 为每一次改动添加详尽的中文注释：感知当前 miuix-blur 磨砂玻璃模式是否已被开启。修改引用为新更名的 MiuixBlur
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
 
@@ -187,7 +189,7 @@ fun DetailScreen(
                 lastUpdated = book?.lastScannedAt ?: 0L,
                 backgroundColorArgb = uiState.backgroundColorArgb,
                 glassEffectMode = glassEffectMode,
-                backdrop = detailBackdrop
+                backdrop = coverBackdrop
             )
 
             Scaffold(
@@ -214,8 +216,8 @@ fun DetailScreen(
                             BlurDropdownMenu(
                                 expanded = showMenu,
                                 onDismissRequest = { showMenu = false },
-                                // 为每一次改动添加详尽的中文注释：把详情页统一的 detailBackdrop 传给菜单，实现兄弟节点采样的高清晰毛玻璃效果。
-                                backdrop = detailBackdrop,
+                                // 为每一次改动添加详尽的中文注释：把详情页全量采样源透传给下拉菜单，实现包含前景文字与按钮的高真毛玻璃折射，并在 null 时安全自适应降级。
+                                backdrop = fullPageBackdrop ?: coverBackdrop,
                                 // 为每一次改动添加详尽的中文注释：更多菜单跟随设置页选择在 Material 与 miuix-blur 之间切换。
                                 glassEffectMode = glassEffectMode
                             ) {
@@ -281,7 +283,7 @@ fun DetailScreen(
                         padding = padding,
                         safeDrawingPadding = safeDrawingPadding,
                         glassEffectMode = glassEffectMode,
-                        detailBackdrop = detailBackdrop,
+                        detailBackdrop = coverBackdrop,
                         onPlayPressed = onPlayPressed,
                         onPlayClick = onPlayClick,
                         onSearchClick = onSearchClick,
@@ -299,7 +301,7 @@ fun DetailScreen(
                         padding = padding,
                         safeDrawingPadding = safeDrawingPadding,
                         glassEffectMode = glassEffectMode,
-                        detailBackdrop = detailBackdrop,
+                        detailBackdrop = coverBackdrop,
                         onPlayPressed = onPlayPressed,
                         onPlayClick = onPlayClick,
                         onSearchClick = onSearchClick,
@@ -316,7 +318,7 @@ fun DetailScreen(
                         uiState = uiState,
                         padding = padding,
                         glassEffectMode = glassEffectMode,
-                        detailBackdrop = detailBackdrop,
+                        detailBackdrop = coverBackdrop,
                         onPlayPressed = onPlayPressed,
                         onPlayClick = onPlayClick,
                         onSearchClick = onSearchClick,
@@ -334,14 +336,14 @@ fun DetailScreen(
     if (infoDialogText != null) {
         if (isBlur) {
             // 为每一次改动添加详尽的中文注释：
-            // 在 miuix-blur 磨砂玻璃模式下，将详情页 info 弹窗重构为基于全局 detailBackdrop 采样源的 BlurDialog。
-            // 点击外部或点击 OK 均能顺畅退出，且毛玻璃视觉同源并具有兄弟节点无循环引用的高度安全性。
+            // 在 miuix-blur 磨砂玻璃模式下，将详情页 info 弹窗重构为基于 fullPageBackdrop 的 BlurDialog。
+            // 透传详情页全量采样源以获得无穿帮的全前景模糊，并且在 null 时安全回退至 coverBackdrop 背景采样源。
             BlurDialog(
                 onDismissRequest = {
                     infoDialogText = null
                     infoDialogTitle = null
                 },
-                backdrop = detailBackdrop,
+                backdrop = fullPageBackdrop ?: coverBackdrop,
                 glassEffectMode = glassEffectMode
             ) {
                 Column(

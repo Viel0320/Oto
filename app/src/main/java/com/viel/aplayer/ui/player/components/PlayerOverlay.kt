@@ -25,8 +25,10 @@ import com.viel.aplayer.ui.player.PlayerViewModel
 // 为每一次改动添加详尽的中文注释：引入 LocalConfiguration 与 Configuration，用于在迷你播放器组件内实时识别屏幕状态
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
-// 为每一次改动添加详尽的中文注释：引入 LayerBackdrop 类型
+// 为每一次改动添加详尽的中文注释：引入 LayerBackdrop 及相关模糊挂载工具类
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 /**
  * 播放器悬浮层组件。
@@ -76,18 +78,37 @@ fun PlayerOverlay(
 
     Box(modifier = modifier.fillMaxSize()) {
         // 全屏播放器层
+        // 为每一次改动添加详尽的中文注释：
+        // 实例化全屏播放器自身专属的 playerBackdrop 采样源，
+        // 挂载在最外层包裹的 Box 上以实时采集整个播放器的画面数据（包含前景文字与全部控制按钮），
+        // 并穿透给 PlayerScreen 以让内部的章节列表抽屉组件（ChapterListSheet）实现真正清透的模糊效果。
+        val playerBackdrop = rememberLayerBackdrop()
         AnimatedVisibility(
             visible = isFullPlayerVisible,
             enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)),
             exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
         ) {
-            PlayerScreen(
-                viewModel = playerViewModel,
-                actions = playerActions,
-                navigationActions = playerNavigationActions,
-                // 为每一次改动添加详尽的中文注释：全屏播放器内部负责创建章节列表的 miuix-blur 模糊视效，因此这里仅透传模式。
-                glassEffectMode = glassEffectMode
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (glassEffectMode == GlassEffectMode.MiuixBlur) {
+                            Modifier.layerBackdrop(playerBackdrop)
+                        } else {
+                            Modifier
+                        }
+                    )
+            ) {
+                PlayerScreen(
+                    viewModel = playerViewModel,
+                    actions = playerActions,
+                    navigationActions = playerNavigationActions,
+                    // 为每一次改动添加详尽的中文注释：全屏播放器内部负责创建章节列表的 miuix-blur 模糊视效，因此这里仅透传模式。
+                    glassEffectMode = glassEffectMode,
+                    // 为每一次改动添加详尽的中文注释：传递播放器自身的整页全量画面采样源，实现无穿帮高质感磨砂模糊。
+                    fullPageBackdrop = playerBackdrop
+                )
+            }
         }
 
         // 迷你播放器显示逻辑判断

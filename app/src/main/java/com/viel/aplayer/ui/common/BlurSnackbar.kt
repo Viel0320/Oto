@@ -1,6 +1,8 @@
 package com.viel.aplayer.ui.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,6 +81,42 @@ fun BlurSnackbar(
                     )
                 )
             )
+        )
+        // 为每一次改动添加详尽的中文注释：
+        // 3. 链式覆盖高光斜向白色物理扫掠折射层 (Specular Glare)，赋予药丸微缩水滴的剔透立体感。
+        .background(
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.12f),
+                    Color.White.copy(alpha = 0.03f),
+                    Color.Transparent,
+                    Color.White.copy(alpha = 0.06f)
+                )
+            ),
+            shape = shape
+        )
+        // 为每一次改动添加详尽的中文注释：
+        // 4. 链式添加 1.dp 极致精细的“微光折射渐变描边 (Refraction Edge)”，防止在大面积杂色背景上边缘发生粘连。
+        .border(
+            width = 1.dp,
+            brush = Brush.linearGradient(
+                colors = if (isDark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.18f),
+                        Color.White.copy(alpha = 0.02f),
+                        Color.Transparent,
+                        Color.White.copy(alpha = 0.08f)
+                    )
+                } else {
+                    listOf(
+                        Color.White.copy(alpha = 0.45f),
+                        Color.White.copy(alpha = 0.10f),
+                        Color.Transparent,
+                        Color.White.copy(alpha = 0.25f)
+                    )
+                }
+            ),
+            shape = shape
         )
 
         // 为每一次改动添加详尽的中文注释：自定义无阴影的 Surface，强制阴影与色调高度为 0.dp 以杜绝黑边投影伪像，

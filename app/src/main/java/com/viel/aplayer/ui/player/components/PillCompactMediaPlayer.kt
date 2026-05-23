@@ -8,6 +8,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -133,11 +134,8 @@ fun PillCompactMediaPlayer(
             .let {
                 if (isBlurMode) {
                     // 为每一次改动添加详尽的中文注释：
-                    // 1. 使用 textureBlur 替代原本的 drawBackdrop 物理采样以支持 colored thick 磨砂药丸玻璃质感
-                    // 2. 将 shape 设为 pillShape 以配合药丸胶囊的极致圆润边缘
-                    // 3. 将 blurRadius 设为 60f (thick -> 厚重模糊半径，提供极致沉浸感)
-                    // 4. 将 noiseCoefficient 设为 0.05f (texture -> 增加细腻的磨砂噪点质感)
-                    // 5. 使用自适应亮暗色 BlurColors 进行 colored 调色融合（在亮色下混合亮白、在暗色下混合半透明暗玄色），防止文字与背景粘连
+                    // 1. 使用 textureBlur 渲染基础厚高斯模糊（半径 60f），并添加 0.05f 细腻微砂质感。
+                    // 2. 将 blendColors 的不透明度（暗色 0.35f，亮色 0.65f）作为背景主基调，确保亮暗环境下出色的底色透射。
                     it.textureBlur(
                         backdrop = backdrop,
                         shape = pillShape,
@@ -146,11 +144,49 @@ fun PillCompactMediaPlayer(
                         colors = BlurColors(
                             blendColors = listOf(
                                 BlendColorEntry(
-                                    color = if (isDark) Color.Black.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.76f),
+                                    color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f),
                                     mode = BlurBlendMode.SrcOver
                                 )
                             )
                         )
+                    )
+                    // 为每一次改动添加详尽的中文注释：
+                    // 3. 链式追加“斜切反射高光层 (Specular Glare)”，通过白色到透明的超轻透感渐变覆盖，
+                    //    模拟高光在玻璃凸起面上的物理扫掠折射，极具 3D 浮雕剔透质感。
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.12f),
+                                Color.White.copy(alpha = 0.03f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.06f)
+                            )
+                        ),
+                        shape = pillShape
+                    )
+                    // 为每一次改动添加详尽的中文注释：
+                    // 4. 链式追加“超细微光折射描边 (Refraction Edge)”，使用高对比度渐变细线（1.dp）勾勒边缘。
+                    //    这模拟了光线在液态水滴边缘的全反射折射边，让药丸从底层背景脱颖而出，立体高贵。
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.linearGradient(
+                            colors = if (isDark) {
+                                listOf(
+                                    Color.White.copy(alpha = 0.18f),
+                                    Color.White.copy(alpha = 0.02f),
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.08f)
+                                )
+                            } else {
+                                listOf(
+                                    Color.White.copy(alpha = 0.45f),
+                                    Color.White.copy(alpha = 0.10f),
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.25f)
+                                )
+                            }
+                        ),
+                        shape = pillShape
                     )
                 } else {
                     it
@@ -197,8 +233,42 @@ fun PillCompactMediaPlayer(
                         // 为每一次改动添加详尽的中文注释：应用旋转动画效果，通过 graphicsLayer 调整 rotationZ，模拟黑胶唱片旋转感
                         .graphicsLayer { rotationZ = currentRotation }
                         .clip(RoundedCornerShape(100.dp))
+                        // 为每一次改动添加详尽的中文注释：
+                        // 在开启 miuix-blur 模糊模式时，为黑胶圆盘外圈追加一圈极其高贵、清透剔透的 1.dp 渐变微光折射描边，
+                        // 使封面像嵌入水晶防护片盖中一样充满精致的物理反光质感。
+                        .let {
+                            if (isBlurMode) {
+                                it.border(
+                                    width = 1.dp,
+                                    brush = Brush.linearGradient(
+                                        colors = if (isDark) {
+                                            listOf(
+                                                Color.White.copy(alpha = 0.18f),
+                                                Color.White.copy(alpha = 0.02f),
+                                                Color.Transparent,
+                                                Color.White.copy(alpha = 0.08f)
+                                            )
+                                        } else {
+                                            listOf(
+                                                Color.White.copy(alpha = 0.45f),
+                                                Color.White.copy(alpha = 0.10f),
+                                                Color.Transparent,
+                                                Color.White.copy(alpha = 0.25f)
+                                            )
+                                        }
+                                    ),
+                                    shape = RoundedCornerShape(100.dp)
+                                )
+                            } else {
+                                it
+                            }
+                        }
+                        // 为每一次改动添加详尽的中文注释：
+                        // 将胶囊药丸播放器封面的点击事件从空实现修改为传入的 onClick 回调，
+                        // 使得点击药丸黑胶唱片封面同样能够拉起全屏播放器页面，
+                        // 且长按封面依然支持 actions.onHide 快捷隐藏。
                         .combinedClickable(
-                            onClick = {},
+                            onClick = onClick,
                             onLongClick = actions.onHide
                         )
                 ) {

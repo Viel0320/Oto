@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.common
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -14,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -78,7 +81,7 @@ fun BlurDialog(
                 .padding(horizontal = 24.dp, vertical = 48.dp),
             contentAlignment = Alignment.Center
         ) {
-            // 为每一次改动添加详尽的中文注释：仅在 MiuixBlur 模式挂载高阶 textureBlur 质感磨砂效果；Material 模式完全跳过采样以绝缘开销。
+            // 为每一次改动添加详尽的中文注释：仅在 MiuixBlur 模式挂载高阶 textureBlur 质感磨砂与液态玻璃折光效果；Material 模式完全跳过采样以绝缘开销。
             val glassModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
                 val dialogShape = MaterialTheme.shapes.extraLarge
                 Modifier.textureBlur(
@@ -89,7 +92,7 @@ fun BlurDialog(
                     colors = BlurColors(
                         blendColors = listOf(
                             BlendColorEntry(
-                                color = if (isDark) Color.Black.copy(alpha = 0.62f) else Color.White.copy(alpha = 0.82f), // colored -> 适度加深蒙版遮罩不透明度以淡化底层交界
+                                color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 为每一次改动添加详尽的中文注释：微调蒙版深度，以供底层氛围折光与高光显示
                                 mode = BlurBlendMode.SrcOver
                             )
                         ),
@@ -97,6 +100,42 @@ fun BlurDialog(
                         contrast = 0.65f, // 详尽中文注释：大幅压缩对比度，抹平 Recently Added 列表物理硬切分界线
                         saturation = 1.0f
                     )
+                )
+                // 为每一次改动添加详尽的中文注释：
+                // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，重塑水晶般剔透的 3D 折面反射。
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.12f),
+                            Color.White.copy(alpha = 0.03f),
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.06f)
+                        )
+                    ),
+                    shape = dialogShape
+                )
+                // 为每一次改动添加详尽的中文注释：
+                // 4. 链式追加 1.dp 极细自适应渐变微光折射边框 (Refraction Edge)，极大增强弹窗面板的悬浮感与视觉豪华度。
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colors = if (isDark) {
+                            listOf(
+                                Color.White.copy(alpha = 0.18f),
+                                Color.White.copy(alpha = 0.02f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.08f)
+                            )
+                        } else {
+                            listOf(
+                                Color.White.copy(alpha = 0.45f),
+                                Color.White.copy(alpha = 0.10f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.25f)
+                            )
+                        }
+                    ),
+                    shape = dialogShape
                 )
             } else {
                 Modifier

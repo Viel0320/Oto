@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
@@ -100,7 +102,7 @@ fun BlurModalBottomSheet(
         dragHandle = null,
         contentWindowInsets = contentWindowInsets,
     ) {
-        // 为每一次改动添加详尽的中文注释：仅在 MiuixBlur 模式挂载 drawBackdrop 与半透明蒙版底色；Material 模式完全跳过毛玻璃修饰。将引用修改为新更名的 MiuixBlur
+        // 为每一次改动添加详尽的中文注释：仅在 MiuixBlur 模式挂载 drawBackdrop 与半透明蒙版底色和液态高光折光；Material 模式完全跳过毛玻璃修饰。将引用修改为新更名的 MiuixBlur
         val glassModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
             Modifier.textureBlur(
                 backdrop = backdrop,
@@ -110,11 +112,47 @@ fun BlurModalBottomSheet(
                 colors = BlurColors(
                     blendColors = listOf(
                         BlendColorEntry(
-                            color = if (isDark) Color.Black.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.76f), // colored -> 自适应色混
+                            color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 为每一次改动添加详尽的中文注释：微调蒙版深度，以供底层氛围折光与高光显示
                             mode = BlurBlendMode.SrcOver
                         )
                     )
                 )
+            )
+            // 为每一次改动添加详尽的中文注释：
+            // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，模拟真实水晶玻璃表面对光源的物理折射反光。
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.12f),
+                        Color.White.copy(alpha = 0.03f),
+                        Color.Transparent,
+                        Color.White.copy(alpha = 0.06f)
+                    )
+                ),
+                shape = shape
+            )
+            // 为每一次改动添加详尽的中文注释：
+            // 4. 链式追加 1.dp 极细自适应渐变微光折射边框 (Refraction Edge)，使得底部抽屉呈现极为突出的三维浮雕立体感。
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    colors = if (isDark) {
+                        listOf(
+                            Color.White.copy(alpha = 0.18f),
+                            Color.White.copy(alpha = 0.02f),
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.08f)
+                        )
+                    } else {
+                        listOf(
+                            Color.White.copy(alpha = 0.45f),
+                            Color.White.copy(alpha = 0.10f),
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.25f)
+                        )
+                    }
+                ),
+                shape = shape
             )
         } else {
             Modifier

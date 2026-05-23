@@ -65,12 +65,13 @@ fun PlayerControlPanel(
         )
         Spacer(Modifier.height(16.dp))
 
-        // 详尽中文注释：进度条显示局部隔间，传入 fillMaxWidth 确保进度条横轴完美铺满
+        // 详尽中文注释：进度条显示局部隔间，传入 fillMaxWidth 确保进度条横轴完美铺满，并传入 glassEffectMode 支持液态玻璃折射
         PlaybackProgressStateful(
             viewModel = viewModel,
             metadata = metadata,
             actions = actions,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            glassEffectMode = glassEffectMode
         )
         Spacer(Modifier.height(24.dp))
         

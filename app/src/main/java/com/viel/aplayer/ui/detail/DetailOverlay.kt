@@ -94,6 +94,8 @@ fun DetailOverlay(
                 glassEffectMode = glassEffectMode,
                 // 为每一次改动添加详尽的中文注释：将 Backdrop 进一步向下透传给 DetailScreen，用以渲染自身封面高斯背景。
                 backdrop = backdrop,
+                // 为每一次改动添加详尽的中文注释：向 DetailScreen 传递包含前景文字与按钮的详情页整页全量采样源，以供子弹窗与下拉菜单高真模糊采样。
+                fullPageBackdrop = detailBackdrop,
                 // 为每一次改动添加详尽的中文注释：向下透传编辑书籍元数据内存 lambda 回调
                 onEditClick = onEditClick
             )

@@ -56,6 +56,7 @@ import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterListSheetStateful
 import com.viel.aplayer.ui.theme.APlayerTheme
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import kotlin.math.roundToInt
 
@@ -80,6 +81,8 @@ fun PlayerScreen(
     // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由播放器 Overlay 从设置状态显式传入，播放页内部不再声明 Material 默认值。
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
+    // 为每一次改动添加详尽的中文注释：接收从外部 PlayerOverlay 传递进来的全屏播放器自身全量画面（含前景文字、进度条与按钮）采样源，用以消除子弹窗模糊的背景穿帮。
+    fullPageBackdrop: LayerBackdrop? = null,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
@@ -173,9 +176,9 @@ fun PlayerScreen(
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         
         // 为每一次改动添加详尽的中文注释：
-        // 重新在 LocalComposables 环境下声明全局 chapterSheetBackdrop 状态机采样源，修复未解析引用的编译错误。
-        // 将其作为背景层专属采样源，并与前景组件隔离为同级兄弟，彻底规避 Vulkan feedback loop 死锁崩溃。
-        val chapterSheetBackdrop = rememberLayerBackdrop()
+        // 重新在 LocalComposables 环境下声明全局 coverBackdrop 背景专属采样源，修复未解析引用的编译错误。
+        // 用以作为背景层专属采样源，与前景组件隔离为同级兄弟，彻底规避 Vulkan feedback loop 死锁崩溃。
+        val coverBackdrop = rememberLayerBackdrop()
 
         // 详尽的中文注释：当处于书签/歌词/推荐等面板时，使用 PredictiveBackHandler 平滑返回主播放页面
         androidx.activity.compose.PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
@@ -258,7 +261,7 @@ fun PlayerScreen(
                     lastUpdated = metadata.coverLastUpdated,
                     backgroundColorArgb = metadata.backgroundColorArgb,
                     glassEffectMode = glassEffectMode,
-                    backdrop = chapterSheetBackdrop
+                    backdrop = coverBackdrop
                 )
 
                 // 2. 纯净前景操作图层 (同级兄弟节点，内部所有组件均可安全 drawBackdrop 进行背景采样折射，彻底拆分后的容器分发)
@@ -283,7 +286,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetBackdrop = chapterSheetBackdrop
+                                chapterSheetBackdrop = coverBackdrop
                             )
                         }
                         isLandscape -> {
@@ -301,7 +304,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetBackdrop = chapterSheetBackdrop
+                                chapterSheetBackdrop = coverBackdrop
                             )
                         }
                         else -> {
@@ -319,7 +322,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetBackdrop = chapterSheetBackdrop,
+                                chapterSheetBackdrop = coverBackdrop,
                                 offsetY = offsetY,
                                 scope = scope,
                                 dismissThreshold = dismissThreshold,
@@ -349,7 +352,7 @@ fun PlayerScreen(
                 ) {
                     // 为每一次改动添加详尽的中文注释：使用新创建的 BlurSnackbar，支持在 miuix-blur 模式下采样兄弟节点的背景模糊效果，Material 模式下展示原生样式。
                     BlurSnackbar(
-                        backdrop = chapterSheetBackdrop,
+                        backdrop = coverBackdrop,
                         glassEffectMode = glassEffectMode,
                         action = {
                             TextButton(onClick = actions.playback.onUndoSeek) {
@@ -380,7 +383,8 @@ fun PlayerScreen(
             settings = settings,
             actions = actions,
             sheetState = sheetState,
-            backdrop = chapterSheetBackdrop,
+            // 为每一次改动添加详尽的中文注释：升级章节列表抽屉的采样源为整页全量采样，在 null 时安全降级回 coverBackdrop，无缝实现全前景画面高真模糊。
+            backdrop = fullPageBackdrop ?: coverBackdrop,
             glassEffectMode = glassEffectMode
         )
 

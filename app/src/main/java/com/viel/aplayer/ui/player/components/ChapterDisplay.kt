@@ -34,6 +34,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
@@ -107,24 +108,65 @@ fun ChapterDisplay(
             // 为每一次改动添加详尽的中文注释：
             // 彻底弃用任何 Material 3 高度封装交互容器（如 SuggestionChip 或 Surface），
             // 直接采用最底层的纯净 Box 容器，并按照极其规范的 Modifier 链排列：
-            // Modifier.clip -> background(半透蒙版) -> clickable(接管水波纹) -> border(0.5.dp微光描边) -> padding
+            // Modifier.clip -> background(极透底色) -> background(物理反光) -> clickable -> border(折射描边) -> padding
             // 这能够强制所有的测量边界、水波纹波澜、乳白底色和极细白透描边百分之百完美地基于同心 chipShape 进行同心绘制。
             // 从而在任何短字长（如单个字符 "3"）或极端宽度下，实现像素级绝对尺寸自适应，彻底根治内外双重圆角边框嵌套与尺寸截断冲突的严重视觉 Bug。
             val chipShape = RoundedCornerShape(12.dp)
             // 为每一次改动添加详尽的中文注释：通过 local state 获取系统是否为深色模式，以精准施加自适应对比度蒙版与轮廓银丝描边，完全摆脱对外部描边预设的物理耦合。
             val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-            // 为每一次改动添加详尽的中文注释：深色模式使用 12% 不透明度的高雅乳白蒙版，浅色模式使用 8% 不透明度玄羽压亮蒙版，彻底保障磨砂玻璃药丸内的文字清晰可辨。
-            val maskColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)
-            // 为每一次改动添加详尽的中文注释：深色模式使用 20% 高频漫反射白光描边，浅色模式使用 12% 压暗描边，本地精细构建 0.5.dp 轮廓描边。
-            val borderStrokeColor = if (isDark) Color.White.copy(alpha = 0.20f) else Color.Black.copy(alpha = 0.12f)
-            val borderStroke = androidx.compose.foundation.BorderStroke(0.5.dp, borderStrokeColor)
+            
+            // 为每一次改动添加详尽的中文注释：
+            // 1. 极致清透的高透明度自适应磨砂底色 (Mask Brush)，深色使用 [0.08f -> 0.03f] 的微白透亮层，浅色使用 [0.60f -> 0.35f] 的高雅乳白渐变，彻底保障文字清晰度的同时消灭背景发灰。
+            val maskBrush = Brush.linearGradient(
+                colors = if (isDark) {
+                    listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.03f))
+                } else {
+                    listOf(Color.White.copy(alpha = 0.60f), Color.White.copy(alpha = 0.35f))
+                }
+            )
+            
             Box(
                 modifier = Modifier
                     .weight(1f, fill = false)
                     .clip(chipShape)
-                    .background(maskColor)
+                    .background(maskBrush)
+                    // 为每一次改动添加详尽的中文注释：
+                    // 2. 链式覆盖高光斜向白色物理扫掠折射层 (Specular Glare)，赋予药丸微缩水滴的剔透立体感与光亮厚度。
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.10f),
+                                Color.White.copy(alpha = 0.02f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.05f)
+                            )
+                        ),
+                        shape = chipShape
+                    )
                     .clickable(onClick = onChapterClick)
-                    .border(borderStroke, chipShape)
+                    // 为每一次改动添加详尽的中文注释：
+                    // 3. 链式添加 0.8.dp 极致精细的“微光折射渐变描边 (Refraction Edge)”，防止在大面积杂色背景上边缘发生粘连，与整体液态玻璃对齐。
+                    .border(
+                        width = 0.8.dp,
+                        brush = Brush.linearGradient(
+                            colors = if (isDark) {
+                                listOf(
+                                    Color.White.copy(alpha = 0.18f),
+                                    Color.White.copy(alpha = 0.02f),
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.08f)
+                                )
+                            } else {
+                                listOf(
+                                    Color.White.copy(alpha = 0.45f),
+                                    Color.White.copy(alpha = 0.10f),
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.25f)
+                                )
+                            }
+                        ),
+                        shape = chipShape
+                    )
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Row(

@@ -18,6 +18,7 @@ import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.data.store.GlassEffectMode
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.ui.player.BookMetadataState
@@ -34,7 +35,9 @@ fun PlaybackProgressStateful(
     viewModel: PlayerViewModel,
     metadata: BookMetadataState,
     actions: PlayerActions,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 为每一次改动添加详尽的中文注释：新增玻璃视效选择模式参数，透传至底层进度条组件。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
     val progressState = if (isPreview) {
@@ -54,7 +57,8 @@ fun PlaybackProgressStateful(
         chapters = metadata.chapters,
         markers = metadata.getChapterMarkers(progressState.durationMs),
         onSeek = { pos -> actions.playback.onSeek(pos, true) },
-        modifier = modifier
+        modifier = modifier,
+        glassEffectMode = glassEffectMode
     )
 }
 
@@ -71,7 +75,9 @@ fun PlaybackProgress(
     chapters: List<ChapterEntity>,
     markers: List<Float>,
     onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 为每一次改动添加详尽的中文注释：新增自适应玻璃视效模式参数。
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     // 1. 实时查找当前位置所在的章节
     val currentChapter = remember(currentPosition, chapters) {
@@ -109,7 +115,8 @@ fun PlaybackProgress(
             },
             // 在章节模式下隐藏全书的章节标记点
             markers = if (isChapterMode) emptyList() else markers,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            glassEffectMode = glassEffectMode
         )
 
         Row(
