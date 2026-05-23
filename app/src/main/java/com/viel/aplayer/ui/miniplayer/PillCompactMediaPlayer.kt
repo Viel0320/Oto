@@ -1,8 +1,8 @@
-
-package com.viel.aplayer.ui.player.components
+package com.viel.aplayer.ui.miniplayer
 
 // 为每一次改动添加详尽的中文注释：引入 widthIn 修饰符，用于限制悬浮药丸播放器在宽屏/大屏下的最大宽度
 // 为每一次改动添加详尽的中文注释：引入 wrapContentWidth 修饰符，用于支持药丸自适应宽度布局
+import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -10,6 +10,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,9 +41,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.theme.APlayerTheme
@@ -51,6 +54,7 @@ import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import java.io.File
 
@@ -113,7 +117,7 @@ fun PillCompactMediaPlayer(
     val currentRotation = rotation.value
 
     // 为每一次改动添加详尽的中文注释：获取当前系统的亮暗色主题状态，以实现新播放器的全套配色主题切换
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = isSystemInDarkTheme()
 
     // 为每一次改动添加详尽的中文注释：
     // 使用支持 onClick 的 Surface 原生重载，并将其绑定 to onClick。
@@ -277,7 +281,7 @@ fun PillCompactMediaPlayer(
                         // 并使用具有更新时间戳的 memoryCacheKey 和 diskCacheKey 来打破 Coil 的加载失败及缓存记录，
                         // 迫使 Coil 在物理封面重建后，能够立刻重新读取新的物理文件内容。
                         AsyncImage(
-                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                            model = ImageRequest.Builder(LocalContext.current)
                                 .data(coverFile)
                                 .memoryCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
                                 .diskCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
@@ -289,7 +293,7 @@ fun PillCompactMediaPlayer(
                             contentScale = ContentScale.Crop,
                             // 详尽的中文注释：监听 Coil 加载封面图片失败的回调，打印具体的文件绝对路径及异常信息，便于排查 Scoped Storage 或是其它解码错误
                             onError = { errorState ->
-                                android.util.Log.e("PillCompactMediaPlayer", "加载封面图片失败: ${coverFile.absolutePath}, 原因: ", errorState.result.throwable)
+                                Log.e("PillCompactMediaPlayer", "加载封面图片失败: ${coverFile.absolutePath}, 原因: ", errorState.result.throwable)
                             }
                         )
                     } else {
@@ -353,7 +357,7 @@ fun PillCompactMediaPlayerPlayingPreview() {
 fun PillCompactMediaPlayerBlurPreview() {
     APlayerTheme {
         // 详尽的中文注释：为了展示高斯模糊效果，我们需要创建一个 LayerBackdrop 并将其关联到背景容器上
-        val appBackdrop = top.yukonga.miuix.kmp.blur.rememberLayerBackdrop()
+        val appBackdrop = rememberLayerBackdrop()
         
         Box(
             modifier = Modifier

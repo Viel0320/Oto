@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.player.components
+package com.viel.aplayer.ui.miniplayer
 
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
@@ -20,6 +20,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.player.components.CompactMediaPlayer
+import com.viel.aplayer.ui.player.components.PillCompactMediaPlayer
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
