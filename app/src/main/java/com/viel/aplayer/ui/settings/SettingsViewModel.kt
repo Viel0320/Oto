@@ -174,4 +174,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             settingsRepository.updateAutoRewindSeconds(seconds)
         }
     }
+
+    // 为每一次改动添加详尽的中文注释：新增设置页切换通知避让（Notification Avoidance）功能全局开关的交互方法，通过协程异步写入持久化 DataStore。
+    fun toggleNotificationAvoidanceEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateNotificationAvoidanceEnabled(enabled)
+        }
+    }
 }

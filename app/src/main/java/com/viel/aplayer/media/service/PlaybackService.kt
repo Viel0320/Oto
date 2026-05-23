@@ -44,6 +44,48 @@ class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     // 通知栏使用独立 session，避免通知显示进度反向污染 App/UI controller。
     private var notificationSession: MediaSession? = null
+
+    // 为每一次改动添加详尽的中文注释：物理记录是否由于外部被动抢占丢失音频焦点导致暂停了播放，用于在重获音频焦点时完美进行自适应恢复播放。
+    private var isPausedByLossOfFocus = false
+
+    // 为每一次改动添加详尽的中文注释：缓存 API 26 (Android 8.0) 及以上版本的高级 AudioFocusRequest 物理请求描述实体，方便动态跨生命周期销毁与绑定。
+    private var audioFocusRequest: android.media.AudioFocusRequest? = null
+
+    // 为每一次改动添加详尽的中文注释：自定义的音频焦点变化监听器。
+    // 当“通知避让”开启时，如果接收到 transient（如通知、来电铃声等）临时丢失焦点信号：
+    // 首先在前台将 ignoreNextAutoRewind 设为 true 强力拦截自动回退，随后主动暂停播放器，重获焦点时自动恢复播放且绝不回退。
+    private val audioFocusChangeListener = android.media.AudioManager.OnAudioFocusChangeListener { focusChange ->
+        val player = mediaSession?.player ?: return@OnAudioFocusChangeListener
+        serviceScope.launch {
+            val settings = settingsRepository.settingsFlow.first()
+            if (settings.isNotificationAvoidanceEnabled) {
+                when (focusChange) {
+                    android.media.AudioManager.AUDIOFOCUS_LOSS -> {
+                        // 详尽的中文注释：永久失去焦点（例如被其它播放器强制中断占用），不属于临时丢失，重设状态并暂停。
+                        isPausedByLossOfFocus = false
+                        player.pause()
+                    }
+                    android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+                    android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                        // 详尽的中文注释：被动临时失去焦点。只有当播放器正在播放时，才进行暂停并设定标志。
+                        // 在暂停前，通知 PlaybackManager 忽略下一次由于状态变动触发的自动回退逻辑，保障进度完美连续。
+                        if (player.isPlaying) {
+                            isPausedByLossOfFocus = true
+                            com.viel.aplayer.media.PlaybackManager.getInstance(applicationContext).ignoreNextAutoRewind = true
+                            player.pause()
+                        }
+                    }
+                    android.media.AudioManager.AUDIOFOCUS_GAIN -> {
+                        // 详尽的中文注释：重新获取到系统完整的音频焦点。如果先前由于焦点原因被迫暂停，则立即拉起播放恢复，并重置被动状态。
+                        if (isPausedByLossOfFocus) {
+                            isPausedByLossOfFocus = false
+                            player.play()
+                        }
+                    }
+                }
+            }
+        }
+    }
     private lateinit var rewindButton: CommandButton
     private lateinit var forwardButton: CommandButton
     private lateinit var bookmarkButton: CommandButton
@@ -187,16 +229,58 @@ class PlaybackService : MediaSessionService() {
                     exitJob = null
                 }
             }
+
+            // 为每一次改动添加详尽的中文注释：重写 onIsPlayingChanged 监听底层实际的物理播放状态。
+            // 当“通知避让”开启时，如果播放器切入正在播放状态（isPlaying = true），我们首先重置被动焦点丢失状态并向系统申请音频焦点；
+            // 如果播放器进入暂停状态，且此时并不是由于系统临时音频焦点丢失（如通知）造成的被迫暂停，我们就主动放弃我们所持有的系统音频焦点。
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                serviceScope.launch {
+                    val settings = settingsRepository.settingsFlow.first()
+                    if (settings.isNotificationAvoidanceEnabled) {
+                        if (isPlaying) {
+                            isPausedByLossOfFocus = false
+                            requestMyAudioFocus()
+                        } else {
+                            if (!isPausedByLossOfFocus) {
+                                abandonMyAudioFocus()
+                            }
+                        }
+                    }
+                }
+            }
         })
         notificationPlayer = NotificationProgressPlayer(player)
         observeNotificationProgressMode()
 
-        // 为每一次改动添加详尽的中文注释：订阅 AppSettings 配置流，实现“自动跳过静音期”全局开关的热应用与最小时长的动态热更新
+        // 为每一次改动添加详尽的中文注释：订阅 AppSettings 配置流，实现“自动跳过静音期”全局开关的热应用与最小时长的动态热更新，并实时热应用“通知避让”音频焦点模式。
         serviceScope.launch {
             settingsRepository.settingsFlow.collect { settings ->
                 player.skipSilenceEnabled = settings.isSkipSilenceEnabled
                 // 实时热更新底层判定时长参数，实现拖动滑块即时生效
                 updateSilenceProcessorDurationHot(settings.skipSilenceDurationThreshold)
+
+                // 为每一次改动添加详尽的中文注释：实时响应“通知避让”机制的开关变动。
+                // 1. 若开启通知避让：我们将底层 ExoPlayer 的自动音频焦点处理设为 false（即接管权交出），由我们自己通过 audioFocusChangeListener 进行精密接管。
+                //    若此时播放器正处于播放中，则立即自主申请音频焦点，确保焦点状态与物理播放状态强力同步。
+                // 2. 若关闭通知避让：我们将底层 ExoPlayer 的自动音频焦点处理设为 true，重新交回给 Media3 默认逻辑处理。
+                //    同时，重置 isPausedByLossOfFocus 临时状态，并主动放弃我们自己所申请的任何系统音频焦点。
+                val isAvoidanceEnabled = settings.isNotificationAvoidanceEnabled
+                val audioAttributes = AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build()
+                player.setAudioAttributes(audioAttributes, !isAvoidanceEnabled)
+
+                if (isAvoidanceEnabled) {
+                    if (player.isPlaying) {
+                        requestMyAudioFocus()
+                    }
+                } else {
+                    if (isPausedByLossOfFocus) {
+                        isPausedByLossOfFocus = false
+                    }
+                    abandonMyAudioFocus()
+                }
             }
         }
 
@@ -652,6 +736,33 @@ class PlaybackService : MediaSessionService() {
             android.util.Log.w("PlaybackService", "No internal SilenceSkippingAudioProcessor found in AudioSink via reflection scan.")
         } catch (e: Exception) {
             android.util.Log.e("PlaybackService", "Failed to extract internal SilenceSkippingAudioProcessor: ${e.message}", e)
+        }
+    }
+
+    // 为每一次改动添加详尽的中文注释：
+    // 使用现代 Android 8.0+ 的 AudioFocusRequest 物理请求机制申请全局音频焦点，彻底废除对老旧过时 API 的冗余兼容，保持代码精简健壮。
+    private fun requestMyAudioFocus(): Boolean {
+        val audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return false
+        val request = audioFocusRequest ?: android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(
+                android.media.AudioAttributes.Builder()
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .build()
+            )
+            .setAcceptsDelayedFocusGain(false)
+            .setOnAudioFocusChangeListener(audioFocusChangeListener)
+            .build().also { audioFocusRequest = it }
+        return audioManager.requestAudioFocus(request) == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    }
+
+    // 为每一次改动添加详尽的中文注释：
+    // 使用现代 Android 8.0+ 的 abandonAudioFocusRequest 物理请求机制放弃并释放已持有的音频焦点，剔除冗余的老旧 API 兼容路径。
+    private fun abandonMyAudioFocus() {
+        val audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+        audioFocusRequest?.let {
+            audioManager.abandonAudioFocusRequest(it)
+            audioFocusRequest = null
         }
     }
 }

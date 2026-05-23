@@ -145,7 +145,10 @@ class SettingsActivity : ComponentActivity() {
                         onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },
                         // 为每一次改动添加详尽的中文注释：将 DataStore 中的自动回退时长传入设置页，并把用户选择回写到 SettingsViewModel。
                         autoRewindSeconds = settingsState.autoRewindSeconds,
-                        onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) }
+                        onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) },
+                        // 为每一次改动添加详尽的中文注释：将 DataStore 中的通知避让状态传入设置页，并把用户开关选择回写到 SettingsViewModel 进行持久化。
+                        isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
+                        onNotificationAvoidanceEnabledChange = { settingsViewModel.toggleNotificationAvoidanceEnabled(it) }
                     )
                 }
             }
@@ -212,7 +215,11 @@ fun SettingsScreen(
     // 为每一次改动添加详尽的中文注释：当前自动回退时长状态。
     autoRewindSeconds: Int,
     // 为每一次改动添加详尽的中文注释：修改自动回退时长的回调事件。
-    onAutoRewindSecondsChange: (Int) -> Unit
+    onAutoRewindSecondsChange: (Int) -> Unit,
+    // 为每一次改动添加详尽的中文注释：当前通知避让开关的全局启用状态。
+    isNotificationAvoidanceEnabled: Boolean,
+    // 为每一次改动添加详尽的中文注释：切换通知避让开关状态的回调事件。
+    onNotificationAvoidanceEnabledChange: (Boolean) -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -388,6 +395,17 @@ fun SettingsScreen(
                     icon = Icons.Rounded.LinearScale,
                     checked = isCleartextTrafficAllowed,
                     onCheckedChange = onCleartextTrafficAllowedChange
+                )
+            }
+            item {
+                // 为每一次改动添加详尽的中文注释：新增“通知避让”全局控制开关项。
+                // 开启后，播留在失去音频焦点（如收到通知、导航播报、来电等）时暂停，并在重获焦点时自动恢复播放，避免默认降音避让时漏听内容，且不会触发自动回退。
+                SettingsToggleItem(
+                    title = "通知避让",
+                    subtitle = "开启后，播留在失去焦点（如收到通知、导航播报、来电等）时暂停，重获焦点时恢复，避免降音避让时漏听内容。",
+                    icon = Icons.Rounded.LinearScale,
+                    checked = isNotificationAvoidanceEnabled,
+                    onCheckedChange = onNotificationAvoidanceEnabledChange
                 )
             }
 
@@ -779,7 +797,10 @@ fun SettingsScreenPreview() {
             onGlassEffectModeChange = {},
             // 为每一次改动添加详尽的中文注释：Preview 中传入默认的自动回退秒数（0秒，已关闭）。
             autoRewindSeconds = 0,
-            onAutoRewindSecondsChange = {}
+            onAutoRewindSecondsChange = {},
+            // 为每一次改动添加详尽的中文注释：Preview 中传入默认的通知避让开关状态，默认设置为未开启（false）。
+            isNotificationAvoidanceEnabled = false,
+            onNotificationAvoidanceEnabledChange = {}
         )
     }
 }

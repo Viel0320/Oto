@@ -45,6 +45,10 @@ class AppSettingsRepository private constructor(private val context: Context) {
         val GLASS_EFFECT_MODE = stringPreferencesKey("glass_effect_mode")
         // 为每一次改动添加详尽的中文注释：新增自动回退播放进度秒数（0-30s）持久化存储 Key，0 表示不开启自动回退。
         val AUTO_REWIND_SECONDS = intPreferencesKey("auto_rewind_seconds")
+        // 为每一次改动添加详尽的中文注释：新增上次播放是否为非正常中断（如系统强杀）持久化存储 Key。
+        val IS_LAST_PLAYBACK_INTERRUPTED = booleanPreferencesKey("is_last_playback_interrupted")
+        // 为每一次改动添加详尽的中文注释：新增通知避让机制是否启用的持久化存储 Key，开启时失去焦点将执行暂停并由自主逻辑在重获焦点后恢复。
+        val IS_NOTIFICATION_AVOIDANCE_ENABLED = booleanPreferencesKey("is_notification_avoidance_enabled")
     }
 
     /**
@@ -77,7 +81,11 @@ class AppSettingsRepository private constructor(private val context: Context) {
                 ?.let { runCatching { GlassEffectMode.valueOf(it) }.getOrNull() }
                 ?: AppSettings.DEFAULT_GLASS_EFFECT_MODE,
             // 为每一次改动添加详尽的中文注释：从 DataStore 中读取自动回退秒数，默认为 0 秒（已关闭）。
-            autoRewindSeconds = preferences[PreferencesKeys.AUTO_REWIND_SECONDS] ?: 0
+            autoRewindSeconds = preferences[PreferencesKeys.AUTO_REWIND_SECONDS] ?: 0,
+            // 为每一次改动添加详尽的中文注释：从 DataStore 中读取上次播放是否为异常非正常中断的标志，默认为 false。
+            isLastPlaybackInterrupted = preferences[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] ?: false,
+            // 为每一次改动添加详尽的中文注释：从 DataStore 中读取通知避让选项开关的最新状态，如果配置不存在则以极高安全防护的默认状态（false，即不开启）来加载。
+            isNotificationAvoidanceEnabled = preferences[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] ?: false
         )
     }
     suspend fun updateHomeFilter(filter: String) {
@@ -139,6 +147,16 @@ class AppSettingsRepository private constructor(private val context: Context) {
     // 为每一次改动添加详尽的中文注释：提供修改自动回退播放进度秒数（0-30s）持久化配置的接口函数，由 ViewModel 调用并写入 DataStore。
     suspend fun updateAutoRewindSeconds(seconds: Int) {
         context.dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = seconds }
+    }
+
+    // 为每一次改动添加详尽的中文注释：提供修改上次播放是否为非正常中断持久化配置的接口函数，用来在播放器开始/暂停以及冷启动自愈时写入。
+    suspend fun updateLastPlaybackInterrupted(interrupted: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] = interrupted }
+    }
+
+    // 为每一次改动添加详尽的中文注释：提供修改是否启用通知避让机制持久化配置的接口函数，由 SettingsViewModel 异步调用并落盘写入 DataStore。
+    suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] = enabled }
     }
 
     companion object {

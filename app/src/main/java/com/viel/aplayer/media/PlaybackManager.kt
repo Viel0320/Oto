@@ -82,6 +82,9 @@ class PlaybackManager private constructor(context: Context) {
     // 为每一次改动添加详尽的中文注释：物理记录播放器前一时刻真实的播放状态，用以作为核心依据检测用户点击暂停、耳机拔出等导致的“播放->暂停”状态跃迁，以无缝触发自动回退功能。
     private var lastIsPlaying = false
 
+    // 为每一次改动添加详尽的中文注释：设置临时状态标志，如果为 true，则在播放器状态转换到暂停时不应用自动回退逻辑（比如在音频焦点被动抢占、被迫暂停时）。
+    var ignoreNextAutoRewind: Boolean = false
+
     /** 当前播放计划的 bookId，非挂起，可从任意线程安全读取。 */
     val currentPlayingBookId: String?
         get() = currentPlan?.bookId
@@ -155,11 +158,26 @@ class PlaybackManager private constructor(context: Context) {
                 PlayerWidgetProvider.updateAll(appContext)
                 saveProgress()
 
+                // 为每一次改动添加详尽的中文注释：在后台协程中，实时将当前的物理播放状态（是否在播）同步写入 isLastPlaybackInterrupted，
+                // 用于冷启动时精准甄别上一次是否为非正常中断（强杀/闪退）以触发进度自愈机制。
+                scope.launch {
+                    try {
+                        settingsRepository.updateLastPlaybackInterrupted(isPlaying)
+                    } catch (e: Exception) {
+                        android.util.Log.e("PlaybackManager", "更新中断持久化标志失败", e)
+                    }
+                }
+
                 // 为每一次改动添加详尽的中文注释：
                 // 如果先前处于正在播放状态（wasPlaying 为 true），当前变化为了暂停或停止播放状态（isPlaying 为 false），
                 // 且用户在设置里开启了大于 0 秒的自动回退时间，则自动执行位置定位回退。
+                // 如果检测到 ignoreNextAutoRewind 为 true，说明此番暂停因临时失去焦点而被动触发，我们应跳过回退逻辑，并将标志重置为 false。
                 if (wasPlaying && !isPlaying) {
-                    applyAutoRewind()
+                    if (ignoreNextAutoRewind) {
+                        ignoreNextAutoRewind = false
+                    } else {
+                        applyAutoRewind()
+                    }
                 }
             }
 
@@ -349,33 +367,66 @@ class PlaybackManager private constructor(context: Context) {
         }
     }
 
+    /**
+     * 为每一次改动添加详尽的中文注释：
+     * 为书籍设定播放计划。整个方法执行在 scope 协程环境主线程中。
+     * 首先读取持久化设置快照，如果 isLastPlaybackInterrupted（上次播放异常强杀中断）为 true 且开启了回退秒数，
+     * 则对当前载入的起始进度进行减去回退时长的进度自愈补偿，最小值不低于 0，
+     * 接着通过 copy 构造出自愈后的计划，并同步在数据库重置中断标志为 false 以免后续换歌等发生重复自愈。
+     * 最后，百分之百还原原作者关于明文 HTTP 安全校验、Toast 弹出以及 withContext/executeOnMain 等多线程调度设计。
+     */
     fun setBookPlaybackPlan(plan: BookPlaybackPlan, playWhenReady: Boolean = false) {
-        this.currentPlan = plan
-        // 为本次桌面 widget Glance 迁移添加注释：保存加载后的播放意图，既服务应用内点击播放，也服务 Glance 按钮在后台唤起播放。
-        this.pendingPlayWhenReady = playWhenReady
-        
-        // 性能优化：立即将计划中的初始进度和总时长推送到 UI 流，避免闪烁
-        val totalDur = plan.files.sumOf { it.durationMs }
-        _currentPosition.value = plan.startGlobalPositionMs
-        _duration.value = totalDur
-        // 为本次桌面 widget 改动添加注释：播放计划一旦切换，桌面小组件可以立即显示目标书籍，而不必等 MediaController 回调。
-        PlayerWidgetProvider.updateAll(appContext)
+        scope.launch {
+            // 为每一次改动添加详尽的中文注释：异步从设置仓库中读取最新的全局持久化快照。
+            val settings = settingsRepository.settingsFlow.first()
+            var finalPlan = plan
 
-        // 检查是否包含 HTTP 明文源，若有则异步校验设置后再加载
-        val hasHttp = plan.files.any { it.uri.startsWith("http://") }
-        if (hasHttp) {
-            scope.launch {
-                val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
-                if (!isAllowed) {
-                    withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(appContext, "安全拦截：明文 HTTP 播放未授权。请在设置中允许。", android.widget.Toast.LENGTH_LONG).show()
-                    }
-                    return@launch
-                }
-                withContext(Dispatchers.Main) { applyPlaybackPlan(plan) }
+            // 为每一次改动添加详尽的中文注释：核心异常中断进度自愈机制判定。
+            // 如果上一次播放由于非正常中断（强杀/闪退/Crash，isLastPlaybackInterrupted = true），且设定了有效的回退时间，
+            // 则从全局起始进度中减去回退毫秒数作为进度自愈补偿，最低限制到 0ms 开头，
+            // 接着利用 copy 构造出自愈补偿后的 finalPlan，并在 DataStore 中立即复位中断标志为 false 防止切歌等二次触发自愈。
+            if (settings.isLastPlaybackInterrupted && settings.autoRewindSeconds > 0) {
+                val rewindMs = settings.autoRewindSeconds * 1000L
+                val restoredPos = (plan.startGlobalPositionMs - rewindMs).coerceAtLeast(0L)
+                finalPlan = plan.copy(startGlobalPositionMs = restoredPos)
+
+                // 为每一次改动添加详尽的中文注释：自愈完成后瞬间重置异常中断标志为 false，保障状态正确复位。
+                settingsRepository.updateLastPlaybackInterrupted(false)
+                android.util.Log.d("PlaybackManager", "检测到上一次播放被异常中断，已自动回退 $rewindMs ms 进行自愈，最终起始进度: $restoredPos ms")
+            } else {
+                // 为每一次改动添加详尽的中文注释：若非异常中断恢复，依然主动重置该状态为 false 以免残留脏数据污染。
+                settingsRepository.updateLastPlaybackInterrupted(false)
             }
-        } else {
-            executeOnMain { applyPlaybackPlan(plan) }
+
+            // 为每一次改动添加详尽的中文注释：完成进度自愈判定后，切回 Dispatchers.Main 线程，百分之百还原原作者的所有多线程渲染及安全检查逻辑。
+            withContext(Dispatchers.Main) {
+                this@PlaybackManager.currentPlan = finalPlan
+                this@PlaybackManager.pendingPlayWhenReady = playWhenReady
+
+                // 性能优化：立即将自愈后最终计划中的初始进度和总时长推送到 UI 流，避免闪烁
+                val totalDur = finalPlan.files.sumOf { it.durationMs }
+                _currentPosition.value = finalPlan.startGlobalPositionMs
+                _duration.value = totalDur
+                // 为本次桌面 widget 改动添加注释：播放计划一旦切换，桌面小组件可以立即显示目标书籍，而不必等 MediaController 回调。
+                PlayerWidgetProvider.updateAll(appContext)
+
+                // 检查是否包含 HTTP 明文源，若有则异步校验设置后再加载
+                val hasHttp = finalPlan.files.any { it.uri.startsWith("http://") }
+                if (hasHttp) {
+                    scope.launch {
+                        val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
+                        if (!isAllowed) {
+                            withContext(Dispatchers.Main) {
+                                android.widget.Toast.makeText(appContext, "安全拦截：明文 HTTP 播放未授权。请在设置中允许。", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                            return@launch
+                        }
+                        withContext(Dispatchers.Main) { applyPlaybackPlan(finalPlan) }
+                    }
+                } else {
+                    executeOnMain { applyPlaybackPlan(finalPlan) }
+                }
+            }
         }
     }
 
