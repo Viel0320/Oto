@@ -54,8 +54,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -139,13 +142,24 @@ fun EditBookScreen(
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：拦截并接管系统预测性返回手势，点击返回时物理删除临时文件并优雅退出
+    // 详尽的中文注释：定义预测性返回手势在书籍编辑页的激活状态与百分比进度，用以驱动视觉过渡动画
+    var isPredictiveBackActive by remember { mutableStateOf(false) }
+    var predictiveBackProgress by remember { mutableStateOf(0f) }
+
+    // 为每一次改动添加详尽的中文注释：拦截并接管系统预测性返回手势，收集返回进度以渲染平移动画，点击返回时物理删除临时文件并优雅退出
     androidx.activity.compose.PredictiveBackHandler(enabled = book != null) { progressFlow ->
         try {
-            progressFlow.collect { /* 可选用于后续扩展更精细的平移反馈，此处直接进行手势关闭 */ }
+            // 详尽的中文注释：收集返回进度事件以驱动视觉过渡动画
+            progressFlow.collect { backEvent ->
+                isPredictiveBackActive = true
+                predictiveBackProgress = backEvent.progress
+            }
             handleCancel()
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             // 用户中途取消
+        } finally {
+            isPredictiveBackActive = false
+            predictiveBackProgress = 0f
         }
     }
 
@@ -187,10 +201,30 @@ fun EditBookScreen(
     }
 
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val density = LocalDensity.current
+    val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
+
+    // 详尽的中文注释：利用 View 层级的 RootWindowInsets 获取系统最精确的物理圆角半径，
+    // 以便编辑页在磨砂玻璃悬浮展开时，顶部圆角切边能与系统屏幕外轮廓完全共形契合，极具高级质感。
+    val view = LocalView.current
+    val systemCornerRadius = remember(view) {
+        val insets = view.rootWindowInsets
+        insets?.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_LEFT)?.radius ?: 0
+    }
+    val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
     Surface(
         modifier = modifier
             .fillMaxSize()
+            .graphicsLayer {
+                // 详尽的中文注释：当处于预测性返回拖拽状态时，顺应编辑页面向下滑动退出的特征，
+                // 让卡片整体随返回手势进度向下平移，并伴随淡出效果（不包含缩放，对齐详情页与播放器页的最新去缩放设计）。
+                if (isPredictiveBackActive) {
+                    translationY = predictiveBackProgress * maxPredictiveTranslationY
+                    alpha = 1f - predictiveBackProgress * 0.3f
+                }
+            }
+            .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
             .then(
                 if (isBlur) {
                     // 为每一次改动添加详尽的中文注释：

@@ -156,7 +156,7 @@ fun DetailScreen(
 
     val bgColor = MaterialTheme.colorScheme.background
     // 详尽的中文注释：计算最大的向下位移像素值，顺应详情页向下滑动退出的特征
-    val maxPredictiveTranslationY = with(density) { 120.dp.toPx() }
+    val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
     Surface(
         modifier = modifier
@@ -164,12 +164,10 @@ fun DetailScreen(
             .offset { IntOffset(0, offsetY.value.roundToInt()) }
             .graphicsLayer {
                 // 详尽的中文注释：当手势处于预测性返回拖拽状态时，顺应详情页向下滑动关闭的退出动画特征，
-                // 让卡片整体随返回手势的进度向下平移，并伴随微小等比缩放（1.0f -> 0.95f）与淡出效果（1.0f -> 0.7f）。
+                // 让卡片整体随返回手势的进度向下平移，并伴随淡出效果（1.0f -> 0.7f）。依据用户最新指令，
+                // 在此已彻底去除了原有的微小等比缩放效果（scaleX / scaleY 缩放形变），以保证大屏及常规手势返回时界面的稳固与平滑。
                 if (isPredictiveBackActive) {
                     translationY = predictiveBackProgress * maxPredictiveTranslationY
-                    val scale = 1f - predictiveBackProgress * 0.05f
-                    scaleX = scale
-                    scaleY = scale
                     alpha = 1f - predictiveBackProgress * 0.3f
                 }
             }

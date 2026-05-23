@@ -220,7 +220,7 @@ fun PlayerScreen(
         val bgColor = MaterialTheme.colorScheme.background
 
         // 详尽的中文注释：计算最大的向下位移像素值，顺应全屏播放器“向下滑动收起”的最小化退出特征
-        val maxPredictiveTranslationY = with(density) { 120.dp.toPx() }
+        val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
         // 详尽的中文注释：在横屏模式下，全屏播放器通常是左右双栏平铺排版，外层不需要竖屏抽屉的顶部大圆角，
         // 设为直角（RectangleShape）既符合大屏沉浸式视觉，也能在物理上彻底杜绝左上角和右上角内容被外层圆角裁切的隐患。
@@ -236,13 +236,11 @@ fun PlayerScreen(
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
                 .graphicsLayer {
                     // 详尽的中文注释：当全屏播放器拖拽最小化预测性返回手势处于激活状态时，
-                    // 让卡片整体随手势的百分比进度向下平移（最多 120.dp），并伴随轻微等比缩放（1.0f -> 0.95f）与淡出（1.0f -> 0.7f），
-                    // 在力导向和视觉上与最终向下滑动收起为迷你播放器的退出动画无缝融合。
+                    // 让卡片整体随手势的百分比进度向下平移（最多 120.dp）并伴随淡出（1.0f -> 0.7f），
+                    // 在力导向和视觉上与最终向下滑动收起为迷你播放器的退出动画无缝融合。根据用户最新指令，
+                    // 在此已彻底去除了原有的微小等比缩放效果（scaleX / scaleY 缩放形变），以提升手势物理退出的顺滑度与稳定性。
                     if (isPlayerBackActive) {
                         translationY = playerBackProgress * maxPredictiveTranslationY
-                        val scale = 1f - playerBackProgress * 0.05f
-                        scaleX = scale
-                        scaleY = scale
                         alpha = 1f - playerBackProgress * 0.3f
                     }
                 }
