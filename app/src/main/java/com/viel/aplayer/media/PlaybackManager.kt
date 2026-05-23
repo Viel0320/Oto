@@ -400,6 +400,10 @@ class PlaybackManager private constructor(context: Context) {
 
             // 为每一次改动添加详尽的中文注释：完成进度自愈判定后，切回 Dispatchers.Main 线程，百分之百还原原作者的所有多线程渲染及安全检查逻辑。
             withContext(Dispatchers.Main) {
+                // 为每一次改动添加详尽的中文注释：在切换或加载新的播放计划前，强行将 ignoreNextAutoRewind 设为 true。
+                // 这样能完美拦截由于切换书籍重载媒体资源导致播放器暂停状态改变时，误触发的针对上一本书或新书初始进度的自动回退动作。
+                ignoreNextAutoRewind = true
+
                 this@PlaybackManager.currentPlan = finalPlan
                 this@PlaybackManager.pendingPlayWhenReady = playWhenReady
 
@@ -482,21 +486,35 @@ class PlaybackManager private constructor(context: Context) {
      */
     private fun applyAutoRewind() {
         val controller = mediaController ?: return
+        val plan = currentPlan
         scope.launch {
             try {
-                // 详尽的中文注释：使用 first() 挂起并获取 DataStore 中的最新设置快照，确保数据一致性。
+                // 为每一次改动添加详尽的中文注释：使用 first() 挂起并获取 DataStore 中的最新设置快照，确保数据一致性。
                 val settings = settingsRepository.settingsFlow.first()
                 val rewindSeconds = settings.autoRewindSeconds
                 if (rewindSeconds > 0) {
                     val rewindMs = rewindSeconds * 1000L
-                    val currentPos = controller.currentPosition
-                    val targetPos = (currentPos - rewindMs).coerceAtLeast(0L)
                     
-                    // 详尽的中文注释：在主线程中执行 seekTo 寻址，并刷新全局进度流
-                    controller.seekTo(targetPos)
+                    if (plan != null && plan.files.isNotEmpty()) {
+                        // 为每一次改动添加详尽的中文注释：如果当前存在多文件播放计划，在全局大维度上计算当前进度，并执行精准的跨文件边界回退，
+                        // 彻底解决单文件回退时被强制截断在 0 秒而无法回退到上一音轨末尾的体验痛点。
+                        val fileIndex = controller.currentMediaItemIndex.coerceIn(0, plan.files.lastIndex)
+                        val positionInFile = controller.currentPosition.coerceAtLeast(0L)
+                        val currentGlobalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
+                        val targetGlobalPos = (currentGlobalPos - rewindMs).coerceAtLeast(0L)
+                        
+                        val (targetFileIndex, targetPosInFile) = PositionMapper.globalToFilePosition(targetGlobalPos, plan.files)
+                        // 为每一次改动添加详尽的中文注释：跨文件定位可能导致媒体源发生变更，因此必须使用 index + file-position 执行 seek
+                        controller.seekTo(targetFileIndex, targetPosInFile)
+                    } else {
+                        // 为每一次改动添加详尽的中文注释：兜底单文件播放场景下的普通回退寻址。
+                        val currentPos = controller.currentPosition
+                        val targetPos = (currentPos - rewindMs).coerceAtLeast(0L)
+                        controller.seekTo(targetPos)
+                    }
+                    
                     updateGlobalPositionAndDuration(controller)
-                    
-                    // 详尽的中文注释：回退完成后立即向本地数据库落盘保存进度，防丢失防倒退
+                    // 为每一次改动添加详尽的中文注释：回退完成后立即向本地数据库落盘保存进度，防丢失防倒退
                     saveProgress()
                 }
             } catch (e: Exception) {
@@ -611,6 +629,9 @@ class PlaybackManager private constructor(context: Context) {
     suspend fun stopPlayback() {
         val controller = getController()
         withContext(Dispatchers.Main) {
+            // 为每一次改动添加详尽的中文注释：在主动停止播放器前，强行将 ignoreNextAutoRewind 设为 true。
+            // 这样可以拦截由于主动暂停/清除播放资源导致物理播放状态回调触发时，无意义且有隐患的自动回退与保存进度操作。
+            ignoreNextAutoRewind = true
             controller?.let { conn ->
                 conn.pause()
                 conn.stop()
