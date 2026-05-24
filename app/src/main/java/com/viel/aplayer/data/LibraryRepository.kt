@@ -2,13 +2,10 @@ package com.viel.aplayer.data
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.provider.OpenableColumns
 import android.util.Log
 import android.content.Intent
 import androidx.annotation.OptIn
-import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -22,15 +19,14 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.data.store.SearchHistoryStore
-import com.viel.aplayer.library.BookImporter
 import com.viel.aplayer.library.DetailAvailabilityChecker
+import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.media.BookPlaybackPlan
 import com.viel.aplayer.media.PlaybackReachabilityManager
 import com.viel.aplayer.media.PositionMapper
 import com.viel.aplayer.media.SubtitleFileResolver
 import com.viel.aplayer.media.parse.CoverRecoveryHelper
 import com.viel.aplayer.ui.player.components.SubtitleLine
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
@@ -61,8 +57,8 @@ class LibraryRepository private constructor(context: Context) {
         Log.e("LibraryRepository", "Unhandled coroutine exception in LibraryRepository", exception)
     }
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
-    private val importer = BookImporter(this.context)
     private val availabilityChecker = DetailAvailabilityChecker(this.context)
+    private val fileAvailabilityChecker = AvailabilityChecker(this.context)
     private val rootStore = com.viel.aplayer.library.LibraryRootStore(this.context)
     private val coverExtractor = com.viel.aplayer.media.parse.CoverExtractor(this.context)
     private val metadataExtractor = com.viel.aplayer.media.parse.MetadataExtractor(this.context)
@@ -74,8 +70,14 @@ class LibraryRepository private constructor(context: Context) {
     // 原 pendingRegenerations 排重集合已被安全剥离迁移至 CoverRecoveryHelper 中。
     private val subtitleResolver = SubtitleFileResolver(this.context, bookDao, libraryRootDao)
     // 详尽的中文注释：实例化低耦合的封面恢复组件，将 libraryRootDao 传入以支持利用 SAF 授权路径递归搜寻并重建同目录外部封面
-    private val coverRecoveryHelper = CoverRecoveryHelper(this.context, bookDao, database.libraryRootDao(), coverExtractor, scope)
-    private val reachabilityManager = PlaybackReachabilityManager(this.context, bookDao)
+    private val coverRecoveryHelper = CoverRecoveryHelper(
+        this.context,
+        bookDao,
+        database.libraryRootDao(),
+        coverExtractor,
+        scope
+    )
+    private val reachabilityManager = PlaybackReachabilityManager(this.context, bookDao, libraryRootDao)
 
     // 详尽的中文注释：在内存中持久维护一份媒体库根目录的最新缓存，随 Repository 全局单例生命周期存活，用于向设置页等冷启动界面提供零延迟的首帧数据
     @Volatile
@@ -125,18 +127,17 @@ class LibraryRepository private constructor(context: Context) {
     }
 
 
-    /**
-     * Check if a file exists at the given URI.
-     * 详尽的中文注释：原物理文件检测逻辑已解耦至 PlaybackReachabilityManager 组件。
-     * 此处门面 API 100% 签名兼容，零侵入代理委派给该管理器。
-     */
-    fun checkFileExists(uriString: String): Boolean = reachabilityManager.checkFileExists(uriString)
+    suspend fun checkPrimaryAudioFileExists(bookId: String): Boolean = withContext(Dispatchers.IO) {
+        // 为每一次改动添加详尽的中文注释：删除书籍等 UI 反馈也通过 BookFileEntity 的 VFS 可达性检测，不再使用 URI 旁路。
+        val primaryFile = bookDao.getFilesForBookList(bookId).firstOrNull() ?: return@withContext false
+        fileAvailabilityChecker.checkBookFile(primaryFile).isAvailable
+    }
 
     /**
      * Sync the entire library: scan folder and add new files.
      */
     suspend fun syncLibrary(trigger: String = "USER") = withContext(Dispatchers.IO) {
-        rootStore.migrateLegacyRoot()
+        // 中文注释：旧版 SharedPreferences 单根目录迁移入口已移除，同步只依赖当前 library_roots 表中的标准件来源。
         rootStore.refreshPermissionStatuses()
 
         // New rescan path: scanner builds inventory, orchestrator decides imports, pending remains PENDING.
@@ -178,87 +179,6 @@ class LibraryRepository private constructor(context: Context) {
     fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<BookWithProgress>> = 
         bookDao.getRecentlyAddedExclusiveWithProgress(currentId, authors, narrators, limit).checkCovers()
 
-    /**
-     * 顺序添加有声书，并整合元数据提取。
-     */
-    @SuppressLint("CheckResult")
-    @OptIn(UnstableApi::class)
-    suspend fun addAudiobook(
-        uri: Uri, 
-        parentDir: DocumentFile? = null, 
-        fileName: String? = null,
-        existingBookId: String? = null
-    ) {
-        withContext(Dispatchers.IO) {
-            Log.d("LibraryRepository", "Adding audiobook: $uri (Name: $fileName)")
-            val bookId = UUID.randomUUID().toString()
-            
-            try {
-                // 1. 获取文件大小，后续导入记录需要保存原始文件体积。
-                var fileSize = 0L
-                if (uri.scheme == "content") {
-                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                        if (cursor.moveToFirst()) fileSize = cursor.getLong(sizeIndex)
-                    }
-                } else if (uri.scheme == "file") {
-                    fileSize = File(uri.path ?: "").length()
-                }
-
-                // 2. 使用 MetadataExtractor 提取音频元数据及章节。
-                val metadata = metadataExtractor.extract(uri)
-
-                // Compatibility import still extracts embedded cover before delegating to the importer.
-                val retriever = MediaMetadataRetriever()
-                val coverResult = try {
-                    retriever.setDataSource(context, uri)
-                    coverExtractor.extractFromRetriever(retriever, bookId)
-                } finally {
-                    // MediaMetadataRetriever must always be released even when setDataSource fails.
-                    retriever.release()
-                }
-                val finalCoverResult = if (coverResult.hasImage()) {
-                    coverResult
-                } else {
-                    // Direct single-file import falls back to cover/folder/artwork/front in the chosen directory.
-                    parentDir?.let { coverExtractor.extractFromDirectory(it) }
-                        ?: com.viel.aplayer.media.parse.CoverExtractor.CoverResult(null, null)
-                }
-
-                val lastModified = if (uri.scheme == "file") File(uri.path ?: "").lastModified() else System.currentTimeMillis()
-
-                // Compatibility import delegates persistence to BookImporter and still skips initial progress.
-                importer.importSingleAudio(
-                    uri = uri.toString(),
-                    // Single-file import title priority: album -> title -> filename without extension.
-                    title = metadata.album.trim()
-                        .ifBlank { metadata.title.trim() }
-                        .ifBlank { fileName?.substringBeforeLast('.') ?: uri.lastPathSegment?.substringAfterLast("/")?.substringBeforeLast(".").orEmpty() },
-                    author = metadata.author,
-                    narrator = metadata.narrator,
-                    description = metadata.description,
-                    year = metadata.year,
-                    durationMs = metadata.durationMs,
-                    fileSize = fileSize,
-                    lastModified = lastModified,
-                    coverPath = finalCoverResult.originalPath,
-                    thumbnailPath = finalCoverResult.thumbnailPath,
-                    backgroundColorArgb = finalCoverResult.backgroundColor,
-                    chapters = metadata.chapters,
-                    existingBookId = existingBookId
-                )
-
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Log.e("LibraryRepository", "Error adding audiobook", e)
-            }
-        }
-    }
-    
-    // CoverResult may legitimately contain no image when neither embedded art nor sidecar images exist.
-    private fun com.viel.aplayer.media.parse.CoverExtractor.CoverResult.hasImage(): Boolean =
-        originalPath != null || thumbnailPath != null
-
     /** Update playback position in milliseconds. */
     fun updateProgress(bookId: String, position: Long) {
         scope.launch {
@@ -294,21 +214,7 @@ class LibraryRepository private constructor(context: Context) {
                 ))
             }
 
-            // 为每一次改动添加详尽的中文注释：根据当前播放进度，在后台自动物理判定并推进有声书的阅读状态（未开始/进行中/已完成），实现进度与状态的最终一致性
-            val book = bookDao.getBookById(bookId)
-            if (book != null) {
-                val isFinished = position >= (book.totalDurationMs * 0.99).toLong()
-                val nextStatus = if (isFinished) {
-                    AudiobookSchema.ReadStatus.FINISHED
-                } else if (position > 0) {
-                    AudiobookSchema.ReadStatus.IN_PROGRESS
-                } else {
-                    AudiobookSchema.ReadStatus.NOT_STARTED
-                }
-                if (book.readStatus != nextStatus) {
-                    bookDao.updateBookReadStatus(bookId, nextStatus)
-                }
-            }
+            updateReadStatusFromProgress(bookId, position)
         }
     }
 
@@ -369,10 +275,10 @@ class LibraryRepository private constructor(context: Context) {
     /**
      * Load and parse subtitles for an audiobook file.
      * Looks for a subtitle file with the same name in the same directory.
-     * 详尽的中文注释：原字幕搜索（SAF Tree 递归）、相似名匹配及文件流式解析已被完全解耦并迁移至 SubtitleFileResolver。
-     * 此处门面 API 进行委派，保持原入参 and 签名完全不变，不对业务模块造成任何侵入性影响。
+     * 为每一次改动添加详尽的中文注释：字幕门面改用 BookFileEntity.id 直连 VFS 读流，不再保留 MediaItem.uri 反查数据库的旧入口。
      */
-    suspend fun loadSubtitlesForUri(mediaUri: Uri): List<SubtitleLine> = subtitleResolver.loadSubtitlesForUri(mediaUri)
+    suspend fun loadSubtitlesForBookFile(bookFileId: String): List<SubtitleLine> =
+        subtitleResolver.loadSubtitlesForBookFile(bookFileId)
 
     /**
      * Save chapters to database.
@@ -465,6 +371,21 @@ class LibraryRepository private constructor(context: Context) {
     suspend fun saveProgress(progress: BookProgressEntity) = withContext(Dispatchers.IO) {
         // Playback callbacks may arrive on the main thread, so progress upserts are forced onto IO.
         bookDao.insertProgress(progress)
+        // 为每一次改动添加详尽的中文注释：播放器真实保存进度只会进入 saveProgress，因此这里同步推进 books.readStatus，保证首页筛选和状态标签不再依赖已废弃的 updateProgress 入口。
+        updateReadStatusFromProgress(progress.bookId, progress.globalPositionMs)
+    }
+
+    // 为每一次改动添加详尽的中文注释：将播放进度到阅读状态的换算集中在一个私有方法中，避免 updateProgress 与 saveProgress 出现两套状态规则。
+    private suspend fun updateReadStatusFromProgress(bookId: String, position: Long) {
+        val book = bookDao.getBookById(bookId) ?: return
+        val nextStatus = when {
+            book.totalDurationMs > 0L && position >= (book.totalDurationMs * 0.99).toLong() -> AudiobookSchema.ReadStatus.FINISHED
+            position > 0L -> AudiobookSchema.ReadStatus.IN_PROGRESS
+            else -> AudiobookSchema.ReadStatus.NOT_STARTED
+        }
+        if (book.readStatus != nextStatus) {
+            bookDao.updateBookReadStatus(bookId, nextStatus)
+        }
     }
 
     // PlayerViewModel calls this once on app cold start to restore the compact player without scanning UI lists.
@@ -484,11 +405,6 @@ class LibraryRepository private constructor(context: Context) {
      */
     suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = withContext(Dispatchers.IO) {
         bookDao.getAllFilesForBookList(bookId)
-    }
-
-    // UI availability checks use the first AUDIO file because Book no longer owns a sourceUri.
-    suspend fun getPrimaryAudioUri(bookId: String): String? = withContext(Dispatchers.IO) {
-        bookDao.getFilesForBookList(bookId).firstOrNull()?.uri
     }
 
     // DetailScreen owns old BookFile reachability checks, outside the rescan flow.
@@ -576,8 +492,8 @@ class LibraryRepository private constructor(context: Context) {
 
             // 1. 提取主要音频文件的物理元数据
             val primaryFile = files.firstOrNull { it.status == AudiobookSchema.FileStatus.READY } ?: files.first()
-            val uri = Uri.parse(primaryFile.uri)
-            val metadata = metadataExtractor.extract(uri)
+            // 为每一次改动添加详尽的中文注释：强制重建元数据通过 BookFileEntity 的 VFS 路径读取，不再恢复旧 uri 字段。
+            val metadata = metadataExtractor.extract(primaryFile)
 
             // 2. 将全新提取出来的有声书基本元数据和年份字段覆盖更新回 Room 数据库中
             bookDao.updateMetadata(
@@ -691,13 +607,13 @@ class LibraryRepository private constructor(context: Context) {
 
         // 释放 SAF 持久化授权
         try {
-            val uri = Uri.parse(root.treeUri)
+            val uri = Uri.parse(root.sourceUri)
             context.contentResolver.releasePersistableUriPermission(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         } catch (e: Exception) {
-            Log.e("LibraryRepository", "Failed to release persistable permission for ${root.treeUri}", e)
+            Log.e("LibraryRepository", "Failed to release persistable permission for ${root.sourceUri}", e)
         }
 
         // 从 Room 中删除（CASCADE 外键会自动清理 books/book_files）

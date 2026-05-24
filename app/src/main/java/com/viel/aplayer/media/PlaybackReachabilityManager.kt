@@ -3,10 +3,12 @@ package com.viel.aplayer.media
 import android.content.Context
 import android.util.Log
 import com.viel.aplayer.data.dao.BookDao
+import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.library.availability.AvailabilityChecker
+import kotlinx.coroutines.delay
 
 /**
  * 详尽 of 中文注释：专门负责播放运行期音频文件物理就绪度存在性校验、就绪降级重算、
@@ -15,17 +17,32 @@ import com.viel.aplayer.library.availability.AvailabilityChecker
  */
 class PlaybackReachabilityManager(
     private val context: Context,
-    private val bookDao: BookDao
+    private val bookDao: BookDao,
+    private val libraryRootDao: LibraryRootDao
 ) {
     // 播放运行期可达性统一进入 AvailabilityChecker，后续 WebDAV 播放探测可在同一标准件内扩展。
     private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     /**
-     * 详尽 of 中文注释：轻量级检查给定 URI 的物理文件在本地或 SAF 内容提供者中是否存在。
-     * 支持 "content" 协议（SAF Single Document）与 "file" 协议（传统绝对路径）。
+     * 为每一次改动添加详尽的中文注释：播放期可达性按本地/非本地分层；本地单次快判，非本地留出网络缓冲重试窗口。
      */
-    fun checkFileExists(uriString: String): Boolean {
-        return availabilityChecker.checkUri(uriString).isAvailable
+    private suspend fun checkFileAvailable(file: BookFileEntity): Boolean {
+        val root = libraryRootDao.getRootById(file.rootId) ?: return false
+        val isLocal = root.sourceType == AudiobookSchema.LibrarySourceType.SAF
+        return if (isLocal) {
+            availabilityChecker.checkBookFile(file).isAvailable
+        } else {
+            checkRemoteFileAvailableWithGrace(file)
+        }
+    }
+
+    private suspend fun checkRemoteFileAvailableWithGrace(file: BookFileEntity): Boolean {
+        // 为每一次改动添加详尽的中文注释：非本地来源可能受网络抖动影响，连续失败后才允许播放层降级或跳过。
+        REMOTE_REACHABILITY_RETRY_DELAYS_MS.forEachIndexed { attempt, delayMs ->
+            if (availabilityChecker.checkBookFile(file).isAvailable) return true
+            if (attempt < REMOTE_REACHABILITY_RETRY_DELAYS_MS.lastIndex) delay(delayMs)
+        }
+        return false
     }
 
     /**
@@ -42,7 +59,7 @@ class PlaybackReachabilityManager(
 
         val progress = bookDao.getProgressForBookSync(bookId)
         val targetFile = resolveProgressFile(progress, files) ?: files.first()
-        val isReady = checkFileExists(targetFile.uri)
+        val isReady = checkFileAvailable(targetFile)
         updatePlaybackFileStatus(targetFile, isReady)
         recalculatePlaybackBookStatus(bookId)
         return isReady
@@ -54,7 +71,12 @@ class PlaybackReachabilityManager(
     suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) {
         val files = bookDao.getFilesForBookList(bookId)
         files.getOrNull(queueIndex)?.let { failedFile ->
-            bookDao.updateBookFileStatus(failedFile.id, AudiobookSchema.FileStatus.MISSING)
+            // 为每一次改动添加详尽的中文注释：播放器报错后本地文件立即降级，非本地文件先走缓冲重试，避免网络瞬断导致误标 MISSING。
+            if (checkFileAvailable(failedFile)) {
+                bookDao.updateBookFileStatus(failedFile.id, AudiobookSchema.FileStatus.READY)
+            } else {
+                bookDao.updateBookFileStatus(failedFile.id, AudiobookSchema.FileStatus.MISSING)
+            }
             recalculatePlaybackBookStatus(bookId)
         }
     }
@@ -70,16 +92,60 @@ class PlaybackReachabilityManager(
             return null
         }
 
+        val candidateFiles = files.drop(afterQueueIndex + 1)
+        if (!allLocalFiles(candidateFiles)) {
+            return findNextAvailableRemoteAware(bookId, afterQueueIndex, files)
+        }
+        // 为每一次改动添加详尽的中文注释：播放器错误后查找下一轨时，对剩余分轨做一次批量 VFS 可达性检查，避免多文件书籍逐轨重复枚举同一目录。
+        val availabilityByFileId = availabilityChecker.checkBookFiles(candidateFiles)
+        val readyFileIds = mutableListOf<String>()
+        val missingFileIds = mutableListOf<String>()
+        var nextAvailable: Pair<Int, BookFileEntity>? = null
+        candidateFiles.forEachIndexed { offset, candidate ->
+            val isReady = availabilityByFileId[candidate.id]?.isAvailable == true
+            if (isReady) {
+                readyFileIds.add(candidate.id)
+            } else {
+                missingFileIds.add(candidate.id)
+            }
+            if (isReady) {
+                val queueIndex = afterQueueIndex + 1 + offset
+                if (nextAvailable == null) nextAvailable = queueIndex to candidate
+            }
+        }
+        if (readyFileIds.isNotEmpty()) {
+            bookDao.updateBookFileStatuses(readyFileIds, AudiobookSchema.FileStatus.READY)
+        }
+        if (missingFileIds.isNotEmpty()) {
+            bookDao.updateBookFileStatuses(missingFileIds, AudiobookSchema.FileStatus.MISSING)
+        }
+
+        recalculatePlaybackBookStatus(bookId)
+        return nextAvailable
+    }
+
+    private suspend fun allLocalFiles(files: List<BookFileEntity>): Boolean {
+        // 为每一次改动添加详尽的中文注释：播放期批量快检只应用于本地 SAF；非本地来源仍走带网络缓冲时间的单文件策略。
+        val sourceTypesByRootId = files.map { it.rootId }.distinct().associateWith { rootId ->
+            libraryRootDao.getRootById(rootId)?.sourceType
+        }
+        return files.all { file -> sourceTypesByRootId[file.rootId] == AudiobookSchema.LibrarySourceType.SAF }
+    }
+
+    private suspend fun findNextAvailableRemoteAware(
+        bookId: String,
+        afterQueueIndex: Int,
+        files: List<BookFileEntity>
+    ): Pair<Int, BookFileEntity>? {
         for (queueIndex in (afterQueueIndex + 1)..files.lastIndex) {
             val candidate = files[queueIndex]
-            val isReady = checkFileExists(candidate.uri)
+            val isReady = checkFileAvailable(candidate)
             updatePlaybackFileStatus(candidate, isReady)
             if (isReady) {
                 recalculatePlaybackBookStatus(bookId)
                 return queueIndex to candidate
             }
         }
-
         recalculatePlaybackBookStatus(bookId)
         return null
     }
@@ -121,5 +187,10 @@ class PlaybackReachabilityManager(
             missingCount > 0 -> AudiobookSchema.BookStatus.PARTIAL
             else -> AudiobookSchema.BookStatus.READY
         }
+    }
+
+    private companion object {
+        // 为每一次改动添加详尽的中文注释：非本地播放可达性最多尝试三次，总等待约 2.3 秒，给 WebDAV 等网络源短暂恢复窗口。
+        val REMOTE_REACHABILITY_RETRY_DELAYS_MS = longArrayOf(800L, 1_500L, 0L)
     }
 }

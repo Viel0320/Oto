@@ -351,14 +351,14 @@ fun SettingsScreen(
                 )
             }
 
-            // 详尽中文注释：添加模式 key，使用库根 treeUri 作为唯一标识，
+            // 为每一次改动添加详尽的中文注释：添加模式 key，使用通用 sourceUri 作为唯一标识，避免 UI 继续依赖旧库根字段。
             // 防止列表刷新时 item 状态错位复用导致 UI 错乱。
-            items(libraryRoots.size, key = { libraryRoots[it].treeUri }) { index ->
+            items(libraryRoots.size, key = { libraryRoots[it].sourceUri }) { index ->
                 val root = libraryRoots[index]
                 val decodedPath = try {
-                    Uri.decode(root.treeUri).substringAfterLast(":")
+                    Uri.decode(root.sourceUri).substringAfterLast(":")
                 } catch (_: Exception) {
-                    root.treeUri
+                    root.sourceUri
                 }
                 
                 // 详尽的中文注释：重构媒体库卡片单行，右侧渲染删除图标。

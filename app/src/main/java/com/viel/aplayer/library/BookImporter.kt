@@ -2,14 +2,10 @@ package com.viel.aplayer.library
 
 import android.content.Context
 import androidx.room.withTransaction
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.entity.BookEntity
-import com.viel.aplayer.data.entity.BookFileEntity
-import com.viel.aplayer.data.entity.ChapterEntity
 
 // Import persistence boundary for the new scan model.
 class BookImporter(private val context: Context) {
@@ -61,88 +57,5 @@ class BookImporter(private val context: Context) {
         }
     }
 
-    // Compatibility entry for direct single-file additions; manifest imports now go through ImportOrchestrator.
-    suspend fun importSingleAudio(
-        uri: String,
-        title: String,
-        author: String,
-        narrator: String,
-        description: String,
-        year: String,
-        durationMs: Long,
-        fileSize: Long,
-        lastModified: Long,
-        coverPath: String?,
-        thumbnailPath: String?,
-        backgroundColorArgb: Int?,
-        chapters: List<ChapterEntity>,
-        existingBookId: String? = null
-    ): String = withContext(Dispatchers.IO) {
-        val bookId = existingBookId ?: UUID.randomUUID().toString()
-        val fileId = UUID.randomUUID().toString()
-        val rootId = "default"
-
-        // Book remains logical; the audio file identity is stored below in BookFile.
-        val book = BookEntity(
-            id = bookId,
-            rootId = rootId,
-            sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
-            title = title,
-            author = author.trim(),
-            narrator = narrator.trim(),
-            description = description,
-            year = year,
-            totalDurationMs = durationMs,
-            totalFileSize = fileSize,
-            coverPath = coverPath,
-            thumbnailPath = thumbnailPath,
-            backgroundColorArgb = backgroundColorArgb,
-            status = AudiobookSchema.BookStatus.READY
-        )
-
-        // Single-file additions occupy one AUDIO BookFile row.
-        val file = BookFileEntity(
-            id = fileId,
-            bookId = bookId,
-            rootId = rootId,
-            fileRole = AudiobookSchema.FileRole.AUDIO,
-            index = 0,
-            uri = uri,
-            documentId = "",
-            relativePath = "",
-            displayName = title,
-            durationMs = durationMs,
-            fileSize = fileSize,
-            lastModified = lastModified,
-            status = AudiobookSchema.FileStatus.READY
-        )
-
-        bookDao.insertBook(book)
-        bookDao.insertBookFiles(listOf(file))
-
-        if (chapters.isNotEmpty()) {
-            // Embedded chapters are anchored to the single AUDIO BookFile.
-            val fixedChapters = chapters.mapIndexed { index, chapter ->
-                val finalDuration = if (chapter.durationMs <= 0) {
-                    if (index < chapters.size - 1) {
-                        chapters[index + 1].startPositionMs - chapter.startPositionMs
-                    } else {
-                        durationMs - chapter.startPositionMs
-                    }
-                } else {
-                    chapter.durationMs
-                }
-
-                chapter.copy(
-                    id = UUID.randomUUID().toString(),
-                    bookId = bookId,
-                    bookFileId = fileId,
-                    durationMs = finalDuration.coerceAtLeast(0L)
-                )
-            }
-            chapterDao.insertChapters(fixedChapters)
-        }
-
-        bookId
-    }
+    // 为每一次改动添加详尽的中文注释：旧单文件直接入库入口已移除，所有持久化导入必须来自 VFS 扫描生成的 ImportRunResult。
 }

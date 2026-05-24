@@ -1,11 +1,7 @@
 package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
-import android.media.MediaMetadataRetriever
-import android.net.Uri
-import androidx.documentfile.provider.DocumentFile
 import android.util.Log
-import androidx.core.net.toUri
 import java.io.BufferedInputStream
 import java.nio.charset.Charset
 import java.util.UUID
@@ -28,9 +24,12 @@ import com.viel.aplayer.library.ImportSourceRef
 import com.viel.aplayer.library.MetadataSuggestion
 import com.viel.aplayer.library.ReservationResult
 import com.viel.aplayer.library.mapWithBoundedConcurrency
+import com.viel.aplayer.library.vfsFileKey
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
+import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsNode
 import com.viel.aplayer.media.AudiobookMetadata
 import com.viel.aplayer.media.parse.CoverExtractor
 import com.viel.aplayer.media.parse.MetadataExtractor
@@ -66,6 +65,8 @@ internal class ConflictClaimStep(
 
         // 详尽的中文注释：FileInventory 没有无参的默认构造函数，需要使用其带 5 个参数的显示构造函数传入空数据降级
         val inventory = context.sharedInventory ?: FileInventory(emptyList(), emptyList(), emptyList(), emptyList(), emptyMap())
+        // 为每一次改动添加详尽的中文注释：TXT 描述读取必须用当前扫描 scope 的 roots 映射初始化 VFS reader，否则 listChildren/open 会因找不到 root 直接空返回。
+        val fileReader = VfsFileReader(this.context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
 
         // ==========================================
         // 1. 处理 CUE 类型的有声书草稿冲突认领决策
@@ -75,18 +76,18 @@ internal class ConflictClaimStep(
             val missingCount = cueBook.draft.missingCount
 
             if (cueBook.audioRefs.isEmpty()) {
-                failures.add(ImportCommand.RecordFailure(ImportFailure(cue.uri, "CUE references no resolvable audio")))
+                failures.add(ImportCommand.RecordFailure(ImportFailure(cue.vfsDisplayId(), "CUE references no resolvable audio")))
                 return@forEach
             }
 
-            val source = ImportSourceRef(AudiobookSchema.SourceType.CUE, cue.uri, cue.displayName)
+            val source = ImportSourceRef(AudiobookSchema.SourceType.CUE, cue.vfsDisplayId(), cue.displayName)
             val claimedIdentities = cueBook.audioRefs.map { it.identity } + cue.identity
-            // 详尽的中文注释：对 CUE 书籍进行所有权抢占检测时，透传其 cue.parentUri 父目录以限制在同物理目录下进行冲突判定
+            // 为每一次改动添加详尽的中文注释：对 CUE 书籍进行所有权抢占检测时，透传其 VFS 父目录路径以限制在同目录下进行冲突判定。
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = claimedIdentities,
                 existingClaimIndex = context.existingClaimIndex,
-                currentParentUri = cue.parentUri
+                currentParentSourcePath = cue.parentSourcePath
             )
             
             if (!reservation.reserved) {
@@ -101,7 +102,7 @@ internal class ConflictClaimStep(
             }
 
             // 合并元数据
-            val sidecarDesc = readSameNameTxtDescription(cue)
+            val sidecarDesc = readSameNameTxtDescription(fileReader, cue)
             val firstAudioMeta = firstManifestAudioMetadata(cueBook.audioRefs)
             val mergedMeta = resolveManifestBookMetadata(
                 manifestMetadata = cueBook.draft.result.metadata,
@@ -110,9 +111,9 @@ internal class ConflictClaimStep(
                 sidecarDescription = sidecarDesc
             )
 
-            val entryToUri = cueBook.draft.resolvedAudioUris
+            val entryToKey = cueBook.draft.resolvedAudioKeys
             val chapters = cueBook.draft.result.chapters.mapNotNull { chapter ->
-                entryToUri[chapter.fileUri]?.let { chapter.copy(fileUri = it) }
+                entryToKey[chapter.fileKey]?.let { chapter.copy(fileKey = it) }
             }
 
             val draft = buildManifestDraft(
@@ -143,18 +144,18 @@ internal class ConflictClaimStep(
             val missingCount = m3u8Book.draft.missingCount
 
             if (m3u8Book.audioRefs.isEmpty()) {
-                failures.add(ImportCommand.RecordFailure(ImportFailure(m3u8.uri, "M3U8 references no resolvable local audio")))
+                failures.add(ImportCommand.RecordFailure(ImportFailure(m3u8.vfsDisplayId(), "M3U8 references no resolvable local audio")))
                 return@forEach
             }
 
-            val source = ImportSourceRef(AudiobookSchema.SourceType.M3U8, m3u8.uri, m3u8.displayName)
+            val source = ImportSourceRef(AudiobookSchema.SourceType.M3U8, m3u8.vfsDisplayId(), m3u8.displayName)
             val claimedIdentities = m3u8Book.audioRefs.map { it.identity } + m3u8.identity
-            // 详尽的中文注释：对 M3U8 书籍进行所有权抢占检测时，透传其 m3u8.parentUri 父目录以限制在同物理目录下进行冲突判定
+            // 为每一次改动添加详尽的中文注释：对 M3U8 书籍进行所有权抢占检测时，透传其 VFS 父目录路径以限制在同目录下进行冲突判定。
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = claimedIdentities,
                 existingClaimIndex = context.existingClaimIndex,
-                currentParentUri = m3u8.parentUri
+                currentParentSourcePath = m3u8.parentSourcePath
             )
             
             if (!reservation.reserved) {
@@ -167,7 +168,7 @@ internal class ConflictClaimStep(
                 return@forEach
             }
 
-            val sidecarDesc = readSameNameTxtDescription(m3u8)
+            val sidecarDesc = readSameNameTxtDescription(fileReader, m3u8)
             val firstAudioMeta = firstManifestAudioMetadata(m3u8Book.audioRefs)
             val mergedMeta = resolveManifestBookMetadata(
                 manifestMetadata = m3u8Book.draft.result.metadata,
@@ -177,10 +178,10 @@ internal class ConflictClaimStep(
             )
 
             val resolved = m3u8Book.draft.result.items.distinctBy { it.uri }.mapNotNull { item ->
-                m3u8Book.draft.resolvedAudioUris[item.uri]?.let { uri -> item to uri }
+                m3u8Book.draft.resolvedAudioKeys[item.uri]?.let { fileKey -> item to fileKey }
             }
-            val fileTitles = resolved.mapNotNull { (item, uri) -> item.title?.let { uri to it } }.toMap()
-            val fileDurations = resolved.mapNotNull { (item, uri) -> item.durationMs?.let { uri to it } }.toMap()
+            val fileTitles = resolved.mapNotNull { (item, fileKey) -> item.title?.let { fileKey to it } }.toMap()
+            val fileDurations = resolved.mapNotNull { (item, fileKey) -> item.durationMs?.let { fileKey to it } }.toMap()
 
             val draft = buildManifestDraft(
                 bookId = m3u8Book.bookId,
@@ -210,22 +211,22 @@ internal class ConflictClaimStep(
             val firstChapter = orderedFiles.first()
             val source = ImportSourceRef(
                 sourceType = AudiobookSchema.SourceType.GENERATED_M3U8,
-                sourceUri = "generated://${firstChapter.file.parentUri}/${orderedFiles.joinToString("-") { it.file.documentId.hashCode().toString() }}",
+                sourceUri = "generated://${firstChapter.file.parentSourceKey}/${orderedFiles.joinToString("-") { it.file.sourceIdentity.hashCode().toString() }}",
                 displayName = aggBook.plan.title
             )
             
-            // 详尽的中文注释：对启发式聚合书籍进行所有权抢占检测时，透传其首轨音频所在的 parentUri 父目录以限制在同物理目录下进行冲突判定
+            // 为每一次改动添加详尽的中文注释：对启发式聚合书籍进行所有权抢占检测时，透传首轨音频所在的 VFS 父目录路径。
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = orderedFiles.map { it.file.identity },
                 existingClaimIndex = context.existingClaimIndex,
-                currentParentUri = firstChapter.file.parentUri
+                currentParentSourcePath = firstChapter.file.parentSourcePath
             )
             if (reservation.reserved) {
                 // 详尽的中文注释：如果首个音频的 metadata 中的 description 为空，则采用增强匹配与模糊兜底机制读取该文件夹下的 txt 文件作为简介
                 val firstAudioMeta = firstChapter.metadata
                 val description = if (firstAudioMeta.description.isBlank()) {
-                    readTxtDescription(firstChapter.file.parentDocumentFile, baseName = null, strictSameNameOnly = false) ?: ""
+                    readTxtDescription(fileReader, firstChapter.file, baseName = null, strictSameNameOnly = false) ?: ""
                 } else {
                     firstAudioMeta.description
                 }
@@ -242,13 +243,13 @@ internal class ConflictClaimStep(
         // ==========================================
         input.singleBooks.forEach { singleBook ->
             val audio = singleBook.audioRef
-            val source = ImportSourceRef(AudiobookSchema.SourceType.SINGLE_AUDIO, audio.file.uri, audio.file.displayName)
-            // 详尽的中文注释：对单音频书籍进行所有权抢占检测时，透传其所在的 audio.file.parentUri 父目录以限制在同物理目录下进行冲突判定
+            val source = ImportSourceRef(AudiobookSchema.SourceType.SINGLE_AUDIO, audio.file.vfsDisplayId(), audio.file.displayName)
+            // 为每一次改动添加详尽的中文注释：对单音频书籍进行所有权抢占检测时，透传其所在的 VFS 父目录路径。
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = listOf(audio.file.identity),
                 existingClaimIndex = context.existingClaimIndex,
-                currentParentUri = audio.file.parentUri
+                currentParentSourcePath = audio.file.parentSourcePath
             )
             
             if (!reservation.reserved) {
@@ -263,7 +264,8 @@ internal class ConflictClaimStep(
                     missingDelimiterValue = audio.file.displayName
                 )
                 readTxtDescription(
-                    audio.file.parentDocumentFile,
+                    fileReader,
+                    audio.file,
                     baseName,
                     strictSameNameOnly = true
                 ) ?: ""
@@ -341,8 +343,8 @@ internal class ConflictClaimStep(
             id = bookId,
             rootId = audio.file.rootId,
             sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
-            // 为每一次改动添加详尽的中文注释：单音频模式下，该音频文件所在的直接父物理文件夹的 Uri 作为该有声书的 sourceRoot
-            sourceRoot = audio.file.parentUri,
+            // 为每一次改动添加详尽的中文注释：单音频模式下使用 VFS 父目录键作为 sourceRoot，不再保存 SAF 父目录 Uri。
+            sourceRoot = audio.file.parentSourceKey,
             title = title,
             author = audio.metadata.author.trim(),
             narrator = audio.metadata.narrator.trim(),
@@ -387,28 +389,28 @@ internal class ConflictClaimStep(
         cover: CoverExtractor.CoverResult?,
         inventory: FileInventory
     ): BookDraft {
-        // 详尽的中文注释：manifest 已经完成 claim 预留后，再并发读取缺失的音频时长；这里只加速 MediaMetadataRetriever I/O，不改变所有权裁决顺序。
-        val durationByUri = audioFiles
+        // 为每一次改动添加详尽的中文注释：manifest 已经完成 claim 预留后，再按 VFS 文件键并发读取缺失时长，不再通过 URI 定位音频。
+        val durationByKey = audioFiles
             .mapWithBoundedConcurrency { file ->
-                file.uri to (fileDurations[file.uri] ?: readDuration(file.uri))
+                file.vfsKey to (fileDurations[file.vfsKey] ?: readDuration(file, inventory))
             }
             .toMap()
         val audioBookFiles = audioFiles.mapIndexed { index, ref ->
-            ref.toBookFile(bookId, UUID.randomUUID().toString(), index, AudiobookSchema.FileStatus.READY, durationByUri[ref.uri] ?: 0L)
+            ref.toBookFile(bookId, UUID.randomUUID().toString(), index, AudiobookSchema.FileStatus.READY, durationByKey[ref.vfsKey] ?: 0L)
         }
         val manifestFile = sourceFile.toManifestBookFile(bookId, UUID.randomUUID().toString())
-        val fileIdByUri = audioBookFiles.associate { it.uri to it.id }
-        val fileStartByUri = mutableMapOf<String, Long>()
+        val fileIdByKey = audioBookFiles.associate { it.vfsKey() to it.id }
+        val fileStartByKey = mutableMapOf<String, Long>()
         var start = 0L
         audioBookFiles.forEach { file ->
-            fileStartByUri[file.uri] = start
+            fileStartByKey[file.vfsKey()] = start
             start += file.durationMs
         }
 
         val chapters = if (chapterCandidates.isNotEmpty()) {
             chapterCandidates.mapIndexed { index, chapter ->
-                val fileId = fileIdByUri[chapter.fileUri].orEmpty()
-                val fileDuration = durationByUri[chapter.fileUri] ?: 0L
+                val fileId = fileIdByKey[chapter.fileKey].orEmpty()
+                val fileDuration = durationByKey[chapter.fileKey] ?: 0L
                 val fallbackDuration = nextChapterOffset(chapterCandidates, index) ?: (fileDuration - chapter.fileOffsetMs)
                 ChapterEntity(
                     id = UUID.randomUUID().toString(),
@@ -416,7 +418,7 @@ internal class ConflictClaimStep(
                     bookFileId = fileId,
                     index = index,
                     title = chapter.title.ifBlank { "Chapter ${index + 1}" },
-                    startPositionMs = (fileStartByUri[chapter.fileUri] ?: 0L) + chapter.fileOffsetMs,
+                    startPositionMs = (fileStartByKey[chapter.fileKey] ?: 0L) + chapter.fileOffsetMs,
                     durationMs = (if (chapter.durationMs > 0L) chapter.durationMs else fallbackDuration).coerceAtLeast(0L),
                     fileOffsetMs = chapter.fileOffsetMs,
                     source = sourceType
@@ -425,7 +427,7 @@ internal class ConflictClaimStep(
         } else {
             var chapterStart = 0L
             audioBookFiles.mapIndexed { index, file ->
-                val chapterTitle = fileTitles[file.uri]?.ifBlank { null } ?: file.displayName.substringBeforeLast('.')
+                val chapterTitle = fileTitles[file.vfsKey()]?.ifBlank { null } ?: file.displayName.substringBeforeLast('.')
                 val chapter = ChapterEntity(
                     id = UUID.randomUUID().toString(),
                     bookId = bookId,
@@ -446,8 +448,8 @@ internal class ConflictClaimStep(
             id = bookId,
             rootId = sourceFile.rootId,
             sourceType = sourceType,
-            // 为每一次改动添加详尽的中文注释：清单书籍模式下，源清单（CUE/M3U8）文件所在的物理直接父文件夹的 Uri 作为该有声书的 sourceRoot
-            sourceRoot = sourceFile.parentUri,
+            // 为每一次改动添加详尽的中文注释：清单书籍模式下使用源清单所在 VFS 父目录键作为 sourceRoot。
+            sourceRoot = sourceFile.parentSourceKey,
             title = title.ifBlank { sourceFile.displayName.substringBeforeLast('.') },
             author = author.trim(),
             narrator = narrator.trim(),
@@ -472,7 +474,8 @@ internal class ConflictClaimStep(
     ): BookDraft {
         val orderedFiles = plan.chapters.map { it.audio }
         val firstChapterMetadata = orderedFiles.first().metadata
-        val manifestJson = orderedFiles.joinToString(prefix = "[", postfix = "]") { "\"${it.file.uri}\"" }
+        // 为每一次改动添加详尽的中文注释：生成清单只记录 VFS 文件键，避免 generatedManifestJson 再持久化 provider URI。
+        val manifestJson = orderedFiles.joinToString(prefix = "[", postfix = "]") { "\"${it.file.vfsKey.escapeJson()}\"" }
         val bookFiles = orderedFiles.mapIndexed { index, audio ->
             audio.toBookFile(bookId, UUID.randomUUID().toString(), index, AudiobookSchema.FileStatus.READY)
         }
@@ -497,8 +500,8 @@ internal class ConflictClaimStep(
             id = bookId,
             rootId = orderedFiles.first().file.rootId,
             sourceType = AudiobookSchema.SourceType.GENERATED_M3U8,
-            // 为每一次改动添加详尽的中文注释：启发式聚合书籍模式下，以首轨音频文件所在的直接物理父文件夹 Uri 作为该有声书的 sourceRoot
-            sourceRoot = orderedFiles.first().file.parentUri,
+            // 为每一次改动添加详尽的中文注释：启发式聚合书籍模式下以首轨音频文件所在 VFS 父目录键作为 sourceRoot。
+            sourceRoot = orderedFiles.first().file.parentSourceKey,
             generatedManifestJson = manifestJson,
             heuristicRuleVersion = plan.ruleVersion,
             title = plan.title,
@@ -527,9 +530,7 @@ internal class ConflictClaimStep(
             rootId = rootId,
             fileRole = AudiobookSchema.FileRole.SOURCE_MANIFEST,
             index = 0,
-            uri = uri,
-            documentId = documentId,
-            relativePath = relativePath,
+            // 为每一次改动添加详尽的中文注释：BookFileEntity 只写入 VFS sourcePath/sourceIdentity，不再持久化 SAF 专属旧列。
             sourcePath = sourcePath,
             sourceIdentity = sourceIdentity,
             etag = etag,
@@ -569,9 +570,7 @@ internal class ConflictClaimStep(
             rootId = rootId,
             fileRole = AudiobookSchema.FileRole.AUDIO,
             index = index,
-            uri = uri,
-            documentId = documentId,
-            relativePath = relativePath,
+            // 为每一次改动添加详尽的中文注释：音频 BookFileEntity 同样只持久化 VFS 定位字段。
             sourcePath = sourcePath,
             sourceIdentity = sourceIdentity,
             etag = etag,
@@ -595,20 +594,24 @@ internal class ConflictClaimStep(
             source = source
         )
 
-    private fun readDuration(uri: String): Long =
+    private suspend fun readDuration(file: FileRef, inventory: FileInventory): Long =
+        // 为每一次改动添加详尽的中文注释：清单音频补时长复用 VFS 元数据入口，不再把 FileRef 还原成 provider URI。
         runCatching {
-            val retriever = MediaMetadataRetriever()
-            try {
-                retriever.setDataSource(context, uri.toUri())
-                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-            } finally {
-                retriever.release()
-            }
+            val reader = VfsFileReader(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
+            reader.openFileDescriptor(file)?.use { pfd ->
+                val retriever = android.media.MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(pfd.fileDescriptor)
+                    retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                } finally {
+                    retriever.release()
+                }
+            } ?: 0L
         }.getOrDefault(0L)
 
     private fun nextChapterOffset(chapters: List<ChapterCandidate>, index: Int): Long? {
         val current = chapters.getOrNull(index) ?: return null
-        return chapters.drop(index + 1).firstOrNull { it.fileUri == current.fileUri }?.fileOffsetMs?.minus(current.fileOffsetMs)
+        return chapters.drop(index + 1).firstOrNull { it.fileKey == current.fileKey }?.fileOffsetMs?.minus(current.fileOffsetMs)
     }
 
     private fun singleAudioBookTitle(metadata: AudiobookMetadata, displayName: String): String =
@@ -619,9 +622,10 @@ internal class ConflictClaimStep(
     private suspend fun firstManifestAudioMetadata(audioRefs: List<FileRef>): ManifestAudioMetadata? {
         val firstAudio = audioRefs.firstOrNull() ?: return null
         return runCatching {
-            ManifestAudioMetadata(firstAudio, metadataExtractor.extract(firstAudio.uri.toUri()))
+            // 为每一次改动添加详尽的中文注释：manifest 兜底元数据从首个音频的 VFS 路径读取，避免 URI 旁路。
+            ManifestAudioMetadata(firstAudio, metadataExtractor.extract(firstAudio))
         }.onFailure { error ->
-            Log.w(TAG, "Failed to read manifest fallback metadata: ${firstAudio.uri}", error)
+            Log.w(TAG, "Failed to read manifest fallback metadata: ${firstAudio.vfsDisplayId()}", error)
         }.getOrNull()
     }
 
@@ -644,30 +648,31 @@ internal class ConflictClaimStep(
             description = firstNonBlank(manifestMetadata.description, sidecarDescription, firstAudio?.metadata?.description)
         )
 
-    // 详尽的中文注释：此方法保留原有清单导入对同名 txt 描述文件的检索接口，在内部使用增强版 readTxtDescription 进行匹配
-    private fun readSameNameTxtDescription(sourceFile: FileRef): String? {
+    // 详尽的中文注释：此方法保留原有清单导入对同名 txt 描述文件的检索接口，在内部使用 VFS 目录枚举进行匹配
+    private suspend fun readSameNameTxtDescription(fileReader: VfsFileReader, sourceFile: FileRef): String? {
         val baseName = sourceFile.displayName.substringBeforeLast('.', missingDelimiterValue = sourceFile.displayName)
-        return readTxtDescription(sourceFile.parentDocumentFile, baseName, strictSameNameOnly = false)
+        return readTxtDescription(fileReader, sourceFile, baseName, strictSameNameOnly = false)
     }
 
-    // 详尽的中文注释：新增通用 txt 描述检索工具方法，支持同名优先匹配、常见简介文件前缀模糊查找以及单文件兜底机制，支持 strictSameNameOnly 参数控制
-    private fun readTxtDescription(
-        parentFolder: DocumentFile,
+    // 为每一次改动添加详尽的中文注释：txt 描述检索改为 VFS 同目录枚举，支持同名优先、简介文件名和单 txt 兜底。
+    private suspend fun readTxtDescription(
+        fileReader: VfsFileReader,
+        sourceFile: FileRef,
         baseName: String? = null,
         strictSameNameOnly: Boolean = false
     ): String? {
-        val files = runCatching { parentFolder.listFiles() }.getOrNull()?.filter { file ->
-            file.isFile && file.name?.substringAfterLast('.', missingDelimiterValue = "").equals("txt", ignoreCase = true)
-        } ?: emptyList()
+        val files = fileReader.listChildren(sourceFile.rootId, sourceFile.parentSourcePath).filter { node ->
+            !node.metadata.isDirectory && node.metadata.displayName.substringAfterLast('.', missingDelimiterValue = "").equals("txt", ignoreCase = true)
+        }
         if (files.isEmpty()) return null
 
         // 1. 如果指定了 baseName，优先寻找与 baseName 完全同名（不含后缀）的 txt 文件
         if (!baseName.isNullOrBlank()) {
             val sameNameFile = files.firstOrNull { file ->
-                file.name?.substringBeforeLast('.', missingDelimiterValue = "").equals(baseName, ignoreCase = true)
+                file.metadata.displayName.substringBeforeLast('.', missingDelimiterValue = "").equals(baseName, ignoreCase = true)
             }
             if (sameNameFile != null) {
-                return readTxtFileAndLog(sameNameFile, "same-name (baseName=$baseName)")
+                return readTxtFileAndLog(fileReader, sameNameFile, "same-name (baseName=$baseName)")
             }
         }
 
@@ -680,35 +685,35 @@ internal class ConflictClaimStep(
         // 2. 模糊查找常见前缀的 txt 文件
         val commonNames = listOf("desc", "description", "info", "book", "readme", "简介", "有声书简介")
         val commonNameFile = files.firstOrNull { file ->
-            val nameWithoutExt = file.name?.substringBeforeLast('.', missingDelimiterValue = "")?.lowercase().orEmpty()
+            val nameWithoutExt = file.metadata.displayName.substringBeforeLast('.', missingDelimiterValue = "").lowercase()
             commonNames.any { common -> nameWithoutExt == common || nameWithoutExt.contains(common) }
         }
         if (commonNameFile != null) {
-            return readTxtFileAndLog(commonNameFile, "common-name")
+            return readTxtFileAndLog(fileReader, commonNameFile, "common-name")
         }
 
         // 3. 兜底匹配：当且仅当目录下只有一个 txt 文件时，直接选用该文件
         if (files.size == 1) {
-            return readTxtFileAndLog(files.first(), "single-txt-in-folder")
+            return readTxtFileAndLog(fileReader, files.first(), "single-txt-in-folder")
         }
 
         return null
     }
 
-    // 详尽的中文注释：提取通用的 txt 文本读取及日志打印辅助方法
-    private fun readTxtFileAndLog(txtFile: DocumentFile, matchedBy: String): String? {
+    // 为每一次改动添加详尽的中文注释：提取通用的 txt 文本读取及日志打印辅助方法，读取入口统一走 VFS stream。
+    private suspend fun readTxtFileAndLog(fileReader: VfsFileReader, txtFile: VfsNode, matchedBy: String): String? {
         return runCatching {
-            readTextFile(txtFile.uri)
+            readTextFile(fileReader, txtFile)
         }.onFailure { error ->
-            Log.w(TAG, "Failed to read txt description ($matchedBy): ${txtFile.uri}", error)
+            Log.w(TAG, "Failed to read txt description ($matchedBy): ${txtFile.metadata.uri}", error)
         }.getOrNull()?.trim()?.takeIf { it.isNotBlank() }?.also { description ->
-            Log.i(TAG, "Loaded txt description ($matchedBy): txt=${txtFile.name.orEmpty().logValue()}, chars=${description.length}")
+            Log.i(TAG, "Loaded txt description ($matchedBy): txt=${txtFile.metadata.displayName.logValue()}, chars=${description.length}")
         }
     }
 
-    private fun readTextFile(uri: Uri): String {
+    private suspend fun readTextFile(fileReader: VfsFileReader, file: VfsNode): String {
         var isTruncated = false
-        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+        val bytes = fileReader.open(file)?.use { input ->
             BufferedInputStream(input).use { buffered ->
                 val result = readLimitedBytes(buffered, MAX_DESCRIPTION_BYTES)
                 // 详尽的中文注释：判断是否发生物理字节截断：如果读入的字节数刚好达到 MAX_DESCRIPTION_BYTES，且输入流中还有更多字节，则标记为已截断
@@ -723,7 +728,7 @@ internal class ConflictClaimStep(
             }
         } ?: return ""
         if (isTruncated) {
-            Log.i(TAG, "Manifest txt description reached ${MAX_DESCRIPTION_BYTES}B read limit: $uri")
+            Log.i(TAG, "Manifest txt description reached ${MAX_DESCRIPTION_BYTES}B read limit: ${file.metadata.uri}")
         }
         val utf8Text = bytes.decodeUtf8PossiblyTruncated()
         val decoded = when {
@@ -735,7 +740,7 @@ internal class ConflictClaimStep(
 
         // 详尽的中文注释：截断判定联动：如果已经发生物理截断，或者解码后的字符总数超过了 MAX_DESCRIPTION_CHARS 上限，均视为发生截断
         val finalIsTruncated = isTruncated || decoded.length > MAX_DESCRIPTION_CHARS
-        val baseDescription = decoded.limitDescriptionChars(uri)
+        val baseDescription = decoded.limitDescriptionChars(file.metadata.uri)
 
         // 详尽的中文注释：如果在物理或逻辑层级发生了截断，则在保留前 500 字符的段尾部分拼接上英文省略号 "..."
         return if (finalIsTruncated) {
@@ -756,7 +761,7 @@ internal class ConflictClaimStep(
         return buffer.copyOf(total)
     }
 
-    private fun String.limitDescriptionChars(uri: Uri): String {
+    private fun String.limitDescriptionChars(uri: String): String {
         if (length <= MAX_DESCRIPTION_CHARS) return this
         Log.i(TAG, "Manifest txt description truncated to $MAX_DESCRIPTION_CHARS chars: $uri")
         return take(MAX_DESCRIPTION_CHARS)
@@ -817,6 +822,18 @@ internal class ConflictClaimStep(
 
     private fun firstNonBlank(vararg values: String?): String =
         values.firstOrNull { !it.isNullOrBlank() }?.trim().orEmpty()
+
+    private fun FileRef.vfsDisplayId(): String =
+        // 为每一次改动添加详尽的中文注释：用户可见/日志来源标识使用 rootId/sourcePath，避免继续输出 provider URI。
+        "vfs://$rootId/$sourcePath"
+
+    private fun BookFileEntity.vfsKey(): String =
+        // 为每一次改动添加详尽的中文注释：入库后的章节映射也用 rootId/sourcePath 还原同一个 VFS 文件键。
+        vfsFileKey(rootId, sourcePath)
+
+    private fun String.escapeJson(): String =
+        // 为每一次改动添加详尽的中文注释：生成的 VFS manifest JSON 对路径分隔符和引号做最小转义，避免 sourcePath 中特殊字符破坏 JSON。
+        replace("\\", "\\\\").replace("\"", "\\\"")
 
     private fun String.logValue(): String =
         ifBlank { "<blank>" }

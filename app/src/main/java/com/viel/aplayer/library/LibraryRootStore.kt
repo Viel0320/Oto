@@ -2,10 +2,8 @@ package com.viel.aplayer.library
 
 import android.content.Context
 import android.net.Uri
-import androidx.documentfile.provider.DocumentFile
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -17,7 +15,6 @@ import com.viel.aplayer.library.availability.AvailabilityChecker
  */
 class LibraryRootStore(private val context: Context) {
     private val rootDao = AppDatabase.getInstance(context).libraryRootDao()
-    private val prefs = context.getSharedPreferences("library_prefs", Context.MODE_PRIVATE)
     // 统一根目录可用性探测入口；SAF 阶段仍复刻旧授权检查，WebDAV 后续复用同一状态模型。
     private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
@@ -44,7 +41,8 @@ class LibraryRootStore(private val context: Context) {
             }
         val root = LibraryRootEntity(
             id = UUID.randomUUID().toString(),
-            treeUri = normalizedUri,
+            // 为每一次改动添加详尽的中文注释：本地 SAF 库根也写入通用 sourceUri，后续 WebDAV 复用同一个来源地址字段。
+            sourceUri = normalizedUri,
             displayName = displayName,
             grantedAt = System.currentTimeMillis(),
             status = AudiobookSchema.LibraryRootStatus.ACTIVE
@@ -74,35 +72,10 @@ class LibraryRootStore(private val context: Context) {
         }
     }
 
-    /**
-     * 处理从旧版单目录 Prefs 到数据库的迁移。
-     */
-    suspend fun migrateLegacyRoot() {
-        val legacyUriStr = prefs.getString("library_root_uri", null)
-        if (legacyUriStr != null) {
-            val roots = rootDao.getAllRoots().first()
-            if (roots.none { it.isSameRoot(legacyUriStr) }) {
-                addRoot(Uri.parse(legacyUriStr), "Primary Library")
-            }
-            // 迁移后清除旧标记，防止重复
-            prefs.edit().remove("library_root_uri").apply()
-        }
-    }
-
     private fun LibraryRootEntity.isSameRoot(candidateTreeUri: String): Boolean =
-        // URI string catches exact duplicates; documentId catches equivalent normalized SAF tree URIs.
-        treeUri == candidateTreeUri ||
-            treeDocumentId(treeUri) == treeDocumentId(candidateTreeUri)
+        // 为每一次改动添加详尽的中文注释：重复库根检测改用 sourceUri，旧库根字段已从数据库模型中移除。
+        sourceUri == candidateTreeUri || treeDocumentId(sourceUri) == treeDocumentId(candidateTreeUri)
 
-    private fun hasReadAccess(treeUri: String): Boolean {
-        val uri = Uri.parse(treeUri)
-        val hasPersistedReadGrant = context.contentResolver.persistedUriPermissions.any { permission ->
-            permission.isReadPermission && permission.uri.normalizeScheme().toString() == uri.normalizeScheme().toString()
-        }
-        if (!hasPersistedReadGrant) return false
-        return DocumentFile.fromTreeUri(context, uri)?.exists() == true
-    }
-
-    private fun treeDocumentId(treeUri: String): String =
-        Uri.decode(treeUri).substringAfter("/tree/", missingDelimiterValue = treeUri)
+    private fun treeDocumentId(sourceUri: String): String =
+        Uri.decode(sourceUri).substringAfter("/tree/", missingDelimiterValue = sourceUri)
 }

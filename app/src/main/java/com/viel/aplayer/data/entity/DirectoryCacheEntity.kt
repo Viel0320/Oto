@@ -28,10 +28,15 @@ import androidx.room.PrimaryKey
 )
 data class DirectoryCacheEntity(
     /**
-     * 该文件夹在 SAF 体系下的唯一 URI 标识，用作主键
+     * 为每一次改动添加详尽的中文注释：目录缓存主键改为 rootId/sourcePath 组合，避免缓存层继续绑定 SAF URI。
      */
     @PrimaryKey
-    val directoryUri: String,
+    val cacheKey: String,
+
+    /**
+     * 为每一次改动添加详尽的中文注释：sourcePath 是 VFS 目录路径，SAF 本地目录和 WebDAV 远程目录共用同一套缓存寻址方式。
+     */
+    val sourcePath: String,
 
     /**
      * 对应物理文件夹的最新的修改时间戳（由 directory.lastModified() 读出）

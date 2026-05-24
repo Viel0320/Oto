@@ -21,15 +21,20 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
 
         val restoredBookIds = linkedSetOf<String>()
         val affectedBookIds = missingFiles.mapTo(linkedSetOf()) { it.bookId }
-        var restoredFileCount = 0
+        val availabilityByFileId = availabilityChecker.checkBookFiles(missingFiles)
+        val restoredFileIds = mutableListOf<String>()
         missingFiles.forEach { file ->
-            if (availabilityChecker.checkBookFile(file).isAvailable) {
-                // Restored files become READY immediately, but no import/pending action is created.
-                bookDao.updateBookFileStatus(file.id, AudiobookSchema.FileStatus.READY)
+            if (availabilityByFileId[file.id]?.isAvailable == true) {
+                // 为每一次改动添加详尽的中文注释：冷启动恢复也复用批量可用性结果，避免同一父目录下多个 missing 分轨逐个 resolve。
+                restoredFileIds.add(file.id)
                 restoredBookIds.add(file.bookId)
-                restoredFileCount += 1
             }
         }
+        if (restoredFileIds.isNotEmpty()) {
+            // Restored files become READY immediately, but no import/pending action is created.
+            bookDao.updateBookFileStatuses(restoredFileIds, AudiobookSchema.FileStatus.READY)
+        }
+        val restoredFileCount = restoredFileIds.size
 
         affectedBookIds.forEach { bookId ->
             // Every book with a missing row is recalculated after the cold-start check, even if no file recovered.

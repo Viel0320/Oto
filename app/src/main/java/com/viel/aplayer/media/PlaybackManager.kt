@@ -414,8 +414,8 @@ class PlaybackManager private constructor(context: Context) {
                 // 为本次桌面 widget 改动添加注释：播放计划一旦切换，桌面小组件可以立即显示目标书籍，而不必等 MediaController 回调。
                 PlayerWidgetProvider.updateAll(appContext)
 
-                // 检查是否包含 HTTP 明文源，若有则异步校验设置后再加载
-                val hasHttp = finalPlan.files.any { it.uri.startsWith("http://") }
+                // 为每一次改动添加详尽的中文注释：播放器计划只接收 VFS URI；本地/非本地策略后续按 LibraryRoot.sourceType 判断，不再从 BookFile.uri 探测 HTTP。
+                val hasHttp = false
                 if (hasHttp) {
                     scope.launch {
                         val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
@@ -444,8 +444,10 @@ class PlaybackManager private constructor(context: Context) {
                 .setArtworkData(plan.artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
                 .build()
             val builder = MediaItem.Builder()
-                .setMediaId("${plan.bookId}:${file.index}")
-                .setUri(file.uri)
+                // 为每一次改动添加详尽的中文注释：mediaId 后半段改为真实 BookFileEntity.id，让字幕、进度和后续 VFS 播放都能稳定回到同一条文件记录。
+                .setMediaId("${plan.bookId}:${file.id}")
+                // 为每一次改动添加详尽的中文注释：播放器只接收应用内部 VFS URI，实际读流由 PlaybackService 的 VfsPlaybackDataSource 通过 rootId/sourcePath 完成。
+                .setUri(VfsPlaybackUri.fromBookFile(file))
                 .setMediaMetadata(metadata)
             // 启动时不挂载全书字幕附件，避免为了多文件字幕扫描/解析阻塞 setMediaItems。
             builder.build()

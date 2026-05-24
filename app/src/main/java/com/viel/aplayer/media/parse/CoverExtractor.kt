@@ -3,11 +3,10 @@ package com.viel.aplayer.media.parse
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
-import android.net.Uri
 import android.util.Log
-import androidx.documentfile.provider.DocumentFile
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -24,14 +23,6 @@ class CoverExtractor(private val context: Context) {
         val thumbnailPath: String?,
         val backgroundColor: Int? = null,
     )
-
-    /**
-     * 从目录中寻找封面图片并处理（生成缩略图及提取颜色）。
-     */
-    suspend fun extractFromDirectory(directory: DocumentFile): CoverResult = withContext(Dispatchers.IO) {
-        val coverFile = findImageInDirectory(directory) ?: return@withContext CoverResult(null, null)
-        processExternalImage(coverFile.uri)
-    }
 
     /**
      * 为每一次改动添加详尽的中文注释：
@@ -93,46 +84,21 @@ class CoverExtractor(private val context: Context) {
         }
     }
 
-    /**
-     * 在目录中按优先级查找图片文件。
-     */
-    private fun findImageInDirectory(directory: DocumentFile): DocumentFile? {
-        val imageExtensions = listOf("jpg", "jpeg", "png", "webp")
-        val priorityNames = listOf("cover", "folder", "artwork", "front")
-        
-        val files = directory.listFiles()
-        // 1. 优先寻找特定命名的图片
-        files.find { file ->
-            val fullName = file.name?.lowercase() ?: ""
-            val name = fullName.substringBeforeLast(".")
-            val ext = fullName.substringAfterLast(".")
-            priorityNames.contains(name) && imageExtensions.contains(ext)
-        }?.let { return it }
-
-        // 2. 兜底：返回目录下的第一张图片
-        return files.find { file ->
-            val ext = file.name?.lowercase()?.substringAfterLast(".") ?: ""
-            imageExtensions.contains(ext)
-        }
-    }
-
-    suspend fun processExternalImage(uri: Uri): CoverResult = withContext(Dispatchers.IO) {
+    suspend fun processExternalImage(sourceId: String, openStream: suspend () -> InputStream?): CoverResult = withContext(Dispatchers.IO) {
         try {
-            val sourceId = uri.toString()
             val originalFile = File(coversDir, "${sourceId.hashCode()}_ext_orig.jpg")
-            // 详尽的中文注释：外置 sidecar 图像可能很大，先流式复制到缓存文件，避免 readBytes() 一次性把整张原图压进内存。
+            // 为每一次改动添加详尽的中文注释：VFS sidecar 图像通过流复制到缓存，不要求调用方提供 content Uri。
             originalFile.parentFile?.mkdirs()
-            context.contentResolver.openInputStream(uri)?.use { input ->
+            openStream()?.use { input ->
                 FileOutputStream(originalFile).use { output -> input.copyTo(output) }
             } ?: return@withContext CoverResult(null, null)
 
-            // 详尽的中文注释：外置图缩略图直接从已落盘的缓存原图采样生成，不再额外保留一份原始 ByteArray。
             val thumbPath = createThumbnailFromFile(originalFile, sourceId)
             val color = ImageProcessor.getDominantColor(thumbPath ?: originalFile.absolutePath)
 
             CoverResult(originalFile.absolutePath, thumbPath, color)
         } catch (e: Exception) {
-            Log.e("CoverExtractor", "Error processing external image", e)
+            Log.e("CoverExtractor", "Error processing external image from VFS", e)
             CoverResult(null, null)
         }
     }

@@ -391,6 +391,8 @@ class PlayerViewModel : ViewModel() {
                     val mediaId = mediaItem.mediaId
                     if (mediaId.contains(":")) {
                         val bookId = mediaId.substringBefore(":")
+                        // 为每一次改动添加详尽的中文注释：冒号后半段现在是稳定的 BookFileEntity.id，用于字幕 VFS 定位，不再依赖播放器的真实播放 URI。
+                        val bookFileId = mediaId.substringAfter(":")
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
 
@@ -399,32 +401,30 @@ class PlayerViewModel : ViewModel() {
                         isEmbeddedSearchActive = false
                         _currentSubtitles.value = emptyList()
 
-                        mediaItem.localConfiguration?.uri?.let { uri ->
-                            // 详尽的中文注释：启动全新的字幕加载与 Fallback 竞争协程。
-                            // 优先通过 500ms 的 withTimeoutOrNull 监听来自底层 Media3 播放器提取抛出的内置 embeddedSubtitles；
-                            // 只要有任何合法非空的内置歌词到来，且窗口期处于激活状态，直接装载并拉闸锁定，杜绝外置检索；
-                            // 若超时触发（返回 null）或者被动异常，拉闸锁定内置状态，回退检索物理同级外置字幕文件，实现平滑降级。
-                            subtitleLoadJob = viewModelScope.launch {
-                                isEmbeddedSearchActive = true
-                                val embeddedSubs = try {
-                                    withTimeoutOrNull(500) {
-                                        manager.embeddedSubtitles.first { it.isNotEmpty() }
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("PlayerViewModel", "等待内置字幕时抛出异常", e)
-                                    null
+                        // 详尽的中文注释：启动全新的字幕加载与 Fallback 竞争协程。
+                        // 优先通过 500ms 的 withTimeoutOrNull 监听来自底层 Media3 播放器提取抛出的内置 embeddedSubtitles；
+                        // 只要有任何合法非空的内置歌词到来，且窗口期处于激活状态，直接装载并拉闸锁定，杜绝外置检索；
+                        // 若超时触发（返回 null）或者被动异常，拉闸锁定内置状态，回退检索物理同级外置字幕文件，实现平滑降级。
+                        subtitleLoadJob = viewModelScope.launch {
+                            isEmbeddedSearchActive = true
+                            val embeddedSubs = try {
+                                withTimeoutOrNull(500) {
+                                    manager.embeddedSubtitles.first { it.isNotEmpty() }
                                 }
+                            } catch (e: Exception) {
+                                android.util.Log.e("PlayerViewModel", "等待内置字幕时抛出异常", e)
+                                null
+                            }
 
-                                if (embeddedSubs != null && isEmbeddedSearchActive) {
-                                    // 详尽的中文注释：在 500ms 窗口期内拿到了合法的内置歌词，立即拉闸锁死状态，并装载内置歌词
-                                    isEmbeddedSearchActive = false
-                                    _currentSubtitles.value = embeddedSubs
-                                } else {
-                                    // 详尽的中文注释：500ms 超时已到或异常触发，拉闸锁死内置歌词搜寻，开始回退并加载物理同级外置字幕文件
-                                    isEmbeddedSearchActive = false
-                                    val subs = libraryRepository?.loadSubtitlesForUri(uri) ?: emptyList()
-                                    _currentSubtitles.value = subs
-                                }
+                            if (embeddedSubs != null && isEmbeddedSearchActive) {
+                                // 详尽的中文注释：在 500ms 窗口期内拿到了合法的内置歌词，立即拉闸锁死状态，并装载内置歌词
+                                isEmbeddedSearchActive = false
+                                _currentSubtitles.value = embeddedSubs
+                            } else {
+                                // 为每一次改动添加详尽的中文注释：外置字幕回退通过 bookFileId 查入库文件并走 VFS 同级目录，不再从 MediaItem.uri 反查。
+                                isEmbeddedSearchActive = false
+                                val subs = libraryRepository?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
+                                _currentSubtitles.value = subs
                             }
                         }
                     }

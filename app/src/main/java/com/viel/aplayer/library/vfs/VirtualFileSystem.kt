@@ -1,5 +1,6 @@
 package com.viel.aplayer.library.vfs
 
+import android.os.ParcelFileDescriptor
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.source.LibrarySourceProvider
 import com.viel.aplayer.library.source.LibrarySourceProviderFactory
@@ -7,12 +8,12 @@ import com.viel.aplayer.library.source.SourceFileMetadata
 import com.viel.aplayer.library.source.SourceNode
 import java.io.InputStream
 
-// VfsPath 是跨协议路径的统一外壳；SAF 当前承载 relativePath，WebDAV 后续承载远程规范路径。
+// 为每一次改动添加详尽的中文注释：VfsPath 是跨协议路径的统一外壳；SAF 和 WebDAV 都通过它描述来源内路径。
 data class VfsPath(val value: String) {
     val isRoot: Boolean get() = value.isBlank()
 }
 
-// VfsNode 是扫描、缓存和读取之间传递的标准节点；nativeDocumentFile 只通过 SourceNode 临时桥接旧解析器。
+// 为每一次改动添加详尽的中文注释：VfsNode 是扫描、缓存和读取之间传递的标准节点，业务层不再持有 provider 原生文件对象。
 data class VfsNode(
     val root: LibraryRootEntity,
     val path: VfsPath,
@@ -49,6 +50,12 @@ class VirtualFileSystem(
         return provider.rootDirectory(root)?.toVfsNode()
     }
 
+    suspend fun resolve(root: LibraryRootEntity, path: VfsPath): VfsNode? {
+        // 为每一次改动添加详尽的中文注释：按 rootId/sourcePath 重新定位节点，替代业务层自行还原来源原生文件对象。
+        val provider = providerFactory.providerFor(root)
+        return provider.resolve(root, path.value)?.toVfsNode()
+    }
+
     suspend fun listChildren(directory: VfsNode): List<VfsNode> {
         val provider = providerFactory.providerFor(directory.root)
         return provider.listChildren(directory.sourceNode).map { child ->
@@ -59,6 +66,15 @@ class VirtualFileSystem(
 
     suspend fun openInputStream(file: VfsNode): InputStream? =
         providerFor(file).openInputStream(file.sourceNode)
+
+    suspend fun openInputStream(root: LibraryRootEntity, path: VfsPath): InputStream? =
+        resolve(root, path)?.let { openInputStream(it) }
+
+    suspend fun openFileDescriptor(file: VfsNode): ParcelFileDescriptor? =
+        providerFor(file).openFileDescriptor(file.sourceNode)
+
+    suspend fun openFileDescriptor(root: LibraryRootEntity, path: VfsPath): ParcelFileDescriptor? =
+        resolve(root, path)?.let { openFileDescriptor(it) }
 
     suspend fun exists(node: VfsNode): Boolean =
         providerFor(node).exists(node.sourceNode)

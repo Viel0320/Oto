@@ -1,9 +1,8 @@
 package com.viel.aplayer.library.manifest
 
-import android.content.Context
 import android.util.Log
-import androidx.documentfile.provider.DocumentFile
 import java.io.BufferedReader
+import java.io.InputStream
 import java.io.InputStreamReader
 import com.viel.aplayer.library.MetadataSuggestion
 
@@ -23,7 +22,7 @@ object M3u8ManifestParser {
         val items: List<M3u8Item>
     )
 
-    fun parse(context: Context, m3uFile: DocumentFile): M3u8Result {
+    suspend fun parse(displayName: String, openStream: suspend () -> InputStream?): M3u8Result {
         val items = mutableListOf<M3u8Item>()
         var playlistTitle: String? = null
         var playlistAuthor: String? = null
@@ -31,8 +30,8 @@ object M3u8ManifestParser {
         var playlistYear: String? = null
         var playlistDescription: String? = null
         try {
-            val inputStream = context.contentResolver.openInputStream(m3uFile.uri)
-                ?: return M3u8Result(MetadataSuggestion(), emptyList())
+            // 为每一次改动添加详尽的中文注释：M3U8 解析器只依赖 VFS 流工厂，避免清单解析层重新接触来源原生文件对象。
+            val inputStream = openStream() ?: return M3u8Result(MetadataSuggestion(), emptyList())
             val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
 
             var currentTitle: String? = null
@@ -77,7 +76,7 @@ object M3u8ManifestParser {
                 }
             }
         } catch (e: Exception) {
-            Log.e("M3u8Parser", "Failed to parse M3U8: ${m3uFile.name}", e)
+            Log.e("M3u8Parser", "Failed to parse M3U8: $displayName", e)
         }
         return M3u8Result(
             // Parsed playlist metadata is sparse by design; ImportOrchestrator fills gaps from first audio.

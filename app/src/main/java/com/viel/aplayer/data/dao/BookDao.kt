@@ -158,12 +158,16 @@ interface BookDao {
     @Query("SELECT * FROM book_files WHERE bookId = :bookId ORDER BY `index` ASC")
     suspend fun getAllFilesForBookList(bookId: String): List<BookFileEntity>
 
-    // Subtitle loading may start from MediaItem.uri, so map it back to the scanned BookFile row first.
-    @Query("SELECT * FROM book_files WHERE uri = :uri LIMIT 1")
-    suspend fun getBookFileByUri(uri: String): BookFileEntity?
+    // 为每一次改动添加详尽的中文注释：播放和字幕链路现在都以 MediaItem.mediaId 中的 BookFileEntity.id 为稳定入口，不再从播放 URI 反查旧文件行。
+    @Query("SELECT * FROM book_files WHERE id = :id AND fileRole = 'AUDIO' LIMIT 1")
+    suspend fun getBookFileById(id: String): BookFileEntity?
 
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id = :id")
     suspend fun updateBookFileStatus(id: String, status: String, scanId: String? = null)
+
+    // 为每一次改动添加详尽的中文注释：详情页和恢复流程会批量刷新多文件书籍的可用状态，用 IN 更新避免逐文件 Room 写入拖慢 UI。
+    @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id IN (:ids)")
+    suspend fun updateBookFileStatuses(ids: List<String>, status: String, scanId: String? = null)
 
     // BookProgress is created only when playback/seek/save actually happens.
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")

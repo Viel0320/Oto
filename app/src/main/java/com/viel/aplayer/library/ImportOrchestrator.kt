@@ -178,16 +178,17 @@ class ImportOrchestrator(
 
     // 详尽的中文注释：延迟封面模式仍复用原 CoverExtractedResult 数据结构，只把 coverResult 置空，让 ConflictClaimStep 可以不改草稿组装逻辑直接生成可入库书籍。
     private fun GroupedBookDrafts.toDeferredCoverResult(inventory: FileInventory): CoverExtractedResult {
-        val audioByUri = inventory.audioFiles.associateBy { it.uri }
+        // 为每一次改动添加详尽的中文注释：manifest 解析结果按 VFS 文件键回查扫描音频，彻底切掉旧 URI 关联方式。
+        val audioByVfsKey = inventory.audioFiles.associateBy { it.vfsKey }
         return CoverExtractedResult(
             cueBooks = manifestParsedResult.cueDrafts.map { cueDraft ->
                 // 详尽的中文注释：Manifest 书籍的音频引用仍从当前 scope inventory 映射，保证 claim 使用的音频列表不依赖封面解析步骤。
-                val audioRefs = cueDraft.resolvedAudioUris.values.mapNotNull { uri -> audioByUri[uri] }
+                val audioRefs = cueDraft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
                 CoverExtractedCue(UUID.randomUUID().toString(), cueDraft, audioRefs, coverResult = null)
             },
             m3u8Books = manifestParsedResult.m3u8Drafts.map { m3u8Draft ->
                 // 详尽的中文注释：M3U8 书籍同样保留解析到的音频文件列表，只延迟封面生成，不延迟 claim 和章节入库。
-                val audioRefs = m3u8Draft.resolvedAudioUris.values.mapNotNull { uri -> audioByUri[uri] }
+                val audioRefs = m3u8Draft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
                 CoverExtractedM3u8(UUID.randomUUID().toString(), m3u8Draft, audioRefs, coverResult = null)
             },
             aggregatedBooks = aggregatedPlans.map { plan ->

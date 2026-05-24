@@ -1,7 +1,6 @@
 package com.viel.aplayer.library
 
 import android.content.Context
-import android.net.Uri
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +17,6 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.media.parse.MetadataExtractor
-import androidx.core.net.toUri
 
 enum class RescanType {
     COLD_START_LIGHT,
@@ -225,7 +223,8 @@ class RescanCoordinator(
                 val metadataJobs = candidateAudios.map { audio ->
                     async {
                         metadataSemaphore.withPermit {
-                            AudioMetadataRef(audio, metadataExtractor.extract(audio.uri.toUri()))
+                            // 为每一次改动添加详尽的中文注释：目录音频元数据读取走 VFS FileRef 入口，不再依赖扫描期 provider URI。
+                            AudioMetadataRef(audio, metadataExtractor.extract(audio))
                         }
                     }
                 }
@@ -373,16 +372,16 @@ class RescanCoordinator(
             // 当且仅当该文件夹在数据库中存在 lastModified 缓存，且其值等于当前物理文件夹的修改时间，
             // 且该文件夹旗下的所有音频文件早已被数据库导入占用（在动态已导入内存索引 currentExistingIndex 中全量存在）时，
             // 证明其物理结构没有任何改动。此时直接跳过整个目录后续的一切物理文件分析、CUE/M3U8 认领与深度 ID3 元数据提取，实现毫秒级“零开销”增量重扫！
-            val cachedDir = directoryCacheDao.getByUri(directory.directoryUri)
+            val cachedDir = directoryCacheDao.getBySourcePath(directory.root.id, directory.sourcePath)
             val isCacheValid = cachedDir != null && 
                                cachedDir.lastModified == directory.lastModified && 
                                directory.audioFiles.all { currentExistingIndex.has(it.identity) }
             
             if (isCacheValid) {
                 ImportTimingLogger.logEvent(
-                    scopeId = "directory:${directory.directoryUri}",
+                    scopeId = "directory:${directory.root.id}:${directory.sourcePath}",
                     stage = "scan.skipByCache",
-                    detail = "relativePath=${directory.relativePath.ifBlank { "<root>" }} files=${directory.audioFiles.size} - 缓存完全命中，快速跳过物理文件分析与元数据读取"
+                    detail = "sourcePath=${directory.sourcePath.ifBlank { "<root>" }} files=${directory.audioFiles.size} - 缓存完全命中，快速跳过物理文件分析与元数据读取"
                 )
                 return@collect
             }
@@ -395,9 +394,9 @@ class RescanCoordinator(
             }
             val scopes = scopeBuilder.onDirectoryClosed(importDirectory)
             ImportTimingLogger.logEvent(
-                scopeId = "directory:${importDirectory.directoryUri}",
+                scopeId = "directory:${importDirectory.root.id}:${importDirectory.sourcePath}",
                 stage = "scope.build",
-                detail = "relativePath=${importDirectory.relativePath.ifBlank { "<root>" }} scopes=${scopes.size} cue=${importDirectory.cueFiles.size} m3u8=${importDirectory.m3u8Files.size} audio=${importDirectory.audioFiles.size}"
+                detail = "sourcePath=${importDirectory.sourcePath.ifBlank { "<root>" }} scopes=${scopes.size} cue=${importDirectory.cueFiles.size} m3u8=${importDirectory.m3u8Files.size} audio=${importDirectory.audioFiles.size}"
             )
             applyScopes(scopes)
 
@@ -406,13 +405,14 @@ class RescanCoordinator(
             try {
                 directoryCacheDao.insert(
                     com.viel.aplayer.data.entity.DirectoryCacheEntity(
-                        directoryUri = directory.directoryUri,
+                        cacheKey = "${directory.root.id}:${directory.sourcePath}",
+                        sourcePath = directory.sourcePath,
                         lastModified = directory.lastModified,
                         rootId = directory.root.id
                     )
                 )
             } catch (e: Exception) {
-                android.util.Log.e("RescanCoordinator", "Failed to cache directory lastModified for ${directory.directoryUri}", e)
+                android.util.Log.e("RescanCoordinator", "Failed to cache directory lastModified for ${directory.root.id}:${directory.sourcePath}", e)
             }
         }
         // 详尽的中文注释：扫描流结束后调用 finish，当前目录级策略通常为空，后续跨目录策略仍可在这里收尾。
@@ -456,13 +456,13 @@ class RescanCoordinator(
             )
         )
 
-    // 详尽的中文注释：为 scope 失败摘要挑一个稳定可读的来源 Uri，优先使用清单或音频的实际物理位置。
+    // 详尽的中文注释：为 scope 失败摘要挑一个稳定可读的 VFS 来源标识，不再使用 provider URI。
     private fun ImportScope.displayUri(): String =
-        inventory.cueFiles.firstOrNull()?.uri
-            ?: inventory.m3u8Files.firstOrNull()?.uri
-            ?: inventory.audioFiles.firstOrNull()?.parentUri
+        inventory.cueFiles.firstOrNull()?.let { "${it.rootId}:${it.sourcePath}" }
+            ?: inventory.m3u8Files.firstOrNull()?.let { "${it.rootId}:${it.sourcePath}" }
+            ?: inventory.audioFiles.firstOrNull()?.parentSourceKey
             ?: inventory.imageFilesByParent.keys.firstOrNull()
-            ?: inventory.roots.firstOrNull()?.treeUri
+            ?: inventory.roots.firstOrNull()?.sourceUri
             ?: id
 
     // 详尽的中文注释：为性能日志生成稳定 scope 名称，保留 scope 类型和可读来源，便于从 Logcat 反查慢目录或慢清单。
@@ -485,7 +485,7 @@ class RescanCoordinator(
 
     // 详尽的中文注释：目录音频子批次只携带参与本次裁决的音频，但保留对应父目录图片，保证封面 sidecar 仍可匹配。
     private fun FileInventory.withAudioFiles(audioFiles: List<FileRef>): FileInventory {
-        val parentUris = audioFiles.map { it.parentUri }.toSet()
+        val parentKeys = audioFiles.map { it.parentSourceKey }.toSet()
         val rootIds = audioFiles.map { it.rootId }.toSet()
         return FileInventory(
             roots = roots.filter { it.id in rootIds }.ifEmpty { roots },
@@ -493,7 +493,7 @@ class RescanCoordinator(
             m3u8Files = emptyList(),
             audioFiles = audioFiles.sortedByStableFileKey(),
             imageFilesByParent = imageFilesByParent
-                .filterKeys { it in parentUris }
+                .filterKeys { it in parentKeys }
                 .mapValues { (_, images) -> images.sortedByStableFileKey() }
         )
     }

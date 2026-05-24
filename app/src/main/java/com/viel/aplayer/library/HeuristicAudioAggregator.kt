@@ -64,7 +64,8 @@ internal object HeuristicAudioAggregator {
     }
 
     private fun generatedBookTitle(files: List<AudioMetadataRef>): String {
-        val parentName = files.first().file.parentUri.substringAfterLast('/').ifBlank { "Generated audiobook" }
+        // 为每一次改动添加详尽的中文注释：启发式默认标题从 VFS 父路径提取，不再读取旧父目录 URI。
+        val parentName = files.first().file.parentSourcePath.substringAfterLast('/').ifBlank { "Generated audiobook" }
         // Heuristic groups created by sameAlbum should display the shared album as the book title.
         return commonNonBlank(files.map { it.metadata.album })
             .ifBlank { commonNonBlank(files.map { it.metadata.title }) }

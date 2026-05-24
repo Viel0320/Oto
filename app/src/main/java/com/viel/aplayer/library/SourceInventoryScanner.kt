@@ -56,7 +56,7 @@ class SourceInventoryScanner(context: Context) {
                     isCue(name) -> cueFiles.add(ref)
                     isM3u(name) -> m3u8Files.add(ref)
                     isAudio(name) -> audioFiles.add(ref)
-                    isImage(name) -> imagesByParent.getOrPut(ref.parentUri) { mutableListOf() }.add(ref)
+                    isImage(name) -> imagesByParent.getOrPut(ref.parentSourceKey) { mutableListOf() }.add(ref)
                 }
             }
         }
@@ -109,17 +109,16 @@ class SourceInventoryScanner(context: Context) {
             }
 
             ImportTimingLogger.logDuration(
-                scopeId = "directory:${directory.metadata.uri}",
+                scopeId = "directory:${directory.root.id}:${directory.metadata.sourcePath}",
                 stage = "scan.directoryClosed",
                 elapsedMs = directDirectoryScanElapsedMs,
-                detail = "relativePath=${directory.metadata.sourcePath.ifBlank { "<root>" }} children=${childDirectories.size} cue=${cueFiles.size} m3u8=${m3u8Files.size} audio=${audioFiles.size} image=${imageFiles.size}"
+                detail = "sourcePath=${directory.metadata.sourcePath.ifBlank { "<root>" }} children=${childDirectories.size} cue=${cueFiles.size} m3u8=${m3u8Files.size} audio=${audioFiles.size} image=${imageFiles.size}"
             )
             emitDirectory(
                 DirectoryInventory(
                     root = root,
-                    directoryUri = directory.metadata.uri,
-                    directoryDocumentId = directory.metadata.identity,
-                    relativePath = directory.metadata.sourcePath,
+                    sourcePath = directory.metadata.sourcePath,
+                    sourceIdentity = directory.metadata.identity,
                     cueFiles = cueFiles.sortedByStableFileKey(),
                     m3u8Files = m3u8Files.sortedByStableFileKey(),
                     audioFiles = audioFiles.sortedByStableFileKey(),
@@ -134,25 +133,16 @@ class SourceInventoryScanner(context: Context) {
 
     private fun toRef(rootId: String, file: VfsNode, parent: VfsNode): FileRef =
         FileRef(
-            uri = file.metadata.uri,
             rootId = rootId,
-            documentId = file.metadata.identity,
-            relativePath = file.metadata.sourcePath,
             sourcePath = file.metadata.sourcePath,
             sourceIdentity = file.metadata.identity,
             etag = file.metadata.etag,
-            parentDocumentId = parent.metadata.identity,
-            parentUri = parent.metadata.uri,
+            parentSourcePath = parent.metadata.sourcePath,
+            parentSourceKey = "${parent.root.id}:${parent.metadata.sourcePath}",
+            parentSourceIdentity = parent.metadata.identity,
             displayName = file.metadata.displayName,
             fileSize = file.metadata.fileSize,
-            lastModified = file.metadata.lastModified,
-            // 详尽的中文注释：第一阶段解析器仍桥接 SAF DocumentFile，后续切片会把 manifest/封面/字幕解析迁移到 VFS 流读取。
-            documentFile = requireNotNull(file.sourceNode.nativeDocumentFile) {
-                "Phase 1 still requires SAF DocumentFile bridge for parsers."
-            },
-            parentDocumentFile = requireNotNull(parent.sourceNode.nativeDocumentFile) {
-                "Phase 1 still requires SAF parent DocumentFile bridge for parsers."
-            }
+            lastModified = file.metadata.lastModified
         )
 
     private fun merge(roots: List<LibraryRootEntity>, inventories: List<FileInventory>): FileInventory =
@@ -172,7 +162,8 @@ class SourceInventoryScanner(context: Context) {
         name.endsWith(".m3u8", ignoreCase = true) || name.endsWith(".m3u", ignoreCase = true)
 
     private fun isAudio(name: String): Boolean {
-        val extensions = listOf(".mp3", ".m4b", ".m4a", ".aac", ".flac", ".wav", ".ogg")
+        // 中文注释：mp4 也可能承载纯音频/有声书章节，扫描阶段统一归入 audioFiles 交给元数据解析器裁决。
+        val extensions = listOf(".mp3", ".m4b", ".m4a", ".mp4", ".aac", ".flac", ".wav", ".ogg")
         return extensions.any { name.endsWith(it, ignoreCase = true) }
     }
 

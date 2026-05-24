@@ -11,27 +11,27 @@ class RunClaimLedger(
     /**
      * 为每一次改动添加详尽的中文注释：
      * 为某个导入源分配并预留物理文件。
-     * 增加 currentParentUri 参数，在向 existingClaimIndex 校验物理文件已被数据库中已有书籍抢占时，
-     * 能够将检测局域化在该同级物理目录内。
+     * 增加 currentParentSourcePath 参数，在向 existingClaimIndex 校验物理文件已被数据库中已有书籍抢占时，
+     * 能够将检测局域化在该同级 VFS 目录内。
      * 
      * @param source 本次认领的来源
      * @param files 待认领的物理文件标识列表
      * @param existingClaimIndex 全局/已入库所有权索引
-     * @param currentParentUri 当前正在被认领的文件所属的物理父目录 Uri
+     * @param currentParentSourcePath 当前正在被认领的文件所属的 VFS 父目录路径
      * @return 认领预留结果
      */
     fun reserve(
         source: ImportSourceRef,
         files: List<FileIdentity>,
         existingClaimIndex: ExistingClaimIndex,
-        currentParentUri: String? = null
+        currentParentSourcePath: String? = null
     ): ReservationResult {
         val existingHits = mutableListOf<BookFileEntity>()
         val runHits = mutableListOf<ImportSourceRef>()
 
         files.forEach { identity ->
-            // 详尽的中文注释：将 currentParentUri 局域化物理父目录 Uri 参数透传给 existingClaimIndex.find
-            existingClaimIndex.find(identity, currentParentUri)?.let { existingHits.add(it) }
+            // 为每一次改动添加详尽的中文注释：将 VFS 父目录路径透传给 existingClaimIndex.find，去掉旧父目录 URI 兼容分支。
+            existingClaimIndex.find(identity, currentParentSourcePath)?.let { existingHits.add(it) }
             identity.keys().forEach { key ->
                 ownerByKey[key]?.let { runHits.add(it) }
             }

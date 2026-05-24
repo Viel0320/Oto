@@ -1,17 +1,15 @@
 package com.viel.aplayer.media
 
 import android.content.Context
-import android.net.Uri
 import android.util.Log
-import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
-import java.io.File
+import java.io.InputStream
 import java.util.Locale
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.library.vfs.VfsFileReader
 import com.viel.aplayer.media.parse.SubtitleParser
 import com.viel.aplayer.ui.player.components.SubtitleLine
 
@@ -27,149 +25,79 @@ class SubtitleFileResolver(
 ) {
     // 详尽的中文注释：字幕文件的受支持后缀后缀集合。
     private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "lrc")
+    private val fileReader = VfsFileReader(context.applicationContext, libraryRootDao)
 
     /**
-     * 详尽的中文注释：加载并解析指定媒体 URI 所对应的字幕文件。
-     * 优先通过 URI 查找数据库中的物理音频记录以获得其相对路径进行高级 SAF 同目录查找；若无记录则退化到单文件父级定位。
+     * 详尽的中文注释：加载并解析指定入库音频文件所对应的字幕文件。
+     * 为每一次改动添加详尽的中文注释：调用方传入 BookFileEntity.id 后，本组件只通过数据库文件行与 VFS 同目录枚举查找字幕。
      */
-    suspend fun loadSubtitlesForUri(mediaUri: Uri): List<SubtitleLine> {
-        val scannedFile = bookDao.getBookFileByUri(mediaUri.toString())
-        val attachment = scannedFile?.let { loadSubtitleAttachment(it) } ?: loadSubtitleAttachment(mediaUri)
+    suspend fun loadSubtitlesForBookFile(bookFileId: String): List<SubtitleLine> {
+        // 为每一次改动添加详尽的中文注释：字幕入口改为 BookFileEntity.id，避免播放器切换到 VFS 虚拟 URI 后无法再通过原始 URI 反查文件。
+        val scannedFile = bookDao.getBookFileById(bookFileId) ?: return emptyList()
+        val attachment = loadSubtitleAttachment(scannedFile)
         return attachment?.lines ?: emptyList()
     }
 
     /**
      * 详尽的中文注释：根据已导入的书籍文件实体，查找其所在同级目录下的同名/同 base 名的字幕文件并解析。
-     * 优先使用 SAF 授权的 rootId 和 relativePath 进行两级定位以确保 SAF 权限有效性。
+     * 为每一次改动添加详尽的中文注释：优先使用 rootId/sourcePath 通过 VFS 定位同级字幕。
      */
     private suspend fun loadSubtitleAttachment(file: BookFileEntity): PlaybackSubtitle? {
         val subtitle = findSubtitleFile(file) ?: return null
-        return parseSubtitle(subtitle.uri, subtitle.extension, subtitle.displayName)
+        return parseSubtitleSuspend(subtitle.sourceId, subtitle.extension, subtitle.displayName) {
+            subtitle.node?.let { fileReader.open(it) }
+        }
     }
 
     /**
-     * 详尽的中文注释：在媒体 URI 缺少数据库关联时的兜底字幕加载。直接从其 parentFile 中遍历查找。
+     * 详尽的中文注释：核心字幕解析逻辑。
+     * 为每一次改动添加详尽的中文注释：字幕字节流由 VFS 打开，解析器不再直接访问 content/file URI。
      */
-    private fun loadSubtitleAttachment(mediaUri: Uri): PlaybackSubtitle? {
-        val subtitle = findSubtitleFile(mediaUri) ?: return null
-        return parseSubtitle(subtitle.uri, subtitle.extension, subtitle.displayName)
-    }
-
-    /**
-     * 详尽的中文注释：核心字幕解析逻辑。兼容处理 SAF 内容协议 ("content") 以及传统的本地绝对路径 ("file")，
-     * 使用 SubtitleParser 流式解析字幕字节。
-     */
-    private fun parseSubtitle(uri: Uri, extension: String, displayName: String): PlaybackSubtitle? =
+    private suspend fun parseSubtitleSuspend(
+        sourceId: String,
+        extension: String,
+        displayName: String,
+        openStream: suspend () -> InputStream?
+    ): PlaybackSubtitle? =
         try {
-            val lines = if (uri.scheme == "content") {
-                context.contentResolver.openInputStream(uri)?.use {
-                    SubtitleParser.parse(it, extension)
-                }.orEmpty()
-            } else {
-                val file = File(uri.path ?: uri.toString())
-                if (file.exists()) {
-                    file.inputStream().use { SubtitleParser.parse(it, extension) }
-                } else {
-                    emptyList()
-                }
-            }
+            // 为每一次改动添加详尽的中文注释：VFS 字幕读取是 suspend 流工厂，避免在同步 lambda 内调用挂起函数。
+            val lines = openStream()?.use { SubtitleParser.parse(it, extension) }.orEmpty()
             PlaybackSubtitle(
-                uri = uri,
+                // 为每一次改动添加详尽的中文注释：字幕附件对 Media3 暴露应用内部 VFS 标识，不再把 provider URI 作为字幕身份。
+                uri = android.net.Uri.Builder()
+                    .scheme(VfsPlaybackUri.SCHEME)
+                    .authority("subtitle")
+                    .appendPath(sourceId)
+                    .build(),
                 mimeType = subtitleMimeType(extension),
                 label = displayName.substringBeforeLast('.'),
                 lines = lines
             )
         } catch (e: Exception) {
-            Log.e("SubtitleFileResolver", "解析字幕文件失败: $uri", e)
+            Log.e("SubtitleFileResolver", "解析 VFS 字幕文件失败: $sourceId", e)
             null
         }
 
     /**
      * 详尽的中文注释：基于书籍物理文件定位外部字幕文件的物理查找算法。
-     * 首先利用 SAF Tree 的相对定位定位到文件所在同级目录，再对该目录下文件做 BaseName 相似度匹配。
+     * 为每一次改动添加详尽的中文注释：已入库文件只通过 VFS sourcePath 定位同级目录，再按同 base 名匹配字幕。
      */
     private suspend fun findSubtitleFile(file: BookFileEntity): SubtitleFileRef? {
-        val root = libraryRootDao.getRootById(file.rootId)
-        val rootDoc = root?.treeUri?.let { DocumentFile.fromTreeUri(context, Uri.parse(it)) }
-        val parentPath = file.relativePath.substringBeforeLast('/', missingDelimiterValue = "")
-        val audioName = file.relativePath.substringAfterLast('/').ifBlank { file.displayName }
-
-        // SAF 单文件 URI 找父目录不稳定，优先用导入时保存的 rootId/relativePath 回到同目录。
-        val rootBased = rootDoc
-            ?.findRelativeDirectory(parentPath)
-            ?.findSameBaseSubtitle(audioName)
-        if (rootBased != null) return rootBased
-
-        return findSubtitleFile(file.uri.toUri())
-    }
-
-    /**
-     * 详尽的中文注释：基于单媒体文件 URI 的外部字幕查找算法。
-     * 兼容本地文件路径（物理 file 检索）和 SAF 外部目录。
-     */
-    private fun findSubtitleFile(mediaUri: Uri, providedParent: DocumentFile? = null, providedName: String? = null): SubtitleFileRef? {
-        return try {
-            when (mediaUri.scheme) {
-                "content" -> {
-                    // 如果在同步/导入中，可直接传入父级 DocumentFile 避免二次查询
-                    val parentDir = providedParent ?: run {
-                        val mediaFile = DocumentFile.fromSingleUri(context, mediaUri)
-                        mediaFile?.parentFile
-                    } ?: return null
-
-                    val mediaName = (providedName ?: DocumentFile.fromSingleUri(context, mediaUri)?.name)
-                        ?.substringBeforeLast(".") ?: return null
-
-                    Log.d("SubtitleFileResolver", "正在同级目录 ${parentDir.uri} 中检索同名音频字幕: $mediaName")
-                    val found = parentDir.findSameBaseSubtitle(mediaName)
-                    Log.d("SubtitleFileResolver", "检索字幕完毕，结果: ${found?.uri}")
-                    found
-                }
-                "file" -> {
-                    val file = File(mediaUri.path ?: "")
-                    val parentDir = file.parentFile ?: return null
-                    val baseName = file.nameWithoutExtension
-
-                    parentDir.listFiles { _, name ->
-                        val ext = name.substringAfterLast(".").lowercase(Locale.ROOT)
-                        name.substringBeforeLast(".") == baseName && SUBTITLE_EXTENSIONS.contains(ext)
-                    }?.firstOrNull()?.let { subtitle ->
-                        SubtitleFileRef(
-                            uri = Uri.fromFile(subtitle),
-                            extension = subtitle.extension.lowercase(Locale.ROOT),
-                            displayName = subtitle.name
-                        )
-                    }
-                }
-                else -> null
-            }
-        } catch (e: Exception) {
-            Log.e("SubtitleFileResolver", "遍历检索同级目录字幕发生异常: ", e)
-            null
-        }
-    }
-
-    /**
-     * 详尽的中文注释：逐级递归展开定位 SAF Tree 下的子目录文档。
-     */
-    private fun DocumentFile.findRelativeDirectory(relativeParentPath: String): DocumentFile? {
-        if (relativeParentPath.isBlank()) return this
-        return relativeParentPath.split('/').fold(this as DocumentFile?) { current, segment ->
-            current?.findFile(segment)?.takeIf { it.isDirectory }
-        }
-    }
-
-    /**
-     * 详尽的中文注释：对同级目录下的文件进行同基准名（Base Name）的后缀匹配（如 media.mp3 -> media.srt）。
-     */
-    private fun DocumentFile.findSameBaseSubtitle(audioName: String): SubtitleFileRef? {
+        val parentPath = file.sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
+        val audioName = file.sourcePath.substringAfterLast('/').ifBlank { file.displayName }
         val baseName = audioName.substringBeforeLast('.', missingDelimiterValue = audioName)
-        return listFiles().firstNotNullOfOrNull { candidate ->
-            val name = candidate.name ?: return@firstNotNullOfOrNull null
+        return fileReader.listChildren(file.rootId, parentPath).firstNotNullOfOrNull { node ->
+            if (node.metadata.isDirectory) return@firstNotNullOfOrNull null
+            val name = node.metadata.displayName
             val extension = name.substringAfterLast('.', missingDelimiterValue = "").lowercase(Locale.ROOT)
             val sameBaseName = name.substringBeforeLast('.', missingDelimiterValue = name).equals(baseName, ignoreCase = true)
-            if (candidate.isFile && sameBaseName && SUBTITLE_EXTENSIONS.contains(extension)) {
-                SubtitleFileRef(candidate.uri, extension, name)
+            if (sameBaseName && SUBTITLE_EXTENSIONS.contains(extension)) {
+                SubtitleFileRef(
+                    sourceId = "${node.root.id}:${node.metadata.sourcePath}",
+                    extension = extension,
+                    displayName = name,
+                    node = node
+                )
             } else {
                 null
             }
@@ -189,8 +117,9 @@ class SubtitleFileResolver(
 
     // 详尽的中文注释：内部使用的字幕实体临时载体。
     private data class SubtitleFileRef(
-        val uri: Uri,
+        val sourceId: String,
         val extension: String,
-        val displayName: String
+        val displayName: String,
+        val node: com.viel.aplayer.library.vfs.VfsNode?
     )
 }

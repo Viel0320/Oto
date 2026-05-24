@@ -2,19 +2,18 @@ package com.viel.aplayer.media.parse
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
-import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.util.Log
-import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.extractor.DefaultExtractorsFactory
-import androidx.media3.extractor.metadata.id3.CommentFrame
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.withPermit
 import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.library.FileRef
+import com.viel.aplayer.library.vfs.VfsFileReader
 import com.viel.aplayer.media.AudiobookMetadata
 
 /**
@@ -28,13 +27,45 @@ class MetadataExtractor(private val context: Context) {
     // 及 Media3 内部被并发读取并展开巨大的 stbl (Sample Table) 采样表，从而引起 JVM 堆内存剧烈抖动与 OutOfMemoryError 崩溃。
     // 通过本限制，任何时刻全局最多只有 4 个音频文件同时提取元数据，彻底根除 OOM 和 SAF 跨进程死锁风险。
     private val semaphore = kotlinx.coroutines.sync.Semaphore(4)
+    private val fileReader = VfsFileReader(context.applicationContext, com.viel.aplayer.data.db.AppDatabase.getInstance(context.applicationContext).libraryRootDao())
 
-    /**
-     * 执行提取操作。
-     * @param uri 音频文件的 URI。
-     */
-    suspend fun extract(uri: Uri): AudiobookMetadata = semaphore.withPermit {
+    suspend fun extract(file: FileRef): AudiobookMetadata = semaphore.withPermit {
+        // 为每一次改动添加详尽的中文注释：扫描期元数据提取以 FileRef 的 rootId/sourcePath 打开 VFS FD，不再依赖 provider URI。
         withContext(Dispatchers.IO) {
+            fileReader.openFileDescriptor(file)?.use { pfd ->
+                extractFromFileDescriptor(file.displayName, file.vfsKey, pfd)
+            } ?: AudiobookMetadata(
+                title = file.displayName.substringBeforeLast('.'),
+                author = "",
+                narrator = "",
+                description = "",
+                year = "",
+                durationMs = 0L
+            )
+        }
+    }
+
+    suspend fun extract(file: BookFileEntity): AudiobookMetadata = semaphore.withPermit {
+        // 为每一次改动添加详尽的中文注释：入库后强制重建元数据同样通过 BookFileEntity 的 VFS 路径读取。
+        withContext(Dispatchers.IO) {
+            fileReader.openFileDescriptor(file)?.use { pfd ->
+                extractFromFileDescriptor(file.displayName, "${file.rootId}:${file.sourcePath}", pfd)
+            } ?: AudiobookMetadata(
+                title = file.displayName.substringBeforeLast('.'),
+                author = "",
+                narrator = "",
+                description = "",
+                year = "",
+                durationMs = 0L
+            )
+        }
+    }
+
+    private fun extractFromFileDescriptor(
+        displayName: String,
+        sourceId: String,
+        pfd: ParcelFileDescriptor
+    ): AudiobookMetadata {
         val retriever = MediaMetadataRetriever()
         var title = ""
         var author = ""
@@ -44,97 +75,51 @@ class MetadataExtractor(private val context: Context) {
         var description = ""
         var duration = 0L
         var year = ""
-        var chapters = emptyList<com.viel.aplayer.data.entity.ChapterEntity>()
+        var chapters = emptyList<ChapterEntity>()
 
         try {
-            retriever.setDataSource(context, uri)
-            
-            // 1. 基础信息提取
+            retriever.setDataSource(pfd.fileDescriptor)
+
+            // 为每一次改动添加详尽的中文注释：VFS FD 入口没有可显示 URI，标题兜底直接使用扫描/入库时保存的 displayName。
             val rawTitle = normalizeMetadataText(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE))
             title = if (rawTitle.isNotBlank() && !rawTitle.contains("/")) {
                 rawTitle
             } else {
-                uri.lastPathSegment?.substringAfterLast("/")?.substringBeforeLast(".") ?: ""
+                displayName.substringBeforeLast('.')
             }
 
-            // Text metadata is normalized once at extraction so all import paths keep the same field priority.
             author = normalizeMetadataText(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST))
             narrator = normalizeMetadataText(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER))
-            // sameAlbum 聚合必须使用音频文件的专辑字段，避免把 description 误当成专辑名。
             album = normalizeMetadataText(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM))
-            // ID3 track number controls generated chapter order when every file exposes it.
             trackIndex = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
                 ?.substringBefore("/")
                 ?.trim()
                 ?.toIntOrNull()
-            
-            val rawYear = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR) 
+
+            val rawYear = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)
                 ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE)
             if (!rawYear.isNullOrBlank()) {
-                // Year may come from DATE and can also pass through the same mojibake repair path.
                 val normalizedYear = normalizeMetadataText(rawYear)
                 year = Regex("\\d{4}").find(normalizedYear)?.value ?: normalizedYear
             }
 
             duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
 
-            // 2. 深度元数据与章节提取 (Media3)
-            try {
-                val mediaItem = MediaItem.Builder()
-                    .setUri(uri)
-                    .setMimeType(if (uri.toString().endsWith(".m4b", ignoreCase = true)) "audio/mp4" else null)
-                    .build()
-                
-                // 详尽的中文注释：利用常量字面值定义直接读取采样表标志（1 shl 2，即十进制 4），物理防范编译期类符号未解析缺陷。
-                val flagReadSampleTableDirectly = 1 shl 2
-                val extractorsFactory = DefaultExtractorsFactory()
-                    // 详尽的中文注释：将 SEF 信息扫描与采样表直接内存映射（FLAG_READ_SAMPLE_TABLE_DIRECTLY）完美融合，规避大文件堆扫描抖动与 OOM。
-                    .setMp4ExtractorFlags(
-                        androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA or flagReadSampleTableDirectly
+            // 为每一次改动添加详尽的中文注释：FD 入口当前跳过 Media3 URI MetadataRetriever，改用低层 MP4 FD 解析保留 m4b/m4a/mp4 章节能力。
+            chapters = AudiobookParser.extractChaptersLowLevel(pfd, sourceId)
+                .map { chapter ->
+                    chapter.copy(
+                        bookId = "TEMP",
+                        title = normalizeMetadataText(chapter.title).ifBlank { chapter.title.trim() }
                     )
-                val mediaSourceFactory = DefaultMediaSourceFactory(context, extractorsFactory)
-
-                val trackGroups = androidx.media3.exoplayer.MetadataRetriever.retrieveMetadata(mediaSourceFactory, mediaItem).get()
-                
-                val metadataEntries = mutableListOf<androidx.media3.common.Metadata.Entry>()
-                for (i in 0 until trackGroups.length) {
-                    val group = trackGroups[i]
-                    for (j in 0 until group.length) {
-                        val format = group.getFormat(j)
-                        val metadata = format.metadata ?: continue
-                        for (k in 0 until metadata.length()) {
-                            val entry = metadata.get(k)
-                            metadataEntries.add(entry)
-                            if (entry is CommentFrame && description.isEmpty()) {
-                                // CommentFrame text is metadata too, so keep its charset handling consistent.
-                                description = normalizeMetadataText(entry.text)
-                            }
-                        }
-                    }
                 }
-                
-                // 章节解析
-                val tempBookId = "TEMP"
-                val extractedChapters = AudiobookParser.extractChaptersFromMetadata(metadataEntries, tempBookId)
-                chapters = extractedChapters.ifEmpty {
-                    AudiobookParser.extractChaptersLowLevel(context, uri)
-                        .map { it.copy(bookId = tempBookId) }
-                }.map { chapter ->
-                    // Embedded chapter names go through the same repair path as book-level metadata titles.
-                    chapter.copy(title = normalizeMetadataText(chapter.title).ifBlank { chapter.title.trim() })
-                }
-
-            } catch (e: Exception) {
-                Log.e("MetadataExtractor", "Media3 extraction failed for $uri", e)
-            }
-
         } catch (e: Exception) {
-            Log.e("MetadataExtractor", "Failed to set data source for $uri", e)
+            Log.e("MetadataExtractor", "Failed to extract metadata from VFS FD: $sourceId", e)
         } finally {
             try { retriever.release() } catch (_: Exception) {}
         }
 
-        AudiobookMetadata(
+        return AudiobookMetadata(
             title = title,
             author = author,
             narrator = narrator,
@@ -145,8 +130,7 @@ class MetadataExtractor(private val context: Context) {
             durationMs = duration,
             chapters = chapters
         )
-        } // 为每一次改动添加详尽的中文注释：闭合 withContext(Dispatchers.IO) 块
-    } // 为每一次改动添加详尽的中文注释：闭合 semaphore.withPermit 挂起保护块
+    }
 
     private fun normalizeMetadataText(value: String?): String {
         // Priority order: accept valid UTF-8-looking text first, otherwise try common wrong decoders.

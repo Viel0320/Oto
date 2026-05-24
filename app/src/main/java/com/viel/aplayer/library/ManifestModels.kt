@@ -4,7 +4,8 @@ package com.viel.aplayer.library
 // Parsed manifest chapter candidate used before BookFile ids are assigned.
 data class ChapterCandidate(
     val title: String,
-    val fileUri: String,
+    // 为每一次改动添加详尽的中文注释：解析器阶段保存原始清单条目，进入导入阶段后会替换成 VFS 文件键而不是 provider URI。
+    val fileKey: String,
     val fileOffsetMs: Long,
     val durationMs: Long = 0L
 )

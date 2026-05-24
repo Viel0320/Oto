@@ -1,10 +1,9 @@
 package com.viel.aplayer.library.manifest
 
-import android.content.Context
 import android.util.Log
-import androidx.documentfile.provider.DocumentFile
 import java.io.BufferedInputStream
 import java.io.BufferedReader
+import java.io.InputStream
 import java.io.InputStreamReader
 import java.nio.charset.Charset
 import com.viel.aplayer.library.ChapterCandidate
@@ -21,11 +20,11 @@ object CueManifestParser {
         val chapters: List<ChapterCandidate>
     )
 
-    fun parse(context: Context, cueFile: DocumentFile): CueResult? {
+    suspend fun parse(displayName: String, openStream: suspend () -> InputStream?): CueResult? {
         try {
-            val uri = cueFile.uri
-            val charset = detectCharset(context, uri)
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            // 为每一次改动添加详尽的中文注释：CUE 解析器只接收 VFS 流工厂，不再知道来源原生文件对象或 ContentResolver。
+            val charset = detectCharset(openStream)
+            val inputStream = openStream() ?: return null
             val reader = BufferedReader(InputStreamReader(inputStream, charset))
 
             var globalTitle: String? = null
@@ -101,7 +100,7 @@ object CueManifestParser {
                                 if (currentFile != null) {
                                     chapterCandidates.add(ChapterCandidate(
                                         title = currentTrackTitle ?: "Track ${chapterCandidates.size + 1}",
-                                        fileUri = currentFile,
+                                        fileKey = currentFile,
                                         fileOffsetMs = offsetMs
                                     ))
                                 }
@@ -114,7 +113,7 @@ object CueManifestParser {
             val processedChapters = mutableListOf<ChapterCandidate>()
             for (i in chapterCandidates.indices) {
                 val current = chapterCandidates[i]
-                val duration = if (i < chapterCandidates.size - 1 && chapterCandidates[i + 1].fileUri == current.fileUri) {
+                val duration = if (i < chapterCandidates.size - 1 && chapterCandidates[i + 1].fileKey == current.fileKey) {
                     chapterCandidates[i + 1].fileOffsetMs - current.fileOffsetMs
                 } else 0L
                 processedChapters.add(current.copy(durationMs = duration))
@@ -133,7 +132,7 @@ object CueManifestParser {
                 chapters = processedChapters
             )
         } catch (e: Exception) {
-            Log.e("CueParser", "Error parsing CUE: ${cueFile.name}", e)
+            Log.e("CueParser", "Error parsing CUE: $displayName", e)
             return null
         }
     }
@@ -177,9 +176,9 @@ object CueManifestParser {
         return (mins * 60 + secs) * 1000 + (frames * 1000 / 75)
     }
 
-    private fun detectCharset(context: Context, uri: android.net.Uri): Charset {
+    private suspend fun detectCharset(openStream: suspend () -> InputStream?): Charset {
         return try {
-            context.contentResolver.openInputStream(uri)?.use { stream ->
+            openStream()?.use { stream ->
                 val bis = BufferedInputStream(stream)
                 val buffer = ByteArray(4096)
                 val read = bis.read(buffer)

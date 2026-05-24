@@ -1,7 +1,6 @@
 package com.viel.aplayer.media.parse
 
-import android.content.Context
-import android.net.Uri
+import android.os.ParcelFileDescriptor
 import androidx.annotation.OptIn
 import androidx.media3.common.Metadata
 import androidx.media3.common.util.UnstableApi
@@ -86,25 +85,26 @@ object AudiobookParser {
      * Binary Tracker: Bypasses Android's MediaExtractor to parse MP4 atoms directly.
      * Extracts Nero 'chpl' and QuickTime chapters.
      */
-    fun extractChaptersLowLevel(context: Context, uri: Uri): List<ChapterEntity> {
+    fun extractChaptersLowLevel(pfd: ParcelFileDescriptor, sourceId: String): List<ChapterEntity> {
+        // 为每一次改动添加详尽的中文注释：低层 MP4 章节解析新增 FD 入口，导入与重建元数据不再需要 provider URI。
         val chapters = mutableListOf<ChapterEntity>()
         try {
-            context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                FileInputStream(pfd.fileDescriptor).channel.use { channel ->
+            ParcelFileDescriptor.dup(pfd.fileDescriptor).use { dupPfd ->
+                FileInputStream(dupPfd.fileDescriptor).channel.use { channel ->
                     val fileSize = channel.size()
                     // 1. Locate moov
                     val moov = findAtom(channel, 0, fileSize, "moov") ?: return emptyList()
 
                     // 2. Try parsing Nero chpl (Common for FFmpeg -map_chapters)
-                    val udta = findAtom(channel, moov.offset + 8, moov.size - 8, "udta") ?: return@use
-                    val chpl = findAtom(channel, udta.offset + 8, udta.size - 8, "chpl")
+                    val udta = findAtom(channel, moov.offset + 8, moov.size - 8, "udta")
+                    val chpl = udta?.let { findAtom(channel, it.offset + 8, it.size - 8, "chpl") }
                     if (chpl != null) {
-                        chapters.addAll(parseChpl(channel, chpl, uri.toString()))
+                        chapters.addAll(parseChpl(channel, chpl, sourceId))
                     }
 
                     // 3. Try QuickTime Chapter Tracks (tref -> chap)
                     if (chapters.isEmpty()) {
-                        chapters.addAll(parseQuickTimeChapters(channel, moov, uri.toString()))
+                        chapters.addAll(parseQuickTimeChapters(channel, moov, sourceId))
                     }
                 }
             }

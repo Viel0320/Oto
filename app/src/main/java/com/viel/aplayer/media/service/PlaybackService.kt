@@ -39,6 +39,7 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.media.NotificationProgressPlayer
 import com.viel.aplayer.media.PositionMapper
 import com.viel.aplayer.media.SubtitleFileResolver
+import com.viel.aplayer.media.VfsPlaybackDataSource
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
@@ -176,7 +177,8 @@ class PlaybackService : MediaSessionService() {
             // 传入直接读取采样表标志数值，规避在加载超长（数十小时）M4B 文件时在 JVM 堆中展开数百万个 Sample 对象而招致 OOM 的隐患。
             .setMp4ExtractorFlags(flagReadSampleTableDirectly)
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
+        // 为每一次改动添加详尽的中文注释：播放器媒体源只接入 VFS DataSource，避免 ExoPlayer 继续从 BookFileEntity.uri 直接读取 SAF/远程原始地址。
+        val mediaSourceFactory = DefaultMediaSourceFactory(VfsPlaybackDataSource.Factory(this), extractorsFactory)
 
         val player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(

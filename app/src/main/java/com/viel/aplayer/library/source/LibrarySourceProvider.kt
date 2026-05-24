@@ -2,6 +2,7 @@ package com.viel.aplayer.library.source
 
 import android.content.Context
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -14,7 +15,7 @@ enum class LibrarySourceKind(val schemaValue: String) {
     WEBDAV(AudiobookSchema.LibrarySourceType.WEBDAV);
 
     companion object {
-        // 未知旧数据默认按 SAF 处理，保证第一阶段架构改造不改变现有本地库行为。
+        // 为每一次改动添加详尽的中文注释：未知来源类型暂按 SAF 处理，保证破坏性重建后的本地来源仍能被 Provider 接管。
         fun from(value: String): LibrarySourceKind =
             entries.firstOrNull { it.schemaValue == value } ?: SAF
     }
@@ -28,12 +29,12 @@ data class SourceCapabilities(
     val supportsRangeRead: Boolean = false
 )
 
-// 统一文件元数据，扫描、缓存和可用性检测都依赖它，而不是直接依赖 DocumentFile。
+// 为每一次改动添加详尽的中文注释：统一文件元数据，扫描、缓存和可用性检测只依赖 VFS 路径和来源身份。
 data class SourceFileMetadata(
     val uri: String,
     val sourcePath: String,
     val identity: String,
-    val parentUri: String,
+    val parentSourcePath: String,
     val parentIdentity: String,
     val displayName: String,
     val isDirectory: Boolean,
@@ -43,12 +44,11 @@ data class SourceFileMetadata(
     val mimeType: String? = null
 )
 
-// 单个来源节点的通用视图；第一阶段保留 nativeDocumentFile 只为旧解析器桥接，后续切片会把解析器改到 VFS 流读取。
+// 为每一次改动添加详尽的中文注释：SourceNode 对外只暴露 providerHandle，不让业务层继续感知 SAF DocumentFile 类型。
 data class SourceNode(
     val root: LibraryRootEntity,
     val metadata: SourceFileMetadata,
-    val nativeDocumentFile: DocumentFile? = null,
-    val nativeParentDocumentFile: DocumentFile? = null
+    val providerHandle: Any? = null
 )
 
 // LibrarySourceProvider 是未来 WebDAV/SMB/S3 等远程标准件的核心接口；扫描器只面向它工作。
@@ -57,25 +57,44 @@ interface LibrarySourceProvider {
     val capabilities: SourceCapabilities
 
     suspend fun rootDirectory(root: LibraryRootEntity): SourceNode?
+    suspend fun resolve(root: LibraryRootEntity, sourcePath: String): SourceNode?
     suspend fun listChildren(directory: SourceNode): List<SourceNode>
     suspend fun openInputStream(file: SourceNode): InputStream?
+    suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor?
     suspend fun exists(node: SourceNode): Boolean
 }
 
-// SAF Provider 将所有 DocumentFile 细节限制在本类内部，是现有功能不变接入标准件的第一步。
+// 为每一次改动添加详尽的中文注释：SAF Provider 将 DocumentFile 限定在本类内部，外部统一通过 VFS path/stream API 访问。
 class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     override val kind: LibrarySourceKind = LibrarySourceKind.SAF
     override val capabilities: SourceCapabilities = SourceCapabilities()
 
     override suspend fun rootDirectory(root: LibraryRootEntity): SourceNode? {
-        val treeUri = root.treeUri.ifBlank { root.sourceUri }
-        val rootDoc = DocumentFile.fromTreeUri(context, treeUri.toUri()) ?: return null
+        val rootDoc = DocumentFile.fromTreeUri(context, root.sourceUri.toUri()) ?: return null
         if (!rootDoc.exists()) return null
-        return rootDoc.toNode(root = root, parent = null, relativePath = "")
+        return rootDoc.toNode(root = root, parent = null, sourcePath = "")
+    }
+
+    override suspend fun resolve(root: LibraryRootEntity, sourcePath: String): SourceNode? {
+        // 为每一次改动添加详尽的中文注释：按 VFS sourcePath 从根目录逐级解析文件，供封面、字幕和可用性检测复用。
+        val rootNode = rootDirectory(root) ?: return null
+        if (sourcePath.isBlank()) return rootNode
+        val rootDoc = rootNode.providerHandle as? DocumentFile ?: return null
+        val segments = sourcePath.split('/').filter { it.isNotBlank() }
+        var current: DocumentFile? = rootDoc
+        var parent: DocumentFile? = null
+        var currentPath = ""
+        for (segment in segments) {
+            parent = current
+            current = current?.findFile(segment)
+            currentPath = if (currentPath.isBlank()) segment else "$currentPath/$segment"
+            if (current == null) return null
+        }
+        return current?.toNode(root = root, parent = parent, sourcePath = currentPath)
     }
 
     override suspend fun listChildren(directory: SourceNode): List<SourceNode> {
-        val documentFile = directory.nativeDocumentFile ?: return emptyList()
+        val documentFile = directory.providerHandle as? DocumentFile ?: return emptyList()
         return documentFile.listFiles().mapNotNull { child ->
             val childName = child.name ?: return@mapNotNull null
             val childRelativePath = if (directory.metadata.sourcePath.isBlank()) {
@@ -86,7 +105,7 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
             child.toNode(
                 root = directory.root,
                 parent = documentFile,
-                relativePath = childRelativePath
+                sourcePath = childRelativePath
             )
         }
     }
@@ -94,34 +113,36 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     override suspend fun openInputStream(file: SourceNode): InputStream? =
         runCatching { context.contentResolver.openInputStream(Uri.parse(file.metadata.uri)) }.getOrNull()
 
+    override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? =
+        runCatching { context.contentResolver.openFileDescriptor(Uri.parse(file.metadata.uri), "r") }.getOrNull()
+
     override suspend fun exists(node: SourceNode): Boolean =
-        node.nativeDocumentFile?.exists() == true
+        (node.providerHandle as? DocumentFile)?.exists() == true
 
     private fun DocumentFile.toNode(
         root: LibraryRootEntity,
         parent: DocumentFile?,
-        relativePath: String
+        sourcePath: String
     ): SourceNode {
         val fileUri = uri.toString()
-        val parentUri = parent?.uri?.toString() ?: root.treeUri
+        val parentSourcePath = sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
         val identity = uri.lastPathSegment ?: fileUri
         val parentIdentity = parent?.uri?.lastPathSegment ?: root.id
         return SourceNode(
             root = root,
             metadata = SourceFileMetadata(
                 uri = fileUri,
-                sourcePath = relativePath,
+                sourcePath = sourcePath,
                 identity = identity,
-                parentUri = parentUri,
+                parentSourcePath = parentSourcePath,
                 parentIdentity = parentIdentity,
-                displayName = name ?: relativePath.substringAfterLast('/'),
+                displayName = name ?: sourcePath.substringAfterLast('/'),
                 isDirectory = isDirectory,
                 fileSize = length(),
                 lastModified = lastModified(),
                 mimeType = type
             ),
-            nativeDocumentFile = this,
-            nativeParentDocumentFile = parent
+            providerHandle = this
         )
     }
 }

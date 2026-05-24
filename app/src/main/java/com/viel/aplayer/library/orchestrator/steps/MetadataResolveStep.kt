@@ -1,7 +1,6 @@
 package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
-import androidx.core.net.toUri
 import com.viel.aplayer.library.AudioMetadataRef
 import com.viel.aplayer.library.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
@@ -30,9 +29,11 @@ internal class MetadataResolveStep(
         context: ImportContext
     ): StepResult<ResolvedMetadataDrafts> = runCatching {
         // 1. 将 CUE 声明的关联音轨 identity 全数录入 reserved 预占用账本
+        // 为每一次改动添加详尽的中文注释：清单预占用按 VFS 文件键回查扫描快照，不再用 provider URI 做关联。
+        val audioByVfsKey = context.sharedInventory?.audioFiles.orEmpty().associateBy { it.vfsKey }
         input.cueDrafts.forEach { draft ->
-            draft.resolvedAudioUris.values.forEach { uri ->
-                val audioRef = context.sharedInventory?.audioFiles?.firstOrNull { it.uri == uri }
+            draft.resolvedAudioKeys.values.forEach { fileKey ->
+                val audioRef = audioByVfsKey[fileKey]
                 if (audioRef != null) {
                     context.reservedAudioIdentities.add(audioRef.identity)
                 }
@@ -41,8 +42,8 @@ internal class MetadataResolveStep(
 
         // 2. 将 M3U8 声明的关联音轨 identity 全数录入 reserved 预占用账本
         input.m3u8Drafts.forEach { draft ->
-            draft.resolvedAudioUris.values.forEach { uri ->
-                val audioRef = context.sharedInventory?.audioFiles?.firstOrNull { it.uri == uri }
+            draft.resolvedAudioKeys.values.forEach { fileKey ->
+                val audioRef = audioByVfsKey[fileKey]
                 if (audioRef != null) {
                     context.reservedAudioIdentities.add(audioRef.identity)
                 }
@@ -58,7 +59,8 @@ internal class MetadataResolveStep(
 
         // 4. 对每一个散落音频并发提取 ID3 元数据；mapWithBoundedConcurrency 会保持输入顺序，claim 和聚合仍由后续步骤串行裁决。
         val resolvedList = looseAudios.mapWithBoundedConcurrency { audio ->
-            AudioMetadataRef(audio, metadataExtractor.extract(audio.uri.toUri()))
+            // 为每一次改动添加详尽的中文注释：散落音频元数据提取通过 VFS 文件引用打开，不再把扫描期文件转换成 URI 入口。
+            AudioMetadataRef(audio, metadataExtractor.extract(audio))
         }
 
         StepResult.Success(ResolvedMetadataDrafts(

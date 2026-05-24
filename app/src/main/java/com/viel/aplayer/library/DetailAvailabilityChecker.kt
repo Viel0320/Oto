@@ -27,20 +27,26 @@ class DetailAvailabilityChecker(private val context: Context) {
             )
         }
 
-        var readyCount = 0
-        var missingCount = 0
+        // 为每一次改动添加详尽的中文注释：详情页可用性检查按目录批量执行，多文件书籍只枚举各父目录一次，并将状态按 READY/MISSING 两批写库。
+        val availabilityByFileId = availabilityChecker.checkBookFiles(files)
+        val readyFileIds = mutableListOf<String>()
+        val missingFileIds = mutableListOf<String>()
         files.forEach { file ->
-            val isReady = availabilityChecker.checkBookFile(file).isAvailable
-            val status = if (isReady) {
-                readyCount += 1
-                AudiobookSchema.FileStatus.READY
+            if (availabilityByFileId[file.id]?.isAvailable == true) {
+                readyFileIds.add(file.id)
             } else {
-                missingCount += 1
-                AudiobookSchema.FileStatus.MISSING
+                missingFileIds.add(file.id)
             }
-            // Persist the per-file status so UI and playback can see restored/missing files.
-            bookDao.updateBookFileStatus(file.id, status)
         }
+        if (readyFileIds.isNotEmpty()) {
+            bookDao.updateBookFileStatuses(readyFileIds, AudiobookSchema.FileStatus.READY)
+        }
+        if (missingFileIds.isNotEmpty()) {
+            bookDao.updateBookFileStatuses(missingFileIds, AudiobookSchema.FileStatus.MISSING)
+        }
+
+        val readyCount = readyFileIds.size
+        val missingCount = missingFileIds.size
 
         val bookStatus = when {
             readyCount == 0 -> AudiobookSchema.BookStatus.UNAVAILABLE

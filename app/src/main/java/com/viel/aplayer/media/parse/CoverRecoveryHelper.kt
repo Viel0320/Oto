@@ -2,11 +2,9 @@ package com.viel.aplayer.media.parse
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
-import android.net.Uri
-import android.os.ParcelFileDescriptor
 import android.util.Log
-import androidx.documentfile.provider.DocumentFile
 import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -17,6 +15,7 @@ import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.library.vfs.VfsFileReader
 
 /**
  * 详尽 of 中文注释：专门负责有声书封面缓存丢失非阻塞检测、异步提取生成与自愈更新的主控辅助类。
@@ -32,6 +31,7 @@ class CoverRecoveryHelper(
 ) {
     // 详尽的中文注释：封面重建会同时触发 MediaMetadataRetriever、Bitmap 解码和 Palette 取色，限制全局并发避免大量新书入库后后台解码挤爆内存与 Binder I/O。
     private val regenerationSemaphore = Semaphore(MAX_CONCURRENT_COVER_REGENERATIONS)
+    private val fileReader = VfsFileReader(context.applicationContext, libraryRootDao)
 
     // 详尽的中文注释：并发安全的去重 HashSet，用来记录当前正在异步重建提取封面的 bookId，
     // 保证对同一本有声书在多条数据流被 UI 同时收集观察时，有且仅有一个提取协程在工作，防御性规避并发解码 OOM 崩内存。
@@ -116,35 +116,18 @@ class CoverRecoveryHelper(
         var finalCoverResult = CoverExtractor.CoverResult(null, null)
         // 详尽的中文注释：优先挑选出非 MISSING（状态为 READY）的首个音频物理对象。若没有，则取首个元素兜底
         val primaryFile = files.firstOrNull { it.status == AudiobookSchema.FileStatus.READY } ?: files.first()
-        // 详尽的中文注释：主文件的 SAF 定位与父目录定位共用同一次 root/relativePath 遍历，避免内嵌封面失败后再为 sidecar 查找重复访问数据库和 SAF 树。
-        val primaryResolved = resolveBookFile(primaryFile, includeParentDirectory = true)
-
         // 1. 漏斗第一层：尝试从主要音频文件内嵌流中解码封面数据。
-        // 详尽的中文注释：由于 Scoped Storage 限制，后台读取具体音频子文件 content URI 在 Native 容易无权。
-        // 我们这里优先通过 findReadableFile 方法获取 100% 具备合法 SAF 访问权的 DocumentFile 实体。
-        // 如果是 content 协议，打开只读 ParcelFileDescriptor 并将 FileDescriptor 桥接设置给 MediaMetadataRetriever，彻底绕过 JNI 的 URI 直接权限校验阻碍。
+        // 为每一次改动添加详尽的中文注释：后台封面恢复统一通过 VFS 打开只读 FD，业务层不再还原来源原生文件对象。
         val coverResult = try {
-            val primaryDocFile = primaryResolved.documentFile
             val retriever = MediaMetadataRetriever()
-            var localPfd: ParcelFileDescriptor? = null
+            val localPfd = fileReader.openFileDescriptor(primaryFile)
             try {
-                if (primaryDocFile != null) {
-                    if (primaryDocFile.uri.scheme == "content") {
-                        // 详尽的中文注释：对 content 类型的 SAF 实体，通过 ContentResolver 开启物理只读文件描述符
-                        localPfd = context.contentResolver.openFileDescriptor(primaryDocFile.uri, "r")
-                        if (localPfd != null) {
-                            retriever.setDataSource(localPfd.fileDescriptor)
-                        } else {
-                            retriever.setDataSource(context, primaryDocFile.uri)
-                        }
-                    } else {
-                        retriever.setDataSource(context, primaryDocFile.uri)
-                    }
+                if (localPfd != null) {
+                    retriever.setDataSource(localPfd.fileDescriptor)
+                    coverExtractor.extractFromRetriever(retriever, bookId)
                 } else {
-                    // 详尽的中文注释：防守性兼容，若定位失败，退化为使用原 URI 尝试读取，规避异常
-                    retriever.setDataSource(context, Uri.parse(primaryFile.uri))
+                    CoverExtractor.CoverResult(null, null)
                 }
-                coverExtractor.extractFromRetriever(retriever, bookId)
             } finally {
                 retriever.release()
                 try {
@@ -161,11 +144,14 @@ class CoverRecoveryHelper(
         if (coverResult.originalPath != null || coverResult.thumbnailPath != null) {
             finalCoverResult = coverResult
         } else {
-            // 2. 漏斗第二层：若无内嵌封面，则通过主要音频物理文件记录寻找并解析其父目录，以此在 SAF 授权内检索 Sidecar 外部海报图（如 cover.jpg/folder.png 等）
+            // 2. 漏斗第二层：若无内嵌封面，则通过 VFS 枚举同目录 sidecar 海报图（如 cover.jpg/folder.png 等）
             try {
-                val parentDir = primaryResolved.parentDirectory
-                if (parentDir != null) {
-                    finalCoverResult = coverExtractor.extractFromDirectory(parentDir)
+                val sidecar = findSidecarImage(primaryFile)
+                if (sidecar != null) {
+                    // 为每一次改动添加详尽的中文注释：sidecar 封面缓存键改为 VFS sourcePath，不再把 provider URI 传出恢复流程。
+                    finalCoverResult = coverExtractor.processExternalImage("${sidecar.root.id}:${sidecar.metadata.sourcePath}") {
+                        fileReader.open(sidecar)
+                    }
                 } else {
                     Log.w("CoverRecoveryHelper", "有声书 $bookId 的主要音频文件父目录获取失败，跳过外部海报提取。")
                 }
@@ -175,30 +161,19 @@ class CoverRecoveryHelper(
         }
 
         // 3. 漏斗第三层：如果前两者仍然未找到，遍历尝试从其余关联音频文件中提取内嵌封面进行物理兜底。
-        // 详尽的中文注释：对备用音频文件也同步加固，采用 findReadableFile 定位，并利用 PFD 物理桥接只读。
+        // 为每一次改动添加详尽的中文注释：备用音频同样走 VFS FD 读取，去除来源原生文件对象兜底分支。
         if (finalCoverResult.originalPath == null && finalCoverResult.thumbnailPath == null) {
             for (fallbackFile in files.drop(1)) {
                 val fallbackCover = try {
-                    val fallbackDocFile = findReadableFile(fallbackFile)
                     val fallbackRetriever = MediaMetadataRetriever()
-                    var fallbackPfd: ParcelFileDescriptor? = null
+                    val fallbackPfd = fileReader.openFileDescriptor(fallbackFile)
                     try {
-                        if (fallbackDocFile != null) {
-                            if (fallbackDocFile.uri.scheme == "content") {
-                                fallbackPfd = context.contentResolver.openFileDescriptor(fallbackDocFile.uri, "r")
-                                if (fallbackPfd != null) {
-                                    fallbackRetriever.setDataSource(fallbackPfd.fileDescriptor)
-                                } else {
-                                    fallbackRetriever.setDataSource(context, fallbackDocFile.uri)
-                                }
-                            } else {
-                                fallbackRetriever.setDataSource(context, fallbackDocFile.uri)
-                            }
+                        if (fallbackPfd != null) {
+                            fallbackRetriever.setDataSource(fallbackPfd.fileDescriptor)
+                            coverExtractor.extractFromRetriever(fallbackRetriever, bookId)
                         } else {
-                            // 详尽的中文注释：防守性退化兼容，保证旧逻辑仍能触达
-                            fallbackRetriever.setDataSource(context, Uri.parse(fallbackFile.uri))
+                            CoverExtractor.CoverResult(null, null)
                         }
-                        coverExtractor.extractFromRetriever(fallbackRetriever, bookId)
                     } finally {
                         fallbackRetriever.release()
                         try {
@@ -237,91 +212,22 @@ class CoverRecoveryHelper(
         }
     }
 
-    /**
-     * 详尽的中文注释：根据书籍的物理音频文件记录，安全地还原其父目录 DocumentFile。
-     * 首先会利用扫描导入时记录的 rootId 和 relativePath 进行两级定位（SAF Tree 模式），以规避 DocumentFile.fromSingleUri 检索父目录始终返回 null 的系统限制；
-     * 如果解析失败，则根据协议分别进行 local file 或是 content URI 单文件解析的兜底。
-     */
-    private suspend fun getParentDirectory(file: BookFileEntity): DocumentFile? {
-        // 详尽的中文注释：保留旧入口给局部调用兜底使用，实际定位委托给统一解析器，避免父目录和文件定位逻辑继续分叉。
-        return resolveBookFile(file, includeParentDirectory = true).parentDirectory
+    private suspend fun findSidecarImage(file: BookFileEntity): com.viel.aplayer.library.vfs.VfsNode? {
+        // 为每一次改动添加详尽的中文注释：sidecar 封面优先从同一 VFS 父目录按常见文件名匹配，远程来源无需额外分支。
+        val parentPath = file.sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
+        val files = fileReader.listChildren(file.rootId, parentPath).filter { !it.metadata.isDirectory && isImage(it.metadata.displayName) }
+        val priorityNames = listOf("cover", "folder", "artwork", "front")
+        return files.firstOrNull { node ->
+            val nameWithoutExt = node.metadata.displayName.substringBeforeLast('.', missingDelimiterValue = "").lowercase(Locale.ROOT)
+            nameWithoutExt in priorityNames
+        } ?: files.firstOrNull()
     }
 
-    /**
-     * 详尽的中文注释：统一还原 BookFile 的可读 DocumentFile 与可选父目录，主流程可一次拿到两者，减少重复 Room 查询、DocumentFile.fromTreeUri 与逐级 findFile。
-     */
-    private suspend fun resolveBookFile(file: BookFileEntity, includeParentDirectory: Boolean): ResolvedBookFile {
-        try {
-            val root = libraryRootDao.getRootById(file.rootId)
-            val rootDoc = root?.treeUri?.let { DocumentFile.fromTreeUri(context, Uri.parse(it)) }
-            val fileUri = Uri.parse(file.uri)
-
-            // 详尽的中文注释：优先使用 SAF Tree 授权的相对路径逐级定位音频文件，并在遍历到最后一级前顺手保存父目录。
-            if (rootDoc != null && file.relativePath.isNotBlank()) {
-                val segments = file.relativePath.split('/').filter { it.isNotBlank() }
-                var current: DocumentFile? = rootDoc
-                var parentDirectory: DocumentFile? = if (segments.isEmpty()) rootDoc else null
-                for ((index, segment) in segments.withIndex()) {
-                    if (includeParentDirectory && index == segments.lastIndex) {
-                        parentDirectory = current
-                    }
-                    current = current?.findFile(segment)
-                    if (current == null) break
-                }
-                val documentFile = current?.takeIf { it.isFile }
-                val usableParent = parentDirectory?.takeIf { includeParentDirectory && it.isDirectory }
-                if (documentFile != null || usableParent != null) {
-                    return ResolvedBookFile(documentFile = documentFile, parentDirectory = usableParent)
-                }
-            }
-
-            // 详尽的中文注释：兜底方案一，如果是 file 协议，直接用物理 java.io.File 同时还原文件和父目录。
-            if (fileUri.scheme == "file") {
-                val f = File(fileUri.path ?: "")
-                val documentFile = f.takeIf { it.exists() && it.isFile }?.let(DocumentFile::fromFile)
-                val parentDirectory = if (includeParentDirectory) {
-                    f.parentFile?.takeIf { it.exists() && it.isDirectory }?.let(DocumentFile::fromFile)
-                } else {
-                    null
-                }
-                if (documentFile != null || parentDirectory != null) {
-                    return ResolvedBookFile(documentFile = documentFile, parentDirectory = parentDirectory)
-                }
-            }
-
-            // 详尽的中文注释：兜底方案二，如果是单文件 content URI，退化到 DocumentFile.fromSingleUri；parentFile 只作最后兼容路径使用。
-            if (fileUri.scheme == "content") {
-                val documentFile = DocumentFile.fromSingleUri(context, fileUri)?.takeIf { it.exists() && it.isFile }
-                val parentDirectory = if (includeParentDirectory) {
-                    documentFile?.parentFile
-                } else {
-                    null
-                }
-                if (documentFile != null) {
-                    return ResolvedBookFile(documentFile = documentFile, parentDirectory = parentDirectory)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("CoverRecoveryHelper", "解析音频文件 ${file.id} 的可读文件或父目录发生异常: ", e)
-        }
-        return ResolvedBookFile(documentFile = null, parentDirectory = null)
+    private fun isImage(name: String): Boolean {
+        // 为每一次改动添加详尽的中文注释：封面恢复只认常见静态图片后缀，保持与扫描期 sidecar 分类一致。
+        val ext = name.substringAfterLast('.', missingDelimiterValue = "").lowercase(Locale.ROOT)
+        return ext in setOf("jpg", "jpeg", "png", "webp")
     }
-
-    /**
-     * 详尽的中文注释：根据书籍的物理音频文件记录，安全、深度定位地还原其对应的 DocumentFile 物理文件实体。
-     * 首先利用扫描导入时记录的 rootId 和 relativePath 进行多级路径递归定位（SAF Tree 模式），以确保其 100% 具备当前应用会话的完整读写访问权限；
-     * 如果 SAF Tree 路径寻址因为目录结构变更或未找到而失败，则分别根据协议类型（本地 file 协议或普通的单文件 content URI）执行安全且防御性的兜底解析。
-     */
-    private suspend fun findReadableFile(file: BookFileEntity): DocumentFile? {
-        // 详尽的中文注释：保留旧入口给备用音频漏斗调用，实际文件定位统一走 resolveBookFile，避免两套 SAF 路径遍历逻辑长期漂移。
-        return resolveBookFile(file, includeParentDirectory = false).documentFile
-    }
-
-    // 详尽的中文注释：内部承载一次 BookFile 定位结果，让主文件封面提取和同目录 sidecar 查找共享同一次解析输出。
-    private data class ResolvedBookFile(
-        val documentFile: DocumentFile?,
-        val parentDirectory: DocumentFile?
-    )
 
     private companion object {
         // 详尽的中文注释：封面后台重建默认只允许两个重任务同时执行，给导入 metadata 与 UI 线程保留资源余量。

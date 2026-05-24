@@ -2,7 +2,6 @@ package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
-import android.net.Uri
 import java.util.UUID
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -14,8 +13,8 @@ import com.viel.aplayer.library.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
+import com.viel.aplayer.library.vfs.VfsFileReader
 import com.viel.aplayer.media.parse.CoverExtractor
-import androidx.core.net.toUri
 
 /**
  * 封面提取与 dominant 调色板背景色提取分步物理类
@@ -43,13 +42,15 @@ internal class CoverExtractStep(
     ): StepResult<CoverExtractedResult> = runCatching {
         // 详尽的中文注释：FileInventory 无默认无参构造函数，使用显式 5 参数空构造进行降级保护
         val inventory = context.sharedInventory ?: FileInventory(emptyList(), emptyList(), emptyList(), emptyList(), emptyMap())
+        // 为每一次改动添加详尽的中文注释：封面步骤按 VFS 文件键回查清单引用音频，避免旧 URI 映射残留。
+        val audioByVfsKey = inventory.audioFiles.associateBy { it.vfsKey }
 
         // 1. 并发解析 CUE 封面的书籍列表；结果顺序保持与清单解析顺序一致，避免后续 claim 顺序漂移。
         val cueBooks = input.manifestParsedResult.cueDrafts.mapWithBoundedConcurrency(maxConcurrent) { cueDraft ->
             val bookId = UUID.randomUUID().toString()
             // 挑出所有的关联物理文件
-            val audioRefs = cueDraft.resolvedAudioUris.values.mapNotNull { uri ->
-                inventory.audioFiles.firstOrNull { it.uri == uri }
+            val audioRefs = cueDraft.resolvedAudioKeys.values.mapNotNull { key ->
+                audioByVfsKey[key]
             }
             val coverResult = resolveCoverWithSemaphore(bookId, primaryAudio = null, manifestFile = cueDraft.sourceFile, fallbackAudio = audioRefs, inventory = inventory)
             CoverExtractedCue(bookId, cueDraft, audioRefs, coverResult)
@@ -58,8 +59,8 @@ internal class CoverExtractStep(
         // 2. 并发解析 M3U8 封面的书籍列表；只并发图片 I/O，不提前进入所有权认领。
         val m3u8Books = input.manifestParsedResult.m3u8Drafts.mapWithBoundedConcurrency(maxConcurrent) { m3u8Draft ->
             val bookId = UUID.randomUUID().toString()
-            val audioRefs = m3u8Draft.resolvedAudioUris.values.mapNotNull { uri ->
-                inventory.audioFiles.firstOrNull { it.uri == uri }
+            val audioRefs = m3u8Draft.resolvedAudioKeys.values.mapNotNull { key ->
+                audioByVfsKey[key]
             }
             val coverResult = resolveCoverWithSemaphore(bookId, primaryAudio = null, manifestFile = m3u8Draft.sourceFile, fallbackAudio = audioRefs, inventory = inventory)
             CoverExtractedM3u8(bookId, m3u8Draft, audioRefs, coverResult)
@@ -104,22 +105,26 @@ internal class CoverExtractStep(
         fallbackAudio: List<FileRef>,
         inventory: FileInventory
     ): CoverExtractor.CoverResult? {
+        // 为每一次改动添加详尽的中文注释：sidecar 封面读取复用当前 inventory 的 root 映射，保证 VFS 能打开扫描期 FileRef。
+        val fileReader = VfsFileReader(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
         // 1. 首先尝试内嵌的封面
         primaryAudio?.let { audio ->
-            extractCoverSafety(audio.uri, bookId)?.takeIf { it.hasImage }?.let { return it }
+            extractCoverSafety(audio, fileReader, bookId)?.takeIf { it.hasImage }?.let { return it }
         }
         
         // 2. 然后尝试同级目录下的外部 sidecar 图像
         val sidecarAnchor = manifestFile ?: primaryAudio ?: fallbackAudio.firstOrNull()
         sidecarAnchor?.let { anchor ->
-            findDirectoryCover(anchor.parentUri, inventory)?.let { image ->
-                coverExtractor.processExternalImage(image.uri.toUri())?.takeIf { it.hasImage }?.let { return it }
+            findDirectoryCover(anchor.parentSourceKey, inventory)?.let { image ->
+                coverExtractor.processExternalImage(image.vfsKey) { fileReader.open(image) }
+                    .takeIf { it.hasImage }
+                    ?.let { return it }
             }
         }
         
         // 3. 最后退而求其次尝试其余音频的封面
         fallbackAudio.forEach { audio ->
-            extractCoverSafety(audio.uri, bookId)?.takeIf { it.hasImage }?.let { return it }
+            extractCoverSafety(audio, fileReader, bookId)?.takeIf { it.hasImage }?.let { return it }
         }
         return null
     }
@@ -127,8 +132,9 @@ internal class CoverExtractStep(
     private val CoverExtractor.CoverResult.hasImage: Boolean
         get() = originalPath != null || thumbnailPath != null
 
-    private fun findDirectoryCover(parentUri: String, inventory: FileInventory): FileRef? {
-        val images = inventory.imageFilesByParent[parentUri].orEmpty()
+    private fun findDirectoryCover(parentKey: String, inventory: FileInventory): FileRef? {
+        // 为每一次改动添加详尽的中文注释：封面 sidecar 查找按 VFS 父目录键命中扫描图片，不再依赖旧父目录 URI。
+        val images = inventory.imageFilesByParent[parentKey].orEmpty()
         val priorityNames = listOf("cover", "folder", "artwork", "front")
         return images.firstOrNull { image ->
             val baseName = image.displayName.substringBeforeLast('.').lowercase()
@@ -136,16 +142,23 @@ internal class CoverExtractStep(
         } ?: images.firstOrNull()
     }
 
-    private suspend fun extractCoverSafety(uri: String, bookId: String): CoverExtractor.CoverResult? =
+    private suspend fun extractCoverSafety(file: FileRef, fileReader: VfsFileReader, bookId: String): CoverExtractor.CoverResult? =
         runCatching {
             // 使用协程信号量进行高并发度安全并发控制，防发热和 OOM 崩溃
             semaphore.withPermit {
                 val retriever = MediaMetadataRetriever()
+                val pfd = fileReader.openFileDescriptor(file)
                 try {
-                    retriever.setDataSource(context, uri.toUri())
-                    coverExtractor.extractFromRetriever(retriever, bookId)
+                    if (pfd == null) {
+                        CoverExtractor.CoverResult(null, null)
+                    } else {
+                        // 为每一次改动添加详尽的中文注释：封面提取从 VFS FD 读内嵌图，不再需要扫描期 provider URI。
+                        retriever.setDataSource(pfd.fileDescriptor)
+                        coverExtractor.extractFromRetriever(retriever, bookId)
+                    }
                 } finally {
                     retriever.release()
+                    pfd?.close()
                 }
             }
         }.getOrNull()

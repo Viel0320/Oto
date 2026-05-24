@@ -49,7 +49,7 @@ internal class HeuristicGroupStep : ImportStep<ResolvedMetadataDrafts, GroupedBo
             } else {
                 val last = pendingHeuristic.lastOrNull()
                 // 如果音频跨越了不同的文件夹，则同样把前一个文件夹的内容先冲刷处理掉
-                if (last != null && last.file.parentUri != audioRef.file.parentUri) {
+                if (last != null && last.file.parentSourceKey != audioRef.file.parentSourceKey) {
                     flushHeuristic()
                 }
                 pendingHeuristic.add(audioRef)

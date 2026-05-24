@@ -81,8 +81,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             _uiState.value = current.copy(
                 book = book,
                 isVisible = true,
-                // 详尽的中文注释：异步检查文件可用性前先置为 false，避免闪烁
-                isAvailable = false,
+                // 中文注释：详情页先按可播放处理，等后台 VFS 可用性检测确认缺失后再降级，避免多文件书籍检测期间误拦截播放入口。
+                isAvailable = true,
                 progressPercent = book.progressPercent,
                 // 详尽中文注释：M-19 — 选中新书时同步初始化 displayProgressPercent
                 displayProgressPercent = book.progressPercent,
@@ -143,10 +143,17 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             viewModelScope.launch {
+                // 中文注释：记录本次检测对应的书籍 ID，防止切换详情页后旧检测结果覆盖新书的乐观状态。
+                val checkedBookId = book.book.id
                 // 详尽的中文注释：异步检查当前选中书籍的物理文件可用性
-                val isAvailable = repository.checkDetailAvailability(book.book.id)
+                val isAvailable = repository.checkDetailAvailability(checkedBookId)
                 _uiState.update { state ->
-                    state.copy(isAvailable = isAvailable)
+                    // 中文注释：只有当前仍显示同一本书时才应用检测结果，避免异步检测完成顺序导致详情页状态串扰。
+                    if (state.book?.book?.id == checkedBookId) {
+                        state.copy(isAvailable = isAvailable)
+                    } else {
+                        state
+                    }
                 }
             }
 

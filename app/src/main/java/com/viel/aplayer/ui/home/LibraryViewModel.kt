@@ -209,8 +209,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 playbackManager.stopPlayback()
             }
 
-            // 详尽的中文注释：检测被删除书籍的源文件存在状态，用于向用户反馈删除结果
-            val fileExists = repository.getPrimaryAudioUri(bookId)?.let { repository.checkFileExists(it) } ?: false
+            // 为每一次改动添加详尽的中文注释：删除反馈通过 VFS 检测主音频可达性，不再回退到 URI 直连检测。
+            val fileExists = repository.checkPrimaryAudioFileExists(bookId)
 
             repository.deleteBook(bookId)
 
