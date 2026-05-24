@@ -101,6 +101,12 @@ data class FileRef(
     val rootId: String,
     val documentId: String,
     val relativePath: String,
+    // sourcePath 是来源标准件里的通用路径；SAF 当前等同 relativePath，远程源后续可承载规范远程路径。
+    val sourcePath: String = relativePath,
+    // sourceIdentity 是跨协议文件身份；SAF 当前等同 documentId/uri，后续 WebDAV 可映射 path/etag 身份。
+    val sourceIdentity: String = documentId.ifBlank { uri },
+    // etag 是远程增量检测预留字段；SAF 没有稳定 etag 时保持 null。
+    val etag: String? = null,
     val parentDocumentId: String,
     val parentUri: String,
     val displayName: String,
@@ -111,17 +117,20 @@ data class FileRef(
     // Manifest parsers need the direct parent folder to resolve relative entries.
     val parentDocumentFile: DocumentFile
 ) {
-    val identity: FileIdentity = FileIdentity(uri = uri, documentId = documentId)
+    val identity: FileIdentity = FileIdentity(uri = uri, documentId = documentId, sourceIdentity = sourceIdentity)
 }
 
 // File ownership identity: uri is first-version primary, documentId is a stable helper when present.
 data class FileIdentity(
     val uri: String,
-    val documentId: String
+    val documentId: String,
+    // sourceIdentity 让远程来源可以提供不依赖 SAF documentId 的稳定身份。
+    val sourceIdentity: String = documentId.ifBlank { uri }
 ) {
     fun keys(): Set<String> = buildSet {
         add("uri:$uri")
         if (documentId.isNotBlank()) add("doc:$documentId")
+        if (sourceIdentity.isNotBlank()) add("src:$sourceIdentity")
     }
 }
 

@@ -33,7 +33,8 @@ import com.viel.aplayer.data.entity.DirectoryCacheEntity
         DirectoryCacheEntity::class
     ],
     // 为每一次改动添加详尽的中文注释：升级 Room 数据库版本至 29，以引入有声书的阅读状态（未开始/进行中/已完成）持久化字段 (readStatus)
-    version = 29,
+    // 为远程来源标准件升级到 30：新增 sourceType/sourceUri、VFS 文件身份和可用性检测缓存字段。
+    version = 30,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -80,6 +81,31 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // 为远程来源标准件添加兼容迁移：旧 SAF 数据保留 treeUri，同时回填通用 sourceUri/sourcePath/sourceIdentity 字段。
+        private val MIGRATION_29_30 = object : androidx.room.migration.Migration(29, 30) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `library_roots` ADD COLUMN `sourceType` TEXT NOT NULL DEFAULT 'SAF'")
+                db.execSQL("ALTER TABLE `library_roots` ADD COLUMN `sourceUri` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `library_roots` ADD COLUMN `basePath` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `library_roots` ADD COLUMN `credentialId` TEXT")
+                db.execSQL("ALTER TABLE `library_roots` ADD COLUMN `availabilityStatus` TEXT NOT NULL DEFAULT 'UNKNOWN'")
+                db.execSQL("ALTER TABLE `library_roots` ADD COLUMN `lastAvailabilityCheckedAt` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `library_roots` ADD COLUMN `lastAvailabilityErrorCode` TEXT")
+                db.execSQL("UPDATE `library_roots` SET `sourceUri` = `treeUri`, `availabilityStatus` = CASE WHEN `status` = 'ACTIVE' THEN 'AVAILABLE' WHEN `status` = 'REVOKED' THEN 'REVOKED' ELSE 'UNKNOWN' END")
+
+                db.execSQL("ALTER TABLE `book_files` ADD COLUMN `sourcePath` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `book_files` ADD COLUMN `sourceIdentity` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `book_files` ADD COLUMN `remotePath` TEXT")
+                db.execSQL("ALTER TABLE `book_files` ADD COLUMN `etag` TEXT")
+                db.execSQL("UPDATE `book_files` SET `sourcePath` = `relativePath`, `sourceIdentity` = CASE WHEN `documentId` != '' THEN `documentId` ELSE `uri` END")
+
+                db.execSQL("ALTER TABLE `directory_cache` ADD COLUMN `etag` TEXT")
+                db.execSQL("ALTER TABLE `directory_cache` ADD COLUMN `childSignature` TEXT")
+                db.execSQL("ALTER TABLE `directory_cache` ADD COLUMN `lastCheckedAt` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `directory_cache` ADD COLUMN `availabilityStatus` TEXT NOT NULL DEFAULT 'UNKNOWN'")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -88,7 +114,8 @@ abstract class AppDatabase : RoomDatabase() {
                     "aplayer_database"
                 )
                 // 为每一次改动添加详尽的中文注释：将 MIGRATION_28_29 添加至迁移器链中，实现安全迁移
-                .addMigrations(MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29)
+                // 迁移链包含 29->30，确保现有 SAF 数据无损回填到新的通用来源字段。
+                .addMigrations(MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30)
                 .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance

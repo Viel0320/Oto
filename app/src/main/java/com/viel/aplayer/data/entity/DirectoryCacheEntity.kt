@@ -39,6 +39,26 @@ data class DirectoryCacheEntity(
     val lastModified: Long,
 
     /**
+     * 为远程 VFS 预留的目录 etag；SAF 当前没有可靠 etag，保持 null，不影响现有 lastModified 缓存判断。
+     */
+    val etag: String? = null,
+
+    /**
+     * childSignature 表示目录子项快照签名；WebDAV 无 etag 时可用它做增量判断，SAF 第一阶段暂不计算。
+     */
+    val childSignature: String? = null,
+
+    /**
+     * lastCheckedAt 记录最近一次目录缓存校验时间，后续远程源可用来控制探测频率，SAF 默认不改变现有行为。
+     */
+    val lastCheckedAt: Long = 0L,
+
+    /**
+     * availabilityStatus 让目录级不可用状态独立于根目录状态，远程目录临时失败时不会误伤整本书库。
+     */
+    val availabilityStatus: String = "UNKNOWN",
+
+    /**
      * 该文件夹所属的媒体库根授权目录 ID，用于外键级联 CASCADE 级联清理
      */
     val rootId: String

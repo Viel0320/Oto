@@ -3,7 +3,7 @@ package com.viel.aplayer.library.orchestrator.steps
 import android.content.Context
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.FileInventory
-import com.viel.aplayer.library.FileInventoryScanner
+import com.viel.aplayer.library.SourceInventoryScanner
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
@@ -27,7 +27,8 @@ internal class InventoryScanStep(
         context: ImportContext
     ): StepResult<FileInventory> = runCatching {
         // 调用底层的物理文件检索器扫描所有指定的库根目录
-        val scanner = FileInventoryScanner(this.context)
+        // 通过 VFS 标准件扫描来源；SAF 第一阶段行为不变，WebDAV 后续只需新增 Provider。
+        val scanner = SourceInventoryScanner(this.context)
         val inventory = scanner.scan(input)
         StepResult.Success(inventory)
     }.getOrElse { throwable ->

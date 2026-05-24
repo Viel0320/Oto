@@ -1,19 +1,19 @@
 package com.viel.aplayer.library
 
 import android.content.Context
-import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.library.availability.AvailabilityChecker
 
 // Cold-start helper: recover missing BookFile rows without re-importing already claimed files.
 class MissingBookFileRecoveryChecker(private val context: Context) {
     private val database = AppDatabase.getInstance(context)
     private val bookDao = database.bookDao()
+    // 冷启动缺失文件恢复复用统一可用性检查，避免 SAF/file 判断继续散落在各组件里。
+    private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     suspend fun recoverMissingAudioFiles(): MissingBookFileRecoveryResult = withContext(Dispatchers.IO) {
         val missingFiles = bookDao.getMissingAudioBookFilesOnce()
@@ -23,7 +23,7 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
         val affectedBookIds = missingFiles.mapTo(linkedSetOf()) { it.bookId }
         var restoredFileCount = 0
         missingFiles.forEach { file ->
-            if (canOpen(file.uri)) {
+            if (availabilityChecker.checkBookFile(file).isAvailable) {
                 // Restored files become READY immediately, but no import/pending action is created.
                 bookDao.updateBookFileStatus(file.id, AudiobookSchema.FileStatus.READY)
                 restoredBookIds.add(file.bookId)
@@ -65,15 +65,6 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
         }
     }
 
-    private fun canOpen(uriString: String): Boolean =
-        runCatching {
-            val uri = uriString.toUri()
-            when (uri.scheme) {
-                "content" -> DocumentFile.fromSingleUri(context, uri)?.exists() == true
-                "file" -> File(uri.path ?: "").exists()
-                else -> false
-            }
-        }.getOrDefault(false)
 }
 
 data class MissingBookFileRecoveryResult(

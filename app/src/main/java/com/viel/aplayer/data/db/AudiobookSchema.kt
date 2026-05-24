@@ -68,6 +68,26 @@ object AudiobookSchema {
     }
 
     // 为每一次改动添加详尽的中文注释：新增 ReadStatus 常量对象，统一管理有声书的阅读状态，包含“未开始”、“进行中”和“已完成”三种状态，规避拼写错误
+    // 为远程连接标准件预留来源类型；第一阶段仍只启用 SAF，WebDAV 后续作为新的 Provider 接入。
+    object LibrarySourceType {
+        const val SAF = "SAF"
+        const val WEBDAV = "WEBDAV"
+    }
+
+    // 为统一可用性检测标准件预留状态常量；SAF 先映射授权状态，远程源后续复用网络和认证状态。
+    object AvailabilityStatus {
+        const val AVAILABLE = "AVAILABLE"
+        const val UNKNOWN = "UNKNOWN"
+        const val REVOKED = "REVOKED"
+        const val AUTH_FAILED = "AUTH_FAILED"
+        const val NETWORK_UNAVAILABLE = "NETWORK_UNAVAILABLE"
+        const val NOT_FOUND = "NOT_FOUND"
+        const val PERMISSION_DENIED = "PERMISSION_DENIED"
+        const val SERVER_ERROR = "SERVER_ERROR"
+        const val TIMEOUT = "TIMEOUT"
+        const val UNSUPPORTED = "UNSUPPORTED"
+    }
+
     object ReadStatus {
         const val NOT_STARTED = "NOT_STARTED"
         const val IN_PROGRESS = "IN_PROGRESS"

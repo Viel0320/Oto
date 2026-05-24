@@ -1,18 +1,18 @@
 package com.viel.aplayer.library
 
 import android.content.Context
-import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.library.availability.AvailabilityChecker
 
 // Detail-only availability check; rescans do not update old BookFile reachability.
 class DetailAvailabilityChecker(private val context: Context) {
     private val database = AppDatabase.getInstance(context)
     private val bookDao = database.bookDao()
+    // 详情页可用性检查通过统一标准件执行，保持 SAF 行为不变，同时给远程源接入预留状态模型。
+    private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     suspend fun check(bookId: String): DetailAvailabilityResult = withContext(Dispatchers.IO) {
         val files = bookDao.getFilesForBookList(bookId)
@@ -30,7 +30,7 @@ class DetailAvailabilityChecker(private val context: Context) {
         var readyCount = 0
         var missingCount = 0
         files.forEach { file ->
-            val isReady = canOpen(file.uri)
+            val isReady = availabilityChecker.checkBookFile(file).isAvailable
             val status = if (isReady) {
                 readyCount += 1
                 AudiobookSchema.FileStatus.READY
@@ -58,15 +58,6 @@ class DetailAvailabilityChecker(private val context: Context) {
         )
     }
 
-    private fun canOpen(uriString: String): Boolean =
-        runCatching {
-            val uri = uriString.toUri()
-            when (uri.scheme) {
-                "content" -> DocumentFile.fromSingleUri(context, uri)?.exists() == true
-                "file" -> File(uri.path ?: "").exists()
-                else -> false
-            }
-        }.getOrDefault(false)
 }
 
 data class DetailAvailabilityResult(

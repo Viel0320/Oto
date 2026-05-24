@@ -1,15 +1,12 @@
 package com.viel.aplayer.media
 
 import android.content.Context
-import android.net.Uri
 import android.util.Log
-import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
-import java.io.File
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
+import com.viel.aplayer.library.availability.AvailabilityChecker
 
 /**
  * 详尽 of 中文注释：专门负责播放运行期音频文件物理就绪度存在性校验、就绪降级重算、
@@ -20,23 +17,15 @@ class PlaybackReachabilityManager(
     private val context: Context,
     private val bookDao: BookDao
 ) {
+    // 播放运行期可达性统一进入 AvailabilityChecker，后续 WebDAV 播放探测可在同一标准件内扩展。
+    private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     /**
      * 详尽 of 中文注释：轻量级检查给定 URI 的物理文件在本地或 SAF 内容提供者中是否存在。
      * 支持 "content" 协议（SAF Single Document）与 "file" 协议（传统绝对路径）。
      */
     fun checkFileExists(uriString: String): Boolean {
-        return try {
-            val uri = uriString.toUri()
-            if (uri.scheme == "content") {
-                val doc = DocumentFile.fromSingleUri(context, uri)
-                doc?.exists() == true
-            } else {
-                File(uri.path ?: "").exists()
-            }
-        } catch (_: Exception) {
-            false
-        }
+        return availabilityChecker.checkUri(uriString).isAvailable
     }
 
     /**

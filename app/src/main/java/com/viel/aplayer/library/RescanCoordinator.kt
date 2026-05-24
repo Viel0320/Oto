@@ -44,7 +44,8 @@ class RescanCoordinator(
     private val scanSessionDao = database.scanSessionDao()
     // 为每一次改动添加详尽的中文注释：声明增量扫描目录缓存表的 DAO 引用
     private val directoryCacheDao = database.directoryCacheDao()
-    private val scanner = FileInventoryScanner(context)
+    // 扫描入口切到 VFS 标准件实现；当前仍由 SAF Provider 驱动，导入行为保持不变。
+    private val scanner = SourceInventoryScanner(context)
     private val orchestrator = ImportOrchestrator(context)
     private val importer = BookImporter(context)
     private val missingRecoveryChecker = MissingBookFileRecoveryChecker(context)

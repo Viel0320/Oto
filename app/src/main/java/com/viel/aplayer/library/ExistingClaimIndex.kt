@@ -57,7 +57,8 @@ class ExistingClaimIndex private constructor(
         fun from(files: List<BookFileEntity>): ExistingClaimIndex {
             val map = mutableMapOf<String, BookFileEntity>()
             files.forEach { file ->
-                val identity = FileIdentity(file.uri, file.documentId)
+                // 兼容旧 SAF 身份和新增 VFS 通用身份，确保迁移后已入库文件不会被重复导入。
+                val identity = FileIdentity(file.uri, file.documentId, file.sourceIdentity)
                 identity.keys().forEach { key -> map.putIfAbsent(key, file) }
             }
             return ExistingClaimIndex(map)

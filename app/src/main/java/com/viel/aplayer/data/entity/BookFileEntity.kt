@@ -40,6 +40,14 @@ data class BookFileEntity(
     val uri: String,
     val documentId: String, // SAF document id
     val relativePath: String, // 相对授权目录的路径
+    // sourcePath 是面向 VFS 的通用路径；SAF 第一阶段等同 relativePath，WebDAV 后续存远程规范路径。
+    val sourcePath: String = relativePath,
+    // sourceIdentity 保存跨协议稳定身份；SAF 第一阶段等同 documentId/uri 组合，远程源后续可使用 path+etag 等规则。
+    val sourceIdentity: String = documentId.ifBlank { uri },
+    // remotePath 仅为远程协议预留；SAF 保持 null，避免把本地目录语义误写成远程路径。
+    val remotePath: String? = null,
+    // etag 用于 WebDAV 等远程源的增量检测；SAF 当前没有稳定 etag，保持 null。
+    val etag: String? = null,
     // Keeps the raw cue/m3u8 entry text for diagnostics only, not for identity.
     val manifestEntryPath: String? = null,
     val displayName: String,

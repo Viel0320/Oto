@@ -43,6 +43,15 @@ interface LibraryRootDao {
     @Query("UPDATE library_roots SET status = :status WHERE id = :id")
     suspend fun updateRootStatus(id: String, status: String)
 
+    // 统一可用性检测标准件只更新探测状态，不改变库根是否参与扫描的业务状态。
+    @Query("UPDATE library_roots SET availabilityStatus = :availabilityStatus, lastAvailabilityCheckedAt = :checkedAt, lastAvailabilityErrorCode = :errorCode WHERE id = :id")
+    suspend fun updateRootAvailability(
+        id: String,
+        availabilityStatus: String,
+        checkedAt: Long,
+        errorCode: String?
+    )
+
     @Delete
     suspend fun deleteRoot(root: LibraryRootEntity)
 }

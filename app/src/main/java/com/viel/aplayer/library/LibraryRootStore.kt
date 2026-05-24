@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.library.availability.AvailabilityChecker
 
 /**
  * 负责管理媒体库授权目录的持久化存储。
@@ -17,6 +18,8 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 class LibraryRootStore(private val context: Context) {
     private val rootDao = AppDatabase.getInstance(context).libraryRootDao()
     private val prefs = context.getSharedPreferences("library_prefs", Context.MODE_PRIVATE)
+    // 统一根目录可用性探测入口；SAF 阶段仍复刻旧授权检查，WebDAV 后续复用同一状态模型。
+    private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     /**
      * 添加新的授权目录。
@@ -53,7 +56,8 @@ class LibraryRootStore(private val context: Context) {
     suspend fun refreshPermissionStatuses() = withContext(Dispatchers.IO) {
         // Startup and settings entry both reconcile persisted SAF grants with stored root status.
         rootDao.getAllRootsOnce().forEach { root ->
-            val status = if (hasReadAccess(root.treeUri)) {
+            val availability = availabilityChecker.checkRoot(root)
+            val status = if (availability.isAvailable) {
                 AudiobookSchema.LibraryRootStatus.ACTIVE
             } else {
                 AudiobookSchema.LibraryRootStatus.REVOKED
@@ -61,6 +65,12 @@ class LibraryRootStore(private val context: Context) {
             if (root.status != status) {
                 rootDao.updateRootStatus(root.id, status)
             }
+            rootDao.updateRootAvailability(
+                id = root.id,
+                availabilityStatus = availability.status,
+                checkedAt = availability.checkedAt,
+                errorCode = availability.errorCode
+            )
         }
     }
 
