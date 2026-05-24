@@ -30,8 +30,8 @@ data class AppSettings(
     val globalPlaybackSpeed: Float = 1.0f,
     /** 是否开启章节进度模式（进度条仅显示当前章节） */
     val isChapterProgressMode: Boolean = false,
-    /** 详尽的中文注释：新增是否允许明文 HTTP 流量持久化配置属性，默认值为 false 以满足极高的默认安全边界。 */
-    val isCleartextTrafficAllowed: Boolean = false,
+    /** 详尽的中文注释：新增是否允许明文 HTTP 流量持久化配置属性，默认值为 true 以提供更便捷的初次 WebDAV 配置体验。 */
+    val isCleartextTrafficAllowed: Boolean = true,
     // 为每一次改动添加详尽的中文注释：新增自动跳过静音期 (Skip Silence) 全局控制开关，默认关闭以提供安全非打扰的默认播放体验。
     val isSkipSilenceEnabled: Boolean = false,
     // 为每一次改动添加详尽的中文注释：新增自动跳过静音的判定最小时长阈值属性（秒），默认 2.0 秒，保障不同有声书均能完美匹配。

@@ -15,12 +15,12 @@ import com.viel.aplayer.data.entity.BookWithProgress
 @Dao
 interface BookDao {
     // UI lists hide soft-deleted books while their BookFile claims stay reserved.
-    @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY addedAt DESC")
+    @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title ASC")
     fun getAllBooks(): Flow<List<BookEntity>>
 
     // UI lists hide soft-deleted books while their BookFile claims stay reserved.
     @Transaction
-    @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY addedAt DESC")
+    @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title ASC")
     fun getAllBooksWithProgress(): Flow<List<BookWithProgress>>
 
     @Query("SELECT * FROM books WHERE id = :id")

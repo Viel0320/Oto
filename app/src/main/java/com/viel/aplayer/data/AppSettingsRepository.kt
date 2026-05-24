@@ -60,8 +60,8 @@ class AppSettingsRepository private constructor(private val context: Context) {
             isGlobalSpeedEnabled = preferences[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] ?: false,
             globalPlaybackSpeed = preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] ?: 1.0f,
             isChapterProgressMode = preferences[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] ?: false,
-            // 详尽的中文注释：从 DataStore 缓存中提取明文 http 流量授权状态，缺失则以 false 默认防御态加载。
-            isCleartextTrafficAllowed = preferences[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] ?: false,
+            // 详尽的中文注释：从 DataStore 缓存中提取明文 http 流量授权状态，缺失则以 true 默认授权状态加载，以提供更友好的初始 WebDAV 配置体验。
+            isCleartextTrafficAllowed = preferences[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] ?: true,
             // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取自动跳过静音的开关状态，默认值为 false
             isSkipSilenceEnabled = preferences[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] ?: false,
             // 为每一次改动添加详尽的中文注释：从 DataStore 物理读取静音判定的最小时长，默认值为 2.0 秒
