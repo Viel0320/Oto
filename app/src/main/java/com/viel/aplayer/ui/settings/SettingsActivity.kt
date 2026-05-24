@@ -80,6 +80,17 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
 import com.viel.aplayer.ui.theme.APlayerTheme
+// 为每一次改动添加详尽的中文注释：引入物理返回按键拦截 BackHandler，当处于开源协议展示页时，按下返回键先返回设置主页，而非直接退出本 Activity。
+import androidx.activity.compose.BackHandler
+// 为每一次改动添加详尽的中文注释：引入全新的 AnimatedContent 进退场动画容器及 slide/fade 系列平滑滑入过渡，实现类原生导航栈切换的丝滑视觉享受。
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+// 为每一次改动添加详尽的中文注释：引入 Info 信息图标，作为底部开源许可入口的精美前置指示图标。
+import androidx.compose.material.icons.rounded.Info
 
 /**
  * 为每一次改动添加详尽的中文注释：
@@ -111,45 +122,79 @@ class SettingsActivity : ComponentActivity() {
                     val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
                     val libraryRoots by settingsViewModel.libraryRoots.collectAsStateWithLifecycle()
 
-                    SettingsScreen(
-                        // 为每一次改动添加详尽的中文注释：返回按钮关闭当前 Activity，系统自动播放退出动画。
-                        onBack = { finish() },
-                        // 为每一次改动添加详尽的中文注释：
-                        // 直接通过 SettingsViewModel 添加媒体库根目录，与其共享同一套 SAF 授权流程。
-                        // 彻底剥离对 LibraryViewModel 的依赖，防止进入设置页时重新创建该 ViewModel 而导致重复触发其 init 块中的 COLD_START 冷启动同步。
-                        onLibraryRootSelected = { uri -> settingsViewModel.onLibraryRootSelected(uri) },
+                    // 为每一次改动添加详尽的中文注释：
+                    // 维护一个 Boolean 状态，用于驱动设置主页 (SettingsScreen) 和开源许可面板 (AboutLibrariesScreen) 之间的显示和切换。
+                    var showAboutLibraries by remember { mutableStateOf(false) }
 
-                        onClearHistory = { settingsViewModel.clearSearchHistory() },
-                        onRescan = { settingsViewModel.triggerRescan() },
-                        libraryRoots = libraryRoots,
-                        isChapterProgressMode = settingsState.isChapterProgressMode,
-                        onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },
-                        isCleartextTrafficAllowed = settingsState.isCleartextTrafficAllowed,
-                        onCleartextTrafficAllowedChange = { settingsViewModel.toggleCleartextTrafficAllowed(it) },
-                        onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
-                        isSkipSilenceEnabled = settingsState.isSkipSilenceEnabled,
-                        onSkipSilenceEnabledChange = { settingsViewModel.toggleSkipSilenceEnabled(it) },
-                        skipSilenceDurationThreshold = settingsState.skipSilenceDurationThreshold,
-                        onSkipSilenceDurationThresholdChange = { settingsViewModel.updateSkipSilenceDurationThreshold(it) },
-                        isSkipSilenceNotificationEnabled = settingsState.isSkipSilenceNotificationEnabled,
-                        onSkipSilenceNotificationEnabledChange = { settingsViewModel.toggleSkipSilenceNotificationEnabled(it) },
-                        isSleepFadeOutEnabled = settingsState.isSleepFadeOutEnabled,
-                        onSleepFadeOutEnabledChange = { settingsViewModel.toggleSleepFadeOutEnabled(it) },
-                        isShakeToResetEnabled = settingsState.isShakeToResetEnabled,
-                        onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) },
-                        // 为每一次改动添加详尽的中文注释：将 DataStore 中的睡眠模式传入设置页，并把用户选择回写到 SettingsViewModel。
-                        sleepMode = settingsState.sleepMode,
-                        onSleepModeChange = { settingsViewModel.updateSleepMode(it) },
-                        // 为每一次改动添加详尽的中文注释：将 DataStore 中的玻璃效果模式传入设置页，并把用户选择回写到 SettingsViewModel。
-                        glassEffectMode = settingsState.glassEffectMode,
-                        onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },
-                        // 为每一次改动添加详尽的中文注释：将 DataStore 中的自动回退时长传入设置页，并把用户选择回写到 SettingsViewModel。
-                        autoRewindSeconds = settingsState.autoRewindSeconds,
-                        onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) },
-                        // 为每一次改动添加详尽的中文注释：将 DataStore 中的通知避让状态传入设置页，并把用户开关选择回写到 SettingsViewModel 进行持久化。
-                        isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
-                        onNotificationAvoidanceEnabledChange = { settingsViewModel.toggleNotificationAvoidanceEnabled(it) }
-                    )
+                    // 为每一次改动添加详尽的中文注释：
+                    // 运用 BackHandler 物理拦截手势：当处于开源许可面板时，物理返回按键或系统侧滑返回仅会重置 showAboutLibraries = false 返回设置主页，从而避免直接关闭整个设置页面。
+                    BackHandler(enabled = showAboutLibraries) {
+                        showAboutLibraries = false
+                    }
+
+                    // 为每一次改动添加详尽的中文注释：
+                    // 采用 AnimatedContent 高阶转场，当用户点击开源许可时，AboutLibrariesScreen 将优雅地从右滑入，SettingsScreen 从左滑出；点击返回时相反，给用户极致轻盈的操作反馈。
+                    AnimatedContent(
+                        targetState = showAboutLibraries,
+                        transitionSpec = {
+                            if (targetState) {
+                                (slideInHorizontally { width -> width } + fadeIn())
+                                    .togetherWith(slideOutHorizontally { width -> -width } + fadeOut())
+                            } else {
+                                (slideInHorizontally { width -> -width } + fadeIn())
+                                    .togetherWith(slideOutHorizontally { width -> width } + fadeOut())
+                            }
+                        },
+                        label = "AboutLibrariesTransition"
+                    ) { showAbout ->
+                        if (showAbout) {
+                            AboutLibrariesScreen(
+                                onBack = { showAboutLibraries = false }
+                            )
+                        } else {
+                            SettingsScreen(
+                                // 为每一次改动添加详尽的中文注释：返回按钮关闭当前 Activity，系统自动播放退出动画。
+                                onBack = { finish() },
+                                // 为每一次改动添加详尽的中文注释：
+                                // 直接通过 SettingsViewModel 添加媒体库根目录，与其共享同一套 SAF 授权流程。
+                                // 彻底剥离对 LibraryViewModel 的依赖，防止进入设置页时重新创建该 ViewModel 而导致重复触发其 init 块中的 COLD_START 冷启动同步。
+                                onLibraryRootSelected = { uri -> settingsViewModel.onLibraryRootSelected(uri) },
+
+                                onClearHistory = { settingsViewModel.clearSearchHistory() },
+                                onRescan = { settingsViewModel.triggerRescan() },
+                                libraryRoots = libraryRoots,
+                                isChapterProgressMode = settingsState.isChapterProgressMode,
+                                onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },
+                                isCleartextTrafficAllowed = settingsState.isCleartextTrafficAllowed,
+                                onCleartextTrafficAllowedChange = { settingsViewModel.toggleCleartextTrafficAllowed(it) },
+                                onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
+                                isSkipSilenceEnabled = settingsState.isSkipSilenceEnabled,
+                                onSkipSilenceEnabledChange = { settingsViewModel.toggleSkipSilenceEnabled(it) },
+                                skipSilenceDurationThreshold = settingsState.skipSilenceDurationThreshold,
+                                onSkipSilenceDurationThresholdChange = { settingsViewModel.updateSkipSilenceDurationThreshold(it) },
+                                isSkipSilenceNotificationEnabled = settingsState.isSkipSilenceNotificationEnabled,
+                                onSkipSilenceNotificationEnabledChange = { settingsViewModel.toggleSkipSilenceNotificationEnabled(it) },
+                                isSleepFadeOutEnabled = settingsState.isSleepFadeOutEnabled,
+                                onSleepFadeOutEnabledChange = { settingsViewModel.toggleSleepFadeOutEnabled(it) },
+                                isShakeToResetEnabled = settingsState.isShakeToResetEnabled,
+                                onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) },
+                                // 为每一次改动添加详尽的中文注释：将 DataStore 中的睡眠模式传入设置页，并把用户选择回写到 SettingsViewModel。
+                                sleepMode = settingsState.sleepMode,
+                                onSleepModeChange = { settingsViewModel.updateSleepMode(it) },
+                                // 为每一次改动添加详尽的中文注释：将 DataStore 中的玻璃效果模式传入设置页，并把用户选择回写到 SettingsViewModel。
+                                glassEffectMode = settingsState.glassEffectMode,
+                                onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },
+                                // 为每一次改动添加详尽的中文注释：将 DataStore 中的自动回退时长传入设置页，并把用户选择回写到 SettingsViewModel。
+                                autoRewindSeconds = settingsState.autoRewindSeconds,
+                                onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) },
+                                // 为每一次改动添加详尽的中文注释：将 DataStore 中的通知避让状态传入设置页，并把用户开关选择回写到 SettingsViewModel 进行持久化。
+                                isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
+                                onNotificationAvoidanceEnabledChange = { settingsViewModel.toggleNotificationAvoidanceEnabled(it) },
+                                // 为每一次改动添加详尽的中文注释：将“开源许可页面”点击项的触发回调透传，用户点击时修改 showAboutLibraries = true 以触发梦幻滑入转场。
+                                onAboutLibrariesClick = { showAboutLibraries = true }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -219,7 +264,9 @@ fun SettingsScreen(
     // 为每一次改动添加详尽的中文注释：当前通知避让开关的全局启用状态。
     isNotificationAvoidanceEnabled: Boolean,
     // 为每一次改动添加详尽的中文注释：切换通知避让开关状态的回调事件。
-    onNotificationAvoidanceEnabledChange: (Boolean) -> Unit
+    onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
+    // 为每一次改动添加详尽的中文注释：点击“开源许可”入口以拉起 AboutLibraries 页面的回调事件。
+    onAboutLibrariesClick: () -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -523,6 +570,21 @@ fun SettingsScreen(
                     onClick = onClearHistory
                 )
             }
+
+            // 为每一次改动添加详尽的中文注释：
+            // === 第八分节：关于信息 ===
+            // 在设置页底栏新增“关于”分节与“开源许可”条目，完美适配 safe drawing padding 安全边距避让。
+            item {
+                SettingsSectionHeader(title = "关于")
+            }
+            item {
+                SettingsItem(
+                    title = "开源许可",
+                    subtitle = "查看应用使用的开源库及许可协议",
+                    icon = Icons.Rounded.Info,
+                    onClick = onAboutLibrariesClick
+                )
+            }
         }
     }
         }
@@ -800,7 +862,9 @@ fun SettingsScreenPreview() {
             onAutoRewindSecondsChange = {},
             // 为每一次改动添加详尽的中文注释：Preview 中传入默认的通知避让开关状态，默认设置为未开启（false）。
             isNotificationAvoidanceEnabled = false,
-            onNotificationAvoidanceEnabledChange = {}
+            onNotificationAvoidanceEnabledChange = {},
+            // 为每一次改动添加详尽的中文注释：Preview 中传入空实现的开源许可点击回调。
+            onAboutLibrariesClick = {}
         )
     }
 }
