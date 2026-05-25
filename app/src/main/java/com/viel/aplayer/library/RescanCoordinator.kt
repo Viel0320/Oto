@@ -1,6 +1,7 @@
 package com.viel.aplayer.library
 
 import android.content.Context
+import androidx.media3.common.util.UnstableApi
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -25,12 +26,13 @@ enum class RescanType {
 }
 
 // 详尽的中文注释：有章节音频按有界 I/O 并发规模成批入库，让封面解析和数据库写入都从“单文件循环”变成“小批量流水”，同时避免一次塞入过多大文件。
-private val CHAPTERED_AUDIO_IMPORT_BATCH_SIZE: Int = DEFAULT_SCOPE_IO_CONCURRENCY
+private const val CHAPTERED_AUDIO_IMPORT_BATCH_SIZE: Int = DEFAULT_SCOPE_IO_CONCURRENCY
 
 // 详尽的中文注释：目录音频元数据也按同样的小批次被消费，第一批 metadata 读完即可进入导入，而不是等完整目录全部读完。
-private val DIRECTORY_AUDIO_METADATA_BATCH_SIZE: Int = DEFAULT_SCOPE_IO_CONCURRENCY
+private const val DIRECTORY_AUDIO_METADATA_BATCH_SIZE: Int = DEFAULT_SCOPE_IO_CONCURRENCY
 
 // Rescan entrypoint: creates a session, runs scanner/import orchestration, then applies results.
+@UnstableApi
 class RescanCoordinator(
     private val context: Context,
     // 详尽的中文注释：导入链路只负责先把书和章节落库；封面缓存重建通过外部注入的异步回调复用 Repository 里已有的 CoverRecoveryHelper 去重与后台执行能力。
@@ -48,7 +50,7 @@ class RescanCoordinator(
     private val importer = BookImporter(context)
     private val missingRecoveryChecker = MissingBookFileRecoveryChecker(context)
     // 详尽的中文注释：目录剩余音频需要先读取元数据来识别“自带章节”的可提前入库音频，避免整个大目录被启发式批处理阻塞。
-    private val MetadataResolver = MetadataResolver(context)
+    private val metadataResolver = MetadataResolver(context)
 
     suspend fun rescan(type: RescanType, rootId: String? = null): ScanSessionEntity = withContext(Dispatchers.IO) {
         val scanId = UUID.randomUUID().toString()
@@ -225,7 +227,7 @@ class RescanCoordinator(
                         metadataSemaphore.withPermit {
                             // 为每一次改动添加详尽的中文注释：目录音频元数据读取走 VFS FileRef 入口，不再依赖扫描期 provider URI。
                             // 详尽的中文注释：目录音频子批次也复用“元数据+封面”结果，避免后续刚入库又触发一次 MP4 covr Range 读取。
-                            val extracted = MetadataResolver.extractWithEmbeddedCover(audio)
+                            val extracted = metadataResolver.extractWithEmbeddedCover(audio)
                             AudioMetadataRef(audio, extracted.metadata, extracted.embeddedCover)
                         }
                     }
