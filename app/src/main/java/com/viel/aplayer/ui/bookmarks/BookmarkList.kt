@@ -255,6 +255,8 @@ fun BookmarkListView(
     }
 }
 
+// 为每一次改动添加详尽的中文注释：使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
+@Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
 @Preview(name = "Bookmark List View Stateful", apiLevel = 36)
 @Composable
 fun BookmarkListViewStatefulPreview() {
