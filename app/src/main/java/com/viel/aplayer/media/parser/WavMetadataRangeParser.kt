@@ -34,6 +34,15 @@ internal object WavMetadataRangeParser : RangeAudioFormatParser {
             val chunkId = headBytes.copyOfRange(cursor, cursor + 4).toString(StandardCharsets.ISO_8859_1)
             val chunkSize = RangeAudioParserSupport.run { headBytes.readUInt32LE(cursor + 4) }.toInt()
             val chunkDataStart = cursor + 8
+            when (chunkId) {
+                "data" -> {
+                    // 详尽的中文注释：WAV 的时长只依赖 data chunk 头里的 chunkSize，
+                    // 即使整个 data 块远超头部扫描窗口，也应该立刻记录长度，不能因为 chunkData 没读全就返回 0 时长。
+                    if (chunkSize >= 0) {
+                        dataSize = chunkSize.toLong()
+                    }
+                }
+            }
             if (chunkSize < 0 || chunkDataStart + chunkSize > headBytes.size) break
             val chunkData = headBytes.copyOfRange(chunkDataStart, chunkDataStart + chunkSize)
             when (chunkId) {
@@ -41,7 +50,6 @@ internal object WavMetadataRangeParser : RangeAudioFormatParser {
                     // 详尽的中文注释：WAV fmt chunk 里的 byteRate 位于 audioFormat(2) + channels(2) + sampleRate(4) 之后，也就是偏移 8。
                     byteRate = RangeAudioParserSupport.run { chunkData.readUInt32LE(8) }
                 }
-                "data" -> dataSize = chunkSize.toLong()
                 "LIST" -> if (chunkData.size >= 4 && chunkData.copyOfRange(0, 4).toString(StandardCharsets.ISO_8859_1) == "INFO") {
                     var infoCursor = 4
                     while (infoCursor + 8 <= chunkData.size) {

@@ -67,8 +67,6 @@ fun DetailPortrait(
             modifier = Modifier.fillMaxWidth().aspectRatio(1f)
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
         // 标题与作者
         DetailHeader(
             title = book?.title ?: "",

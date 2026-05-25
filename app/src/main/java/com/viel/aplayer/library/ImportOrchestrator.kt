@@ -19,6 +19,8 @@ import com.viel.aplayer.library.orchestrator.steps.ManifestParsedResult
 import com.viel.aplayer.library.orchestrator.steps.ManifestParseStep
 import com.viel.aplayer.library.orchestrator.steps.MetadataResolveStep
 import com.viel.aplayer.library.orchestrator.steps.ResolvedMetadataDrafts
+import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.MetadataResolver
 import java.util.UUID
@@ -37,13 +39,13 @@ import java.util.UUID
 class ImportOrchestrator
     (
     private val context: Context,
-    MetadataResolver: MetadataResolver = MetadataResolver(context)
+    metadataResolver: MetadataResolver = MetadataResolver(context)
 ) {
     // 实例化拆分出的具体工位步骤，实现单一职责
     private val manifestParseStep = ManifestParseStep(context)
-    private val metadataResolveStep = MetadataResolveStep(context, MetadataResolver)
-    private val heuristicGroupStep = HeuristicGroupStep()
-    private val conflictClaimStep = ConflictClaimStep(context, MetadataResolver)
+    private val metadataResolveStep = MetadataResolveStep(context, metadataResolver)
+    private val heuristicGroupStep = HeuristicGroupStep(context)
+    private val conflictClaimStep = ConflictClaimStep(context, metadataResolver)
     // 详尽的中文注释：导入阶段只把元数据流已经读到的封面字节写入缓存，不重新打开音频做封面解析。
     private val coverExtractor = CoverExtractor(context)
 
@@ -193,18 +195,29 @@ class ImportOrchestrator
             cueBooks = manifestParsedResult.cueDrafts.map { cueDraft ->
                 // 详尽的中文注释：Manifest 书籍的音频引用仍从当前 scope inventory 映射，保证 claim 使用的音频列表不依赖封面解析步骤。
                 val audioRefs = cueDraft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
-                CoverExtractedCue(UUID.randomUUID().toString(), cueDraft, audioRefs, coverResult = null)
+                val coverResult = cueDraft.result.sidecarCoverFile?.let { sidecarFile ->
+                    // 为每一次改动添加详尽的中文注释：manifest parser 已经选出同目录最合适的 sidecover 候选，
+                    // 这里不再自己做第二套目录图片优先级判断，只负责把 parser 结果落成缓存封面。
+                    saveExternalSidecarCover(sidecarFile, inventory)
+                }
+                CoverExtractedCue(UUID.randomUUID().toString(), cueDraft, audioRefs, coverResult = coverResult)
             },
             m3u8Books = manifestParsedResult.m3u8Drafts.map { m3u8Draft ->
                 // 详尽的中文注释：M3U8 书籍同样保留解析到的音频文件列表，只延迟封面生成，不延迟 claim 和章节入库。
                 val audioRefs = m3u8Draft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
-                CoverExtractedM3u8(UUID.randomUUID().toString(), m3u8Draft, audioRefs, coverResult = null)
+                val coverResult = m3u8Draft.result.sidecarCoverFile?.let { sidecarFile ->
+                    saveExternalSidecarCover(sidecarFile, inventory)
+                }
+                CoverExtractedM3u8(UUID.randomUUID().toString(), m3u8Draft, audioRefs, coverResult = coverResult)
             },
             aggregatedBooks = aggregatedPlans.map { plan ->
                 // 详尽的中文注释：启发式聚合书籍先尝试写入预读封面，失败才以空封面入库并等待恢复流程补齐。
                 val bookId = UUID.randomUUID().toString()
-                // 详尽的中文注释：聚合书优先采用章节音频在元数据阶段已经读出的第一张 covr，失败时仍让 CoverRecoveryHelper 异步兜底。
-                val coverResult = savePreReadEmbeddedCover(plan.chapters.map { it.audio })
+                // 详尽的中文注释：启发式聚合书现在也先尊重 parser 内部选出的 sidecover；
+                // 如果没有 sidecover，再退回到首个可用的内嵌封面字节。
+                val coverResult = plan.sidecarCoverFile?.let { sidecarFile ->
+                    saveExternalSidecarCover(sidecarFile, inventory)
+                } ?: savePreReadEmbeddedCover(plan.chapters.map { it.audio })
                 CoverExtractedAggregated(bookId, plan, coverResult)
             },
             singleBooks = singleAudios.map { audioRef ->
@@ -215,6 +228,12 @@ class ImportOrchestrator
                 CoverExtractedSingle(bookId, audioRef, coverResult)
             }
         )
+    }
+
+    private suspend fun saveExternalSidecarCover(sidecarFile: FileRef, inventory: FileInventory): CoverExtractor.CoverResult? {
+        val fileReader = VfsFileReader(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
+        val result = coverExtractor.processExternalImage(sidecarFile.vfsKey) { fileReader.open(sidecarFile) }
+        return result.takeIf { it.hasImage() }
     }
 
     private suspend fun savePreReadEmbeddedCover(audioRefs: List<AudioMetadataRef>): CoverExtractor.CoverResult? {

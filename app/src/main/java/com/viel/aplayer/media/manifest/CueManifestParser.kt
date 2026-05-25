@@ -7,6 +7,7 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.nio.charset.Charset
 import com.viel.aplayer.library.ChapterCandidate
+import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.MetadataSuggestion
 
 /**
@@ -17,10 +18,20 @@ object CueManifestParser {
     data class CueResult(
         val metadata: MetadataSuggestion,
         val referencedFiles: List<String>,
-        val chapters: List<ChapterCandidate>
+        val chapters: List<ChapterCandidate>,
+        // 为每一次改动添加详尽的中文注释：manifest parser 现在直接产出同目录 sidecar 结果，
+        // 后续步骤不再自己去补 txt 描述或重新挑图片封面候选。
+        val sidecarDescription: String? = null,
+        val sidecarCoverFile: FileRef? = null
     )
 
-    suspend fun parse(displayName: String, openStream: suspend () -> InputStream?): CueResult? {
+    suspend fun parse(
+        displayName: String,
+        openStream: suspend () -> InputStream?,
+        manifestFile: FileRef? = null,
+        directoryContext: ManifestSidecarSupport.DirectoryContext = ManifestSidecarSupport.DirectoryContext(),
+        openTextFile: (suspend (FileRef) -> InputStream?)? = null
+    ): CueResult? {
         try {
             // 为每一次改动添加详尽的中文注释：CUE 解析器只接收 VFS 流工厂，不再知道来源原生文件对象或 ContentResolver。
             val charset = detectCharset(openStream)
@@ -119,6 +130,18 @@ object CueManifestParser {
                 processedChapters.add(current.copy(durationMs = duration))
             }
 
+            val sidecarPayload = if (manifestFile != null && openTextFile != null) {
+                // 为每一次改动添加详尽的中文注释：manifest 相关的 txt 描述和 sidecover 候选选择，现在统一在 parser 内部完成，
+                // 避免后续步骤再对同一目录做第二套平行规则判断。
+                ManifestSidecarSupport.resolveForManifest(
+                    manifestFile = manifestFile,
+                    directoryContext = directoryContext,
+                    openTextFile = openTextFile
+                )
+            } else {
+                ManifestSidecarSupport.SidecarPayload()
+            }
+
             return CueResult(
                 // CUE global metadata is persisted first; missing fields are filled later by ImportOrchestrator.
                 metadata = MetadataSuggestion(
@@ -129,7 +152,9 @@ object CueManifestParser {
                     description = globalDescription
                 ),
                 referencedFiles = files.distinct(),
-                chapters = processedChapters
+                chapters = processedChapters,
+                sidecarDescription = sidecarPayload.description,
+                sidecarCoverFile = sidecarPayload.coverFile
             )
         } catch (e: Exception) {
             Log.e("CueParser", "Error parsing CUE: $displayName", e)
@@ -193,7 +218,7 @@ object CueManifestParser {
                 // 如果检测失败，针对你的场景，默认回退到日文编码 Shift-JIS
                 if (isValidUtf8(buffer, read)) Charsets.UTF_8 else Charset.forName("Shift-JIS")
             } ?: Charsets.UTF_8
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Charsets.UTF_8
         }
     }

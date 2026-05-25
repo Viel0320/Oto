@@ -8,9 +8,10 @@ import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 import java.io.File
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -86,13 +87,16 @@ class CoverRecoveryHelper(
         }
 
     private suspend fun regenerateCoverForBook(bookId: String): Boolean {
+        val book = bookDao.getBookById(bookId) ?: return false
         val files = bookDao.getFilesForBookList(bookId)
         if (files.isEmpty()) return false
 
         val primaryFile = files.firstOrNull { file -> file.status == AudiobookSchema.FileStatus.READY } ?: files.first()
         var finalCoverResult = tryExtractEmbeddedCover(bookId, primaryFile)
 
-        if (!finalCoverResult.hasImage()) {
+        if (!finalCoverResult.hasImage() && book.sourceType != AudiobookSchema.SourceType.SINGLE_AUDIO) {
+            // 为每一次改动添加详尽的中文注释：单音频书籍现在明确禁止 sidecar 封面，
+            // 因此封面自愈阶段只允许 manifest/聚合等多文件书继续尝试同目录 sidecar 图片。
             finalCoverResult = tryExtractSidecarCover(primaryFile)
         }
 
@@ -156,15 +160,29 @@ class CoverRecoveryHelper(
         val parentPath = file.sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
         val files = fileReader.listChildren(file.rootId, parentPath)
             .filter { node -> !node.metadata.isDirectory && isImage(node.metadata.displayName) }
-        val priorityNames = listOf("cover", "folder", "artwork", "front")
-        return files.firstOrNull { node ->
-            val baseName = node.metadata.displayName.substringBeforeLast('.', missingDelimiterValue = "").lowercase(Locale.ROOT)
-            baseName in priorityNames
-        } ?: files.firstOrNull()
+        val selectedRef = ManifestSidecarSupport.findDirectoryCover(
+            files.map { node ->
+                // 为每一次改动添加详尽的中文注释：封面恢复阶段把 VfsNode 先规整成 FileRef，
+                // 然后直接复用全项目统一的 sidecover 选择规则，避免这里再维护一份并行优先级列表。
+                FileRef(
+                    rootId = node.root.id,
+                    sourcePath = node.metadata.sourcePath,
+                    sourceIdentity = node.metadata.identity,
+                    etag = node.metadata.etag,
+                    parentSourcePath = node.metadata.parentSourcePath,
+                    parentSourceKey = "${node.root.id}:${node.metadata.parentSourcePath}",
+                    parentSourceIdentity = node.metadata.parentIdentity,
+                    displayName = node.metadata.displayName,
+                    fileSize = node.metadata.fileSize,
+                    lastModified = node.metadata.lastModified
+                )
+            }
+        ) ?: return null
+        return files.firstOrNull { node -> node.metadata.sourcePath == selectedRef.sourcePath }
     }
 
     private fun isImage(name: String): Boolean {
-        val ext = name.substringAfterLast('.', missingDelimiterValue = "").lowercase(Locale.ROOT)
+        val ext = name.substringAfterLast('.', missingDelimiterValue = "").lowercase()
         return ext in setOf("jpg", "jpeg", "png", "webp")
     }
 

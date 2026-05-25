@@ -1,0 +1,214 @@
+package com.viel.aplayer.media.manifest
+
+import com.viel.aplayer.library.FileRef
+import java.io.BufferedInputStream
+import java.io.InputStream
+import java.nio.charset.Charset
+import java.util.Locale
+
+/**
+ * Parser 侧车支持工具。
+ *
+ * 详尽的中文注释：
+ * 这里把 parser 层共用的 side cover / description 规则集中收口，
+ * 让 `CueManifestParser`、`M3u8ManifestParser`、`HeuristicAudioAggregator`
+ * 共用完全一致的行为：
+ * 1. side cover 候选优先级
+ * 2. txt 简介匹配与读取
+ * 3. 文本解码与截断策略
+ *
+ * 这样后续流程只消费 parser 结果，不再在步骤层重复枚举目录和实现一套平行规则。
+ */
+object ManifestSidecarSupport {
+
+    data class DirectoryContext(
+        val imageFiles: List<FileRef> = emptyList(),
+        val textFiles: List<FileRef> = emptyList()
+    )
+
+    data class SidecarPayload(
+        val description: String? = null,
+        val coverFile: FileRef? = null
+    )
+
+    suspend fun resolveForManifest(
+        manifestFile: FileRef,
+        directoryContext: DirectoryContext,
+        openTextFile: suspend (FileRef) -> InputStream?
+    ): SidecarPayload {
+        val baseName = manifestFile.displayName.substringBeforeLast('.', missingDelimiterValue = manifestFile.displayName)
+        return SidecarPayload(
+            description = readTxtDescription(
+                textFiles = directoryContext.textFiles,
+                openTextFile = openTextFile,
+                baseName = baseName,
+                strictSameNameOnly = false
+            ),
+            coverFile = findDirectoryCover(directoryContext.imageFiles)
+        )
+    }
+
+    suspend fun resolveForHeuristic(
+        directoryContext: DirectoryContext,
+        openTextFile: suspend (FileRef) -> InputStream?
+    ): SidecarPayload =
+        SidecarPayload(
+            // 为每一次改动添加详尽的中文注释：启发式聚合没有单一 manifest 文件名作为锚点，
+            // 因此这里故意不做 same-name 匹配，只保留“通用简介文件名 / 单 txt”这两类目录级规则。
+            description = readTxtDescription(
+                textFiles = directoryContext.textFiles,
+                openTextFile = openTextFile,
+                baseName = null,
+                strictSameNameOnly = false
+            ),
+            coverFile = findDirectoryCover(directoryContext.imageFiles)
+        )
+
+    suspend fun readTxtDescription(
+        textFiles: List<FileRef>,
+        openTextFile: suspend (FileRef) -> InputStream?,
+        baseName: String? = null,
+        strictSameNameOnly: Boolean = false
+    ): String? {
+        if (textFiles.isEmpty()) return null
+
+        if (!baseName.isNullOrBlank()) {
+            val sameNameFile = textFiles.firstOrNull { file ->
+                file.displayName.substringBeforeLast('.', missingDelimiterValue = "").equals(baseName, ignoreCase = true)
+            }
+            if (sameNameFile != null) {
+                return readTextFile(openTextFile, sameNameFile)
+            }
+        }
+
+        if (strictSameNameOnly) return null
+
+        val commonNames = listOf("desc", "description", "info", "book", "readme", "简介", "有声书简介")
+        val commonNameFile = textFiles.firstOrNull { file ->
+            val nameWithoutExt = file.displayName.substringBeforeLast('.', missingDelimiterValue = "").lowercase(Locale.ROOT)
+            commonNames.any { common -> nameWithoutExt == common || nameWithoutExt.contains(common) }
+        }
+        if (commonNameFile != null) {
+            return readTextFile(openTextFile, commonNameFile)
+        }
+
+        if (textFiles.size == 1) {
+            return readTextFile(openTextFile, textFiles.first())
+        }
+
+        return null
+    }
+
+    fun findDirectoryCover(imageFiles: List<FileRef>): FileRef? {
+        val priorityNames = listOf("cover", "folder", "artwork", "front")
+        return imageFiles.firstOrNull { image ->
+            val baseName = image.displayName.substringBeforeLast('.').lowercase(Locale.ROOT)
+            baseName in priorityNames
+        } ?: imageFiles.firstOrNull()
+    }
+
+    private suspend fun readTextFile(
+        openTextFile: suspend (FileRef) -> InputStream?,
+        textFile: FileRef
+    ): String? {
+        var isTruncated = false
+        val bytes = openTextFile(textFile)?.use { input ->
+            BufferedInputStream(input).use { buffered ->
+                val result = readLimitedBytes(buffered, MAX_DESCRIPTION_BYTES)
+                if (result.size == MAX_DESCRIPTION_BYTES) {
+                    buffered.mark(1)
+                    if (buffered.read() != -1) {
+                        isTruncated = true
+                    }
+                }
+                result
+            }
+        } ?: return null
+
+        val utf8Text = bytes.decodeUtf8PossiblyTruncated()
+        val decoded = when {
+            bytes.hasUtf8Bom() -> bytes.copyOfRange(3, bytes.size).decodeUtf8PossiblyTruncated() ?: ""
+            utf8Text != null -> utf8Text
+            bytes.isValidBig5() -> bytes.toString(Charset.forName("Big5"))
+            else -> bytes.toString(Charset.forName("Shift-JIS"))
+        }
+
+        val finalIsTruncated = isTruncated || decoded.length > MAX_DESCRIPTION_CHARS
+        val baseDescription = decoded.take(MAX_DESCRIPTION_CHARS)
+        val normalized = if (finalIsTruncated) {
+            "${baseDescription.trimEnd()}..."
+        } else {
+            baseDescription
+        }.trim()
+
+        return normalized.takeIf { it.isNotBlank() }
+    }
+
+    private fun readLimitedBytes(input: BufferedInputStream, limitBytes: Int): ByteArray {
+        val buffer = ByteArray(limitBytes)
+        var total = 0
+        while (total < limitBytes) {
+            val count = input.read(buffer, total, limitBytes - total)
+            if (count == -1) break
+            total += count
+        }
+        return buffer.copyOf(total)
+    }
+
+    private fun ByteArray.decodeUtf8PossiblyTruncated(): String? {
+        if (isEmpty()) return ""
+        for (endExclusive in size downTo maxOf(1, size - MAX_UTF8_CODE_POINT_BYTES + 1)) {
+            val candidate = copyOfRange(0, endExclusive)
+            if (candidate.isValidUtf8()) return candidate.toString(Charsets.UTF_8)
+        }
+        return null
+    }
+
+    private fun ByteArray.hasUtf8Bom(): Boolean =
+        size >= 3 && this[0] == 0xEF.toByte() && this[1] == 0xBB.toByte() && this[2] == 0xBF.toByte()
+
+    private fun ByteArray.isValidUtf8(): Boolean {
+        var index = 0
+        while (index < size) {
+            val byte = this[index].toInt() and 0xFF
+            if (byte < 0x80) {
+                index++
+                continue
+            }
+            val continuationCount = when (byte) {
+                in 0xC2..0xDF -> 1
+                in 0xE0..0xEF -> 2
+                in 0xF0..0xF4 -> 3
+                else -> return false
+            }
+            if (index + continuationCount >= size) return false
+            for (offset in 1..continuationCount) {
+                if ((this[index + offset].toInt() and 0xC0) != 0x80) return false
+            }
+            index += continuationCount + 1
+        }
+        return true
+    }
+
+    private fun ByteArray.isValidBig5(): Boolean {
+        var index = 0
+        var hasBig5Pair = false
+        while (index < size) {
+            val first = this[index].toInt() and 0xFF
+            if (first <= 0x7F) {
+                index++
+                continue
+            }
+            if (first !in 0x81..0xFE || index + 1 >= size) return false
+            val second = this[index + 1].toInt() and 0xFF
+            if (second !in 0x40..0x7E && second !in 0xA1..0xFE) return false
+            hasBig5Pair = true
+            index += 2
+        }
+        return hasBig5Pair
+    }
+
+    private const val MAX_DESCRIPTION_BYTES = 10000
+    private const val MAX_DESCRIPTION_CHARS = 2000
+    private const val MAX_UTF8_CODE_POINT_BYTES = 4
+}

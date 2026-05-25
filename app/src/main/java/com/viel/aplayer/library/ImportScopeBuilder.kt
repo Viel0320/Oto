@@ -101,7 +101,7 @@ internal class ImportScopeBuilder(private val context: Context) {
     // 详尽的中文注释：CUE 解析只用于 scope 闭包构建；真正的元数据与章节解析仍由 ManifestParseStep 在导入流水线中完成。
     private suspend fun resolveCueAudioRefs(fileReader: VfsFileReader, cue: FileRef, audioLookup: AudioLookup): List<FileRef> =
         runCatching {
-            CueManifestParser.parse(cue.displayName) { fileReader.open(cue) }
+            CueManifestParser.parse(displayName = cue.displayName, openStream = { fileReader.open(cue) })
                 ?.referencedFiles
                 .orEmpty()
                 .mapNotNull { entry -> resolveAudioRef(cue.parentSourceKey, entry, audioLookup) }
@@ -112,7 +112,7 @@ internal class ImportScopeBuilder(private val context: Context) {
     // 详尽的中文注释：M3U8 scope 闭包忽略远程 URL，只把能在当前 SAF 授权树中解析到的本地音频并入清单 scope。
     private suspend fun resolveM3u8AudioRefs(fileReader: VfsFileReader, m3u8: FileRef, audioLookup: AudioLookup): List<FileRef> =
         runCatching {
-            M3u8ManifestParser.parse(m3u8.displayName) { fileReader.open(m3u8) }
+            M3u8ManifestParser.parse(displayName = m3u8.displayName, openStream = { fileReader.open(m3u8) })
                 .items
                 .asSequence()
                 .map { it.uri }
@@ -138,6 +138,13 @@ internal class ImportScopeBuilder(private val context: Context) {
                 mapOf("${root.id}:$sourcePath" to imageFiles.sortedByStableFileKey())
             } else {
                 emptyMap()
+            },
+            // 为每一次改动添加详尽的中文注释：目录关闭事件里收集到的 txt 侧车同样按父目录打包进入局部 FileInventory，
+            // 让 ManifestParseStep 能在不重新枚举目录的前提下，把简介解析收进 parser。
+            textFilesByParent = if (textFiles.isNotEmpty()) {
+                mapOf("${root.id}:$sourcePath" to textFiles.sortedByStableFileKey())
+            } else {
+                emptyMap()
             }
         )
 
@@ -155,11 +162,17 @@ internal class ImportScopeBuilder(private val context: Context) {
         val imagesByScopeParent = imageFilesByParent
             .filterKeys { it in parentKeys }
             .mapValues { (_, images) -> images.sortedByStableFileKey() }
+        // 为每一次改动添加详尽的中文注释：manifest scope 与目录音频 scope 都需要保留同父目录的 txt 侧车上下文，
+        // 否则 parser 虽然被下沉了，也拿不到匹配简介所需的目录快照。
+        val textsByScopeParent = textFilesByParent
+            .filterKeys { it in parentKeys }
+            .mapValues { (_, texts) -> texts.sortedByStableFileKey() }
         val rootIds = buildSet {
             cueFiles.forEach { add(it.rootId) }
             m3u8Files.forEach { add(it.rootId) }
             audioFiles.forEach { add(it.rootId) }
             imagesByScopeParent.values.flatten().forEach { add(it.rootId) }
+            textsByScopeParent.values.flatten().forEach { add(it.rootId) }
         }
 
         return FileInventory(
@@ -167,7 +180,8 @@ internal class ImportScopeBuilder(private val context: Context) {
             cueFiles = cueFiles.sortedByStableFileKey(),
             m3u8Files = m3u8Files.sortedByStableFileKey(),
             audioFiles = audioFiles.sortedByStableFileKey(),
-            imageFilesByParent = imagesByScopeParent
+            imageFilesByParent = imagesByScopeParent,
+            textFilesByParent = textsByScopeParent
         )
     }
 

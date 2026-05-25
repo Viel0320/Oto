@@ -2,10 +2,10 @@ package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
-import com.viel.aplayer.library.AudioMetadataRef
+import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.library.HeuristicAggregationPlan
+import com.viel.aplayer.media.manifest.HeuristicAggregationPlan
 import com.viel.aplayer.library.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
@@ -43,7 +43,10 @@ internal class CoverExtractStep(
             cueFiles = emptyList(),
             m3u8Files = emptyList(),
             audioFiles = emptyList(),
-            imageFilesByParent = emptyMap()
+            imageFilesByParent = emptyMap(),
+            // 为每一次改动添加详尽的中文注释：空 inventory 兜底也要补齐 txt 侧车字段，
+            // 保持 FileInventory 数据结构完整，避免旧步骤编译失败。
+            textFilesByParent = emptyMap()
         )
         val audioByVfsKey = inventory.audioFiles.associateBy { it.vfsKey }
 

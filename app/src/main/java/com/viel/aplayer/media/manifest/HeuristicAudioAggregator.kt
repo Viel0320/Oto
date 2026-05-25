@@ -1,7 +1,9 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.media.manifest
 
+import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.media.AudiobookMetadata
 import com.viel.aplayer.media.parser.EmbeddedCoverBytes
+import java.io.InputStream
 
 // Audio metadata extracted during one scan; kept package-local so orchestration and heuristics share one shape.
 internal data class AudioMetadataRef(
@@ -15,7 +17,11 @@ internal data class AudioMetadataRef(
 internal data class HeuristicAggregationPlan(
     val title: String,
     val chapters: List<HeuristicChapterPlan>,
-    val ruleVersion: String
+    val ruleVersion: String,
+    // 为每一次改动添加详尽的中文注释：启发式聚合 parser 现在直接挂出统一 sidecar 结果，
+    // 后续导入阶段不再自己对聚合书做第二次 txt / 图片匹配。
+    val sidecarDescription: String? = null,
+    val sidecarCoverFile: FileRef? = null
 )
 
 // Per-file chapter decision after heuristic ordering and title cleanup.
@@ -39,7 +45,11 @@ internal object HeuristicAudioAggregator {
         return sameAlbum || hasSequentialNames(names)
     }
 
-    fun buildPlan(files: List<AudioMetadataRef>): HeuristicAggregationPlan {
+    suspend fun buildPlan(
+        files: List<AudioMetadataRef>,
+        directoryContext: ManifestSidecarSupport.DirectoryContext,
+        openTextFile: suspend (FileRef) -> InputStream?
+    ): HeuristicAggregationPlan {
         val title = generatedBookTitle(files)
         // Filename cleanup needs group-level context to remove shared prefixes before choosing chapter labels.
         val titleContext = buildTitleContext(files, title)
@@ -51,10 +61,16 @@ internal object HeuristicAudioAggregator {
                 title = generatedChapterTitle(audio, titleContext, index)
             )
         }
+        val sidecarPayload = ManifestSidecarSupport.resolveForHeuristic(
+            directoryContext = directoryContext,
+            openTextFile = openTextFile
+        )
         return HeuristicAggregationPlan(
             title = title,
             chapters = chapters,
-            ruleVersion = RULE_VERSION
+            ruleVersion = RULE_VERSION,
+            sidecarDescription = sidecarPayload.description,
+            sidecarCoverFile = sidecarPayload.coverFile
         )
     }
 

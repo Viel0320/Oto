@@ -8,7 +8,11 @@ data class FileInventory(
     val cueFiles: List<FileRef>,
     val m3u8Files: List<FileRef>,
     val audioFiles: List<FileRef>,
-    val imageFilesByParent: Map<String, List<FileRef>>
+    val imageFilesByParent: Map<String, List<FileRef>>,
+    // 为每一次改动添加详尽的中文注释：把同目录 txt 侧车文件也纳入扫描快照，
+    // 这样 manifest parser 可以直接消费本轮目录快照完成简介匹配，
+    // 不必在后续步骤里再次通过 VFS 重新枚举目录。
+    val textFilesByParent: Map<String, List<FileRef>>
 ) {
     // Cold-start light scans must only feed previously unseen files into import parsing.
     fun onlyUnclaimed(existingClaimIndex: ExistingClaimIndex): FileInventory =
@@ -17,7 +21,10 @@ data class FileInventory(
             cueFiles = cueFiles.filterNot { existingClaimIndex.has(it.identity) },
             m3u8Files = m3u8Files.filterNot { existingClaimIndex.has(it.identity) },
             audioFiles = audioFiles.filterNot { existingClaimIndex.has(it.identity) },
-            imageFilesByParent = imageFilesByParent
+            imageFilesByParent = imageFilesByParent,
+            // 为每一次改动添加详尽的中文注释：txt 侧车不参与 claim 过滤，
+            // 它们只是目录级辅助资产，因此在 onlyUnclaimed 里保持原样透传。
+            textFilesByParent = textFilesByParent
         )
 
     /**
@@ -35,6 +42,9 @@ data class FileInventory(
             m3u8Files.forEach { add(it.parentSourceKey) }
             audioFiles.forEach { add(it.parentSourceKey) }
             addAll(imageFilesByParent.keys)
+            // 为每一次改动添加详尽的中文注释：按父目录拆分时把 txt 目录键也计入，
+            // 避免“只有 manifest + txt，没有图片”的目录在分包时丢失描述侧车上下文。
+            addAll(textFilesByParent.keys)
         }
 
         // 为每一次改动添加详尽的中文注释：分组索引使用 rootId/sourcePath 组合，后续远程来源也能稳定命中。
@@ -48,6 +58,7 @@ data class FileInventory(
             val parentM3u8s = m3u8ByParent[parentKey].orEmpty()
             val parentAudios = audioByParent[parentKey].orEmpty()
             val parentImages = imageFilesByParent[parentKey].orEmpty()
+            val parentTexts = textFilesByParent[parentKey].orEmpty()
 
             // 4. 智能提取本子目录下资产所关联的 rootId，过滤出对应的库根实体
             val involvedRootIds = buildSet {
@@ -55,6 +66,9 @@ data class FileInventory(
                 parentM3u8s.forEach { add(it.rootId) }
                 parentAudios.forEach { add(it.rootId) }
                 parentImages.forEach { add(it.rootId) }
+                // 为每一次改动添加详尽的中文注释：txt 文件也从属某个 root，
+                // 这里同步纳入根过滤，保证拆出的子包仍能正确初始化 VFS reader。
+                parentTexts.forEach { add(it.rootId) }
             }
             val parentRoots = roots.filter { it.id in involvedRootIds }.ifEmpty { roots }
 
@@ -63,7 +77,10 @@ data class FileInventory(
                 cueFiles = parentCues,
                 m3u8Files = parentM3u8s,
                 audioFiles = parentAudios,
-                imageFilesByParent = if (parentImages.isNotEmpty()) mapOf(parentKey to parentImages) else emptyMap()
+                imageFilesByParent = if (parentImages.isNotEmpty()) mapOf(parentKey to parentImages) else emptyMap(),
+                // 为每一次改动添加详尽的中文注释：与图片侧车一样，txt 侧车按父目录随子包一起下发，
+                // 供 manifest parser 在 scope 内部直接完成简介补全。
+                textFilesByParent = if (parentTexts.isNotEmpty()) mapOf(parentKey to parentTexts) else emptyMap()
             )
         }
     }
@@ -79,6 +96,9 @@ data class DirectoryInventory(
     val m3u8Files: List<FileRef>,
     val audioFiles: List<FileRef>,
     val imageFiles: List<FileRef>,
+    // 为每一次改动添加详尽的中文注释：目录关闭事件额外携带同级 txt 文件，
+    // 让后续 manifest scope 在不重新 listChildren 的前提下就能拿到简介侧车候选。
+    val textFiles: List<FileRef>,
     // 为每一次改动添加详尽的中文注释：新增物理文件夹最后修改时间属性，默认赋予 0L 以确保最大化的反射及兼容安全性
     val lastModified: Long = 0L
 ) {
@@ -91,6 +111,8 @@ data class DirectoryInventory(
             cueFiles = cueFiles.filterNot { existingClaimIndex.has(it.identity) },
             m3u8Files = m3u8Files.filterNot { existingClaimIndex.has(it.identity) },
             audioFiles = audioFiles.filterNot { existingClaimIndex.has(it.identity) }
+            // 为每一次改动添加详尽的中文注释：txt 与图片一样不参与“已认领文件”过滤，
+            // 它们只作为仍需保留的目录辅助资产存在。
         )
 }
 

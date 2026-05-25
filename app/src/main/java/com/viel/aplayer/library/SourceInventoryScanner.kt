@@ -41,6 +41,9 @@ class SourceInventoryScanner(context: Context) {
         val m3u8Files = mutableListOf<FileRef>()
         val audioFiles = mutableListOf<FileRef>()
         val imagesByParent = mutableMapOf<String, MutableList<FileRef>>()
+        // 为每一次改动添加详尽的中文注释：全量扫描同时为 txt 侧车建立按父目录分组的快照，
+        // 让后续 manifest parser 可以直接复用扫描结果完成简介匹配。
+        val textFilesByParent = mutableMapOf<String, MutableList<FileRef>>()
 
         suspend fun walk(directory: VfsNode) {
             vfs.listChildren(directory).forEach { node ->
@@ -57,6 +60,8 @@ class SourceInventoryScanner(context: Context) {
                     isM3u(name) -> m3u8Files.add(ref)
                     isAudio(name) -> audioFiles.add(ref)
                     isImage(name) -> imagesByParent.getOrPut(ref.parentSourceKey) { mutableListOf() }.add(ref)
+                    // 为每一次改动添加详尽的中文注释：txt 不进入 claim 主体，只作为目录侧车资产保留。
+                    isText(name) -> textFilesByParent.getOrPut(ref.parentSourceKey) { mutableListOf() }.add(ref)
                 }
             }
         }
@@ -68,7 +73,8 @@ class SourceInventoryScanner(context: Context) {
             cueFiles = cueFiles.sortedByStableFileKey(),
             m3u8Files = m3u8Files.sortedByStableFileKey(),
             audioFiles = audioFiles.sortedByStableFileKey(),
-            imageFilesByParent = imagesByParent.mapValues { it.value.sortedByStableFileKey() }
+            imageFilesByParent = imagesByParent.mapValues { it.value.sortedByStableFileKey() },
+            textFilesByParent = textFilesByParent.mapValues { it.value.sortedByStableFileKey() }
         )
     }
 
@@ -83,6 +89,9 @@ class SourceInventoryScanner(context: Context) {
             val m3u8Files = mutableListOf<FileRef>()
             val audioFiles = mutableListOf<FileRef>()
             val imageFiles = mutableListOf<FileRef>()
+            // 为每一次改动添加详尽的中文注释：目录关闭事件保留同级 txt 资产，
+            // 后续 manifest scope 可以直接在当前目录快照中匹配简介文件。
+            val textFiles = mutableListOf<FileRef>()
             val childDirectories = mutableListOf<VfsNode>()
 
             vfs.listChildren(directory).forEach { node ->
@@ -100,6 +109,7 @@ class SourceInventoryScanner(context: Context) {
                     isM3u(name) -> m3u8Files.add(ref)
                     isAudio(name) -> audioFiles.add(ref)
                     isImage(name) -> imageFiles.add(ref)
+                    isText(name) -> textFiles.add(ref)
                 }
             }
             val directDirectoryScanElapsedMs = ImportTimingLogger.elapsedMs(directDirectoryScanStartedAt)
@@ -112,7 +122,7 @@ class SourceInventoryScanner(context: Context) {
                 scopeId = "directory:${directory.root.id}:${directory.metadata.sourcePath}",
                 stage = "scan.directoryClosed",
                 elapsedMs = directDirectoryScanElapsedMs,
-                detail = "sourcePath=${directory.metadata.sourcePath.ifBlank { "<root>" }} children=${childDirectories.size} cue=${cueFiles.size} m3u8=${m3u8Files.size} audio=${audioFiles.size} image=${imageFiles.size}"
+                detail = "sourcePath=${directory.metadata.sourcePath.ifBlank { "<root>" }} children=${childDirectories.size} cue=${cueFiles.size} m3u8=${m3u8Files.size} audio=${audioFiles.size} image=${imageFiles.size} txt=${textFiles.size}"
             )
             emitDirectory(
                 DirectoryInventory(
@@ -123,6 +133,7 @@ class SourceInventoryScanner(context: Context) {
                     m3u8Files = m3u8Files.sortedByStableFileKey(),
                     audioFiles = audioFiles.sortedByStableFileKey(),
                     imageFiles = imageFiles.sortedByStableFileKey(),
+                    textFiles = textFiles.sortedByStableFileKey(),
                     lastModified = directory.metadata.lastModified
                 )
             )
@@ -153,6 +164,9 @@ class SourceInventoryScanner(context: Context) {
             audioFiles = inventories.flatMap { it.audioFiles }.sortedByStableFileKey(),
             imageFilesByParent = inventories.flatMap { it.imageFilesByParent.entries }
                 .groupBy({ it.key }, { it.value })
+                .mapValues { (_, values) -> values.flatten().sortedByStableFileKey() },
+            textFilesByParent = inventories.flatMap { it.textFilesByParent.entries }
+                .groupBy({ it.key }, { it.value })
                 .mapValues { (_, values) -> values.flatten().sortedByStableFileKey() }
         )
 
@@ -170,5 +184,11 @@ class SourceInventoryScanner(context: Context) {
     private fun isImage(name: String): Boolean {
         val extensions = listOf(".jpg", ".jpeg", ".png", ".webp")
         return extensions.any { name.endsWith(it, ignoreCase = true) }
+    }
+
+    private fun isText(name: String): Boolean {
+        // 为每一次改动添加详尽的中文注释：当前只把 txt 视为简介侧车来源，
+        // 保持与既有 ConflictClaimStep 中的描述匹配规则一致，不顺手放大到 md/nfo 等其他文本格式。
+        return name.endsWith(".txt", ignoreCase = true)
     }
 }

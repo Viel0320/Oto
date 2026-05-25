@@ -4,21 +4,18 @@ import android.content.Context
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
-import java.io.BufferedInputStream
-import java.nio.charset.Charset
-import java.util.UUID
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.PendingScanActionEntity
-import com.viel.aplayer.library.AudioMetadataRef
+import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.library.BookDraft
 import com.viel.aplayer.library.ChapterCandidate
 import com.viel.aplayer.library.FileIdentity
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.library.HeuristicAggregationPlan
+import com.viel.aplayer.media.manifest.HeuristicAggregationPlan
 import com.viel.aplayer.library.ImportCommand
 import com.viel.aplayer.library.ImportFailure
 import com.viel.aplayer.library.ImportRunResult
@@ -26,16 +23,17 @@ import com.viel.aplayer.library.ImportSourceRef
 import com.viel.aplayer.library.MetadataSuggestion
 import com.viel.aplayer.library.ReservationResult
 import com.viel.aplayer.library.mapWithBoundedConcurrency
-import com.viel.aplayer.library.vfsFileKey
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
 import com.viel.aplayer.library.vfs.VfsFileReader
-import com.viel.aplayer.library.vfs.VfsNode
+import com.viel.aplayer.library.vfsFileKey
 import com.viel.aplayer.media.AudiobookMetadata
+import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.MetadataResolver
 import com.viel.aplayer.media.parser.Mp4MetadataFrameReader
+import java.util.UUID
 
 // 详尽的中文注释：修复 ChapterCandidate 与 MetadataSuggestion 的包名导入错误，以正确找到在 com.viel.aplayer.library 下定义的类型
 
@@ -67,9 +65,19 @@ internal class ConflictClaimStep(
         val pendingActions = mutableListOf<ImportCommand.CreatePendingAction>()
         val failures = mutableListOf<ImportCommand.RecordFailure>()
 
-        // 详尽的中文注释：FileInventory 没有无参的默认构造函数，需要使用其带 5 个参数的显示构造函数传入空数据降级
-        val inventory = context.sharedInventory ?: FileInventory(emptyList(), emptyList(), emptyList(), emptyList(), emptyMap())
-        // 为每一次改动添加详尽的中文注释：TXT 描述读取必须用当前扫描 scope 的 roots 映射初始化 VFS reader，否则 listChildren/open 会因找不到 root 直接空返回。
+        // 详尽的中文注释：FileInventory 没有无参的默认构造函数，需要使用其显式构造函数传入空数据降级
+        val inventory = context.sharedInventory ?: FileInventory(
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            emptyMap(),
+            // 为每一次改动添加详尽的中文注释：ConflictClaimStep 的空 inventory 降级场景同样补齐 txt 侧车字段，
+            // 以便后续把 manifest 简介能力下沉到 parser 后，数据模型仍保持统一。
+            emptyMap()
+        )
+        // 为每一次改动添加详尽的中文注释：当前只有启发式聚合书仍然保留目录 txt sidecar 兜底，
+        // 单音频已经明确禁止 sidecar，因此这里的 VFS reader 只服务聚合书路径。
         val fileReader = VfsFileReader(this.context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
 
         // ==========================================
@@ -106,13 +114,14 @@ internal class ConflictClaimStep(
             }
 
             // 合并元数据
-            val sidecarDesc = readSameNameTxtDescription(fileReader, cue)
             val firstAudioMeta = firstManifestAudioMetadata(cueBook.audioRefs)
             val mergedMeta = resolveManifestBookMetadata(
                 manifestMetadata = cueBook.draft.result.metadata,
                 firstAudio = firstAudioMeta,
                 sourceFile = cue,
-                sidecarDescription = sidecarDesc
+                // 为每一次改动添加详尽的中文注释：manifest 书籍的 txt 简介已经在 parser 内部通过目录快照选出，
+                // 这里直接消费 parser 结果，不再重新 listChildren。
+                sidecarDescription = cueBook.draft.result.sidecarDescription
             )
 
             val entryToKey = cueBook.draft.resolvedAudioKeys
@@ -172,13 +181,12 @@ internal class ConflictClaimStep(
                 return@forEach
             }
 
-            val sidecarDesc = readSameNameTxtDescription(fileReader, m3u8)
             val firstAudioMeta = firstManifestAudioMetadata(m3u8Book.audioRefs)
             val mergedMeta = resolveManifestBookMetadata(
                 manifestMetadata = m3u8Book.draft.result.metadata,
                 firstAudio = firstAudioMeta,
                 sourceFile = m3u8,
-                sidecarDescription = sidecarDesc
+                sidecarDescription = m3u8Book.draft.result.sidecarDescription
             )
 
             val resolved = m3u8Book.draft.result.items.distinctBy { it.uri }.mapNotNull { item ->
@@ -227,15 +235,11 @@ internal class ConflictClaimStep(
                 currentParentSourcePath = firstChapter.file.parentSourcePath
             )
             if (reservation.reserved) {
-                // 详尽的中文注释：如果首个音频的 metadata 中的 description 为空，则采用增强匹配与模糊兜底机制读取该文件夹下的 txt 文件作为简介
+                // 详尽的中文注释：启发式聚合书籍的 sidecar 描述现在由 HeuristicAudioAggregator 在 parser 内部统一产出，
+                // 冲突认领阶段只做“已有音频 metadata -> parser sidecar”的最终合并，不再自己回头读 txt。
                 val firstAudioMeta = firstChapter.metadata
                 val description = firstAudioMeta.description.ifBlank {
-                    readTxtDescription(
-                        fileReader,
-                        firstChapter.file,
-                        baseName = null,
-                        strictSameNameOnly = false
-                    ) ?: ""
+                    aggBook.plan.sidecarDescription.orEmpty()
                 }
 
                 val draft = buildGeneratedDraft(aggBook.bookId, source, aggBook.plan, description, aggBook.coverResult)
@@ -264,19 +268,9 @@ internal class ConflictClaimStep(
                 return@forEach
             }
 
-            // 详尽的中文注释：针对单音频模式，若音频内置描述为空，则仅查找并匹配与该音频文件严格同名的 txt 描述文件，而不做任何模糊或唯一性兜底
-            val description = audio.metadata.description.ifBlank {
-                val baseName = audio.file.displayName.substringBeforeLast(
-                    '.',
-                    missingDelimiterValue = audio.file.displayName
-                )
-                readTxtDescription(
-                    fileReader,
-                    audio.file,
-                    baseName,
-                    strictSameNameOnly = true
-                ) ?: ""
-            }
+            // 详尽的中文注释：单音频模式现在显式禁止 sidecar 描述兜底，
+            // 最终 description 只来自音频自身 metadata，不再读取任何同目录 txt 文件。
+            val description = audio.metadata.description
 
             val draft = buildSingleAudioDraft(singleBook.bookId, audio, description, singleBook.coverResult)
             readyImports.add(ImportCommand.CreateReadyBook(draft))
@@ -662,177 +656,6 @@ internal class ConflictClaimStep(
             description = firstNonBlank(manifestMetadata.description, sidecarDescription, firstAudio?.metadata?.description)
         )
 
-    // 详尽的中文注释：此方法保留原有清单导入对同名 txt 描述文件的检索接口，在内部使用 VFS 目录枚举进行匹配
-    private suspend fun readSameNameTxtDescription(fileReader: VfsFileReader, sourceFile: FileRef): String? {
-        val baseName = sourceFile.displayName.substringBeforeLast('.', missingDelimiterValue = sourceFile.displayName)
-        return readTxtDescription(fileReader, sourceFile, baseName, strictSameNameOnly = false)
-    }
-
-    // 为每一次改动添加详尽的中文注释：txt 描述检索改为 VFS 同目录枚举，支持同名优先、简介文件名和单 txt 兜底。
-    private suspend fun readTxtDescription(
-        fileReader: VfsFileReader,
-        sourceFile: FileRef,
-        baseName: String? = null,
-        strictSameNameOnly: Boolean = false
-    ): String? {
-        val files = fileReader.listChildren(sourceFile.rootId, sourceFile.parentSourcePath).filter { node ->
-            !node.metadata.isDirectory && node.metadata.displayName.substringAfterLast('.', missingDelimiterValue = "").equals("txt", ignoreCase = true)
-        }
-        if (files.isEmpty()) return null
-
-        // 1. 如果指定了 baseName，优先寻找与 baseName 完全同名（不含后缀）的 txt 文件
-        if (!baseName.isNullOrBlank()) {
-            val sameNameFile = files.firstOrNull { file ->
-                file.metadata.displayName.substringBeforeLast('.', missingDelimiterValue = "").equals(baseName, ignoreCase = true)
-            }
-            if (sameNameFile != null) {
-                return readTxtFileAndLog(fileReader, sameNameFile, "same-name (baseName=$baseName)")
-            }
-        }
-
-        // 如果开启了 strictSameNameOnly，则只查找同名文件，直接返回 null 不进行兜底匹配
-        if (strictSameNameOnly) {
-            Log.i(TAG, "Strict same-name match enabled but not found for baseName=$baseName")
-            return null
-        }
-
-        // 2. 模糊查找常见前缀的 txt 文件
-        val commonNames = listOf("desc", "description", "info", "book", "readme", "简介", "有声书简介")
-        val commonNameFile = files.firstOrNull { file ->
-            val nameWithoutExt = file.metadata.displayName.substringBeforeLast('.', missingDelimiterValue = "").lowercase()
-            commonNames.any { common -> nameWithoutExt == common || nameWithoutExt.contains(common) }
-        }
-        if (commonNameFile != null) {
-            return readTxtFileAndLog(fileReader, commonNameFile, "common-name")
-        }
-
-        // 3. 兜底匹配：当且仅当目录下只有一个 txt 文件时，直接选用该文件
-        if (files.size == 1) {
-            return readTxtFileAndLog(fileReader, files.first(), "single-txt-in-folder")
-        }
-
-        return null
-    }
-
-    // 为每一次改动添加详尽的中文注释：提取通用的 txt 文本读取及日志打印辅助方法，读取入口统一走 VFS stream。
-    private suspend fun readTxtFileAndLog(fileReader: VfsFileReader, txtFile: VfsNode, matchedBy: String): String? {
-        return runCatching {
-            readTextFile(fileReader, txtFile)
-        }.onFailure { error ->
-            Log.w(TAG, "Failed to read txt description ($matchedBy): ${txtFile.vfsLogId()}", error)
-        }.getOrNull()?.trim()?.takeIf { it.isNotBlank() }?.also { description ->
-            Log.i(TAG, "Loaded txt description ($matchedBy): txt=${txtFile.metadata.displayName.logValue()}, chars=${description.length}")
-        }
-    }
-
-    private suspend fun readTextFile(fileReader: VfsFileReader, file: VfsNode): String {
-        var isTruncated = false
-        val bytes = fileReader.open(file)?.use { input ->
-            BufferedInputStream(input).use { buffered ->
-                val result = readLimitedBytes(buffered, MAX_DESCRIPTION_BYTES)
-                // 详尽的中文注释：判断是否发生物理字节截断：如果读入的字节数刚好达到 MAX_DESCRIPTION_BYTES，且输入流中还有更多字节，则标记为已截断
-                if (result.size == MAX_DESCRIPTION_BYTES) {
-                    buffered.mark(1)
-                    val nextByte = buffered.read()
-                    if (nextByte != -1) {
-                        isTruncated = true
-                    }
-                }
-                result
-            }
-        } ?: return ""
-        if (isTruncated) {
-            Log.i(TAG, "Manifest txt description reached ${MAX_DESCRIPTION_BYTES}B read limit: ${file.vfsLogId()}")
-        }
-        val utf8Text = bytes.decodeUtf8PossiblyTruncated()
-        val decoded = when {
-            bytes.hasUtf8Bom() -> bytes.copyOfRange(3, bytes.size).decodeUtf8PossiblyTruncated() ?: ""
-            utf8Text != null -> utf8Text
-            bytes.isValidBig5() -> bytes.toString(Charset.forName("Big5"))
-            else -> bytes.toString(Charset.forName("Shift-JIS"))
-        }
-
-        // 详尽的中文注释：截断判定联动：如果已经发生物理截断，或者解码后的字符总数超过了 MAX_DESCRIPTION_CHARS 上限，均视为发生截断
-        val finalIsTruncated = isTruncated || decoded.length > MAX_DESCRIPTION_CHARS
-        val baseDescription = decoded.limitDescriptionChars(file.vfsLogId())
-
-        // 详尽的中文注释：如果在物理或逻辑层级发生了截断，则在保留前 500 字符的段尾部分拼接上英文省略号 "..."
-        return if (finalIsTruncated) {
-            "${baseDescription.trimEnd()}..."
-        } else {
-            baseDescription
-        }
-    }
-
-    private fun readLimitedBytes(input: BufferedInputStream, limitBytes: Int): ByteArray {
-        val buffer = ByteArray(limitBytes)
-        var total = 0
-        while (total < limitBytes) {
-            val count = input.read(buffer, total, limitBytes - total)
-            if (count == -1) break
-            total += count
-        }
-        return buffer.copyOf(total)
-    }
-
-    private fun String.limitDescriptionChars(uri: String): String {
-        if (length <= MAX_DESCRIPTION_CHARS) return this
-        Log.i(TAG, "Manifest txt description truncated to $MAX_DESCRIPTION_CHARS chars: $uri")
-        return take(MAX_DESCRIPTION_CHARS)
-    }
-
-    private fun ByteArray.decodeUtf8PossiblyTruncated(): String? {
-        if (isEmpty()) return ""
-        for (endExclusive in size downTo maxOf(1, size - MAX_UTF8_CODE_POINT_BYTES + 1)) {
-            val candidate = copyOfRange(0, endExclusive)
-            if (candidate.isValidUtf8()) return candidate.toString(Charsets.UTF_8)
-        }
-        return null
-    }
-
-    private fun ByteArray.hasUtf8Bom(): Boolean =
-        size >= 3 && this[0] == 0xEF.toByte() && this[1] == 0xBB.toByte() && this[2] == 0xBF.toByte()
-
-    private fun ByteArray.isValidUtf8(): Boolean {
-        var index = 0
-        while (index < size) {
-            val byte = this[index].toInt() and 0xFF
-            if (byte < 0x80) {
-                index++
-                continue
-            }
-            val continuationCount = when (byte) {
-                in 0xC2..0xDF -> 1
-                in 0xE0..0xEF -> 2
-                in 0xF0..0xF4 -> 3
-                else -> return false
-            }
-            if (index + continuationCount >= size) return false
-            for (offset in 1..continuationCount) {
-                if ((this[index + offset].toInt() and 0xC0) != 0x80) return false
-            }
-            index += continuationCount + 1
-        }
-        return true
-    }
-
-    private fun ByteArray.isValidBig5(): Boolean {
-        var index = 0
-        var hasBig5Pair = false
-        while (index < size) {
-            val first = this[index].toInt() and 0xFF
-            if (first <= 0x7F) {
-                index++
-                continue
-            }
-            if (first !in 0x81..0xFE || index + 1 >= size) return false
-            val second = this[index + 1].toInt() and 0xFF
-            if (second !in 0x40..0x7E && second !in 0xA1..0xFE) return false
-            hasBig5Pair = true
-            index += 2
-        }
-        return hasBig5Pair
-    }
 
     private fun firstNonBlank(vararg values: String?): String =
         values.firstOrNull { !it.isNullOrBlank() }?.trim().orEmpty()
@@ -840,10 +663,6 @@ internal class ConflictClaimStep(
     private fun FileRef.vfsDisplayId(): String =
         // 为每一次改动添加详尽的中文注释：用户可见/日志来源标识使用 rootId/sourcePath，避免继续输出 provider URI。
         "vfs://$rootId/$sourcePath"
-
-    private fun VfsNode.vfsLogId(): String =
-        // 为每一次改动添加详尽的中文注释：VFS 节点日志只暴露标准 rootId/path，不再把 provider 原生地址泄漏到业务层。
-        "vfs://${root.id}/${path.value}"
 
     private fun BookFileEntity.vfsKey(): String =
         // 为每一次改动添加详尽的中文注释：入库后的章节映射也用 rootId/sourcePath 还原同一个 VFS 文件键。
@@ -875,8 +694,5 @@ internal class ConflictClaimStep(
 
     companion object {
         private const val TAG = "ConflictClaimStep"
-        private const val MAX_DESCRIPTION_BYTES = 10000
-        private const val MAX_DESCRIPTION_CHARS = 2000
-        private const val MAX_UTF8_CODE_POINT_BYTES = 4
     }
 }

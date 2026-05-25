@@ -4,6 +4,7 @@ import android.util.Log
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
+import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.MetadataSuggestion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,16 +22,36 @@ object M3u8ManifestParser {
 
     data class M3u8Result(
         val metadata: MetadataSuggestion,
-        val items: List<M3u8Item>
+        val items: List<M3u8Item>,
+        // 为每一次改动添加详尽的中文注释：M3U8 parser 也直接返回同目录 txt/cover 侧车结果，
+        // 让 manifest 书籍的附属简介与封面选择停留在 parser 边界内。
+        val sidecarDescription: String? = null,
+        val sidecarCoverFile: FileRef? = null
     )
 
-    suspend fun parse(displayName: String, openStream: suspend () -> InputStream?): M3u8Result {
+    suspend fun parse(
+        displayName: String,
+        openStream: suspend () -> InputStream?,
+        manifestFile: FileRef? = null,
+        directoryContext: ManifestSidecarSupport.DirectoryContext = ManifestSidecarSupport.DirectoryContext(),
+        openTextFile: (suspend (FileRef) -> InputStream?)? = null
+    ): M3u8Result {
         val items = mutableListOf<M3u8Item>()
         var playlistTitle: String? = null
         var playlistAuthor: String? = null
         var playlistNarrator: String? = null
         var playlistYear: String? = null
         var playlistDescription: String? = null
+        val sidecarPayload = if (manifestFile != null && openTextFile != null) {
+            // 为每一次改动添加详尽的中文注释：与 CUE 保持一致，M3U8 的同目录 txt 简介与 sidecover 候选也在 parser 阶段一次性决出。
+            ManifestSidecarSupport.resolveForManifest(
+                manifestFile = manifestFile,
+                directoryContext = directoryContext,
+                openTextFile = openTextFile
+            )
+        } else {
+            ManifestSidecarSupport.SidecarPayload()
+        }
         try {
             // 为每一次改动添加详尽的中文注释：M3U8 解析器只依赖 VFS 流工厂，避免清单解析层重新接触来源原生文件对象。
             val inputStream = openStream() ?: return M3u8Result(MetadataSuggestion(), emptyList())
@@ -91,7 +112,9 @@ object M3u8ManifestParser {
                 year = playlistYear,
                 description = playlistDescription
             ),
-            items = items
+            items = items,
+            sidecarDescription = sidecarPayload.description,
+            sidecarCoverFile = sidecarPayload.coverFile
         )
     }
 

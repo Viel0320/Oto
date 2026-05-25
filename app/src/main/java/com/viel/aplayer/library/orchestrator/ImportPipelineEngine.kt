@@ -1,5 +1,6 @@
 package com.viel.aplayer.library.orchestrator
 
+import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -21,6 +22,7 @@ import com.viel.aplayer.library.orchestrator.steps.MetadataResolveStep
  * 本引擎持有并组合了拆分出来的 6 个流水线工位物理类（扫描、解析、元数据、聚类、封面、冲突），
  * 负责定义其顺序与挂载冷流（Flow），为前端的进度条提供精细化的百分比和状态显示。
  */
+@UnstableApi
 internal class ImportPipelineEngine(
     private val inventoryScanStep: InventoryScanStep,
     private val manifestParseStep: ManifestParseStep,

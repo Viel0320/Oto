@@ -6,6 +6,7 @@ import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.media.manifest.CueManifestParser
 import com.viel.aplayer.media.manifest.M3u8ManifestParser
 import com.viel.aplayer.media.manifest.ManifestResolver
+import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
@@ -37,7 +38,15 @@ internal class ManifestParseStep(private val context: Context) : ImportStep<File
 
         // 1. 扫描并独立解析所有的 CUE 清单
         input.cueFiles.forEach { cue ->
-            CueManifestParser.parse(cue.displayName) { fileReader.open(cue) }?.let { result ->
+            CueManifestParser.parse(
+                displayName = cue.displayName,
+                openStream = { fileReader.open(cue) },
+                manifestFile = cue,
+                // 为每一次改动添加详尽的中文注释：当前 scope 已经带上同目录图片和 txt 侧车，
+                // ManifestParseStep 只负责把这些目录快照下发给 parser，由 parser 内部统一裁决。
+                directoryContext = directoryContextFor(input, cue.parentSourceKey),
+                openTextFile = { textFile -> fileReader.open(textFile) }
+            )?.let { result ->
                 // 详尽的中文注释：CUE 只解析同目录音频文件名，直接命中扫描快照里的 FileRef，避免同一个清单反复枚举父目录。
                 val referencedFiles = result.referencedFiles.distinct()
                 val resolved = referencedFiles.mapNotNull { entry ->
@@ -62,7 +71,13 @@ internal class ManifestParseStep(private val context: Context) : ImportStep<File
         // 2. 扫描并独立解析所有的 M3U8 播放列表清单
         input.m3u8Files.forEach { m3u8 ->
             // 详尽的中文注释：M3u8ManifestParser.parse 当前返回非空结果，直接接收可以避免无意义的安全调用并保持编译输出干净。
-            val result = M3u8ManifestParser.parse(m3u8.displayName) { fileReader.open(m3u8) }
+            val result = M3u8ManifestParser.parse(
+                displayName = m3u8.displayName,
+                openStream = { fileReader.open(m3u8) },
+                manifestFile = m3u8,
+                directoryContext = directoryContextFor(input, m3u8.parentSourceKey),
+                openTextFile = { textFile -> fileReader.open(textFile) }
+            )
             val items = result.items
             val distinctItems = items.distinctBy { it.uri }
             // 详尽的中文注释：M3U8 仍跳过远程 URL，本地条目则只在扫描快照里按同目录文件名匹配，不再进入 SAF 递归解析。
@@ -94,6 +109,14 @@ internal class ManifestParseStep(private val context: Context) : ImportStep<File
         val extensions = listOf(".mp3", ".m4b", ".m4a", ".mp4", ".aac", ".flac", ".wav", ".ogg")
         return extensions.any { value.endsWith(it, ignoreCase = true) }
     }
+
+    private fun directoryContextFor(input: FileInventory, parentKey: String): ManifestSidecarSupport.DirectoryContext =
+        ManifestSidecarSupport.DirectoryContext(
+            imageFiles = input.imageFilesByParent[parentKey].orEmpty(),
+            // 为每一次改动添加详尽的中文注释：txt 侧车和图片侧车一样从当前 scope inventory 直接取，
+            // 避免 manifest parser 再通过 VFS 去枚举目录。
+            textFiles = input.textFilesByParent[parentKey].orEmpty()
+        )
 
     // 详尽的中文注释：清单解析专用的轻量索引只保存当前 scope 内音频，保证同目录清单不会越界引用到其他目录的同名文件。
     private class ManifestAudioLookup(audioFiles: List<FileRef>) {

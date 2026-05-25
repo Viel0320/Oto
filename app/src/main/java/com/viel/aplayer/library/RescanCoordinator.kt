@@ -15,6 +15,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.media.parser.MetadataResolver
 
 enum class RescanType {
@@ -496,6 +497,12 @@ class RescanCoordinator(
             imageFilesByParent = imageFilesByParent
                 .filterKeys { it in parentKeys }
                 .mapValues { (_, images) -> images.sortedByStableFileKey() }
+            ,
+            // 为每一次改动添加详尽的中文注释：目录音频子批次在保留图片侧车的同时，也保留对应父目录的 txt 侧车，
+            // 这样后续如果需要在子批次上做描述兜底，仍然拥有完整目录上下文。
+            textFilesByParent = textFilesByParent
+                .filterKeys { it in parentKeys }
+                .mapValues { (_, texts) -> texts.sortedByStableFileKey() }
         )
     }
 
