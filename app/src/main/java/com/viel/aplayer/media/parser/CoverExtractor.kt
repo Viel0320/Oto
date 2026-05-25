@@ -2,7 +2,6 @@ package com.viel.aplayer.media.parse
 
 import android.content.Context
 import android.graphics.BitmapFactory
-import android.media.MediaMetadataRetriever
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
@@ -56,13 +55,9 @@ class CoverExtractor(private val context: Context) {
         }
     }
 
-    /**
-     * 从 MediaMetadataRetriever 中提取内嵌封面。
-     */
-    suspend fun extractFromRetriever(retriever: MediaMetadataRetriever, sourceId: String): CoverResult = withContext(Dispatchers.IO) {
+    suspend fun saveEmbeddedImage(sourceId: String, artBytes: ByteArray): CoverResult = withContext(Dispatchers.IO) {
         try {
-            val artBytes = retriever.embeddedPicture ?: return@withContext CoverResult(null, null)
-            
+            if (artBytes.isEmpty()) return@withContext CoverResult(null, null)
             // 1. 保存原图
             val originalFile = File(coversDir, "${sourceId.hashCode()}_orig.jpg")
             // 详尽的中文注释：防御性强力建立父级目录防线。由于 cache 临时缓存目录随时可能在内存紧张或被安全工具扫描时物理删除，
@@ -73,13 +68,13 @@ class CoverExtractor(private val context: Context) {
 
             // 2. 生成缩略图
             val thumbnailPath = createThumbnail(artBytes, sourceId)
-            
+
             // 3. 提取主色调
             val color = ImageProcessor.getDominantColor(thumbnailPath ?: originalPath)
 
             CoverResult(originalPath, thumbnailPath, color)
         } catch (e: Exception) {
-            Log.e("CoverExtractor", "Error extracting from retriever", e)
+            Log.e("CoverExtractor", "Error saving embedded cover bytes", e)
             CoverResult(null, null)
         }
     }
