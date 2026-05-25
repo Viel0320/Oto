@@ -1,58 +1,128 @@
 package com.viel.aplayer.library.vfs
 
 import android.content.Context
-import android.os.ParcelFileDescriptor
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.library.source.LibrarySourceProviderFactory
+import com.viel.aplayer.library.sourceProvider.LibrarySourceKind
+import com.viel.aplayer.library.sourceProvider.LibrarySourceProviderFactory
+import com.viel.aplayer.library.sourceProvider.SourceFileMetadata
+import com.viel.aplayer.library.sourceProvider.SourceNode
 import java.io.InputStream
+import java.util.concurrent.ConcurrentHashMap
 
-// 详尽的中文注释：VfsFileReader 是解析器、封面恢复和字幕查找共享的读流门面，调用方只传 rootId/sourcePath，不再持有 Provider 原生文件对象。
+/**
+ * 纯读取门面。
+ *
+ * 详尽的中文注释：这个类现在只负责：
+ * 1. 按 `rootId + sourcePath` 定位文件
+ * 2. 提供 `open / listChildren / readRange`
+ * 3. 为 WebDAV 的小片段读取构造直连节点
+ *
+ * 它不再暴露任何音频元数据、章节、封面相关 helper。
+ * 这些格式逻辑已经全部回收到各自 parser 与 MetadataResolver 内部。
+ */
 class VfsFileReader(
     context: Context,
     private val libraryRootDao: LibraryRootDao? = null,
     private val rootsById: Map<String, LibraryRootEntity> = emptyMap()
 ) {
     private val vfs = VirtualFileSystem(LibrarySourceProviderFactory(context.applicationContext))
+    // 详尽的中文注释：parser 在一次解析中会多次命中同一个 root，这里保留 root 级缓存以减少 Room 查询。
+    private val rootCache = ConcurrentHashMap<String, LibraryRootEntity>()
 
     suspend fun open(file: FileRef): InputStream? {
-        // 详尽的中文注释：扫描期 FileRef 已经带 rootId/sourcePath，清单解析和封面读取直接复用这两个标准字段。
         val root = rootFor(file.rootId) ?: return null
         return vfs.openInputStream(root, VfsPath(file.sourcePath))
+    }
+
+    suspend fun open(file: FileRef, offset: Long): InputStream? {
+        val root = rootFor(file.rootId) ?: return null
+        return vfs.openInputStream(root, VfsPath(file.sourcePath), offset)
     }
 
     suspend fun open(file: BookFileEntity): InputStream? {
-        // 详尽的中文注释：入库后的媒体辅助类从 BookFileEntity 还原 VFS 节点，彻底替代各处自行回到 SAF Tree 的旧逻辑。
         val root = rootFor(file.rootId) ?: return null
         return vfs.openInputStream(root, VfsPath(file.sourcePath))
     }
 
-    suspend fun openFileDescriptor(file: BookFileEntity): ParcelFileDescriptor? {
-        // 详尽的中文注释：封面恢复和元数据恢复通过 VFS 打开只读 FD，不再在媒体层恢复 Provider 原生文件对象。
+    suspend fun open(file: BookFileEntity, offset: Long): InputStream? {
         val root = rootFor(file.rootId) ?: return null
-        return vfs.openFileDescriptor(root, VfsPath(file.sourcePath))
+        return vfs.openInputStream(root, VfsPath(file.sourcePath), offset)
     }
 
-    suspend fun openFileDescriptor(file: FileRef): ParcelFileDescriptor? {
-        // 为每一次改动添加详尽的中文注释：扫描期元数据/封面读取同样走 VFS FD，避免 FileRef 暴露或依赖 provider URI。
-        val root = rootFor(file.rootId) ?: return null
-        return vfs.openFileDescriptor(root, VfsPath(file.sourcePath))
-    }
-
-    suspend fun open(node: VfsNode): InputStream? {
-        // 详尽的中文注释：目录枚举返回的 VfsNode 可以直接读流，避免业务层为临时文件再拼装 FileRef。
-        return vfs.openInputStream(node)
-    }
+    suspend fun open(node: VfsNode): InputStream? =
+        vfs.openInputStream(node)
 
     suspend fun listChildren(rootId: String, sourcePath: String): List<VfsNode> {
-        // 详尽的中文注释：同目录 sidecar、字幕和 txt 描述文件均通过 VFS 枚举父目录，避免业务层直接访问 Provider 原生目录。
         val root = rootFor(rootId) ?: return emptyList()
         val directory = vfs.resolve(root, VfsPath(sourcePath)) ?: return emptyList()
         return vfs.listChildren(directory)
     }
 
-    private suspend fun rootFor(rootId: String): LibraryRootEntity? =
-        rootsById[rootId] ?: libraryRootDao?.getRootById(rootId)
+    suspend fun readRange(file: FileRef, offset: Long, length: Int): ByteArray? {
+        val root = rootFor(file.rootId) ?: return null
+        // 详尽的中文注释：扫描期 FileRef 已经带着完整的路径和大小信息，
+        // WebDAV 下直接拼瞬时 VfsNode 能避免每次 readRange 之前再走一次 resolve/PROPFIND。
+        directRangeNode(root, file)?.let { node ->
+            return vfs.readRange(node, offset, length)
+        }
+        return vfs.readRange(root, VfsPath(file.sourcePath), offset, length)
+    }
+
+    suspend fun readRange(file: BookFileEntity, offset: Long, length: Int): ByteArray? {
+        val root = rootFor(file.rootId) ?: return null
+        // 详尽的中文注释：已入库文件同样只依赖持久化的 VFS 字段定位，
+        // 这样播放后封面恢复、编辑页重建等流程也不会回到旧 URI 路径。
+        directRangeNode(root, file)?.let { node ->
+            return vfs.readRange(node, offset, length)
+        }
+        return vfs.readRange(root, VfsPath(file.sourcePath), offset, length)
+    }
+
+    private fun directRangeNode(root: LibraryRootEntity, file: FileRef): VfsNode? {
+        if (LibrarySourceKind.from(root.sourceType) != LibrarySourceKind.WEBDAV) return null
+        val metadata = SourceFileMetadata(
+            uri = file.sourcePath,
+            sourcePath = file.sourcePath,
+            identity = file.sourceIdentity,
+            parentSourcePath = file.parentSourcePath,
+            parentIdentity = file.parentSourceIdentity,
+            displayName = file.displayName,
+            isDirectory = false,
+            fileSize = file.fileSize,
+            lastModified = file.lastModified,
+            etag = file.etag
+        )
+        val sourceNode = SourceNode(root = root, metadata = metadata)
+        return VfsNode(root = root, path = VfsPath(file.sourcePath), metadata = metadata, sourceNode = sourceNode)
+    }
+
+    private fun directRangeNode(root: LibraryRootEntity, file: BookFileEntity): VfsNode? {
+        if (LibrarySourceKind.from(root.sourceType) != LibrarySourceKind.WEBDAV) return null
+        val parentSourcePath = file.sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
+        val metadata = SourceFileMetadata(
+            uri = file.sourcePath,
+            sourcePath = file.sourcePath,
+            identity = file.sourceIdentity,
+            parentSourcePath = parentSourcePath,
+            parentIdentity = root.id,
+            displayName = file.displayName,
+            isDirectory = false,
+            fileSize = file.fileSize,
+            lastModified = file.lastModified,
+            etag = file.etag
+        )
+        val sourceNode = SourceNode(root = root, metadata = metadata)
+        return VfsNode(root = root, path = VfsPath(file.sourcePath), metadata = metadata, sourceNode = sourceNode)
+    }
+
+    private suspend fun rootFor(rootId: String): LibraryRootEntity? {
+        rootsById[rootId]?.let { return it }
+        rootCache[rootId]?.let { return it }
+        return libraryRootDao?.getRootById(rootId)?.also { root ->
+            rootCache[rootId] = root
+        }
+    }
 }

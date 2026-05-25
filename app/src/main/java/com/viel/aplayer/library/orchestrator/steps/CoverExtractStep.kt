@@ -1,10 +1,7 @@
 package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
-import android.media.MediaMetadataRetriever
-import java.util.UUID
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
+import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.library.AudioMetadataRef
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
@@ -14,17 +11,19 @@ import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
 import com.viel.aplayer.library.vfs.VfsFileReader
-import com.viel.aplayer.media.parse.CoverExtractor
+import com.viel.aplayer.media.parser.CoverExtractor
+import com.viel.aplayer.media.parser.MetadataResolver
+import java.util.UUID
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /**
- * 封面提取与 dominant 调色板背景色提取分步物理类
- * 
- * 为每一次改动添加详尽的中文注释：
- * 本工位专门负责多级封面提取。引入协程信号量（Semaphore）进行高并发限流，
- * 避免因为同时启动过多的 MediaMetadataRetriever 图片解码导致爆内存与发烫。
- * 本工位会产出已经绑定好 bookId 和 CoverResult 的有声书信息。
+ * 旧 ImportPipelineEngine 使用的封面提取步骤。
+ *
+ * 详尽的中文注释：这里也同步收口成“只向 MetadataResolver 要内嵌封面字节”，
+ * 不再在步骤层直接区分 MP4 / 非 MP4，也不直接调用任何容器专属封面解析器。
  */
-// 详尽的中文注释：声明类可见性为 internal，防止其泄漏模块内使用 internal 标记的实体对象导致编译错误
+@UnstableApi
 internal class CoverExtractStep(
     private val context: Context,
     private val coverExtractor: CoverExtractor = CoverExtractor(context),
@@ -32,41 +31,48 @@ internal class CoverExtractStep(
 ) : ImportStep<GroupedBookDrafts, CoverExtractedResult> {
 
     override val stepName: String = "CoverExtractStep"
-    
-    // 初始化并发度限制信号量
     private val semaphore = Semaphore(maxConcurrent)
+    private val MetadataResolver = MetadataResolver(context.applicationContext)
 
     override suspend fun execute(
         input: GroupedBookDrafts,
         context: ImportContext
     ): StepResult<CoverExtractedResult> = runCatching {
-        // 详尽的中文注释：FileInventory 无默认无参构造函数，使用显式 5 参数空构造进行降级保护
-        val inventory = context.sharedInventory ?: FileInventory(emptyList(), emptyList(), emptyList(), emptyList(), emptyMap())
-        // 为每一次改动添加详尽的中文注释：封面步骤按 VFS 文件键回查清单引用音频，避免旧 URI 映射残留。
+        val inventory = context.sharedInventory ?: FileInventory(
+            roots = emptyList(),
+            cueFiles = emptyList(),
+            m3u8Files = emptyList(),
+            audioFiles = emptyList(),
+            imageFilesByParent = emptyMap()
+        )
         val audioByVfsKey = inventory.audioFiles.associateBy { it.vfsKey }
 
-        // 1. 并发解析 CUE 封面的书籍列表；结果顺序保持与清单解析顺序一致，避免后续 claim 顺序漂移。
         val cueBooks = input.manifestParsedResult.cueDrafts.mapWithBoundedConcurrency(maxConcurrent) { cueDraft ->
             val bookId = UUID.randomUUID().toString()
-            // 挑出所有的关联物理文件
-            val audioRefs = cueDraft.resolvedAudioKeys.values.mapNotNull { key ->
-                audioByVfsKey[key]
-            }
-            val coverResult = resolveCoverWithSemaphore(bookId, primaryAudio = null, manifestFile = cueDraft.sourceFile, fallbackAudio = audioRefs, inventory = inventory)
+            val audioRefs = cueDraft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
+            val coverResult = resolveCoverWithSemaphore(
+                bookId = bookId,
+                primaryAudio = null,
+                manifestFile = cueDraft.sourceFile,
+                fallbackAudio = audioRefs,
+                inventory = inventory
+            )
             CoverExtractedCue(bookId, cueDraft, audioRefs, coverResult)
         }
 
-        // 2. 并发解析 M3U8 封面的书籍列表；只并发图片 I/O，不提前进入所有权认领。
         val m3u8Books = input.manifestParsedResult.m3u8Drafts.mapWithBoundedConcurrency(maxConcurrent) { m3u8Draft ->
             val bookId = UUID.randomUUID().toString()
-            val audioRefs = m3u8Draft.resolvedAudioKeys.values.mapNotNull { key ->
-                audioByVfsKey[key]
-            }
-            val coverResult = resolveCoverWithSemaphore(bookId, primaryAudio = null, manifestFile = m3u8Draft.sourceFile, fallbackAudio = audioRefs, inventory = inventory)
+            val audioRefs = m3u8Draft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
+            val coverResult = resolveCoverWithSemaphore(
+                bookId = bookId,
+                primaryAudio = null,
+                manifestFile = m3u8Draft.sourceFile,
+                fallbackAudio = audioRefs,
+                inventory = inventory
+            )
             CoverExtractedM3u8(bookId, m3u8Draft, audioRefs, coverResult)
         }
 
-        // 3. 并发解析启发式聚合有声书封面；聚合计划已经确定，这里只加速封面读取。
         val aggregatedBooks = input.aggregatedPlans.mapWithBoundedConcurrency(maxConcurrent) { plan ->
             val bookId = UUID.randomUUID().toString()
             val orderedFiles = plan.chapters.map { it.audio }
@@ -80,7 +86,6 @@ internal class CoverExtractStep(
             CoverExtractedAggregated(bookId, plan, coverResult)
         }
 
-        // 4. 并发解析单音频有声书封面；输出顺序仍跟 singleAudios 一致，后续 claim 继续稳定串行。
         val singleBooks = input.singleAudios.mapWithBoundedConcurrency(maxConcurrent) { audioRef ->
             val bookId = UUID.randomUUID().toString()
             val coverResult = resolveCoverWithSemaphore(
@@ -94,8 +99,8 @@ internal class CoverExtractStep(
         }
 
         StepResult.Success(CoverExtractedResult(cueBooks, m3u8Books, aggregatedBooks, singleBooks))
-    }.getOrElse { e ->
-        StepResult.Failure(e, "多线程提取有声书封面发生异常，详情: ${e.localizedMessage}")
+    }.getOrElse { error ->
+        StepResult.Failure(error, "多线程提取有声书封面发生异常，详情: ${error.localizedMessage}")
     }
 
     private suspend fun resolveCoverWithSemaphore(
@@ -105,14 +110,15 @@ internal class CoverExtractStep(
         fallbackAudio: List<FileRef>,
         inventory: FileInventory
     ): CoverExtractor.CoverResult? {
-        // 为每一次改动添加详尽的中文注释：sidecar 封面读取复用当前 inventory 的 root 映射，保证 VFS 能打开扫描期 FileRef。
-        val fileReader = VfsFileReader(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
-        // 1. 首先尝试内嵌的封面
+        val fileReader = VfsFileReader(
+            context.applicationContext,
+            rootsById = inventory.roots.associateBy { it.id }
+        )
+
         primaryAudio?.let { audio ->
-            extractCoverSafety(audio, fileReader, bookId)?.takeIf { it.hasImage }?.let { return it }
+            extractCoverSafety(audio, bookId)?.takeIf { it.hasImage }?.let { return it }
         }
-        
-        // 2. 然后尝试同级目录下的外部 sidecar 图像
+
         val sidecarAnchor = manifestFile ?: primaryAudio ?: fallbackAudio.firstOrNull()
         sidecarAnchor?.let { anchor ->
             findDirectoryCover(anchor.parentSourceKey, inventory)?.let { image ->
@@ -121,54 +127,43 @@ internal class CoverExtractStep(
                     ?.let { return it }
             }
         }
-        
-        // 3. 最后退而求其次尝试其余音频的封面
+
         fallbackAudio.forEach { audio ->
-            extractCoverSafety(audio, fileReader, bookId)?.takeIf { it.hasImage }?.let { return it }
+            extractCoverSafety(audio, bookId)?.takeIf { it.hasImage }?.let { return it }
         }
         return null
     }
+
+    private suspend fun extractCoverSafety(
+        file: FileRef,
+        bookId: String
+    ): CoverExtractor.CoverResult? =
+        runCatching {
+            semaphore.withPermit {
+                val embeddedCover = MetadataResolver.extractWithEmbeddedCover(file).embeddedCover
+                if (embeddedCover == null || embeddedCover.bytes.isEmpty()) {
+                    CoverExtractor.CoverResult(null, null)
+                } else {
+                    // 详尽的中文注释：parser 已经在内部完成容器相关的封面提取，
+                    // 这个步骤只负责把统一返回的字节落缓存。
+                    coverExtractor.saveEmbeddedImage("$bookId:${file.vfsKey}:embedded", embeddedCover.bytes)
+                }
+            }
+        }.getOrNull()
 
     private val CoverExtractor.CoverResult.hasImage: Boolean
         get() = originalPath != null || thumbnailPath != null
 
     private fun findDirectoryCover(parentKey: String, inventory: FileInventory): FileRef? {
-        // 为每一次改动添加详尽的中文注释：封面 sidecar 查找按 VFS 父目录键命中扫描图片，不再依赖旧父目录 URI。
         val images = inventory.imageFilesByParent[parentKey].orEmpty()
         val priorityNames = listOf("cover", "folder", "artwork", "front")
         return images.firstOrNull { image ->
             val baseName = image.displayName.substringBeforeLast('.').lowercase()
-            priorityNames.contains(baseName)
+            baseName in priorityNames
         } ?: images.firstOrNull()
     }
-
-    private suspend fun extractCoverSafety(file: FileRef, fileReader: VfsFileReader, bookId: String): CoverExtractor.CoverResult? =
-        runCatching {
-            // 使用协程信号量进行高并发度安全并发控制，防发热和 OOM 崩溃
-            semaphore.withPermit {
-                val retriever = MediaMetadataRetriever()
-                val pfd = fileReader.openFileDescriptor(file)
-                try {
-                    if (pfd == null) {
-                        CoverExtractor.CoverResult(null, null)
-                    } else {
-                        // 为每一次改动添加详尽的中文注释：封面提取从 VFS FD 读内嵌图，不再需要扫描期 provider URI。
-                        retriever.setDataSource(pfd.fileDescriptor)
-                        coverExtractor.extractFromRetriever(retriever, bookId)
-                    }
-                } finally {
-                    retriever.release()
-                    pfd?.close()
-                }
-            }
-        }.getOrNull()
 }
 
-/**
- * 承载被提取封面有声书的统一大实体
- *
- * 详尽的中文注释：添加 internal 修饰符，收紧其内部使用范围，彻底消灭 public 泄漏模块内 internal 实体的编译错误
- */
 internal data class CoverExtractedResult(
     val cueBooks: List<CoverExtractedCue>,
     val m3u8Books: List<CoverExtractedM3u8>,

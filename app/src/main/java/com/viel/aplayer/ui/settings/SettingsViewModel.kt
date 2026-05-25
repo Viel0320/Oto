@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.settings
 
 import android.app.Application
-import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -60,21 +59,25 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // 在设置页中选择媒体库目录后的回调逻辑，负责获取持久化 SAF 授权，将其存入数据库并异步触发 USER 手动增量扫描任务。
     // 这能让设置页完全独立处理 SAF 动作，从而将 LibraryViewModel 彻底解耦，消除 Activity 切换时的冷启动扫描问题。
     fun onLibraryRootSelected(uri: Uri) {
-        viewModelScope.launch {
-            try {
-                getApplication<Application>().contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                // 写入数据库，并等待写入完成以保证扫描的即时性
-                libraryRepository.setLibraryRoot(uri)
-                // 触发工作器进行手动媒体库扫描同步
-                libraryRepository.syncLibrary("USER")
-            } catch (e: SecurityException) {
-                // 详尽的中文注释：对捕获的 SecurityException 赋予脱敏日志信息输出，便于追踪定位 SAF 授权失效事件而不吞掉关键错误。
-                android.util.Log.e("SettingsViewModel", "SecurityException occurred while taking persistable URI permission for tree: ${uri.hashCode().toString(16)}", e)
-            }
-        }
+        // 详尽的中文注释：设置页只提交选择结果，授权持久化、root 入库和扫描均由 Repository 应用级后台任务接管。
+        libraryRepository.addLibraryRootAndScheduleSync(uri)
+    }
+
+    fun onWebDavRootSubmitted(
+        url: String,
+        username: String,
+        password: String,
+        displayName: String,
+        basePath: String
+    ) {
+        // 详尽的中文注释：WebDAV 添加与扫描调度合并为 Repository 应用级任务，远程长扫描不会被设置页返回或切页取消。
+        libraryRepository.addWebDavLibraryRootAndScheduleSync(
+            url = url,
+            username = username,
+            password = password,
+            displayName = displayName,
+            basePath = basePath
+        )
     }
 
     fun clearSearchHistory() {
@@ -84,9 +87,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun triggerRescan() {
-        viewModelScope.launch {
-            libraryRepository.syncLibrary("USER")
-        }
+        // 为每一次改动添加详尽的中文注释：手动重扫只提交应用级扫描队列，设置页退场不会触发 JobCancellationException。
+        libraryRepository.scheduleLibrarySync("USER")
     }
 
     fun toggleChapterProgressMode(enabled: Boolean) {

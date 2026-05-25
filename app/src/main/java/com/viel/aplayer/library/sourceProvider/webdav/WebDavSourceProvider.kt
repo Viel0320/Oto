@@ -1,10 +1,15 @@
-package com.viel.aplayer.library.source
+package com.viel.aplayer.library.sourceProvider.webdav
 
 import android.content.Context
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.library.sourceProvider.LibrarySourceKind
+import com.viel.aplayer.library.sourceProvider.LibrarySourceProvider
+import com.viel.aplayer.library.sourceProvider.SourceCapabilities
+import com.viel.aplayer.library.sourceProvider.SourceFileMetadata
+import com.viel.aplayer.library.sourceProvider.SourceNode
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
 import java.io.IOException

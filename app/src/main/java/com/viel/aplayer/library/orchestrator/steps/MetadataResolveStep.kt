@@ -1,25 +1,28 @@
 package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
+import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.library.AudioMetadataRef
 import com.viel.aplayer.library.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
-import com.viel.aplayer.media.parse.MetadataExtractor
+import com.viel.aplayer.media.parser.MetadataResolver
 
 /**
  * 媒体元数据 ID3 并发解析步骤物理类
  * 
  * 为每一次改动添加详尽的中文注释：
  * 本工位从上一工位解析的清单数据入手，过滤掉已被 CUE/M3U8 认领的物理音频，
- * 剩余的散落音频文件则通过 MetadataExtractor 提取内嵌的 ID3 标签。
+ * 剩余的散落音频文件则通过 MetadataResolver 提取内嵌的 ID3 标签。
  * 这里使用有界并发读取元数据，但返回结果保持原文件顺序，避免启发式聚合顺序漂移。
  */
 // 详尽的中文注释：声明步骤类可见性为 internal，收紧本模块内部可见，彻底防止由于对外暴露 internal 音频实体类型而报的类型泄漏错误
+
+@UnstableApi
 internal class MetadataResolveStep(
     private val context: Context,
-    private val metadataExtractor: MetadataExtractor = MetadataExtractor(context)
+    private val MetadataResolver: MetadataResolver = MetadataResolver(context)
 ) : ImportStep<ManifestParsedResult, ResolvedMetadataDrafts> {
 
     override val stepName: String = "MetadataResolveStep"
@@ -60,7 +63,9 @@ internal class MetadataResolveStep(
         // 4. 对每一个散落音频并发提取 ID3 元数据；mapWithBoundedConcurrency 会保持输入顺序，claim 和聚合仍由后续步骤串行裁决。
         val resolvedList = looseAudios.mapWithBoundedConcurrency { audio ->
             // 为每一次改动添加详尽的中文注释：散落音频元数据提取通过 VFS 文件引用打开，不再把扫描期文件转换成 URI 入口。
-            AudioMetadataRef(audio, metadataExtractor.extract(audio))
+            // 详尽的中文注释：散落音频导入阶段显式请求“元数据+内嵌封面”，让 MP4 covr 随 AudioMetadataRef 传到后续封面缓存写入点。
+            val extracted = MetadataResolver.extractWithEmbeddedCover(audio)
+            AudioMetadataRef(audio, extracted.metadata, extracted.embeddedCover)
         }
 
         StepResult.Success(ResolvedMetadataDrafts(

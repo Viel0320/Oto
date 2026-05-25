@@ -20,7 +20,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 /**
  * 负责应用设置的持久化管理，基于 Jetpack DataStore。
  */
-class AppSettingsRepository private constructor(private val context: Context) {
+class AppSettingsRepository private constructor(private val dataStore: DataStore<Preferences>) {
 
     private object PreferencesKeys {
         val HOME_FILTER = stringPreferencesKey("home_filter")
@@ -54,7 +54,7 @@ class AppSettingsRepository private constructor(private val context: Context) {
     /**
      * 获取实时设置流。
      */
-    val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { preferences ->
+    val settingsFlow: Flow<AppSettings> = dataStore.data.map { preferences ->
         AppSettings(
             homeFilter = preferences[PreferencesKeys.HOME_FILTER] ?: "NotStarted",
             isGlobalSpeedEnabled = preferences[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] ?: false,
@@ -89,74 +89,74 @@ class AppSettingsRepository private constructor(private val context: Context) {
         )
     }
     suspend fun updateHomeFilter(filter: String) {
-        context.dataStore.edit { it[PreferencesKeys.HOME_FILTER] = filter }
+        dataStore.edit { it[PreferencesKeys.HOME_FILTER] = filter }
     }
 
     suspend fun updateGlobalSpeedEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] = enabled }
+        dataStore.edit { it[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] = enabled }
     }
 
     suspend fun updateGlobalPlaybackSpeed(speed: Float) {
-        context.dataStore.edit { it[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] = speed }
+        dataStore.edit { it[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] = speed }
     }
 
     suspend fun updateChapterProgressMode(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] = enabled }
+        dataStore.edit { it[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] = enabled }
     }
 
     // 详尽的中文注释：提供外部调用修改明文流量持久化设置的接口函数。
     suspend fun updateCleartextTrafficAllowed(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] = enabled }
+        dataStore.edit { it[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] = enabled }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改自动跳过静音开关持久化配置的接口函数
     suspend fun updateSkipSilenceEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] = enabled }
+        dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] = enabled }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改自动跳过静音判定最小时长阈值持久化配置的接口函数
     suspend fun updateSkipSilenceDurationThreshold(duration: Float) {
-        context.dataStore.edit { it[PreferencesKeys.SKIP_SILENCE_DURATION_THRESHOLD] = duration }
+        dataStore.edit { it[PreferencesKeys.SKIP_SILENCE_DURATION_THRESHOLD] = duration }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改自动跳过静音提示温馨通知开关持久化配置的接口函数
     suspend fun updateSkipSilenceNotificationEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_NOTIFICATION_ENABLED] = enabled }
+        dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_NOTIFICATION_ENABLED] = enabled }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改睡眠定时器音量渐隐配置的接口函数
     suspend fun updateSleepFadeOutEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] = enabled }
+        dataStore.edit { it[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] = enabled }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改摇晃重置睡眠定时器配置的接口函数，由 SettingsViewModel 调用实现持久化写操作。
     suspend fun updateShakeToResetEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] = enabled }
+        dataStore.edit { it[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] = enabled }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改睡眠模式的持久化接口，由 SettingsViewModel 调用并实现持久化写操作。
     suspend fun updateSleepMode(mode: SleepMode) {
-        context.dataStore.edit { it[PreferencesKeys.SLEEP_MODE] = mode.name }
+        dataStore.edit { it[PreferencesKeys.SLEEP_MODE] = mode.name }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改悬浮层玻璃效果模式的持久化接口，由设置页切换 Material/miuix-blur 时调用。
     suspend fun updateGlassEffectMode(mode: GlassEffectMode) {
-        context.dataStore.edit { it[PreferencesKeys.GLASS_EFFECT_MODE] = mode.name }
+        dataStore.edit { it[PreferencesKeys.GLASS_EFFECT_MODE] = mode.name }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改自动回退播放进度秒数（0-30s）持久化配置的接口函数，由 ViewModel 调用并写入 DataStore。
     suspend fun updateAutoRewindSeconds(seconds: Int) {
-        context.dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = seconds }
+        dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = seconds }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改上次播放是否为非正常中断持久化配置的接口函数，用来在播放器开始/暂停以及冷启动自愈时写入。
     suspend fun updateLastPlaybackInterrupted(interrupted: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] = interrupted }
+        dataStore.edit { it[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] = interrupted }
     }
 
     // 为每一次改动添加详尽的中文注释：提供修改是否启用通知避让机制持久化配置的接口函数，由 SettingsViewModel 异步调用并落盘写入 DataStore。
     suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] = enabled }
+        dataStore.edit { it[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] = enabled }
     }
 
     companion object {
@@ -165,7 +165,7 @@ class AppSettingsRepository private constructor(private val context: Context) {
 
         fun getInstance(context: Context): AppSettingsRepository {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: AppSettingsRepository(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: AppSettingsRepository(context.applicationContext.dataStore).also { INSTANCE = it }
             }
         }
     }

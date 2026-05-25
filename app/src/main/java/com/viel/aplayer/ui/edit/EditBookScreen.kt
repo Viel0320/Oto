@@ -67,6 +67,7 @@ import com.viel.aplayer.ui.theme.APlayerTheme
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.library.vfs.VfsExternalInputReader
 import com.viel.aplayer.ui.common.PlayerCover
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.drawBackdrop
@@ -648,16 +649,18 @@ private fun cropToSquareAndSave(
     inputUri: android.net.Uri,
     outputFile: java.io.File
 ): Boolean {
+    // 为每一次改动添加详尽的中文注释：编辑页只通过 VFS 外部输入读取器打开用户选择的封面 Uri，不直接访问 ContentResolver 文件流。
+    val externalInputReader = VfsExternalInputReader(context)
     var inputStream: java.io.InputStream? = null
     try {
-        inputStream = context.contentResolver.openInputStream(inputUri) ?: return false
+        inputStream = externalInputReader.openInputStream(inputUri) ?: return false
         // 1. 先通过 inJustDecodeBounds 获取图片原始宽和高以计算采样率，防御性防范高分辨率大图导致内存溢出 (OOM)
         val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
         android.graphics.BitmapFactory.decodeStream(inputStream, null, options)
         inputStream.close()
 
         // 2. 重新开启输入流，以便真正将 Bitmap 数据载入堆内存
-        inputStream = context.contentResolver.openInputStream(inputUri) ?: return false
+        inputStream = externalInputReader.openInputStream(inputUri) ?: return false
         val maxDim = maxOf(options.outWidth, options.outHeight)
         val decodeOptions = android.graphics.BitmapFactory.Options()
         // 若图片极度庞大（宽或高大于 2000 像素），则采用二次采样以安全无险地载入内存

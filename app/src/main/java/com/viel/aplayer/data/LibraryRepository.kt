@@ -21,11 +21,13 @@ import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.data.store.SearchHistoryStore
 import com.viel.aplayer.library.DetailAvailabilityChecker
 import com.viel.aplayer.library.availability.AvailabilityChecker
+import com.viel.aplayer.library.sourceProvider.LibrarySourceKind
+import com.viel.aplayer.library.sourceProvider.webdav.WebDavCredentialStore
 import com.viel.aplayer.media.BookPlaybackPlan
 import com.viel.aplayer.media.PlaybackReachabilityManager
 import com.viel.aplayer.media.PositionMapper
-import com.viel.aplayer.media.SubtitleFileResolver
-import com.viel.aplayer.media.parse.CoverRecoveryHelper
+import com.viel.aplayer.media.subtitle.SubtitleFileResolver
+import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.ui.player.components.SubtitleLine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -34,6 +36,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
@@ -57,11 +61,15 @@ class LibraryRepository private constructor(context: Context) {
         Log.e("LibraryRepository", "Unhandled coroutine exception in LibraryRepository", exception)
     }
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
+    // 详尽的中文注释：扫描任务提升到 Repository 单例的应用级队列，并用互斥锁串行执行，页面切换不会取消正在进行的导入。
+    private val scanMutex = Mutex()
     private val availabilityChecker = DetailAvailabilityChecker(this.context)
     private val fileAvailabilityChecker = AvailabilityChecker(this.context)
     private val rootStore = com.viel.aplayer.library.LibraryRootStore(this.context)
-    private val coverExtractor = com.viel.aplayer.media.parse.CoverExtractor(this.context)
-    private val metadataExtractor = com.viel.aplayer.media.parse.MetadataExtractor(this.context)
+    // 为每一次改动添加详尽的中文注释：Repository 负责删除 root 时清理 WebDAV 凭据引用，避免 UI 层接触凭据存储。
+    private val webDavCredentialStore = WebDavCredentialStore(this.context)
+    private val coverExtractor = com.viel.aplayer.media.parser.CoverExtractor(this.context)
+    private val MetadataResolver = com.viel.aplayer.media.parser.MetadataResolver(this.context)
 
     // 详尽的中文注释：实例化三个全新的、低耦合的子功能组件。
     // SubtitleFileResolver 负责字幕文件的路径检索与流式解析；
@@ -121,6 +129,64 @@ class LibraryRepository private constructor(context: Context) {
         rootStore.addRoot(uri, "My Library")
     }
 
+    suspend fun addWebDavLibraryRoot(
+        url: String,
+        username: String,
+        password: String,
+        displayName: String,
+        basePath: String
+    ): LibraryRootEntity = withContext(Dispatchers.IO) {
+        // 为每一次改动添加详尽的中文注释：WebDAV 根目录新增走 LibraryRootStore，Repository 只负责对外提供应用层入口。
+        rootStore.addWebDavRoot(
+            url = url,
+            username = username,
+            password = password,
+            displayName = displayName,
+            basePath = basePath
+        )
+    }
+
+    fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String = "USER") {
+        // 详尽的中文注释：SAF 授权、root 入库和随后的扫描作为一个应用级后台任务执行，避免选择目录后切页取消后续扫描。
+        scope.launch {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                setLibraryRoot(uri)
+                syncLibrary(trigger)
+            }.onFailure { error ->
+                Log.e("LibraryRepository", "Failed to add SAF library root and schedule sync: ${uri.hashCode().toString(16)}", error)
+            }
+        }
+    }
+
+    fun addWebDavLibraryRootAndScheduleSync(
+        url: String,
+        username: String,
+        password: String,
+        displayName: String,
+        basePath: String,
+        trigger: String = "USER"
+    ) {
+        // 详尽的中文注释：WebDAV root 写入和扫描调度同样交给应用级后台队列，设置页关闭不会中断远程库扫描。
+        scope.launch {
+            runCatching {
+                addWebDavLibraryRoot(
+                    url = url,
+                    username = username,
+                    password = password,
+                    displayName = displayName,
+                    basePath = basePath
+                )
+                syncLibrary(trigger)
+            }.onFailure { error ->
+                Log.e("LibraryRepository", "Failed to add WebDAV library root and schedule sync", error)
+            }
+        }
+    }
+
     suspend fun refreshLibraryRootStatuses() = withContext(Dispatchers.IO) {
         // Startup/settings entry use this to reflect revoked or restored SAF permissions in the UI.
         rootStore.refreshPermissionStatuses()
@@ -136,7 +202,12 @@ class LibraryRepository private constructor(context: Context) {
     /**
      * Sync the entire library: scan folder and add new files.
      */
-    suspend fun syncLibrary(trigger: String = "USER") = withContext(Dispatchers.IO) {
+    suspend fun syncLibrary(trigger: String = "USER") = scanMutex.withLock {
+        // 详尽的中文注释：无论调用来自 WorkManager、冷启动还是设置页，实际扫描都串行进入同一个应用级临界区，避免并发扫描互相清空 pending 状态。
+        runSyncLibrary(trigger)
+    }
+
+    private suspend fun runSyncLibrary(trigger: String = "USER") = withContext(Dispatchers.IO) {
         // 中文注释：旧版 SharedPreferences 单根目录迁移入口已移除，同步只依赖当前 library_roots 表中的标准件来源。
         rootStore.refreshPermissionStatuses()
 
@@ -152,6 +223,11 @@ class LibraryRepository private constructor(context: Context) {
             triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
         ).rescan(type)
         Log.i("LibraryRepository", "Sync finished. New: ${session.discoveredBookCount}, Pending: ${session.pendingActionCount}")
+    }
+
+    fun scheduleLibrarySync(trigger: String = "USER") {
+        // 为每一次改动添加详尽的中文注释：所有 UI 只负责发起扫描请求，实际执行交给 Repository 应用级后台 scope，避免页面切换取消长扫描。
+        scope.launch { syncLibrary(trigger) }
     }
 
 
@@ -493,7 +569,7 @@ class LibraryRepository private constructor(context: Context) {
             // 1. 提取主要音频文件的物理元数据
             val primaryFile = files.firstOrNull { it.status == AudiobookSchema.FileStatus.READY } ?: files.first()
             // 为每一次改动添加详尽的中文注释：强制重建元数据通过 BookFileEntity 的 VFS 路径读取，不再恢复旧 uri 字段。
-            val metadata = metadataExtractor.extract(primaryFile)
+            val metadata = MetadataResolver.extract(primaryFile)
 
             // 2. 将全新提取出来的有声书基本元数据和年份字段覆盖更新回 Room 数据库中
             bookDao.updateMetadata(
@@ -605,15 +681,23 @@ class LibraryRepository private constructor(context: Context) {
             Log.e("LibraryRepository", "Failed to clear cover cache during library root deletion", e)
         }
 
-        // 释放 SAF 持久化授权
-        try {
-            val uri = Uri.parse(root.sourceUri)
-            context.contentResolver.releasePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        } catch (e: Exception) {
-            Log.e("LibraryRepository", "Failed to release persistable permission for ${root.sourceUri}", e)
+        when (LibrarySourceKind.from(root.sourceType)) {
+            LibrarySourceKind.SAF -> {
+                // 为每一次改动添加详尽的中文注释：只有 SAF root 需要释放系统持久化授权，远程 root 不再误走 ContentResolver。
+                try {
+                    val uri = Uri.parse(root.sourceUri)
+                    context.contentResolver.releasePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (e: Exception) {
+                    Log.e("LibraryRepository", "Failed to release persistable permission for ${root.sourceUri}", e)
+                }
+            }
+            LibrarySourceKind.WEBDAV -> {
+                // 为每一次改动添加详尽的中文注释：删除 WebDAV root 时同步清理 credentialId 指向的本地凭据，不触碰任何远端文件。
+                webDavCredentialStore.delete(root.credentialId)
+            }
         }
 
         // 从 Room 中删除（CASCADE 外键会自动清理 books/book_files）

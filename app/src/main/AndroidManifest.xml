@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 为每一次改动添加详尽的中文注释：WebDAV 远程标准件需要访问局域网/互联网 HTTP 服务以列目录、读元数据和播放流。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- 详尽的中文注释：声明震动权限，当睡眠定时器即将归零且用户轻轻摇晃手机成功触发重置倒计时时，为听众提供轻微的物理震动触觉反馈，以提供卓越的夜间盲操体验。 -->
     <uses-permission android:name="android.permission.VIBRATE" />
 

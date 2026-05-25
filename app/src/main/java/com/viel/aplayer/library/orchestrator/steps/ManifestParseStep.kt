@@ -79,7 +79,7 @@ internal class ManifestParseStep(private val context: Context) : ImportStep<File
             m3u8Drafts.add(ParsedM3u8Draft(
                 sourceFile = m3u8,
                 result = result,
-                resolvedAudioKeys = resolved.map { it.first.uri to it.second }.toMap(),
+                resolvedAudioKeys = resolved.associate { it.first.uri to it.second },
                 missingCount = missingCount
             ))
         }

@@ -14,7 +14,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
-import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.extractor.ts.AdtsExtractor
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
@@ -25,22 +24,22 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
+import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.media.NotificationProgressPlayer
+import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.media.VfsPlaybackDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
-import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryRepository
-import com.viel.aplayer.data.entity.BookFileEntity
-import com.viel.aplayer.media.NotificationProgressPlayer
-import com.viel.aplayer.media.PositionMapper
-import com.viel.aplayer.media.SubtitleFileResolver
-import com.viel.aplayer.media.VfsPlaybackDataSource
+import kotlinx.coroutines.launch
 
+@UnstableApi
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     // 通知栏使用独立 session，避免通知显示进度反向污染 App/UI controller。
@@ -138,7 +137,7 @@ class PlaybackService : MediaSessionService() {
                 context: android.content.Context,
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean
-            ): androidx.media3.exoplayer.audio.AudioSink? {
+            ): androidx.media3.exoplayer.audio.AudioSink {
                 // 为每一次改动添加详尽的中文注释：
                 // 1. 创建用于调节播放倍速的 SonicAudioProcessor。使用正确的 common.audio 包路径。
                 // 必须在 AudioSink 中显式组合传入它，否则变速功能将彻底瘫痪。
@@ -313,8 +312,8 @@ class PlaybackService : MediaSessionService() {
                                     // 重构为向所有已建立连接的 MediaController 广播发送自定义 Session 命令 EVENT_SKIP_SILENCE，
                                     // 使用 broadcastCustomCommand 接口，将控制权和展现形式完全交回前台 Composable 宿主层，确保单向数据流与 MVI 架构设计规范的闭环。
                                     mediaSession?.broadcastCustomCommand(
-                                        androidx.media3.session.SessionCommand("EVENT_SKIP_SILENCE", android.os.Bundle.EMPTY),
-                                        android.os.Bundle.EMPTY
+                                        SessionCommand("EVENT_SKIP_SILENCE", Bundle.EMPTY),
+                                        Bundle.EMPTY
                                     )
                                 }
                             }
@@ -598,11 +597,11 @@ class PlaybackService : MediaSessionService() {
                 val durationField = processor.javaClass.getDeclaredField("minimumSilenceDurationUs")
                 durationField.isAccessible = true
                 durationField.setLong(processor, newDurationUs)
-                android.util.Log.d("PlaybackService", "Successfully hot-updated minimumSilenceDurationUs to $newDurationUs Us")
-            } catch (e: NoSuchFieldException) {
-                android.util.Log.w("PlaybackService", "Field minimumSilenceDurationUs not found in SilenceSkippingAudioProcessor")
+                Log.d("PlaybackService", "Successfully hot-updated minimumSilenceDurationUs to $newDurationUs Us")
+            } catch (_: NoSuchFieldException) {
+                Log.w("PlaybackService", "Field minimumSilenceDurationUs not found in SilenceSkippingAudioProcessor")
             } catch (e: Exception) {
-                android.util.Log.e("PlaybackService", "Failed to write minimumSilenceDurationUs: ${e.message}")
+                Log.e("PlaybackService", "Failed to write minimumSilenceDurationUs: ${e.message}")
             }
             
             // 2. 反射读取 BaseAudioProcessor（父类）中的 inputAudioFormat，以便获取当前真实工作采样率
@@ -613,10 +612,10 @@ class PlaybackService : MediaSessionService() {
                     val formatField = superclass.getDeclaredField("inputAudioFormat")
                     formatField.isAccessible = true
                     audioFormat = formatField.get(processor)
-                } catch (e: NoSuchFieldException) {
-                    android.util.Log.w("PlaybackService", "Field inputAudioFormat not found in BaseAudioProcessor")
+                } catch (_: NoSuchFieldException) {
+                    Log.w("PlaybackService", "Field inputAudioFormat not found in BaseAudioProcessor")
                 } catch (e: Exception) {
-                    android.util.Log.e("PlaybackService", "Failed to read inputAudioFormat: ${e.message}")
+                    Log.e("PlaybackService", "Failed to read inputAudioFormat: ${e.message}")
                 }
             }
             
@@ -629,17 +628,17 @@ class PlaybackService : MediaSessionService() {
                     val sampleRateField = audioFormat.javaClass.getDeclaredField("sampleRate")
                     sampleRateField.isAccessible = true
                     sampleRate = sampleRateField.getInt(audioFormat)
-                } catch (e: NoSuchFieldException) {
-                    android.util.Log.w("PlaybackService", "Field sampleRate not found in AudioFormat")
+                } catch (_: NoSuchFieldException) {
+                    Log.w("PlaybackService", "Field sampleRate not found in AudioFormat")
                 } catch (e: Exception) {
-                    android.util.Log.e("PlaybackService", "Failed to read sampleRate: ${e.message}")
+                    Log.e("PlaybackService", "Failed to read sampleRate: ${e.message}")
                 }
                 
                 try {
                     val bytesPerFrameField = audioFormat.javaClass.getDeclaredField("bytesPerFrame")
                     bytesPerFrameField.isAccessible = true
                     bytesPerFrame = bytesPerFrameField.getInt(audioFormat)
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     // 字段不存在时采用默认值 4，不抛出异常
                 }
                 
@@ -652,11 +651,11 @@ class PlaybackService : MediaSessionService() {
                         val framesField = processor.javaClass.getDeclaredField("minimumSilenceFrames")
                         framesField.isAccessible = true
                         framesField.setInt(processor, newSilenceFrames)
-                        android.util.Log.d("PlaybackService", "Successfully hot-updated minimumSilenceFrames to $newSilenceFrames")
-                    } catch (e: NoSuchFieldException) {
+                        Log.d("PlaybackService", "Successfully hot-updated minimumSilenceFrames to $newSilenceFrames")
+                    } catch (_: NoSuchFieldException) {
                         // 静默忽略：当前 Media3 版本不包含 minimumSilenceFrames 字段
                     } catch (e: Exception) {
-                        android.util.Log.e("PlaybackService", "Failed to write minimumSilenceFrames: ${e.message}")
+                        Log.e("PlaybackService", "Failed to write minimumSilenceFrames: ${e.message}")
                     }
                     
                     // 6. 尝试重新计算并写入 maybeSilenceBufferSize 字段值（当前 Media3 版本内存判定容量的核心）
@@ -666,18 +665,18 @@ class PlaybackService : MediaSessionService() {
                             val bufferSizeField = processor.javaClass.getDeclaredField("maybeSilenceBufferSize")
                             bufferSizeField.isAccessible = true
                             bufferSizeField.setInt(processor, newBufferSize)
-                            android.util.Log.d("PlaybackService", "Successfully hot-updated maybeSilenceBufferSize to $newBufferSize")
-                        } catch (e: NoSuchFieldException) {
+                            Log.d("PlaybackService", "Successfully hot-updated maybeSilenceBufferSize to $newBufferSize")
+                        } catch (_: NoSuchFieldException) {
                             // 静默忽略：当前 Media3 版本不包含 maybeSilenceBufferSize 字段
                         } catch (e: Exception) {
-                            android.util.Log.e("PlaybackService", "Failed to write maybeSilenceBufferSize: ${e.message}")
+                            Log.e("PlaybackService", "Failed to write maybeSilenceBufferSize: ${e.message}")
                         }
                     }
                 }
             }
         } catch (e: Exception) {
             // 用最外层 try-catch 兜底强力保护，确保即便反射发生灾难性未知异常，也绝不会让 App 崩溃，确保了极致的系统稳定性
-            android.util.Log.e("PlaybackService", "Failed to hot-update silence processor duration: ${e.message}", e)
+            Log.e("PlaybackService", "Failed to hot-update silence processor duration: ${e.message}", e)
         }
     }
 
@@ -685,6 +684,7 @@ class PlaybackService : MediaSessionService() {
     // 通过极致鲁棒的反射查找逻辑，在 DefaultAudioSink 创建出来后，对其自身所有字段及包含的子对象（例如处理器链、处理器数组）进行广度优先式的类型扫描，
     // 自动寻找并提取其中类型为 SilenceSkippingAudioProcessor 且真正工作的内部实例，完美赋给 customSilenceProcessor。
     // 这消除了通过显式 API 注入带来的 Unresolved reference 编译兼容风险，同时完整保留了官方 Skip Silence 的完美逻辑控制与实时 Toast 监听。
+    @OptIn(UnstableApi::class)
     private fun findSilenceProcessorFromSink(sink: androidx.media3.exoplayer.audio.AudioSink?) {
         if (sink == null) return
         try {
@@ -696,7 +696,7 @@ class PlaybackService : MediaSessionService() {
                     val processor = field.get(sink) as? androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
                     if (processor != null) {
                         customSilenceProcessor = processor
-                        android.util.Log.d("PlaybackService", "Successfully extracted internal SilenceSkippingAudioProcessor from sink directly: ${field.name}")
+                        Log.d("PlaybackService", "Successfully extracted internal SilenceSkippingAudioProcessor from sink directly: ${field.name}")
                         return
                     }
                 }
@@ -715,7 +715,7 @@ class PlaybackService : MediaSessionService() {
                     for (element in obj) {
                         if (element is androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor) {
                             customSilenceProcessor = element
-                            android.util.Log.d("PlaybackService", "Successfully extracted internal SilenceSkippingAudioProcessor from array field: ${field.name}")
+                            Log.d("PlaybackService", "Successfully extracted internal SilenceSkippingAudioProcessor from array field: ${field.name}")
                             return
                         }
                     }
@@ -729,22 +729,22 @@ class PlaybackService : MediaSessionService() {
                         val processor = subField.get(obj) as? androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
                         if (processor != null) {
                             customSilenceProcessor = processor
-                            android.util.Log.d("PlaybackService", "Successfully extracted internal SilenceSkippingAudioProcessor from sub-object ${field.name} -> ${subField.name}")
+                            Log.d("PlaybackService", "Successfully extracted internal SilenceSkippingAudioProcessor from sub-object ${field.name} -> ${subField.name}")
                             return
                         }
                     }
                 }
             }
-            android.util.Log.w("PlaybackService", "No internal SilenceSkippingAudioProcessor found in AudioSink via reflection scan.")
+            Log.w("PlaybackService", "No internal SilenceSkippingAudioProcessor found in AudioSink via reflection scan.")
         } catch (e: Exception) {
-            android.util.Log.e("PlaybackService", "Failed to extract internal SilenceSkippingAudioProcessor: ${e.message}", e)
+            Log.e("PlaybackService", "Failed to extract internal SilenceSkippingAudioProcessor: ${e.message}", e)
         }
     }
 
     // 为每一次改动添加详尽的中文注释：
     // 使用现代 Android 8.0+ 的 AudioFocusRequest 物理请求机制申请全局音频焦点，彻底废除对老旧过时 API 的冗余兼容，保持代码精简健壮。
     private fun requestMyAudioFocus(): Boolean {
-        val audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return false
+        val audioManager = getSystemService(AUDIO_SERVICE) as? android.media.AudioManager ?: return false
         val request = audioFocusRequest ?: android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
             .setAudioAttributes(
                 android.media.AudioAttributes.Builder()
@@ -761,7 +761,7 @@ class PlaybackService : MediaSessionService() {
     // 为每一次改动添加详尽的中文注释：
     // 使用现代 Android 8.0+ 的 abandonAudioFocusRequest 物理请求机制放弃并释放已持有的音频焦点，剔除冗余的老旧 API 兼容路径。
     private fun abandonMyAudioFocus() {
-        val audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+        val audioManager = getSystemService(AUDIO_SERVICE) as? android.media.AudioManager ?: return
         audioFocusRequest?.let {
             audioManager.abandonAudioFocusRequest(it)
             audioFocusRequest = null

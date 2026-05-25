@@ -110,6 +110,8 @@ dependencies {
     // WorkManager & DocumentFile
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.documentfile)
+    // 为每一次改动添加详尽的中文注释：WebDAV 标准件使用 OkHttp 统一执行 PROPFIND、GET 和 Range 流式读取。
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

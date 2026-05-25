@@ -1,6 +1,5 @@
 package com.viel.aplayer.library.manifest
 
-import android.net.Uri
 import java.net.URLDecoder
 
 /**
@@ -23,17 +22,4 @@ object ManifestResolver {
         } catch (e: Exception) {
             manifestEntryPath
         }
-
-    /**
-     * 获取相对于根目录的路径。
-     */
-    fun getDisplayPath(rootUri: Uri, fileUri: Uri): String {
-        val rootPath = rootUri.path ?: ""
-        val filePath = fileUri.path ?: ""
-        return if (filePath.startsWith(rootPath)) {
-            filePath.substring(rootPath.length).removePrefix("/")
-        } else {
-            fileUri.lastPathSegment ?: ""
-        }
-    }
 }

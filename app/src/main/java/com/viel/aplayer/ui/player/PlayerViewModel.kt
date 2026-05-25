@@ -25,15 +25,12 @@ import kotlinx.coroutines.flow.first
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryRepository
-import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookmarkEntity
 import kotlinx.coroutines.flow.update
-import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.media.PlaybackManager
-import com.viel.aplayer.media.parse.ImageProcessor
+import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.bookmarks.BookmarkManager
-import com.viel.aplayer.ui.player.components.SubtitleLine
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 

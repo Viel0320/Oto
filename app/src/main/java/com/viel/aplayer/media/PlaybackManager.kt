@@ -18,6 +18,7 @@ import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.media.service.PlaybackService
+import com.viel.aplayer.media.subtitle.SubtitleParser
 import com.viel.aplayer.ui.player.components.SubtitleLine
 import com.viel.aplayer.widget.PlayerWidgetProvider
 
@@ -244,7 +245,7 @@ class PlaybackManager private constructor(context: Context) {
                         try {
                             // 详尽的中文注释：使用标准 Java 的 Charset.forName 动态指定 UTF-8 编码，彻底物理规避 Kotlin 特定包下扩展函数在部分编译环境下 unresolved 的致命缺陷
                             val stream = java.io.ByteArrayInputStream(lyricsText.toByteArray(java.nio.charset.Charset.forName("UTF-8")))
-                            val parsed = com.viel.aplayer.media.parse.SubtitleParser.parse(stream, "lrc")
+                            val parsed = SubtitleParser.parse(stream, "lrc")
                             if (parsed.isNotEmpty()) {
                                 subs.addAll(parsed)
                             }

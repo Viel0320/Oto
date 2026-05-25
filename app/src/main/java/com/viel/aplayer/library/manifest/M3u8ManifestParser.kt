@@ -5,6 +5,8 @@ import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
 import com.viel.aplayer.library.MetadataSuggestion
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * M3U8/M3U 播放列表解析器。
@@ -32,7 +34,9 @@ object M3u8ManifestParser {
         try {
             // 为每一次改动添加详尽的中文注释：M3U8 解析器只依赖 VFS 流工厂，避免清单解析层重新接触来源原生文件对象。
             val inputStream = openStream() ?: return M3u8Result(MetadataSuggestion(), emptyList())
-            val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
+            val reader = BufferedReader(withContext(Dispatchers.IO) {
+                InputStreamReader(inputStream, "UTF-8")
+            })
 
             var currentTitle: String? = null
             var currentDurationMs: Long? = null

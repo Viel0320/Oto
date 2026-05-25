@@ -1,6 +1,8 @@
 package com.viel.aplayer.library
 
 import android.content.Context
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.viel.aplayer.library.orchestrator.ImportContext
@@ -17,7 +19,8 @@ import com.viel.aplayer.library.orchestrator.steps.ManifestParsedResult
 import com.viel.aplayer.library.orchestrator.steps.ManifestParseStep
 import com.viel.aplayer.library.orchestrator.steps.MetadataResolveStep
 import com.viel.aplayer.library.orchestrator.steps.ResolvedMetadataDrafts
-import com.viel.aplayer.media.parse.MetadataExtractor
+import com.viel.aplayer.media.parser.CoverExtractor
+import com.viel.aplayer.media.parser.MetadataResolver
 import java.util.UUID
 
 /**
@@ -30,15 +33,19 @@ import java.util.UUID
  * 本类现在仅作为对外的向下兼容网关，负责将原有的 run 方法桥接并有序调用新的流水线步骤，
  * 既保证了 RescanCoordinator 不受影响，又彻底实现了物理结构的解耦！
  */
-class ImportOrchestrator(
+@OptIn(UnstableApi::class)
+class ImportOrchestrator
+    (
     private val context: Context,
-    metadataExtractor: MetadataExtractor = MetadataExtractor(context)
+    MetadataResolver: MetadataResolver = MetadataResolver(context)
 ) {
     // 实例化拆分出的具体工位步骤，实现单一职责
     private val manifestParseStep = ManifestParseStep(context)
-    private val metadataResolveStep = MetadataResolveStep(context, metadataExtractor)
+    private val metadataResolveStep = MetadataResolveStep(context, MetadataResolver)
     private val heuristicGroupStep = HeuristicGroupStep()
-    private val conflictClaimStep = ConflictClaimStep(context, metadataExtractor)
+    private val conflictClaimStep = ConflictClaimStep(context, MetadataResolver)
+    // 详尽的中文注释：导入阶段只把元数据流已经读到的封面字节写入缓存，不重新打开音频做封面解析。
+    private val coverExtractor = CoverExtractor(context)
 
     suspend fun run(
         scanId: String,
@@ -93,7 +100,8 @@ class ImportOrchestrator(
             }
         }
 
-        // 5. 执行工位四：导入阶段不再同步解码封面，只生成带 bookId 的空封面载体；真正封面交给入库后的 CoverRecoveryHelper 异步重建。
+        // 5. 执行工位四：导入阶段不再重新解码音频封面，只复用元数据阶段预读的 covr；缺失时仍交给 CoverRecoveryHelper 异步重建。
+        // 详尽的中文注释：封面阶段仍不重新解析音频，只把元数据阶段预读到的 covr 写入缓存；没有预读封面的书继续走原恢复路径。
         val coverExtractedResult = ImportTimingLogger.measure(
             scopeId = timingScopeId,
             stage = "orchestrator.coverDefer",
@@ -152,6 +160,7 @@ class ImportOrchestrator(
             }
         }
 
+        // 详尽的中文注释：目录音频子批次同样只消费 AudioMetadataRef 中的预读封面，避免刚解析完元数据又二次读取 MP4。
         val coverExtractedResult = ImportTimingLogger.measure(
             scopeId = timingScopeId,
             stage = "orchestrator.coverDefer",
@@ -176,8 +185,8 @@ class ImportOrchestrator(
     private fun FileInventory.timingCountDetail(): String =
         "cue=${cueFiles.size} m3u8=${m3u8Files.size} audio=${audioFiles.size} imageParents=${imageFilesByParent.size}"
 
-    // 详尽的中文注释：延迟封面模式仍复用原 CoverExtractedResult 数据结构，只把 coverResult 置空，让 ConflictClaimStep 可以不改草稿组装逻辑直接生成可入库书籍。
-    private fun GroupedBookDrafts.toDeferredCoverResult(inventory: FileInventory): CoverExtractedResult {
+    // 详尽的中文注释：封面载体仍复用 CoverExtractedResult；这里只绑定预读封面，绑定不到时保持 null 让原恢复路径兜底。
+    private suspend fun GroupedBookDrafts.toDeferredCoverResult(inventory: FileInventory): CoverExtractedResult {
         // 为每一次改动添加详尽的中文注释：manifest 解析结果按 VFS 文件键回查扫描音频，彻底切掉旧 URI 关联方式。
         val audioByVfsKey = inventory.audioFiles.associateBy { it.vfsKey }
         return CoverExtractedResult(
@@ -192,13 +201,33 @@ class ImportOrchestrator(
                 CoverExtractedM3u8(UUID.randomUUID().toString(), m3u8Draft, audioRefs, coverResult = null)
             },
             aggregatedBooks = aggregatedPlans.map { plan ->
-                // 详尽的中文注释：启发式聚合书籍先以空封面入库，后续由 CoverRecoveryHelper 根据 BookFile 重新从首个音频或同目录 sidecar 生成缓存。
-                CoverExtractedAggregated(UUID.randomUUID().toString(), plan, coverResult = null)
+                // 详尽的中文注释：启发式聚合书籍先尝试写入预读封面，失败才以空封面入库并等待恢复流程补齐。
+                val bookId = UUID.randomUUID().toString()
+                // 详尽的中文注释：聚合书优先采用章节音频在元数据阶段已经读出的第一张 covr，失败时仍让 CoverRecoveryHelper 异步兜底。
+                val coverResult = savePreReadEmbeddedCover(plan.chapters.map { it.audio })
+                CoverExtractedAggregated(bookId, plan, coverResult)
             },
             singleBooks = singleAudios.map { audioRef ->
-                // 详尽的中文注释：单音频书籍先以空封面入库，避免每批导入被 MediaMetadataRetriever 封面解码阻塞。
-                CoverExtractedSingle(UUID.randomUUID().toString(), audioRef, coverResult = null)
+                // 详尽的中文注释：单音频书籍不再二次打开文件取封面，只消费元数据阶段已经带出的 covr。
+                val bookId = UUID.randomUUID().toString()
+                // 详尽的中文注释：单文件书直接复用该音频的预读 covr；若没有封面则保持 null，原封面恢复路径不变。
+                val coverResult = savePreReadEmbeddedCover(listOf(audioRef))
+                CoverExtractedSingle(bookId, audioRef, coverResult)
             }
         )
     }
+
+    private suspend fun savePreReadEmbeddedCover(audioRefs: List<AudioMetadataRef>): CoverExtractor.CoverResult? {
+        // 详尽的中文注释：只消费 AudioMetadataRef 中已经随元数据带出的封面字节，不在这里重新通过 VFS 打开音频文件。
+        for (audioRef in audioRefs) {
+            val cover = audioRef.embeddedCover ?: continue
+            val result = coverExtractor.saveEmbeddedImage("${audioRef.file.vfsKey}:covr", cover.bytes)
+            if (result.hasImage()) return result
+        }
+        return null
+    }
+
+    private fun CoverExtractor.CoverResult.hasImage(): Boolean =
+        // 详尽的中文注释：封面缓存只要原图或缩略图任一路径写入成功，就可阻止后续恢复流程做重复工作。
+        originalPath != null || thumbnailPath != null
 }

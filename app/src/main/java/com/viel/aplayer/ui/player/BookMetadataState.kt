@@ -2,7 +2,7 @@ package com.viel.aplayer.ui.player
 
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
-import com.viel.aplayer.media.parse.ImageProcessor
+import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.player.components.SubtitleLine
 
 /**

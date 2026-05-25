@@ -8,13 +8,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import android.os.SystemClock
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.media.parse.ImageProcessor
+import com.viel.aplayer.media.parser.ImageProcessor
 
 /**
  * 详尽的中文注释：书籍详情页的 ViewModel。

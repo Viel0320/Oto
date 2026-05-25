@@ -1,7 +1,6 @@
 package com.viel.aplayer.media
 
 import android.content.Context
-import android.util.Log
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -16,7 +15,7 @@ import kotlinx.coroutines.delay
  * 本组件从原 LibraryRepository 中彻底解耦，消除复杂的物理降级与查找重算算法给主体数据存取类带来的复杂性耦合。
  */
 class PlaybackReachabilityManager(
-    private val context: Context,
+    context: Context,
     private val bookDao: BookDao,
     private val libraryRootDao: LibraryRootDao
 ) {

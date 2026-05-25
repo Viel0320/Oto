@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -16,7 +15,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
-import com.viel.aplayer.media.parse.MetadataExtractor
+import com.viel.aplayer.media.parser.MetadataResolver
 
 enum class RescanType {
     COLD_START_LIGHT,
@@ -48,7 +47,7 @@ class RescanCoordinator(
     private val importer = BookImporter(context)
     private val missingRecoveryChecker = MissingBookFileRecoveryChecker(context)
     // 详尽的中文注释：目录剩余音频需要先读取元数据来识别“自带章节”的可提前入库音频，避免整个大目录被启发式批处理阻塞。
-    private val metadataExtractor = MetadataExtractor(context)
+    private val MetadataResolver = MetadataResolver(context)
 
     suspend fun rescan(type: RescanType, rootId: String? = null): ScanSessionEntity = withContext(Dispatchers.IO) {
         val scanId = UUID.randomUUID().toString()
@@ -224,7 +223,9 @@ class RescanCoordinator(
                     async {
                         metadataSemaphore.withPermit {
                             // 为每一次改动添加详尽的中文注释：目录音频元数据读取走 VFS FileRef 入口，不再依赖扫描期 provider URI。
-                            AudioMetadataRef(audio, metadataExtractor.extract(audio))
+                            // 详尽的中文注释：目录音频子批次也复用“元数据+封面”结果，避免后续刚入库又触发一次 MP4 covr Range 读取。
+                            val extracted = MetadataResolver.extractWithEmbeddedCover(audio)
+                            AudioMetadataRef(audio, extracted.metadata, extracted.embeddedCover)
                         }
                     }
                 }

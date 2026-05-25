@@ -1,12 +1,14 @@
-package com.viel.aplayer.library.source
+package com.viel.aplayer.library.sourceProvider
 
 import android.content.Context
-import android.net.Uri
 import android.os.ParcelFileDescriptor
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.library.sourceProvider.webdav.WebDavSourceProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.EOFException
 import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
@@ -69,11 +71,17 @@ interface LibrarySourceProvider {
         val stream = openInputStream(file) ?: return null
         var remaining = offset
         while (remaining > 0L) {
-            val skipped = stream.skip(remaining)
+            val skipped = withContext(Dispatchers.IO) {
+                stream.skip(remaining)
+            }
             if (skipped > 0L) {
                 remaining -= skipped
-            } else if (stream.read() == -1) {
-                stream.close()
+            } else if (withContext(Dispatchers.IO) {
+                    stream.read()
+                } == -1) {
+                withContext(Dispatchers.IO) {
+                    stream.close()
+                }
                 throw EOFException("VFS offset is out of range: ${file.metadata.sourcePath}")
             } else {
                 remaining--
@@ -137,22 +145,22 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     }
 
     override suspend fun openInputStream(file: SourceNode): InputStream? =
-        runCatching { context.contentResolver.openInputStream(Uri.parse(file.metadata.uri)) }.getOrNull()
+        runCatching { context.contentResolver.openInputStream(file.metadata.uri.toUri()) }.getOrNull()
 
     override suspend fun openInputStream(file: SourceNode, offset: Long): InputStream? {
         // 为每一次改动添加详尽的中文注释：SAF 本地 MP4/M4B 元数据帧解析需要随机小片段读取，这里用可 seek 的 FD 定位 offset，而不是让 retriever 扫完整文件。
         if (offset <= 0L) return openInputStream(file)
-        val pfd = runCatching { context.contentResolver.openFileDescriptor(Uri.parse(file.metadata.uri), "r") }.getOrNull()
+        val pfd = runCatching { context.contentResolver.openFileDescriptor(file.metadata.uri.toUri(), "r") }.getOrNull()
             ?: return null
         val input = FileInputStream(pfd.fileDescriptor)
         return try {
-            input.channel.position(offset)
+            withContext(Dispatchers.IO) {
+                input.channel.position(offset)
+            }
             object : FilterInputStream(input) {
                 override fun close() {
-                    try {
+                    pfd.use { pfd ->
                         super.close()
-                    } finally {
-                        pfd.close()
                     }
                 }
             }
@@ -170,7 +178,7 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     }
 
     override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? =
-        runCatching { context.contentResolver.openFileDescriptor(Uri.parse(file.metadata.uri), "r") }.getOrNull()
+        runCatching { context.contentResolver.openFileDescriptor(file.metadata.uri.toUri(), "r") }.getOrNull()
 
     override suspend fun exists(node: SourceNode): Boolean =
         (node.providerHandle as? DocumentFile)?.exists() == true

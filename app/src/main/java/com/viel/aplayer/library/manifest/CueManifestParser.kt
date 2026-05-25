@@ -203,10 +203,10 @@ object CueManifestParser {
         while (i < length) {
             val c = buffer[i].toInt() and 0xFF
             if (c < 0x80) { i++; continue }
-            val n = when {
-                c in 0xC2..0xDF -> 1
-                c in 0xE0..0xEF -> 2
-                c in 0xF0..0xF4 -> 3
+            val n = when (c) {
+                in 0xC2..0xDF -> 1
+                in 0xE0..0xEF -> 2
+                in 0xF0..0xF4 -> 3
                 else -> return false
             }
             if (i + n >= length) break

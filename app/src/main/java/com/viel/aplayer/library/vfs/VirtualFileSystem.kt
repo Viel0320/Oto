@@ -2,10 +2,10 @@ package com.viel.aplayer.library.vfs
 
 import android.os.ParcelFileDescriptor
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.library.source.LibrarySourceProvider
-import com.viel.aplayer.library.source.LibrarySourceProviderFactory
-import com.viel.aplayer.library.source.SourceFileMetadata
-import com.viel.aplayer.library.source.SourceNode
+import com.viel.aplayer.library.sourceProvider.LibrarySourceProvider
+import com.viel.aplayer.library.sourceProvider.LibrarySourceProviderFactory
+import com.viel.aplayer.library.sourceProvider.SourceFileMetadata
+import com.viel.aplayer.library.sourceProvider.SourceNode
 import java.io.InputStream
 
 // 为每一次改动添加详尽的中文注释：VfsPath 是跨协议路径的统一外壳；SAF 和 WebDAV 都通过它描述来源内路径。
@@ -69,6 +69,22 @@ class VirtualFileSystem(
 
     suspend fun openInputStream(root: LibraryRootEntity, path: VfsPath): InputStream? =
         resolve(root, path)?.let { openInputStream(it) }
+
+    // 为每一次改动添加详尽的中文注释：播放器随机定位通过 VFS offset API 进入 Provider，远程来源可直接转成 Range 请求。
+    suspend fun openInputStream(file: VfsNode, offset: Long): InputStream? =
+        providerFor(file).openInputStream(file.sourceNode, offset)
+
+    // 为每一次改动添加详尽的中文注释：按 root/path 打开的 offset 流保持与普通流一致的寻址方式，不让播放层感知来源类型。
+    suspend fun openInputStream(root: LibraryRootEntity, path: VfsPath, offset: Long): InputStream? =
+        resolve(root, path)?.let { openInputStream(it, offset) }
+
+    suspend fun readRange(file: VfsNode, offset: Long, length: Int): ByteArray? =
+        // 为每一次改动添加详尽的中文注释：元数据帧解析必须把 length 传到 Provider，WebDAV 才能发 bytes=start-end 而不是 start-。
+        providerFor(file).readRange(file.sourceNode, offset, length)
+
+    suspend fun readRange(root: LibraryRootEntity, path: VfsPath, offset: Long, length: Int): ByteArray? =
+        // 为每一次改动添加详尽的中文注释：按 root/path 做有界小片段读取，避免元数据读取复用播放器的开口 offset 流。
+        resolve(root, path)?.let { readRange(it, offset, length) }
 
     suspend fun openFileDescriptor(file: VfsNode): ParcelFileDescriptor? =
         providerFor(file).openFileDescriptor(file.sourceNode)

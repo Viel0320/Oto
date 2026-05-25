@@ -2,6 +2,8 @@ package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
 import android.util.Log
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import java.io.BufferedInputStream
 import java.nio.charset.Charset
 import java.util.UUID
@@ -31,8 +33,9 @@ import com.viel.aplayer.library.orchestrator.StepResult
 import com.viel.aplayer.library.vfs.VfsFileReader
 import com.viel.aplayer.library.vfs.VfsNode
 import com.viel.aplayer.media.AudiobookMetadata
-import com.viel.aplayer.media.parse.CoverExtractor
-import com.viel.aplayer.media.parse.MetadataExtractor
+import com.viel.aplayer.media.parser.CoverExtractor
+import com.viel.aplayer.media.parser.MetadataResolver
+import com.viel.aplayer.media.parser.Mp4MetadataFrameReader
 
 // 详尽的中文注释：修复 ChapterCandidate 与 MetadataSuggestion 的包名导入错误，以正确找到在 com.viel.aplayer.library 下定义的类型
 
@@ -47,9 +50,10 @@ import com.viel.aplayer.media.parse.MetadataExtractor
  * 并打包返回底盘所需的 ImportRunResult 实例，无缝适配 BookImporter 和 RescanCoordinator。
  */
 // 详尽的中文注释：将类可见性声明为 internal，收紧其在本模块内的使用范围，防止由于引用其他 internal 类型而报 public 泄漏错误
+@OptIn(UnstableApi::class)
 internal class ConflictClaimStep(
     private val context: Context,
-    private val metadataExtractor: MetadataExtractor = MetadataExtractor(context)
+    private val MetadataResolver: MetadataResolver = MetadataResolver(context)
 ) : ImportStep<CoverExtractedResult, ImportRunResult> {
 
     override val stepName: String = "ConflictClaimStep"
@@ -225,10 +229,13 @@ internal class ConflictClaimStep(
             if (reservation.reserved) {
                 // 详尽的中文注释：如果首个音频的 metadata 中的 description 为空，则采用增强匹配与模糊兜底机制读取该文件夹下的 txt 文件作为简介
                 val firstAudioMeta = firstChapter.metadata
-                val description = if (firstAudioMeta.description.isBlank()) {
-                    readTxtDescription(fileReader, firstChapter.file, baseName = null, strictSameNameOnly = false) ?: ""
-                } else {
-                    firstAudioMeta.description
+                val description = firstAudioMeta.description.ifBlank {
+                    readTxtDescription(
+                        fileReader,
+                        firstChapter.file,
+                        baseName = null,
+                        strictSameNameOnly = false
+                    ) ?: ""
                 }
 
                 val draft = buildGeneratedDraft(aggBook.bookId, source, aggBook.plan, description, aggBook.coverResult)
@@ -594,19 +601,25 @@ internal class ConflictClaimStep(
             source = source
         )
 
+    @OptIn(UnstableApi::class)
     private suspend fun readDuration(file: FileRef, inventory: FileInventory): Long =
         // 为每一次改动添加详尽的中文注释：清单音频补时长复用 VFS 元数据入口，不再把 FileRef 还原成 provider URI。
         runCatching {
-            val reader = VfsFileReader(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
-            reader.openFileDescriptor(file)?.use { pfd ->
-                val retriever = android.media.MediaMetadataRetriever()
-                try {
-                    retriever.setDataSource(pfd.fileDescriptor)
-                    retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-                } finally {
-                    retriever.release()
-                }
-            } ?: 0L
+            // 为每一次改动添加详尽的中文注释：补时长优先走 MetadataResolver 的 MP4/M4B Range 元数据帧解析，避免 WebDAV 清单音频回落到整文件 FD。
+            val metadataDuration = MetadataResolver.extract(file).durationMs
+            if (Mp4MetadataFrameReader.supports(file.displayName)) {
+                // 为每一次改动添加详尽的中文注释：MP4 家族补时长不再使用 FD/retriever 后备，避免本地 m4b 因清单兜底路径扫描整文件。
+                return@runCatching metadataDuration
+            }
+            metadataDuration.takeIf { it > 0L }?.let { return@runCatching it }
+            /*
+                // 详尽的中文注释：局部代理只为了平滑去掉 VfsFileReader 的兼容 helper；
+                // 实际时长仍然直接回到 MetadataResolver，再由各格式 parser 内部自行做范围读取。
+                suspend fun readAudioDuration(target: FileRef): Long = MetadataResolver.extract(target).durationMs
+            }
+            // 为每一次改动添加详尽的中文注释：清单补时长只向 VFS 请求 duration 结果，不再在冲突认领层持有 FD 或 retriever。
+            reader.readAudioDuration(file)
+            */ metadataDuration
         }.getOrDefault(0L)
 
     private fun nextChapterOffset(chapters: List<ChapterCandidate>, index: Int): Long? {
@@ -619,11 +632,12 @@ internal class ConflictClaimStep(
             .ifBlank { metadata.title.trim() }
             .ifBlank { displayName.substringBeforeLast('.') }
 
+    @OptIn(UnstableApi::class)
     private suspend fun firstManifestAudioMetadata(audioRefs: List<FileRef>): ManifestAudioMetadata? {
         val firstAudio = audioRefs.firstOrNull() ?: return null
         return runCatching {
             // 为每一次改动添加详尽的中文注释：manifest 兜底元数据从首个音频的 VFS 路径读取，避免 URI 旁路。
-            ManifestAudioMetadata(firstAudio, metadataExtractor.extract(firstAudio))
+            ManifestAudioMetadata(firstAudio, MetadataResolver.extract(firstAudio))
         }.onFailure { error ->
             Log.w(TAG, "Failed to read manifest fallback metadata: ${firstAudio.vfsDisplayId()}", error)
         }.getOrNull()
@@ -705,7 +719,7 @@ internal class ConflictClaimStep(
         return runCatching {
             readTextFile(fileReader, txtFile)
         }.onFailure { error ->
-            Log.w(TAG, "Failed to read txt description ($matchedBy): ${txtFile.metadata.uri}", error)
+            Log.w(TAG, "Failed to read txt description ($matchedBy): ${txtFile.vfsLogId()}", error)
         }.getOrNull()?.trim()?.takeIf { it.isNotBlank() }?.also { description ->
             Log.i(TAG, "Loaded txt description ($matchedBy): txt=${txtFile.metadata.displayName.logValue()}, chars=${description.length}")
         }
@@ -728,7 +742,7 @@ internal class ConflictClaimStep(
             }
         } ?: return ""
         if (isTruncated) {
-            Log.i(TAG, "Manifest txt description reached ${MAX_DESCRIPTION_BYTES}B read limit: ${file.metadata.uri}")
+            Log.i(TAG, "Manifest txt description reached ${MAX_DESCRIPTION_BYTES}B read limit: ${file.vfsLogId()}")
         }
         val utf8Text = bytes.decodeUtf8PossiblyTruncated()
         val decoded = when {
@@ -740,7 +754,7 @@ internal class ConflictClaimStep(
 
         // 详尽的中文注释：截断判定联动：如果已经发生物理截断，或者解码后的字符总数超过了 MAX_DESCRIPTION_CHARS 上限，均视为发生截断
         val finalIsTruncated = isTruncated || decoded.length > MAX_DESCRIPTION_CHARS
-        val baseDescription = decoded.limitDescriptionChars(file.metadata.uri)
+        val baseDescription = decoded.limitDescriptionChars(file.vfsLogId())
 
         // 详尽的中文注释：如果在物理或逻辑层级发生了截断，则在保留前 500 字符的段尾部分拼接上英文省略号 "..."
         return if (finalIsTruncated) {
@@ -787,10 +801,10 @@ internal class ConflictClaimStep(
                 index++
                 continue
             }
-            val continuationCount = when {
-                byte in 0xC2..0xDF -> 1
-                byte in 0xE0..0xEF -> 2
-                byte in 0xF0..0xF4 -> 3
+            val continuationCount = when (byte) {
+                in 0xC2..0xDF -> 1
+                in 0xE0..0xEF -> 2
+                in 0xF0..0xF4 -> 3
                 else -> return false
             }
             if (index + continuationCount >= size) return false
@@ -826,6 +840,10 @@ internal class ConflictClaimStep(
     private fun FileRef.vfsDisplayId(): String =
         // 为每一次改动添加详尽的中文注释：用户可见/日志来源标识使用 rootId/sourcePath，避免继续输出 provider URI。
         "vfs://$rootId/$sourcePath"
+
+    private fun VfsNode.vfsLogId(): String =
+        // 为每一次改动添加详尽的中文注释：VFS 节点日志只暴露标准 rootId/path，不再把 provider 原生地址泄漏到业务层。
+        "vfs://${root.id}/${path.value}"
 
     private fun BookFileEntity.vfsKey(): String =
         // 为每一次改动添加详尽的中文注释：入库后的章节映射也用 rootId/sourcePath 还原同一个 VFS 文件键。

@@ -1,7 +1,8 @@
-package com.viel.aplayer.media.parse
+package com.viel.aplayer.media.parser
 
 import android.content.Context
 import android.util.Log
+import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -25,6 +26,7 @@ import kotlinx.coroutines.sync.withPermit
  * 2. 按优先级尝试“内嵌封面 -> sidecar 图片 -> 其他音频内嵌封面”
  * 3. 把 parser 产出的封面字节落到本地缓存并回写数据库
  */
+@UnstableApi
 class CoverRecoveryHelper(
     private val context: Context,
     private val bookDao: BookDao,

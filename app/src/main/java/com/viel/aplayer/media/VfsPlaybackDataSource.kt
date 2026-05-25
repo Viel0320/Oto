@@ -13,7 +13,6 @@ import androidx.media3.datasource.DataSpec
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.library.vfs.VfsFileReader
 import kotlinx.coroutines.runBlocking
-import java.io.EOFException
 import java.io.IOException
 import java.io.InputStream
 import kotlin.math.min
@@ -37,16 +36,13 @@ class VfsPlaybackDataSource private constructor(
         transferInitializing(dataSpec)
         val file = runBlocking { database.bookDao().getBookFileById(bookFileId) }
             ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
-        val stream = runBlocking { fileReader.open(file) }
-            ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
-
-        try {
-            // 为每一次改动添加详尽的中文注释：Media3 的随机 seek 仍然通过 VFS 流完成，先跳过请求起点，后续 WebDAV 可在同一接口下替换为 Range 读。
-            skipFully(stream, dataSpec.position)
+        // 为每一次改动添加详尽的中文注释：播放层只传 offset 给 VFS，SAF 由默认 skip 处理，WebDAV 由 Provider 转成 Range 请求。
+        val stream = try {
+            runBlocking { fileReader.open(file, dataSpec.position) }
         } catch (e: IOException) {
-            stream.closeQuietly()
+            // 为每一次改动添加详尽的中文注释：Provider offset 打开失败统一映射成 Media3 可理解的读位置错误，避免远程异常穿透播放器。
             throw DataSourceException(e, PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
-        }
+        } ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
 
         inputStream = stream
         openedUri = dataSpec.uri
@@ -98,20 +94,6 @@ class VfsPlaybackDataSource private constructor(
             if (opened) {
                 opened = false
                 transferEnded()
-            }
-        }
-    }
-
-    private fun skipFully(stream: InputStream, bytes: Long) {
-        var remaining = bytes
-        while (remaining > 0L) {
-            val skipped = stream.skip(remaining)
-            if (skipped > 0L) {
-                remaining -= skipped
-            } else if (stream.read() == -1) {
-                throw EOFException("VFS playback seek position is out of range")
-            } else {
-                remaining--
             }
         }
     }

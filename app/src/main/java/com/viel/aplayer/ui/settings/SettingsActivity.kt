@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
 // 为每一次改动添加详尽的中文注释：导入运行时系统安全区 Insets 与 PaddingValues，以支持设置页面横竖屏下的自适应刘海与系统栏避让
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
@@ -36,6 +37,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.FolderOpen
@@ -47,6 +49,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -66,11 +69,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.R
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -159,6 +165,10 @@ class SettingsActivity : ComponentActivity() {
                                 // 直接通过 SettingsViewModel 添加媒体库根目录，与其共享同一套 SAF 授权流程。
                                 // 彻底剥离对 LibraryViewModel 的依赖，防止进入设置页时重新创建该 ViewModel 而导致重复触发其 init 块中的 COLD_START 冷启动同步。
                                 onLibraryRootSelected = { uri -> settingsViewModel.onLibraryRootSelected(uri) },
+                                // 为每一次改动添加详尽的中文注释：WebDAV 入口同样委托给 SettingsViewModel，保持设置页独立管理媒体库来源。
+                                onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
+                                    settingsViewModel.onWebDavRootSubmitted(url, username, password, displayName, basePath)
+                                },
 
                                 onClearHistory = { settingsViewModel.clearSearchHistory() },
                                 onRescan = { settingsViewModel.triggerRescan() },
@@ -219,6 +229,8 @@ class SettingsActivity : ComponentActivity() {
 fun SettingsScreen(
     onBack: () -> Unit,
     onLibraryRootSelected: (Uri) -> Unit,
+    // 为每一次改动添加详尽的中文注释：WebDAV 表单提交回调只传标准连接字段，UI 不直接写数据库或凭据存储。
+    onWebDavRootSubmitted: (url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
     onClearHistory: () -> Unit,
     onRescan: () -> Unit,
     libraryRoots: List<LibraryRootEntity>,
@@ -276,6 +288,13 @@ fun SettingsScreen(
 
     // 详尽的中文注释：定义用于记录用户即将触发删除动作的媒体库目录 State 变量，用来拉起强提醒的 AlertDialog 二次确认弹窗。
     var rootToDelete by remember { mutableStateOf<LibraryRootEntity?>(null) }
+    // 为每一次改动添加详尽的中文注释：WebDAV 添加弹窗状态留在 SettingsScreen 内部，提交后再交给 ViewModel 执行持久化与扫描。
+    var showWebDavDialog by remember { mutableStateOf(false) }
+    var webDavUrl by remember { mutableStateOf("") }
+    var webDavUsername by remember { mutableStateOf("") }
+    var webDavPassword by remember { mutableStateOf("") }
+    var webDavDisplayName by remember { mutableStateOf("") }
+    var webDavBasePath by remember { mutableStateOf("") }
 
     val context = LocalContext.current
 
@@ -293,6 +312,33 @@ fun SettingsScreen(
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     val settingsStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val settingsEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
+
+    if (showWebDavDialog) {
+        // 为每一次改动添加详尽的中文注释：WebDAV 弹窗只采集连接信息，真实鉴权在 Provider 首次可用性检测和扫描时完成。
+        WebDavRootDialog(
+            url = webDavUrl,
+            username = webDavUsername,
+            password = webDavPassword,
+            displayName = webDavDisplayName,
+            basePath = webDavBasePath,
+            onUrlChange = { webDavUrl = it },
+            onUsernameChange = { webDavUsername = it },
+            onPasswordChange = { webDavPassword = it },
+            onDisplayNameChange = { webDavDisplayName = it },
+            onBasePathChange = { webDavBasePath = it },
+            onDismiss = { showWebDavDialog = false },
+            onConfirm = {
+                onWebDavRootSubmitted(
+                    webDavUrl.trim(),
+                    webDavUsername.trim(),
+                    webDavPassword,
+                    webDavDisplayName.trim(),
+                    webDavBasePath.trim()
+                )
+                showWebDavDialog = false
+            }
+        )
+    }
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -350,15 +396,36 @@ fun SettingsScreen(
                     onClick = { launcher.launch(null) }
                 )
             }
+            item {
+                // 为每一次改动添加详尽的中文注释：新增 WebDAV 来源入口，与本地 SAF 入口并列，后续 SMB/S3 可沿用相同设置项模式扩展。
+                SettingsItem(
+                    title = "添加 WebDAV 媒体库",
+                    subtitle = "连接远程 WebDAV 目录",
+                    icon = Icons.Rounded.Cloud,
+                    onClick = { showWebDavDialog = true }
+                )
+            }
 
             // 为每一次改动添加详尽的中文注释：添加模式 key，使用通用 sourceUri 作为唯一标识，避免 UI 继续依赖旧库根字段。
             // 防止列表刷新时 item 状态错位复用导致 UI 错乱。
             items(libraryRoots.size, key = { libraryRoots[it].sourceUri }) { index ->
                 val root = libraryRoots[index]
-                val decodedPath = try {
-                    Uri.decode(root.sourceUri).substringAfterLast(":")
-                } catch (_: Exception) {
-                    root.sourceUri
+                val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
+                val rootTitle = if (isWebDavRoot) {
+                    root.displayName.ifBlank { "${root.sourceUri}${root.basePath}" }
+                } else {
+                    // 为每一次改动添加详尽的中文注释：本地 SAF root 继续显示用户可理解的末级目录名，不暴露完整 tree URI。
+                    try {
+                        Uri.decode(root.sourceUri).substringAfterLast(":")
+                    } catch (_: Exception) {
+                        root.sourceUri
+                    }
+                }
+                val rootSubtitle = if (isWebDavRoot) {
+                    // 为每一次改动添加详尽的中文注释：WebDAV root 显示远程端点与可用性状态，避免用户把网络失败误认为 SAF 授权撤销。
+                    "WebDAV: ${root.sourceUri}${root.basePath} · 可用性: ${root.availabilityStatus}"
+                } else {
+                    "状态: ${root.status}"
                 }
                 
                 // 详尽的中文注释：重构媒体库卡片单行，右侧渲染删除图标。
@@ -370,16 +437,16 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.FolderOpen,
+                        imageVector = if (isWebDavRoot) Icons.Rounded.Cloud else Icons.Rounded.FolderOpen,
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = decodedPath, style = MaterialTheme.typography.titleMedium)
+                        Text(text = rootTitle, style = MaterialTheme.typography.titleMedium)
                         Text(
-                            text = "状态: ${root.status}", 
+                            text = rootSubtitle,
                             style = MaterialTheme.typography.bodySmall, 
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -823,6 +890,92 @@ private fun SettingsItem(
     }
 }
 
+// 为每一次改动添加详尽的中文注释：WebDAV 添加弹窗集中维护远程连接表单，后续 SMB/S3 可按同一形态扩展独立表单。
+@Composable
+private fun WebDavRootDialog(
+    url: String,
+    username: String,
+    password: String,
+    displayName: String,
+    basePath: String,
+    onUrlChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onDisplayNameChange: (String) -> Unit,
+    onBasePathChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("添加 WebDAV 媒体库") },
+        text = {
+            Column {
+                // 为每一次改动添加详尽的中文注释：URL 字段允许填写 http/https 端点；路径会在入库时规范化到 basePath。
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = onUrlChange,
+                    label = { Text("服务器 URL") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // 为每一次改动添加详尽的中文注释：显示名仅影响本地 UI 展示，不参与 WebDAV 鉴权或路径解析。
+                OutlinedTextField(
+                    value = displayName,
+                    onValueChange = onDisplayNameChange,
+                    label = { Text("显示名") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // 为每一次改动添加详尽的中文注释：basePath 独立于服务器端点保存，支持同一 WebDAV 主机挂多个书库目录。
+                OutlinedTextField(
+                    value = basePath,
+                    onValueChange = onBasePathChange,
+                    label = { Text("库内路径") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // 为每一次改动添加详尽的中文注释：用户名只提交到凭据仓库，Room 的 library_roots 表不会保存明文账号。
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = onUsernameChange,
+                    label = { Text("用户名") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // 为每一次改动添加详尽的中文注释：密码输入框使用 PasswordVisualTransformation，避免设置页明文回显凭据。
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    label = { Text("密码") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = url.isNotBlank()
+            ) {
+                Text("添加")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
 /**
  * 为每一次改动添加详尽的中文注释：
  * 设置界面预览。
@@ -834,6 +987,8 @@ fun SettingsScreenPreview() {
         SettingsScreen(
             onBack = {},
             onLibraryRootSelected = {},
+            // 为每一次改动添加详尽的中文注释：Preview 不执行 WebDAV 持久化，只验证设置页参数链路完整。
+            onWebDavRootSubmitted = { _, _, _, _, _ -> },
             onClearHistory = {},
             onRescan = {},
             libraryRoots = emptyList(),

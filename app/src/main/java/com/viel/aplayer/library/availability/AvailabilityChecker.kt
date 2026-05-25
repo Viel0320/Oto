@@ -6,8 +6,9 @@ import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.library.source.LibrarySourceKind
-import com.viel.aplayer.library.source.LibrarySourceProviderFactory
+import com.viel.aplayer.library.sourceProvider.LibrarySourceKind
+import com.viel.aplayer.library.sourceProvider.LibrarySourceProviderFactory
+import com.viel.aplayer.library.sourceProvider.webdav.WebDavException
 import com.viel.aplayer.library.vfs.VfsPath
 import com.viel.aplayer.library.vfs.VirtualFileSystem
 
@@ -30,11 +31,8 @@ class AvailabilityChecker(private val context: Context) {
     suspend fun checkRoot(root: LibraryRootEntity): AvailabilityResult =
         when (LibrarySourceKind.from(root.sourceType)) {
             LibrarySourceKind.SAF -> checkSafRoot(root)
-            LibrarySourceKind.WEBDAV -> AvailabilityResult(
-                status = AudiobookSchema.AvailabilityStatus.UNSUPPORTED,
-                errorCode = AudiobookSchema.AvailabilityStatus.UNSUPPORTED,
-                message = "WebDAV provider is not implemented in phase 1"
-            )
+            // 为每一次改动添加详尽的中文注释：WebDAV 根可用性直接走 VFS/Provider，HTTP 认证和网络错误由 Provider 映射为统一状态。
+            LibrarySourceKind.WEBDAV -> checkVfsRoot(root)
         }
 
     suspend fun checkBookFile(file: BookFileEntity): AvailabilityResult =
@@ -54,13 +52,7 @@ class AvailabilityChecker(private val context: Context) {
                     errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
                 )
             }
-        }.getOrElse { throwable ->
-            AvailabilityResult(
-                status = AudiobookSchema.AvailabilityStatus.UNKNOWN,
-                errorCode = throwable::class.java.simpleName,
-                message = throwable.localizedMessage ?: throwable.message
-            )
-        }
+        }.getOrElse { throwable -> throwable.toAvailabilityResult() }
 
     suspend fun checkBookFiles(files: List<BookFileEntity>): Map<String, AvailabilityResult> {
         // 为每一次改动添加详尽的中文注释：多文件书籍按 rootId/父目录批量检测，同一目录只枚举一次，避免几十个分轨重复 resolve SAF tree。
@@ -72,15 +64,16 @@ class AvailabilityChecker(private val context: Context) {
                 rootFiles.forEach { file -> results[file.id] = notFoundResult() }
             } else {
                 when (LibrarySourceKind.from(root.sourceType)) {
-                    LibrarySourceKind.SAF -> checkSafBookFiles(root, rootFiles, results)
-                    LibrarySourceKind.WEBDAV -> rootFiles.forEach { file -> results[file.id] = unsupportedWebDavResult() }
+                    // 为每一次改动添加详尽的中文注释：批量文件可用性检测只依赖 VFS 同目录枚举，SAF/WebDAV 共享同一套性能优化路径。
+                    LibrarySourceKind.SAF,
+                    LibrarySourceKind.WEBDAV -> checkVfsBookFiles(root, rootFiles, results)
                 }
             }
         }
         return results
     }
 
-    private suspend fun checkSafBookFiles(
+    private suspend fun checkVfsBookFiles(
         root: LibraryRootEntity,
         files: List<BookFileEntity>,
         results: MutableMap<String, AvailabilityResult>
@@ -108,15 +101,21 @@ class AvailabilityChecker(private val context: Context) {
                     }
                 }
         }.getOrElse { throwable ->
-            files.forEach { file ->
-                results[file.id] = AvailabilityResult(
-                    status = AudiobookSchema.AvailabilityStatus.UNKNOWN,
-                    errorCode = throwable::class.java.simpleName,
-                    message = throwable.localizedMessage ?: throwable.message
-                )
-            }
+            val failure = throwable.toAvailabilityResult()
+            files.forEach { file -> results[file.id] = failure }
         }
     }
+
+    private suspend fun checkVfsRoot(root: LibraryRootEntity): AvailabilityResult =
+        runCatching {
+            // 为每一次改动添加详尽的中文注释：远程根目录检测执行一次 VFS root/exists，避免业务层直接发 HTTP 探测请求。
+            val exists = vfs.root(root)?.let { vfs.exists(it) } == true
+            if (exists) {
+                AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
+            } else {
+                notFoundResult()
+            }
+        }.getOrElse { throwable -> throwable.toAvailabilityResult() }
 
     private suspend fun checkSafRoot(root: LibraryRootEntity): AvailabilityResult {
         val sourceUri = root.sourceUri.toUri()
@@ -146,10 +145,14 @@ class AvailabilityChecker(private val context: Context) {
             errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
         )
 
-    private fun unsupportedWebDavResult(): AvailabilityResult =
-        AvailabilityResult(
-            status = AudiobookSchema.AvailabilityStatus.UNSUPPORTED,
-            errorCode = AudiobookSchema.AvailabilityStatus.UNSUPPORTED,
-            message = "WebDAV provider is not implemented in phase 1"
+    private fun Throwable.toAvailabilityResult(): AvailabilityResult {
+        val webDavError = this as? WebDavException
+        val status = webDavError?.availabilityStatus ?: AudiobookSchema.AvailabilityStatus.UNKNOWN
+        // 为每一次改动添加详尽的中文注释：统一异常出口保留 Provider 映射出的 WebDAV 失败码，未知异常才降级为 UNKNOWN。
+        return AvailabilityResult(
+            status = status,
+            errorCode = webDavError?.availabilityStatus ?: this::class.java.simpleName,
+            message = localizedMessage ?: message
         )
+    }
 }

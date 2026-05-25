@@ -1,7 +1,7 @@
 package com.viel.aplayer.ui.detail
 
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.media.parse.ImageProcessor
+import com.viel.aplayer.media.parser.ImageProcessor
 
 /**
  * 书籍详情页的 UI 状态。

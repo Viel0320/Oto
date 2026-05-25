@@ -1,11 +1,14 @@
 package com.viel.aplayer.library
 
 import com.viel.aplayer.media.AudiobookMetadata
+import com.viel.aplayer.media.parser.EmbeddedCoverBytes
 
 // Audio metadata extracted during one scan; kept package-local so orchestration and heuristics share one shape.
 internal data class AudioMetadataRef(
     val file: FileRef,
-    val metadata: AudiobookMetadata
+    val metadata: AudiobookMetadata,
+    // 详尽的中文注释：导入期 MP4 元数据解析已经读到的 covr 封面随音频引用传递，后续组书可直接写缓存而不重复 Range 读取。
+    val embeddedCover: EmbeddedCoverBytes? = null
 )
 
 // Final heuristic plan consumed by ImportOrchestrator when it creates the generated audiobook draft.
