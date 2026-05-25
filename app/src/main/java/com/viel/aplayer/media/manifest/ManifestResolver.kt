@@ -1,4 +1,4 @@
-package com.viel.aplayer.library.manifest
+package com.viel.aplayer.media.manifest
 
 import java.net.URLDecoder
 

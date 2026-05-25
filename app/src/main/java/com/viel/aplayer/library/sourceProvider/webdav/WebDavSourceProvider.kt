@@ -343,7 +343,6 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
         return SourceNode(
             root = root,
             metadata = SourceFileMetadata(
-                uri = uri,
                 sourcePath = sourcePath,
                 identity = identity,
                 parentSourcePath = parentSourcePath,

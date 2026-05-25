@@ -1,9 +1,9 @@
 package com.viel.aplayer.library
 
 import android.content.Context
-import com.viel.aplayer.library.manifest.CueManifestParser
-import com.viel.aplayer.library.manifest.M3u8ManifestParser
-import com.viel.aplayer.library.manifest.ManifestResolver
+import com.viel.aplayer.media.manifest.CueManifestParser
+import com.viel.aplayer.media.manifest.M3u8ManifestParser
+import com.viel.aplayer.media.manifest.ManifestResolver
 import com.viel.aplayer.library.vfs.VfsFileReader
 import java.util.Locale
 

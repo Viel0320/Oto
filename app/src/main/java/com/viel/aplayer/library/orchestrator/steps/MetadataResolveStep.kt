@@ -22,7 +22,7 @@ import com.viel.aplayer.media.parser.MetadataResolver
 @UnstableApi
 internal class MetadataResolveStep(
     private val context: Context,
-    private val MetadataResolver: MetadataResolver = MetadataResolver(context)
+    private val metadataResolver: MetadataResolver = MetadataResolver(context)
 ) : ImportStep<ManifestParsedResult, ResolvedMetadataDrafts> {
 
     override val stepName: String = "MetadataResolveStep"
@@ -64,7 +64,7 @@ internal class MetadataResolveStep(
         val resolvedList = looseAudios.mapWithBoundedConcurrency { audio ->
             // 为每一次改动添加详尽的中文注释：散落音频元数据提取通过 VFS 文件引用打开，不再把扫描期文件转换成 URI 入口。
             // 详尽的中文注释：散落音频导入阶段显式请求“元数据+内嵌封面”，让 MP4 covr 随 AudioMetadataRef 传到后续封面缓存写入点。
-            val extracted = MetadataResolver.extractWithEmbeddedCover(audio)
+            val extracted = metadataResolver.extractWithEmbeddedCover(audio)
             AudioMetadataRef(audio, extracted.metadata, extracted.embeddedCover)
         }
 
