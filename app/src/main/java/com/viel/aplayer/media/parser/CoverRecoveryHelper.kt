@@ -74,7 +74,7 @@ class CoverRecoveryHelper(
     }
 
     suspend fun forceRegenerateCover(bookId: String): Boolean =
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        kotlinx.coroutines.withContext(Dispatchers.IO) {
             alreadyAttempted.remove(bookId)
             try {
                 regenerationSemaphore.withPermit {

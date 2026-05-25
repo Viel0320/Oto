@@ -9,13 +9,11 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.PendingScanActionEntity
-import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.library.BookDraft
 import com.viel.aplayer.library.ChapterCandidate
 import com.viel.aplayer.library.FileIdentity
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.media.manifest.HeuristicAggregationPlan
 import com.viel.aplayer.library.ImportCommand
 import com.viel.aplayer.library.ImportFailure
 import com.viel.aplayer.library.ImportRunResult
@@ -29,7 +27,8 @@ import com.viel.aplayer.library.orchestrator.StepResult
 import com.viel.aplayer.library.vfs.VfsFileReader
 import com.viel.aplayer.library.vfsFileKey
 import com.viel.aplayer.media.AudiobookMetadata
-import com.viel.aplayer.media.manifest.ManifestSidecarSupport
+import com.viel.aplayer.media.manifest.AudioMetadataRef
+import com.viel.aplayer.media.manifest.HeuristicAggregationPlan
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.MetadataResolver
 import com.viel.aplayer.media.parser.Mp4MetadataFrameReader

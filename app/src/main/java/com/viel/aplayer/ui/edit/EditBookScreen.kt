@@ -412,7 +412,7 @@ fun EditBookScreen(
                                 .fillMaxWidth()
                                 .height(48.dp),
                             shape = RoundedCornerShape(12.dp),
-                            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                            colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.primary
                             ),
                             border = androidx.compose.foundation.BorderStroke(
@@ -446,7 +446,7 @@ fun EditBookScreen(
                             // 共享底部的 detailBackdrop，底色采用半透主色 (0.12f) 并用 1.dp 精细主色边框勾勒 (0.25f)。
                             Surface(
                                 onClick = {
-                                    val finalTitle = if (title.isBlank()) "Unknown" else title
+                                    val finalTitle = title.ifBlank { "Unknown" }
                                     // 详尽的中文注释：触发保存回调，将所有被改变的元数据属性向上流转给有状态的 Overlay 容器处理
                                     onSave(
                                         finalTitle,
@@ -462,15 +462,11 @@ fun EditBookScreen(
                                     .height(56.dp)
                                     // 为每一次改动添加详尽的中文注释：在此处使用 drawBackdrop 渲染按钮的毛玻璃背景，使其与主背景高度和谐与视觉统一
                                     .then(
-                                        if (isBlur) {
-                                            Modifier.drawBackdrop(
-                                                backdrop = detailBackdrop,
-                                                shape = { RoundedCornerShape(16.dp) },
-                                                effects = { blur(20f) }
-                                            )
-                                        } else {
-                                            Modifier
-                                        }
+                                        Modifier.drawBackdrop(
+                                            backdrop = detailBackdrop,
+                                            shape = { RoundedCornerShape(16.dp) },
+                                            effects = { blur(20f) }
+                                        )
                                     ),
                                 shape = RoundedCornerShape(16.dp),
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -502,7 +498,7 @@ fun EditBookScreen(
                             // 在 Material 模式下优雅无缝回退到高能效、不带高斯模糊的 Material 3 实色 Button。
                             Button(
                                 onClick = {
-                                    val finalTitle = if (title.isBlank()) "Unknown" else title
+                                    val finalTitle = title.ifBlank { "Unknown" }
                                     // 详尽的中文注释：触发保存回调，向上派发完整的修改元数据
                                     onSave(
                                         finalTitle,
@@ -648,7 +644,7 @@ fun EditBookScreen(
 private fun cropToSquareAndSave(
     context: android.content.Context,
     inputUri: android.net.Uri,
-    outputFile: java.io.File
+    outputFile: File
 ): Boolean {
     // 为每一次改动添加详尽的中文注释：编辑页只通过 VFS 外部输入读取器打开用户选择的封面 Uri，不直接访问 ContentResolver 文件流。
     val externalInputReader = VfsExternalInputReader(context)
@@ -705,7 +701,7 @@ private fun cropToSquareAndSave(
         return true
     } catch (e: Exception) {
         android.util.Log.e("EditBookScreen", "居中裁剪正方形封面失败，原因: ", e)
-        try { inputStream?.close() } catch (ex: Exception) {}
+        try { inputStream?.close() } catch (_: Exception) {}
         return false
     }
 }
