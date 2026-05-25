@@ -440,8 +440,10 @@ class PlaybackManager private constructor(context: Context) {
                 .setTitle(plan.title)
                 .setArtist(plan.author)
                 .setAlbumTitle(plan.title)
+                // 每个分轨现在只共享同一个封面 URI，
+                // 不再把同一张封面原图字节重复挂到每个 MediaItem 上；
+                // 这样可以显著缩小 setMediaItems 前构造出的对象体积，并减少经由 MediaController 会话层传输时的复制成本。
                 .setArtworkUri(plan.artworkUri)
-                .setArtworkData(plan.artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
                 .build()
             val builder = MediaItem.Builder()
                 // mediaId 后半段改为真实 BookFileEntity.id，让字幕、进度和后续 VFS 播放都能稳定回到同一条文件记录。

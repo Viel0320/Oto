@@ -508,27 +508,22 @@ class LibraryRepository private constructor(context: Context) {
         // 若物理缓存丢失，将非阻塞地派发后台协程启动漏斗模型提取机制进行零延迟自愈。
         coverRecoveryHelper.checkAndTriggerCoverRegeneration(book)
         val files = bookDao.getFilesForBookList(bookId)
-        val chapters = chapterDao.getChaptersForBookList(bookId)
         val progress = bookDao.getProgressForBookSync(bookId)
         
         if (files.isEmpty()) return@withContext null
         
         val artworkPath = book.coverPath
-        // Cover cache paths are local files; expose them as file URIs and bytes for Media3 artwork.
+        // 播放计划在启动链路里只暴露轻量的 file:// 封面 URI，
+        // 不再同步把封面原图整文件读成 ByteArray 塞进计划对象；
+        // 这样可以直接避开一次大图磁盘读取，也能避免后续把同一张封面字节重复附着到整条多分轨播放队列里。
         val artworkUri = artworkPath?.let { Uri.fromFile(File(it)) }
-
-        val artworkData = artworkPath?.let { path ->
-            try { File(path).readBytes() } catch (e: Exception) { null }
-        }
 
         BookPlaybackPlan(
             bookId = bookId,
             title = book.title,
             author = book.author,
             artworkUri = artworkUri,
-            artworkData = artworkData,
             files = files,
-            chapters = chapters,
             // 播放计划不预解析整本书字幕；当前文件字幕由 PlayerViewModel 按需加载，避免多文件启动阻塞。
             subtitlesByFileId = emptyMap(),
             startGlobalPositionMs = progress?.globalPositionMs ?: 0L
