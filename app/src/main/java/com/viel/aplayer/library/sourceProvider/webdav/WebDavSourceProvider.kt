@@ -33,6 +33,7 @@ import org.w3c.dom.NodeList
 import org.xml.sax.InputSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.core.net.toUri
 
 // 为每一次改动添加详尽的中文注释：WebDavException 将 HTTP/网络错误先映射成统一可用性状态，避免上层解析 OkHttp 异常细节。
 class WebDavException(
@@ -359,7 +360,7 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
     }
 
     private fun sourcePathFromHref(root: LibraryRootEntity, href: String): String {
-        val decodedPath = normalizeSourcePath(Uri.parse(href).path.orEmpty())
+        val decodedPath = normalizeSourcePath(href.toUri().path.orEmpty())
         val rootPrefix = sourceRootSegments(root).joinToString("/")
         return when {
             rootPrefix.isBlank() -> decodedPath
@@ -370,7 +371,7 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
     }
 
     private fun sourceRootSegments(root: LibraryRootEntity): List<String> {
-        val sourceUriPath = normalizeSourcePath(Uri.parse(root.sourceUri).path.orEmpty())
+        val sourceUriPath = normalizeSourcePath(root.sourceUri.toUri().path.orEmpty())
         return (sourceUriPath.segments() + normalizeSourcePath(root.basePath).segments())
             .filter { it.isNotBlank() }
     }

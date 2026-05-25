@@ -9,6 +9,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -73,6 +74,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.ui.theme.APlayerTheme
+import androidx.core.net.toUri
 
 /**
  * 为每一次改动添加详尽的中文注释：
@@ -247,7 +249,7 @@ fun AboutLibrariesScreen(
                             library = library,
                             onVisitUrl = { url ->
                                 try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                                     context.startActivity(intent)
                                 } catch (_: Exception) {
                                     // 容错处理
@@ -523,7 +525,7 @@ private fun LibraryCard(
  * BorderStroke 的便捷声明封装。
  */
 @Composable
-private fun BorderStroke(width: androidx.compose.ui.unit.Dp, color: Color) =
+private fun borderStroke(width: androidx.compose.ui.unit.Dp, color: Color) =
     androidx.compose.foundation.BorderStroke(width, color)
 
 /**

@@ -27,7 +27,7 @@ internal data class ExtractedAudiobookMetadata(
  * 而是统一交给各自的范围读取 parser；MetadataResolver 只负责路由、标题兜底与乱码修正。
  */
 @UnstableApi
-class MetadataResolver(private val context: Context) {
+class MetadataResolver(context: Context) {
     // 详尽的中文注释：全局元数据提取并发仍然限制在 4，
     // 防止大批量导入时多个 parser 同时读取大文件头尾造成内存与 I/O 抖动。
     private val semaphore = kotlinx.coroutines.sync.Semaphore(4)

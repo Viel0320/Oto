@@ -41,6 +41,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -106,7 +107,7 @@ fun DetailScreen(
     val book = bookWithProgress?.book
     // 详尽中文注释：定义预测性返回手势的激活状态和手势进度值（0f 到 1f 之间）
     var isPredictiveBackActive by remember { mutableStateOf(false) }
-    var predictiveBackProgress by remember { mutableStateOf(0f) }
+    var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
     // 为每一次改动添加详尽的中文注释：控制详情页右上角 TopAppBar 折叠菜单的显示隐藏状态

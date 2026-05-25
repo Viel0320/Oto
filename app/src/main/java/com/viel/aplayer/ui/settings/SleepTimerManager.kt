@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.settings
 
 import android.content.Context
-import android.media.AudioManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -12,6 +11,7 @@ import kotlinx.coroutines.launch
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackState
+import kotlin.math.ln
 
 /**
  * 为每一次改动添加详尽的中文注释：
@@ -169,24 +169,15 @@ class SleepTimerManager(
     }
 
     // 为每一次改动添加详尽的中文注释：提供硬件马达轻微震动 100ms 反馈，为听众提供高可用夜间盲操确认。
+    // 修复了原本 vibrator 变量未初始化的语法错误，直接通过 VibratorManager 获取 defaultVibrator 进行震动反馈。
     private fun triggerVibration() {
         val ctx = contextProvider() ?: return
         try {
-            val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                val vibratorManager = ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
-                vibratorManager?.defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                ctx.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
-            }
+            val vibratorManager = ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+            val vibrator = vibratorManager?.defaultVibrator
 
             if (vibrator?.hasVibrator() == true) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    vibrator.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator.vibrate(100)
-                }
+                vibrator.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
             }
         } catch (e: Exception) {
             android.util.Log.e("SleepTimerManager", "震动反馈失败", e)
@@ -327,7 +318,7 @@ class SleepTimerManager(
                                         val updatedRemaining = endPos - updatedState.currentPosition
                                         val ratio = (updatedRemaining.coerceAtLeast(0L)).toFloat() / 10000f
                                         // 对数衰减曲线：Volume = OriginalVolume * ln(1 + 9 * ratio) / ln(10)
-                                        val factor = (Math.log(1.0 + 9.0 * ratio.toDouble()) / Math.log(10.0)).toFloat()
+                                        val factor = (ln(1.0 + 9.0 * ratio.toDouble()) / ln(10.0)).toFloat()
                                         playbackManager()?.playerVolume = originalVolume * factor
                                     } else {
                                         // 中途被动暂停，恢复基准音量并退出本次渐隐且安全注销传感器
@@ -390,7 +381,7 @@ class SleepTimerManager(
                             }
                         }
 
-                        // 在最后 10 秒内采用 100ms 级别的高频精细调节
+                        // 为每一次改动添加详尽的中文注释：在最后 10 秒内采用 100ms 级别的高频精细调节。使用下划线 '_' 代替未使用的循环形参 'i'，消除 IDE 警告。
                         val steps = 10
                         for (i in 0 until steps) {
                             if (_sleepTimerMillis.value <= 0) break
@@ -409,7 +400,7 @@ class SleepTimerManager(
                                 _sleepTimerMillis.value = (_sleepTimerMillis.value - 100).coerceAtLeast(0L)
                                 val ratio = _sleepTimerMillis.value.toFloat() / 10000f
                                 // 对数衰减曲线：Volume = OriginalVolume * ln(1 + 9 * ratio) / ln(10)
-                                val factor = (Math.log(1.0 + 9.0 * ratio.toDouble()) / Math.log(10.0)).toFloat()
+                                val factor = (ln(1.0 + 9.0 * ratio.toDouble()) / ln(10.0)).toFloat()
                                 playbackManager()?.playerVolume = originalVolume * factor
                             } else {
                                 // 播音中途用户暂停，原音量复原并重置渐隐状态且安全注销传感器

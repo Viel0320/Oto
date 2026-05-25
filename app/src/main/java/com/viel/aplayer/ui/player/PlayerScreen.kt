@@ -64,6 +64,7 @@ import kotlin.math.roundToInt
 import com.viel.aplayer.ui.player.layouts.PlayerPortrait
 import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
 import com.viel.aplayer.ui.player.layouts.PlayerTablet
+import androidx.core.graphics.toColorInt
 
 enum class PlayerScreenMode(val index: Int) {
     PLAYER(-1),
@@ -96,7 +97,7 @@ fun PlayerScreen(
             coverPath = null,
             thumbnailPath = null,
             coverLastUpdated = 0L,
-            backgroundColorArgb = android.graphics.Color.parseColor("#FF1E293B"), // 深色灰蓝色背景
+            backgroundColorArgb = "#FF1E293B".toColorInt(), // 深色灰蓝色背景
             chapters = listOf(
                 com.viel.aplayer.data.entity.ChapterEntity("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, "EMBEDDED"),
                 com.viel.aplayer.data.entity.ChapterEntity("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, "EMBEDDED")

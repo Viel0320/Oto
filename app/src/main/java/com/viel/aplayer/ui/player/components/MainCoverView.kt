@@ -38,11 +38,10 @@ import java.io.File
  */
 @Composable
 fun MainCoverView(
+    modifier: Modifier = Modifier,
     coverPath: String?,
     isPlaying: Boolean,
-    coverLastUpdated: Long = 0L,
-    // 详尽中文注释：新增 modifier 参数，允许外部调用者（如 PlayerScreen）注入封面手势监听器与自定义样式
-    modifier: Modifier = Modifier
+    coverLastUpdated: Long = 0L
 ) {
     // 详尽中文注释：播放时封面等比缩放至 1.0，暂停时缩至 0.95，配合 300ms 动画营造呼吸感
     val coverScale by animateFloatAsState(

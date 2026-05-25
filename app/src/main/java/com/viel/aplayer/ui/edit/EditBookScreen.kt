@@ -77,6 +77,7 @@ import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import java.io.File
+import androidx.core.graphics.scale
 
 /**
  * 为每一次改动添加详尽的中文注释：
@@ -145,7 +146,7 @@ fun EditBookScreen(
 
     // 详尽的中文注释：定义预测性返回手势在书籍编辑页的激活状态与百分比进度，用以驱动视觉过渡动画
     var isPredictiveBackActive by remember { mutableStateOf(false) }
-    var predictiveBackProgress by remember { mutableStateOf(0f) }
+    var predictiveBackProgress by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
 
     // 为每一次改动添加详尽的中文注释：拦截并接管系统预测性返回手势，收集返回进度以渲染平移动画，点击返回时物理删除临时文件并优雅退出
     androidx.activity.compose.PredictiveBackHandler(enabled = book != null) { progressFlow ->
@@ -682,7 +683,7 @@ private fun cropToSquareAndSave(
         // 4. 将正方形裁剪图等比缩放至 800x800 像素的高清紧凑分辨率，以节约磁盘存储开销并维持极致清晰度
         val targetResolution = 800
         val finalBitmap = if (size > targetResolution) {
-            android.graphics.Bitmap.createScaledBitmap(croppedBitmap, targetResolution, targetResolution, true)
+            croppedBitmap.scale(targetResolution, targetResolution)
         } else {
             croppedBitmap
         }

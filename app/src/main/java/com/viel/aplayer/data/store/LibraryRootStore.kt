@@ -11,6 +11,7 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.library.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.sourceProvider.webdav.WebDavCredentialStore
+import androidx.core.net.toUri
 
 /**
  * 负责管理媒体库授权目录的持久化存储。
@@ -62,7 +63,7 @@ class LibraryRootStore(private val context: Context) {
         displayName: String,
         basePath: String = ""
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
-        val parsed = Uri.parse(url.trim())
+        val parsed = url.trim().toUri()
         val normalizedEndpoint = normalizeWebDavEndpoint(parsed)
         val normalizedBasePath = normalizeWebDavBasePath(basePath.ifBlank { parsed.path.orEmpty() })
         val resolvedDisplayName = displayName.ifBlank {

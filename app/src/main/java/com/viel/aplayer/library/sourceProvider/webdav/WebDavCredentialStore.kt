@@ -3,6 +3,7 @@ package com.viel.aplayer.library.sourceProvider.webdav
 import android.content.Context
 import android.util.Base64
 import java.util.UUID
+import androidx.core.content.edit
 
 // 为每一次改动添加详尽的中文注释：WebDAV 凭据先用独立 SharedPreferences 持久化，LibraryRootEntity 只保存 credentialId，后续可无侵入替换为 Keystore/加密存储。
 data class WebDavCredential(
@@ -30,11 +31,11 @@ class WebDavCredentialStore(context: Context) {
             allowInsecureTls = allowInsecureTls
         )
         // 为每一次改动添加详尽的中文注释：所有字段按 credentialId 分组写入，确保同一应用内可以同时保存多个 WebDAV 连接。
-        preferences.edit()
-            .putString(key(credentialId, KEY_USERNAME), username)
-            .putString(key(credentialId, KEY_PASSWORD), encodedPassword)
-            .putBoolean(key(credentialId, KEY_ALLOW_INSECURE_TLS), allowInsecureTls)
-            .apply()
+        preferences.edit {
+            putString(key(credentialId, KEY_USERNAME), username)
+                .putString(key(credentialId, KEY_PASSWORD), encodedPassword)
+                .putBoolean(key(credentialId, KEY_ALLOW_INSECURE_TLS), allowInsecureTls)
+            }
         return credential
     }
 
@@ -57,11 +58,11 @@ class WebDavCredentialStore(context: Context) {
     fun delete(credentialId: String?) {
         if (credentialId.isNullOrBlank()) return
         // 为每一次改动添加详尽的中文注释：删除 WebDAV root 时同步清掉凭据引用，避免遗留不可见账号密码。
-        preferences.edit()
-            .remove(key(credentialId, KEY_USERNAME))
-            .remove(key(credentialId, KEY_PASSWORD))
-            .remove(key(credentialId, KEY_ALLOW_INSECURE_TLS))
-            .apply()
+        preferences.edit {
+            remove(key(credentialId, KEY_USERNAME))
+                .remove(key(credentialId, KEY_PASSWORD))
+                .remove(key(credentialId, KEY_ALLOW_INSECURE_TLS))
+        }
     }
 
     private fun key(credentialId: String, field: String): String = "$credentialId.$field"

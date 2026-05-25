@@ -108,6 +108,7 @@ fun BookmarkListViewStateful(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BookmarkListView(
+    modifier: Modifier = Modifier,
     bookmarks: List<BookmarkEntity>,
     // 详尽中文注释：来自 ViewModel 的书签对话框复合状态（M-16）
     dialogs: PlayerViewModel.BookmarkDialogsState = PlayerViewModel.BookmarkDialogsState(),
@@ -124,7 +125,6 @@ fun BookmarkListView(
     onConfirmUpdate: () -> Unit = {},
     // 详尽中文注释：关闭所有对话框 callback，委托给 ViewModel.dismissBookmarkDialogs
     onDismissDialogs: () -> Unit = {},
-    modifier: Modifier = Modifier,
     currentPosition: Long = 0L
 ) {
     // 详尽中文注释：删除确认对话框——状态来自 ViewModel，配置变更不丢失

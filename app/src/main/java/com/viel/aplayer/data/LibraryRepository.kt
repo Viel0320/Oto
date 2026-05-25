@@ -41,6 +41,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
+import androidx.core.net.toUri
 
 /**
  * Repository that wraps Room database and handles cover art caching.
@@ -685,7 +686,7 @@ class LibraryRepository private constructor(context: Context) {
             LibrarySourceKind.SAF -> {
                 // 为每一次改动添加详尽的中文注释：只有 SAF root 需要释放系统持久化授权，远程 root 不再误走 ContentResolver。
                 try {
-                    val uri = Uri.parse(root.sourceUri)
+                    val uri = root.sourceUri.toUri()
                     context.contentResolver.releasePersistableUriPermission(
                         uri,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
