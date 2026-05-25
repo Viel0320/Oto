@@ -10,7 +10,7 @@ import com.viel.aplayer.library.availability.AvailabilityChecker
 import kotlinx.coroutines.delay
 
 /**
- * 详尽 of 中文注释：专门负责播放运行期音频文件物理就绪度存在性校验、就绪降级重算、
+ * 专门负责播放运行期音频文件物理就绪度存在性校验、就绪降级重算、
  * 以及下一首就绪音频查找检索的物理可达性管理器。
  * 本组件从原 LibraryRepository 中彻底解耦，消除复杂的物理降级与查找重算算法给主体数据存取类带来的复杂性耦合。
  */
