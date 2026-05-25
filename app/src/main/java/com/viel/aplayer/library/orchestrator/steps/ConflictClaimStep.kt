@@ -12,7 +12,6 @@ import com.viel.aplayer.data.entity.PendingScanActionEntity
 import com.viel.aplayer.library.BookDraft
 import com.viel.aplayer.library.ChapterCandidate
 import com.viel.aplayer.library.FileIdentity
-import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.ImportCommand
 import com.viel.aplayer.library.ImportFailure
@@ -24,7 +23,6 @@ import com.viel.aplayer.library.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
-import com.viel.aplayer.library.vfs.VfsFileReader
 import com.viel.aplayer.library.vfsFileKey
 import com.viel.aplayer.media.AudiobookMetadata
 import com.viel.aplayer.media.manifest.AudioMetadataRef
@@ -50,7 +48,7 @@ import java.util.UUID
 @OptIn(UnstableApi::class)
 internal class ConflictClaimStep(
     private val context: Context,
-    private val MetadataResolver: MetadataResolver = MetadataResolver(context)
+    private val metadataResolver: MetadataResolver = MetadataResolver(context)
 ) : ImportStep<CoverExtractedResult, ImportRunResult> {
 
     override val stepName: String = "ConflictClaimStep"
@@ -64,20 +62,6 @@ internal class ConflictClaimStep(
         val pendingActions = mutableListOf<ImportCommand.CreatePendingAction>()
         val failures = mutableListOf<ImportCommand.RecordFailure>()
 
-        // 详尽的中文注释：FileInventory 没有无参的默认构造函数，需要使用其显式构造函数传入空数据降级
-        val inventory = context.sharedInventory ?: FileInventory(
-            emptyList(),
-            emptyList(),
-            emptyList(),
-            emptyList(),
-            emptyMap(),
-            // 为每一次改动添加详尽的中文注释：ConflictClaimStep 的空 inventory 降级场景同样补齐 txt 侧车字段，
-            // 以便后续把 manifest 简介能力下沉到 parser 后，数据模型仍保持统一。
-            emptyMap()
-        )
-        // 为每一次改动添加详尽的中文注释：当前只有启发式聚合书仍然保留目录 txt sidecar 兜底，
-        // 单音频已经明确禁止 sidecar，因此这里的 VFS reader 只服务聚合书路径。
-        val fileReader = VfsFileReader(this.context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
 
         // ==========================================
         // 1. 处理 CUE 类型的有声书草稿冲突认领决策
@@ -142,8 +126,7 @@ internal class ConflictClaimStep(
                 year = mergedMeta.year,
                 description = mergedMeta.description,
                 // 详尽的中文注释：修复形参名字拼写错误，由 coverResult 修正为函数声明的 cover
-                cover = cueBook.coverResult,
-                inventory = inventory
+                cover = cueBook.coverResult
             )
             readyImports.add(ImportCommand.CreateReadyBook(draft))
         }
@@ -208,8 +191,7 @@ internal class ConflictClaimStep(
                 year = mergedMeta.year,
                 description = mergedMeta.description,
                 // 详尽的中文注释：修复形参名字拼写错误，由 coverResult 修正为函数声明的 cover
-                cover = m3u8Book.coverResult,
-                inventory = inventory
+                cover = m3u8Book.coverResult
             )
             readyImports.add(ImportCommand.CreateReadyBook(draft))
         }
@@ -386,13 +368,12 @@ internal class ConflictClaimStep(
         narrator: String = "",
         year: String = "",
         description: String = "",
-        cover: CoverExtractor.CoverResult?,
-        inventory: FileInventory
+        cover: CoverExtractor.CoverResult?
     ): BookDraft {
         // 为每一次改动添加详尽的中文注释：manifest 已经完成 claim 预留后，再按 VFS 文件键并发读取缺失时长，不再通过 URI 定位音频。
         val durationByKey = audioFiles
             .mapWithBoundedConcurrency { file ->
-                file.vfsKey to (fileDurations[file.vfsKey] ?: readDuration(file, inventory))
+                file.vfsKey to (fileDurations[file.vfsKey] ?: readDuration(file))
             }
             .toMap()
         val audioBookFiles = audioFiles.mapIndexed { index, ref ->
@@ -595,11 +576,11 @@ internal class ConflictClaimStep(
         )
 
     @OptIn(UnstableApi::class)
-    private suspend fun readDuration(file: FileRef, inventory: FileInventory): Long =
+    private suspend fun readDuration(file: FileRef): Long =
         // 为每一次改动添加详尽的中文注释：清单音频补时长复用 VFS 元数据入口，不再把 FileRef 还原成 provider URI。
         runCatching {
             // 为每一次改动添加详尽的中文注释：补时长优先走 MetadataResolver 的 MP4/M4B Range 元数据帧解析，避免 WebDAV 清单音频回落到整文件 FD。
-            val metadataDuration = MetadataResolver.extract(file).durationMs
+            val metadataDuration = metadataResolver.extract(file).durationMs
             if (Mp4MetadataFrameReader.supports(file.displayName)) {
                 // 为每一次改动添加详尽的中文注释：MP4 家族补时长不再使用 FD/retriever 后备，避免本地 m4b 因清单兜底路径扫描整文件。
                 return@runCatching metadataDuration
@@ -630,7 +611,7 @@ internal class ConflictClaimStep(
         val firstAudio = audioRefs.firstOrNull() ?: return null
         return runCatching {
             // 为每一次改动添加详尽的中文注释：manifest 兜底元数据从首个音频的 VFS 路径读取，避免 URI 旁路。
-            ManifestAudioMetadata(firstAudio, MetadataResolver.extract(firstAudio))
+            ManifestAudioMetadata(firstAudio, metadataResolver.extract(firstAudio))
         }.onFailure { error ->
             Log.w(TAG, "Failed to read manifest fallback metadata: ${firstAudio.vfsDisplayId()}", error)
         }.getOrNull()
