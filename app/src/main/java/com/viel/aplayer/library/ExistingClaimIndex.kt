@@ -7,8 +7,7 @@ class ExistingClaimIndex private constructor(
     private val byKey: Map<String, BookFileEntity>
 ) {
     /**
-     * 为每一次改动添加详尽的中文注释：
-     * 根据物理资产身份在已入库索引中检索是否存在冲突所有权。
+         * 根据物理资产身份在已入库索引中检索是否存在冲突所有权。
      * 当传入可选的 currentParentSourcePath 时，检索将自动被限缩在同一个 VFS 文件夹（同级目录）下，
      * 只有当已占用的物理文件的父目录与当前被认领文件的父目录完全相同时，才判定为已被抢占，
      * 跨物理文件夹的同名音频不视为抢占冲突，完美实现局域化抢占。
@@ -21,7 +20,7 @@ class ExistingClaimIndex private constructor(
         val found = identity.keys().firstNotNullOfOrNull { byKey[it] } ?: return null
         if (currentParentSourcePath == null) return found
         
-        // 为每一次改动添加详尽的中文注释：从已入库 sourcePath 计算父目录，claim 冲突只在同一个 VFS 父路径内成立。
+        // 从已入库 sourcePath 计算父目录，claim 冲突只在同一个 VFS 父路径内成立。
         val foundParent = found.sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
         
         return if (foundParent.equals(currentParentSourcePath, ignoreCase = true)) {
@@ -56,7 +55,7 @@ class ExistingClaimIndex private constructor(
         fun from(files: List<BookFileEntity>): ExistingClaimIndex {
             val map = mutableMapOf<String, BookFileEntity>()
             files.forEach { file ->
-                // 为每一次改动添加详尽的中文注释：已入库文件索引只使用 rootId/sourcePath 与 sourceIdentity，不再从旧 uri 列回填 claim key。
+                // 已入库文件索引只使用 rootId/sourcePath 与 sourceIdentity，不再从旧 uri 列回填 claim key。
                 val identity = FileIdentity(file.rootId, file.sourcePath, file.sourceIdentity)
                 identity.keys().forEach { key -> map.putIfAbsent(key, file) }
             }

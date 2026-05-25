@@ -19,7 +19,7 @@ object CueManifestParser {
         val metadata: MetadataSuggestion,
         val referencedFiles: List<String>,
         val chapters: List<ChapterCandidate>,
-        // 为每一次改动添加详尽的中文注释：manifest parser 现在直接产出同目录 sidecar 结果，
+        // manifest parser 现在直接产出同目录 sidecar 结果，
         // 后续步骤不再自己去补 txt 描述或重新挑图片封面候选。
         val sidecarDescription: String? = null,
         val sidecarCoverFile: FileRef? = null
@@ -33,7 +33,7 @@ object CueManifestParser {
         openTextFile: (suspend (FileRef) -> InputStream?)? = null
     ): CueResult? {
         try {
-            // 为每一次改动添加详尽的中文注释：CUE 解析器只接收 VFS 流工厂，不再知道来源原生文件对象或 ContentResolver。
+            // CUE 解析器只接收 VFS 流工厂，不再知道来源原生文件对象或 ContentResolver。
             val charset = detectCharset(openStream)
             val inputStream = openStream() ?: return null
             val reader = BufferedReader(InputStreamReader(inputStream, charset))
@@ -131,7 +131,7 @@ object CueManifestParser {
             }
 
             val sidecarPayload = if (manifestFile != null && openTextFile != null) {
-                // 为每一次改动添加详尽的中文注释：manifest 相关的 txt 描述和 sidecover 候选选择，现在统一在 parser 内部完成，
+                // manifest 相关的 txt 描述和 sidecover 候选选择，现在统一在 parser 内部完成，
                 // 避免后续步骤再对同一目录做第二套平行规则判断。
                 ManifestSidecarSupport.resolveForManifest(
                     manifestFile = manifestFile,

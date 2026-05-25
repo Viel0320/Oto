@@ -14,7 +14,6 @@ import com.viel.aplayer.library.vfs.VfsFileReader
 /**
  * 启发式智能聚类分步类
  * 
- * 为每一次改动添加详尽的中文注释：
  * 本工位接收已提取元数据的散落音频，按照文件夹边界以及 HeuristicAudioAggregator.shouldAggregate
  * 的逻辑对其进行智能分类聚合，决定它们是汇编成一部“聚合有声书”，还是分别作为“单音频独立有声书”。
  */
@@ -30,7 +29,7 @@ internal class HeuristicGroupStep(private val appContext: Context) : ImportStep<
         val singleAudios = mutableListOf<AudioMetadataRef>()
         val inventory = context.sharedInventory
         val fileReader = inventory?.let { scopedInventory ->
-            // 为每一次改动添加详尽的中文注释：启发式 parser 也只允许经由当前 scope 的 VFS reader 打开 txt 侧车，
+            // 启发式 parser 也只允许经由当前 scope 的 VFS reader 打开 txt 侧车，
             // 不直接接触 provider 原生对象。
             VfsFileReader(
                 context = appContext.applicationContext,

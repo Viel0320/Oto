@@ -22,7 +22,7 @@ data class BookMetadataState(
     val coverPath: String? = null,
     /** 缩略图的本地路径 */
     val thumbnailPath: String? = null,
-    /** 详尽的中文注释：封面物理文件最后更新的时间戳，用以在封面物理自愈生成后强制打破 Compose 新旧状态比较拦截，强推 UI 线程重绘刷新 */
+    /** 封面物理文件最后更新的时间戳，用以在封面物理自愈生成后强制打破 Compose 新旧状态比较拦截，强推 UI 线程重绘刷新 */
     val coverLastUpdated: Long = 0L,
     /** 章节列表 */
     val chapters: List<ChapterEntity> = emptyList(),

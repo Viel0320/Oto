@@ -1,8 +1,6 @@
 package com.viel.aplayer.ui.settings
 
-import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -20,7 +18,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -31,28 +28,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -71,13 +66,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.viel.aplayer.ui.theme.APlayerTheme
 import androidx.core.net.toUri
+import com.viel.aplayer.ui.theme.APlayerTheme
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 开源库实体信息数据类，存储每个开源库的各种元数据。
  */
 data class OpenSourceLibrary(
@@ -90,7 +85,6 @@ data class OpenSourceLibrary(
 )
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 全局开源库静态数据源。
  * 整理并汇总了 APlayer 当前的核心技术栈依赖，帮助用户全方位知晓底层支撑力量。
  */
@@ -170,7 +164,6 @@ private val openSourceLibraries = listOf(
 )
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 开源许可页面核心 Composable。
  * 运用全面屏设计、渐变卡片、微交互折叠等尊贵美学。
  */
@@ -184,12 +177,12 @@ fun AboutLibrariesScreen(
     val configuration = LocalConfiguration.current
     val layoutDirection = LocalLayoutDirection.current
 
-    // 为每一次改动添加详尽的中文注释：判定大屏或横屏以适配优雅的中轴窄布局，使排版更具呼吸感
+    // 判定大屏或横屏以适配优雅的中轴窄布局，使排版更具呼吸感
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val isWideScreen = configuration.screenWidthDp >= 600
     val useWideLayout = isLandscape || isWideScreen
 
-    // 为每一次改动添加详尽的中文注释：提取当前系统的物理避让 safe insets，用于精准控制内容安全边距
+    // 提取当前系统的物理避让 safe insets，用于精准控制内容安全边距
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val startPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val endPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
@@ -206,7 +199,7 @@ fun AboutLibrariesScreen(
             Scaffold(
                 topBar = {
                     CenterAlignedTopAppBar(
-                        // 为每一次改动添加详尽的中文注释：状态栏安全区域托管，保持背景通透到顶
+                        // 状态栏安全区域托管，保持背景通透到顶
                         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
                         title = {
                             Text(
@@ -238,12 +231,12 @@ fun AboutLibrariesScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 为每一次改动添加详尽的中文注释：第一项为 APlayer 品牌标志致谢卡片，渲染出无与伦比的美感
+                    // 第一项为 APlayer 品牌标志致谢卡片，渲染出无与伦比的美感
                     item {
                         BrandHeaderCard()
                     }
 
-                    // 为每一次改动添加详尽的中文注释：渲染开源许可项目列表卡片
+                    // 渲染开源许可项目列表卡片
                     items(openSourceLibraries, key = { it.name }) { library ->
                         LibraryCard(
                             library = library,
@@ -264,7 +257,6 @@ fun AboutLibrariesScreen(
 }
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 精美极致的品牌 Logo 与致谢卡片。
  * 使用梦幻的流光渐变背景配合高规格圆角，带来极致奢华的第一眼印象。
  */
@@ -287,7 +279,7 @@ private fun BrandHeaderCard() {
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 为每一次改动添加详尽的中文注释：构建一个精致的渐变拟物化 Logo 图标
+            // 构建一个精致的渐变拟物化 Logo 图标
             Box(
                 modifier = Modifier
                     .size(80.dp)
@@ -337,7 +329,6 @@ private fun BrandHeaderCard() {
 }
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 开源库单体信息卡片。
  * 支持点击动态展开折叠动画 (animateContentSize)，折叠时保持精致紧凑，展开时显示详细许可证详情和外部项目主页跳转按钮。
  */
@@ -352,7 +343,7 @@ private fun LibraryCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded }
-            .animateContentSize(), // 为每一次改动添加详尽的中文注释：折叠展开过渡平滑动画
+            .animateContentSize(), // 折叠展开过渡平滑动画
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (expanded) {
@@ -434,7 +425,7 @@ private fun LibraryCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 为每一次改动添加详尽的中文注释：常态展示简短的库介绍，折叠时最多显示 2 行，展开后展示完整文本，层次极强
+            // 常态展示简短的库介绍，折叠时最多显示 2 行，展开后展示完整文本，层次极强
             Text(
                 text = library.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -444,7 +435,7 @@ private fun LibraryCard(
                 lineHeight = 20.sp
             )
 
-            // 为每一次改动添加详尽的中文注释：利用 AnimatedVisibility 控制协议文本细节面板展示
+            // 利用 AnimatedVisibility 控制协议文本细节面板展示
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn() + expandVertically(),
@@ -474,7 +465,7 @@ private fun LibraryCard(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 为每一次改动添加详尽的中文注释：用背景微暗的 Card 显示等宽许可证底板，科技感极佳
+                    // 用背景微暗的 Card 显示等宽许可证底板，科技感极佳
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -521,7 +512,6 @@ private fun LibraryCard(
 }
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * BorderStroke 的便捷声明封装。
  */
 @Composable
@@ -529,7 +519,6 @@ private fun borderStroke(width: androidx.compose.ui.unit.Dp, color: Color) =
     androidx.compose.foundation.BorderStroke(width, color)
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 开源许可页面预览。
  */
 @Preview(showBackground = true, apiLevel = 36)

@@ -42,7 +42,7 @@ import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
- * 详尽中文注释：
+ * 
  * 独立出来的有声书长按管理与确认软删除系列 Dialog 组件。
  * 它将一级管理面板 Dialog 与二级删除确认 Dialog 统一打包封装，
  * 隔离了 Dialog 内部的显隐次序逻辑，极大程度瘦身了 HomeScreen.kt 主文件。
@@ -55,7 +55,7 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 fun AudiobookActionDialogs(
     bookWithProgress: BookWithProgress?,
     backdrop: LayerBackdrop,
-    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由主页从设置状态显式传入，避免 Dialog 封装内部私自声明默认值。
+    // 玻璃效果模式必须由主页从设置状态显式传入，避免 Dialog 封装内部私自声明默认值。
     glassEffectMode: GlassEffectMode,
     onDismissRequest: () -> Unit,
     onUpdateReadStatus: (String, String) -> Unit,
@@ -66,7 +66,7 @@ fun AudiobookActionDialogs(
     if (bookWithProgress == null) return
 
     val book = bookWithProgress.book
-    // 详尽中文注释：内部维护二级软删除防误触确认 Dialog 的显示状态
+    // 内部维护二级软删除防误触确认 Dialog 的显示状态
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -75,21 +75,21 @@ fun AudiobookActionDialogs(
     if (!showDeleteConfirm) {
         BlurDialog(
             onDismissRequest = onDismissRequest,
-            // 详尽中文注释：传入主页共享的 backdrop，确保一级操作面板能采样当前书架背景。
+            // 传入主页共享的 backdrop，确保一级操作面板能采样当前书架背景。
             backdrop = backdrop,
-            // 为每一次改动添加详尽的中文注释：把用户设置传给 BlurDialog，Material 模式会跳过内部 miuix-blur 相关的 textureBlur 修饰符。
+            // 把用户设置传给 BlurDialog，Material 模式会跳过内部 miuix-blur 相关的 textureBlur 修饰符。
             glassEffectMode = glassEffectMode,
-            // 为每一次改动添加详尽的中文注释：模糊具体半径、底色和 tint 由 BlurDialog 内部自适应配置，不再由 Dialog 调用点传参。
+            // 模糊具体半径、底色和 tint 由 BlurDialog 内部自适应配置，不再由 Dialog 调用点传参。
             scrollable = true
         ) {
-            // 详尽中文注释：对话框正文内容区，采用 Column 纵向排列各功能区块
+            // 对话框正文内容区，采用 Column 纵向排列各功能区块
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                // 详尽中文注释：图标区域，居中展示 Tune 管理图标
+                // 图标区域，居中展示 Tune 管理图标
                 Icon(
                     imageVector = Icons.Rounded.Tune,
                     contentDescription = null,
@@ -101,7 +101,7 @@ fun AudiobookActionDialogs(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 详尽中文注释：书籍标题，居中加粗显示，最多两行，溢出省略
+                // 书籍标题，居中加粗显示，最多两行，溢出省略
                 Text(
                     text = book.title,
                     maxLines = 2,
@@ -112,7 +112,7 @@ fun AudiobookActionDialogs(
                     textAlign = TextAlign.Center
                 )
 
-                // 详尽中文注释：作者/配音副标题（若有），居中浅色展示
+                // 作者/配音副标题（若有），居中浅色展示
                 if (book.author.isNotBlank() || book.narrator.isNotBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -127,7 +127,7 @@ fun AudiobookActionDialogs(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 详尽中文注释：微光分割线，透明度 0.5f 以降低视觉重量
+                // 微光分割线，透明度 0.5f 以降低视觉重量
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 )
@@ -135,7 +135,7 @@ fun AudiobookActionDialogs(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // ─────────────────────────────────────────────────────────────
-                // 详尽中文注释：1. 阅读状态标记区域
+                // 1. 阅读状态标记区域
                 // 展示三个并排 FilterChip，分别对应"未开始""进行中""已完成"三种状态
                 // ─────────────────────────────────────────────────────────────
                 Column(
@@ -180,7 +180,7 @@ fun AudiobookActionDialogs(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
                                 ),
-                                // 详尽中文注释：weight(1f) 使三个 Chip 均分行宽
+                                // weight(1f) 使三个 Chip 均分行宽
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -189,13 +189,13 @@ fun AudiobookActionDialogs(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 详尽中文注释：微光分割线
+                // 微光分割线
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 )
 
                 // ─────────────────────────────────────────────────────────────
-                // 详尽中文注释：2. 重建封面与元数据。提供水波纹点击卡片，强制进行后台媒体重刷
+                // 2. 重建封面与元数据。提供水波纹点击卡片，强制进行后台媒体重刷
                 // ─────────────────────────────────────────────────────────────
                 Surface(
                     onClick = {
@@ -232,7 +232,7 @@ fun AudiobookActionDialogs(
                 }
 
                 // ─────────────────────────────────────────────────────────────
-                // 详尽中文注释：3. 从媒体库删除（红区软删除警告卡片）
+                // 3. 从媒体库删除（红区软删除警告卡片）
                 // ─────────────────────────────────────────────────────────────
                 Surface(
                     onClick = {
@@ -270,7 +270,7 @@ fun AudiobookActionDialogs(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // 详尽中文注释：底部"取消"按钮，右对齐
+                // 底部"取消"按钮，右对齐
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -289,11 +289,11 @@ fun AudiobookActionDialogs(
     if (showDeleteConfirm) {
         BlurDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            // 详尽中文注释：二级确认面板复用主页共享 backdrop，保持与一级面板一致的背景采样来源。
+            // 二级确认面板复用主页共享 backdrop，保持与一级面板一致的背景采样来源。
             backdrop = backdrop,
-            // 为每一次改动添加详尽的中文注释：删除确认 Dialog 同步遵循用户选择的玻璃效果模式。
+            // 删除确认 Dialog 同步遵循用户选择的玻璃效果模式。
             glassEffectMode = glassEffectMode,
-            // 为每一次改动添加详尽的中文注释：删除确认 Dialog 同样交给 BlurDialog 内部配置，避免二级 Dialog 私自加深模糊参数。
+            // 删除确认 Dialog 同样交给 BlurDialog 内部配置，避免二级 Dialog 私自加深模糊参数。
             scrollable = false
         ) {
             Column(
@@ -302,7 +302,7 @@ fun AudiobookActionDialogs(
                     .padding(horizontal = 24.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                // 详尽中文注释：删除确认图标，居中展示，使用 error 色调警示用户
+                // 删除确认图标，居中展示，使用 error 色调警示用户
                 Icon(
                     imageVector = Icons.Rounded.Delete,
                     contentDescription = null,
@@ -314,7 +314,7 @@ fun AudiobookActionDialogs(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 详尽中文注释：确认 Dialog 标题
+                // 确认 Dialog 标题
                 Text(
                     text = "确认从媒体库移除？",
                     style = MaterialTheme.typography.titleMedium,
@@ -325,7 +325,7 @@ fun AudiobookActionDialogs(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 详尽中文注释：软删除说明文字，提醒用户仅为播放列表移除，不删除物理文件
+                // 软删除说明文字，提醒用户仅为播放列表移除，不删除物理文件
                 Text(
                     text = "您确定要从 APlayer 媒体库中移除《${book.title}》吗？\n\n⚠️ 注意：此操作仅为软删除，将从播放列表中移出，但不会删除您手机存储中的物理音频文件。",
                     style = MaterialTheme.typography.bodyMedium
@@ -333,7 +333,7 @@ fun AudiobookActionDialogs(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // 详尽中文注释：确认/取消按钮行，右对齐布局
+                // 确认/取消按钮行，右对齐布局
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)

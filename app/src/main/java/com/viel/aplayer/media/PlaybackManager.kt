@@ -26,13 +26,13 @@ import com.viel.aplayer.widget.PlayerWidgetProvider
 class PlaybackManager private constructor(context: Context) {
 
     private val appContext = context.applicationContext
-    // 详尽的中文注释：新增 CoroutineExceptionHandler 以捕获全局协程中由于未知原因（如文件损坏、网络请求失败等）抛出的异常，防止异常直接导致进程 Crash。
+    // 新增 CoroutineExceptionHandler 以捕获全局协程中由于未知原因（如文件损坏、网络请求失败等）抛出的异常，防止异常直接导致进程 Crash。
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         android.util.Log.e("PlaybackManager", "Unhandled coroutine exception in PlaybackManager", exception)
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
     private val libraryRepository = LibraryRepository.getInstance(appContext)
-    // 详尽的中文注释：实例化 AppSettingsRepository 以便动态获取和监控用户的 HTTP 明文流量配置权限。
+    // 实例化 AppSettingsRepository 以便动态获取和监控用户的 HTTP 明文流量配置权限。
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -56,15 +56,15 @@ class PlaybackManager private constructor(context: Context) {
     private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
     val currentSubtitles = _currentSubtitles.asStateFlow()
 
-    // 详尽的中文注释：新增 embeddedSubtitles 共享事件数据流，用于向前台实时广播从 ExoPlayer 中监听提取出的内置歌词。
+    // 新增 embeddedSubtitles 共享事件数据流，用于向前台实时广播从 ExoPlayer 中监听提取出的内置歌词。
     private val _embeddedSubtitles = MutableSharedFlow<List<SubtitleLine>>(extraBufferCapacity = 1)
     val embeddedSubtitles = _embeddedSubtitles.asSharedFlow()
 
-    // 为每一次改动添加详尽的中文注释：新增一次性 UI 反馈事件流，向外广播由 PlaybackService 发出的自定义界面提示事件（如静音跳过）
+    // 新增一次性 UI 反馈事件流，向外广播由 PlaybackService 发出的自定义界面提示事件（如静音跳过）
     private val _uiEvents = MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
     val uiEvents = _uiEvents.asSharedFlow()
 
-    // 为每一次改动添加详尽的中文注释：公开事件分发方法，供外部组件（如 PlayerSettingsManager 动作检测）安全向 UI 线程发射一次性弹窗提示。
+    // 公开事件分发方法，供外部组件（如 PlayerSettingsManager 动作检测）安全向 UI 线程发射一次性弹窗提示。
     fun sendUiEvent(event: com.viel.aplayer.ui.common.UiEvent) {
         _uiEvents.tryEmit(event)
     }
@@ -80,10 +80,10 @@ class PlaybackManager private constructor(context: Context) {
 
     private var currentPlan: BookPlaybackPlan? = null
 
-    // 为每一次改动添加详尽的中文注释：物理记录播放器前一时刻真实的播放状态，用以作为核心依据检测用户点击暂停、耳机拔出等导致的“播放->暂停”状态跃迁，以无缝触发自动回退功能。
+    // 物理记录播放器前一时刻真实的播放状态，用以作为核心依据检测用户点击暂停、耳机拔出等导致的“播放->暂停”状态跃迁，以无缝触发自动回退功能。
     private var lastIsPlaying = false
 
-    // 为每一次改动添加详尽的中文注释：设置临时状态标志，如果为 true，则在播放器状态转换到暂停时不应用自动回退逻辑（比如在音频焦点被动抢占、被迫暂停时）。
+    // 设置临时状态标志，如果为 true，则在播放器状态转换到暂停时不应用自动回退逻辑（比如在音频焦点被动抢占、被迫暂停时）。
     var ignoreNextAutoRewind: Boolean = false
 
     /** 当前播放计划的 bookId，非挂起，可从任意线程安全读取。 */
@@ -97,7 +97,7 @@ class PlaybackManager private constructor(context: Context) {
 
     private fun initializeController() {
         val sessionToken = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 重构 MediaController.Builder，向其注入自定义的 MediaController.Listener 接口，
         // 用以监听并拦截来自后台 PlaybackService 发出的自定义媒体会话命令（如 EVENT_SKIP_SILENCE 静音跳过触发通知），
         // 收到后将其转换为 UiEvent.ShowToast 分发到全局 uiEvents 共享流中，交由宿主 UI 层进行精致渲染弹出。
@@ -119,7 +119,7 @@ class PlaybackManager private constructor(context: Context) {
             .buildAsync()
         
         controllerFuture?.addListener({
-            // 详尽的中文注释：使用 scope.launch 开启协程，并在其中通过 withContext(Dispatchers.IO) 安全地调用 
+            // 使用 scope.launch 开启协程，并在其中通过 withContext(Dispatchers.IO) 安全地调用 
             // ListenableFuture.get()。虽然此时 Future 已完成，但 get() 仍被 IDE 视为阻塞方法，
             // 这样做可以消除“在非阻塞上下文中调用阻塞方法”的警告，并符合协程架构规范。
             scope.launch {
@@ -141,7 +141,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     private fun setupController(controller: MediaController) {
-        // 为每一次改动添加详尽的中文注释：在控制器连接成功进行初始化赋值时，同步设定 lastIsPlaying 初始状态快照。
+        // 在控制器连接成功进行初始化赋值时，同步设定 lastIsPlaying 初始状态快照。
         lastIsPlaying = controller.isPlaying
         _isPlaying.value = controller.isPlaying
         _playbackState.value = controller.playbackState
@@ -159,7 +159,7 @@ class PlaybackManager private constructor(context: Context) {
                 PlayerWidgetProvider.updateAll(appContext)
                 saveProgress()
 
-                // 为每一次改动添加详尽的中文注释：在后台协程中，实时将当前的物理播放状态（是否在播）同步写入 isLastPlaybackInterrupted，
+                // 在后台协程中，实时将当前的物理播放状态（是否在播）同步写入 isLastPlaybackInterrupted，
                 // 用于冷启动时精准甄别上一次是否为非正常中断（强杀/闪退）以触发进度自愈机制。
                 scope.launch {
                     try {
@@ -169,7 +169,7 @@ class PlaybackManager private constructor(context: Context) {
                     }
                 }
 
-                // 为每一次改动添加详尽的中文注释：
+                // 
                 // 如果先前处于正在播放状态（wasPlaying 为 true），当前变化为了暂停或停止播放状态（isPlaying 为 false），
                 // 且用户在设置里开启了大于 0 秒的自动回退时间，则自动执行位置定位回退。
                 // 如果检测到 ignoreNextAutoRewind 为 true，说明此番暂停因临时失去焦点而被动触发，我们应跳过回退逻辑，并将标志重置为 false。
@@ -208,7 +208,7 @@ class PlaybackManager private constructor(context: Context) {
                 _playbackSpeed.value = playbackParameters.speed
             }
 
-            // 详尽的中文注释：重写 onMetadata 接口以监听流元数据。
+            // 重写 onMetadata 接口以监听流元数据。
             // 由于解析元数据（尤其是提取内置歌词）涉及流式读取（InputStream.read），属于阻塞 I/O 操作，
             // 因此必须开启协程并分发到 Dispatchers.IO 线程执行，以规避主线程卡顿并消除编译警告。
             override fun onMetadata(metadata: androidx.media3.common.Metadata) {
@@ -225,7 +225,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * 详尽的中文注释：核心内置元数据歌词抓取与转化函数。
+     * 核心内置元数据歌词抓取与转化函数。
      * 循环遍历 ExoPlayer 回调出的所有 Metadata 帧条目，寻找到 ID3 规范下的 UnsynchronisedLyricsFrame（无同步歌词帧）。
      * 获得歌词正文文本后，重用 SubtitleParser 的通用 lrc 流式解析接口，一站式转换为 SubtitleLine 结构化集合，
      * 充分消除重复造轮子所带来的隐患，实现底层高聚解耦。
@@ -234,7 +234,7 @@ class PlaybackManager private constructor(context: Context) {
         val subs = mutableListOf<SubtitleLine>()
         for (i in 0 until metadata.length()) {
             val entry = metadata.get(i)
-            // 详尽的中文注释：为了完全规避 Media3 在不同版本更迭中对 UnsynchronisedLyricsFrame 物理包名（如在 extractor.metadata 或 common.metadata 间迁移）的变动，
+            // 为了完全规避 Media3 在不同版本更迭中对 UnsynchronisedLyricsFrame 物理包名（如在 extractor.metadata 或 common.metadata 间迁移）的变动，
             // 物理防范因 compileSdk/依赖库演进而引发的编译符号未解析（Unresolved）崩溃，此处利用反射机制进行完全解耦的动态类型探测与数据读取。
             val entryClassName = entry.javaClass.name
             if (entryClassName.endsWith("UnsynchronisedLyricsFrame")) {
@@ -243,7 +243,7 @@ class PlaybackManager private constructor(context: Context) {
                     val lyricsText = textField.get(entry) as? String
                     if (!lyricsText.isNullOrBlank()) {
                         try {
-                            // 详尽的中文注释：使用标准 Java 的 Charset.forName 动态指定 UTF-8 编码，彻底物理规避 Kotlin 特定包下扩展函数在部分编译环境下 unresolved 的致命缺陷
+                            // 使用标准 Java 的 Charset.forName 动态指定 UTF-8 编码，彻底物理规避 Kotlin 特定包下扩展函数在部分编译环境下 unresolved 的致命缺陷
                             val stream = java.io.ByteArrayInputStream(lyricsText.toByteArray(java.nio.charset.Charset.forName("UTF-8")))
                             val parsed = SubtitleParser.parse(stream, "lrc")
                             if (parsed.isNotEmpty()) {
@@ -369,8 +369,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：
-     * 为书籍设定播放计划。整个方法执行在 scope 协程环境主线程中。
+         * 为书籍设定播放计划。整个方法执行在 scope 协程环境主线程中。
      * 首先读取持久化设置快照，如果 isLastPlaybackInterrupted（上次播放异常强杀中断）为 true 且开启了回退秒数，
      * 则对当前载入的起始进度进行减去回退时长的进度自愈补偿，最小值不低于 0，
      * 接着通过 copy 构造出自愈后的计划，并同步在数据库重置中断标志为 false 以免后续换歌等发生重复自愈。
@@ -378,11 +377,11 @@ class PlaybackManager private constructor(context: Context) {
      */
     fun setBookPlaybackPlan(plan: BookPlaybackPlan, playWhenReady: Boolean = false) {
         scope.launch {
-            // 为每一次改动添加详尽的中文注释：异步从设置仓库中读取最新的全局持久化快照。
+            // 异步从设置仓库中读取最新的全局持久化快照。
             val settings = settingsRepository.settingsFlow.first()
             var finalPlan = plan
 
-            // 为每一次改动添加详尽的中文注释：核心异常中断进度自愈机制判定。
+            // 核心异常中断进度自愈机制判定。
             // 如果上一次播放由于非正常中断（强杀/闪退/Crash，isLastPlaybackInterrupted = true），且设定了有效的回退时间，
             // 则从全局起始进度中减去回退毫秒数作为进度自愈补偿，最低限制到 0ms 开头，
             // 接着利用 copy 构造出自愈补偿后的 finalPlan，并在 DataStore 中立即复位中断标志为 false 防止切歌等二次触发自愈。
@@ -391,17 +390,17 @@ class PlaybackManager private constructor(context: Context) {
                 val restoredPos = (plan.startGlobalPositionMs - rewindMs).coerceAtLeast(0L)
                 finalPlan = plan.copy(startGlobalPositionMs = restoredPos)
 
-                // 为每一次改动添加详尽的中文注释：自愈完成后瞬间重置异常中断标志为 false，保障状态正确复位。
+                // 自愈完成后瞬间重置异常中断标志为 false，保障状态正确复位。
                 settingsRepository.updateLastPlaybackInterrupted(false)
                 android.util.Log.d("PlaybackManager", "检测到上一次播放被异常中断，已自动回退 $rewindMs ms 进行自愈，最终起始进度: $restoredPos ms")
             } else {
-                // 为每一次改动添加详尽的中文注释：若非异常中断恢复，依然主动重置该状态为 false 以免残留脏数据污染。
+                // 若非异常中断恢复，依然主动重置该状态为 false 以免残留脏数据污染。
                 settingsRepository.updateLastPlaybackInterrupted(false)
             }
 
-            // 为每一次改动添加详尽的中文注释：完成进度自愈判定后，切回 Dispatchers.Main 线程，百分之百还原原作者的所有多线程渲染及安全检查逻辑。
+            // 完成进度自愈判定后，切回 Dispatchers.Main 线程，百分之百还原原作者的所有多线程渲染及安全检查逻辑。
             withContext(Dispatchers.Main) {
-                // 为每一次改动添加详尽的中文注释：在切换或加载新的播放计划前，强行将 ignoreNextAutoRewind 设为 true。
+                // 在切换或加载新的播放计划前，强行将 ignoreNextAutoRewind 设为 true。
                 // 这样能完美拦截由于切换书籍重载媒体资源导致播放器暂停状态改变时，误触发的针对上一本书或新书初始进度的自动回退动作。
                 ignoreNextAutoRewind = true
 
@@ -415,7 +414,7 @@ class PlaybackManager private constructor(context: Context) {
                 // 为本次桌面 widget 改动添加注释：播放计划一旦切换，桌面小组件可以立即显示目标书籍，而不必等 MediaController 回调。
                 PlayerWidgetProvider.updateAll(appContext)
 
-                // 为每一次改动添加详尽的中文注释：播放器计划只接收 VFS URI；本地/非本地策略后续按 LibraryRoot.sourceType 判断，不再从 BookFile.uri 探测 HTTP。
+                // 播放器计划只接收 VFS URI；本地/非本地策略后续按 LibraryRoot.sourceType 判断，不再从 BookFile.uri 探测 HTTP。
                 val hasHttp = false
                 if (hasHttp) {
                     scope.launch {
@@ -445,9 +444,9 @@ class PlaybackManager private constructor(context: Context) {
                 .setArtworkData(plan.artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
                 .build()
             val builder = MediaItem.Builder()
-                // 为每一次改动添加详尽的中文注释：mediaId 后半段改为真实 BookFileEntity.id，让字幕、进度和后续 VFS 播放都能稳定回到同一条文件记录。
+                // mediaId 后半段改为真实 BookFileEntity.id，让字幕、进度和后续 VFS 播放都能稳定回到同一条文件记录。
                 .setMediaId("${plan.bookId}:${file.id}")
-                // 为每一次改动添加详尽的中文注释：播放器只接收应用内部 VFS URI，实际读流由 PlaybackService 的 VfsPlaybackDataSource 通过 rootId/sourcePath 完成。
+                // 播放器只接收应用内部 VFS URI，实际读流由 PlaybackService 的 VfsPlaybackDataSource 通过 rootId/sourcePath 完成。
                 .setUri(VfsPlaybackUri.fromBookFile(file))
                 .setMediaMetadata(metadata)
             // 启动时不挂载全书字幕附件，避免为了多文件字幕扫描/解析阻塞 setMediaItems。
@@ -480,8 +479,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：
-     * 执行暂停自动回退功能的核心逻辑。
+         * 执行暂停自动回退功能的核心逻辑。
      * 从持久化设置中异步读取 autoRewindSeconds 属性。如果其值大于 0，
      * 则计算目标毫秒位置（当前单文件位置减去回退时长），并使用 coerceAtLeast(0) 限制不超前当前文件的开头。
      * 最后，调用底层 MediaController 进行寻址定位，在更新全局位置流后立即持久化同步保存到数据库中，
@@ -492,14 +490,14 @@ class PlaybackManager private constructor(context: Context) {
         val plan = currentPlan
         scope.launch {
             try {
-                // 为每一次改动添加详尽的中文注释：使用 first() 挂起并获取 DataStore 中的最新设置快照，确保数据一致性。
+                // 使用 first() 挂起并获取 DataStore 中的最新设置快照，确保数据一致性。
                 val settings = settingsRepository.settingsFlow.first()
                 val rewindSeconds = settings.autoRewindSeconds
                 if (rewindSeconds > 0) {
                     val rewindMs = rewindSeconds * 1000L
                     
                     if (plan != null && plan.files.isNotEmpty()) {
-                        // 为每一次改动添加详尽的中文注释：如果当前存在多文件播放计划，在全局大维度上计算当前进度，并执行精准的跨文件边界回退，
+                        // 如果当前存在多文件播放计划，在全局大维度上计算当前进度，并执行精准的跨文件边界回退，
                         // 彻底解决单文件回退时被强制截断在 0 秒而无法回退到上一音轨末尾的体验痛点。
                         val fileIndex = controller.currentMediaItemIndex.coerceIn(0, plan.files.lastIndex)
                         val positionInFile = controller.currentPosition.coerceAtLeast(0L)
@@ -507,17 +505,17 @@ class PlaybackManager private constructor(context: Context) {
                         val targetGlobalPos = (currentGlobalPos - rewindMs).coerceAtLeast(0L)
                         
                         val (targetFileIndex, targetPosInFile) = PositionMapper.globalToFilePosition(targetGlobalPos, plan.files)
-                        // 为每一次改动添加详尽的中文注释：跨文件定位可能导致媒体源发生变更，因此必须使用 index + file-position 执行 seek
+                        // 跨文件定位可能导致媒体源发生变更，因此必须使用 index + file-position 执行 seek
                         controller.seekTo(targetFileIndex, targetPosInFile)
                     } else {
-                        // 为每一次改动添加详尽的中文注释：兜底单文件播放场景下的普通回退寻址。
+                        // 兜底单文件播放场景下的普通回退寻址。
                         val currentPos = controller.currentPosition
                         val targetPos = (currentPos - rewindMs).coerceAtLeast(0L)
                         controller.seekTo(targetPos)
                     }
                     
                     updateGlobalPositionAndDuration(controller)
-                    // 为每一次改动添加详尽的中文注释：回退完成后立即向本地数据库落盘保存进度，防丢失防倒退
+                    // 回退完成后立即向本地数据库落盘保存进度，防丢失防倒退
                     saveProgress()
                 }
             } catch (e: Exception) {
@@ -527,7 +525,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：获取或设置当前播放器的内部音量比例（0.0f - 1.0f）。
+     * 获取或设置当前播放器的内部音量比例（0.0f - 1.0f）。
      * 用于在音量渐隐机制中实现平滑、无感知的对数音量衰减，而不惊扰系统全局的物理音量设置。
      */
     var playerVolume: Float
@@ -580,14 +578,14 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：异步获取已连接的 MediaController 实例。
+     * 异步获取已连接的 MediaController 实例。
      * 如果当前 mediaController 已建立连接则立即返回；
      * 如果 controllerFuture 处于连接中，则通过 suspendCancellableCoroutine 挂起并等待连接完成，
      * 以便在 Activity 已销毁或后台重建的异步时序下依然能获取到真实的 MediaController，
      * 解决删除书库时因连接尚未就绪导致 getCurrentBookId() 漏判后台播放的缺陷。
      */
     /**
-     * 为每一次改动添加详详尽的中文注释：异步获取已连接的 MediaController 实例。
+     * 为每一次改动添加详异步获取已连接的 MediaController 实例。
      * 直接利用 withContext(Dispatchers.IO) 包装阻塞式的 ListenableFuture.get() 调用。
      * 该方式能完美消除 IDE 对“非阻塞上下文调用阻塞方法”的警告，因为 Dispatchers.IO 允许阻塞。
      * 协程会在此处挂起并释放主线程，直到控制器连接完成并返回结果，代码逻辑大幅精简且类型安全。
@@ -609,7 +607,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：异步获取当前正在播放或计划播放的书籍 ID。
+     * 异步获取当前正在播放或计划播放的书籍 ID。
      * 优先等待 MediaController 异步连接就绪后再行检索 currentMediaItem，
      * 确保在 UI 退出且 PlaybackManager 被 release 重新获取单例的极端生命周期下，
      * 依然能准确捕捉后台真实的播放书籍 ID。
@@ -625,14 +623,14 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：异步停止并清空受影响的书籍播放队列，重置播放状态 Flow。
+     * 异步停止并清空受影响的书籍播放队列，重置播放状态 Flow。
      * 首先挂起等待 MediaController 异步连接完毕，以防在未就绪时调用导致底层 ExoPlayer 无法接收到 pause 和 stop 指令，
      * 确保即使在后台被动调用的时序下也能彻底切断底层音频播放流。
      */
     suspend fun stopPlayback() {
         val controller = getController()
         withContext(Dispatchers.Main) {
-            // 为每一次改动添加详尽的中文注释：在主动停止播放器前，强行将 ignoreNextAutoRewind 设为 true。
+            // 在主动停止播放器前，强行将 ignoreNextAutoRewind 设为 true。
             // 这样可以拦截由于主动暂停/清除播放资源导致物理播放状态回调触发时，无意义且有隐患的自动回退与保存进度操作。
             ignoreNextAutoRewind = true
             controller?.let { conn ->

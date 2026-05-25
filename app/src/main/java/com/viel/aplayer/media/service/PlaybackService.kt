@@ -45,13 +45,13 @@ class PlaybackService : MediaSessionService() {
     // 通知栏使用独立 session，避免通知显示进度反向污染 App/UI controller。
     private var notificationSession: MediaSession? = null
 
-    // 为每一次改动添加详尽的中文注释：物理记录是否由于外部被动抢占丢失音频焦点导致暂停了播放，用于在重获音频焦点时完美进行自适应恢复播放。
+    // 物理记录是否由于外部被动抢占丢失音频焦点导致暂停了播放，用于在重获音频焦点时完美进行自适应恢复播放。
     private var isPausedByLossOfFocus = false
 
-    // 为每一次改动添加详尽的中文注释：缓存 API 26 (Android 8.0) 及以上版本的高级 AudioFocusRequest 物理请求描述实体，方便动态跨生命周期销毁与绑定。
+    // 缓存 API 26 (Android 8.0) 及以上版本的高级 AudioFocusRequest 物理请求描述实体，方便动态跨生命周期销毁与绑定。
     private var audioFocusRequest: android.media.AudioFocusRequest? = null
 
-    // 为每一次改动添加详尽的中文注释：自定义的音频焦点变化监听器。
+    // 自定义的音频焦点变化监听器。
     // 当“通知避让”开启时，如果接收到 transient（如通知、来电铃声等）临时丢失焦点信号：
     // 首先在前台将 ignoreNextAutoRewind 设为 true 强力拦截自动回退，随后主动暂停播放器，重获焦点时自动恢复播放且绝不回退。
     private val audioFocusChangeListener = android.media.AudioManager.OnAudioFocusChangeListener { focusChange ->
@@ -61,13 +61,13 @@ class PlaybackService : MediaSessionService() {
             if (settings.isNotificationAvoidanceEnabled) {
                 when (focusChange) {
                     android.media.AudioManager.AUDIOFOCUS_LOSS -> {
-                        // 详尽的中文注释：永久失去焦点（例如被其它播放器强制中断占用），不属于临时丢失，重设状态并暂停。
+                        // 永久失去焦点（例如被其它播放器强制中断占用），不属于临时丢失，重设状态并暂停。
                         isPausedByLossOfFocus = false
                         player.pause()
                     }
                     android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
                     android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                        // 详尽的中文注释：被动临时失去焦点。只有当播放器正在播放时，才进行暂停并设定标志。
+                        // 被动临时失去焦点。只有当播放器正在播放时，才进行暂停并设定标志。
                         // 在暂停前，通知 PlaybackManager 忽略下一次由于状态变动触发的自动回退逻辑，保障进度完美连续。
                         if (player.isPlaying) {
                             isPausedByLossOfFocus = true
@@ -76,7 +76,7 @@ class PlaybackService : MediaSessionService() {
                         }
                     }
                     android.media.AudioManager.AUDIOFOCUS_GAIN -> {
-                        // 详尽的中文注释：重新获取到系统完整的音频焦点。如果先前由于焦点原因被迫暂停，则立即拉起播放恢复，并重置被动状态。
+                        // 重新获取到系统完整的音频焦点。如果先前由于焦点原因被迫暂停，则立即拉起播放恢复，并重置被动状态。
                         if (isPausedByLossOfFocus) {
                             isPausedByLossOfFocus = false
                             player.play()
@@ -101,11 +101,11 @@ class PlaybackService : MediaSessionService() {
     private var exitJob: Job? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    // 为每一次改动添加详尽的中文注释：缓存自定义的静音跳过处理器，以便轮询其 skippedFrames 计数器
+    // 缓存自定义的静音跳过处理器，以便轮询其 skippedFrames 计数器
     private var customSilenceProcessor: androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor? = null
-    // 为每一次改动添加详尽的中文注释：缓存倍速处理器，以在自定义 AudioSink 时保持倍速播放功能正常运作。使用正确的 common.audio 包路径。
+    // 缓存倍速处理器，以在自定义 AudioSink 时保持倍速播放功能正常运作。使用正确的 common.audio 包路径。
     private var sonicAudioProcessor: androidx.media3.common.audio.SonicAudioProcessor? = null
-    // 为每一次改动添加详尽的中文注释：缓存底层的 AudioSink 实例，供提取内部静音跳过处理器时使用。
+    // 缓存底层的 AudioSink 实例，供提取内部静音跳过处理器时使用。
     private var localSink: androidx.media3.exoplayer.audio.AudioSink? = null
 
     companion object {
@@ -138,7 +138,7 @@ class PlaybackService : MediaSessionService() {
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean
             ): androidx.media3.exoplayer.audio.AudioSink {
-                // 为每一次改动添加详尽的中文注释：
+                // 
                 // 1. 创建用于调节播放倍速的 SonicAudioProcessor。使用正确的 common.audio 包路径。
                 // 必须在 AudioSink 中显式组合传入它，否则变速功能将彻底瘫痪。
                 val sonicProcessor = androidx.media3.common.audio.SonicAudioProcessor()
@@ -167,16 +167,16 @@ class PlaybackService : MediaSessionService() {
             setEnableDecoderFallback(true)
         }
 
-        // 详尽的中文注释：利用常量字面值定义直接读取采样表标志（1 shl 2，即十进制 4），物理防范编译期类符号未解析缺陷。
+        // 利用常量字面值定义直接读取采样表标志（1 shl 2，即十进制 4），物理防范编译期类符号未解析缺陷。
         val flagReadSampleTableDirectly = 1 shl 2
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
-            // 详尽的中文注释：极长 M4B 有声书内存映射优化。
+            // 极长 M4B 有声书内存映射优化。
             // 传入直接读取采样表标志数值，规避在加载超长（数十小时）M4B 文件时在 JVM 堆中展开数百万个 Sample 对象而招致 OOM 的隐患。
             .setMp4ExtractorFlags(flagReadSampleTableDirectly)
 
-        // 为每一次改动添加详尽的中文注释：播放器媒体源只接入 VFS DataSource，避免 ExoPlayer 继续从 BookFileEntity.uri 直接读取 SAF/远程原始地址。
+        // 播放器媒体源只接入 VFS DataSource，避免 ExoPlayer 继续从 BookFileEntity.uri 直接读取 SAF/远程原始地址。
         val mediaSourceFactory = DefaultMediaSourceFactory(VfsPlaybackDataSource.Factory(this), extractorsFactory)
 
         val player = ExoPlayer.Builder(this, renderersFactory)
@@ -215,7 +215,7 @@ class PlaybackService : MediaSessionService() {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
-                    // 详尽的中文注释：当检测到整个播放队列播放结束（STATE_ENDED）时，弹出提示并启动 5 秒倒计时。
+                    // 当检测到整个播放队列播放结束（STATE_ENDED）时，弹出提示并启动 5 秒倒计时。
                     // 倒计时结束后，清空播放队列并销毁服务。
                     exitJob?.cancel()
                     exitJob = serviceScope.launch {
@@ -225,13 +225,13 @@ class PlaybackService : MediaSessionService() {
                         stopSelf()
                     }
                 } else {
-                    // 详尽的中文注释：若状态变为非结束（如用户手动操作），则取消待定的退出任务。
+                    // 若状态变为非结束（如用户手动操作），则取消待定的退出任务。
                     exitJob?.cancel()
                     exitJob = null
                 }
             }
 
-            // 为每一次改动添加详尽的中文注释：重写 onIsPlayingChanged 监听底层实际的物理播放状态。
+            // 重写 onIsPlayingChanged 监听底层实际的物理播放状态。
             // 当“通知避让”开启时，如果播放器切入正在播放状态（isPlaying = true），我们首先重置被动焦点丢失状态并向系统申请音频焦点；
             // 如果播放器进入暂停状态，且此时并不是由于系统临时音频焦点丢失（如通知）造成的被迫暂停，我们就主动放弃我们所持有的系统音频焦点。
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -253,14 +253,14 @@ class PlaybackService : MediaSessionService() {
         notificationPlayer = NotificationProgressPlayer(player)
         observeNotificationProgressMode()
 
-        // 为每一次改动添加详尽的中文注释：订阅 AppSettings 配置流，实现“自动跳过静音期”全局开关的热应用与最小时长的动态热更新，并实时热应用“通知避让”音频焦点模式。
+        // 订阅 AppSettings 配置流，实现“自动跳过静音期”全局开关的热应用与最小时长的动态热更新，并实时热应用“通知避让”音频焦点模式。
         serviceScope.launch {
             settingsRepository.settingsFlow.collect { settings ->
                 player.skipSilenceEnabled = settings.isSkipSilenceEnabled
                 // 实时热更新底层判定时长参数，实现拖动滑块即时生效
                 updateSilenceProcessorDurationHot(settings.skipSilenceDurationThreshold)
 
-                // 为每一次改动添加详尽的中文注释：实时响应“通知避让”机制的开关变动。
+                // 实时响应“通知避让”机制的开关变动。
                 // 1. 若开启通知避让：我们将底层 ExoPlayer 的自动音频焦点处理设为 false（即接管权交出），由我们自己通过 audioFocusChangeListener 进行精密接管。
                 //    若此时播放器正处于播放中，则立即自主申请音频焦点，确保焦点状态与物理播放状态强力同步。
                 // 2. 若关闭通知避让：我们将底层 ExoPlayer 的自动音频焦点处理设为 true，重新交回给 Media3 默认逻辑处理。
@@ -285,7 +285,7 @@ class PlaybackService : MediaSessionService() {
             }
         }
 
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 启动 1000ms 间隔的极轻量后台轮询协程，用于监测静音跳过事件并执行 10s CD 冷却防抖的 Toast 提示
         var lastSkippedFrames = 0L
         var lastNotificationTime = 0L
@@ -307,7 +307,7 @@ class PlaybackService : MediaSessionService() {
                                 // 10秒硬性冷却防抖 CD，防止频繁打扰
                                 if (now - lastNotificationTime >= 10000L) {
                                     lastNotificationTime = now
-                                    // 为每一次改动添加详尽的中文注释：
+                                    // 
                                     // 彻底废除在后台 Service 内部直接弹窗展示 Toast 的粗糙行为。
                                     // 重构为向所有已建立连接的 MediaController 广播发送自定义 Session 命令 EVENT_SKIP_SILENCE，
                                     // 使用 broadcastCustomCommand 接口，将控制权和展现形式完全交回前台 Composable 宿主层，确保单向数据流与 MVI 架构设计规范的闭环。
@@ -439,7 +439,7 @@ class PlaybackService : MediaSessionService() {
         unavailableSkipKey = skipKey
 
         serviceScope.launch {
-            // 详尽的中文注释：网络音频源加载拦截安全守门狗。
+            // 网络音频源加载拦截安全守门狗。
             // 如果音频源属于明文 http 连接且用户尚未在设置中显式授予明文允许，直接弹出安全拦截 Toast 并暂停终止播放，保障系统高度安全。
             val currentUri = mediaItem.localConfiguration?.uri?.toString() ?: ""
             if (currentUri.startsWith("http://")) {
@@ -476,7 +476,7 @@ class PlaybackService : MediaSessionService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo
         ): MediaSession.ConnectionResult {
-            // 详尽的中文注释：对外暴露服务的动态包名安全审计（白名单机制）。
+            // 对外暴露服务的动态包名安全审计（白名单机制）。
             // 仅对当前应用自身、系统 UI（通知栏）、Android Auto、以及系统搜索/语音助手允许绑定建立连接；非可信包名予以拦截拒绝，防范未授权的外部客户端劫持播放器服务。
             val callingPackage = controller.packageName
             val allowedPackages = listOf(
@@ -491,7 +491,7 @@ class PlaybackService : MediaSessionService() {
 
             val sessionCommandsBuilder = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             
-            // 详尽的中文注释：移除高风险强制非空解包，利用安全的 let 块和条件调用逐个装载自定义快退、快进、书签命令。
+            // 移除高风险强制非空解包，利用安全的 let 块和条件调用逐个装载自定义快退、快进、书签命令。
             rewindButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
             forwardButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
             bookmarkButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
@@ -584,7 +584,7 @@ class PlaybackService : MediaSessionService() {
         super.onDestroy()
     }
 
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 通过 JVM 高级反射技术，绕过 Media3 管道的 private/final 限制，
     // 在用户拖动设置页 Slider 时瞬间、零延迟、无感地热更新底层 SilenceSkippingAudioProcessor 的最小时长和判定帧数。
     private fun updateSilenceProcessorDurationHot(newDurationSeconds: Float) {
@@ -680,7 +680,7 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 通过极致鲁棒的反射查找逻辑，在 DefaultAudioSink 创建出来后，对其自身所有字段及包含的子对象（例如处理器链、处理器数组）进行广度优先式的类型扫描，
     // 自动寻找并提取其中类型为 SilenceSkippingAudioProcessor 且真正工作的内部实例，完美赋给 customSilenceProcessor。
     // 这消除了通过显式 API 注入带来的 Unresolved reference 编译兼容风险，同时完整保留了官方 Skip Silence 的完美逻辑控制与实时 Toast 监听。
@@ -741,7 +741,7 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 使用现代 Android 8.0+ 的 AudioFocusRequest 物理请求机制申请全局音频焦点，彻底废除对老旧过时 API 的冗余兼容，保持代码精简健壮。
     private fun requestMyAudioFocus(): Boolean {
         val audioManager = getSystemService(AUDIO_SERVICE) as? android.media.AudioManager ?: return false
@@ -758,7 +758,7 @@ class PlaybackService : MediaSessionService() {
         return audioManager.requestAudioFocus(request) == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 使用现代 Android 8.0+ 的 abandonAudioFocusRequest 物理请求机制放弃并释放已持有的音频焦点，剔除冗余的老旧 API 兼容路径。
     private fun abandonMyAudioFocus() {
         val audioManager = getSystemService(AUDIO_SERVICE) as? android.media.AudioManager ?: return

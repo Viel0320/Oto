@@ -35,13 +35,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = libraryRepository.getCachedLibraryRoots() // 详尽的中文注释：使用全局单例 LibraryRepository 内存中的最新缓存作为初始值，确保首帧瞬间加载出目录，杜绝首帧空白引起的布局抖动
+            initialValue = libraryRepository.getCachedLibraryRoots() // 使用全局单例 LibraryRepository 内存中的最新缓存作为初始值，确保首帧瞬间加载出目录，杜绝首帧空白引起的布局抖动
         )
 
     init {
         viewModelScope.launch {
             // Settings entry should show current SAF grant status, including revoked roots.
-            // 详尽的中文注释：延迟 500 毫秒后再触发系统的 SAF 物理授权检测，以完美避开 Activity 启动转场动画及首帧绘制的核心渲染时间，保证界面展示绝对丝滑
+            // 延迟 500 毫秒后再触发系统的 SAF 物理授权检测，以完美避开 Activity 启动转场动画及首帧绘制的核心渲染时间，保证界面展示绝对丝滑
             kotlinx.coroutines.delay(500)
             libraryRepository.refreshLibraryRootStatuses()
         }
@@ -50,16 +50,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun refreshLibraryRootStatuses() {
         viewModelScope.launch {
             // Route entry calls this explicitly because the SettingsViewModel may be created before navigation.
-            // 详尽的中文注释：手动触发的刷新依然走异步协程检测，保证物理可达性更新。
+            // 手动触发的刷新依然走异步协程检测，保证物理可达性更新。
             libraryRepository.refreshLibraryRootStatuses()
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 在设置页中选择媒体库目录后的回调逻辑，负责获取持久化 SAF 授权，将其存入数据库并异步触发 USER 手动增量扫描任务。
     // 这能让设置页完全独立处理 SAF 动作，从而将 LibraryViewModel 彻底解耦，消除 Activity 切换时的冷启动扫描问题。
     fun onLibraryRootSelected(uri: Uri) {
-        // 详尽的中文注释：设置页只提交选择结果，授权持久化、root 入库和扫描均由 Repository 应用级后台任务接管。
+        // 设置页只提交选择结果，授权持久化、root 入库和扫描均由 Repository 应用级后台任务接管。
         libraryRepository.addLibraryRootAndScheduleSync(uri)
     }
 
@@ -70,7 +70,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         displayName: String,
         basePath: String
     ) {
-        // 详尽的中文注释：WebDAV 添加与扫描调度合并为 Repository 应用级任务，远程长扫描不会被设置页返回或切页取消。
+        // WebDAV 添加与扫描调度合并为 Repository 应用级任务，远程长扫描不会被设置页返回或切页取消。
         libraryRepository.addWebDavLibraryRootAndScheduleSync(
             url = url,
             username = username,
@@ -87,7 +87,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun triggerRescan() {
-        // 为每一次改动添加详尽的中文注释：手动重扫只提交应用级扫描队列，设置页退场不会触发 JobCancellationException。
+        // 手动重扫只提交应用级扫描队列，设置页退场不会触发 JobCancellationException。
         libraryRepository.scheduleLibrarySync("USER")
     }
 
@@ -97,7 +97,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // 详尽的中文注释：新增切换是否允许 HTTP 明文流量持久化配置的交互方法。
+    // 新增切换是否允许 HTTP 明文流量持久化配置的交互方法。
     fun toggleCleartextTrafficAllowed(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateCleartextTrafficAllowed(enabled)
@@ -121,63 +121,63 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增切换自动跳过静音（Skip Silence）功能全局总开关的交互方法。
+    // 新增切换自动跳过静音（Skip Silence）功能全局总开关的交互方法。
     fun toggleSkipSilenceEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateSkipSilenceEnabled(enabled)
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增修改自动跳过静音的判定最小时长值（0.5s-5.0s）的交互方法。
+    // 新增修改自动跳过静音的判定最小时长值（0.5s-5.0s）的交互方法。
     fun updateSkipSilenceDurationThreshold(duration: Float) {
         viewModelScope.launch {
             settingsRepository.updateSkipSilenceDurationThreshold(duration)
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增切换是否在自动跳过静音发生时弹出 Toast 提示的全局开关交互方法。
+    // 新增切换是否在自动跳过静音发生时弹出 Toast 提示的全局开关交互方法。
     fun toggleSkipSilenceNotificationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateSkipSilenceNotificationEnabled(enabled)
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增切换睡眠定时音量渐隐功能全局总开关的交互方法。
+    // 新增切换睡眠定时音量渐隐功能全局总开关的交互方法。
     fun toggleSleepFadeOutEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateSleepFadeOutEnabled(enabled)
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增切换“摇晃手机重置睡眠定时器 (Shake-to-Reset)”全局总开关的交互方法。
+    // 新增切换“摇晃手机重置睡眠定时器 (Shake-to-Reset)”全局总开关的交互方法。
     fun toggleShakeToResetEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateShakeToResetEnabled(enabled)
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增设置页切换睡眠模式的交互方法，通过协程异步更新 DataStore 持久化配置，由 UI 组件触发。
+    // 新增设置页切换睡眠模式的交互方法，通过协程异步更新 DataStore 持久化配置，由 UI 组件触发。
     fun updateSleepMode(mode: SleepMode) {
         viewModelScope.launch {
             settingsRepository.updateSleepMode(mode)
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增设置页切换悬浮层视觉效果模式的交互方法，统一写入 DataStore 供主页 and 播放器实时响应。
+    // 新增设置页切换悬浮层视觉效果模式的交互方法，统一写入 DataStore 供主页 and 播放器实时响应。
     fun updateGlassEffectMode(mode: GlassEffectMode) {
         viewModelScope.launch {
             settingsRepository.updateGlassEffectMode(mode)
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增设置页修改自动回退播放进度秒数（0-30s）的交互方法，通过协程异步写入持久化 DataStore。
+    // 新增设置页修改自动回退播放进度秒数（0-30s）的交互方法，通过协程异步写入持久化 DataStore。
     fun updateAutoRewindSeconds(seconds: Int) {
         viewModelScope.launch {
             settingsRepository.updateAutoRewindSeconds(seconds)
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：新增设置页切换通知避让（Notification Avoidance）功能全局开关的交互方法，通过协程异步写入持久化 DataStore。
+    // 新增设置页切换通知避让（Notification Avoidance）功能全局开关的交互方法，通过协程异步写入持久化 DataStore。
     fun toggleNotificationAvoidanceEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateNotificationAvoidanceEnabled(enabled)

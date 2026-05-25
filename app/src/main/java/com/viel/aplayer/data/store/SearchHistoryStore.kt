@@ -29,7 +29,7 @@ class SearchHistoryStore private constructor(private val dataStore: DataStore<Pr
         val ITEMS_JSON = stringPreferencesKey("items_json")
     }
 
-    // 详尽中文注释：通过持有的 dataStore 实例获取历史记录流，不再依赖 Context 字段。
+    // 通过持有的 dataStore 实例获取历史记录流，不再依赖 Context 字段。
     val history: Flow<List<SearchHistoryEntry>> = dataStore.data.map { preferences ->
         // Bad or old values should not break search UI; they are treated as an empty history list.
         decodeHistory(preferences[PreferencesKeys.ITEMS_JSON])
@@ -38,7 +38,7 @@ class SearchHistoryStore private constructor(private val dataStore: DataStore<Pr
     suspend fun add(query: String) {
         val normalizedQuery = query.trim()
         if (normalizedQuery.isBlank()) return
-        // 详尽中文注释：直接使用 dataStore 进行编辑操作。
+        // 直接使用 dataStore 进行编辑操作。
         dataStore.edit { preferences ->
             // Re-adding the same query moves it to the top, matching the previous primary-key replacement behavior.
             val updated = listOf(SearchHistoryEntry(normalizedQuery, System.currentTimeMillis())) +
@@ -109,7 +109,7 @@ class SearchHistoryStore private constructor(private val dataStore: DataStore<Pr
 
         fun getInstance(context: Context): SearchHistoryStore {
             return INSTANCE ?: synchronized(this) {
-                // 详尽中文注释：在初始化时，通过 context 获取 DataStore 实例并传入构造函数。
+                // 在初始化时，通过 context 获取 DataStore 实例并传入构造函数。
                 // 这样静态变量 INSTANCE 持有的类就不再包含任何 Context 引用，彻底消除 Lint 警告和泄漏隐患。
                 INSTANCE ?: SearchHistoryStore(context.applicationContext.searchHistoryDataStore).also { INSTANCE = it }
             }

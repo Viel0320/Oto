@@ -9,7 +9,7 @@ import java.util.Locale
 /**
  * Parser 侧车支持工具。
  *
- * 详尽的中文注释：
+ * 
  * 这里把 parser 层共用的 side cover / description 规则集中收口，
  * 让 `CueManifestParser`、`M3u8ManifestParser`、`HeuristicAudioAggregator`
  * 共用完全一致的行为：
@@ -53,7 +53,7 @@ object ManifestSidecarSupport {
         openTextFile: suspend (FileRef) -> InputStream?
     ): SidecarPayload =
         SidecarPayload(
-            // 为每一次改动添加详尽的中文注释：启发式聚合没有单一 manifest 文件名作为锚点，
+            // 启发式聚合没有单一 manifest 文件名作为锚点，
             // 因此这里故意不做 same-name 匹配，只保留“通用简介文件名 / 单 txt”这两类目录级规则。
             description = readTxtDescription(
                 textFiles = directoryContext.textFiles,

@@ -7,7 +7,6 @@ import androidx.room.Query
 import com.viel.aplayer.data.entity.DirectoryCacheEntity
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 专用于增量目录扫描修改时间戳缓存表（directory_cache）的数据访问对象接口 (DAO)。
  * 承载了增量扫描秒级拦截、单目录状态覆盖缓存以及清空操作。
  */
@@ -15,7 +14,7 @@ import com.viel.aplayer.data.entity.DirectoryCacheEntity
 interface DirectoryCacheDao {
 
     /**
-     * 为每一次改动添加详尽的中文注释：根据库根和 VFS 目录路径读取目录缓存，不再通过来源原生目录地址命中缓存。
+     * 根据库根和 VFS 目录路径读取目录缓存，不再通过来源原生目录地址命中缓存。
      */
     @Query("SELECT * FROM directory_cache WHERE rootId = :rootId AND sourcePath = :sourcePath")
     suspend fun getBySourcePath(rootId: String, sourcePath: String): DirectoryCacheEntity?
@@ -28,7 +27,7 @@ interface DirectoryCacheDao {
     suspend fun insert(cache: DirectoryCacheEntity)
 
     /**
-     * 为每一次改动添加详尽的中文注释：根据库根和 VFS 目录路径删除缓存，使目录缓存层保持跨来源可复用。
+     * 根据库根和 VFS 目录路径删除缓存，使目录缓存层保持跨来源可复用。
      */
     @Query("DELETE FROM directory_cache WHERE rootId = :rootId AND sourcePath = :sourcePath")
     suspend fun deleteBySourcePath(rootId: String, sourcePath: String)

@@ -32,7 +32,7 @@ import com.viel.aplayer.data.entity.DirectoryCacheEntity
         PendingScanActionEntity::class,
         DirectoryCacheEntity::class
     ],
-    // 为每一次改动添加详尽的中文注释：book_files 删除旧 uri 列后直接进入 VFS-only 结构，不保留历史迁移兼容链。
+    // book_files 删除旧 uri 列后直接进入 VFS-only 结构，不保留历史迁移兼容链。
     version = 33,
     exportSchema = true
 )
@@ -42,7 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun libraryRootDao(): LibraryRootDao
     abstract fun scanSessionDao(): ScanSessionDao
-    // 为每一次改动添加详尽的中文注释：对外暴露增量扫描目录缓存表的 DAO 查询接口
+    // 对外暴露增量扫描目录缓存表的 DAO 查询接口
     abstract fun directoryCacheDao(): DirectoryCacheDao
 
     companion object {
@@ -56,7 +56,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
-                // 为每一次改动添加详尽的中文注释：旧数据库结构不再维护迁移链，结构不匹配时直接重建为当前 VFS 标准件表结构。
+                // 旧数据库结构不再维护迁移链，结构不匹配时直接重建为当前 VFS 标准件表结构。
                 .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance

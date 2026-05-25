@@ -40,7 +40,7 @@ fun AudioProgressBar(
     color: Color = MaterialTheme.colorScheme.primary,
     showKnob: Boolean = true,
     markers: List<Float> = emptyList(),
-    // 为每一次改动添加详尽的中文注释：新增玻璃视效选择模式参数，以开启极具拟物水滴水晶质感的高阶进度条
+    // 新增玻璃视效选择模式参数，以开启极具拟物水滴水晶质感的高阶进度条
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     val currentOnProgressChange by rememberUpdatedState(onProgressChange)
@@ -50,12 +50,12 @@ fun AudioProgressBar(
     val markerColor = remember { Color.Black.copy(alpha = 0.3f) }
     val density = LocalDensity.current
     val strokeWidthPx = remember(density) { with(density) { 6.dp.toPx() } }
-    // 为每一次改动添加详尽的中文注释：新增章节标记点小球的半径参数，使其完美且精致地嵌入在轨道中
+    // 新增章节标记点小球的半径参数，使其完美且精致地嵌入在轨道中
     val markerRadiusPx = remember(density) { with(density) { 2.dp.toPx() } }
     val knobRadiusPx = remember(density) { with(density) { 8.dp.toPx() } }
     val isDark = isSystemInDarkTheme()
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 在 Composable 上下文提取 secondary 和 tertiary 次/三级色，缓存为局部非 Composable 变量。
     // 这将完美修复 DrawScope 内部直接调用 @Composable 属性而引发的编译段错误。
     val secondaryColor = MaterialTheme.colorScheme.secondary
@@ -66,7 +66,7 @@ fun AudioProgressBar(
             .fillMaxWidth()
             .height(32.dp)
             .graphicsLayer() // 隔离重绘，减少对父布局的影响
-            // 详尽中文注释：M-17 修复 — 补充无障碍语义节点
+            // M-17 修复 — 补充无障碍语义节点
             // 提供 progressBarRangeInfo 以使 TalkBack 识别进度值与范围；
             // setProgress 自定义动作允许无障碍服务以编程方式设置进度。
             .semantics(mergeDescendants = true) {
@@ -105,7 +105,7 @@ fun AudioProgressBar(
 
         // 1. 绘制背景轨道 (未播放部分)
         if (isBlur) {
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // 将未播放底轨轨线 (Track Brush) 的半透明色调做极致降噪与清亮化微调，
             // 深色模式下从 15% -> 5% 极致下调至 8% -> 2%，浅色模式下从 12% -> 3% 极致下调至 6% -> 1%，
             // 彻底保障底轨轨道呈现出空灵通透、薄如蝉翼的微弱磨砂质感。
@@ -139,7 +139,7 @@ fun AudioProgressBar(
         markers.forEach { marker ->
             if (marker > 0f && marker < 1f) {
                 val markerX = width * marker
-                // 为每一次改动添加详尽的中文注释：
+                // 
                 // 章节标记在 miuix-blur 磨砂状态下全新升级为自适应“微雕折光水晶小球”，镶嵌于 6.dp 轨道中央，
                 // 深色模式下绘制 35% 晶莹白，浅色下绘制 20% 玄墨半透，实现与滑块 Knob 大小相得益彰的协调拟物感。
                 val currentMarkerColor = if (isBlur) {
@@ -158,7 +158,7 @@ fun AudioProgressBar(
         // 3. 绘制已播放进度轨道
         if (activeWidth > 0) {
             if (isBlur) {
-                // 为每一次改动添加详尽的中文注释：
+                // 
                 // 将三层立体水晶已播管整体调亮调薄以响应“更加透明一些”的要求：
                 // (a) 底层：绘制略宽的外围折射描边线，深色模式透明度由 0.22 调薄降至 0.12，浅色模式由 0.55 降至 0.30，杜绝浮噪感。
                 val borderGlowColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.30f)
@@ -218,7 +218,7 @@ fun AudioProgressBar(
         // 4. 绘制进度小球 (Knob)
         if (showKnob) {
             if (isBlur) {
-                // 为每一次改动添加详尽的中文注释：
+                // 
                 // 在 miuix-blur 模式下，将进度小滑块圆球全新升级重构为玻璃微缩珠子效果：
                 // (a) 绘制微光半透的径向渐变毛斯磨砂小球底色
                 val knobBgBrush = Brush.radialGradient(

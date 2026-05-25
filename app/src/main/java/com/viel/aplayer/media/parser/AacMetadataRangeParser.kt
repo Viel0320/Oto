@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets
 import java.util.UUID
 import kotlin.math.roundToLong
 
-// 详尽的中文注释：aac/adts 的格式逻辑也全部留在本文件内，
+// aac/adts 的格式逻辑也全部留在本文件内，
 // 这里只接受前置 ID3v2 / 尾部 ID3v1 / 首帧 ADTS 的局部范围读取。
 internal object AacMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =

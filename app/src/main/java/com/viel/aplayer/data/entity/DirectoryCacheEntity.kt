@@ -6,7 +6,6 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 用于缓存各个文件夹（目录）物理 lastModified 修改时间戳的 Room 数据表实体。
  * 本表将 LibraryRootEntity 声明为外键，并配置了级联 CASCADE 删除规则。
  * 当用户在应用中物理删除某个媒体库根目录时，Room 数据库将在 SQLite 引擎层，
@@ -28,13 +27,13 @@ import androidx.room.PrimaryKey
 )
 data class DirectoryCacheEntity(
     /**
-     * 为每一次改动添加详尽的中文注释：目录缓存主键改为 rootId/sourcePath 组合，避免缓存层继续绑定 SAF URI。
+     * 目录缓存主键改为 rootId/sourcePath 组合，避免缓存层继续绑定 SAF URI。
      */
     @PrimaryKey
     val cacheKey: String,
 
     /**
-     * 为每一次改动添加详尽的中文注释：sourcePath 是 VFS 目录路径，SAF 本地目录和 WebDAV 远程目录共用同一套缓存寻址方式。
+     * sourcePath 是 VFS 目录路径，SAF 本地目录和 WebDAV 远程目录共用同一套缓存寻址方式。
      */
     val sourcePath: String,
 

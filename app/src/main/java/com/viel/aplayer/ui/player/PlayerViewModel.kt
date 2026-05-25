@@ -50,7 +50,7 @@ class PlayerViewModel : ViewModel() {
     private val _currentBookId = MutableStateFlow<String?>(null)
     val currentBookId: StateFlow<String?> = _currentBookId.asStateFlow()
 
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 新增播放器链路级一次性 UI 反馈共享流 uiEvents（采用 SharedFlow 保证一次性事件的可靠消费）。
     // 专门用来对外广播由底层 PlaybackManager 捕获并转发的 UI 反馈事件（如静音跳过提示等），
     // 遵循单向数据流与 MVI 架构设计，杜绝在 ViewModel 或后台服务中直接持有 UI 组件。
@@ -59,16 +59,16 @@ class PlayerViewModel : ViewModel() {
 
     private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.ui.player.components.SubtitleLine>>(emptyList())
 
-    // 详尽的中文注释：用于控制内置歌词与外置字幕异步加载生命周期的 Job。每次切歌或销毁时进行物理取消，防止多协程并发竞争。
+    // 用于控制内置歌词与外置字幕异步加载生命周期的 Job。每次切歌或销毁时进行物理取消，防止多协程并发竞争。
     private var subtitleLoadJob: kotlinx.coroutines.Job? = null
 
-    // 详尽的中文注释：内置歌词检索激活状态闸门。若为 true，说明当前处于 500ms 等待内置歌词的窗口期；
+    // 内置歌词检索激活状态闸门。若为 true，说明当前处于 500ms 等待内置歌词的窗口期；
     // 一旦超时回退或成功匹配到内置歌词，立即物理置为 false，从而无条件过滤并丢弃任何底层延迟到达 of onMetadata 内置字幕回调。
     private var isEmbeddedSearchActive = false
 
     private var bookmarkManager: BookmarkManager? = null
     private var playbackDelegate: MediaPlaybackDelegate? = null
-    // 为每一次改动添加详尽的中文注释：新增持有的 appContext 对象，在 initialize 时进行安全赋值，仅用于构造 lambda 桥接以规避内存泄露风险。
+    // 新增持有的 appContext 对象，在 initialize 时进行安全赋值，仅用于构造 lambda 桥接以规避内存泄露风险。
     private var appContext: Context? = null
     private val settingsManager: PlayerSettingsManager = PlayerSettingsManager(
         scope = viewModelScope,
@@ -78,7 +78,7 @@ class PlayerViewModel : ViewModel() {
     )
 
     // =====================================================================
-    // 详尽中文注释：M-16 修复 — 书签对话框状态上提到 ViewModel
+    // M-16 修复 — 书签对话框状态上提到 ViewModel
     // 将删除/编辑对话框的业务状态从叶子 Composable 中彻底移除，
     // 改由 ViewModel 持有 StateFlow，防止配置变更（旋转/深色模式切换）时
     // 用户正在编辑的内容丢失，同时使状态可被单元测试覆盖。
@@ -139,7 +139,7 @@ class PlayerViewModel : ViewModel() {
                     narrator = entity?.narrator ?: "",
                     coverPath = entity?.coverPath,
                     thumbnailPath = entity?.thumbnailPath,
-                    // 详尽的中文注释：将数据库中书籍实体的 lastScannedAt 映射作为 coverLastUpdated，从而在封面缓存重建完成后，促使数据流重发新状态包，迫使页面进行画面重绘
+                    // 将数据库中书籍实体的 lastScannedAt 映射作为 coverLastUpdated，从而在封面缓存重建完成后，促使数据流重发新状态包，迫使页面进行画面重绘
                     coverLastUpdated = entity?.lastScannedAt ?: 0L,
                     chapters = chapters,
                     bookmarks = bookmarks,
@@ -160,7 +160,7 @@ class PlayerViewModel : ViewModel() {
             
             val author = meta.author
             val narrator = meta.narrator
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // 将推荐数据源绑定到 metadataState 响应式流上。
             // 这样，只要元数据从 Room 成功加载，或者用户在信息修改器中对属性进行了保存，
             // 都会触发 flatMapLatest 自动以正确的实机属性调用 usecase，彻底修复了原先 _currentBookId 刚更新时
@@ -193,14 +193,14 @@ class PlayerViewModel : ViewModel() {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
 
-    // 详尽的中文注释：定义精细化局部的进度状态大实体，专门承载 elapsedMs、durationMs 以在局部微观范围响应重组
+    // 定义精细化局部的进度状态大实体，专门承载 elapsedMs、durationMs 以在局部微观范围响应重组
     data class PlaybackProgressViewState(
         val elapsedMs: Long = 0L,
         val durationMs: Long = 0L,
         val isChapterProgressMode: Boolean = false
     )
 
-    // 详尽的中文注释：新增细粒度进度高频 StateFlow 通道。
+    // 新增细粒度进度高频 StateFlow 通道。
     // 使用 distinctUntilChanged() 对各个变量进行锁死拦截，只在高频通道中发射这三个变量，确保不污染其他全局组件。
     val playbackProgressState: StateFlow<PlaybackProgressViewState> = combine(
         playbackState.map { it.currentPosition }.distinctUntilChanged(),
@@ -210,7 +210,7 @@ class PlayerViewModel : ViewModel() {
         PlaybackProgressViewState(pos, dur, mode)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
 
-    // 详尽的中文注释：新增极其低频的章节边界流通道。
+    // 新增极其低频的章节边界流通道。
     // 仅在进度跨越章节临界点或者书籍章节列表改变时才射出新章节，实现章节标题组件 ChapterDisplay 的绝对低频重组。
     val currentChapterState: StateFlow<com.viel.aplayer.data.entity.ChapterEntity?> = combine(
         playbackState.map { it.currentPosition }.distinctUntilChanged(),
@@ -228,7 +228,7 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackControlState(false, 1.0f, false))
 
-    // 详尽的中文注释：当前播放进度百分比 (0-100)，从真实的 playbackState 高频流派生。
+    // 当前播放进度百分比 (0-100)，从真实的 playbackState 高频流派生。
     // 供 DetailOverlay 在展示当前正在播放的书籍详情时，实时同步进度百分比，
     // 避免在 Composable 中内联数学运算，遵循 ViewModel 单向数据流原则。
     val currentPlaybackProgressPercent: StateFlow<Int> = playbackState
@@ -242,7 +242,7 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    // 详尽的中文注释：迷你播放器显示进度 (0.0f - 1.0f)。
+    // 迷你播放器显示进度 (0.0f - 1.0f)。
     // 根据用户是否开启章节进度模式 (isChapterProgressMode)，自动选择：
     // - 章节模式：计算当前章节内的局部进度比例（调用 ChapterTimeline）
     // - 全局模式：使用 currentPosition / duration 的全局进度
@@ -270,7 +270,7 @@ class PlayerViewModel : ViewModel() {
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
 
 
-    // 详尽的中文注释：重构后的低频全局 uiState 流。
+    // 重构后的低频全局 uiState 流。
     // 核心重构设计在于对 playback 字段进行彻底的进度“脱水”（将 currentPosition 和 duration 强制清零），
     // 这样全局 uiState 便能对每 500 毫秒一次的高频进度时间完全免疫，只有在播放控制改变、切换书籍或设置更新时才极低频重组。
     val uiState: StateFlow<PlayerUiState> = combine(
@@ -292,7 +292,7 @@ class PlayerViewModel : ViewModel() {
             relatedAuthorSections = related.authorSections,
             relatedNarratorSections = related.narratorSections,
             recentlyAddedBooks = related.recentlyAdded,
-            // 为每一次改动添加详尽的中文注释：映射注入启发式推荐数据到全局 uiState 流，实现端到端数据传输
+            // 映射注入启发式推荐数据到全局 uiState 流，实现端到端数据传输
             heuristicRecommendedBooks = related.heuristicRecommended
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlayerUiState())
@@ -313,7 +313,7 @@ class PlayerViewModel : ViewModel() {
         val appContext = context.applicationContext
         this.appContext = appContext
         val container = (appContext as APlayerApplication).container
-        // 为每一次改动添加详尽的中文注释：使用局部作用域变量分配，彻底物理规避连续多次 !! 解包引发的 NPE 风险 (H-11)
+        // 使用局部作用域变量分配，彻底物理规避连续多次 !! 解包引发的 NPE 风险 (H-11)
         val repo = container.libraryRepository
         libraryRepository = repo
         settingsRepository = container.settingsRepository
@@ -358,11 +358,11 @@ class PlayerViewModel : ViewModel() {
                 if (settings.isChapterProgressMode != settingsState.value.isChapterProgressMode) {
                     settingsManager.setChapterProgressMode(settings.isChapterProgressMode)
                 }
-                // 为每一次改动添加详尽的中文注释：实时同步持久化配置中的睡眠渐隐开关状态至 PlayerSettingsManager 内部。
+                // 实时同步持久化配置中的睡眠渐隐开关状态至 PlayerSettingsManager 内部。
                 settingsManager.isSleepFadeOutEnabled = settings.isSleepFadeOutEnabled
-                // 为每一次改动添加详尽的中文注释：实时同步持久化配置中的摇晃重置开关状态至 PlayerSettingsManager 内部。
+                // 实时同步持久化配置中的摇晃重置开关状态至 PlayerSettingsManager 内部。
                 settingsManager.isShakeToResetEnabled = settings.isShakeToResetEnabled
-                // 为每一次改动添加详尽的中文注释：实时同步持久化配置中的睡眠模式状态至 PlayerSettingsManager 内部，实现三态计时的底层业务流转。
+                // 实时同步持久化配置中的睡眠模式状态至 PlayerSettingsManager 内部，实现三态计时的底层业务流转。
                 settingsManager.sleepMode = settings.sleepMode
             }
         }
@@ -372,7 +372,7 @@ class PlayerViewModel : ViewModel() {
         val manager = playbackManager ?: return
 
         viewModelScope.launch {
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // 监听并订阅底层单例 PlaybackManager 广播的全局一次性 UI 事件共享流 uiEvents。
             // 当接收到事件（如静音跳过 EVENT_SKIP_SILENCE 触发的 UiEvent.ShowToast）时，
             // 立即将其向下层转发至当前 PlayerViewModel 持有的 uiEvents 流中，
@@ -388,17 +388,17 @@ class PlayerViewModel : ViewModel() {
                     val mediaId = mediaItem.mediaId
                     if (mediaId.contains(":")) {
                         val bookId = mediaId.substringBefore(":")
-                        // 为每一次改动添加详尽的中文注释：冒号后半段现在是稳定的 BookFileEntity.id，用于字幕 VFS 定位，不再依赖播放器的真实播放 URI。
+                        // 冒号后半段现在是稳定的 BookFileEntity.id，用于字幕 VFS 定位，不再依赖播放器的真实播放 URI。
                         val bookFileId = mediaId.substringAfter(":")
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
 
-                        // 详尽的中文注释：切歌时，物理重置并取消上一个章节/分轨的字幕加载协程，清空上一音轨的字幕缓存
+                        // 切歌时，物理重置并取消上一个章节/分轨的字幕加载协程，清空上一音轨的字幕缓存
                         subtitleLoadJob?.cancel()
                         isEmbeddedSearchActive = false
                         _currentSubtitles.value = emptyList()
 
-                        // 详尽的中文注释：启动全新的字幕加载与 Fallback 竞争协程。
+                        // 启动全新的字幕加载与 Fallback 竞争协程。
                         // 优先通过 500ms 的 withTimeoutOrNull 监听来自底层 Media3 播放器提取抛出的内置 embeddedSubtitles；
                         // 只要有任何合法非空的内置歌词到来，且窗口期处于激活状态，直接装载并拉闸锁定，杜绝外置检索；
                         // 若超时触发（返回 null）或者被动异常，拉闸锁定内置状态，回退检索物理同级外置字幕文件，实现平滑降级。
@@ -414,11 +414,11 @@ class PlayerViewModel : ViewModel() {
                             }
 
                             if (embeddedSubs != null && isEmbeddedSearchActive) {
-                                // 详尽的中文注释：在 500ms 窗口期内拿到了合法的内置歌词，立即拉闸锁死状态，并装载内置歌词
+                                // 在 500ms 窗口期内拿到了合法的内置歌词，立即拉闸锁死状态，并装载内置歌词
                                 isEmbeddedSearchActive = false
                                 _currentSubtitles.value = embeddedSubs
                             } else {
-                                // 为每一次改动添加详尽的中文注释：外置字幕回退通过 bookFileId 查入库文件并走 VFS 同级目录，不再从 MediaItem.uri 反查。
+                                // 外置字幕回退通过 bookFileId 查入库文件并走 VFS 同级目录，不再从 MediaItem.uri 反查。
                                 isEmbeddedSearchActive = false
                                 val subs = libraryRepository?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
                                 _currentSubtitles.value = subs
@@ -430,7 +430,7 @@ class PlayerViewModel : ViewModel() {
         }
 
         viewModelScope.launch {
-            // 详尽的中文注释：监听播放状态变化。
+            // 监听播放状态变化。
             // 当检测到播放结束（STATE_ENDED）时，启动一个 5 秒的延迟任务来自动关闭播放界面。
             // 这样能与 PlaybackService 的自动停止逻辑保持同步，提供一致的退出体验。
             manager.playbackState.collectLatest { state ->
@@ -449,7 +449,7 @@ class PlayerViewModel : ViewModel() {
     }
 
     fun loadBook(id: String, playWhenReady: Boolean = true) {
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 如果当前请求加载的音频书籍 ID 与当前正在播放的音频书籍 ID 相同，则无需重新加载该书。
         // 这可以防止因为重复加载媒体播放计划（loadBook）而打断当前的连续播放状态，提升播放体验的连贯性。
         if (_currentBookId.value == id) {
@@ -460,7 +460,7 @@ class PlayerViewModel : ViewModel() {
             return
         }
 
-        // 详尽的中文注释：加载新书时，必须彻底取消并物理回收正在运行的上一本书的字幕加载协程，重置闸门以杜绝残留回调污染新会话
+        // 加载新书时，必须彻底取消并物理回收正在运行的上一本书的字幕加载协程，重置闸门以杜绝残留回调污染新会话
         subtitleLoadJob?.cancel()
         isEmbeddedSearchActive = false
         _currentBookId.value = id
@@ -489,7 +489,7 @@ class PlayerViewModel : ViewModel() {
      */
     fun closePlayback(bookId: String) {
         if (_currentBookId.value == bookId) {
-            // 详尽的中文注释：停止播放新书或关闭物理会话时，必须物理取消正在运行的字幕检索协程并彻底闭锁状态阀门
+            // 停止播放新书或关闭物理会话时，必须物理取消正在运行的字幕检索协程并彻底闭锁状态阀门
             subtitleLoadJob?.cancel()
             isEmbeddedSearchActive = false
             _currentBookId.value = null
@@ -565,7 +565,7 @@ class PlayerViewModel : ViewModel() {
     fun setFullPlayerVisible(visible: Boolean) {
         settingsManager.setFullPlayerVisible(visible)
         if (visible) {
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // 当进入全屏播放器界面时（visible 为 true），自动重置并解除迷你播放器的隐藏状态（设置为 false）。
             // 从而保证当用户后续关闭/收起全屏播放器时，底部的迷你播放器能够自动重新显示，不会因为之前的 hide 状态而消失。
             settingsManager.setMiniPlayerHidden(false)

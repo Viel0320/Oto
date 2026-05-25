@@ -3,18 +3,18 @@ package com.viel.aplayer.library
 import android.os.SystemClock
 import android.util.Log
 
-// 详尽的中文注释：集中管理导入链路耗时日志，统一使用 ImportTiming tag，方便在 Logcat 里单独过滤性能瓶颈。
+// 集中管理导入链路耗时日志，统一使用 ImportTiming tag，方便在 Logcat 里单独过滤性能瓶颈。
 internal object ImportTimingLogger {
     private const val TAG = "ImportTiming"
     private const val MAX_VALUE_LENGTH = 180
 
-    // 详尽的中文注释：使用 elapsedRealtime 避免系统时间调整影响耗时计算，适合扫描、解析、入库这类运行期性能统计。
+    // 使用 elapsedRealtime 避免系统时间调整影响耗时计算，适合扫描、解析、入库这类运行期性能统计。
     fun mark(): Long = SystemClock.elapsedRealtime()
 
-    // 详尽的中文注释：把开始时间转换为毫秒耗时，调用点可以在成功或失败路径统一记录。
+    // 把开始时间转换为毫秒耗时，调用点可以在成功或失败路径统一记录。
     fun elapsedMs(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
 
-    // 详尽的中文注释：记录一个阶段耗时，scopeId 会被压缩，避免 SAF content Uri 过长导致 Logcat 难读。
+    // 记录一个阶段耗时，scopeId 会被压缩，避免 SAF content Uri 过长导致 Logcat 难读。
     fun logDuration(
         scopeId: String,
         stage: String,
@@ -22,22 +22,22 @@ internal object ImportTimingLogger {
         detail: String = ""
     ) {
         val detailSuffix = detail.takeIf { it.isNotBlank() }?.let { " ${compact(it)}" }.orEmpty()
-        // 为每一次改动添加详尽的中文注释：将日志级别从原有的 INFO 降级为 DEBUG (Log.d)，以避免高频耗时统计在生产环境中输出过多冗余日志
+        // 将日志级别从原有的 INFO 降级为 DEBUG (Log.d)，以避免高频耗时统计在生产环境中输出过多冗余日志
         Log.d(TAG, "scope=${compact(scopeId)} stage=$stage elapsedMs=$elapsedMs$detailSuffix")
     }
 
-    // 详尽的中文注释：记录没有耗时语义的导入事件，例如 scope 构建数量或扫描会话开始结束。
+    // 记录没有耗时语义的导入事件，例如 scope 构建数量或扫描会话开始结束。
     fun logEvent(
         scopeId: String,
         stage: String,
         detail: String = ""
     ) {
         val detailSuffix = detail.takeIf { it.isNotBlank() }?.let { " ${compact(it)}" }.orEmpty()
-        // 为每一次改动添加详尽的中文注释：将事件日志级别从原有的 INFO 降级为 DEBUG (Log.d)，减少不必要的控制台日志刷新
+        // 将事件日志级别从原有的 INFO 降级为 DEBUG (Log.d)，减少不必要的控制台日志刷新
         Log.d(TAG, "scope=${compact(scopeId)} stage=$stage$detailSuffix")
     }
 
-    // 详尽的中文注释：用 try/finally 包住挂起任务，确保解析失败、入库失败或取消前也能看到该阶段已经耗费的时间。
+    // 用 try/finally 包住挂起任务，确保解析失败、入库失败或取消前也能看到该阶段已经耗费的时间。
     suspend fun <T> measure(
         scopeId: String,
         stage: String,

@@ -12,7 +12,6 @@ import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackState
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 播放器设置与 UI 交互管理器。
  * 经过抽取重构，将睡眠定时器直接相关的倒计时控制、物理传感器防抖检测、渐隐衰减以及震动反馈等逻辑
  * 抽取到了专职的 SleepTimerManager 中，以遵循单一职责原则。
@@ -22,7 +21,7 @@ class PlayerSettingsManager(
     private val scope: CoroutineScope,
     private val playbackManager: () -> PlaybackManager?,
     private val audioManager: () -> AudioManager?,
-    // 为每一次改动添加详尽的中文注释：动态 Context 提供者 lambda，用以避免直接持有 Activity/Fragment 等 Context 造成的内存泄漏隐患。
+    // 动态 Context 提供者 lambda，用以避免直接持有 Activity/Fragment 等 Context 造成的内存泄漏隐患。
     private val contextProvider: () -> Context?
 ) {
     private val _settingsState = MutableStateFlow(PlayerSettingsState())
@@ -30,16 +29,16 @@ class PlayerSettingsManager(
 
     private var volumeAccumulator = 0f
 
-    // 为每一次改动添加详尽的中文注释：睡眠定时器音量渐隐机制的全局开关，由外部 ViewModel 实时同步持久化配置。
+    // 睡眠定时器音量渐隐机制的全局开关，由外部 ViewModel 实时同步持久化配置。
     var isSleepFadeOutEnabled: Boolean = true
 
-    // 为每一次改动添加详尽的中文注释：摇晃手机重置睡眠定时器的全局控制开关，由外部 ViewModel 实时同步持久化配置。
+    // 摇晃手机重置睡眠定时器的全局控制开关，由外部 ViewModel 实时同步持久化配置。
     var isShakeToResetEnabled: Boolean = true
 
-    // 为每一次改动添加详尽的中文注释：睡眠模式状态变量，由外部 ViewModel 实时同步 DataStore。
+    // 睡眠模式状态变量，由外部 ViewModel 实时同步 DataStore。
     var sleepMode: com.viel.aplayer.data.store.SleepMode = com.viel.aplayer.data.store.SleepMode.Regular
 
-    // 为每一次改动添加详尽的中文注释：实例化底层的睡眠定时器引擎 SleepTimerManager，将其作为独立业务模块引入，实现单一职责。
+    // 实例化底层的睡眠定时器引擎 SleepTimerManager，将其作为独立业务模块引入，实现单一职责。
     private val sleepTimerManager = SleepTimerManager(
         scope = scope,
         playbackManager = playbackManager,
@@ -58,11 +57,11 @@ class PlayerSettingsManager(
         }
     )
 
-    // 为每一次改动添加详尽的中文注释：睡眠倒计时剩余时间 StateFlow 流，直接委托给底层执行引擎。
+    // 睡眠倒计时剩余时间 StateFlow 流，直接委托给底层执行引擎。
     val sleepTimerMillis: StateFlow<Long> = sleepTimerManager.sleepTimerMillis
 
     /**
-     * 为每一次改动添加详尽的中文注释：设置睡眠定时器，委托给专职定时引擎 SleepTimerManager 执行。
+     * 设置睡眠定时器，委托给专职定时引擎 SleepTimerManager 执行。
      */
     fun setSleepTimer(
         minutes: Int,

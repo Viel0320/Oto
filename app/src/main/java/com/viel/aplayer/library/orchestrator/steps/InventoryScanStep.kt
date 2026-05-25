@@ -11,7 +11,6 @@ import com.viel.aplayer.library.orchestrator.StepResult
 /**
  * 物理文件存量扫描分步类
  * 
- * 为每一次改动添加详尽的中文注释：
  * 本工位在底层异步线程执行对指定有声书库根目录的遍历。
  * 它调用已有的 FileInventoryScanner，收集所有 CUE、M3U8、音频文件及同级封面图像，
  * 并整理输出为 FileInventory 对象，供流水线的后续解析工位直接读取。

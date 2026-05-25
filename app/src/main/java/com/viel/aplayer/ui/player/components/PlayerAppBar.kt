@@ -55,20 +55,20 @@ fun PlayerAppBar(
     onToggleProgressMode: (() -> Unit)? = null,
     onDeleteBook: (() -> Unit)? = null,
     isChapterProgressMode: Boolean = false,
-    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由播放页从设置状态显式传入，播放器顶部栏不再声明 Material 默认值。
+    // 玻璃效果模式必须由播放页从设置状态显式传入，播放器顶部栏不再声明 Material 默认值。
     glassEffectMode: GlassEffectMode,
-    // 为每一次改动添加详尽的中文注释：菜单复用播放器背景的 LayerBackdrop 采样源；独立预览或未传参时默认自愈。
+    // 菜单复用播放器背景的 LayerBackdrop 采样源；独立预览或未传参时默认自愈。
     backdrop: LayerBackdrop? = null,
     containerColor: Color = Color.Transparent,
     contentColor: Color = LocalContentColor.current
 ) {
     val navIcon = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
-    // 为每一次改动添加详尽的中文注释：在内部安全创建本地 backdrop 采样器，确保当外部 backdrop 为 null 时仍能获得优雅的高清模糊背景
+    // 在内部安全创建本地 backdrop 采样器，确保当外部 backdrop 为 null 时仍能获得优雅的高清模糊背景
     val localBackdrop = backdrop ?: rememberLayerBackdrop()
 
     CenterAlignedTopAppBar(
-        // 为每一次改动添加详尽的中文注释：移除修饰符上的 statusBarsPadding()，改由更专业的 windowInsets 直接自适应管理，彻底斩断双重 Padding
+        // 移除修饰符上的 statusBarsPadding()，改由更专业的 windowInsets 直接自适应管理，彻底斩断双重 Padding
         modifier = modifier,
         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
         title = {
@@ -116,9 +116,9 @@ fun PlayerAppBar(
                 BlurDropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
-                    // 为每一次改动添加详尽的中文注释：将播放器 Surface 采样的 LayerBackdrop 传入下拉菜单以生成毛玻璃效果。
+                    // 将播放器 Surface 采样的 LayerBackdrop 传入下拉菜单以生成毛玻璃效果。
                     backdrop = localBackdrop,
-                    // 为每一次改动添加详尽的中文注释：播放器更多菜单跟随设置页选择在 Material 与 miuix-blur 之间切换。
+                    // 播放器更多菜单跟随设置页选择在 Material 与 miuix-blur 之间切换。
                     glassEffectMode = glassEffectMode
                 ) {
                     // 1. 进度模式切换
@@ -168,7 +168,7 @@ fun PlayerAppBarPreview() {
                 author = "Preview Author",
                 narrator = "Preview Narrator",
                 onNavigationClick = {},
-                // 为每一次改动添加详尽的中文注释：Preview 显式引用设置模型里的默认玻璃效果，避免 PlayerAppBar 参数重新拥有局部默认值。
+                // Preview 显式引用设置模型里的默认玻璃效果，避免 PlayerAppBar 参数重新拥有局部默认值。
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
                 contentColor = Color.White
             )

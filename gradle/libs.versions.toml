@@ -18,9 +18,9 @@ coil = "2.7.0"
 palette = "1.0.0"
 datastore = "1.2.1"
 glance = "1.2.0-rc01"
-# 为每一次改动添加详尽的中文注释：WebDAV 传输层需要稳定支持 PROPFIND 与 Range 请求，因此新增 OkHttp 版本声明。
+# WebDAV 传输层需要稳定支持 PROPFIND 与 Range 请求，因此新增 OkHttp 版本声明。
 okhttp = "5.3.2"
-# 为每一次改动添加详尽的中文注释：引入 miuix 库版本声明，用于引入硬件级高阶模糊效果组件 miuix-blur。
+# 引入 miuix 库版本声明，用于引入硬件级高阶模糊效果组件 miuix-blur。
 miuix = "0.9.1"
 
 
@@ -56,7 +56,7 @@ androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", versi
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
-# 为每一次改动添加详尽的中文注释：WebDAV Provider 通过 OkHttp 发起 PROPFIND/GET/Range，避免手写底层 HTTP 兼容逻辑。
+# WebDAV Provider 通过 OkHttp 发起 PROPFIND/GET/Range，避免手写底层 HTTP 兼容逻辑。
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur", version.ref = "miuix" }
 

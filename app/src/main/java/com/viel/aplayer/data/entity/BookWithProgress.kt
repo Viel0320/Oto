@@ -19,15 +19,15 @@ data class BookWithProgress(
             0
         }
 
-    // 为每一次改动添加详尽的中文注释：重构 isFinished 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
+    // 重构 isFinished 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
     val isFinished: Boolean
         get() = book.readStatus == AudiobookSchema.ReadStatus.FINISHED
 
-    // 为每一次改动添加详尽的中文注释：重构 isInProgress 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
+    // 重构 isInProgress 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
     val isInProgress: Boolean
         get() = book.readStatus == AudiobookSchema.ReadStatus.IN_PROGRESS
 
-    // 为每一次改动添加详尽的中文注释：重构 isNotStarted 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
+    // 重构 isNotStarted 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
     val isNotStarted: Boolean
         get() = book.readStatus == AudiobookSchema.ReadStatus.NOT_STARTED
 }

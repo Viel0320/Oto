@@ -25,7 +25,7 @@ class SourceInventoryScanner(context: Context) {
         merge(roots, inventories)
     }
 
-    // 详尽的中文注释：保持现有“目录关闭后释放 DirectoryInventory”的后序遍历语义，确保导入即时入库边界不变。
+    // 保持现有“目录关闭后释放 DirectoryInventory”的后序遍历语义，确保导入即时入库边界不变。
     fun scanDirectories(roots: List<LibraryRootEntity>): Flow<DirectoryInventory> = flow {
         roots.forEach { root ->
             val rootNode = vfs.root(root) ?: return@forEach
@@ -41,7 +41,7 @@ class SourceInventoryScanner(context: Context) {
         val m3u8Files = mutableListOf<FileRef>()
         val audioFiles = mutableListOf<FileRef>()
         val imagesByParent = mutableMapOf<String, MutableList<FileRef>>()
-        // 为每一次改动添加详尽的中文注释：全量扫描同时为 txt 侧车建立按父目录分组的快照，
+        // 全量扫描同时为 txt 侧车建立按父目录分组的快照，
         // 让后续 manifest parser 可以直接复用扫描结果完成简介匹配。
         val textFilesByParent = mutableMapOf<String, MutableList<FileRef>>()
 
@@ -60,7 +60,7 @@ class SourceInventoryScanner(context: Context) {
                     isM3u(name) -> m3u8Files.add(ref)
                     isAudio(name) -> audioFiles.add(ref)
                     isImage(name) -> imagesByParent.getOrPut(ref.parentSourceKey) { mutableListOf() }.add(ref)
-                    // 为每一次改动添加详尽的中文注释：txt 不进入 claim 主体，只作为目录侧车资产保留。
+                    // txt 不进入 claim 主体，只作为目录侧车资产保留。
                     isText(name) -> textFilesByParent.getOrPut(ref.parentSourceKey) { mutableListOf() }.add(ref)
                 }
             }
@@ -89,7 +89,7 @@ class SourceInventoryScanner(context: Context) {
             val m3u8Files = mutableListOf<FileRef>()
             val audioFiles = mutableListOf<FileRef>()
             val imageFiles = mutableListOf<FileRef>()
-            // 为每一次改动添加详尽的中文注释：目录关闭事件保留同级 txt 资产，
+            // 目录关闭事件保留同级 txt 资产，
             // 后续 manifest scope 可以直接在当前目录快照中匹配简介文件。
             val textFiles = mutableListOf<FileRef>()
             val childDirectories = mutableListOf<VfsNode>()
@@ -98,7 +98,7 @@ class SourceInventoryScanner(context: Context) {
                 yield()
                 val name = node.metadata.displayName
                 if (node.metadata.isDirectory) {
-                    // 详尽的中文注释：先记录子目录，等当前目录直接文件分类完成后再递归，保持旧扫描器的后序释放顺序。
+                    // 先记录子目录，等当前目录直接文件分类完成后再递归，保持旧扫描器的后序释放顺序。
                     childDirectories.add(node)
                     return@forEach
                 }
@@ -176,7 +176,7 @@ class SourceInventoryScanner(context: Context) {
         name.endsWith(".m3u8", ignoreCase = true) || name.endsWith(".m3u", ignoreCase = true)
 
     private fun isAudio(name: String): Boolean {
-        // 中文注释：mp4 也可能承载纯音频/有声书章节，扫描阶段统一归入 audioFiles 交给元数据解析器裁决。
+        // mp4 也可能承载纯音频/有声书章节，扫描阶段统一归入 audioFiles 交给元数据解析器裁决。
         val extensions = listOf(".mp3", ".m4b", ".m4a", ".mp4", ".aac", ".flac", ".wav", ".ogg")
         return extensions.any { name.endsWith(it, ignoreCase = true) }
     }
@@ -187,7 +187,7 @@ class SourceInventoryScanner(context: Context) {
     }
 
     private fun isText(name: String): Boolean {
-        // 为每一次改动添加详尽的中文注释：当前只把 txt 视为简介侧车来源，
+        // 当前只把 txt 视为简介侧车来源，
         // 保持与既有 ConflictClaimStep 中的描述匹配规则一致，不顺手放大到 md/nfo 等其他文本格式。
         return name.endsWith(".txt", ignoreCase = true)
     }

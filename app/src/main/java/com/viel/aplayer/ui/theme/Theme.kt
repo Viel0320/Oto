@@ -14,7 +14,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 // =====================================================================
-// 详尽中文注释：M-21 修复 — 完整的 DarkColorScheme，
+// M-21 修复 — 完整的 DarkColorScheme，
 // 补齐了在 dynamicColor=false 时的 secondary, tertiary, error 及其 container 角色。
 // =====================================================================
 private val DarkColorScheme = darkColorScheme(
@@ -44,7 +44,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 // =====================================================================
-// 详尽中文注释：M-21 修复 — 完整的 LightColorScheme，
+// M-21 修复 — 完整的 LightColorScheme，
 // 补齐了在 dynamicColor=false 时的 secondary, tertiary, error 及其 container 角色。
 // =====================================================================
 private val LightColorScheme = lightColorScheme(

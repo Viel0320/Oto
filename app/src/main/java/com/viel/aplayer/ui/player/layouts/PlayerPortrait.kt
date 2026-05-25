@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.player.layouts
 
-// 为每一次改动添加详尽的中文注释：导入 Jetpack Compose 动画、手势和布局 API
+// 导入 Jetpack Compose 动画、手势和布局 API
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
@@ -40,7 +40,6 @@ import com.viel.aplayer.ui.player.components.SubtitlesViewStateful
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 竖屏自适应播放器布局组件 (PlayerPortrait)。
  * 完美移植原 PlayerScreen 中的竖屏单列 Column 组件编排，将复杂的具体渲染分流至本模块，保证视觉的完美还原。
  */
@@ -57,11 +56,11 @@ fun PlayerPortrait(
     animatedBgColor: androidx.compose.ui.graphics.Color,
     glassEffectMode: GlassEffectMode,
     chapterSheetBackdrop: LayerBackdrop,
-    // 为每一次改动添加详尽的中文注释：显式约束动画参数的泛型类型为 AnimationVector1D，修复参数类型擦除引起的匹配失败 (H-11)
+    // 显式约束动画参数的泛型类型为 AnimationVector1D，修复参数类型擦除引起的匹配失败 (H-11)
     offsetY: Animatable<Float, AnimationVector1D>,
     scope: kotlinx.coroutines.CoroutineScope,
     dismissThreshold: Float,
-    // 为每一次改动添加详尽的中文注释：修正 FocusManager 为正确的 focus 包级类型，去除 platform 包残留引起未解析符号
+    // 修正 FocusManager 为正确的 focus 包级类型，去除 platform 包残留引起未解析符号
     focusManager: FocusManager,
     navigationActions: com.viel.aplayer.ui.navigation.PlayerNavigationActions,
     modifier: Modifier = Modifier
@@ -71,7 +70,7 @@ fun PlayerPortrait(
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        // 为每一次改动添加详尽的中文注释：使用新抽离的 PlayerVerticalAppBar 组件，封装顶部标题栏、下拉返回手势以及睡眠定时等物理交互
+        // 使用新抽离的 PlayerVerticalAppBar 组件，封装顶部标题栏、下拉返回手势以及睡眠定时等物理交互
         PlayerVerticalAppBar(
             metadata = metadata,
             settings = settings,
@@ -85,13 +84,13 @@ fun PlayerPortrait(
             dismissThreshold = dismissThreshold
         )
 
-        // 为每一次改动添加详尽的中文注释：计算水平滑动手势换页的阈值，默认为 80.dp 对应的像素值
+        // 计算水平滑动手势换页的阈值，默认为 80.dp 对应的像素值
         val swipeThresholdPx = with(density) { 80.dp.toPx() }
         val tabModes = remember {
             listOf(PlayerScreenMode.BOOKMARKS, PlayerScreenMode.SUBTITLES, PlayerScreenMode.RELATED)
         }
         
-        // 为每一次改动添加详尽的中文注释：根据当前激活的 Tab 映射到最外层的共享动画过渡外壳
+        // 根据当前激活的 Tab 映射到最外层的共享动画过渡外壳
         val contentShell = remember(currentMode) {
             when (currentMode) {
                 PlayerScreenMode.BOOKMARKS -> PlayerContentShell.Bookmarks
@@ -105,7 +104,7 @@ fun PlayerPortrait(
             modifier = Modifier
                 .weight(1f)
                 .pointerInput(currentMode) {
-                    // 为每一次改动添加详尽的中文注释：仅在非主播放页面（如书签、歌词、推荐面板）才拦截水平拖拽手势用于页签快速流转
+                    // 仅在非主播放页面（如书签、歌词、推荐面板）才拦截水平拖拽手势用于页签快速流转
                     if (currentMode == PlayerScreenMode.PLAYER) return@pointerInput
                     var accumulatedX = 0f
                     var hasSwipeTriggered = false
@@ -143,7 +142,7 @@ fun PlayerPortrait(
                     )
                 }
         ) {
-            // 为每一次改动添加详尽的中文注释：外层横向滑入滑出切换动画，管理主控制/书签/推荐大面板的顺畅流转
+            // 外层横向滑入滑出切换动画，管理主控制/书签/推荐大面板的顺畅流转
             AnimatedContent(
                 targetState = contentShell,
                 modifier = Modifier.fillMaxSize(),
@@ -166,7 +165,7 @@ fun PlayerPortrait(
                             } else {
                                 PlayerScreenMode.PLAYER
                             }
-                            // 为每一次改动添加详尽的中文注释：内层淡入淡出动画，顺畅切换封面层与歌词字幕渲染面板
+                            // 内层淡入淡出动画，顺畅切换封面层与歌词字幕渲染面板
                             AnimatedContent(
                                 targetState = playbackTopMode,
                                 modifier = Modifier.weight(1f),
@@ -187,7 +186,7 @@ fun PlayerPortrait(
                                         }
                                     }
                                     else -> {
-                                        // 为每一次改动添加详尽的中文注释：使用封装良好的手势声音及双击切歌封面组件
+                                        // 使用封装良好的手势声音及双击切歌封面组件
                                         PlayerCover(
                                             coverPath = metadata.coverPath,
                                             isPlaying = controls.isPlaying,
@@ -199,7 +198,7 @@ fun PlayerPortrait(
                                     }
                                 }
                             }
-                            // 为每一次改动添加详尽的中文注释：控制面板区，包含播放按钮、进度滑条、章节切换、速度调节，并完美避让 24.dp 舒适内缩边距
+                            // 控制面板区，包含播放按钮、进度滑条、章节切换、速度调节，并完美避让 24.dp 舒适内缩边距
                             PlayerControlPanel(
                                 viewModel = viewModel,
                                 metadata = metadata,
@@ -215,7 +214,7 @@ fun PlayerPortrait(
                             )
                         }
                         PlayerContentShell.Bookmarks -> {
-                            // 为每一次改动添加详尽的中文注释：书签记录面板，可长按跳转或重命名书签点位
+                            // 书签记录面板，可长按跳转或重命名书签点位
                             Box(modifier = Modifier.weight(1f)) {
                                 BookmarkListViewStateful(
                                     viewModel = viewModel,
@@ -225,7 +224,7 @@ fun PlayerPortrait(
                             }
                         }
                         PlayerContentShell.Related -> {
-                            // 为每一次改动添加详尽的中文注释：推荐书籍面板，展示作者及朗读者关联的书籍列表，无缝拉起加载
+                            // 推荐书籍面板，展示作者及朗读者关联的书籍列表，无缝拉起加载
                             Box(modifier = Modifier.weight(1f)) {
                                 RelatedBooksView(
                                     currentBookId = metadata.id,
@@ -242,7 +241,7 @@ fun PlayerPortrait(
             }
         }
 
-        // 为每一次改动添加详尽的中文注释：底部页签导航栏，负责播放器四大基本维度的状态快速流转
+        // 底部页签导航栏，负责播放器四大基本维度的状态快速流转
         BottomNavTabs(
             selectedTab = currentMode,
             onTabSelected = {

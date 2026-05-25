@@ -27,7 +27,7 @@ class DetailAvailabilityChecker(private val context: Context) {
             )
         }
 
-        // 为每一次改动添加详尽的中文注释：详情页可用性检查按目录批量执行，多文件书籍只枚举各父目录一次，并将状态按 READY/MISSING 两批写库。
+        // 详情页可用性检查按目录批量执行，多文件书籍只枚举各父目录一次，并将状态按 READY/MISSING 两批写库。
         val availabilityByFileId = availabilityChecker.checkBookFiles(files)
         val readyFileIds = mutableListOf<String>()
         val missingFileIds = mutableListOf<String>()

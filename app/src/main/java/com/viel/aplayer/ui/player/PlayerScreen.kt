@@ -1,9 +1,10 @@
 package com.viel.aplayer.ui.player
 
-// 为每一次改动添加详尽 of 中文注释：导入 WindowInsets 及自适应配置检测相关的 Compose API
+// 导入 WindowInsets 及自适应配置检测相关的 Compose API
+
+// 导入自适应分发子 layouts 模块
 import android.content.res.Configuration
 import android.view.RoundedCorner
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -14,12 +15,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +27,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +45,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.toColorInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.bookmarks.BookmarkDialog
@@ -55,16 +53,13 @@ import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterListSheetStateful
+import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
+import com.viel.aplayer.ui.player.layouts.PlayerPortrait
+import com.viel.aplayer.ui.player.layouts.PlayerTablet
 import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import kotlin.math.roundToInt
-
-// 为每一次改动添加详尽的中文注释：导入自适应分发子 layouts 模块
-import com.viel.aplayer.ui.player.layouts.PlayerPortrait
-import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
-import com.viel.aplayer.ui.player.layouts.PlayerTablet
-import androidx.core.graphics.toColorInt
 
 enum class PlayerScreenMode(val index: Int) {
     PLAYER(-1),
@@ -79,15 +74,15 @@ fun PlayerScreen(
     viewModel: PlayerViewModel,
     actions: PlayerActions,
     navigationActions: PlayerNavigationActions,
-    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由播放器 Overlay 从设置状态显式传入，播放页内部不再声明 Material 默认值。
+    // 玻璃效果模式必须由播放器 Overlay 从设置状态显式传入，播放页内部不再声明 Material 默认值。
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // 为每一次改动添加详尽的中文注释：接收从外部 PlayerOverlay 传递进来的全屏播放器自身全量画面（含前景文字、进度条与按钮）采样源，用以消除子弹窗模糊的背景穿帮。
+    // 接收从外部 PlayerOverlay 传递进来的全屏播放器自身全量画面（含前景文字、进度条与按钮）采样源，用以消除子弹窗模糊的背景穿帮。
     fullPageBackdrop: LayerBackdrop? = null,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
-    // 为每一次改动添加详尽的中文注释：如果处于 IDE 预览环境，则注入精美的 Mock 数据，避免底层的 Flow 订阅和 ViewModel 的初始化依赖
+    // 如果处于 IDE 预览环境，则注入精美的 Mock 数据，避免底层的 Flow 订阅和 ViewModel 的初始化依赖
     val metadata = if (isPreview) {
         BookMetadataState(
             id = "book_1",
@@ -146,7 +141,7 @@ fun PlayerScreen(
 
     var currentMode by remember { mutableStateOf(targetMode) }
 
-    // 详尽中文注释：定义全屏播放器预测性返回手势的激活状态和手势百分比进度值（0f 到 1f 之间）
+    // 定义全屏播放器预测性返回手势的激活状态和手势百分比进度值（0f 到 1f 之间）
     var isPlayerBackActive by remember { mutableStateOf(false) }
     var playerBackProgress by remember { mutableFloatStateOf(0f) }
 
@@ -163,7 +158,7 @@ fun PlayerScreen(
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    // 为每一次改动添加详尽的中文注释：使用 LocalConfiguration 检测屏幕方向，动态分流横竖屏自适应布局与圆角设计
+    // 使用 LocalConfiguration 检测屏幕方向，动态分流横竖屏自适应布局与圆角设计
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -171,27 +166,27 @@ fun PlayerScreen(
         currentMode = targetMode
     }
 
-    // 详尽中文注释：移除原先硬编码的 darkTheme = true，使全屏播放器跟随系统/应用主题设置
+    // 移除原先硬编码的 darkTheme = true，使全屏播放器跟随系统/应用主题设置
     APlayerTheme {
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 重新在 LocalComposables 环境下声明全局 coverBackdrop 背景专属采样源，修复未解析引用的编译错误。
         // 用以作为背景层专属采样源，与前景组件隔离为同级兄弟，彻底规避 Vulkan feedback loop 死锁崩溃。
         val coverBackdrop = rememberLayerBackdrop()
 
-        // 详尽的中文注释：当处于书签/歌词/推荐等面板时，使用 PredictiveBackHandler 平滑返回主播放页面
+        // 当处于书签/歌词/推荐等面板时，使用 PredictiveBackHandler 平滑返回主播放页面
         androidx.activity.compose.PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
             try {
                 progressFlow.collect { }
                 currentMode = PlayerScreenMode.PLAYER
             } catch (_: kotlin.coroutines.cancellation.CancellationException) {
-                // 详尽的中文注释：用户中途滑回取消，不做状态改变
+                // 用户中途滑回取消，不做状态改变
             }
         }
 
-        // 详尽的中文注释：当处于主播放页面且全屏播放器可见时，使用 PredictiveBackHandler 拦截并支持手势平滑最小化
+        // 当处于主播放页面且全屏播放器可见时，使用 PredictiveBackHandler 拦截并支持手势平滑最小化
         androidx.activity.compose.PredictiveBackHandler(
             enabled = currentMode == PlayerScreenMode.PLAYER && settings.isFullPlayerVisible
         ) { progressFlow ->
@@ -204,15 +199,15 @@ fun PlayerScreen(
                 actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
                 navigationActions.onMinimize()
             } catch (_: kotlin.coroutines.cancellation.CancellationException) {
-                // 详尽的中文注释：用户在手势拖拽时滑回以取消最小化返回，恢复原状态
+                // 用户在手势拖拽时滑回以取消最小化返回，恢复原状态
             } finally {
-                // 详尽的中文注释：手势执行完成或取消时，及时清空手势激活状态和进度值为 0f
+                // 手势执行完成或取消时，及时清空手势激活状态和进度值为 0f
                 isPlayerBackActive = false
                 playerBackProgress = 0f
             }
         }
 
-        // 为每一次改动添加详尽的中文注释：动态捕获背景色过渡状态，产生流光颜色变换的顺滑动画效果
+        // 动态捕获背景色过渡状态，产生流光颜色变换的顺滑动画效果
         val animatedBgColor by animateColorAsState(
             targetValue = Color(metadata.backgroundColorArgb),
             animationSpec = tween(300),
@@ -220,10 +215,10 @@ fun PlayerScreen(
         )
         val bgColor = MaterialTheme.colorScheme.background
 
-        // 详尽的中文注释：计算最大的向下位移像素值，顺应全屏播放器“向下滑动收起”的最小化退出特征
+        // 计算最大的向下位移像素值，顺应全屏播放器“向下滑动收起”的最小化退出特征
         val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
-        // 详尽的中文注释：在横屏模式下，全屏播放器通常是左右双栏平铺排版，外层不需要竖屏抽屉的顶部大圆角，
+        // 在横屏模式下，全屏播放器通常是左右双栏平铺排版，外层不需要竖屏抽屉的顶部大圆角，
         // 设为直角（RectangleShape）既符合大屏沉浸式视觉，也能在物理上彻底杜绝左上角和右上角内容被外层圆角裁切的隐患。
         val playerSurfaceShape = if (isLandscape) {
             androidx.compose.ui.graphics.RectangleShape
@@ -236,7 +231,7 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
                 .graphicsLayer {
-                    // 详尽的中文注释：当全屏播放器拖拽最小化预测性返回手势处于激活状态时，
+                    // 当全屏播放器拖拽最小化预测性返回手势处于激活状态时，
                     // 让卡片整体随手势的百分比进度向下平移（最多 120.dp）并伴随淡出（1.0f -> 0.7f），
                     // 在力导向和视觉上与最终向下滑动收起为迷你播放器的退出动画无缝融合。根据用户最新指令，
                     // 在此已彻底去除了原有的微小等比缩放效果（scaleX / scaleY 缩放形变），以提升手势物理退出的顺滑度与稳定性。
@@ -246,11 +241,11 @@ fun PlayerScreen(
                     }
                 }
                 .clip(playerSurfaceShape),
-            // 为每一次改动添加详尽的中文注释：将 bgColor 设置为 Surface 的 container color，充当最牢固的主题底层背景，杜绝任何透明漏光发生
+            // 将 bgColor 设置为 Surface 的 container color，充当最牢固的主题底层背景，杜绝任何透明漏光发生
             color = bgColor
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // 为每一次改动添加详尽的中文注释：
+                // 
                 // 彻底修复特定的 OPLUS (一加) 设备在启用 miuix-blur 模糊效果后，由于父子循环嵌套采样导致的 RenderThread SIGSEGV 段错误闪退。
                 // 我们在此重构了 PlayerScreen 的根布局层级，将挂载了 layerBackdrop 采样器的背景图层，与使用 drawBackdrop 绘制毛玻璃的前景内容组件完全剥离为同级的【兄弟节点】。
 
@@ -267,7 +262,7 @@ fun PlayerScreen(
                 Box(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // 为每一次改动添加详尽的中文注释：根据系统配置，自适应分流调用三大 layouts
+                    // 根据系统配置，自适应分流调用三大 layouts
                     val isTablet = configuration.smallestScreenWidthDp >= 600
                     when {
                         isTablet -> {
@@ -332,7 +327,7 @@ fun PlayerScreen(
                     }
                 }
 
-                // 为每一次改动添加详尽的中文注释：可切换 miuix-blur 模糊的 Snackbar，作为兄弟节点直接放置在最外层 Box 的底部层叠位置。
+                // 可切换 miuix-blur 模糊的 Snackbar，作为兄弟节点直接放置在最外层 Box 的底部层叠位置。
                 // 采用 150ms 上滑淡入/下滑淡出，显示时长控制仍由 ViewModel 管理。
                 androidx.compose.animation.AnimatedVisibility(
                     visible = settings.showUndoSeek,
@@ -346,10 +341,10 @@ fun PlayerScreen(
                     ) + fadeOut(animationSpec = tween(150)),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        // 详尽的中文注释：由于 Snackbar 是悬浮在 BottomNavTabs 之上的独立层级，我们将底边距提升至 96.dp，以防它与下方的 BottomNavTabs 发生视觉重叠遮挡。
+                        // 由于 Snackbar 是悬浮在 BottomNavTabs 之上的独立层级，我们将底边距提升至 96.dp，以防它与下方的 BottomNavTabs 发生视觉重叠遮挡。
                         .padding(horizontal = 16.dp, vertical = 96.dp)
                 ) {
-                    // 为每一次改动添加详尽的中文注释：使用新创建的 BlurSnackbar，支持在 miuix-blur 模式下采样兄弟节点的背景模糊效果，Material 模式下展示原生样式。
+                    // 使用新创建的 BlurSnackbar，支持在 miuix-blur 模式下采样兄弟节点的背景模糊效果，Material 模式下展示原生样式。
                     BlurSnackbar(
                         backdrop = coverBackdrop,
                         glassEffectMode = glassEffectMode,
@@ -375,19 +370,19 @@ fun PlayerScreen(
             }
         }
 
-        // 详尽的中文注释：采用 Stateful 局部隔间包裹章节列表弹窗，在弹窗不可见时完全停摆以防高频重组
+        // 采用 Stateful 局部隔间包裹章节列表弹窗，在弹窗不可见时完全停摆以防高频重组
         ChapterListSheetStateful(
             viewModel = viewModel,
             metadata = metadata,
             settings = settings,
             actions = actions,
             sheetState = sheetState,
-            // 为每一次改动添加详尽的中文注释：升级章节列表抽屉的采样源为整页全量采样，在 null 时安全降级回 coverBackdrop，无缝实现全前景画面高真模糊。
+            // 升级章节列表抽屉的采样源为整页全量采样，在 null 时安全降级回 coverBackdrop，无缝实现全前景画面高真模糊。
             backdrop = fullPageBackdrop ?: coverBackdrop,
             glassEffectMode = glassEffectMode
         )
 
-        // 详尽的中文注释：桥接就近打字隔离后的 BookmarkDialog。通过回调 localTitle 执行 onTitleChange 和 onSave，无损向下兼容原契约
+        // 桥接就近打字隔离后的 BookmarkDialog。通过回调 localTitle 执行 onTitleChange 和 onSave，无损向下兼容原契约
         BookmarkDialog(
             isVisible = settings.isBookmarkDialogVisible,
             defaultTitle = settings.bookmarkTitle,
@@ -400,7 +395,7 @@ fun PlayerScreen(
     }
 }
 
-// 为每一次改动添加详尽的中文注释：使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
+// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
 @Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
@@ -421,7 +416,7 @@ fun PlayerScreenPreview() {
     }
 }
 
-// 为每一次改动添加详尽的中文注释：使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
+// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
 @Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
 @Preview(showBackground = true, apiLevel = 36, widthDp = 800, heightDp = 480)
 @Composable

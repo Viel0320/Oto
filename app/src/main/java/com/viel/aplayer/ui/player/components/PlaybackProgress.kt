@@ -36,7 +36,7 @@ fun PlaybackProgressStateful(
     metadata: BookMetadataState,
     actions: PlayerActions,
     modifier: Modifier = Modifier,
-    // 为每一次改动添加详尽的中文注释：新增玻璃视效选择模式参数，透传至底层进度条组件。
+    // 新增玻璃视效选择模式参数，透传至底层进度条组件。
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
@@ -67,7 +67,7 @@ fun PlaybackProgressStateful(
  * 内部封装了“全书进度”与“当前章节进度”的切换逻辑。
  */
 @Composable
-// 中文注释：已取消封面取色动态着色功能，此处的 color 参数已被移除，进度条直接回退至系统默认的 Material 3 主色调以提升性能和UI一致性
+// 已取消封面取色动态着色功能，此处的 color 参数已被移除，进度条直接回退至系统默认的 Material 3 主色调以提升性能和UI一致性
 fun PlaybackProgress(
     currentPosition: Long,
     totalDuration: Long,
@@ -76,7 +76,7 @@ fun PlaybackProgress(
     markers: List<Float>,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    // 为每一次改动添加详尽的中文注释：新增自适应玻璃视效模式参数。
+    // 新增自适应玻璃视效模式参数。
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     // 1. 实时查找当前位置所在的章节
@@ -102,7 +102,7 @@ fun PlaybackProgress(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // 中文注释：已在此处取消了进度条的封面取色绑定，不再传入自定义 color 属性，使 AudioProgressBar 自动回归为 Material 3 主色调
+        // 已在此处取消了进度条的封面取色绑定，不再传入自定义 color 属性，使 AudioProgressBar 自动回归为 Material 3 主色调
         AudioProgressBar(
             progress = { displayPos.toFloat() / displayDur.toFloat() },
             onProgressChange = { newProgress ->
@@ -148,7 +148,7 @@ fun PlaybackProgress(
     }
 }
 
-// 为每一次改动添加详尽的中文注释：使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
+// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
 @Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
 @Preview(showBackground = true, apiLevel = 36)
 @Composable

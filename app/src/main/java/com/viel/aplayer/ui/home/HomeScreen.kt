@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.home
 
-// 为每一次改动添加详尽的中文注释：导入运行时动态安全区 Insets 计算所需的系统 API 依赖，以支持无硬编码刘海屏/导航栏避让
+// 导入运行时动态安全区 Insets 计算所需的系统 API 依赖，以支持无硬编码刘海屏/导航栏避让
 import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,7 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
-// 为每一次改动添加详尽的中文注释：显式导入 WindowInsets.ime 扩展属性，用以在 exclude 排除计算中精准定位软键盘区域
+// 显式导入 WindowInsets.ime 扩展属性，用以在 exclude 排除计算中精准定位软键盘区域
 import top.yukonga.miuix.kmp.blur.layerBackdrop // 注意：确保在此处或者后面导入正确的 ime 属性，或者是 androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
@@ -84,7 +84,7 @@ enum class HomeFilter {
 }
 
 /**
- * 详尽中文注释：首页 Composable，纯 UI 渲染层。
+ * 首页 Composable，纯 UI 渲染层。
  * 所有数据变换（过滤、分组、排序截取）已全部迁移至 LibraryViewModel 的 Flow 管道，
  * 此函数仅负责接收预计算好的数据并渲染界面，不做任何业务运算。
  */
@@ -92,7 +92,7 @@ enum class HomeFilter {
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    // 详尽中文注释：以下为从 LibraryUiState 拆解传入的预计算字段，Composable 无需再做 remember 运算。
+    // 以下为从 LibraryUiState 拆解传入的预计算字段，Composable 无需再做 remember 运算。
     // selectedFilter 为 null 时表示 ViewModel 的 combine 管道尚未产出首个最终决策，此时不渲染 FilterChip 行以避免跳变动画。
     selectedFilter: HomeFilter? = null,
     groupedByAuthor: Map<String, List<BookWithProgress>> = emptyMap(),
@@ -101,7 +101,7 @@ fun HomeScreen(
     @StringRes recentTitleRes: Int = 0,
     onFilterSelected: (HomeFilter) -> Unit = {},
     isMiniPlayerVisible: Boolean = false,
-    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由 NavHost 从设置状态显式传入，主页本身不再声明 Material 默认值。
+    // 玻璃效果模式必须由 NavHost 从设置状态显式传入，主页本身不再声明 Material 默认值。
     glassEffectMode: GlassEffectMode,
     onNavigateToSearch: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
@@ -109,24 +109,24 @@ fun HomeScreen(
     onNavigateToPlayer: () -> Unit = {},
     onLoadBook: (String) -> Unit = {},
     onLibraryRootSelected: (Uri) -> Unit = {},
-    // 为每一次改动添加详尽的中文注释：新增修改阅读状态事件回调，供长按Dialog菜单中的标记操作响应
+    // 新增修改阅读状态事件回调，供长按Dialog菜单中的标记操作响应
     onUpdateReadStatus: (String, String) -> Unit = { _, _ -> },
-    // 为每一次改动添加详尽的中文注释：新增强制重建封面与元数据回调，供长按菜单中的重建触发
+    // 新增强制重建封面与元数据回调，供长按菜单中的重建触发
     onForceRegenerate: (String) -> Unit = {},
-    // 为每一次改动添加详尽的中文注释：新增删除书籍的回调，供长按菜单中的二次确认软删除触发
+    // 新增删除书籍的回调，供长按菜单中的二次确认软删除触发
     onDeleteBook: (String) -> Unit = {},
 ) {
-    // 为每一次改动添加详尽的中文注释：使用 remember 级联监听当前被长按的有声书状态，决定一级Dialog的渲染
+    // 使用 remember 级联监听当前被长按的有声书状态，决定一级Dialog的渲染
     var activeBookForMenu by remember { mutableStateOf<BookWithProgress?>(null) }
-    // 为每一次改动添加详尽的中文注释：为长按操作 Dialog 创建 LayerBackdrop 状态机；Scaffold 作为采样源，Dialog 面板作为模糊渲染面。
+    // 为长按操作 Dialog 创建 LayerBackdrop 状态机；Scaffold 作为采样源，Dialog 面板作为模糊渲染面。
     val actionDialogBackdrop = rememberLayerBackdrop()
-    // 详尽中文注释：Filter Chip 的标签映射，这是纯 UI 文本，保留在 Composable 中
+    // Filter Chip 的标签映射，这是纯 UI 文本，保留在 Composable 中
     val filters = listOf(
         HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
         HomeFilter.InProgress to stringResource(R.string.filter_in_progress),
         HomeFilter.Finished to stringResource(R.string.filter_finished)
     )
-    // 详尽中文注释：从 ViewModel 预计算的 recentTitleRes 解析为本地化字符串（0 表示无需展示）
+    // 从 ViewModel 预计算的 recentTitleRes 解析为本地化字符串（0 表示无需展示）
     val recentTitle = if (recentTitleRes != 0) stringResource(recentTitleRes) else ""
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -134,13 +134,13 @@ fun HomeScreen(
         uri?.let(onLibraryRootSelected)
     }
 
-    // 为每一次改动添加详尽的中文注释：获取屏幕当前物理与逻辑配置，提取方向和最小逻辑宽度以决定自适应排版
+    // 获取屏幕当前物理与逻辑配置，提取方向和最小逻辑宽度以决定自适应排版
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val isTablet = configuration.smallestScreenWidthDp >= 600
     val isWideScreen = isTablet || isLandscape
 
-    // 为每一次改动添加详尽的中文注释：根据屏幕逻辑宽度（dp）与设备类型动态确定网格列数：
+    // 根据屏幕逻辑宽度（dp）与设备类型动态确定网格列数：
     // - 只有在平板设备（sw >= 600dp）且宽度充足（>= 840dp）时，才开启 3 列网格，确保大屏展示效率。
     // - 对于普通手机横屏或较窄的平板，统一使用 2 列网格，避免手机横屏下 3 列布局过于拥挤、封面过小导致的信息堆叠感。
     // - 手机竖屏保持 1 列经典列表。
@@ -150,29 +150,29 @@ fun HomeScreen(
         else -> 1
     }
 
-    // 为每一次改动添加详尽的中文注释：大屏与横屏下自动增大边距为 24.dp 以带来强烈的呼吸感与统一对齐，小屏保持原有的 16.dp 满格排列。
+    // 大屏与横屏下自动增大边距为 24.dp 以带来强烈的呼吸感与统一对齐，小屏保持原有的 16.dp 满格排列。
     val screenHorizontalPadding = if (isWideScreen) 24.dp else 16.dp
 
-    // 为每一次改动添加详尽的中文注释：计算 TopAppBar 图标的补偿边距。
+    // 计算 TopAppBar 图标的补偿边距。
     // M3 顶栏图标默认起始位是 16dp（4dp 容器间距 + 12dp 按钮居中偏移）。
     // 当业务边距升至 24dp 时，需额外补回 8dp 以前后对齐。
     val appBarIconPadding = (screenHorizontalPadding - 16.dp).coerceAtLeast(0.dp)
 
-    // 为每一次改动添加详尽的中文注释：利用 WindowInsets.safeDrawing 动态获取当前设备的状态栏、导航栏与物理刘海，并显式使用 exclude(WindowInsets.ime)
+    // 利用 WindowInsets.safeDrawing 动态获取当前设备的状态栏、导航栏与物理刘海，并显式使用 exclude(WindowInsets.ime)
     // 彻底切断软键盘 (IME) 对主页所感知的安全区 padding 的物理影响，从而规避由于 Insets 物理高度变化导致的主页（HomeScreen）不必要重组。
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 重构网格内边距策略：此处 gridStart/EndPadding 仅保留物理安全区域（如刘海、侧边导航栏）。
     // 将 16dp/24dp 的业务逻辑边距从 Grid 容器层剥离，下沉到具体的标题和列表项中自行实现。
     // 这样做能够确保 ListItem 的点击水波纹（Ripple）和滑动的滚动条能够紧贴屏幕物理边缘，实现极致的 Edge-to-Edge 视觉高级感。
     val gridStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val gridEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
 
-    // 为每一次改动添加详详尽的中文注释：将滚动状态 remember 由 LazyListState 迁移至自适应网格 GridState，完成底座升级。
+    // 为每一次改动添加详将滚动状态 remember 由 LazyListState 迁移至自适应网格 GridState，完成底座升级。
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-    // 为每一次改动添加详尽的中文注释：只有 miuix-blur 模式才将主页完整内容注册为采样源；Material 模式跳过以节省渲染成本。将遗留的模糊源修饰符重命名为 blurSourceModifier。
+    // 只有 miuix-blur 模式才将主页完整内容注册为采样源；Material 模式跳过以节省渲染成本。将遗留的模糊源修饰符重命名为 blurSourceModifier。
     val blurSourceModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
         Modifier.layerBackdrop(actionDialogBackdrop)
     } else {
@@ -182,16 +182,16 @@ fun HomeScreen(
     Scaffold(
         modifier = modifier
             .fillMaxSize()
-            // 为每一次改动添加详尽的中文注释：主页完整内容作为 AudiobookActionDialogs 的 miuix-blur 背景采样源。
+            // 主页完整内容作为 AudiobookActionDialogs 的 miuix-blur 背景采样源。
             .then(blurSourceModifier),
-        // 为每一次改动添加详尽的中文注释：显式将默认的 contentWindowInsets 排除掉 ime。
+        // 显式将默认的 contentWindowInsets 排除掉 ime。
         // 这能彻底阻断软键盘弹出时通过 Scaffold 自动向下传导 innerPadding 变化引起的布局重测和不必要的主页重组。
         contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
         topBar = {
             CenterAlignedTopAppBar(
-                // 为每一次改动添加详尽的中文注释：恢复默认修饰符，不在容器外侧加 Padding，使顶部栏背景底色或磨砂折射面能够极致平铺至屏幕物理左右边缘
+                // 恢复默认修饰符，不在容器外侧加 Padding，使顶部栏背景底色或磨砂折射面能够极致平铺至屏幕物理左右边缘
                 modifier = Modifier,
-                // 为每一次改动添加详尽的中文注释：在 safeDrawing.exclude(navigationBars) 的基础上再次显式排除 WindowInsets.ime，
+                // 在 safeDrawing.exclude(navigationBars) 的基础上再次显式排除 WindowInsets.ime，
                 // 确保顶部栏在软键盘弹起时不受任何 Insets 物理高度波及，保持完美的静止状态，拒绝任何不必要的重组。
                 windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                 title = {
@@ -205,7 +205,7 @@ fun HomeScreen(
                             detectTapGestures(
                                 onDoubleTap = {
                                     scope.launch {
-                                        // 为每一次改动添加详尽的中文注释：双击 TopAppBar 时滚动至顶映射至自适应 gridState 以实现完美兼容。
+                                        // 双击 TopAppBar 时滚动至顶映射至自适应 gridState 以实现完美兼容。
                                         gridState.scrollToItem(0)
                                     }
                                 }
@@ -216,7 +216,7 @@ fun HomeScreen(
                 navigationIcon = {
                     IconButton(
                         onClick = onNavigateToSearch,
-                        // 为每一次改动添加详尽的中文注释：应用 appBarIconPadding 补偿，使搜索图标在横屏/大屏模式下与下方内容精准对齐
+                        // 应用 appBarIconPadding 补偿，使搜索图标在横屏/大屏模式下与下方内容精准对齐
                         modifier = Modifier.padding(start = appBarIconPadding)
                     ) {
                         Icon(
@@ -228,7 +228,7 @@ fun HomeScreen(
                 actions = {
                     IconButton(
                         onClick = onNavigateToSettings,
-                        // 为每一次改动添加详尽的中文注释：应用 appBarIconPadding 补偿，使设置图标在右侧也能保持对称的视觉边界对齐
+                        // 应用 appBarIconPadding 补偿，使设置图标在右侧也能保持对称的视觉边界对齐
                         modifier = Modifier.padding(end = appBarIconPadding)
                     ) {
                         Icon(
@@ -269,7 +269,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // 将原有的单列 LazyColumn 升级重构为全新且强大的 LazyVerticalGrid。
             // 依靠 columns 参数接收 Fixed(columnsCount)，能在超宽屏幕、平板以及普通横屏模式下流畅自适应划分多列，
             // 所有非主列表书籍项（如 FilterChipRow, RecentlyAdded Row，Author Headers 等）全部通过 span 设置 GridItemSpan(maxLineSpan) 强制其跨满全宽，
@@ -278,23 +278,23 @@ fun HomeScreen(
                 columns = GridCells.Fixed(columnsCount),
                 state = gridState,
                 modifier = Modifier.fillMaxSize(),
-                // 为每一次改动添加详尽的中文注释：将动态算出的左右物理安全区 Padding 注入到网格容器作为统一滚动边界，消除硬编码遮挡隐患
+                // 将动态算出的左右物理安全区 Padding 注入到网格容器作为统一滚动边界，消除硬编码遮挡隐患
                 contentPadding = PaddingValues(
                     start = gridStartPadding,
                     end = gridEndPadding,
                     bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
                 )
             ) {
-                // 详尽中文注释：将 FilterChip 过滤器栏从固定顶部移动至可滚动网格的第一项。
+                // 将 FilterChip 过滤器栏从固定顶部移动至可滚动网格的第一项。
                 // 当 selectedFilter 为 null 时（combine 管道尚未就绪），不渲染该项以避免跳变。
                 // 通过 span 设置 GridItemSpan(maxLineSpan) 确保过滤器行在多列布局下依然横向占满全宽。
                 if (selectedFilter != null) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        // 详尽中文注释：使用 APlayerFilterChip 构建横向滚动的过滤器组。
+                        // 使用 APlayerFilterChip 构建横向滚动的过滤器组。
                         LazyRow(
                             modifier = Modifier
                                 .fillMaxWidth(),
-                            // 为每一次改动添加详尽的中文注释：
+                            // 
                             // 过滤器行需手动补回 screenHorizontalPadding 以对齐视觉安全线，同时允许滚动时穿透业务边距。
                             contentPadding = PaddingValues(
                                 start = screenHorizontalPadding,
@@ -314,31 +314,31 @@ fun HomeScreen(
                 }
 
                 if (shouldShowRecentBooks) {
-                    // 为每一次改动添加详尽的中文注释：Recently Added 标题通过 span 指定其必须占满全宽。
+                    // Recently Added 标题通过 span 指定其必须占满全宽。
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = recentTitle,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            // 为每一次改动添加详尽的中文注释：
+                            // 
                             // 此处显式注入 screenHorizontalPadding。由于父容器 Grid 的 contentPadding 仅包含物理安全区，
                             // 这里的手动边距确保了标题文字能精准对齐设计的 16dp/24dp “视觉安全线”。
                             modifier = Modifier.padding(horizontal = screenHorizontalPadding, vertical = 16.dp)
                         )
                     }
 
-                    // 为每一次改动添加详尽的中文注释：横向滚动的 Recently Items 同样跨列占满整宽，并动态计算左边缘的缩进。
+                    // 横向滚动的 Recently Items 同样跨列占满整宽，并动态计算左边缘的缩进。
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         LazyRow(
                             modifier = Modifier.fillMaxWidth(),
-                            // 为每一次改动添加详尽的中文注释：
+                            // 
                             // RecentlyItem 内部自带 8dp padding 用于卡片间距。
                             // 为了让首张封面的“物理左边缘”与上方的标题文字垂直对齐，
                             // 此处 contentPadding 需设为 (业务边距 - 8dp)，实现完美的视觉补偿。
                             contentPadding = PaddingValues(horizontal = screenHorizontalPadding - 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // 详尽中文注释：M-20 修复 — 使用 book.id 作为稳定 key，避免最近添加列表更新时封面加载状态错位
+                            // M-20 修复 — 使用 book.id 作为稳定 key，避免最近添加列表更新时封面加载状态错位
                             items(recentBooks, key = { it.book.id }) { book ->
                                 RecentlyItem(
                                     title = book.book.title,
@@ -346,13 +346,13 @@ fun HomeScreen(
                                     narrator = book.book.narrator,
                                     progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
                                     coverPath = book.book.thumbnailPath ?: book.book.coverPath,
-                                    coverLastUpdated = book.book.lastScannedAt, // 详尽中文注释：桥接 Room 中的扫描/更新时间戳，令 Coil 声明式打破缓存以即时更新界面
+                                    coverLastUpdated = book.book.lastScannedAt, // 桥接 Room 中的扫描/更新时间戳，令 Coil 声明式打破缓存以即时更新界面
                                     onClick = { onNavigateToDetail(book.book.id) },
-                                    // 为每一次改动添加详尽的中文注释：绑定长按RecentlyItem卡片事件以唤起操作一级菜单
+                                    // 绑定长按RecentlyItem卡片事件以唤起操作一级菜单
                                     onLongClick = { activeBookForMenu = book },
-                                    // 为每一次改动添加详尽的中文注释：向 RecentlyItem 传递当前全局的磨砂玻璃模式状态以进行极致毛玻璃视觉适配
+                                    // 向 RecentlyItem 传递当前全局的磨砂玻璃模式状态以进行极致毛玻璃视觉适配
                                     glassEffectMode = glassEffectMode,
-                                    // 为每一次改动添加详尽的中文注释：将 Room 数据库中持久化缓存的书籍封面 ARGB 主色调传递给卡片组件
+                                    // 将 Room 数据库中持久化缓存的书籍封面 ARGB 主色调传递给卡片组件
                                     coverColorArgb = book.book.backgroundColorArgb
                                 )
                             }
@@ -361,13 +361,13 @@ fun HomeScreen(
                 }
 
                 groupedByAuthor.forEach { (author, books) ->
-                    // 为每一次改动添加详尽的中文注释：作者分组 Header 栏通过 span 设置最大跨度占满全宽。
+                    // 作者分组 Header 栏通过 span 设置最大跨度占满全宽。
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = author.takeIf { it.isNotBlank() } ?: "Unknown",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            // 为每一次改动添加详尽的中文注释：
+                            // 
                             // 同样显式注入 screenHorizontalPadding，确保作者分组名与页面主标题在同一条垂线上对齐。
                             modifier = Modifier.padding(
                                 start = screenHorizontalPadding,
@@ -378,9 +378,9 @@ fun HomeScreen(
                         )
                     }
 
-                    // 详尽中文注释：M-20 修复 — 使用 book.id 作为稳定 key，避免书单排序后 item 状态错位
+                    // M-20 修复 — 使用 book.id 作为稳定 key，避免书单排序后 item 状态错位
                     items(books, key = { it.book.id }) { book ->
-                        // 为每一次改动添加详尽的中文注释：
+                        // 
                         // 当列数 columnsCount 大于 1 时（横屏或平板网格展示模式），为了防止相邻网格的书籍项目物理上过于黏连，
                         // 我们只为其注入适度的内外边距，不需要加任何卡片背景与圆角，保持最本真的极简透光观感。
                         val itemModifier = if (columnsCount > 1) {
@@ -395,10 +395,10 @@ fun HomeScreen(
                             narrator = book.book.narrator,
                             duration = book.book.totalDurationMs,
                             coverPath = book.book.thumbnailPath ?: book.book.coverPath,
-                            coverLastUpdated = book.book.lastScannedAt, // 详尽中文注释：桥接 Room 层中的扫描/自愈重建毫秒时间戳，使用声明式设计促成图片同步强绘刷新
+                            coverLastUpdated = book.book.lastScannedAt, // 桥接 Room 层中的扫描/自愈重建毫秒时间戳，使用声明式设计促成图片同步强绘刷新
                             progressPercent = book.progressPercent,
                             onClick = { onNavigateToDetail(book.book.id) },
-                            // 为每一次改动添加详尽的中文注释：长按有声书列表项时将当前书籍状态记录到 activeBookForMenu 中，用以唤起操作 Dialog 菜单
+                            // 长按有声书列表项时将当前书籍状态记录到 activeBookForMenu 中，用以唤起操作 Dialog 菜单
                             onLongClick = { activeBookForMenu = book },
                             modifier = itemModifier
                         ) { 
@@ -411,7 +411,7 @@ fun HomeScreen(
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：引入独立封装的长按操作系列 Dialog，保持主页 UI 布局清晰明了
+    // 引入独立封装的长按操作系列 Dialog，保持主页 UI 布局清晰明了
     AudiobookActionDialogs(
         bookWithProgress = activeBookForMenu,
         backdrop = actionDialogBackdrop,
@@ -445,14 +445,14 @@ fun HomeScreenNotStartedPreview() {
 
     APlayerTheme {
         HomeScreen(
-            // 详尽中文注释：Preview 中模拟 ViewModel 预计算后的数据结构
+            // Preview 中模拟 ViewModel 预计算后的数据结构
             selectedFilter = HomeFilter.NotStarted,
             groupedByAuthor = mockBooks.groupBy { it.book.author },
             recentBooks = mockBooks,
             shouldShowRecentBooks = true,
             recentTitleRes = R.string.recently_added_title,
             isMiniPlayerVisible = false,
-            // 为每一次改动添加详尽的中文注释：Preview 显式引用设置模型里的默认玻璃效果，避免 HomeScreen 参数重新拥有局部默认值。
+            // Preview 显式引用设置模型里的默认玻璃效果，避免 HomeScreen 参数重新拥有局部默认值。
             glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
         )
     }

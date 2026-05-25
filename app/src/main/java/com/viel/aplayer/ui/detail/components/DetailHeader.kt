@@ -43,7 +43,7 @@ import com.viel.aplayer.R
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 /**
- * 详尽中文注释：书籍详情页的头部组件，包含标题、作者和朗读者信息。
+ * 书籍详情页的头部组件，包含标题、作者和朗读者信息。
  * 内部集成了支持系统文本选择菜单的 SelectableTextView。
  *
  * @param title 书籍标题
@@ -72,7 +72,7 @@ fun DetailHeader(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 详尽中文注释：使用内部 SelectableTextView 展示书籍标题。
+        // 使用内部 SelectableTextView 展示书籍标题。
         SelectableTextView(
             text = title.takeIf { it.isNotBlank() } ?: "Unknown",
             modifier = Modifier.fillMaxWidth(),
@@ -157,7 +157,7 @@ fun DetailHeader(
 }
 
 /**
- * 详尽中文注释：内部使用的可选择文本组件。
+ * 内部使用的可选择文本组件。
  */
 @Composable
 fun SelectableTextView(

@@ -25,7 +25,7 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
         val restoredFileIds = mutableListOf<String>()
         missingFiles.forEach { file ->
             if (availabilityByFileId[file.id]?.isAvailable == true) {
-                // 为每一次改动添加详尽的中文注释：冷启动恢复也复用批量可用性结果，避免同一父目录下多个 missing 分轨逐个 resolve。
+                // 冷启动恢复也复用批量可用性结果，避免同一父目录下多个 missing 分轨逐个 resolve。
                 restoredFileIds.add(file.id)
                 restoredBookIds.add(file.bookId)
             }

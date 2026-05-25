@@ -12,12 +12,11 @@ import com.viel.aplayer.media.parser.MetadataResolver
 /**
  * 媒体元数据 ID3 并发解析步骤物理类
  * 
- * 为每一次改动添加详尽的中文注释：
  * 本工位从上一工位解析的清单数据入手，过滤掉已被 CUE/M3U8 认领的物理音频，
  * 剩余的散落音频文件则通过 MetadataResolver 提取内嵌的 ID3 标签。
  * 这里使用有界并发读取元数据，但返回结果保持原文件顺序，避免启发式聚合顺序漂移。
  */
-// 详尽的中文注释：声明步骤类可见性为 internal，收紧本模块内部可见，彻底防止由于对外暴露 internal 音频实体类型而报的类型泄漏错误
+// 声明步骤类可见性为 internal，收紧本模块内部可见，彻底防止由于对外暴露 internal 音频实体类型而报的类型泄漏错误
 
 @UnstableApi
 internal class MetadataResolveStep(
@@ -32,7 +31,7 @@ internal class MetadataResolveStep(
         context: ImportContext
     ): StepResult<ResolvedMetadataDrafts> = runCatching {
         // 1. 将 CUE 声明的关联音轨 identity 全数录入 reserved 预占用账本
-        // 为每一次改动添加详尽的中文注释：清单预占用按 VFS 文件键回查扫描快照，不再用 provider URI 做关联。
+        // 清单预占用按 VFS 文件键回查扫描快照，不再用 provider URI 做关联。
         val audioByVfsKey = context.sharedInventory?.audioFiles.orEmpty().associateBy { it.vfsKey }
         input.cueDrafts.forEach { draft ->
             draft.resolvedAudioKeys.values.forEach { fileKey ->
@@ -62,8 +61,8 @@ internal class MetadataResolveStep(
 
         // 4. 对每一个散落音频并发提取 ID3 元数据；mapWithBoundedConcurrency 会保持输入顺序，claim 和聚合仍由后续步骤串行裁决。
         val resolvedList = looseAudios.mapWithBoundedConcurrency { audio ->
-            // 为每一次改动添加详尽的中文注释：散落音频元数据提取通过 VFS 文件引用打开，不再把扫描期文件转换成 URI 入口。
-            // 详尽的中文注释：散落音频导入阶段显式请求“元数据+内嵌封面”，让 MP4 covr 随 AudioMetadataRef 传到后续封面缓存写入点。
+            // 散落音频元数据提取通过 VFS 文件引用打开，不再把扫描期文件转换成 URI 入口。
+            // 散落音频导入阶段显式请求“元数据+内嵌封面”，让 MP4 covr 随 AudioMetadataRef 传到后续封面缓存写入点。
             val extracted = metadataResolver.extractWithEmbeddedCover(audio)
             AudioMetadataRef(audio, extracted.metadata, extracted.embeddedCover)
         }
@@ -80,7 +79,7 @@ internal class MetadataResolveStep(
 /**
  * 承载元数据提取输出的实体类
  *
- * 详尽的中文注释：使用 internal 关键字收紧可见性，防止由于对外暴露 internal 实参类而引起的编译报错
+ * 使用 internal 关键字收紧可见性，防止由于对外暴露 internal 实参类而引起的编译报错
  */
 internal data class ResolvedMetadataDrafts(
     // 往下透传清单解析数据，为最终 Draft 汇总保留上下文

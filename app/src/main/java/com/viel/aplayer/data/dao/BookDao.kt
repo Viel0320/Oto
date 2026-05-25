@@ -154,18 +154,18 @@ interface BookDao {
     @Query("SELECT * FROM book_files WHERE bookId = :bookId AND fileRole = 'AUDIO' ORDER BY `index` ASC")
     suspend fun getFilesForBookList(bookId: String): List<BookFileEntity>
 
-    // 为每一次改动添加详尽的中文注释：获取书籍的所有物理关联文件，包括音频与清单（SOURCE_MANIFEST），不带 fileRole 过滤，专门用于详情页识别源文件名
+    // 获取书籍的所有物理关联文件，包括音频与清单（SOURCE_MANIFEST），不带 fileRole 过滤，专门用于详情页识别源文件名
     @Query("SELECT * FROM book_files WHERE bookId = :bookId ORDER BY `index` ASC")
     suspend fun getAllFilesForBookList(bookId: String): List<BookFileEntity>
 
-    // 为每一次改动添加详尽的中文注释：播放和字幕链路现在都以 MediaItem.mediaId 中的 BookFileEntity.id 为稳定入口，不再从播放 URI 反查旧文件行。
+    // 播放和字幕链路现在都以 MediaItem.mediaId 中的 BookFileEntity.id 为稳定入口，不再从播放 URI 反查旧文件行。
     @Query("SELECT * FROM book_files WHERE id = :id AND fileRole = 'AUDIO' LIMIT 1")
     suspend fun getBookFileById(id: String): BookFileEntity?
 
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id = :id")
     suspend fun updateBookFileStatus(id: String, status: String, scanId: String? = null)
 
-    // 为每一次改动添加详尽的中文注释：详情页和恢复流程会批量刷新多文件书籍的可用状态，用 IN 更新避免逐文件 Room 写入拖慢 UI。
+    // 详情页和恢复流程会批量刷新多文件书籍的可用状态，用 IN 更新避免逐文件 Room 写入拖慢 UI。
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id IN (:ids)")
     suspend fun updateBookFileStatuses(ids: List<String>, status: String, scanId: String? = null)
 
@@ -176,7 +176,7 @@ interface BookDao {
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
     suspend fun getProgressForBookSync(bookId: String): BookProgressEntity?
 
-    // 详尽的中文注释：应用冷启动恢复逻辑。
+    // 应用冷启动恢复逻辑。
     // 仅检索最后一次播放、且尚未完成（进度未达 99%）的非删除书籍进度。
     // 这样可以确保用户下次进入应用时，迷你播放器不会加载已经播放完毕的书籍。
     @Query("""
@@ -195,20 +195,20 @@ interface BookDao {
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, totalDurationMs = :duration WHERE id = :id")
     suspend fun updateMetadata(id: String, title: String, author: String, narrator: String, description: String, duration: Long)
 
-    // 为每一次改动添加详尽的中文注释：根据书籍ID更新书籍的详细元数据，包括标题、作者、讲述人、描述与年份，便于“书籍信息修改器”进行统一编辑与保存
+    // 根据书籍ID更新书籍的详细元数据，包括标题、作者、讲述人、描述与年份，便于“书籍信息修改器”进行统一编辑与保存
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, year = :year WHERE id = :id")
     suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String)
 
-    // 详尽的中文注释：专门用于当缓存被清理丢失后，后台重新提取并局部更新书籍封面的物理缓存路径、背景主色调与最新扫描时间戳。
+    // 专门用于当缓存被清理丢失后，后台重新提取并局部更新书籍封面的物理缓存路径、背景主色调与最新扫描时间戳。
     // 使用局部 UPDATE 避免覆盖其他并发更新的字段，防止引发多线程写入竞态。此外，通过更新 lastScannedAt 强制让 Flow 重发以触发布局重绘自动刷新。
     @Query("UPDATE books SET coverPath = :coverPath, thumbnailPath = :thumbnailPath, backgroundColorArgb = :backgroundColorArgb, lastScannedAt = :lastScannedAt WHERE id = :id")
     suspend fun updateCoverPaths(id: String, coverPath: String?, thumbnailPath: String?, backgroundColorArgb: Int?, lastScannedAt: Long)
 
-    // 为每一次改动添加详尽的中文注释：根据书库根目录ID查询该书库下所有的书籍实体，专用于在书库被删除释放权限时，安全地物理清理关联的封面和缩略图物理缓存文件，避免造成文件垃圾残留
+    // 根据书库根目录ID查询该书库下所有的书籍实体，专用于在书库被删除释放权限时，安全地物理清理关联的封面和缩略图物理缓存文件，避免造成文件垃圾残留
     @Query("SELECT * FROM books WHERE rootId = :rootId")
     suspend fun getBooksByRootId(rootId: String): List<BookEntity>
 
-    // 为每一次改动添加详尽的中文注释：根据书籍 ID 更新书籍的阅读状态（未开始/进行中/已完成）到 Room 数据库中，用于响应长按菜单状态修改和播放位置自动更新
+    // 根据书籍 ID 更新书籍的阅读状态（未开始/进行中/已完成）到 Room 数据库中，用于响应长按菜单状态修改和播放位置自动更新
     @Query("UPDATE books SET readStatus = :readStatus WHERE id = :id")
     suspend fun updateBookReadStatus(id: String, readStatus: String)
 }

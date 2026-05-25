@@ -5,7 +5,6 @@ import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.entity.BookWithProgress
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 用例类：获取与当前书籍相关的推荐列表。
  * 已升级重构：不仅包含原有的同作者、同播讲人和最近添加书籍分类，
  * 更是置顶新增了由 100% 响应式 Flow 驱动的“启发式推荐” (Heuristic Recommendation) 算法，
@@ -14,7 +13,7 @@ import com.viel.aplayer.data.entity.BookWithProgress
 class GetRelatedBooksUseCase(private val repository: LibraryRepository) {
 
     /**
-     * 为每一次改动添加详尽的中文注释：计算两个字符串的最长公共连续子串 (LCS) 长度，
+     * 计算两个字符串的最长公共连续子串 (LCS) 长度，
      * 用于有声书书名相关度的动态打分，能够极其精准地识别系列丛书或前缀相同的相关书籍。
      */
     private fun getLongestCommonSubstringLength(s1: String, s2: String): Int {
@@ -41,8 +40,7 @@ class GetRelatedBooksUseCase(private val repository: LibraryRepository) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：
-     * 从书名中提取出其丛书或序列的自然序号。
+         * 从书名中提取出其丛书或序列的自然序号。
      * 支持提取：
      * 1. 汉字“上、中、下”分别映射为 1.0, 2.0, 3.0
      * 2. 阿拉伯数字，如“第3部”、“卷2”、“(4)”或末尾的数字，提取出其数值
@@ -100,8 +98,7 @@ class GetRelatedBooksUseCase(private val repository: LibraryRepository) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：
-     * 将繁体/简体中文数字转换为对应的 Double 数值，辅助进行丛书前后册大小比对。
+         * 将繁体/简体中文数字转换为对应的 Double 数值，辅助进行丛书前后册大小比对。
      */
     private fun chineseToDecimal(chinese: String): Double {
         val cnNums = mapOf(
@@ -165,7 +162,7 @@ class GetRelatedBooksUseCase(private val repository: LibraryRepository) {
         // 3. 最近添加流（排除当前作者和播讲人）
         val recentFlow = repository.getRecentlyAddedExclusive(currentId, authorList, narratorList, 3)
 
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 4. 置顶高保真启发式智能推荐流 (Heuristic Recommendation)
         // 通过 combine 管道将全局书籍流 audiobooks 与当前有声书的实时 Room 实体流 observeBookById 联动合并。
         // 一旦用户在详情页右上角修改了元数据并保存，该数据流管道会瞬间重新捕获，触发算法跑分重算，极速响应式实时更新播放面板推荐页。
@@ -210,7 +207,7 @@ class GetRelatedBooksUseCase(private val repository: LibraryRepository) {
                         }
                     }
 
-                    // 为每一次改动添加详尽的中文注释：
+                    // 
                     // 自然排序降权过滤设计：如果书名匹配成功，分析两本书的丛书/自然排序序号（如上中下、123、一二三等）。
                     // 若候选书籍的序列序号严格小于当前播放书籍（即属于当前播放章节或册数之前的历史内容），
                     // 则对其进行大额降权（扣减 25.0 分，但不低于 1.0 分，保证关联性仍存），从而让后续未听的章节或新书自动跃升排到前列。
@@ -286,6 +283,6 @@ data class RelatedData(
     val authorSections: List<RelatedSection>,
     val narratorSections: List<RelatedSection>,
     val recentlyAdded: List<BookWithProgress>,
-    // 为每一次改动添加详尽的中文注释：新增 heuristicRecommended 板块，用于承载高颜值的启发式推荐列表
+    // 新增 heuristicRecommended 板块，用于承载高颜值的启发式推荐列表
     val heuristicRecommended: List<BookWithProgress>
 )

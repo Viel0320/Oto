@@ -53,8 +53,8 @@ import com.viel.aplayer.data.store.GlassEffectMode
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-// 中文注释：已取消封面取色着色功能，移除了 color 参数，迷你播放器进度条直接采用系统默认的 Material 3 主色调
-// 详尽的中文注释：新增 backdrop 和 glassEffectMode 两个参数，用来在启用毛玻璃效果时折射底部 NavHost 的画面内容，保持跟搜索/详情页的设计一致。
+// 已取消封面取色着色功能，移除了 color 参数，迷你播放器进度条直接采用系统默认的 Material 3 主色调
+// 新增 backdrop 和 glassEffectMode 两个参数，用来在启用毛玻璃效果时折射底部 NavHost 的画面内容，保持跟搜索/详情页的设计一致。
 fun CompactMediaPlayer(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
@@ -62,17 +62,17 @@ fun CompactMediaPlayer(
     author: String = "Unknown",
     narrator: String = "",
     coverPath: String? = null,
-    // 详尽的中文注释：新增封面图像最后修改/重建时间戳，用以打破 Coil 的缓存记录
+    // 新增封面图像最后修改/重建时间戳，用以打破 Coil 的缓存记录
     coverLastUpdated: Long = 0L,
     progress: () -> Float = { 0f },
     showProgressBar: Boolean = true,
     isMediaAvailable: Boolean = true,
     actions: MiniPlayerActions = MiniPlayerActions(),
-    // 为每一次改动添加详尽的中文注释：将共享的模糊状态变更为 miuix-blur 的 LayerBackdrop 采样源参数
+    // 将共享的模糊状态变更为 miuix-blur 的 LayerBackdrop 采样源参数
     backdrop: LayerBackdrop? = null,
-    // 为每一次改动添加详尽的中文注释：新增 onClick 参数，用于接管迷你播放器的全屏展开点击事件，在其 Surface 最外层处理以获取优良的水波纹点击波澜
+    // 新增 onClick 参数，用于接管迷你播放器的全屏展开点击事件，在其 Surface 最外层处理以获取优良的水波纹点击波澜
     onClick: () -> Unit = {},
-    // 详尽的中文注释：新增 glassEffectMode 参数，以区分是毛玻璃高斯模糊还是标准 Material 纯色背景
+    // 新增 glassEffectMode 参数，以区分是毛玻璃高斯模糊还是标准 Material 纯色背景
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     LaunchedEffect(isMediaAvailable) {
@@ -82,13 +82,13 @@ fun CompactMediaPlayer(
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：对齐新更名的 MiuixBlur，基于 LayerBackdrop 与新枚举判断是否启用毛玻璃渲染
+    // 对齐新更名的 MiuixBlur，基于 LayerBackdrop 与新枚举判断是否启用毛玻璃渲染
     val isBlurMode = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
 
-    // 为每一次改动添加详尽的中文注释：获取当前系统的亮暗色主题状态，以实现毛玻璃自适应
+    // 获取当前系统的亮暗色主题状态，以实现毛玻璃自适应
     val isDark = isSystemInDarkTheme()
 
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 将 Surface 改为支持 onClick 的重载，并将传入 of onClick 动作直接挂载在此。
     // 这将实现该紧凑样式播放器卡片本体的完全可点击化，且拥有与 Material 3 一致的水波纹动效表现。
     Surface(
@@ -97,7 +97,7 @@ fun CompactMediaPlayer(
             .fillMaxWidth()
             .let {
                 if (isBlurMode) {
-                    // 为每一次改动添加详尽的中文注释：使用与 Pill 播放器完全一致的 let 链式动态判定绑定高保真 textureBlur 模糊
+                    // 使用与 Pill 播放器完全一致的 let 链式动态判定绑定高保真 textureBlur 模糊
                     it.textureBlur(
                         backdrop = backdrop,
                         shape = RoundedCornerShape(0.dp),
@@ -121,7 +121,7 @@ fun CompactMediaPlayer(
     ) {
         Column(modifier = Modifier.navigationBarsPadding()) {
             if (showProgressBar) {
-                // 中文注释：已在此处取消了进度条的封面取色绑定，不再传入自定义 color 属性，使迷你进度条自动回归为 Material 3 主色调
+                // 已在此处取消了进度条的封面取色绑定，不再传入自定义 color 属性，使迷你进度条自动回归为 Material 3 主色调
                 AudioProgressBar(
                     progress = progress,
                     onProgressChange = {},
@@ -138,7 +138,7 @@ fun CompactMediaPlayer(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 详尽的中文注释：将 coverLastUpdated 纳入 remember 的 keys 中。
+                // 将 coverLastUpdated 纳入 remember 的 keys 中。
                 // 保证当自愈时间戳变动后，能够引发此处的 File 引用和 UI 重组彻底更新
                 val coverFile = remember(coverPath, coverLastUpdated) {
                     coverPath?.let(::File)
@@ -154,7 +154,7 @@ fun CompactMediaPlayer(
                         )
                 ) {
                     if (coverFile != null && coverFile.exists()) {
-                        // 详尽的中文注释：使用 ImageRequest.Builder 动态构建加载 model，
+                        // 使用 ImageRequest.Builder 动态构建加载 model，
                         // 并使用具有更新时间戳的 memoryCacheKey 和 diskCacheKey 来打破 Coil 的加载失败及缓存记录，
                         // 迫使 Coil 在物理封面重建后，能够立刻重新读取新的物理文件内容。
                         AsyncImage(
@@ -168,7 +168,7 @@ fun CompactMediaPlayer(
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                             contentScale = ContentScale.Crop,
-                            // 详尽的中文注释：监听 Coil 加载封面图片失败的回调，打印具体的文件绝对路径及异常信息，便于排查 Scoped Storage 或是其它解码错误
+                            // 监听 Coil 加载封面图片失败的回调，打印具体的文件绝对路径及异常信息，便于排查 Scoped Storage 或是其它解码错误
                             onError = { errorState ->
                                 Log.e("CompactMediaPlayer", "加载封面图片失败: ${coverFile.absolutePath}, 原因: ", errorState.result.throwable)
                             }

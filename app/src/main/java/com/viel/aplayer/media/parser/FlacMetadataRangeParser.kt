@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.util.Base64
 import kotlin.math.min
 
-// 详尽的中文注释：flac 相关的 metadata block、Vorbis comment、PICTURE 解析都留在本文件内，
+// flac 相关的 metadata block、Vorbis comment、PICTURE 解析都留在本文件内，
 // 不再通过共享的格式 helper 间接完成。
 internal object FlacMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =

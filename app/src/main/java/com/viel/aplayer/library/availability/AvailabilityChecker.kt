@@ -31,7 +31,7 @@ class AvailabilityChecker(private val context: Context) {
     suspend fun checkRoot(root: LibraryRootEntity): AvailabilityResult =
         when (LibrarySourceKind.from(root.sourceType)) {
             LibrarySourceKind.SAF -> checkSafRoot(root)
-            // 为每一次改动添加详尽的中文注释：WebDAV 根可用性直接走 VFS/Provider，HTTP 认证和网络错误由 Provider 映射为统一状态。
+            // WebDAV 根可用性直接走 VFS/Provider，HTTP 认证和网络错误由 Provider 映射为统一状态。
             LibrarySourceKind.WEBDAV -> checkVfsRoot(root)
         }
 
@@ -42,7 +42,7 @@ class AvailabilityChecker(private val context: Context) {
                     status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
                     errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
                 )
-            // 为每一次改动添加详尽的中文注释：已入库文件可用性检测通过 VFS sourcePath resolve/exists，不再回到 content Uri 或来源原生文件对象。
+            // 已入库文件可用性检测通过 VFS sourcePath resolve/exists，不再回到 content Uri 或来源原生文件对象。
             val node = vfs.resolve(root, VfsPath(file.sourcePath))
             if (node != null && vfs.exists(node)) {
                 AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
@@ -55,7 +55,7 @@ class AvailabilityChecker(private val context: Context) {
         }.getOrElse { throwable -> throwable.toAvailabilityResult() }
 
     suspend fun checkBookFiles(files: List<BookFileEntity>): Map<String, AvailabilityResult> {
-        // 为每一次改动添加详尽的中文注释：多文件书籍按 rootId/父目录批量检测，同一目录只枚举一次，避免几十个分轨重复 resolve SAF tree。
+        // 多文件书籍按 rootId/父目录批量检测，同一目录只枚举一次，避免几十个分轨重复 resolve SAF tree。
         if (files.isEmpty()) return emptyMap()
         val results = linkedMapOf<String, AvailabilityResult>()
         files.groupBy { it.rootId }.forEach { (rootId, rootFiles) ->
@@ -64,7 +64,7 @@ class AvailabilityChecker(private val context: Context) {
                 rootFiles.forEach { file -> results[file.id] = notFoundResult() }
             } else {
                 when (LibrarySourceKind.from(root.sourceType)) {
-                    // 为每一次改动添加详尽的中文注释：批量文件可用性检测只依赖 VFS 同目录枚举，SAF/WebDAV 共享同一套性能优化路径。
+                    // 批量文件可用性检测只依赖 VFS 同目录枚举，SAF/WebDAV 共享同一套性能优化路径。
                     LibrarySourceKind.SAF,
                     LibrarySourceKind.WEBDAV -> checkVfsBookFiles(root, rootFiles, results)
                 }
@@ -86,7 +86,7 @@ class AvailabilityChecker(private val context: Context) {
                         siblings.forEach { file -> results[file.id] = notFoundResult() }
                         return@forEach
                     }
-                    // 为每一次改动添加详尽的中文注释：已入库音频只需要确认同级目录当前仍包含相同 sourcePath 的子项，不再对每个文件单独逐级 findFile。
+                    // 已入库音频只需要确认同级目录当前仍包含相同 sourcePath 的子项，不再对每个文件单独逐级 findFile。
                     val existingChildPaths = vfs.listChildren(directory)
                         .asSequence()
                         .filterNot { it.metadata.isDirectory }
@@ -108,7 +108,7 @@ class AvailabilityChecker(private val context: Context) {
 
     private suspend fun checkVfsRoot(root: LibraryRootEntity): AvailabilityResult =
         runCatching {
-            // 为每一次改动添加详尽的中文注释：远程根目录检测执行一次 VFS root/exists，避免业务层直接发 HTTP 探测请求。
+            // 远程根目录检测执行一次 VFS root/exists，避免业务层直接发 HTTP 探测请求。
             val exists = vfs.root(root)?.let { vfs.exists(it) } == true
             if (exists) {
                 AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
@@ -148,7 +148,7 @@ class AvailabilityChecker(private val context: Context) {
     private fun Throwable.toAvailabilityResult(): AvailabilityResult {
         val webDavError = this as? WebDavException
         val status = webDavError?.availabilityStatus ?: AudiobookSchema.AvailabilityStatus.UNKNOWN
-        // 为每一次改动添加详尽的中文注释：统一异常出口保留 Provider 映射出的 WebDAV 失败码，未知异常才降级为 UNKNOWN。
+        // 统一异常出口保留 Provider 映射出的 WebDAV 失败码，未知异常才降级为 UNKNOWN。
         return AvailabilityResult(
             status = status,
             errorCode = webDavError?.availabilityStatus ?: this::class.java.simpleName,

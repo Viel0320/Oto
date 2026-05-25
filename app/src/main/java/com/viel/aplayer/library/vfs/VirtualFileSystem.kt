@@ -8,12 +8,12 @@ import com.viel.aplayer.library.sourceProvider.SourceFileMetadata
 import com.viel.aplayer.library.sourceProvider.SourceNode
 import java.io.InputStream
 
-// 为每一次改动添加详尽的中文注释：VfsPath 是跨协议路径的统一外壳；SAF 和 WebDAV 都通过它描述来源内路径。
+// VfsPath 是跨协议路径的统一外壳；SAF 和 WebDAV 都通过它描述来源内路径。
 data class VfsPath(val value: String) {
     val isRoot: Boolean get() = value.isBlank()
 }
 
-// 为每一次改动添加详尽的中文注释：VfsNode 是扫描、缓存和读取之间传递的标准节点，业务层不再持有 provider 原生文件对象。
+// VfsNode 是扫描、缓存和读取之间传递的标准节点，业务层不再持有 provider 原生文件对象。
 data class VfsNode(
     val root: LibraryRootEntity,
     val path: VfsPath,
@@ -51,7 +51,7 @@ class VirtualFileSystem(
     }
 
     suspend fun resolve(root: LibraryRootEntity, path: VfsPath): VfsNode? {
-        // 为每一次改动添加详尽的中文注释：按 rootId/sourcePath 重新定位节点，替代业务层自行还原来源原生文件对象。
+        // 按 rootId/sourcePath 重新定位节点，替代业务层自行还原来源原生文件对象。
         val provider = providerFactory.providerFor(root)
         return provider.resolve(root, path.value)?.toVfsNode()
     }
@@ -70,20 +70,20 @@ class VirtualFileSystem(
     suspend fun openInputStream(root: LibraryRootEntity, path: VfsPath): InputStream? =
         resolve(root, path)?.let { openInputStream(it) }
 
-    // 为每一次改动添加详尽的中文注释：播放器随机定位通过 VFS offset API 进入 Provider，远程来源可直接转成 Range 请求。
+    // 播放器随机定位通过 VFS offset API 进入 Provider，远程来源可直接转成 Range 请求。
     suspend fun openInputStream(file: VfsNode, offset: Long): InputStream? =
         providerFor(file).openInputStream(file.sourceNode, offset)
 
-    // 为每一次改动添加详尽的中文注释：按 root/path 打开的 offset 流保持与普通流一致的寻址方式，不让播放层感知来源类型。
+    // 按 root/path 打开的 offset 流保持与普通流一致的寻址方式，不让播放层感知来源类型。
     suspend fun openInputStream(root: LibraryRootEntity, path: VfsPath, offset: Long): InputStream? =
         resolve(root, path)?.let { openInputStream(it, offset) }
 
     suspend fun readRange(file: VfsNode, offset: Long, length: Int): ByteArray? =
-        // 为每一次改动添加详尽的中文注释：元数据帧解析必须把 length 传到 Provider，WebDAV 才能发 bytes=start-end 而不是 start-。
+        // 元数据帧解析必须把 length 传到 Provider，WebDAV 才能发 bytes=start-end 而不是 start-。
         providerFor(file).readRange(file.sourceNode, offset, length)
 
     suspend fun readRange(root: LibraryRootEntity, path: VfsPath, offset: Long, length: Int): ByteArray? =
-        // 为每一次改动添加详尽的中文注释：按 root/path 做有界小片段读取，避免元数据读取复用播放器的开口 offset 流。
+        // 按 root/path 做有界小片段读取，避免元数据读取复用播放器的开口 offset 流。
         resolve(root, path)?.let { readRange(it, offset, length) }
 
     suspend fun openFileDescriptor(file: VfsNode): ParcelFileDescriptor? =

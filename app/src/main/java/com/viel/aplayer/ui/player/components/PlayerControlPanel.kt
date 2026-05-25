@@ -18,7 +18,7 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import androidx.compose.foundation.layout.fillMaxWidth
 
 /**
- * 详尽中文注释：全屏播放器下半区控制面板。
+ * 全屏播放器下半区控制面板。
  * 纵向编排章节标题、进度条、播放控制按钮三个子区域。
  *
  * 内部的进度条 and 章节标题分别采用 Stateful 局部隔间进行包装，只在各自局部订阅对应高/低频数据通道，
@@ -44,17 +44,17 @@ fun PlayerControlPanel(
     buttonColor: Color,
     glassEffectMode: GlassEffectMode,
     backdrop: LayerBackdrop?,
-    // 为每一次改动添加详尽的中文注释：新增 modifier 参数以支持外部传入自定义布局修饰符
+    // 新增 modifier 参数以支持外部传入自定义布局修饰符
     modifier: Modifier = Modifier
 ) {
     Column(
-        // 为每一次改动添加详尽的中文注释：剥离硬编码的 padding(horizontal = 24.dp)，将布局内边距的控制权移交给外部调用者，以实现彻底顶满屏幕或者按需缩进
-        // 详尽中文注释：为整个播放控制面板容器添加 4dp 的内边距，以避免控制面板的子元素紧贴边缘，提升视觉美观度与触控体验
+        // 剥离硬编码的 padding(horizontal = 24.dp)，将布局内边距的控制权移交给外部调用者，以实现彻底顶满屏幕或者按需缩进
+        // 为整个播放控制面板容器添加 4dp 的内边距，以避免控制面板的子元素紧贴边缘，提升视觉美观度与触控体验
         modifier = modifier
             .fillMaxWidth()
             .padding(8.dp)
     ) {
-        // 详尽中文注释：章节标题显示局部隔间，传入 fillMaxWidth 确保能在行中占据全宽，并且在左右添加合适内距
+        // 章节标题显示局部隔间，传入 fillMaxWidth 确保能在行中占据全宽，并且在左右添加合适内距
         ChapterDisplayStateful(
             viewModel = viewModel,
             metadata = metadata,
@@ -65,7 +65,7 @@ fun PlayerControlPanel(
         )
         Spacer(Modifier.height(16.dp))
 
-        // 详尽中文注释：进度条显示局部隔间，传入 fillMaxWidth 确保进度条横轴完美铺满，并传入 glassEffectMode 支持液态玻璃折射
+        // 进度条显示局部隔间，传入 fillMaxWidth 确保进度条横轴完美铺满，并传入 glassEffectMode 支持液态玻璃折射
         PlaybackProgressStateful(
             viewModel = viewModel,
             metadata = metadata,
@@ -75,7 +75,7 @@ fun PlayerControlPanel(
         )
         Spacer(Modifier.height(24.dp))
         
-        // 详尽中文注释：播放控制组件，传入 fillMaxWidth 让底部的五个控制按钮横向等距均匀排开，自适应各尺寸容器宽度
+        // 播放控制组件，传入 fillMaxWidth 让底部的五个控制按钮横向等距均匀排开，自适应各尺寸容器宽度
         PlaybackControls(
             isPlaying = controls.isPlaying,
             playbackSpeed = controls.playbackSpeed,

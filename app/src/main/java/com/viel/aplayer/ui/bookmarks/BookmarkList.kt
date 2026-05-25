@@ -38,7 +38,7 @@ import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 // =====================================================================
-// 详尽中文注释：M-16 修复 — BookmarkListView 改为无状态组件
+// M-16 修复 — BookmarkListView 改为无状态组件
 // 原先的 bookmarkToDeleteState / bookmarkToEditState / editTitle 均已
 // 上提至 PlayerViewModel.bookmarkDialogs（StateFlow），此 Composable
 // 现在只消费外部传入的 dialogs 数据与 callback，配置变更时状态不再丢失。
@@ -48,10 +48,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 
-// 详尽的中文注释：
+// 
 // 书签面板有状态局部隔间 BookmarkListViewStateful
 // 仅在展示 Bookmark 面板时，在此局部隔间内高频消费进度，以防进度刷新让外部关联列表和卡片无端重组。
-// 详尽中文注释：M-16 修复 — 从 viewModel 收集书签对话框复合状态，并桥接回调事件至 viewModel 与 actions。
+// M-16 修复 — 从 viewModel 收集书签对话框复合状态，并桥接回调事件至 viewModel 与 actions。
 @Composable
 fun BookmarkListViewStateful(
     viewModel: PlayerViewModel,
@@ -69,7 +69,7 @@ fun BookmarkListViewStateful(
     } else {
         viewModel.playbackProgressState.collectAsStateWithLifecycle().value
     }
-    // 详尽中文注释：M-16 — 实时收集书签对话框显示与编辑内容状态，防止配置变更（如屏幕旋转）导致输入内容丢失
+    // M-16 — 实时收集书签对话框显示与编辑内容状态，防止配置变更（如屏幕旋转）导致输入内容丢失
     val dialogs = if (isPreview) {
         PlayerViewModel.BookmarkDialogsState()
     } else {
@@ -80,25 +80,25 @@ fun BookmarkListViewStateful(
         bookmarks = metadata.bookmarks,
         dialogs = dialogs,
         onBookmarkClick = { pos -> actions.playback.onSeek(pos, true) },
-        // 详尽中文注释：M-16 — 请求删除，委托给 ViewModel 记录待删除条目
+        // M-16 — 请求删除，委托给 ViewModel 记录待删除条目
         onRequestDelete = { bookmark -> viewModel.requestDeleteBookmark(bookmark) },
-        // 详尽中文注释：M-16 — 请求编辑，委托给 ViewModel 记录待编辑条目并回填初始标题
+        // M-16 — 请求编辑，委托给 ViewModel 记录待编辑条目并回填初始标题
         onRequestEdit = { bookmark -> viewModel.requestEditBookmark(bookmark) },
-        // 详尽中文注释：M-16 — 编辑框标题输入变更同步写入 ViewModel
+        // M-16 — 编辑框标题输入变更同步写入 ViewModel
         onEditTitleChange = { title -> viewModel.onBookmarkEditTitleChange(title) },
-        // 详尽中文注释：M-16 — 确认删除动作，解包并触发 actions 的 onDelete 回调
+        // M-16 — 确认删除动作，解包并触发 actions 的 onDelete 回调
         onConfirmDelete = {
             dialogs.toDelete?.let { bookmark ->
                 actions.bookmarks.onDelete(bookmark)
             }
         },
-        // 详尽中文注释：M-16 — 确认更新动作，解包并触发 actions 的 onUpdate 回调
+        // M-16 — 确认更新动作，解包并触发 actions 的 onUpdate 回调
         onConfirmUpdate = {
             dialogs.toEdit?.let { bookmark ->
                 actions.bookmarks.onUpdate(bookmark, dialogs.editTitle)
             }
         },
-        // 详尽中文注释：M-16 — 关闭/取消对话框，委托给 ViewModel 重置状态
+        // M-16 — 关闭/取消对话框，委托给 ViewModel 重置状态
         onDismissDialogs = { viewModel.dismissBookmarkDialogs() },
         currentPosition = progressState.elapsedMs,
         modifier = modifier
@@ -110,24 +110,24 @@ fun BookmarkListViewStateful(
 fun BookmarkListView(
     modifier: Modifier = Modifier,
     bookmarks: List<BookmarkEntity>,
-    // 详尽中文注释：来自 ViewModel 的书签对话框复合状态（M-16）
+    // 来自 ViewModel 的书签对话框复合状态（M-16）
     dialogs: PlayerViewModel.BookmarkDialogsState = PlayerViewModel.BookmarkDialogsState(),
     onBookmarkClick: (Long) -> Unit,
-    // 详尽中文注释：触发删除确认对话框的 callback，委托给 ViewModel.requestDeleteBookmark
+    // 触发删除确认对话框的 callback，委托给 ViewModel.requestDeleteBookmark
     onRequestDelete: (BookmarkEntity) -> Unit = {},
-    // 详尽中文注释：触发编辑对话框的 callback，委托给 ViewModel.requestEditBookmark
+    // 触发编辑对话框的 callback，委托给 ViewModel.requestEditBookmark
     onRequestEdit: (BookmarkEntity) -> Unit = {},
-    // 详尽中文注释：编辑框内容变更 callback，委托给 ViewModel.onBookmarkEditTitleChange
+    // 编辑框内容变更 callback，委托给 ViewModel.onBookmarkEditTitleChange
     onEditTitleChange: (String) -> Unit = {},
-    // 详尽中文注释：确认删除 callback，委托给 ViewModel.deleteBookmark
+    // 确认删除 callback，委托给 ViewModel.deleteBookmark
     onConfirmDelete: () -> Unit = {},
-    // 详尽中文注释：确认更新 callback，委托给 ViewModel.updateBookmark
+    // 确认更新 callback，委托给 ViewModel.updateBookmark
     onConfirmUpdate: () -> Unit = {},
-    // 详尽中文注释：关闭所有对话框 callback，委托给 ViewModel.dismissBookmarkDialogs
+    // 关闭所有对话框 callback，委托给 ViewModel.dismissBookmarkDialogs
     onDismissDialogs: () -> Unit = {},
     currentPosition: Long = 0L
 ) {
-    // 详尽中文注释：删除确认对话框——状态来自 ViewModel，配置变更不丢失
+    // 删除确认对话框——状态来自 ViewModel，配置变更不丢失
     if (dialogs.toDelete != null) {
         AlertDialog(
             onDismissRequest = onDismissDialogs,
@@ -151,7 +151,7 @@ fun BookmarkListView(
         )
     }
 
-    // 详尽中文注释：编辑对话框——状态来自 ViewModel，配置变更（旋转）后 editTitle 不丢失
+    // 编辑对话框——状态来自 ViewModel，配置变更（旋转）后 editTitle 不丢失
     if (dialogs.toEdit != null) {
         AlertDialog(
             onDismissRequest = onDismissDialogs,
@@ -193,7 +193,7 @@ fun BookmarkListView(
     ) {
         items(
             items = bookmarks,
-            // 详尽中文注释：使用书签 id 作为稳定 key，确保列表更新时 item 状态不错位复用
+            // 使用书签 id 作为稳定 key，确保列表更新时 item 状态不错位复用
             key = { it.id }
         ) { bookmark ->
             val isActive = currentPosition >= bookmark.globalPositionMs
@@ -203,7 +203,7 @@ fun BookmarkListView(
                     .fillMaxWidth()
                     .combinedClickable(
                         onClick = { onBookmarkClick(bookmark.globalPositionMs) },
-                        // 详尽中文注释：长按触发编辑，委托给 ViewModel，不再写入局部 mutableState
+                        // 长按触发编辑，委托给 ViewModel，不再写入局部 mutableState
                         onLongClick = { onRequestEdit(bookmark) }
                     )
                     .padding(vertical = 4.dp),
@@ -241,7 +241,7 @@ fun BookmarkListView(
                     }
                 }
 
-                // 详尽中文注释：点击删除图标，委托给 ViewModel.requestDeleteBookmark，不再直接写局部 mutableState
+                // 点击删除图标，委托给 ViewModel.requestDeleteBookmark，不再直接写局部 mutableState
                 IconButton(onClick = { onRequestDelete(bookmark) }) {
                     Icon(
                         Icons.Rounded.Delete,
@@ -255,7 +255,7 @@ fun BookmarkListView(
     }
 }
 
-// 为每一次改动添加详尽的中文注释：使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
+// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
 @Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
 @Preview(name = "Bookmark List View Stateful", apiLevel = 36)
 @Composable

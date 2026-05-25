@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
 /**
  * SAF provider。
  *
- * 详尽的中文注释：
+ * 
  * 这里现在只保留一种直读策略：
  * `root.sourceUri + sourcePath -> buildDocumentUriUsingTree(...) -> ContentResolver.open*`
  *
@@ -149,7 +149,7 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
         return SourceNode(
             root = root,
             metadata = SourceFileMetadata(
-                // 详尽的中文注释：虽然这里仍然能拿到真实 `content://` uri，
+                // 虽然这里仍然能拿到真实 `content://` uri，
                 // 但它只用于本地 identity 推导，不再写入公共元数据对象，避免上层绕过 VFS/Provider。
                 sourcePath = sourcePath,
                 identity = identity,

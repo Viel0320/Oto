@@ -27,7 +27,6 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import java.io.File
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 全局通用的背景封面强模糊氛围组件，适用于播放页与详情页。
  * 1. 自动处理背景主色的平滑颜色动画。
  * 2. 在 MiuixBlur 模式下挂载 layerBackdrop 采样源，并渲染 64.dp 强模糊封面。
@@ -46,14 +45,14 @@ fun CoverBackground(
     val isDark = isSystemInDarkTheme()
     val bgColor = MaterialTheme.colorScheme.background
 
-    // 为每一次改动添加详尽的中文注释：平滑过渡背景主色调，确保切换书籍时视觉无缝衔接。
+    // 平滑过渡背景主色调，确保切换书籍时视觉无缝衔接。
     val animatedBgColor by animateColorAsState(
         targetValue = Color(backgroundColorArgb),
         animationSpec = tween(300),
         label = "bg_color"
     )
 
-    // 为每一次改动添加详尽的中文注释：根据是否开启毛玻璃模式计算背景渐变笔刷。
+    // 根据是否开启毛玻璃模式计算背景渐变笔刷。
     // 在 MiuixBlur 模式下大幅降低透明度以透出底层模糊图。
     val backgroundBrush by remember(animatedBgColor, bgColor, isBlur) {
         derivedStateOf {
@@ -80,7 +79,7 @@ fun CoverBackground(
             .fillMaxSize()
             .background(backgroundBrush)
             .then(
-                // 为每一次改动添加详尽的中文注释：挂载采样源，为前景组件提供磨砂背景图像源。
+                // 挂载采样源，为前景组件提供磨砂背景图像源。
                 if (isBlur) {
                     Modifier.layerBackdrop(backdrop)
                 } else {
@@ -88,7 +87,7 @@ fun CoverBackground(
                 }
             )
     ) {
-        // 为每一次改动添加详尽的中文注释：只有在 MiuixBlur 模式下才渲染全屏封面模糊背景。
+        // 只有在 MiuixBlur 模式下才渲染全屏封面模糊背景。
         if (isBlur && coverPath != null) {
             val context = LocalContext.current
             val bgRequest = remember(coverPath, lastUpdated) {
@@ -113,14 +112,14 @@ fun CoverBackground(
                     .blur(64.dp)
             )
 
-            // 为每一次改动添加详尽的中文注释：叠加自适应主题遮罩层。
+            // 叠加自适应主题遮罩层。
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(bgColor.copy(alpha = if (isDark) 0.62f else 0.74f))
             )
 
-            // 为每一次改动添加详尽的中文注释：底部渐变加深层。
+            // 底部渐变加深层。
             Box(
                 modifier = Modifier
                     .fillMaxSize()

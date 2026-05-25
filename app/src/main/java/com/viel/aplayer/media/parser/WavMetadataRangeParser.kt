@@ -4,7 +4,7 @@ import com.viel.aplayer.media.AudiobookMetadata
 import com.viel.aplayer.media.parser.RangeAudioParserSupport.cString
 import java.nio.charset.StandardCharsets
 
-// 详尽的中文注释：wav parser 只扫描 RIFF 头部附近的 chunk；
+// wav parser 只扫描 RIFF 头部附近的 chunk；
 // 从 fmt/data 估算时长，从 LIST-INFO 读取有限元数据，不再让系统 retriever 去整文件探测。
 internal object WavMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
@@ -36,7 +36,7 @@ internal object WavMetadataRangeParser : RangeAudioFormatParser {
             val chunkDataStart = cursor + 8
             when (chunkId) {
                 "data" -> {
-                    // 详尽的中文注释：WAV 的时长只依赖 data chunk 头里的 chunkSize，
+                    // WAV 的时长只依赖 data chunk 头里的 chunkSize，
                     // 即使整个 data 块远超头部扫描窗口，也应该立刻记录长度，不能因为 chunkData 没读全就返回 0 时长。
                     if (chunkSize >= 0) {
                         dataSize = chunkSize.toLong()
@@ -47,7 +47,7 @@ internal object WavMetadataRangeParser : RangeAudioFormatParser {
             val chunkData = headBytes.copyOfRange(chunkDataStart, chunkDataStart + chunkSize)
             when (chunkId) {
                 "fmt " -> if (chunkData.size >= 12) {
-                    // 详尽的中文注释：WAV fmt chunk 里的 byteRate 位于 audioFormat(2) + channels(2) + sampleRate(4) 之后，也就是偏移 8。
+                    // WAV fmt chunk 里的 byteRate 位于 audioFormat(2) + channels(2) + sampleRate(4) 之后，也就是偏移 8。
                     byteRate = RangeAudioParserSupport.run { chunkData.readUInt32LE(8) }
                 }
                 "LIST" -> if (chunkData.size >= 4 && chunkData.copyOfRange(0, 4).toString(StandardCharsets.ISO_8859_1) == "INFO") {

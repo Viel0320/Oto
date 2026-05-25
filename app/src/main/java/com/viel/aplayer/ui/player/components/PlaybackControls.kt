@@ -56,7 +56,7 @@ import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Brush
 
-// 为每一次改动添加详尽的中文注释：导入基础 background 修饰符，修复 miuix-blur 磨砂玻璃大圆钮的背景修饰符编译未解析引用问题
+// 导入基础 background 修饰符，修复 miuix-blur 磨砂玻璃大圆钮的背景修饰符编译未解析引用问题
 import androidx.compose.foundation.background
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -149,18 +149,18 @@ fun PlaybackControls(
             )
         }
 
-        // 为每一次改动添加详尽的中文注释：对齐 MiuixBlur，感知当前是否启用了磨砂高斯模糊效果，统一重命名逻辑引用
+        // 对齐 MiuixBlur，感知当前是否启用了磨砂高斯模糊效果，统一重命名逻辑引用
         val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
 
         if (isBlur) {
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // miuix-blur 磨砂效果激活时，将播放暂停按钮升级为清透灵动的磨砂玻璃大圆钮 Surface。
             // 彻底去除对 drawBackdrop 实时采样的物理依赖，在播放器自带的 blur(64.dp) 超强大半径氛围模糊背景之上，
             // 级联自适应亮/暗色调的半透明圆形蒙版底色，并在此处结合自适应本地声明 0.5.dp 微光银丝描边。
             // 这在视觉层面上构建出极佳的 iOS 级轮廓光实体呼吸感，且彻底消除了高通 Vulkan 驱动在平移变换时的 Feedback Loop 闪退死锁。
             val playPauseShape = CircleShape
             val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // 在 miuix-blur 磨砂效果下，将播放按钮改造为高透液态玻璃物理圆钮。
             // 1. 如果 backdrop 采样源存在，使用 textureBlur 对大圆钮进行物理高斯模糊渲染，添加细腻磨砂噪声；
             // 2. 链式覆盖高光斜向线性渐变 Specular Glare 层，形成晶莹的水滴反光面；
@@ -246,7 +246,7 @@ fun PlaybackControls(
                 }
             }
         } else {
-            // 为每一次改动添加详尽的中文注释：Material 默认模式下维持原本色彩的 FilledIconButton 实色设计
+            // Material 默认模式下维持原本色彩的 FilledIconButton 实色设计
             FilledIconButton(
                 onClick = actions.onPlayPauseClick,
                 modifier = Modifier.size(80.dp),

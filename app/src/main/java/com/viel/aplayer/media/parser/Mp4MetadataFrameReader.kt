@@ -13,7 +13,7 @@ import java.nio.charset.StandardCharsets
 import java.util.LinkedHashMap
 import java.util.UUID
 
-// 为每一次改动添加详尽的中文注释：MP4/M4B 元数据帧读取器只通过 VFS Range 小片段读取 moov/ilst/covr atom，不下载远程整文件。
+// MP4/M4B 元数据帧读取器只通过 VFS Range 小片段读取 moov/ilst/covr atom，不下载远程整文件。
 object Mp4MetadataFrameReader {
     data class EmbeddedCover(
         val bytes: ByteArray,
@@ -84,7 +84,7 @@ object Mp4MetadataFrameReader {
     )
 
     fun supports(displayName: String): Boolean {
-        // 为每一次改动添加详尽的中文注释：向元数据入口公开 MP4 家族判断，保证本地与远程 m4b/m4a/mp4 都强制走 atom 帧解析。
+        // 向元数据入口公开 MP4 家族判断，保证本地与远程 m4b/m4a/mp4 都强制走 atom 帧解析。
         return displayName.isMp4FamilyName()
     }
 
@@ -112,7 +112,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractMetadata(file: FileRef, fileReader: VfsFileReader): AudiobookMetadata? {
         if (!supports(file.displayName)) return null
-        // 详尽的中文注释：保留纯元数据入口给非导入场景使用，避免只需要标题/章节时也把 covr 图片字节带进内存。
+        // 保留纯元数据入口给非导入场景使用，避免只需要标题/章节时也把 covr 图片字节带进内存。
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = file.vfsKey,
@@ -124,7 +124,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractMetadata(file: BookFileEntity, fileReader: VfsFileReader): AudiobookMetadata? {
         if (!supports(file.displayName)) return null
-        // 详尽的中文注释：已入库文件的元数据重建仍默认只读轻量标签和章节，封面缓存继续交给恢复流程兜底。
+        // 已入库文件的元数据重建仍默认只读轻量标签和章节，封面缓存继续交给恢复流程兜底。
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = "${file.rootId}:${file.sourcePath}",
@@ -136,7 +136,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractMetadataResult(file: FileRef, fileReader: VfsFileReader): Result? {
         if (!supports(file.displayName)) return null
-        // 为每一次改动添加详尽的中文注释：评估阶段在元数据流程中同步读取 covr，但暂不接管封面恢复落库路径，只用 Mp4Meta 日志比较耗时与字节量。
+        // 评估阶段在元数据流程中同步读取 covr，但暂不接管封面恢复落库路径，只用 Mp4Meta 日志比较耗时与字节量。
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = file.vfsKey,
@@ -148,7 +148,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractMetadataResult(file: BookFileEntity, fileReader: VfsFileReader): Result? {
         if (!supports(file.displayName)) return null
-        // 为每一次改动添加详尽的中文注释：入库后元数据重建也临时同步读取 covr 评估性能，但不写封面缓存，原封面恢复路径保持不变。
+        // 入库后元数据重建也临时同步读取 covr 评估性能，但不写封面缓存，原封面恢复路径保持不变。
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = "${file.rootId}:${file.sourcePath}",
@@ -160,7 +160,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractCover(file: FileRef, fileReader: VfsFileReader): EmbeddedCover? {
         if (!supports(file.displayName)) return null
-        // 为每一次改动添加详尽的中文注释：封面恢复只读取 ilst/covr，不再解析章节表，避免后台封面自愈和导入元数据争抢大 M4B I/O。
+        // 封面恢复只读取 ilst/covr，不再解析章节表，避免后台封面自愈和导入元数据争抢大 M4B I/O。
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = file.vfsKey,
@@ -172,7 +172,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractCover(file: BookFileEntity, fileReader: VfsFileReader): EmbeddedCover? {
         if (!supports(file.displayName)) return null
-        // 为每一次改动添加详尽的中文注释：已入库文件的封面重建也走 cover-only atom 读取，不重复解析章节和文字元数据。
+        // 已入库文件的封面重建也走 cover-only atom 读取，不重复解析章节和文字元数据。
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = "${file.rootId}:${file.sourcePath}",
@@ -189,7 +189,7 @@ object Mp4MetadataFrameReader {
         readRange: suspend (offset: Long, length: Int) -> ByteArray?,
         options: ReadOptions
     ): Result? {
-        // 详尽的中文注释：MP4 元数据和封面解析彻底废除本地直读快路径，本地 SAF 与 WebDAV 都统一走 VFS readRange。
+        // MP4 元数据和封面解析彻底废除本地直读快路径，本地 SAF 与 WebDAV 都统一走 VFS readRange。
         val stats = RangeReadStats(mode = "vfs-range")
         val rangeReader = CoalescingRangeReader(fileSize, stats, readRange)
         val startedAt = SystemClock.elapsedRealtime()
@@ -225,7 +225,7 @@ object Mp4MetadataFrameReader {
                 ?.let { parseChpl(it, sourceId, readRange) }
                 .orEmpty()
             neroChapters.ifEmpty {
-                // 为每一次改动添加详尽的中文注释：没有 Nero chpl 时继续按 QuickTime chapter track 的 stbl 元数据表解析章节，仍然只读取 atom 小片段。
+                // 没有 Nero chpl 时继续按 QuickTime chapter track 的 stbl 元数据表解析章节，仍然只读取 atom 小片段。
                 parseQuickTimeChapters(moov, fileSize, sourceId, readRange)
             }.normalizedChapterDurations(durationMs)
         } else {
@@ -240,7 +240,7 @@ object Mp4MetadataFrameReader {
         val rawYear = ilstData.textValues.firstText("\u00A9day")
         val year = Regex("\\d{4}").find(rawYear)?.value ?: rawYear
 
-        // 为每一次改动添加详尽的中文注释：即使只有 mvhd duration，也说明 Range atom 解析成功，可用于远程导入的轻量元数据兜底。
+        // 即使只有 mvhd duration，也说明 Range atom 解析成功，可用于远程导入的轻量元数据兜底。
         return Result(
             metadata = AudiobookMetadata(
                 title = title,
@@ -275,19 +275,19 @@ object Mp4MetadataFrameReader {
                     when (item.type) {
                         "covr" -> if (options.includeCover && cover == null) {
                             val dataLength = (child.size - child.headerSize).coerceAtMost(MAX_COVER_BYTES.toLong()).toInt()
-                            // 为每一次改动添加详尽的中文注释：只有封面专用路径才读取 covr 大 payload，普通元数据扫描必须跳过它。
+                            // 只有封面专用路径才读取 covr 大 payload，普通元数据扫描必须跳过它。
                             val payload = readRange(child.contentOffset, dataLength) ?: ByteArray(0)
                             cover = parseCoverData(payload)
                         }
                         "trkn" -> if (options.includeMetadataFields && trackIndex == null) {
                             val dataLength = (child.size - child.headerSize).coerceAtMost(MAX_TEXT_DATA_BYTES.toLong()).toInt()
-                            // 为每一次改动添加详尽的中文注释：曲目号属于轻量元数据字段，按小上限读取 data payload。
+                            // 曲目号属于轻量元数据字段，按小上限读取 data payload。
                             val payload = readRange(child.contentOffset, dataLength) ?: ByteArray(0)
                             trackIndex = parseTrackIndex(payload)
                         }
                         else -> if (options.includeMetadataFields) {
                             val dataLength = (child.size - child.headerSize).coerceAtMost(MAX_TEXT_DATA_BYTES.toLong()).toInt()
-                            // 为每一次改动添加详尽的中文注释：文字元数据路径只读取短 data payload，不触碰 covr 图片字节。
+                            // 文字元数据路径只读取短 data payload，不触碰 covr 图片字节。
                             val payload = readRange(child.contentOffset, dataLength) ?: ByteArray(0)
                             parseTextData(payload)?.let { value -> textValues[item.type] = value }
                         }
@@ -399,7 +399,7 @@ object Mp4MetadataFrameReader {
         sourceId: String,
         readRange: suspend (offset: Long, length: Int) -> ByteArray?
     ): List<ChapterEntity> {
-        // 为每一次改动添加详尽的中文注释：QuickTime 章节由普通音轨 tref/chap 指向文本章节 track，这里只解析 track 元数据表和小文本 sample。
+        // QuickTime 章节由普通音轨 tref/chap 指向文本章节 track，这里只解析 track 元数据表和小文本 sample。
         val tracks = findChildAtoms(moov, fileSize, "trak", readRange).mapNotNull { trak ->
             val tkhd = findChildAtom(trak, fileSize, "tkhd", readRange) ?: return@mapNotNull null
             val trackId = parseTkhdTrackId(tkhd, readRange) ?: return@mapNotNull null
@@ -625,7 +625,7 @@ object Mp4MetadataFrameReader {
         sampleSizes: List<Int>,
         sampleToChunk: List<StscEntry>
     ): List<Long> {
-        // 为每一次改动添加详尽的中文注释：根据 stsc/stco/stsz 组合计算文本 sample 的真实偏移，避免旧逻辑把 chunk 误当成 sample。
+        // 根据 stsc/stco/stsz 组合计算文本 sample 的真实偏移，避免旧逻辑把 chunk 误当成 sample。
         if (sampleToChunk.isEmpty()) {
             return chunkOffsets.take(sampleSizes.size)
         }
@@ -715,7 +715,7 @@ object Mp4MetadataFrameReader {
         readRange: suspend (offset: Long, length: Int) -> ByteArray?,
         extraHeaderBytes: Int = 0
     ): List<Atom> {
-        // 为每一次改动添加详尽的中文注释：QuickTime 章节需要枚举所有 trak，不能只找第一个同名子 atom。
+        // QuickTime 章节需要枚举所有 trak，不能只找第一个同名子 atom。
         val atoms = mutableListOf<Atom>()
         var pos = parent.contentOffset + extraHeaderBytes
         var guard = 0
@@ -834,7 +834,7 @@ object Mp4MetadataFrameReader {
         }
 
         suspend fun read(offset: Long, length: Int): ByteArray? {
-            // 为每一次改动添加详尽的中文注释：Range 合并层只缓存小片段读取，封面等大 payload 仍直接发单次有界请求，避免把远程大文件误缓存进内存。
+            // Range 合并层只缓存小片段读取，封面等大 payload 仍直接发单次有界请求，避免把远程大文件误缓存进内存。
             if (offset < 0L) return null
             if (length <= 0) return ByteArray(0)
             if (length > MAX_COALESCED_REQUEST_BYTES) {
@@ -856,7 +856,7 @@ object Mp4MetadataFrameReader {
         }
 
         private fun coalescedLength(offset: Long, requestedLength: Int): Int {
-            // 为每一次改动添加详尽的中文注释：小 atom/header 读取扩展成固定窗口，远程 WebDAV 仍由 provider 按 fileSize 裁剪为 bytes=start-end 闭区间。
+            // 小 atom/header 读取扩展成固定窗口，远程 WebDAV 仍由 provider 按 fileSize 裁剪为 bytes=start-end 闭区间。
             val desired = maxOf(requestedLength, COALESCED_RANGE_WINDOW_BYTES)
             if (fileSize <= 0L || offset >= fileSize) return requestedLength
             return (fileSize - offset).coerceAtMost(desired.toLong()).toInt().coerceAtLeast(requestedLength)
@@ -864,7 +864,7 @@ object Mp4MetadataFrameReader {
     }
 
     private fun logRangeStats(sourceId: String, stats: RangeReadStats, startedAt: Long, success: Boolean, options: ReadOptions) {
-        // 为每一次改动添加详尽的中文注释：保留 MP4 解析读次数与字节量日志；本地和远程都会以 vfs-range 统计。
+        // 保留 MP4 解析读次数与字节量日志；本地和远程都会以 vfs-range 统计。
         Log.d(TAG, "MP4 metadata parse purpose=${options.purpose} success=$success elapsedMs=${SystemClock.elapsedRealtime() - startedAt} $stats source=$sourceId")
     }
 
@@ -914,7 +914,7 @@ object Mp4MetadataFrameReader {
         includeCover = true,
         includeChapters = true,
         includeDuration = true,
-        // 详尽的中文注释：评估通过后将日志目的从 eval 固化为正式的“元数据带封面”路径，方便后续 Logcat 对比。
+        // 评估通过后将日志目的从 eval 固化为正式的“元数据带封面”路径，方便后续 Logcat 对比。
         purpose = "metadata-cover"
     )
     private val COVER_ONLY_OPTIONS = ReadOptions(

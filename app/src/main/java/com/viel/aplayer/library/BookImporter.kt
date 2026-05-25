@@ -57,5 +57,5 @@ class BookImporter(private val context: Context) {
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：旧单文件直接入库入口已移除，所有持久化导入必须来自 VFS 扫描生成的 ImportRunResult。
+    // 旧单文件直接入库入口已移除，所有持久化导入必须来自 VFS 扫描生成的 ImportRunResult。
 }

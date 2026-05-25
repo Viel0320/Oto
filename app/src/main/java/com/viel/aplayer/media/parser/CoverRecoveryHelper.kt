@@ -21,7 +21,7 @@ import kotlinx.coroutines.sync.withPermit
 /**
  * 负责有声书封面缓存丢失后的异步自愈。
  *
- * 详尽的中文注释：从这次收口开始，这个类不再直接调用任何格式专属的封面解析器。
+ * 从这次收口开始，这个类不再直接调用任何格式专属的封面解析器。
  * 它只做三件事：
  * 1. 判断缓存是否丢失
  * 2. 按优先级尝试“内嵌封面 -> sidecar 图片 -> 其他音频内嵌封面”
@@ -35,10 +35,10 @@ class CoverRecoveryHelper(
     private val coverExtractor: CoverExtractor,
     private val scope: CoroutineScope
 ) {
-    // 详尽的中文注释：封面重建会触发 VFS 读流、图片解码和主色提取，因此继续用信号量限制全局并发。
+    // 封面重建会触发 VFS 读流、图片解码和主色提取，因此继续用信号量限制全局并发。
     private val regenerationSemaphore = Semaphore(MAX_CONCURRENT_COVER_REGENERATIONS)
     private val fileReader = VfsFileReader(context.applicationContext, libraryRootDao)
-    // 详尽的中文注释：所有内嵌封面字节都统一通过 MetadataResolver 向各格式 parser 请求。
+    // 所有内嵌封面字节都统一通过 MetadataResolver 向各格式 parser 请求。
     private val MetadataResolver = MetadataResolver(context.applicationContext)
 
     private val pendingRegenerations = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -95,7 +95,7 @@ class CoverRecoveryHelper(
         var finalCoverResult = tryExtractEmbeddedCover(bookId, primaryFile)
 
         if (!finalCoverResult.hasImage() && book.sourceType != AudiobookSchema.SourceType.SINGLE_AUDIO) {
-            // 为每一次改动添加详尽的中文注释：单音频书籍现在明确禁止 sidecar 封面，
+            // 单音频书籍现在明确禁止 sidecar 封面，
             // 因此封面自愈阶段只允许 manifest/聚合等多文件书继续尝试同目录 sidecar 图片。
             finalCoverResult = tryExtractSidecarCover(primaryFile)
         }
@@ -109,7 +109,7 @@ class CoverRecoveryHelper(
 
         if (!finalCoverResult.hasImage()) return false
 
-        // 详尽的中文注释：封面缓存一旦重建成功，就顺带更新 lastScannedAt，
+        // 封面缓存一旦重建成功，就顺带更新 lastScannedAt，
         // 这样 Room Flow 会触发 UI 重新取图，不需要额外的手工刷新信号。
         bookDao.updateCoverPaths(
             id = bookId,
@@ -130,7 +130,7 @@ class CoverRecoveryHelper(
             if (embeddedCover == null || embeddedCover.bytes.isEmpty()) {
                 CoverExtractor.CoverResult(null, null)
             } else {
-                // 详尽的中文注释：这里不再区分 covr / APIC / PICTURE / METADATA_BLOCK_PICTURE，
+                // 这里不再区分 covr / APIC / PICTURE / METADATA_BLOCK_PICTURE，
                 // 它们都已经在各自 parser 内部解析成统一的 `embeddedCover.bytes`。
                 coverExtractor.saveEmbeddedImage(
                     "$bookId:${file.rootId}:${file.sourcePath}:embedded",
@@ -162,7 +162,7 @@ class CoverRecoveryHelper(
             .filter { node -> !node.metadata.isDirectory && isImage(node.metadata.displayName) }
         val selectedRef = ManifestSidecarSupport.findDirectoryCover(
             files.map { node ->
-                // 为每一次改动添加详尽的中文注释：封面恢复阶段把 VfsNode 先规整成 FileRef，
+                // 封面恢复阶段把 VfsNode 先规整成 FileRef，
                 // 然后直接复用全项目统一的 sidecover 选择规则，避免这里再维护一份并行优先级列表。
                 FileRef(
                     rootId = node.root.id,

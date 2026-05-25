@@ -11,9 +11,9 @@ import com.viel.aplayer.data.db.AudiobookSchema
 data class LibraryRootEntity(
     @PrimaryKey
     val id: String,
-    // 为每一次改动添加详尽的中文注释：sourceType 是本地 SAF、WebDAV 等来源标准件的分发键，业务层不再依赖旧库根字段。
+    // sourceType 是本地 SAF、WebDAV 等来源标准件的分发键，业务层不再依赖旧库根字段。
     val sourceType: String = AudiobookSchema.LibrarySourceType.SAF,
-    // 为每一次改动添加详尽的中文注释：sourceUri 是跨来源的根地址；SAF 写入 tree URI，WebDAV 后续写入规范化服务器地址。
+    // sourceUri 是跨来源的根地址；SAF 写入 tree URI，WebDAV 后续写入规范化服务器地址。
     val sourceUri: String,
     // basePath 描述来源内部的库根路径；SAF 当前为空，WebDAV 后续可存 /audiobooks 这类远程根目录。
     val basePath: String = "",

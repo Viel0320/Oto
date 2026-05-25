@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets
 import java.util.UUID
 import kotlin.math.roundToLong
 
-// 详尽的中文注释：mp3 的所有格式逻辑都收口在本文件内：
+// mp3 的所有格式逻辑都收口在本文件内：
 // ID3v2、ID3v1、Xing/VBRI/CBR 时长估算都不再委托给外部格式专属 helper。
 internal object Mp3MetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =

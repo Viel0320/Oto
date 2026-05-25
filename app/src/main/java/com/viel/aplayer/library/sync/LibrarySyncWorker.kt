@@ -15,7 +15,7 @@ class LibrarySyncWorker(
         return try {
             val trigger = inputData.getString("trigger") ?: "USER"
             val repository = LibraryRepository.getInstance(applicationContext)
-            // 详尽的中文注释：Worker 只负责兼容历史入队请求，真正扫描提交给 Repository 应用级队列，避免 Worker/页面生命周期持有长扫描。
+            // Worker 只负责兼容历史入队请求，真正扫描提交给 Repository 应用级队列，避免 Worker/页面生命周期持有长扫描。
             repository.scheduleLibrarySync(trigger)
             Result.success()
         } catch (e: Exception) {

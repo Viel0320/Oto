@@ -23,7 +23,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-// 为每一次改动添加详尽的中文注释：使用 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
+// 使用 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -32,7 +32,7 @@ import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 
 /**
- * 详尽中文注释：
+ * 
  * BlurModalBottomSheet —— 使用 miuix-blur 重写后的毛玻璃 BottomSheet。
  *
  * 实现原理：
@@ -65,7 +65,7 @@ import top.yukonga.miuix.kmp.blur.BlurBlendMode
 fun BlurModalBottomSheet(
     onDismissRequest: () -> Unit,
     backdrop: LayerBackdrop,
-    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由调用方从设置状态显式传入，避免 BottomSheet 内部私自声明默认值。
+    // 玻璃效果模式必须由调用方从设置状态显式传入，避免 BottomSheet 内部私自声明默认值。
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
@@ -78,10 +78,10 @@ fun BlurModalBottomSheet(
     contentWindowInsets: @Composable () -> WindowInsets = { BottomSheetDefaults.windowInsets },
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // 为每一次改动添加详尽的中文注释：获取当前系统的亮暗色主题状态，以实现 BottomSheet 自适应着色混合
+    // 获取当前系统的亮暗色主题状态，以实现 BottomSheet 自适应着色混合
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
-    // 为每一次改动添加详尽的中文注释：MiuixBlur 模式下将外层 containerColor 设为透明，由内部毛玻璃 Box 统一渲染背景，避免渲染双重底色。修改引用至 MiuixBlur。
+    // MiuixBlur 模式下将外层 containerColor 设为透明，由内部毛玻璃 Box 统一渲染背景，避免渲染双重底色。修改引用至 MiuixBlur。
     val sheetContainerColor = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
         Color.Transparent
     } else {
@@ -95,14 +95,14 @@ fun BlurModalBottomSheet(
         shape = shape,
         containerColor = sheetContainerColor,
         contentColor = contentColor,
-        // 为每一次改动添加详尽的中文注释：MiuixBlur 模式下自适应将高程设为 0.dp，彻底杜绝系统 RenderNode 在透明圆角边缘产生的重叠灰色阴影阴霾。修改引用至 MiuixBlur
+        // MiuixBlur 模式下自适应将高程设为 0.dp，彻底杜绝系统 RenderNode 在透明圆角边缘产生的重叠灰色阴影阴霾。修改引用至 MiuixBlur
         tonalElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else tonalElevation,
         scrimColor = scrimColor,
-        // 详尽中文注释：将原本由 ModalBottomSheet 单独绘制的 dragHandle 移入模糊内容层，保证把手区域也拥有同一块毛玻璃背景。
+        // 将原本由 ModalBottomSheet 单独绘制的 dragHandle 移入模糊内容层，保证把手区域也拥有同一块毛玻璃背景。
         dragHandle = null,
         contentWindowInsets = contentWindowInsets,
     ) {
-        // 为每一次改动添加详尽的中文注释：仅在 MiuixBlur 模式挂载 drawBackdrop 与半透明蒙版底色和液态高光折光；Material 模式完全跳过毛玻璃修饰。将引用修改为新更名的 MiuixBlur
+        // 仅在 MiuixBlur 模式挂载 drawBackdrop 与半透明蒙版底色和液态高光折光；Material 模式完全跳过毛玻璃修饰。将引用修改为新更名的 MiuixBlur
         val glassModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
             Modifier.textureBlur(
                 backdrop = backdrop,
@@ -112,13 +112,13 @@ fun BlurModalBottomSheet(
                 colors = BlurColors(
                     blendColors = listOf(
                         BlendColorEntry(
-                            color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 为每一次改动添加详尽的中文注释：微调蒙版深度，以供底层氛围折光与高光显示
+                            color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 微调蒙版深度，以供底层氛围折光与高光显示
                             mode = BlurBlendMode.SrcOver
                         )
                     )
                 )
             )
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，模拟真实水晶玻璃表面对光源的物理折射反光。
             .background(
                 brush = Brush.linearGradient(
@@ -131,7 +131,7 @@ fun BlurModalBottomSheet(
                 ),
                 shape = shape
             )
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // 4. 链式追加 1.dp 极细自适应渐变微光折射边框 (Refraction Edge)，使得底部抽屉呈现极为突出的三维浮雕立体感。
             .border(
                 width = 1.dp,
@@ -163,16 +163,16 @@ fun BlurModalBottomSheet(
                 .then(glassModifier)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // 详尽中文注释：Material3 原 dragHandle slot 默认居中；移入模糊内容层后需要手动恢复 fillMaxWidth + Center 对齐。
+                // Material3 原 dragHandle slot 默认居中；移入模糊内容层后需要手动恢复 fillMaxWidth + Center 对齐。
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    // 详尽中文注释：在同一个模糊面板内绘制拖拽把手，避免顶部把手区域和正文区域玻璃质感断层。
+                    // 在同一个模糊面板内绘制拖拽把手，避免顶部把手区域和正文区域玻璃质感断层。
                     dragHandle?.invoke()
                 }
 
-                // 详尽中文注释：透传调用方提供的正文内容，业务层无需感知模糊内部包装。
+                // 透传调用方提供的正文内容，业务层无需感知模糊内部包装。
                 content()
             }
         }

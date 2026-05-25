@@ -36,11 +36,11 @@ class VfsPlaybackDataSource private constructor(
         transferInitializing(dataSpec)
         val file = runBlocking { database.bookDao().getBookFileById(bookFileId) }
             ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
-        // 为每一次改动添加详尽的中文注释：播放层只传 offset 给 VFS，SAF 由默认 skip 处理，WebDAV 由 Provider 转成 Range 请求。
+        // 播放层只传 offset 给 VFS，SAF 由默认 skip 处理，WebDAV 由 Provider 转成 Range 请求。
         val stream = try {
             runBlocking { fileReader.open(file, dataSpec.position) }
         } catch (e: IOException) {
-            // 为每一次改动添加详尽的中文注释：Provider offset 打开失败统一映射成 Media3 可理解的读位置错误，避免远程异常穿透播放器。
+            // Provider offset 打开失败统一映射成 Media3 可理解的读位置错误，避免远程异常穿透播放器。
             throw DataSourceException(e, PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
         } ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
 
@@ -102,7 +102,7 @@ class VfsPlaybackDataSource private constructor(
         try {
             close()
         } catch (_: IOException) {
-            // 为每一次改动添加详尽的中文注释：关闭 VFS 播放流失败不应覆盖前面已抛出的真实播放错误。
+            // 关闭 VFS 播放流失败不应覆盖前面已抛出的真实播放错误。
         }
     }
 

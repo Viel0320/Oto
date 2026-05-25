@@ -19,7 +19,7 @@ import com.viel.aplayer.ui.theme.APlayerTheme
 import kotlin.math.abs
 
 /**
- * 详尽中文注释：自适应手势播放器封面组件。
+ * 自适应手势播放器封面组件。
  * 从 PlayerScreen.kt 中将 BoxWithConstraints 及其嵌套的手势监听与尺寸计算逻辑独立出来，
  * 封装为统一且高度重用的 PlayerCover 组件，实现布局层级解耦与性能优化。
  *
@@ -45,23 +45,23 @@ fun PlayerCover(
     sizeRatio: Float = 0.8f,
     gesturesEnabled: Boolean = true
 ) {
-    // 详尽中文注释：使用 BoxWithConstraints 动态捕获父容器的最大可用宽高，保证在横竖屏或分屏模式下完美自适应
+    // 使用 BoxWithConstraints 动态捕获父容器的最大可用宽高，保证在横竖屏或分屏模式下完美自适应
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // 详尽中文注释：比较可用宽度 and 高度，选取较小维度的 sizeRatio 作为封面大小，规避尺寸溢出并保留视觉呼吸感
+        // 比较可用宽度 and 高度，选取较小维度的 sizeRatio 作为封面大小，规避尺寸溢出并保留视觉呼吸感
         val minDimension = minOf(maxWidth, maxHeight)
         val coverSize = minDimension * sizeRatio
 
-        // 详尽中文注释：用于记录水平拖拽累积量的状态变量，以触发切章手势
+        // 用于记录水平拖拽累积量的状态变量，以触发切章手势
         var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
         var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
 
-        // 详尽中文注释：构建手势识别修饰符。仅当 gesturesEnabled 为 true 时才附加 pointerInput 逻辑。
+        // 构建手势识别修饰符。仅当 gesturesEnabled 为 true 时才附加 pointerInput 逻辑。
         val gestureModifier = if (gesturesEnabled) {
             Modifier.pointerInput(Unit) {
-                // 详尽中文注释：侦测手势，上下滑动调节音量，左右滑动切换章节
+                // 侦测手势，上下滑动调节音量，左右滑动切换章节
                 detectDragGestures(
                     onDragStart = {
                         totalHorizontalDrag = 0f
@@ -78,12 +78,12 @@ fun PlayerCover(
                     onDrag = { change, dragAmount ->
                         change.consume()
                         if (abs(dragAmount.y) > abs(dragAmount.x)) {
-                            // 详尽中文注释：上下滑动时，触发音量调节回调
+                            // 上下滑动时，触发音量调节回调
                             onAdjustVolume(-dragAmount.y * 0.002f)
                         } else if (!hasTriggeredHorizontalDrag) {
                             totalHorizontalDrag += dragAmount.x
                             if (abs(totalHorizontalDrag) > 300f) {
-                                // 详尽中文注释：水平滑动超过阈值（300px）时，触发切章回调
+                                // 水平滑动超过阈值（300px）时，触发切章回调
                                 if (totalHorizontalDrag > 0) {
                                     onNextChapter()
                                 } else {
@@ -115,7 +115,7 @@ fun PlayerCover(
 @Composable
 fun PlayerCoverPreview() {
     APlayerTheme {
-        // 详尽中文注释：在预览中模拟 PlayerCover。由于预览无法模拟真实手势交互，
+        // 在预览中模拟 PlayerCover。由于预览无法模拟真实手势交互，
         // 这里主要用于验证封面在不同屏幕比例（竖屏 vs 横屏）下的自适应缩放效果。
         PlayerCover(
             coverPath = null, // 传入 null 以展示缺省占位图

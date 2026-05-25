@@ -36,7 +36,7 @@ data class LibraryUiState(
     /** 是否应当展示"最近"横向滚动区域 */
     val shouldShowRecentBooks: Boolean = false,
 
-    /** 为每一次改动添加详尽的中文注释：当前悬浮层玻璃效果模式，供主页 Dialog 与播放器 BottomSheet 共用同一全局设置。 */
-    // 为每一次改动添加详尽的中文注释：UiState 首帧缺省值引用设置模型的默认值，避免 UI 状态层另行硬编码 Material。
+    /** 当前悬浮层玻璃效果模式，供主页 Dialog 与播放器 BottomSheet 共用同一全局设置。 */
+    // UiState 首帧缺省值引用设置模型的默认值，避免 UI 状态层另行硬编码 Material。
     val glassEffectMode: GlassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
 )

@@ -20,7 +20,7 @@ class LibraryRootStore(private val context: Context) {
     private val rootDao = AppDatabase.getInstance(context).libraryRootDao()
     // 统一根目录可用性探测入口；SAF 阶段仍复刻旧授权检查，WebDAV 后续复用同一状态模型。
     private val availabilityChecker = AvailabilityChecker(context.applicationContext)
-    // 为每一次改动添加详尽的中文注释：WebDAV 凭据由根目录仓库统一写入/更新，Room 只保存 credentialId 引用。
+    // WebDAV 凭据由根目录仓库统一写入/更新，Room 只保存 credentialId 引用。
     private val webDavCredentialStore = WebDavCredentialStore(context.applicationContext)
 
     /**
@@ -46,7 +46,7 @@ class LibraryRootStore(private val context: Context) {
             }
         val root = LibraryRootEntity(
             id = UUID.randomUUID().toString(),
-            // 为每一次改动添加详尽的中文注释：本地 SAF 库根也写入通用 sourceUri，后续 WebDAV 复用同一个来源地址字段。
+            // 本地 SAF 库根也写入通用 sourceUri，后续 WebDAV 复用同一个来源地址字段。
             sourceUri = normalizedUri,
             displayName = displayName,
             grantedAt = System.currentTimeMillis(),
@@ -67,7 +67,7 @@ class LibraryRootStore(private val context: Context) {
         val normalizedEndpoint = normalizeWebDavEndpoint(parsed)
         val normalizedBasePath = normalizeWebDavBasePath(basePath.ifBlank { parsed.path.orEmpty() })
         val resolvedDisplayName = displayName.ifBlank {
-            // 为每一次改动添加详尽的中文注释：未填写显示名时用主机与库内路径兜底，避免 UI 出现空白媒体库名称。
+            // 未填写显示名时用主机与库内路径兜底，避免 UI 出现空白媒体库名称。
             buildString {
                 append(parsed.host ?: normalizedEndpoint)
                 if (normalizedBasePath.isNotBlank()) append(normalizedBasePath)
@@ -91,7 +91,7 @@ class LibraryRootStore(private val context: Context) {
                     lastAvailabilityCheckedAt = 0L,
                     lastAvailabilityErrorCode = null
                 )
-                // 为每一次改动添加详尽的中文注释：重复添加同一 WebDAV 根时更新凭据与显示名，不插入第二条 root。
+                // 重复添加同一 WebDAV 根时更新凭据与显示名，不插入第二条 root。
                 rootDao.insertRoot(updated)
                 return@withContext updated
             }
@@ -106,7 +106,7 @@ class LibraryRootStore(private val context: Context) {
             grantedAt = now,
             status = AudiobookSchema.LibraryRootStatus.ACTIVE
         )
-        // 为每一次改动添加详尽的中文注释：WebDAV root 入库后立即可被现有 SourceInventoryScanner 作为标准来源扫描。
+        // WebDAV root 入库后立即可被现有 SourceInventoryScanner 作为标准来源扫描。
         rootDao.insertRoot(root)
         root
     }
@@ -120,7 +120,7 @@ class LibraryRootStore(private val context: Context) {
             } else if (LibrarySourceKind.from(root.sourceType) == LibrarySourceKind.SAF) {
                 AudiobookSchema.LibraryRootStatus.REVOKED
             } else {
-                // 为每一次改动添加详尽的中文注释：远程来源失败不是 SAF 授权撤销，保留为 ERROR 便于后续重试和 UI 区分认证/网络问题。
+                // 远程来源失败不是 SAF 授权撤销，保留为 ERROR 便于后续重试和 UI 区分认证/网络问题。
                 AudiobookSchema.LibraryRootStatus.ERROR
             }
             if (root.status != status) {
@@ -136,12 +136,12 @@ class LibraryRootStore(private val context: Context) {
     }
 
     private fun LibraryRootEntity.isSameRoot(candidateTreeUri: String): Boolean =
-        // 为每一次改动添加详尽的中文注释：重复库根检测改用 sourceUri，旧库根字段已从数据库模型中移除。
+        // 重复库根检测改用 sourceUri，旧库根字段已从数据库模型中移除。
         sourceType == AudiobookSchema.LibrarySourceType.SAF &&
             (sourceUri == candidateTreeUri || treeDocumentId(sourceUri) == treeDocumentId(candidateTreeUri))
 
     private fun LibraryRootEntity.isSameWebDavRoot(candidateEndpoint: String, candidateBasePath: String): Boolean =
-        // 为每一次改动添加详尽的中文注释：WebDAV 去重以来源类型、规范化端点和库内根路径共同判定，支持同服务器多个书库路径。
+        // WebDAV 去重以来源类型、规范化端点和库内根路径共同判定，支持同服务器多个书库路径。
         sourceType == AudiobookSchema.LibrarySourceType.WEBDAV &&
             sourceUri == candidateEndpoint &&
             normalizeWebDavBasePath(basePath) == candidateBasePath
@@ -152,12 +152,12 @@ class LibraryRootStore(private val context: Context) {
         val authority = parsed.encodedAuthority
             ?: throw IllegalArgumentException("WebDAV URL 缺少主机")
         require(scheme == "http" || scheme == "https") { "WebDAV URL 仅支持 http/https" }
-        // 为每一次改动添加详尽的中文注释：sourceUri 只保存协议与主机端点，库内路径统一放入 basePath。
+        // sourceUri 只保存协议与主机端点，库内路径统一放入 basePath。
         return "$scheme://$authority"
     }
 
     private fun normalizeWebDavBasePath(path: String): String =
-        // 为每一次改动添加详尽的中文注释：basePath 统一成以 / 开头、无结尾 / 的远程库内路径，根目录用空字符串表示。
+        // basePath 统一成以 / 开头、无结尾 / 的远程库内路径，根目录用空字符串表示。
         Uri.decode(path)
             .replace('\\', '/')
             .trim()

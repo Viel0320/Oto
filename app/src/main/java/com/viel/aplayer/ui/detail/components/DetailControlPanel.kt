@@ -52,7 +52,6 @@ import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 封装详情页的操作控制面板 (DetailControlPanel)。
  * 整合了元数据标签组 (DetailInfoChip)、播放主控制按钮以及物理文件路径显示。
  * 支持根据 [isLandscape] 自动调整高度、圆角及间距，并完美适配 miuix-blur 磨砂玻璃效果。
@@ -125,7 +124,7 @@ fun DetailControlPanel(
                     .height(buttonHeight)
                     .let {
                         if (backdrop != null) {
-                            // 为每一次改动添加详尽的中文注释：
+                            // 
                             // 1. 使用 textureBlur 对按钮进行硬件级高斯模糊渲染，增加细腻的 0.05f 磨砂噪点。
                             // 2. 将 blendColors 的不透明度（暗色 0.35f，亮色 0.65f）作为背景主基调，确保亮暗环境下出色的底色透射。
                             it.textureBlur(
@@ -142,7 +141,7 @@ fun DetailControlPanel(
                                     )
                                 )
                             )
-                            // 为每一次改动添加详尽的中文注释：
+                            // 
                             // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，模拟真实水晶玻璃表面对光源的物理折射反光。
                             .background(
                                 brush = Brush.linearGradient(
@@ -155,7 +154,7 @@ fun DetailControlPanel(
                                 ),
                                 shape = RoundedCornerShape(cornerRadius)
                             )
-                            // 为每一次改动添加详尽的中文注释：
+                            // 
                             // 4. 链式追加 1.dp 极细微光渐变折射边缘描边 (Refraction Edge)，在任何杂乱背景下都能凸显极佳的立体层次。
                             .border(
                                 width = 1.dp,
@@ -183,8 +182,8 @@ fun DetailControlPanel(
                         }
                     },
                 shape = RoundedCornerShape(cornerRadius),
-                color = Color.Transparent, // 为每一次改动添加详尽的中文注释：设置背景完全透明，防止传统底色遮蔽底层磨砂与液态偏光的精妙呈现
-                border = null, // 为每一次改动添加详尽的中文注释：设为 null，废弃传统实色 border，完全交由上方的渐变 border 修饰符渲染
+                color = Color.Transparent, // 设置背景完全透明，防止传统底色遮蔽底层磨砂与液态偏光的精妙呈现
+                border = null, // 设为 null，废弃传统实色 border，完全交由上方的渐变 border 修饰符渲染
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
                 Row(
@@ -268,7 +267,6 @@ fun DetailControlPanel(
 
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 重构后的详情元数据卡片 (DetailInfoChip)。
  * 完美支持在 miuix-blur 模式下动态应用“高雅白羽雾化”设计规范，同时在传统不透明模式下退回为原生 Material3 经典微光描边，确保零额外开销。
  */
@@ -277,15 +275,15 @@ fun DetailInfoChip(
     icon: ImageVector,
     value: String,
     modifier: Modifier = Modifier,
-    // 为每一次改动添加详尽的中文注释：传入全局玻璃效果模式，默认值设为已存在的 GlassEffectMode.Material
+    // 传入全局玻璃效果模式，默认值设为已存在的 GlassEffectMode.Material
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    // 为每一次改动添加详尽的中文注释：传入全局 Backdrop 背景模糊状态
+    // 传入全局 Backdrop 背景模糊状态
     backdrop: LayerBackdrop? = null
 ) {
-    // 为每一次改动添加详尽的中文注释：感知新更名的 MiuixBlur 磨砂玻璃模式是否已被开启且采样源不为空
+    // 感知新更名的 MiuixBlur 磨砂玻璃模式是否已被开启且采样源不为空
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
 
-    // 为每一次改动添加详尽的中文注释：在 DetailInfoChip 内部基于当前 system/应用亮暗主题自适应配置专属的高级半透明蒙版底色与极细微光描边，完全消除未解析引用报错
+    // 在 DetailInfoChip 内部基于当前 system/应用亮暗主题自适应配置专属的高级半透明蒙版底色与极细微光描边，完全消除未解析引用报错
     val isDark = isSystemInDarkTheme()
     val localBlurBackgroundColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f)
     val localBlurBorderColor = if (isDark) Color.White.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.12f)
@@ -296,7 +294,7 @@ fun DetailInfoChip(
         modifier = modifier
             .let {
                 if (isBlur) {
-                    // 为每一次改动添加详尽的中文注释：
+                    // 
                     // 1. 使用 textureBlur 对元数据芯片进行高斯模糊渲染（半径 40f 保障小文字极佳可读性），加入 0.03f 细腻噪点质感。
                     // 2. 将 blendColors 的不透明度（暗色 0.3f，亮色 0.6f）作为背景主基调，确保亮暗环境下出色的底色透射。
                     it.textureBlur(
@@ -313,7 +311,7 @@ fun DetailInfoChip(
                             )
                         )
                     )
-                    // 为每一次改动添加详尽的中文注释：
+                    // 
                     // 3. 链式覆盖高光斜向白色物理扫掠折射层 (Specular Glare)，赋予药丸微缩水滴的剔透立体感。
                     .background(
                         brush = Brush.linearGradient(
@@ -326,7 +324,7 @@ fun DetailInfoChip(
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )
-                    // 为每一次改动添加详尽的中文注释：
+                    // 
                     // 4. 链式添加 0.5.dp 极致精细的“微光折射渐变描边 (Refraction Edge)”，防止在大面积杂色背景上边缘发生粘连。
                     .border(
                         width = 0.5.dp,
@@ -355,7 +353,7 @@ fun DetailInfoChip(
             },
         shape = RoundedCornerShape(12.dp),
         border = if (isBlur) {
-            null // 为每一次改动添加详尽的中文注释：在模糊状态下将原生 border 设为 null，完美移交上方的渐变 border 修饰符进行自定义精细绘制
+            null // 在模糊状态下将原生 border 设为 null，完美移交上方的渐变 border 修饰符进行自定义精细绘制
         } else {
             androidx.compose.foundation.BorderStroke(
                 width = 1.dp,
@@ -363,7 +361,7 @@ fun DetailInfoChip(
             )
         },
         color = if (isBlur) {
-            Color.Transparent // 为每一次改动添加详尽的中文注释：在模糊状态下使 Surface 背景完全透明，杜绝背景色彩叠加穿帮
+            Color.Transparent // 在模糊状态下使 Surface 背景完全透明，杜绝背景色彩叠加穿帮
         } else {
             Color.Transparent
         }

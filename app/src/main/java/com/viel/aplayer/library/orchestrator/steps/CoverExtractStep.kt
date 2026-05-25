@@ -20,7 +20,7 @@ import kotlinx.coroutines.sync.withPermit
 /**
  * 旧 ImportPipelineEngine 使用的封面提取步骤。
  *
- * 详尽的中文注释：这里也同步收口成“只向 MetadataResolver 要内嵌封面字节”，
+ * 这里也同步收口成“只向 MetadataResolver 要内嵌封面字节”，
  * 不再在步骤层直接区分 MP4 / 非 MP4，也不直接调用任何容器专属封面解析器。
  */
 @UnstableApi
@@ -44,7 +44,7 @@ internal class CoverExtractStep(
             m3u8Files = emptyList(),
             audioFiles = emptyList(),
             imageFilesByParent = emptyMap(),
-            // 为每一次改动添加详尽的中文注释：空 inventory 兜底也要补齐 txt 侧车字段，
+            // 空 inventory 兜底也要补齐 txt 侧车字段，
             // 保持 FileInventory 数据结构完整，避免旧步骤编译失败。
             textFilesByParent = emptyMap()
         )
@@ -147,7 +147,7 @@ internal class CoverExtractStep(
                 if (embeddedCover == null || embeddedCover.bytes.isEmpty()) {
                     CoverExtractor.CoverResult(null, null)
                 } else {
-                    // 详尽的中文注释：parser 已经在内部完成容器相关的封面提取，
+                    // parser 已经在内部完成容器相关的封面提取，
                     // 这个步骤只负责把统一返回的字节落缓存。
                     coverExtractor.saveEmbeddedImage("$bookId:${file.vfsKey}:embedded", embeddedCover.bytes)
                 }

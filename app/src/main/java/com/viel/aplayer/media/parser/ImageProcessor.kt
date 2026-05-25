@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 /**
  * 图像处理中心。
  *
- * 详尽的中文注释：当前把封面相关的真正实现集中收口到这里，
+ * 当前把封面相关的真正实现集中收口到这里，
  * 包括：
  * 1. 自定义封面保存
  * 2. 内嵌封面字节落盘
@@ -31,10 +31,10 @@ object ImageProcessor {
     private const val TAG = "ImageProcessor"
     private const val DEFAULT_THUMBNAIL_MAX_SIZE = 300
 
-    // 详尽的中文注释：主色提取代价较高，这里保留路径级 LRU 缓存，避免同一张封面重复跑 Palette。
+    // 主色提取代价较高，这里保留路径级 LRU 缓存，避免同一张封面重复跑 Palette。
     private val colorCache = LruCache<String, Int>(100)
 
-    // 详尽的中文注释：默认背景色用于封面缺失、图片损坏或取色失败时的全局兜底。
+    // 默认背景色用于封面缺失、图片损坏或取色失败时的全局兜底。
     const val DEFAULT_BACKGROUND_ARGB: Int = 0xFF1C1B1F.toInt()
 
     // -------------------------------------------------------------------------
@@ -44,7 +44,7 @@ object ImageProcessor {
     /**
      * 保存用户手动选择的自定义封面。
      *
-     * 详尽的中文注释：
+     * 
      * 1. 把编辑页生成的临时图片复制到私有 `cache/covers`
      * 2. 基于正式文件生成缩略图
      * 3. 提取主色并一起返回
@@ -75,7 +75,7 @@ object ImageProcessor {
     /**
      * 保存内嵌封面字节。
      *
-     * 详尽的中文注释：
+     * 
      * 这里接住各格式 parser 统一返回的 `embeddedCover.bytes`，
      * 负责原图落地、缩略图生成和主色提取。
      */
@@ -104,7 +104,7 @@ object ImageProcessor {
     /**
      * 处理外部 sidecar 图片流。
      *
-     * 详尽的中文注释：
+     * 
      * 这里故意采用“先复制到私有缓存，再从缓存文件生成缩略图”的顺序，
      * 避免对大图直接 `readBytes()` 带来的瞬时内存峰值。
      */
@@ -136,7 +136,7 @@ object ImageProcessor {
     /**
      * 从图片路径提取主色。
      *
-     * 详尽的中文注释：
+     * 
      * 这里只解码缩小后的 Bitmap 给 Palette，用最小成本换取足够稳定的背景色。
      */
     suspend fun getDominantColor(path: String?): Int = withContext(Dispatchers.IO) {
@@ -227,7 +227,7 @@ object ImageProcessor {
     /**
      * 从内存字节生成缩略图。
      *
-     * 详尽的中文注释：
+     * 
      * 适用于已经由 parser 解出的内嵌封面字节。
      */
     private fun createThumbnailFromBytes(
@@ -270,7 +270,7 @@ object ImageProcessor {
     /**
      * 从已有文件生成缩略图。
      *
-     * 详尽的中文注释：
+     * 
      * 适用于用户自定义封面和 sidecar 图片，不必先把文件整体再读进内存。
      */
     private fun createThumbnailFromFile(imageFile: File, sourceId: String): String? {

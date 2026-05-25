@@ -4,7 +4,7 @@ import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 
-// 详尽的中文注释：ogg/opus 的 packet、comment、granule 与图片块解析都内聚在本文件内。
+// ogg/opus 的 packet、comment、granule 与图片块解析都内聚在本文件内。
 internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
         displayName.endsWith(".ogg", ignoreCase = true) ||

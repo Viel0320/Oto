@@ -24,7 +24,6 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 /**
  * 播放器悬浮层组件 (PlayerOverlay)。
  * 
- * 为每一次改动添加详尽的中文注释：
  * 本组件已彻底重构剥离了迷你播放器相关的 Popup 弹窗及高频隔离容器，
  * 仅承担纯粹、职责单一的全屏播放器 (Full Player) 的隐显渲染与 Z-index 包裹协调。
  */
@@ -33,7 +32,7 @@ fun PlayerOverlay(
     playerViewModel: PlayerViewModel,
     playerActions: PlayerActions,
     playerNavigationActions: PlayerNavigationActions,
-    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由 App 容器从设置状态显式传入。
+    // 玻璃效果模式必须由 App 容器从设置状态显式传入。
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier
 ) {
@@ -44,7 +43,7 @@ fun PlayerOverlay(
 
     Box(modifier = modifier.fillMaxSize()) {
         // 全屏播放器层
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 实例化全屏播放器自身专属的 playerBackdrop 采样源，
         // 挂载在最外层包裹的 Box 上以实时采集整个播放器的画面数据（包含前景文字与全部控制按钮），
         // 并穿透给 PlayerScreen 以让内部的章节列表抽屉组件（ChapterListSheet）实现真正清透的模糊效果。
@@ -69,9 +68,9 @@ fun PlayerOverlay(
                     viewModel = playerViewModel,
                     actions = playerActions,
                     navigationActions = playerNavigationActions,
-                    // 为每一次改动添加详尽的中文注释：全屏播放器内部负责创建章节列表的 miuix-blur 模糊视效，因此这里仅透传模式。
+                    // 全屏播放器内部负责创建章节列表的 miuix-blur 模糊视效，因此这里仅透传模式。
                     glassEffectMode = glassEffectMode,
-                    // 为每一次改动添加详尽的中文注释：传递播放器自身的整页全量画面采样源，实现无穿帮高质感磨砂模糊。
+                    // 传递播放器自身的整页全量画面采样源，实现无穿帮高质感磨砂模糊。
                     fullPageBackdrop = playerBackdrop
                 )
             }

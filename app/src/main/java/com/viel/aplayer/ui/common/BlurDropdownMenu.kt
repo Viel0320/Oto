@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.viel.aplayer.data.store.GlassEffectMode
-// 为每一次改动添加详尽的中文注释：使用 miuix-blur 模糊库的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
+// 使用 miuix-blur 模糊库的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.blur.BlurColors
@@ -24,7 +24,6 @@ import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * BlurDropdownMenu —— 支持 Material 原生菜单与 miuix-blur 毛玻璃菜单之间切换的通用 DropdownMenu 封装。
  *
  * 使用方式：
@@ -37,7 +36,7 @@ fun BlurDropdownMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     backdrop: LayerBackdrop,
-    // 为每一次改动添加详尽的中文注释：玻璃效果模式必须由调用方从设置状态显式传入，避免通用菜单内部私自声明默认值。
+    // 玻璃效果模式必须由调用方从设置状态显式传入，避免通用菜单内部私自声明默认值。
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(0.dp, 0.dp),
@@ -45,18 +44,18 @@ fun BlurDropdownMenu(
     properties: PopupProperties = PopupProperties(focusable = true),
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // 为每一次改动添加详尽的中文注释：复用 Material3 默认菜单形状，保证模糊层和 DropdownMenu 外层 Surface 使用同一套圆角边界。
+    // 复用 Material3 默认菜单形状，保证模糊层和 DropdownMenu 外层 Surface 使用同一套圆角边界。
     val menuShape = MenuDefaults.shape
-    // 为每一次改动添加详尽的中文注释：MiuixBlur 模式把外层 Surface 设为透明，避免 Surface 背景和 drawBackdrop 发生重叠渲染冲突。修改引用为新更名的 MiuixBlur。
+    // MiuixBlur 模式把外层 Surface 设为透明，避免 Surface 背景和 drawBackdrop 发生重叠渲染冲突。修改引用为新更名的 MiuixBlur。
     val menuContainerColor = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
         Color.Transparent
     } else {
         MenuDefaults.containerColor
     }
-    // 为每一次改动添加详尽的中文注释：获取当前系统的亮暗色主题状态，以实现下拉菜单底色自适应着色混合
+    // 获取当前系统的亮暗色主题状态，以实现下拉菜单底色自适应着色混合
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
-    // 为每一次改动添加详尽的中文注释：modifier 会被 Material3 应用到内部滚动 Column，使用 miuix-blur 就地绘制模糊与液态高光折光并涂覆半透明蒙版底色。将引用修改为新更名的 MiuixBlur
+    // modifier 会被 Material3 应用到内部滚动 Column，使用 miuix-blur 就地绘制模糊与液态高光折光并涂覆半透明蒙版底色。将引用修改为新更名的 MiuixBlur
     val menuModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
         Modifier.textureBlur(
             backdrop = backdrop,
@@ -66,13 +65,13 @@ fun BlurDropdownMenu(
             colors = BlurColors(
                 blendColors = listOf(
                     BlendColorEntry(
-                        color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 为每一次改动添加详尽的中文注释：微调蒙版深度，以供底层氛围折光与高光显示
+                        color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 微调蒙版深度，以供底层氛围折光与高光显示
                         mode = BlurBlendMode.SrcOver
                     )
                 )
             )
         )
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，模拟真实水晶玻璃表面对光源的物理折射反光。
         .background(
             brush = Brush.linearGradient(
@@ -85,7 +84,7 @@ fun BlurDropdownMenu(
             ),
             shape = menuShape
         )
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 4. 链式追加 1.dp 极细自适应渐变微光折射边框 (Refraction Edge)，大幅提升下拉菜单的品质与立体质感。
         .border(
             width = 1.dp,
@@ -121,12 +120,12 @@ fun BlurDropdownMenu(
         properties = properties,
         shape = menuShape,
         containerColor = menuContainerColor,
-        // 为每一次改动添加详尽的中文注释：MiuixBlur 模式不再让 Material tonal overlay 参与混色，避免菜单边缘出现和内容区不同的色调。修改引用为新更名的 MiuixBlur
+        // MiuixBlur 模式不再让 Material tonal overlay 参与混色，避免菜单边缘出现和内容区不同的色调。修改引用为新更名的 MiuixBlur
         tonalElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else MenuDefaults.TonalElevation,
-        // 为每一次改动添加详尽的中文注释：自适应归零 Elevation，彻底杜绝菜单在透明视口下可能产生的 Android 系统级硬件影子重影
+        // 自适应归零 Elevation，彻底杜绝菜单在透明视口下可能产生的 Android 系统级硬件影子重影
         shadowElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else MenuDefaults.ShadowElevation
     ) {
-        // 为每一次改动添加详尽的中文注释：透传原 DropdownMenuItem 内容，业务层只需要替换容器组件。
+        // 透传原 DropdownMenuItem 内容，业务层只需要替换容器组件。
         content()
     }
 }

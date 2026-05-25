@@ -1,34 +1,36 @@
 package com.viel.aplayer.ui.search
 
+//
+// 显式导入 WindowInsets.ime 扩展属性，以便能在 Composable 内部自适应监听和计算软键盘拉起高度，确保列表不被遮挡。
+// 导入运行时系统安全区 Insets 物理避让依赖，用以防范横屏刘海及导航栏遮挡
+
+// 
+// 引入 miuix-blur 模糊视效相关的类，实现高阶磨砂折射模糊。
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
-// 为每一次改动添加详尽的中文注释：
-// 显式导入 WindowInsets.ime 扩展属性，以便能在 Composable 内部自适应监听和计算软键盘拉起高度，确保列表不被遮挡。
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-// 为每一次改动添加详尽的中文注释：导入运行时系统安全区 Insets 物理避让依赖，用以防范横屏刘海及导航栏遮挡
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Clear
@@ -57,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -71,17 +74,11 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.ui.home.ListItem
 import com.viel.aplayer.ui.theme.APlayerTheme
-
-// 为每一次改动添加详尽的中文注释：
-// 引入 miuix-blur 模糊视效相关的类，实现高阶磨砂折射模糊。
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.drawBackdrop
-import androidx.compose.foundation.background
 import top.yukonga.miuix.kmp.blur.blur
-import androidx.compose.ui.graphics.RectangleShape
+import top.yukonga.miuix.kmp.blur.drawBackdrop
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 全新设计的同 Activity 内非独立搜索悬浮层。
  * 包裹在带有垂直滑入滑出以及优雅渐显渐隐动画的 AnimatedVisibility 中。
  * 能够直接与底部的主页共享同一个 appBackdrop 采样源，实现防穿帮、极致 premium 的毛玻璃视效。
@@ -98,11 +95,11 @@ fun SearchOverlay(
 ) {
     val isVisible by searchViewModel.isVisible.collectAsState()
 
-    // 为每一次改动添加详尽的中文注释：
+    // 
     // 当全局设置开启了 miuix-blur 模式时，我们将搜索悬浮层的展开与隐藏动画限制为“纯淡入淡出 (fadeIn/fadeOut)”。
     // 这能有效规避高斯模糊采样图层在高速滑入/滑出时可能产生的边缘裁剪或渲染闪烁，令磨砂玻璃的显隐动画更加极致、 premium 和平滑；
     // 而在常规非 miuix-blur 模式下，则继续沿用原生的“滑入滑出 + 淡入淡出”丰富过渡效果。
-    // 为每一次改动添加详尽的中文注释：对齐新命名的 MiuixBlur 枚举类型，判定是否开启高阶毛玻璃视效
+    // 对齐新命名的 MiuixBlur 枚举类型，判定是否开启高阶毛玻璃视效
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
     AnimatedVisibility(
         visible = isVisible,
@@ -120,8 +117,8 @@ fun SearchOverlay(
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            // 为每一次改动添加详尽的中文注释：
-            // 为每一次改动添加详尽的中文注释：如果开启了新命名的 MiuixBlur，将外层 Surface 容器背景置为透明，使渲染引擎可以透出下方底层内容以实现透光
+            // 
+            // 如果开启了新命名的 MiuixBlur，将外层 Surface 容器背景置为透明，使渲染引擎可以透出下方底层内容以实现透光
             color = if (glassEffectMode == GlassEffectMode.MiuixBlur) Color.Transparent else MaterialTheme.colorScheme.background
         ) {
             SearchScreen(
@@ -202,7 +199,7 @@ fun SearchContent(
     val focusManager = LocalFocusManager.current
     val scrollState = rememberLazyListState()
 
-    // 为每一次改动添加详尽的中文注释：基于运行时系统 WindowInsets.safeDrawing 动态感知侧向刘海屏及横屏导航栏，完全零硬编码避让
+    // 基于运行时系统 WindowInsets.safeDrawing 动态感知侧向刘海屏及横屏导航栏，完全零硬编码避让
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     val searchStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection) + 16.dp
@@ -225,11 +222,11 @@ fun SearchContent(
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：感知 miuix-blur 磨砂玻璃模式是否已被开启且采样源不为空，修改引用至 MiuixBlur
+    // 感知 miuix-blur 磨砂玻璃模式是否已被开启且采样源不为空，修改引用至 MiuixBlur
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
 
     Scaffold(
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 如果启用 miuix-blur 模式，将 Scaffold 容器底色改为透明，并挂载 drawBackdrop 修饰符与 background 半透混色底。
         // 这会令整个搜索界面实时折射下方的 APlayerNavHost 内容，形成美轮美奂的磨砂质感；
         // 非 miuix-blur 模式下恢复原生 M3 background 色。
@@ -238,7 +235,7 @@ fun SearchContent(
             .then(
                 if (isBlur) {
                     Modifier
-                        // 为每一次改动添加详尽的中文注释：使用 drawBackdrop 渲染折射模糊效果，并补全必填的 shape 参数
+                        // 使用 drawBackdrop 渲染折射模糊效果，并补全必填的 shape 参数
                         .drawBackdrop(
                             backdrop = backdrop,
                             shape = { RectangleShape },
@@ -268,7 +265,7 @@ fun SearchContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester)
-                            // 为每一次改动添加详尽的中文注释：在此处应用 WindowInsets.safeDrawing 运行时左右物理安全边距避让，
+                            // 在此处应用 WindowInsets.safeDrawing 运行时左右物理安全边距避让，
                             // 确保输入区域内部的返回图标与清除图标在横屏状态下不被刘海物理裁切，同时保证 SearchBar 的背景色能够彻底铺满屏幕
                             .padding(
                                 start = safeDrawingPadding.calculateStartPadding(layoutDirection),
@@ -319,25 +316,25 @@ fun SearchContent(
                 onExpandedChange = {
                     if (!it) handleBack()
                 },
-                // 为每一次改动添加详尽的中文注释：
+                // 
                 // 搜索栏也参与磨砂，若开启 miuix-blur，搜索框设为透明偏亮的遮罩，否则退回 SearchBar 原生色。
                 colors = SearchBarDefaults.colors(
                     containerColor = if (isBlur) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 为每一次改动添加详尽的中文注释：搜索栏容器本身宽度完全平铺以填满整个物理屏幕，不再在外部强加 Padding，保证背景磨砂或填充色极致沉浸铺满
+                    // 搜索栏容器本身宽度完全平铺以填满整个物理屏幕，不再在外部强加 Padding，保证背景磨砂或填充色极致沉浸铺满
             ) {
                 if (query.text.isBlank()) {
                     LazyColumn(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
-                        // 为每一次改动添加详尽的中文注释：应用动态算出的 start/end 物理安全区 Padding，彻底解决横屏刘海物理裁切
+                        // 应用动态算出的 start/end 物理安全区 Padding，彻底解决横屏刘海物理裁切
                         contentPadding = PaddingValues(
                             start = searchStartPadding,
                             end = searchEndPadding,
                             top = 16.dp,
-                            // 为每一次改动添加详尽的中文注释：
+                            // 
                             // 将 bottom padding 绑定为 WindowInsets.ime 替代原本只计算 navigationBars，
                             // 如此在键盘弹起时，bottom padding 会自动精确自适应累加键盘高度，确保列表滚到底时元素绝对不会被软键盘挡死，
                             // 并在收起键盘时完美降级回落为原生 NavigationBar 的底 padding，体验极其 premium。
@@ -422,12 +419,12 @@ fun SearchContent(
                     LazyColumn(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
-                        // 为每一次改动添加详尽的中文注释：应用动态算出的左右物理避让区，确保搜索结果列表防刘海遮挡
+                        // 应用动态算出的左右物理避让区，确保搜索结果列表防刘海遮挡
                         contentPadding = PaddingValues(
                             start = searchStartPadding,
                             end = searchEndPadding,
                             top = 16.dp,
-                            // 为每一次改动添加详尽的中文注释：
+                            // 
                             // 同样此处也将 bottom padding 自适应绑定为 WindowInsets.ime，确保搜索有结果时最后几项在键盘拉起状态下依然 100% 可滚动并展示出来，消除遮挡盲区。
                             bottom = 16.dp + WindowInsets.ime.asPaddingValues().calculateBottomPadding()
                         ),

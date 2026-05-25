@@ -3,7 +3,7 @@ package com.viel.aplayer.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // =====================================================================
-// 详尽中文注释：APlayer MD3 颜色系统 (M-21 补全)
+// APlayer MD3 颜色系统 (M-21 补全)
 // 补充了 dynamicColor=false 时的 secondary / tertiary / error 等关键 role 配色，
 // 以支持在各种设备及 fallback 模式下完备、优质的主题交互体验。
 // =====================================================================
@@ -19,7 +19,7 @@ val OnSecondaryDark = Color(0xFF332D41)
 val SecondaryContainerDark = Color(0xFF4A4458)
 val OnSecondaryContainerDark = Color(0xFFE8DEF8)
 
-// 详尽中文注释：M-21 补全 — 暗色模式下的 tertiary / error 及其容器角色颜色
+// M-21 补全 — 暗色模式下的 tertiary / error 及其容器角色颜色
 val TertiaryDark = Color(0xFFEFB8C8)
 val OnTertiaryDark = Color(0xFF492532)
 val TertiaryContainerDark = Color(0xFF633B48)
@@ -43,7 +43,7 @@ val OnPrimaryLight = Color(0xFFFFFFFF)
 val PrimaryContainerLight = Color(0xFFEADDFF)
 val OnPrimaryContainerLight = Color(0xFF21005D)
 
-// 详尽中文注释：M-21 补全 — 亮色模式下的 secondary / tertiary / error 及其容器角色颜色
+// M-21 补全 — 亮色模式下的 secondary / tertiary / error 及其容器角色颜色
 val SecondaryLight = Color(0xFF625B71)
 val OnSecondaryLight = Color(0xFFFFFFFF)
 val SecondaryContainerLight = Color(0xFFE8DEF8)

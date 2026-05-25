@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.player.layouts
 
-// 为每一次改动添加详尽的中文注释：导入 Jetpack Compose 动画、手势和布局 API
+// 导入 Jetpack Compose 动画、手势和布局 API
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
@@ -51,7 +51,6 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 平板/大屏播放器自适应布局组件 (PlayerTablet)。
  * 在平板大屏幕、折叠屏横竖屏下提供顶级的视觉表现。
  * 左右双栏对称铺开，上下应用 10% 屏幕高度的大边距，产生极其尊贵的高级感与舒适空灵的呼吸感。
@@ -74,17 +73,17 @@ fun PlayerTablet(
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
 
-    // 为每一次改动添加详尽的中文注释：平板大屏幕下使用更宽裕的大边距
+    // 平板大屏幕下使用更宽裕的大边距
     val screenWidthDp = configuration.screenWidthDp.dp
     val screenHeightDp = configuration.screenHeightDp.dp
     val sidePadding = screenWidthDp * 0.04f
     val middleSpacing = screenWidthDp * 0.06f
 
-    // 为每一次改动添加详尽的中文注释：平板专用策略 — 上下固定留出 10% 屏幕高度，极具品质呼吸感
+    // 平板专用策略 — 上下固定留出 10% 屏幕高度，极具品质呼吸感
     val topPadding = screenHeightDp * 0.1f
     val bottomPadding = screenHeightDp * 0.1f
 
-    // 为每一次改动添加详尽的中文注释：根据系统方向在物理左右侧叠加计算刘海和系统栏安全边距，保证大封面与右侧控制完全显示
+    // 根据系统方向在物理左右侧叠加计算刘海和系统栏安全边距，保证大封面与右侧控制完全显示
     val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
     val layoutDirection = LocalLayoutDirection.current
     val startPadding = sidePadding + systemBarsPadding.calculateStartPadding(layoutDirection)

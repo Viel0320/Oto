@@ -18,7 +18,7 @@ android {
 
     defaultConfig {
         applicationId = "com.viel.aplayer"
-        // 为每一次改动添加详尽的中文注释：根据用户要求，将 minSdk 从 31 提升至 33 (Android 13)，以适配 miuix-blur 模糊库所需的硬件级高阶模糊渲染。
+        // 根据用户要求，将 minSdk 从 31 提升至 33 (Android 13)，以适配 miuix-blur 模糊库所需的硬件级高阶模糊渲染。
         minSdk = 33
         //noinspection OldTargetApi
         targetSdk = 36
@@ -95,7 +95,7 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.datastore.preferences)
 
-    // 为每一次改动添加详尽的中文注释：引入新依赖 miuix-blur 模糊库，实现 Android 13 原生硬件级视窗高阶磨砂模糊渲染。
+    // 引入新依赖 miuix-blur 模糊库，实现 Android 13 原生硬件级视窗高阶磨砂模糊渲染。
     implementation(libs.miuix.blur)
 
     // 为本次桌面 widget Glance 迁移添加注释：引入 Jetpack Glance AppWidget 与 Material3 动态色支持，用声明式 API 生成桌面小组件 RemoteViews。
@@ -110,7 +110,7 @@ dependencies {
     // WorkManager & DocumentFile
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.documentfile)
-    // 为每一次改动添加详尽的中文注释：WebDAV 标准件使用 OkHttp 统一执行 PROPFIND、GET 和 Range 流式读取。
+    // WebDAV 标准件使用 OkHttp 统一执行 PROPFIND、GET 和 Range 流式读取。
     implementation(libs.okhttp)
 
     testImplementation(libs.junit)
@@ -122,7 +122,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 }
 
-// 为每一次改动添加详尽的中文注释：配置 KSP 插件传入 Room Schema 物理导出相对路径，激活编译时 Schema 文件自动落盘，保证数据库版本可留痕追溯 (H-16, H-17)
+// 配置 KSP 插件传入 Room Schema 物理导出相对路径，激活编译时 Schema 文件自动落盘，保证数据库版本可留痕追溯 (H-16, H-17)
 ksp {
     arg("room.schemaLocation", "${projectDir}/schemas")
 }

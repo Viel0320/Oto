@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.player.layouts
 
-// 为每一次改动添加详尽的中文注释：导入 Jetpack Compose 布局、手势和动画相关的依赖包
+// 导入 Jetpack Compose 布局、手势和动画相关的依赖包
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
@@ -51,7 +51,6 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 手机横屏播放器布局组件 (PlayerLandscapePhone)。
  * 专门针对普通智能手机横屏状态下“垂直高度极窄、水平面积极宽”的场景做视觉深度定制优化。
  * 左右双栏对称铺开，并将控制条沉底压实。
@@ -74,18 +73,18 @@ fun PlayerLandscapePhone(
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
 
-    // 为每一次改动添加详尽的中文注释：根据手机屏幕总宽度按比重划分呼吸间距
+    // 根据手机屏幕总宽度按比重划分呼吸间距
     val screenWidthDp = configuration.screenWidthDp.dp
     val screenHeightDp = configuration.screenHeightDp.dp
     val sidePadding = screenWidthDp * 0.04f
     val middleSpacing = screenWidthDp * 0.06f
 
-    // 为每一次改动添加详尽的中文注释：由于是手机常规横大屏，上下边距需完全贴紧并规避状态栏与导航栏以保障大封面的渲染利用率
+    // 由于是手机常规横大屏，上下边距需完全贴紧并规避状态栏与导航栏以保障大封面的渲染利用率
     val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
     val topPadding = systemBarsPadding.calculateTopPadding()
     val bottomPadding = systemBarsPadding.calculateBottomPadding()
 
-    // 为每一次改动添加详尽的中文注释：左右避让刘海缺口/挖孔屏及虚拟导航键，保障左侧和右侧操作绝对不被切角
+    // 左右避让刘海缺口/挖孔屏及虚拟导航键，保障左侧和右侧操作绝对不被切角
     val layoutDirection = LocalLayoutDirection.current
     val startPadding = sidePadding + systemBarsPadding.calculateStartPadding(layoutDirection)
     val endPadding = sidePadding + systemBarsPadding.calculateEndPadding(layoutDirection)
@@ -166,7 +165,7 @@ fun PlayerLandscapePhone(
                         )
                     }
             ) {
-                // 为每一次改动添加详尽的中文注释：横向滑动切换左边的大卡片模式（主播放/书签/推荐面板）
+                // 横向滑动切换左边的大卡片模式（主播放/书签/推荐面板）
                 AnimatedContent(
                     targetState = contentShell,
                     modifier = Modifier.fillMaxSize(),
@@ -188,7 +187,7 @@ fun PlayerLandscapePhone(
                             } else {
                                 PlayerScreenMode.PLAYER
                             }
-                            // 为每一次改动添加详尽的中文注释：渐变过渡，支持大封面与歌词滚动的淡入淡出无缝对接
+                            // 渐变过渡，支持大封面与歌词滚动的淡入淡出无缝对接
                             AnimatedContent(
                                 targetState = playbackTopMode,
                                 modifier = Modifier.fillMaxSize(),
@@ -210,7 +209,7 @@ fun PlayerLandscapePhone(
                                         }
                                     }
                                     else -> {
-                                        // 为每一次改动添加详尽的中文注释：独立手势声音/左右切歌大封面，在横大屏下高度自适应顶满
+                                        // 独立手势声音/左右切歌大封面，在横大屏下高度自适应顶满
                                         PlayerCover(
                                             coverPath = metadata.coverPath,
                                             isPlaying = controls.isPlaying,
@@ -273,7 +272,7 @@ fun PlayerLandscapePhone(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // 为每一次改动添加详尽的中文注释：右侧顶部栏，容纳标题、作者信息、睡眠定时器及折叠控制菜单
+                // 右侧顶部栏，容纳标题、作者信息、睡眠定时器及折叠控制菜单
                 PlayerLandscapeHeader(
                     metadata = metadata,
                     settings = settings,
@@ -285,7 +284,7 @@ fun PlayerLandscapePhone(
                 // 撑满多余的垂直高度，强制使控制面板在底部对齐
                 Spacer(modifier = Modifier.weight(1f))
                 
-                // 为每一次改动添加详尽的中文注释：横屏下的主要播放控制按钮及细长进度调节面板，采用全宽自适应填充
+                // 横屏下的主要播放控制按钮及细长进度调节面板，采用全宽自适应填充
                 PlayerControlPanel(
                     viewModel = viewModel,
                     metadata = metadata,

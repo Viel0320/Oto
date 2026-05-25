@@ -9,7 +9,7 @@ import java.io.InputStream
 internal data class AudioMetadataRef(
     val file: FileRef,
     val metadata: AudiobookMetadata,
-    // 详尽的中文注释：导入期 MP4 元数据解析已经读到的 covr 封面随音频引用传递，后续组书可直接写缓存而不重复 Range 读取。
+    // 导入期 MP4 元数据解析已经读到的 covr 封面随音频引用传递，后续组书可直接写缓存而不重复 Range 读取。
     val embeddedCover: EmbeddedCoverBytes? = null
 )
 
@@ -18,7 +18,7 @@ internal data class HeuristicAggregationPlan(
     val title: String,
     val chapters: List<HeuristicChapterPlan>,
     val ruleVersion: String,
-    // 为每一次改动添加详尽的中文注释：启发式聚合 parser 现在直接挂出统一 sidecar 结果，
+    // 启发式聚合 parser 现在直接挂出统一 sidecar 结果，
     // 后续导入阶段不再自己对聚合书做第二次 txt / 图片匹配。
     val sidecarDescription: String? = null,
     val sidecarCoverFile: FileRef? = null
@@ -83,7 +83,7 @@ internal object HeuristicAudioAggregator {
     }
 
     private fun generatedBookTitle(files: List<AudioMetadataRef>): String {
-        // 为每一次改动添加详尽的中文注释：启发式默认标题从 VFS 父路径提取，不再读取旧父目录 URI。
+        // 启发式默认标题从 VFS 父路径提取，不再读取旧父目录 URI。
         val parentName = files.first().file.parentSourcePath.substringAfterLast('/').ifBlank { "Generated audiobook" }
         // Heuristic groups created by sameAlbum should display the shared album as the book title.
         return commonNonBlank(files.map { it.metadata.album })

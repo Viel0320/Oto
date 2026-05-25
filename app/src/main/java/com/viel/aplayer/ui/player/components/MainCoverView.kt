@@ -28,7 +28,7 @@ import coil.compose.AsyncImage
 import java.io.File
 
 /**
- * 详尽中文注释：全屏播放器的主封面视图。
+ * 全屏播放器的主封面视图。
  * 从 PlayerScreen.kt 提取为独立组件，负责展示有声书封面图片，
  * 并在播放/暂停状态切换时实现轻微缩放动画效果。
  *
@@ -43,7 +43,7 @@ fun MainCoverView(
     isPlaying: Boolean,
     coverLastUpdated: Long = 0L
 ) {
-    // 详尽中文注释：播放时封面等比缩放至 1.0，暂停时缩至 0.95，配合 300ms 动画营造呼吸感
+    // 播放时封面等比缩放至 1.0，暂停时缩至 0.95，配合 300ms 动画营造呼吸感
     val coverScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.95f,
         animationSpec = tween(300)
@@ -51,7 +51,7 @@ fun MainCoverView(
 
     Box(
         modifier = modifier
-            // 为每一次改动添加详尽的中文注释：
+            // 
             // 按用户最新要求，为了将播放页左栏封面“宽度顶满”且不留边缘横向多余空余，并且在其下方支持 weight(1f) 自适应拉伸占位，
             // 我们在此处将外层 Box 的占满尺寸由 .fillMaxSize() 改为 .fillMaxWidth()，且移除了原先阻碍顶满的 horizontal / vertical padding。
             .fillMaxWidth(),
@@ -69,13 +69,13 @@ fun MainCoverView(
                 .clip(RoundedCornerShape(24.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            // 详尽中文注释：定义用于追踪封面异步加载是否失败的局部状态。
+            // 定义用于追踪封面异步加载是否失败的局部状态。
             // 结合 Coil 的 onError 回调，可以彻底消除主线程同步调用 File.exists() 的磁盘 I/O 阻塞隐患，
             // 同时也能够处理文件物理存在但格式损坏无法解码的情况，自动平滑切换至占位图。
             var isImageError by remember(coverPath) { androidx.compose.runtime.mutableStateOf(false) }
 
             if (coverPath != null && !isImageError) {
-                // 详尽中文注释：使用 ImageRequest.Builder 重新构建 data model，
+                // 使用 ImageRequest.Builder 重新构建 data model，
                 // 并利用具有更新时间戳后缀的 memoryCacheKey 和 diskCacheKey 来打破 Coil 对该图片的加载失败或已有缓存，
                 // 确保在封面文件被自愈重建后，Coil 能够丢弃原有失败记忆、即刻从物理文件中拉取并渲染最新的封面。
                 AsyncImage(
@@ -94,7 +94,7 @@ fun MainCoverView(
                     }
                 )
             } else {
-                // 详尽中文注释：当封面路径为空或加载发生异常时，展示统一的占位背景 + 播放图标，视觉对齐详情页规范
+                // 当封面路径为空或加载发生异常时，展示统一的占位背景 + 播放图标，视觉对齐详情页规范
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center

@@ -18,7 +18,6 @@ import com.viel.aplayer.library.orchestrator.steps.MetadataResolveStep
 /**
  * 流水线任务组合与编排引擎调度器
  * 
- * 为每一次改动添加详尽的中文注释：
  * 本引擎持有并组合了拆分出来的 6 个流水线工位物理类（扫描、解析、元数据、聚类、封面、冲突），
  * 负责定义其顺序与挂载冷流（Flow），为前端的进度条提供精细化的百分比和状态显示。
  */

@@ -13,7 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
-// 详尽的中文注释：导入链路需要把“元数据 + 内嵌封面”一起向后传递，
+// 导入链路需要把“元数据 + 内嵌封面”一起向后传递，
 // 这里把封面类型抽象成通用的 EmbeddedCoverBytes，不再绑定到 MP4 专属实现。
 internal data class ExtractedAudiobookMetadata(
     val metadata: AudiobookMetadata,
@@ -23,12 +23,12 @@ internal data class ExtractedAudiobookMetadata(
 /**
  * 负责从音频文件中提取标题、作者、旁白、简介、年份、时长与章节信息。
  *
- * 详尽的中文注释：从这次重构开始，非 MP4 格式不再走 MediaMetadataRetriever，
+ * 从这次重构开始，非 MP4 格式不再走 MediaMetadataRetriever，
  * 而是统一交给各自的范围读取 parser；MetadataResolver 只负责路由、标题兜底与乱码修正。
  */
 @UnstableApi
 class MetadataResolver(context: Context) {
-    // 详尽的中文注释：全局元数据提取并发仍然限制在 4，
+    // 全局元数据提取并发仍然限制在 4，
     // 防止大批量导入时多个 parser 同时读取大文件头尾造成内存与 I/O 抖动。
     private val semaphore = kotlinx.coroutines.sync.Semaphore(4)
     private val fileReader = VfsFileReader(
@@ -142,7 +142,7 @@ class MetadataResolver(context: Context) {
             ),
             options = RangeAudioParseOptions(includeEmbeddedCover = includeEmbeddedCover)
         )?.let { parsed ->
-            // 详尽的中文注释：parser 只负责返回“原始容器语义”，统一的标题兜底和乱码修复继续收口在 MetadataResolver。
+            // parser 只负责返回“原始容器语义”，统一的标题兜底和乱码修复继续收口在 MetadataResolver。
             ExtractedAudiobookMetadata(
                 metadata = parsed.metadata.normalizeMetadata(displayName),
                 embeddedCover = parsed.embeddedCover
@@ -163,7 +163,7 @@ class MetadataResolver(context: Context) {
         )
 
     private fun fallbackMetadata(displayName: String): AudiobookMetadata =
-        // 详尽的中文注释：如果 parser 完全读不出来，就只回退到文件名级别兜底，而不是再走任何整文件探测。
+        // 如果 parser 完全读不出来，就只回退到文件名级别兜底，而不是再走任何整文件探测。
         AudiobookMetadata(
             title = displayName.substringBeforeLast('.'),
             author = "",

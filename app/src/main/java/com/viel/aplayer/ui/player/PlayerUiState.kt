@@ -20,7 +20,7 @@ data class PlayerUiState(
     val relatedNarratorSections: List<RelatedSection> = emptyList(),
     /** 最近添加/导入的书籍列表 */
     val recentlyAddedBooks: List<BookWithProgress> = emptyList(),
-    // 为每一次改动添加详尽的中文注释：新增 heuristicRecommendedBooks 状态以承载启发式智能打分推荐的有声书列表
+    // 新增 heuristicRecommendedBooks 状态以承载启发式智能打分推荐的有声书列表
     val heuristicRecommendedBooks: List<BookWithProgress> = emptyList()
 ) {
     // --- 快捷访问器：保留以下字段以保证现有 UI 代码的向后兼容性 ---

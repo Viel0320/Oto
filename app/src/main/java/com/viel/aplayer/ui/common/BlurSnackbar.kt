@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-// 为每一次改动添加详尽的中文注释：使用 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
+// 使用 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.blur.BlurColors
@@ -32,7 +32,6 @@ import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * BlurSnackbar —— 支持 Material 3 原生样式与 miuix-blur 毛玻璃模糊双态实时切换的通用 Snackbar 包装。
  *
  * 核心原理：
@@ -60,14 +59,14 @@ fun BlurSnackbar(
     dismissActionContentColor: Color = SnackbarDefaults.dismissActionContentColor,
     content: @Composable () -> Unit
 ) {
-    // 为每一次改动添加详尽的中文注释：根据用户要求，限制 Snackbar 的最大宽度为 480dp，以便在大屏/横屏设备上提供更好的视觉排版与可读性
+    // 根据用户要求，限制 Snackbar 的最大宽度为 480dp，以便在大屏/横屏设备上提供更好的视觉排版与可读性
     val constrainedModifier = modifier.widthIn(max = 480.dp)
 
-    // 为每一次改动添加详尽的中文注释：对齐新更名的 MiuixBlur，如果是该模式则就地使用 textureBlur 渲染毛玻璃效果
+    // 对齐新更名的 MiuixBlur，如果是该模式则就地使用 textureBlur 渲染毛玻璃效果
     if (glassEffectMode == GlassEffectMode.MiuixBlur) {
-        // 为每一次改动添加详尽的中文注释：获取当前系统的深色模式状态，以便为毛玻璃做双态色彩自适应
+        // 获取当前系统的深色模式状态，以便为毛玻璃做双态色彩自适应
         val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-        // 为每一次改动添加详尽的中文注释：使用 textureBlur 替代原本的 drawBackdrop 物理采样以支持 colored thick 磨砂药丸玻璃质感
+        // 使用 textureBlur 替代原本的 drawBackdrop 物理采样以支持 colored thick 磨砂药丸玻璃质感
         val glassModifier = Modifier.textureBlur(
             backdrop = backdrop,
             shape = shape,
@@ -82,7 +81,7 @@ fun BlurSnackbar(
                 )
             )
         )
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 3. 链式覆盖高光斜向白色物理扫掠折射层 (Specular Glare)，赋予药丸微缩水滴的剔透立体感。
         .background(
             brush = Brush.linearGradient(
@@ -95,7 +94,7 @@ fun BlurSnackbar(
             ),
             shape = shape
         )
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 4. 链式添加 1.dp 极致精细的“微光折射渐变描边 (Refraction Edge)”，防止在大面积杂色背景上边缘发生粘连。
         .border(
             width = 1.dp,
@@ -119,7 +118,7 @@ fun BlurSnackbar(
             shape = shape
         )
 
-        // 为每一次改动添加详尽的中文注释：自定义无阴影的 Surface，强制阴影与色调高度为 0.dp 以杜绝黑边投影伪像，
+        // 自定义无阴影的 Surface，强制阴影与色调高度为 0.dp 以杜绝黑边投影伪像，
         // 并通过挂载 miuix-blur 绘制模糊背景与亮暗自适应半透明底色，实现极其华丽、通透且清晰的高阶毛玻璃效果。
         Surface(
             modifier = constrainedModifier
@@ -130,7 +129,7 @@ fun BlurSnackbar(
             shadowElevation = 0.dp,
             tonalElevation = 0.dp
         ) {
-            // 为每一次改动添加详尽的中文注释：高精模拟官方 M3 Snackbar 布局，利用 defaultMinSize 强制约束最小高度，支持 actionOnNewLine 特性与 dismissAction
+            // 高精模拟官方 M3 Snackbar 布局，利用 defaultMinSize 强制约束最小高度，支持 actionOnNewLine 特性与 dismissAction
             if (actionOnNewLine) {
                 Column(
                     modifier = Modifier
@@ -166,7 +165,7 @@ fun BlurSnackbar(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            // 为每一次改动添加详尽的中文注释：根据是否有 Action 动态精准分配上下边距（10.dp 或 14.dp），防止 Row 与内部子项 Padding 发生叠加撑开
+                            // 根据是否有 Action 动态精准分配上下边距（10.dp 或 14.dp），防止 Row 与内部子项 Padding 发生叠加撑开
                             .padding(vertical = if (action != null || dismissAction != null) 10.dp else 14.dp)
                     ) {
                         content()
@@ -178,7 +177,7 @@ fun BlurSnackbar(
             }
         }
     } else {
-        // 为每一次改动添加详尽的中文注释：Material 原生模式，直接沿用官方标准 Snackbar，保留最佳底层绘制兼容性
+        // Material 原生模式，直接沿用官方标准 Snackbar，保留最佳底层绘制兼容性
         Snackbar(
             modifier = constrainedModifier,
             action = action,

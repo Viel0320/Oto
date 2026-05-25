@@ -7,9 +7,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <!-- 为每一次改动添加详尽的中文注释：WebDAV 远程标准件需要访问局域网/互联网 HTTP 服务以列目录、读元数据和播放流。 -->
+    <!-- WebDAV 远程标准件需要访问局域网/互联网 HTTP 服务以列目录、读元数据和播放流。 -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 详尽的中文注释：声明震动权限，当睡眠定时器即将归零且用户轻轻摇晃手机成功触发重置倒计时时，为听众提供轻微的物理震动触觉反馈，以提供卓越的夜间盲操体验。 -->
+    <!-- 声明震动权限，当睡眠定时器即将归零且用户轻轻摇晃手机成功触发重置倒计时时，为听众提供轻微的物理震动触觉反馈，以提供卓越的夜间盲操体验。 -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <attribution android:tag="media_playback" android:label="@string/app_name" />
@@ -26,7 +26,7 @@
         </intent>
     </queries>
 
-    <!-- 详尽的中文注释：启用 largeHeap 属性以允许应用申请更大的 Java 堆内存空间。 -->
+    <!-- 启用 largeHeap 属性以允许应用申请更大的 Java 堆内存空间。 -->
     <!-- 这能有效应对多路并发解析大体积 .m4b 有声书文件时，Media3 底层分配巨大 sample size 数组所带来的 OOM 崩溃隐患。 -->
     <application
         android:name=".APlayerApplication"
@@ -42,7 +42,7 @@
         tools:targetApi="36"
         android:largeHeap="true"
         android:networkSecurityConfig="@xml/network_security_config">
-        <!-- 为每一次改动添加详尽的中文注释：
+        <!-- 
              将 MainActivity 的 windowSoftInputMode 调整为 adjustNothing。
              这样当 IME 软键盘弹出时，Android 系统不会物理收缩（Resize）Activity 根窗口的高度，
              从而保证底层 HomeScreen (采样源) 的尺寸绝对静止、不发生布局位移或尺寸压缩，
@@ -54,7 +54,8 @@
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustNothing"
             android:theme="@style/Theme.APlayer">
-            <!-- 为本次桌面 widget 改动添加注释：singleTop 让桌面小组件点击正在运行的应用时复用现有 MainActivity，并通过 onNewIntent 拉起播放页 overlay。 -->
+            <!-- 为本次桌面 widget 改动添加注释：singleTop 让桌面小组件点击正在运行的应用时复用现有 MainActivity，并通过 onNewIntent
+            拉起播放页 overlay。 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -62,10 +63,7 @@
         </activity>
 
 
-
-
-
-        <!-- 为每一次改动添加详尽的中文注释：注册独立的设置 Activity。
+        <!-- 注册独立的设置 Activity。
              同样不在 Manifest 级别配置动画样式，由调用方 ActivityOptions 统一控制，
              保证设置页和搜索页进出动画风格完全一致。 -->
         <activity

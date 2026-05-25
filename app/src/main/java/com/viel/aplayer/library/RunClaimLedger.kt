@@ -4,13 +4,12 @@ import com.viel.aplayer.data.entity.BookFileEntity
 
 // In-memory first-claim-wins ledger for one import run.
 class RunClaimLedger(
-    // 详尽的中文注释：允许 RescanCoordinator 传入同一轮扫描共享的 owner map，从而跨 scope 保留 claim 预留状态。
+    // 允许 RescanCoordinator 传入同一轮扫描共享的 owner map，从而跨 scope 保留 claim 预留状态。
     private val ownerByKey: MutableMap<String, ImportSourceRef> = mutableMapOf()
 ) {
 
     /**
-     * 为每一次改动添加详尽的中文注释：
-     * 为某个导入源分配并预留物理文件。
+         * 为某个导入源分配并预留物理文件。
      * 增加 currentParentSourcePath 参数，在向 existingClaimIndex 校验物理文件已被数据库中已有书籍抢占时，
      * 能够将检测局域化在该同级 VFS 目录内。
      * 
@@ -30,7 +29,7 @@ class RunClaimLedger(
         val runHits = mutableListOf<ImportSourceRef>()
 
         files.forEach { identity ->
-            // 为每一次改动添加详尽的中文注释：将 VFS 父目录路径透传给 existingClaimIndex.find，去掉旧父目录 URI 兼容分支。
+            // 将 VFS 父目录路径透传给 existingClaimIndex.find，去掉旧父目录 URI 兼容分支。
             existingClaimIndex.find(identity, currentParentSourcePath)?.let { existingHits.add(it) }
             identity.keys().forEach { key ->
                 ownerByKey[key]?.let { runHits.add(it) }
@@ -51,10 +50,10 @@ class RunClaimLedger(
         )
     }
 
-    // 详尽的中文注释：为单个 scope 创建隔离副本，scope 内的 claim 只有在入库成功后才通过 commitFrom 合并回全局扫描账本。
+    // 为单个 scope 创建隔离副本，scope 内的 claim 只有在入库成功后才通过 commitFrom 合并回全局扫描账本。
     fun fork(): RunClaimLedger = RunClaimLedger(ownerByKey.toMutableMap())
 
-    // 详尽的中文注释：scope 入库成功后提交其新增 claim 预留，避免解析失败或入库失败的 scope 污染后续 claim 判断。
+    // scope 入库成功后提交其新增 claim 预留，避免解析失败或入库失败的 scope 污染后续 claim 判断。
     fun commitFrom(scopeLedger: RunClaimLedger) {
         scopeLedger.ownerByKey.forEach { (key, owner) ->
             ownerByKey.putIfAbsent(key, owner)

@@ -57,28 +57,28 @@ class LibraryRepository private constructor(context: Context) {
     private val libraryRootDao = database.libraryRootDao()
     private val scanSessionDao = database.scanSessionDao()
     private val searchHistoryStore = SearchHistoryStore.getInstance(this.context)
-    // 详尽的中文注释：新增 CoroutineExceptionHandler 以捕获在 Dispatchers.IO 线程池中并发执行的后台逻辑（如媒体扫描、封面恢复等）中抛出的未知崩溃，增强多线程后台架构稳定性。
+    // 新增 CoroutineExceptionHandler 以捕获在 Dispatchers.IO 线程池中并发执行的后台逻辑（如媒体扫描、封面恢复等）中抛出的未知崩溃，增强多线程后台架构稳定性。
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         Log.e("LibraryRepository", "Unhandled coroutine exception in LibraryRepository", exception)
     }
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
-    // 详尽的中文注释：扫描任务提升到 Repository 单例的应用级队列，并用互斥锁串行执行，页面切换不会取消正在进行的导入。
+    // 扫描任务提升到 Repository 单例的应用级队列，并用互斥锁串行执行，页面切换不会取消正在进行的导入。
     private val scanMutex = Mutex()
     private val availabilityChecker = DetailAvailabilityChecker(this.context)
     private val fileAvailabilityChecker = AvailabilityChecker(this.context)
     private val rootStore = com.viel.aplayer.library.LibraryRootStore(this.context)
-    // 为每一次改动添加详尽的中文注释：Repository 负责删除 root 时清理 WebDAV 凭据引用，避免 UI 层接触凭据存储。
+    // Repository 负责删除 root 时清理 WebDAV 凭据引用，避免 UI 层接触凭据存储。
     private val webDavCredentialStore = WebDavCredentialStore(this.context)
     private val coverExtractor = com.viel.aplayer.media.parser.CoverExtractor(this.context)
     private val MetadataResolver = com.viel.aplayer.media.parser.MetadataResolver(this.context)
 
-    // 详尽的中文注释：实例化三个全新的、低耦合的子功能组件。
+    // 实例化三个全新的、低耦合的子功能组件。
     // SubtitleFileResolver 负责字幕文件的路径检索与流式解析；
     // CoverRecoveryHelper 负责非阻塞的封面物理完整性自愈重建；
     // PlaybackReachabilityManager 负责运行期的音频文件物理就绪校验、就绪降级重算与跳过检索。
     // 原 pendingRegenerations 排重集合已被安全剥离迁移至 CoverRecoveryHelper 中。
     private val subtitleResolver = SubtitleFileResolver(this.context, bookDao, libraryRootDao)
-    // 详尽的中文注释：实例化低耦合的封面恢复组件，将 libraryRootDao 传入以支持利用 SAF 授权路径递归搜寻并重建同目录外部封面
+    // 实例化低耦合的封面恢复组件，将 libraryRootDao 传入以支持利用 SAF 授权路径递归搜寻并重建同目录外部封面
     private val coverRecoveryHelper = CoverRecoveryHelper(
         this.context,
         bookDao,
@@ -88,20 +88,20 @@ class LibraryRepository private constructor(context: Context) {
     )
     private val reachabilityManager = PlaybackReachabilityManager(this.context, bookDao, libraryRootDao)
 
-    // 详尽的中文注释：在内存中持久维护一份媒体库根目录的最新缓存，随 Repository 全局单例生命周期存活，用于向设置页等冷启动界面提供零延迟的首帧数据
+    // 在内存中持久维护一份媒体库根目录的最新缓存，随 Repository 全局单例生命周期存活，用于向设置页等冷启动界面提供零延迟的首帧数据
     @Volatile
     private var cachedRoots: List<LibraryRootEntity> = emptyList()
 
     init {
         scope.launch {
-            // 详尽的中文注释：在单例初始化时立即订阅媒体库数据流，实时将最新数据同步至内存缓存中，确保首帧数据的强一致性
+            // 在单例初始化时立即订阅媒体库数据流，实时将最新数据同步至内存缓存中，确保首帧数据的强一致性
             observeLibraryRoots().collect {
                 cachedRoots = it
             }
         }
     }
 
-    // 详尽的中文注释：暴露一个同步获取内存中缓存的媒体库根目录列表的公开方法，避免冷启动时由于 Room 异步查询导致的 UI 布局大幅度抖动
+    // 暴露一个同步获取内存中缓存的媒体库根目录列表的公开方法，避免冷启动时由于 Room 异步查询导致的 UI 布局大幅度抖动
     fun getCachedLibraryRoots(): List<LibraryRootEntity> = cachedRoots
 
     /** Search history flow. */
@@ -137,7 +137,7 @@ class LibraryRepository private constructor(context: Context) {
         displayName: String,
         basePath: String
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
-        // 为每一次改动添加详尽的中文注释：WebDAV 根目录新增走 LibraryRootStore，Repository 只负责对外提供应用层入口。
+        // WebDAV 根目录新增走 LibraryRootStore，Repository 只负责对外提供应用层入口。
         rootStore.addWebDavRoot(
             url = url,
             username = username,
@@ -148,7 +148,7 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String = "USER") {
-        // 详尽的中文注释：SAF 授权、root 入库和随后的扫描作为一个应用级后台任务执行，避免选择目录后切页取消后续扫描。
+        // SAF 授权、root 入库和随后的扫描作为一个应用级后台任务执行，避免选择目录后切页取消后续扫描。
         scope.launch {
             runCatching {
                 context.contentResolver.takePersistableUriPermission(
@@ -171,7 +171,7 @@ class LibraryRepository private constructor(context: Context) {
         basePath: String,
         trigger: String = "USER"
     ) {
-        // 详尽的中文注释：WebDAV root 写入和扫描调度同样交给应用级后台队列，设置页关闭不会中断远程库扫描。
+        // WebDAV root 写入和扫描调度同样交给应用级后台队列，设置页关闭不会中断远程库扫描。
         scope.launch {
             runCatching {
                 addWebDavLibraryRoot(
@@ -195,7 +195,7 @@ class LibraryRepository private constructor(context: Context) {
 
 
     suspend fun checkPrimaryAudioFileExists(bookId: String): Boolean = withContext(Dispatchers.IO) {
-        // 为每一次改动添加详尽的中文注释：删除书籍等 UI 反馈也通过 BookFileEntity 的 VFS 可达性检测，不再使用 URI 旁路。
+        // 删除书籍等 UI 反馈也通过 BookFileEntity 的 VFS 可达性检测，不再使用 URI 旁路。
         val primaryFile = bookDao.getFilesForBookList(bookId).firstOrNull() ?: return@withContext false
         fileAvailabilityChecker.checkBookFile(primaryFile).isAvailable
     }
@@ -204,12 +204,12 @@ class LibraryRepository private constructor(context: Context) {
      * Sync the entire library: scan folder and add new files.
      */
     suspend fun syncLibrary(trigger: String = "USER") = scanMutex.withLock {
-        // 详尽的中文注释：无论调用来自 WorkManager、冷启动还是设置页，实际扫描都串行进入同一个应用级临界区，避免并发扫描互相清空 pending 状态。
+        // 无论调用来自 WorkManager、冷启动还是设置页，实际扫描都串行进入同一个应用级临界区，避免并发扫描互相清空 pending 状态。
         runSyncLibrary(trigger)
     }
 
     private suspend fun runSyncLibrary(trigger: String = "USER") = withContext(Dispatchers.IO) {
-        // 中文注释：旧版 SharedPreferences 单根目录迁移入口已移除，同步只依赖当前 library_roots 表中的标准件来源。
+        // 旧版 SharedPreferences 单根目录迁移入口已移除，同步只依赖当前 library_roots 表中的标准件来源。
         rootStore.refreshPermissionStatuses()
 
         // New rescan path: scanner builds inventory, orchestrator decides imports, pending remains PENDING.
@@ -218,7 +218,7 @@ class LibraryRepository private constructor(context: Context) {
         } else {
             com.viel.aplayer.library.RescanType.USER_GLOBAL
         }
-        // 详尽的中文注释：扫描导入阶段不再同步提取封面；这里把既有 CoverRecoveryHelper 注入 RescanCoordinator，让新书入库后立刻复用同一套异步封面重建与去重机制。
+        // 扫描导入阶段不再同步提取封面；这里把既有 CoverRecoveryHelper 注入 RescanCoordinator，让新书入库后立刻复用同一套异步封面重建与去重机制。
         val session = com.viel.aplayer.library.RescanCoordinator(
             context = context,
             triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
@@ -227,7 +227,7 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     fun scheduleLibrarySync(trigger: String = "USER") {
-        // 为每一次改动添加详尽的中文注释：所有 UI 只负责发起扫描请求，实际执行交给 Repository 应用级后台 scope，避免页面切换取消长扫描。
+        // 所有 UI 只负责发起扫描请求，实际执行交给 Repository 应用级后台 scope，避免页面切换取消长扫描。
         scope.launch { syncLibrary(trigger) }
     }
 
@@ -352,7 +352,7 @@ class LibraryRepository private constructor(context: Context) {
     /**
      * Load and parse subtitles for an audiobook file.
      * Looks for a subtitle file with the same name in the same directory.
-     * 为每一次改动添加详尽的中文注释：字幕门面改用 BookFileEntity.id 直连 VFS 读流，不再保留 MediaItem.uri 反查数据库的旧入口。
+     * 字幕门面改用 BookFileEntity.id 直连 VFS 读流，不再保留 MediaItem.uri 反查数据库的旧入口。
      */
     suspend fun loadSubtitlesForBookFile(bookFileId: String): List<SubtitleLine> =
         subtitleResolver.loadSubtitlesForBookFile(bookFileId)
@@ -390,16 +390,14 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：
-     * 异步更新特定书籍的完整元数据（书名、作者、讲述人、简介、年份），专门供修改器页面使用以保存用户修改
+         * 异步更新特定书籍的完整元数据（书名、作者、讲述人、简介、年份），专门供修改器页面使用以保存用户修改
      */
     suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String) = withContext(Dispatchers.IO) {
         bookDao.updateBookDetails(id, title, author, narrator, description, year)
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：
-     * 保存手动上传并裁剪好的自定义封面文件。
+         * 保存手动上传并裁剪好的自定义封面文件。
      * 首先调用 coverExtractor 执行物理复制、缩略图重建及主色调计算，
      * 随后安全且物理地删除该书籍原有的旧封面与旧缩略图文件以杜绝垃圾文件膨胀，
      * 最后将新封面的物理绝对路径、缩略图路径以及提取的主色调，连同当前系统时间戳更新回 Room 数据库，即刻触发 UI 强刷。
@@ -448,11 +446,11 @@ class LibraryRepository private constructor(context: Context) {
     suspend fun saveProgress(progress: BookProgressEntity) = withContext(Dispatchers.IO) {
         // Playback callbacks may arrive on the main thread, so progress upserts are forced onto IO.
         bookDao.insertProgress(progress)
-        // 为每一次改动添加详尽的中文注释：播放器真实保存进度只会进入 saveProgress，因此这里同步推进 books.readStatus，保证首页筛选和状态标签不再依赖已废弃的 updateProgress 入口。
+        // 播放器真实保存进度只会进入 saveProgress，因此这里同步推进 books.readStatus，保证首页筛选和状态标签不再依赖已废弃的 updateProgress 入口。
         updateReadStatusFromProgress(progress.bookId, progress.globalPositionMs)
     }
 
-    // 为每一次改动添加详尽的中文注释：将播放进度到阅读状态的换算集中在一个私有方法中，避免 updateProgress 与 saveProgress 出现两套状态规则。
+    // 将播放进度到阅读状态的换算集中在一个私有方法中，避免 updateProgress 与 saveProgress 出现两套状态规则。
     private suspend fun updateReadStatusFromProgress(bookId: String, position: Long) {
         val book = bookDao.getBookById(bookId) ?: return
         val nextStatus = when {
@@ -478,7 +476,7 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：同步获取书籍的全部文件列表，包含 AUDIO 与 SOURCE_MANIFEST，专用于详情页精炼路径与源文件名解析
+     * 同步获取书籍的全部文件列表，包含 AUDIO 与 SOURCE_MANIFEST，专用于详情页精炼路径与源文件名解析
      */
     suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = withContext(Dispatchers.IO) {
         bookDao.getAllFilesForBookList(bookId)
@@ -490,23 +488,23 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     // Compact player reload only cares about the restored/current file, not whether the whole book has any playable file.
-    // 详尽的中文注释：前台恢复 compact 播放进度时的物理音频就绪判定门面 API，现委派至 PlaybackReachabilityManager。
+    // 前台恢复 compact 播放进度时的物理音频就绪判定门面 API，现委派至 PlaybackReachabilityManager。
     suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = 
         reachabilityManager.checkCurrentPlaybackFileAvailability(bookId)
 
     // PlaybackService marks the exact failed queue item missing before it tries to advance.
-    // 详尽的中文注释：运行期标记具体某轨音频文件物理丢失的门面 API，现委派至 PlaybackReachabilityManager。
+    // 运行期标记具体某轨音频文件物理丢失的门面 API，现委派至 PlaybackReachabilityManager。
     suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) = 
         reachabilityManager.markPlaybackFileUnavailable(bookId, queueIndex)
 
     // PlaybackService asks for the next actually openable queue item so stale READY rows do not cause repeated failures.
-    // 详尽的中文注释：在当前正在播放的文件发生不可达异常时，检索列表中下一个可播放（READY）音频轨的门面 API，现委派至 PlaybackReachabilityManager。
+    // 在当前正在播放的文件发生不可达异常时，检索列表中下一个可播放（READY）音频轨的门面 API，现委派至 PlaybackReachabilityManager。
     suspend fun findNextAvailablePlaybackFile(bookId: String, afterQueueIndex: Int): Pair<Int, BookFileEntity>? = 
         reachabilityManager.findNextAvailablePlaybackFile(bookId, afterQueueIndex)
 
     suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = withContext(Dispatchers.IO) {
         val book = bookDao.getBookById(bookId) ?: return@withContext null
-        // 详尽的中文注释：在构建播放计划（即开始播放有声书）时，委托 CoverRecoveryHelper 静默快速物理检查一次封面。
+        // 在构建播放计划（即开始播放有声书）时，委托 CoverRecoveryHelper 静默快速物理检查一次封面。
         // 若物理缓存丢失，将非阻塞地派发后台协程启动漏斗模型提取机制进行零延迟自愈。
         coverRecoveryHelper.checkAndTriggerCoverRegeneration(book)
         val files = bookDao.getFilesForBookList(bookId)
@@ -554,12 +552,12 @@ class LibraryRepository private constructor(context: Context) {
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：根据书籍 ID 更新有声书的阅读状态（未开始/进行中/已完成）
+    // 根据书籍 ID 更新有声书的阅读状态（未开始/进行中/已完成）
     suspend fun updateBookReadStatus(bookId: String, readStatus: String) = withContext(Dispatchers.IO) {
         bookDao.updateBookReadStatus(bookId, readStatus)
     }
 
-    // 为每一次改动添加详尽的中文注释：强制重新生成指定有声书的物理封面与元数据（包括章节信息），
+    // 强制重新生成指定有声书的物理封面与元数据（包括章节信息），
     // 专门用于长按菜单中的“重建封面与元数据”功能，实现从音频物理原文件中执行全量提取与数据库覆盖写入，并强行打破缓存刷新 UI
     suspend fun forceRegenerateCoverAndMetadata(bookId: String) = withContext(Dispatchers.IO) {
         try {
@@ -569,7 +567,7 @@ class LibraryRepository private constructor(context: Context) {
 
             // 1. 提取主要音频文件的物理元数据
             val primaryFile = files.firstOrNull { it.status == AudiobookSchema.FileStatus.READY } ?: files.first()
-            // 为每一次改动添加详尽的中文注释：强制重建元数据通过 BookFileEntity 的 VFS 路径读取，不再恢复旧 uri 字段。
+            // 强制重建元数据通过 BookFileEntity 的 VFS 路径读取，不再恢复旧 uri 字段。
             val metadata = MetadataResolver.extract(primaryFile)
 
             // 2. 将全新提取出来的有声书基本元数据和年份字段覆盖更新回 Room 数据库中
@@ -605,12 +603,12 @@ class LibraryRepository private constructor(context: Context) {
     }
 
     suspend fun getBookById(id: String): BookEntity? = withContext(Dispatchers.IO) {
-        // 详尽的中文注释：查询特定有声书实体时，委托 CoverRecoveryHelper 先快速静默地物理检查封面并触发自愈重建。
+        // 查询特定有声书实体时，委托 CoverRecoveryHelper 先快速静默地物理检查封面并触发自愈重建。
         bookDao.getBookById(id)?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
     }
 
     fun observeBookById(id: String): Flow<BookEntity?> {
-        // 详尽的中文注释：外部观察特定有声书实体时，通过 Flow map 进行非阻塞式的封面物理完整性自愈调度委派。
+        // 外部观察特定有声书实体时，通过 Flow map 进行非阻塞式的封面物理完整性自愈调度委派。
         return bookDao.observeBookById(id).map { book ->
             book?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
         }
@@ -633,7 +631,7 @@ class LibraryRepository private constructor(context: Context) {
         val anchorStatus: String
     )
 
-    // 详尽的中文注释：针对 Flow<List<BookWithProgress>> 数据流的自定义扩展算子。
+    // 针对 Flow<List<BookWithProgress>> 数据流的自定义扩展算子。
     // 将封面物理文件检查与自愈重建委托给全新的 CoverRecoveryHelper 辅助组件执行，在保持流非阻塞特性的同时极大精炼了 Repository 内部逻辑。
     private fun Flow<List<BookWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
         list.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
@@ -659,7 +657,7 @@ class LibraryRepository private constructor(context: Context) {
             Log.e("LibraryRepository", "Failed to check/stop playback during library root deletion", e)
         }
 
-        // 为每一次改动添加详尽的中文注释：在通过 Room 级联删除数据库记录之前，先主动查询并物理清理该书库下所有书籍的封面原图与缩略图缓存文件，防止物理缓存目录随着书库删除后无限膨胀残留垃圾文件
+        // 在通过 Room 级联删除数据库记录之前，先主动查询并物理清理该书库下所有书籍的封面原图与缩略图缓存文件，防止物理缓存目录随着书库删除后无限膨胀残留垃圾文件
         try {
             val books = bookDao.getBooksByRootId(root.id)
             books.forEach { book ->
@@ -684,7 +682,7 @@ class LibraryRepository private constructor(context: Context) {
 
         when (LibrarySourceKind.from(root.sourceType)) {
             LibrarySourceKind.SAF -> {
-                // 为每一次改动添加详尽的中文注释：只有 SAF root 需要释放系统持久化授权，远程 root 不再误走 ContentResolver。
+                // 只有 SAF root 需要释放系统持久化授权，远程 root 不再误走 ContentResolver。
                 try {
                     val uri = root.sourceUri.toUri()
                     context.contentResolver.releasePersistableUriPermission(
@@ -696,7 +694,7 @@ class LibraryRepository private constructor(context: Context) {
                 }
             }
             LibrarySourceKind.WEBDAV -> {
-                // 为每一次改动添加详尽的中文注释：删除 WebDAV root 时同步清理 credentialId 指向的本地凭据，不触碰任何远端文件。
+                // 删除 WebDAV root 时同步清理 credentialId 指向的本地凭据，不触碰任何远端文件。
                 webDavCredentialStore.delete(root.credentialId)
             }
         }

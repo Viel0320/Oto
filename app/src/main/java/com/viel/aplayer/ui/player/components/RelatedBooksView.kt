@@ -22,7 +22,7 @@ import com.viel.aplayer.ui.theme.APlayerTheme
 @Composable
 fun RelatedBooksView(
     currentBookId: String,
-    // 为每一次改动添加详尽的中文注释：新增 heuristicBooks 参数，用于接收置顶展示的启发式智能推荐有声书列表
+    // 新增 heuristicBooks 参数，用于接收置顶展示的启发式智能推荐有声书列表
     heuristicBooks: List<BookWithProgress>,
     authorSections: List<RelatedSection>,
     narratorSections: List<RelatedSection>,
@@ -34,7 +34,7 @@ fun RelatedBooksView(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
-        // 为每一次改动添加详尽的中文注释：
+        // 
         // 【置顶展示启发式推荐】如果启发式推荐列表不为空，则置顶渲染 "Recommended for You" 分区。
         // 使用唯一的前缀复合键 "h:${book.book.id}"，保证即使兜底书籍与其它 section 重合时，其列表项在全局的 Compose 身份仍保持绝对唯一。
         if (heuristicBooks.isNotEmpty()) {
@@ -51,7 +51,7 @@ fun RelatedBooksView(
                 item {
                     RelatedSectionHeader("More by ${section.name}")
                 }
-                // 详尽中文注释：M-20 修复 — 添加 key 让 Compose 跟踪列表项身份，避免相关书单刷新时 item 状态错位复用
+                // M-20 修复 — 添加 key 让 Compose 跟踪列表项身份，避免相关书单刷新时 item 状态错位复用
                 items(section.books, key = { it.book.id }) { book ->
                     RelatedAudiobookItem(book, onBookClick)
                 }
@@ -63,7 +63,7 @@ fun RelatedBooksView(
                 item {
                     RelatedSectionHeader("More by ${section.name}")
                 }
-                // 详尽中文注释：M-20 修复 — 旁白分区迹不同一个 section 可能包含相同 id 的书，
+                // M-20 修复 — 旁白分区迹不同一个 section 可能包含相同 id 的书，
                 // 使用 "迹 narrator:book.id" 复合键保证跨 section 唯一性
                 items(section.books, key = { "n:${it.book.id}" }) { book ->
                     RelatedAudiobookItem(book, onBookClick)
@@ -75,7 +75,7 @@ fun RelatedBooksView(
             item {
                 RelatedSectionHeader("Recently Added")
             }
-            // 详尽中文注释：M-20 修复 — recentBooks 也可能与前面 section 重叠，
+            // M-20 修复 — recentBooks 也可能与前面 section 重叠，
             // 使用 "r:book.id" 前缀复合键保证不同 section 间的公局唯一性
             items(recentBooks, key = { "r:${it.book.id}" }) { book ->
                 RelatedAudiobookItem(book, onBookClick)
@@ -134,7 +134,7 @@ fun RelatedBooksViewPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             RelatedBooksView(
                 currentBookId = "id0",
-                // 为每一次改动添加详尽的中文注释：Preview 填充传入启发式推荐有声书 Mock 数据列表
+                // Preview 填充传入启发式推荐有声书 Mock 数据列表
                 heuristicBooks = mockList,
                 authorSections = listOf(RelatedSection("Author Name", mockList)),
                 narratorSections = listOf(RelatedSection("Narrator Name", mockList)),

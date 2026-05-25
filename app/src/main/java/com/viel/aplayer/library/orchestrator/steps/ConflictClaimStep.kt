@@ -32,19 +32,18 @@ import com.viel.aplayer.media.parser.MetadataResolver
 import com.viel.aplayer.media.parser.Mp4MetadataFrameReader
 import java.util.UUID
 
-// 详尽的中文注释：修复 ChapterCandidate 与 MetadataSuggestion 的包名导入错误，以正确找到在 com.viel.aplayer.library 下定义的类型
+// 修复 ChapterCandidate 与 MetadataSuggestion 的包名导入错误，以正确找到在 com.viel.aplayer.library 下定义的类型
 
 /**
  * 冲突所有权认领决策工位
  * 
- * 为每一次改动添加详尽的中文注释：
  * 本工位不修改任何真实的数据库数据。它只负责判定内存认领账本（ClaimLedger）。
  * 决定当前导入的有声书是能够一路绿灯通过认领直接落库，还是默默刷新所有权，
  * 抑或是进入 PendingAction 冲突挂起队列由用户后续决定。
  * 此外，本步骤也完成了 BookDraft/BookEntity/BookFileEntity/ChapterEntity 的全部映射构建，
  * 并打包返回底盘所需的 ImportRunResult 实例，无缝适配 BookImporter 和 RescanCoordinator。
  */
-// 详尽的中文注释：将类可见性声明为 internal，收紧其在本模块内的使用范围，防止由于引用其他 internal 类型而报 public 泄漏错误
+// 将类可见性声明为 internal，收紧其在本模块内的使用范围，防止由于引用其他 internal 类型而报 public 泄漏错误
 @OptIn(UnstableApi::class)
 internal class ConflictClaimStep(
     private val context: Context,
@@ -77,7 +76,7 @@ internal class ConflictClaimStep(
 
             val source = ImportSourceRef(AudiobookSchema.SourceType.CUE, cue.vfsDisplayId(), cue.displayName)
             val claimedIdentities = cueBook.audioRefs.map { it.identity } + cue.identity
-            // 为每一次改动添加详尽的中文注释：对 CUE 书籍进行所有权抢占检测时，透传其 VFS 父目录路径以限制在同目录下进行冲突判定。
+            // 对 CUE 书籍进行所有权抢占检测时，透传其 VFS 父目录路径以限制在同目录下进行冲突判定。
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = claimedIdentities,
@@ -102,7 +101,7 @@ internal class ConflictClaimStep(
                 manifestMetadata = cueBook.draft.result.metadata,
                 firstAudio = firstAudioMeta,
                 sourceFile = cue,
-                // 为每一次改动添加详尽的中文注释：manifest 书籍的 txt 简介已经在 parser 内部通过目录快照选出，
+                // manifest 书籍的 txt 简介已经在 parser 内部通过目录快照选出，
                 // 这里直接消费 parser 结果，不再重新 listChildren。
                 sidecarDescription = cueBook.draft.result.sidecarDescription
             )
@@ -125,7 +124,7 @@ internal class ConflictClaimStep(
                 narrator = mergedMeta.narrator,
                 year = mergedMeta.year,
                 description = mergedMeta.description,
-                // 详尽的中文注释：修复形参名字拼写错误，由 coverResult 修正为函数声明的 cover
+                // 修复形参名字拼写错误，由 coverResult 修正为函数声明的 cover
                 cover = cueBook.coverResult
             )
             readyImports.add(ImportCommand.CreateReadyBook(draft))
@@ -145,7 +144,7 @@ internal class ConflictClaimStep(
 
             val source = ImportSourceRef(AudiobookSchema.SourceType.M3U8, m3u8.vfsDisplayId(), m3u8.displayName)
             val claimedIdentities = m3u8Book.audioRefs.map { it.identity } + m3u8.identity
-            // 为每一次改动添加详尽的中文注释：对 M3U8 书籍进行所有权抢占检测时，透传其 VFS 父目录路径以限制在同目录下进行冲突判定。
+            // 对 M3U8 书籍进行所有权抢占检测时，透传其 VFS 父目录路径以限制在同目录下进行冲突判定。
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = claimedIdentities,
@@ -190,7 +189,7 @@ internal class ConflictClaimStep(
                 narrator = mergedMeta.narrator,
                 year = mergedMeta.year,
                 description = mergedMeta.description,
-                // 详尽的中文注释：修复形参名字拼写错误，由 coverResult 修正为函数声明的 cover
+                // 修复形参名字拼写错误，由 coverResult 修正为函数声明的 cover
                 cover = m3u8Book.coverResult
             )
             readyImports.add(ImportCommand.CreateReadyBook(draft))
@@ -208,7 +207,7 @@ internal class ConflictClaimStep(
                 displayName = aggBook.plan.title
             )
             
-            // 为每一次改动添加详尽的中文注释：对启发式聚合书籍进行所有权抢占检测时，透传首轨音频所在的 VFS 父目录路径。
+            // 对启发式聚合书籍进行所有权抢占检测时，透传首轨音频所在的 VFS 父目录路径。
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = orderedFiles.map { it.file.identity },
@@ -216,7 +215,7 @@ internal class ConflictClaimStep(
                 currentParentSourcePath = firstChapter.file.parentSourcePath
             )
             if (reservation.reserved) {
-                // 详尽的中文注释：启发式聚合书籍的 sidecar 描述现在由 HeuristicAudioAggregator 在 parser 内部统一产出，
+                // 启发式聚合书籍的 sidecar 描述现在由 HeuristicAudioAggregator 在 parser 内部统一产出，
                 // 冲突认领阶段只做“已有音频 metadata -> parser sidecar”的最终合并，不再自己回头读 txt。
                 val firstAudioMeta = firstChapter.metadata
                 val description = firstAudioMeta.description.ifBlank {
@@ -236,7 +235,7 @@ internal class ConflictClaimStep(
         input.singleBooks.forEach { singleBook ->
             val audio = singleBook.audioRef
             val source = ImportSourceRef(AudiobookSchema.SourceType.SINGLE_AUDIO, audio.file.vfsDisplayId(), audio.file.displayName)
-            // 为每一次改动添加详尽的中文注释：对单音频书籍进行所有权抢占检测时，透传其所在的 VFS 父目录路径。
+            // 对单音频书籍进行所有权抢占检测时，透传其所在的 VFS 父目录路径。
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = listOf(audio.file.identity),
@@ -249,7 +248,7 @@ internal class ConflictClaimStep(
                 return@forEach
             }
 
-            // 详尽的中文注释：单音频模式现在显式禁止 sidecar 描述兜底，
+            // 单音频模式现在显式禁止 sidecar 描述兜底，
             // 最终 description 只来自音频自身 metadata，不再读取任何同目录 txt 文件。
             val description = audio.metadata.description
 
@@ -311,7 +310,7 @@ internal class ConflictClaimStep(
             lastSeenScanId = scanId
         ))
 
-    // 详尽的中文注释：重写单音频草稿构建方法，接收读取到的描述（description）并写入逻辑书籍实体的描述字段中
+    // 重写单音频草稿构建方法，接收读取到的描述（description）并写入逻辑书籍实体的描述字段中
     private fun buildSingleAudioDraft(
         bookId: String,
         audio: AudioMetadataRef,
@@ -325,12 +324,12 @@ internal class ConflictClaimStep(
             id = bookId,
             rootId = audio.file.rootId,
             sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
-            // 为每一次改动添加详尽的中文注释：单音频模式下使用 VFS 父目录键作为 sourceRoot，不再保存 SAF 父目录 Uri。
+            // 单音频模式下使用 VFS 父目录键作为 sourceRoot，不再保存 SAF 父目录 Uri。
             sourceRoot = audio.file.parentSourceKey,
             title = title,
             author = audio.metadata.author.trim(),
             narrator = audio.metadata.narrator.trim(),
-            description = description.trim(), // 详尽的中文注释：显式将从 txt 检索到或从 ID3 元数据中读取到的描述（description）赋给逻辑书籍的 description 字段
+            description = description.trim(), // 显式将从 txt 检索到或从 ID3 元数据中读取到的描述（description）赋给逻辑书籍的 description 字段
             year = audio.metadata.year,
             totalDurationMs = audio.metadata.durationMs,
             totalFileSize = audio.file.fileSize,
@@ -370,7 +369,7 @@ internal class ConflictClaimStep(
         description: String = "",
         cover: CoverExtractor.CoverResult?
     ): BookDraft {
-        // 为每一次改动添加详尽的中文注释：manifest 已经完成 claim 预留后，再按 VFS 文件键并发读取缺失时长，不再通过 URI 定位音频。
+        // manifest 已经完成 claim 预留后，再按 VFS 文件键并发读取缺失时长，不再通过 URI 定位音频。
         val durationByKey = audioFiles
             .mapWithBoundedConcurrency { file ->
                 file.vfsKey to (fileDurations[file.vfsKey] ?: readDuration(file))
@@ -429,7 +428,7 @@ internal class ConflictClaimStep(
             id = bookId,
             rootId = sourceFile.rootId,
             sourceType = sourceType,
-            // 为每一次改动添加详尽的中文注释：清单书籍模式下使用源清单所在 VFS 父目录键作为 sourceRoot。
+            // 清单书籍模式下使用源清单所在 VFS 父目录键作为 sourceRoot。
             sourceRoot = sourceFile.parentSourceKey,
             title = title.ifBlank { sourceFile.displayName.substringBeforeLast('.') },
             author = author.trim(),
@@ -445,7 +444,7 @@ internal class ConflictClaimStep(
         return BookDraft(book, listOf(manifestFile) + audioBookFiles, chapters)
     }
 
-    // 详尽的中文注释：重写启发式聚合草稿构建方法，接收读取到的描述（description）并将其写入 logical 书籍实体的描述字段中
+    // 重写启发式聚合草稿构建方法，接收读取到的描述（description）并将其写入 logical 书籍实体的描述字段中
     private fun buildGeneratedDraft(
         bookId: String,
         source: ImportSourceRef,
@@ -455,7 +454,7 @@ internal class ConflictClaimStep(
     ): BookDraft {
         val orderedFiles = plan.chapters.map { it.audio }
         val firstChapterMetadata = orderedFiles.first().metadata
-        // 为每一次改动添加详尽的中文注释：生成清单只记录 VFS 文件键，避免 generatedManifestJson 再持久化 provider URI。
+        // 生成清单只记录 VFS 文件键，避免 generatedManifestJson 再持久化 provider URI。
         val manifestJson = orderedFiles.joinToString(prefix = "[", postfix = "]") { "\"${it.file.vfsKey.escapeJson()}\"" }
         val bookFiles = orderedFiles.mapIndexed { index, audio ->
             audio.toBookFile(bookId, UUID.randomUUID().toString(), index, AudiobookSchema.FileStatus.READY)
@@ -481,14 +480,14 @@ internal class ConflictClaimStep(
             id = bookId,
             rootId = orderedFiles.first().file.rootId,
             sourceType = AudiobookSchema.SourceType.GENERATED_M3U8,
-            // 为每一次改动添加详尽的中文注释：启发式聚合书籍模式下以首轨音频文件所在 VFS 父目录键作为 sourceRoot。
+            // 启发式聚合书籍模式下以首轨音频文件所在 VFS 父目录键作为 sourceRoot。
             sourceRoot = orderedFiles.first().file.parentSourceKey,
             generatedManifestJson = manifestJson,
             heuristicRuleVersion = plan.ruleVersion,
             title = plan.title,
             author = firstChapterMetadata.author.trim(),
             narrator = firstChapterMetadata.narrator.trim(),
-            description = description.trim(), // 详尽的中文注释：显式将从 txt 检索到或从 ID3 元数据中读取到的描述（description）赋给逻辑书籍的 description 字段
+            description = description.trim(), // 显式将从 txt 检索到或从 ID3 元数据中读取到的描述（description）赋给逻辑书籍的 description 字段
             year = firstChapterMetadata.year.trim(),
             totalDurationMs = bookFiles.sumOf { it.durationMs },
             totalFileSize = bookFiles.sumOf { it.fileSize },
@@ -511,7 +510,7 @@ internal class ConflictClaimStep(
             rootId = rootId,
             fileRole = AudiobookSchema.FileRole.SOURCE_MANIFEST,
             index = 0,
-            // 为每一次改动添加详尽的中文注释：BookFileEntity 只写入 VFS sourcePath/sourceIdentity，不再持久化 SAF 专属旧列。
+            // BookFileEntity 只写入 VFS sourcePath/sourceIdentity，不再持久化 SAF 专属旧列。
             sourcePath = sourcePath,
             sourceIdentity = sourceIdentity,
             etag = etag,
@@ -551,7 +550,7 @@ internal class ConflictClaimStep(
             rootId = rootId,
             fileRole = AudiobookSchema.FileRole.AUDIO,
             index = index,
-            // 为每一次改动添加详尽的中文注释：音频 BookFileEntity 同样只持久化 VFS 定位字段。
+            // 音频 BookFileEntity 同样只持久化 VFS 定位字段。
             sourcePath = sourcePath,
             sourceIdentity = sourceIdentity,
             etag = etag,
@@ -577,21 +576,21 @@ internal class ConflictClaimStep(
 
     @OptIn(UnstableApi::class)
     private suspend fun readDuration(file: FileRef): Long =
-        // 为每一次改动添加详尽的中文注释：清单音频补时长复用 VFS 元数据入口，不再把 FileRef 还原成 provider URI。
+        // 清单音频补时长复用 VFS 元数据入口，不再把 FileRef 还原成 provider URI。
         runCatching {
-            // 为每一次改动添加详尽的中文注释：补时长优先走 MetadataResolver 的 MP4/M4B Range 元数据帧解析，避免 WebDAV 清单音频回落到整文件 FD。
+            // 补时长优先走 MetadataResolver 的 MP4/M4B Range 元数据帧解析，避免 WebDAV 清单音频回落到整文件 FD。
             val metadataDuration = metadataResolver.extract(file).durationMs
             if (Mp4MetadataFrameReader.supports(file.displayName)) {
-                // 为每一次改动添加详尽的中文注释：MP4 家族补时长不再使用 FD/retriever 后备，避免本地 m4b 因清单兜底路径扫描整文件。
+                // MP4 家族补时长不再使用 FD/retriever 后备，避免本地 m4b 因清单兜底路径扫描整文件。
                 return@runCatching metadataDuration
             }
             metadataDuration.takeIf { it > 0L }?.let { return@runCatching it }
             /*
-                // 详尽的中文注释：局部代理只为了平滑去掉 VfsFileReader 的兼容 helper；
+                // 局部代理只为了平滑去掉 VfsFileReader 的兼容 helper；
                 // 实际时长仍然直接回到 MetadataResolver，再由各格式 parser 内部自行做范围读取。
                 suspend fun readAudioDuration(target: FileRef): Long = MetadataResolver.extract(target).durationMs
             }
-            // 为每一次改动添加详尽的中文注释：清单补时长只向 VFS 请求 duration 结果，不再在冲突认领层持有 FD 或 retriever。
+            // 清单补时长只向 VFS 请求 duration 结果，不再在冲突认领层持有 FD 或 retriever。
             reader.readAudioDuration(file)
             */ metadataDuration
         }.getOrDefault(0L)
@@ -610,7 +609,7 @@ internal class ConflictClaimStep(
     private suspend fun firstManifestAudioMetadata(audioRefs: List<FileRef>): ManifestAudioMetadata? {
         val firstAudio = audioRefs.firstOrNull() ?: return null
         return runCatching {
-            // 为每一次改动添加详尽的中文注释：manifest 兜底元数据从首个音频的 VFS 路径读取，避免 URI 旁路。
+            // manifest 兜底元数据从首个音频的 VFS 路径读取，避免 URI 旁路。
             ManifestAudioMetadata(firstAudio, metadataResolver.extract(firstAudio))
         }.onFailure { error ->
             Log.w(TAG, "Failed to read manifest fallback metadata: ${firstAudio.vfsDisplayId()}", error)
@@ -641,15 +640,15 @@ internal class ConflictClaimStep(
         values.firstOrNull { !it.isNullOrBlank() }?.trim().orEmpty()
 
     private fun FileRef.vfsDisplayId(): String =
-        // 为每一次改动添加详尽的中文注释：用户可见/日志来源标识使用 rootId/sourcePath，避免继续输出 provider URI。
+        // 用户可见/日志来源标识使用 rootId/sourcePath，避免继续输出 provider URI。
         "vfs://$rootId/$sourcePath"
 
     private fun BookFileEntity.vfsKey(): String =
-        // 为每一次改动添加详尽的中文注释：入库后的章节映射也用 rootId/sourcePath 还原同一个 VFS 文件键。
+        // 入库后的章节映射也用 rootId/sourcePath 还原同一个 VFS 文件键。
         vfsFileKey(rootId, sourcePath)
 
     private fun String.escapeJson(): String =
-        // 为每一次改动添加详尽的中文注释：生成的 VFS manifest JSON 对路径分隔符和引号做最小转义，避免 sourcePath 中特殊字符破坏 JSON。
+        // 生成的 VFS manifest JSON 对路径分隔符和引号做最小转义，避免 sourcePath 中特殊字符破坏 JSON。
         replace("\\", "\\\\").replace("\"", "\\\"")
 
     private fun String.logValue(): String =

@@ -14,7 +14,6 @@ import com.viel.aplayer.ui.player.PlaybackState
 import kotlin.math.ln
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 睡眠定时器执行管理器。
  * 从 PlayerSettingsManager 中抽离出 SleepTimer 直接相关的计时扣减、渐隐对数衰减算法、
  * 物理加速度传感器事件注册与去噪防抖、摇晃顺延重置以及马达震动反馈等逻辑。
@@ -24,46 +23,46 @@ class SleepTimerManager(
     private val scope: CoroutineScope,
     private val playbackManager: () -> PlaybackManager?,
     private val contextProvider: () -> Context?,
-    // 为每一次改动添加详尽的中文注释：通过 lambda 动态获取最新配置
+    // 通过 lambda 动态获取最新配置
     private val isSleepFadeOutEnabled: () -> Boolean,
     private val isShakeToResetEnabled: () -> Boolean,
     private val sleepMode: () -> com.viel.aplayer.data.store.SleepMode,
     private val selectedSleepTimer: () -> Int,
-    // 为每一次改动添加详尽的中文注释：当定时器结束或被重置时的回调，用于更新外层 PlayerSettingsState 的 selectedSleepTimer 属性
+    // 当定时器结束或被重置时的回调，用于更新外层 PlayerSettingsState 的 selectedSleepTimer 属性
     private val onTimerReset: () -> Unit,
     private val onTimerSelectedMinutesChanged: (Int) -> Unit
 ) {
-    // 为每一次改动添加详尽的中文注释：睡眠剩余时间（毫秒）的流，直接服务于界面展示
+    // 睡眠剩余时间（毫秒）的流，直接服务于界面展示
     private val _sleepTimerMillis = MutableStateFlow(0L)
     val sleepTimerMillis: StateFlow<Long> = _sleepTimerMillis.asStateFlow()
 
-    // 为每一次改动添加详尽的中文注释：控制倒计时与渐隐的核心协程 Job
+    // 控制倒计时与渐隐的核心协程 Job
     private var sleepTimerJob: Job? = null
 
     private var sensorManager: android.hardware.SensorManager? = null
     private var shakeListener: android.hardware.SensorEventListener? = null
     private var lastShakeTime = 0L
 
-    // 为每一次改动添加详尽的中文注释：动作检测相关变量，用于运动跟踪模式判断设备是否正在被移动。
+    // 动作检测相关变量，用于运动跟踪模式判断设备是否正在被移动。
     @Volatile
     private var isDeviceMoving = false
     private var staticSampleCount = 0
-    // 为每一次改动添加详尽的中文注释：上一次检测到有效物理运动的时间戳，用于实施动作状态的冷却/保持防抖，防止高频传感器置回。
+    // 上一次检测到有效物理运动的时间戳，用于实施动作状态的冷却/保持防抖，防止高频传感器置回。
     private var lastMovementTime = 0L
-    // 为每一次改动添加详尽的中文注释：动作被有效激活触发（即进入运动状态）时的系统时间戳，用于锁定 1 分钟不计时与不采样防抖。
+    // 动作被有效激活触发（即进入运动状态）时的系统时间戳，用于锁定 1 分钟不计时与不采样防抖。
     private var lastActiveTriggerTime = 0L
 
-    // 为每一次改动添加详尽的中文注释：睡眠状态检测相关变量，检测是否已模拟判定为进入熟睡。
+    // 睡眠状态检测相关变量，检测是否已模拟判定为进入熟睡。
     @Volatile
     private var hasUserFallenAsleep = false
     private var timeInStaticMs = 0L
-    // 为每一次改动添加详尽的中文注释：上一次记录的播放状态，用于捕捉用户是否手动切换了播放/暂停状态以实时重置一分钟锁定。
+    // 上一次记录的播放状态，用于捕捉用户是否手动切换了播放/暂停状态以实时重置一分钟锁定。
     private var lastIsPlaying: Boolean? = null
 
-    // 为每一次改动添加详尽的中文注释：记忆被摇晃手机所顺延屏蔽的章节的起始位置。如果章节开始时间与此一致，则在该章结尾不执行渐隐和暂停。
+    // 记忆被摇晃手机所顺延屏蔽的章节的起始位置。如果章节开始时间与此一致，则在该章结尾不执行渐隐和暂停。
     private var skippedChapterStartMs: Long? = null
 
-    // 为每一次改动添加详尽的中文注释：注册加速度计传感器监听。
+    // 注册加速度计传感器监听。
     // 在最后 10 秒音量渐隐期内，或者在开启“运动跟踪”与“睡眠跟踪”倒计时期间动态按需开启，既省电又能实时跟踪物理状态。
     private fun registerShakeListener(
         currentPlayback: () -> PlaybackState,
@@ -80,7 +79,7 @@ class SleepTimerManager(
                 override fun onSensorChanged(event: android.hardware.SensorEvent?) {
                     if (event == null || event.sensor.type != android.hardware.Sensor.TYPE_ACCELEROMETER) return
                     
-                    // 为每一次改动添加详尽的中文注释：捕捉当前播放状态以监听用户是否手动进行了播放/暂停切换
+                    // 捕捉当前播放状态以监听用户是否手动进行了播放/暂停切换
                     val playState = currentPlayback()
                     val isPlaying = playState.isPlaying
                     if (lastIsPlaying != null && lastIsPlaying != isPlaying) {
@@ -89,7 +88,7 @@ class SleepTimerManager(
                     }
                     lastIsPlaying = isPlaying
 
-                    // 为每一次改动添加详尽的中文注释：一分钟计时挂起保护锁拦截判定。若处于一分钟保护锁定内，则直接拦截并阻断后续的传感器采样与静止判定，达到绝对省电及不扣减计时的目的。
+                    // 一分钟计时挂起保护锁拦截判定。若处于一分钟保护锁定内，则直接拦截并阻断后续的传感器采样与静止判定，达到绝对省电及不扣减计时的目的。
                     if (System.currentTimeMillis() - lastActiveTriggerTime < 60000L) {
                         return
                     }
@@ -100,10 +99,10 @@ class SleepTimerManager(
                     val gZ = event.values[2] / android.hardware.SensorManager.GRAVITY_EARTH
                     val gForce = kotlin.math.sqrt(gX * gX + gY * gY + gZ * gZ)
 
-                    // 为每一次改动添加详尽的中文注释：计算当前 G 力偏离标准 1.0g 重力的绝对差值，以此作为衡量物理抖动的核心指标，彻底免疫倾斜和角度旋转变化。
+                    // 计算当前 G 力偏离标准 1.0g 重力的绝对差值，以此作为衡量物理抖动的核心指标，彻底免疫倾斜和角度旋转变化。
                     val gDeviation = kotlin.math.abs(gForce - 1.0f)
 
-                    // 为每一次改动添加详尽的中文注释：在睡眠检测模式下，为防范翻身、微弱震动或呼吸导致的误判，特将判定运动的 G 力偏离阈值放宽至 0.08g，从而保留一定的容错空间；而常规运动跟踪仍采用 0.035g。
+                    // 在睡眠检测模式下，为防范翻身、微弱震动或呼吸导致的误判，特将判定运动的 G 力偏离阈值放宽至 0.08g，从而保留一定的容错空间；而常规运动跟踪仍采用 0.035g。
                     val movementThreshold = if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking) 0.08f else 0.035f
 
                     // 若 G力偏离度超过计算出的运动阈值，则判定设备正处于运动状态。
@@ -125,11 +124,11 @@ class SleepTimerManager(
                             showToast("检测到身体活动，睡眠跟踪暂停，待您接近静止后继续")
                         }
                     } else {
-                        // 为每一次改动添加详尽的中文注释：只有当距离上一次检测到有效物理运动的时间超过了 3 秒（保护保持期），才允许静止计数递增并切回静止状态，实现科学防抖。
+                        // 只有当距离上一次检测到有效物理运动的时间超过了 3 秒（保护保持期），才允许静止计数递增并切回静止状态，实现科学防抖。
                         if (System.currentTimeMillis() - lastMovementTime >= 3000L) {
                             staticSampleCount++
                             if (staticSampleCount >= 8) { // 连续 8 帧（约 0.5-0.8 秒）都处于极平稳状态，才判定为静止
-                                // 为每一次改动添加详尽的中文注释：进入静止瞬间发射 UI 弹窗通知以提醒听众倒计时已恢复
+                                // 进入静止瞬间发射 UI 弹窗通知以提醒听众倒计时已恢复
                                 if (isDeviceMoving) {
                                     if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking) {
                                         playbackManager()?.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("动作跟踪：检测到静止，睡眠定时器恢复计时"))  //todo 正式上线要移除toast
@@ -160,7 +159,7 @@ class SleepTimerManager(
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：彻底注销传感器监听，防止资源泄漏。
+    // 彻底注销传感器监听，防止资源泄漏。
     private fun unregisterShakeListener() {
         shakeListener?.let {
             sensorManager?.unregisterListener(it)
@@ -168,7 +167,7 @@ class SleepTimerManager(
         shakeListener = null
     }
 
-    // 为每一次改动添加详尽的中文注释：提供硬件马达轻微震动 100ms 反馈，为听众提供高可用夜间盲操确认。
+    // 提供硬件马达轻微震动 100ms 反馈，为听众提供高可用夜间盲操确认。
     // 修复了原本 vibrator 变量未初始化的语法错误，直接通过 VibratorManager 获取 defaultVibrator 进行震动反馈。
     private fun triggerVibration() {
         val ctx = contextProvider() ?: return
@@ -184,7 +183,7 @@ class SleepTimerManager(
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：在 UI 线程弹出轻量化 Toast 温馨告知听众。
+    // 在 UI 线程弹出轻量化 Toast 温馨告知听众。
     private fun showToast(message: String) {
         val ctx = contextProvider() ?: return
         scope.launch(kotlinx.coroutines.Dispatchers.Main) {
@@ -192,7 +191,7 @@ class SleepTimerManager(
         }
     }
 
-    // 为每一次改动添加详尽的中文注释：摇晃重置的核心业务分支决策算法，支持“有下一章顺延到下一章结束，无下一章不顺延”。
+    // 摇晃重置的核心业务分支决策算法，支持“有下一章顺延到下一章结束，无下一章不顺延”。
     private fun performShakeReset(
         currentPlayback: () -> PlaybackState,
         currentMetadata: () -> BookMetadataState
@@ -234,7 +233,7 @@ class SleepTimerManager(
     }
 
     /**
-     * 为每一次改动添加详尽的中文注释：设置睡眠定时器，支持三态睡眠模式 (常规、运动跟踪、睡眠跟踪) 核心判定及物理动作拦截。
+     * 设置睡眠定时器，支持三态睡眠模式 (常规、运动跟踪、睡眠跟踪) 核心判定及物理动作拦截。
      * 支持对数音量平滑渐隐 (Fade Out)，并在定时结束、重置或取消时，使用 try-finally 架构百分之百安全注销传感器并恢复播放器原有音量，防内存与功耗泄露。
      */
     fun setSleepTimer(
@@ -244,10 +243,10 @@ class SleepTimerManager(
         isShakeReset: Boolean = false
     ) {
         sleepTimerJob?.cancel()
-        // 为每一次改动添加详尽的中文注释：通过回调通知外层管理器更新 selectedSleepTimer 属性
+        // 通过回调通知外层管理器更新 selectedSleepTimer 属性
         onTimerSelectedMinutesChanged(minutes)
 
-        // 为每一次改动添加详尽的中文注释：如果不是通过摇晃重置触发的设置（即用户手动触发设置或关闭），必须将跳章顺延记忆重置为 null 从而避免越权跳过。
+        // 如果不是通过摇晃重置触发的设置（即用户手动触发设置或关闭），必须将跳章顺延记忆重置为 null 从而避免越权跳过。
         if (!isShakeReset) {
             skippedChapterStartMs = null
         }
@@ -258,7 +257,7 @@ class SleepTimerManager(
             return
         }
 
-        // 为每一次改动添加详尽的中文注释：如果开启了“运动跟踪”或“睡眠跟踪”模式，则在整个倒计时开启的瞬间就注册传感器监听
+        // 如果开启了“运动跟踪”或“睡眠跟踪”模式，则在整个倒计时开启的瞬间就注册传感器监听
         if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking || 
             sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking) {
             registerShakeListener(currentPlayback, currentMetadata)
@@ -283,7 +282,7 @@ class SleepTimerManager(
 
                             if (endPos > 0) {
                                 val remainingMs = endPos - state.currentPosition
-                                // 为每一次改动添加详尽的中文注释：判断当前章是否是被摇晃手机所顺延屏蔽的章节。
+                                // 判断当前章是否是被摇晃手机所顺延屏蔽的章节。
                                 val isSkipped = currentChapter != null && currentChapter.startPositionMs == skippedChapterStartMs
 
                                 // 若当前章处于顺延屏蔽中，直接跳过其尾部的渐隐流程。
@@ -305,7 +304,7 @@ class SleepTimerManager(
                                     delay(100)
                                     val updatedState = currentPlayback()
                                     if (updatedState.isPlaying) {
-                                        // 为每一次改动添加详尽的中文注释：如果在章节倒数渐隐期内检测到设备处于运动跟踪且在移动、或睡眠未入睡状态，则立即复原满格音量并拦截章节结束逻辑
+                                        // 如果在章节倒数渐隐期内检测到设备处于运动跟踪且在移动、或睡眠未入睡状态，则立即复原满格音量并拦截章节结束逻辑
                                         if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking && isDeviceMoving) {
                                             playbackManager()?.playerVolume = originalVolume
                                             continue
@@ -381,13 +380,13 @@ class SleepTimerManager(
                             }
                         }
 
-                        // 为每一次改动添加详尽的中文注释：在最后 10 秒内采用 100ms 级别的高频精细调节。使用下划线 '_' 代替未使用的循环形参 'i'，消除 IDE 警告。
+                        // 在最后 10 秒内采用 100ms 级别的高频精细调节。使用下划线 '_' 代替未使用的循环形参 'i'，消除 IDE 警告。
                         val steps = 10
                         for (i in 0 until steps) {
                             if (_sleepTimerMillis.value <= 0) break
                             delay(100)
                             if (currentPlayback().isPlaying) {
-                                // 为每一次改动添加详尽的中文注释：如果处于运动跟踪模式且正在运动，则跳过倒计时扣减，并将音量恢复至原音量，实现绝对精准的动作暂停计时。
+                                // 如果处于运动跟踪模式且正在运动，则跳过倒计时扣减，并将音量恢复至原音量，实现绝对精准的动作暂停计时。
                                 if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking && isDeviceMoving) {
                                     playbackManager()?.playerVolume = originalVolume
                                     continue
@@ -417,7 +416,7 @@ class SleepTimerManager(
                         // 常规扣减阶段，每秒循环监测一次
                         delay(1000)
                         if (currentPlayback().isPlaying) {
-                            // 为每一次改动添加详尽的中文注释：根据不同的睡眠模式执行不同的扣减或拦截算法
+                            // 根据不同的睡眠模式执行不同的扣减或拦截算法
                             when (sleepMode()) {
                                 com.viel.aplayer.data.store.SleepMode.Regular -> {
                                     // 常规模式：只要在播放，每秒无条件扣减 1000 毫秒
@@ -434,7 +433,7 @@ class SleepTimerManager(
                                     if (!hasUserFallenAsleep) {
                                         if (!isDeviceMoving) {
                                             timeInStaticMs += 1000L
-                                            // 为每一次改动添加详尽的中文注释：累计接近静止满 10 分钟（600000 毫秒），判定为已安稳入睡，开始倒计时
+                                            // 累计接近静止满 10 分钟（600000 毫秒），判定为已安稳入睡，开始倒计时
                                             if (timeInStaticMs >= 600000L) {
                                                 hasUserFallenAsleep = true
                                                 showToast("睡眠检测：检测到已安稳入睡，开始睡眠倒计时")

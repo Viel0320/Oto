@@ -19,7 +19,6 @@ import androidx.core.text.HtmlCompat
 import com.viel.aplayer.R
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 详情页书籍概要组件 (DetailSummary)。
  * 包含“概要”标题标签和经过 HTML 解析处理的简介内容。
  * 使用 SelectableTextView 支持系统级文本选择。
@@ -71,7 +70,6 @@ fun DetailSummary(
 private val htmlDescriptionPattern = Regex("""</?[a-zA-Z][a-zA-Z0-9]*(\s[^>]*)?/?>""")
 
 /**
- * 为每一次改动添加详尽的中文注释：
  * 渲染简介文本的辅助方法。
  * 1. 规范化换行符（CRLF/CR -> LF）。
  * 2. 如果包含 HTML 标签，则使用 HtmlCompat 进行解析。

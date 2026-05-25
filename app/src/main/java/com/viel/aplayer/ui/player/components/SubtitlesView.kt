@@ -41,7 +41,7 @@ data class SubtitleLine(
     val text: String
 )
 
-// 详尽的中文注释：
+// 
 // 4. 歌词字幕有状态局部隔间 SubtitlesViewStateful
 // 局部订阅高频进度，维持流畅高频的歌词定位，阻断该高频对外部容器和 AppBar 等的刷新污染。
 @Composable
@@ -170,7 +170,7 @@ fun SubtitlesView(
 }
 
 
-// 为每一次改动添加详尽的中文注释：使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
+// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
 @Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
