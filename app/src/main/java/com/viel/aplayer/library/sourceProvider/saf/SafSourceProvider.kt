@@ -1,8 +1,10 @@
 package com.viel.aplayer.library.sourceProvider.saf
 
 import android.content.Context
+import android.os.SystemClock
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
+import android.util.Log
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -73,19 +75,48 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
         }
     }
 
-    override suspend fun openInputStream(file: SourceNode): InputStream? =
-        runCatching { context.contentResolver.openInputStream(buildDocumentUriFromPath(file.root, file.metadata.sourcePath)) }.getOrNull()
+    override suspend fun openInputStream(file: SourceNode): InputStream? {
+        // 为播放慢定位添加详细中文注释：
+        // 记录顺序读流时“重建 DocumentUri + openInputStream”的整体耗时，
+        // 便于判断 SAF 普通打开是否已经占了明显比例。
+        val openStart = SystemClock.elapsedRealtime()
+        val stream = runCatching {
+            context.contentResolver.openInputStream(buildDocumentUriFromPath(file.root, file.metadata.sourcePath))
+        }.getOrNull()
+        val openCost = SystemClock.elapsedRealtime() - openStart
+        Log.d(
+            "SafSourceProvider",
+            "openInputStream(path=${file.metadata.sourcePath}, offset=0) cost=${openCost}ms, success=${stream != null}"
+        )
+        return stream
+    }
 
     override suspend fun openInputStream(file: SourceNode, offset: Long): InputStream? {
         if (offset <= 0L) return openInputStream(file)
+        // 为播放慢定位添加详细中文注释：
+        // offset 打开是 seek / resume / 容器探测时最关键的一条随机读路径；
+        // 这里单独记录 openFileDescriptor + channel.position 的总耗时，便于确认 SAF 随机定位成本。
+        val openStart = SystemClock.elapsedRealtime()
         val pfd = runCatching {
             context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
-        }.getOrNull() ?: return null
+        }.getOrNull() ?: run {
+            val openCost = SystemClock.elapsedRealtime() - openStart
+            Log.d(
+                "SafSourceProvider",
+                "openInputStream(path=${file.metadata.sourcePath}, offset=$offset) cost=${openCost}ms, success=false"
+            )
+            return null
+        }
         val input = FileInputStream(pfd.fileDescriptor)
         return try {
             withContext(Dispatchers.IO) {
                 input.channel.position(offset)
             }
+            val openCost = SystemClock.elapsedRealtime() - openStart
+            Log.d(
+                "SafSourceProvider",
+                "openInputStream(path=${file.metadata.sourcePath}, offset=$offset) cost=${openCost}ms, success=true"
+            )
             object : FilterInputStream(input) {
                 override fun close() {
                     pfd.use {
@@ -96,6 +127,11 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
         } catch (error: Exception) {
             runCatching { input.close() }
             runCatching { pfd.close() }
+            val openCost = SystemClock.elapsedRealtime() - openStart
+            Log.d(
+                "SafSourceProvider",
+                "openInputStream(path=${file.metadata.sourcePath}, offset=$offset) cost=${openCost}ms, success=false, error=${error.javaClass.simpleName}"
+            )
             null
         }
     }
@@ -114,8 +150,20 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
         }
     }
 
-    override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? =
-        runCatching { context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r") }.getOrNull()
+    override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? {
+        // 为播放慢定位添加详细中文注释：
+        // 单独记录 openFileDescriptor 的耗时，帮助区分“FD 打开慢”还是“后续随机定位慢”。
+        val openStart = SystemClock.elapsedRealtime()
+        val descriptor = runCatching {
+            context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
+        }.getOrNull()
+        val openCost = SystemClock.elapsedRealtime() - openStart
+        Log.d(
+            "SafSourceProvider",
+            "openFileDescriptor(path=${file.metadata.sourcePath}) cost=${openCost}ms, success=${descriptor != null}"
+        )
+        return descriptor
+    }
 
     override suspend fun exists(node: SourceNode): Boolean =
         runCatching {

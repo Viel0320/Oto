@@ -3,6 +3,7 @@ package com.viel.aplayer.data
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
 import android.content.Intent
 import androidx.annotation.OptIn
@@ -503,14 +504,31 @@ class LibraryRepository private constructor(context: Context) {
         reachabilityManager.findNextAvailablePlaybackFile(bookId, afterQueueIndex)
 
     suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = withContext(Dispatchers.IO) {
+        // 为播放慢定位添加详细中文注释：
+        // 把播放计划构建拆成 book/files/progress 三段 Room 查询耗时和总耗时，
+        // 用来判断启动慢是否已经在 Repository 层发生。
+        val planBuildStart = SystemClock.elapsedRealtime()
+        val bookQueryStart = SystemClock.elapsedRealtime()
         val book = bookDao.getBookById(bookId) ?: return@withContext null
+        val bookQueryCost = SystemClock.elapsedRealtime() - bookQueryStart
         // 在构建播放计划（即开始播放有声书）时，委托 CoverRecoveryHelper 静默快速物理检查一次封面。
         // 若物理缓存丢失，将非阻塞地派发后台协程启动漏斗模型提取机制进行零延迟自愈。
         coverRecoveryHelper.checkAndTriggerCoverRegeneration(book)
+        val filesQueryStart = SystemClock.elapsedRealtime()
         val files = bookDao.getFilesForBookList(bookId)
+        val filesQueryCost = SystemClock.elapsedRealtime() - filesQueryStart
+        val progressQueryStart = SystemClock.elapsedRealtime()
         val progress = bookDao.getProgressForBookSync(bookId)
+        val progressQueryCost = SystemClock.elapsedRealtime() - progressQueryStart
         
-        if (files.isEmpty()) return@withContext null
+        if (files.isEmpty()) {
+            val totalCost = SystemClock.elapsedRealtime() - planBuildStart
+            Log.d(
+                "LibraryRepository",
+                "getPlaybackPlan($bookId) 无可播放文件, book=${bookQueryCost}ms, files=${filesQueryCost}ms, progress=${progressQueryCost}ms, total=${totalCost}ms"
+            )
+            return@withContext null
+        }
         
         val artworkPath = book.coverPath
         // 播放计划在启动链路里只暴露轻量的 file:// 封面 URI，
@@ -518,7 +536,7 @@ class LibraryRepository private constructor(context: Context) {
         // 这样可以直接避开一次大图磁盘读取，也能避免后续把同一张封面字节重复附着到整条多分轨播放队列里。
         val artworkUri = artworkPath?.let { Uri.fromFile(File(it)) }
 
-        BookPlaybackPlan(
+        val plan = BookPlaybackPlan(
             bookId = bookId,
             title = book.title,
             author = book.author,
@@ -528,6 +546,12 @@ class LibraryRepository private constructor(context: Context) {
             subtitlesByFileId = emptyMap(),
             startGlobalPositionMs = progress?.globalPositionMs ?: 0L
         )
+        val totalCost = SystemClock.elapsedRealtime() - planBuildStart
+        Log.d(
+            "LibraryRepository",
+            "getPlaybackPlan($bookId) 完成, book=${bookQueryCost}ms, files=${filesQueryCost}ms, progress=${progressQueryCost}ms, total=${totalCost}ms, files=${plan.files.size}, start=${plan.startGlobalPositionMs}"
+        )
+        plan
     }
 
     /**

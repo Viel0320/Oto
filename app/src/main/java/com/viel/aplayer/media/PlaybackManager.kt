@@ -2,6 +2,7 @@ package com.viel.aplayer.media
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
@@ -377,8 +378,14 @@ class PlaybackManager private constructor(context: Context) {
      */
     fun setBookPlaybackPlan(plan: BookPlaybackPlan, playWhenReady: Boolean = false) {
         scope.launch {
+            // 为播放慢定位添加详细中文注释：
+            // 记录 PlaybackManager 从拿到播放计划到真正准备下发给 MediaController 的耗时，
+            // 这样可以看出 DataStore 读取、异常中断修正等前置逻辑是否在这一层拖慢启动。
+            val setPlanStart = SystemClock.elapsedRealtime()
             // 异步从设置仓库中读取最新的全局持久化快照。
+            val settingsReadStart = SystemClock.elapsedRealtime()
             val settings = settingsRepository.settingsFlow.first()
+            val settingsReadCost = SystemClock.elapsedRealtime() - settingsReadStart
             var finalPlan = plan
 
             // 核心异常中断进度自愈机制判定。
@@ -397,6 +404,11 @@ class PlaybackManager private constructor(context: Context) {
                 // 若非异常中断恢复，依然主动重置该状态为 false 以免残留脏数据污染。
                 settingsRepository.updateLastPlaybackInterrupted(false)
             }
+
+            android.util.Log.d(
+                "PlaybackManager",
+                "setBookPlaybackPlan(${plan.bookId}) settingsRead=${settingsReadCost}ms, 原始起点=${plan.startGlobalPositionMs}, 最终起点=${finalPlan.startGlobalPositionMs}, files=${finalPlan.files.size}, playWhenReady=$playWhenReady"
+            )
 
             // 完成进度自愈判定后，切回 Dispatchers.Main 线程，百分之百还原原作者的所有多线程渲染及安全检查逻辑。
             withContext(Dispatchers.Main) {
@@ -428,6 +440,11 @@ class PlaybackManager private constructor(context: Context) {
                         withContext(Dispatchers.Main) { applyPlaybackPlan(finalPlan) }
                     }
                 } else {
+                    val preApplyCost = SystemClock.elapsedRealtime() - setPlanStart
+                    android.util.Log.d(
+                        "PlaybackManager",
+                        "setBookPlaybackPlan(${plan.bookId}) 即将调用 applyPlaybackPlan, 前置总耗时=${preApplyCost}ms"
+                    )
                     executeOnMain { applyPlaybackPlan(finalPlan) }
                 }
             }
@@ -435,6 +452,10 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     private fun applyPlaybackPlan(plan: BookPlaybackPlan) {
+        // 为播放慢定位添加详细中文注释：
+        // 把 applyPlaybackPlan 拆成“MediaItem 构建”和“controller.setMediaItems/prepare 下发”两段，
+        // 用来判断多分轨队列构造还是 MediaController 会话调用更耗时。
+        val applyPlanStart = SystemClock.elapsedRealtime()
         val mediaItems = plan.files.map { file ->
             val metadata = MediaMetadata.Builder()
                 .setTitle(plan.title)
@@ -454,20 +475,40 @@ class PlaybackManager private constructor(context: Context) {
             // 启动时不挂载全书字幕附件，避免为了多文件字幕扫描/解析阻塞 setMediaItems。
             builder.build()
         }
+        val mediaItemsBuildCost = SystemClock.elapsedRealtime() - applyPlanStart
         val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
         
         mediaController?.let { controller ->
+            val controllerDispatchStart = SystemClock.elapsedRealtime()
             controller.setMediaItems(mediaItems, fileIndex, positionInFile)
             controller.prepare()
+            val controllerDispatchCost = SystemClock.elapsedRealtime() - controllerDispatchStart
+            val totalApplyCost = SystemClock.elapsedRealtime() - applyPlanStart
+            android.util.Log.d(
+                "PlaybackManager",
+                "applyPlaybackPlan(${plan.bookId}) mediaItems构建=${mediaItemsBuildCost}ms, controller下发=${controllerDispatchCost}ms, total=${totalApplyCost}ms, files=${mediaItems.size}, fileIndex=$fileIndex, positionInFile=$positionInFile"
+            )
             if (pendingPlayWhenReady) {
                 // 为本次桌面 widget 改动添加注释：在 prepare 之后消费 autoplay 请求，避免先 play 后 setMediaItems 的异步时序丢失。
                 pendingPlayWhenReady = false
                 controller.play()
+                // 为播放慢定位添加详细中文注释：
+                // 明确记录 autoplay 指令已经被消费，方便和后续真正出声时间做对比。
+                android.util.Log.d(
+                    "PlaybackManager",
+                    "applyPlaybackPlan(${plan.bookId}) 已消费 autoplay 请求并调用 play()"
+                )
             }
             // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
             _currentSubtitles.value = emptyList()
             // Loading a book should create/update BookProgress immediately, even before playback events fire.
             persistProgress(plan.bookId, fileIndex, positionInFile)
+        } ?: run {
+            val totalApplyCost = SystemClock.elapsedRealtime() - applyPlanStart
+            android.util.Log.d(
+                "PlaybackManager",
+                "applyPlaybackPlan(${plan.bookId}) 跳过, mediaController 尚未就绪, total=${totalApplyCost}ms"
+            )
         }
     }
 

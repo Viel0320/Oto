@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.player
 
 import android.content.Context
 import android.media.AudioManager
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -449,6 +450,10 @@ class PlayerViewModel : ViewModel() {
     }
 
     fun loadBook(id: String, playWhenReady: Boolean = true) {
+        // 为播放慢定位添加详细中文注释：
+        // 记录用户触发 loadBook 到播放计划准备完成的整段耗时，
+        // 便于区分入口层、Repository 取计划层是否参与了启动延迟。
+        val loadBookRequestStart = SystemClock.elapsedRealtime()
         // 
         // 如果当前请求加载的音频书籍 ID 与当前正在播放的音频书籍 ID 相同，则无需重新加载该书。
         // 这可以防止因为重复加载媒体播放计划（loadBook）而打断当前的连续播放状态，提升播放体验的连贯性。
@@ -470,9 +475,29 @@ class PlayerViewModel : ViewModel() {
         settingsManager.dismissBookmarkDialog()
 
         viewModelScope.launch {
+            // 为播放慢定位添加详细中文注释：
+            // 单独记录播放计划构建耗时，
+            // 这样日志里可以直接看出卡顿是否已经发生在 PlayerViewModel -> Repository 这一跳。
+            val playbackPlanStart = SystemClock.elapsedRealtime()
             val plan = libraryRepository?.getPlaybackPlan(id)
+            val playbackPlanCost = SystemClock.elapsedRealtime() - playbackPlanStart
+            android.util.Log.d(
+                "PlayerViewModel",
+                "loadBook($id) 播放计划构建耗时=${playbackPlanCost}ms, planReady=${plan != null}, playWhenReady=$playWhenReady"
+            )
             if (plan != null) {
+                val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
+                android.util.Log.d(
+                    "PlayerViewModel",
+                    "loadBook($id) 即将交给 PlaybackDelegate, 总耗时=${totalCost}ms, files=${plan.files.size}, start=${plan.startGlobalPositionMs}"
+                )
                 playbackDelegate?.loadBook(plan, playWhenReady) { updateCoverPath(it) }
+            } else {
+                val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
+                android.util.Log.d(
+                    "PlayerViewModel",
+                    "loadBook($id) 未生成播放计划, 总耗时=${totalCost}ms"
+                )
             }
         }
     }

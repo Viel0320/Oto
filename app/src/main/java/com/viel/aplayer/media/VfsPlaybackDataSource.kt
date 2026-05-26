@@ -2,6 +2,8 @@ package com.viel.aplayer.media
 
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
@@ -30,19 +32,27 @@ class VfsPlaybackDataSource private constructor(
     private var opened = false
 
     override fun open(dataSpec: DataSpec): Long {
+        // 为播放慢定位添加详细中文注释：
+        // 把 DataSource.open 拆成“查 BookFileEntity”和“通过 VFS 打开流”两段，
+        // 便于确认首包读流前的固定成本到底落在数据库还是存储层。
+        val openStart = SystemClock.elapsedRealtime()
         val bookFileId = VfsPlaybackUri.bookFileId(dataSpec.uri)
             ?: throw DataSourceException("Only VFS playback URIs are supported", PlaybackException.ERROR_CODE_INVALID_STATE)
 
         transferInitializing(dataSpec)
+        val dbLookupStart = SystemClock.elapsedRealtime()
         val file = runBlocking { database.bookDao().getBookFileById(bookFileId) }
             ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
+        val dbLookupCost = SystemClock.elapsedRealtime() - dbLookupStart
         // 播放层只传 offset 给 VFS，SAF 由默认 skip 处理，WebDAV 由 Provider 转成 Range 请求。
+        val vfsOpenStart = SystemClock.elapsedRealtime()
         val stream = try {
             runBlocking { fileReader.open(file, dataSpec.position) }
         } catch (e: IOException) {
             // Provider offset 打开失败统一映射成 Media3 可理解的读位置错误，避免远程异常穿透播放器。
             throw DataSourceException(e, PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
         } ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
+        val vfsOpenCost = SystemClock.elapsedRealtime() - vfsOpenStart
 
         inputStream = stream
         openedUri = dataSpec.uri
@@ -55,6 +65,11 @@ class VfsPlaybackDataSource private constructor(
         }
         opened = true
         transferStarted(dataSpec)
+        val totalOpenCost = SystemClock.elapsedRealtime() - openStart
+        Log.d(
+            "VfsPlaybackDataSource",
+            "open(bookFileId=$bookFileId, offset=${dataSpec.position}) db=${dbLookupCost}ms, vfs=${vfsOpenCost}ms, total=${totalOpenCost}ms, fileSize=${file.fileSize}"
+        )
         return if (dataSpec.length != C.LENGTH_UNSET.toLong()) dataSpec.length else bytesRemaining
     }
 
