@@ -202,11 +202,14 @@ class SleepTimerManager(
             // 章节结束停止模式
             val meta = currentMetadata()
             val state = currentPlayback()
+            // 详尽的中文注释：对关系查询包装列表 meta.chapters 进行就地轻量级解包映射（map { it.chapter }），
+            // 转换为原始的 List<ChapterEntity> 局部变量，从而规避底层 DTO 带来的字段与类型编译冲突，保持核心倒计时算法的完美稳定性。
+            val chapters = meta.chapters.map { it.chapter }
             // 查找当前所处章节
-            val currentChapter = meta.chapters.findLast { state.currentPosition >= it.startPositionMs }
-            val currentChapterIndex = if (currentChapter != null) meta.chapters.indexOf(currentChapter) else -1
+            val currentChapter = chapters.findLast { state.currentPosition >= it.startPositionMs }
+            val currentChapterIndex = if (currentChapter != null) chapters.indexOf(currentChapter) else -1
             // 判断是否拥有下一章节以满足“无下一章节不顺延”的原则
-            val hasNextChapter = currentChapterIndex != -1 && currentChapterIndex < meta.chapters.size - 1
+            val hasNextChapter = currentChapterIndex != -1 && currentChapterIndex < chapters.size - 1
 
             if (hasNextChapter && currentChapter != null) {
                 // 有下一章：触发震动反馈，记录当前章的起始位置至 skippedChapterStartMs，并重启章节结束 Job 且标记 isShakeReset = true
@@ -272,8 +275,11 @@ class SleepTimerManager(
                     while (true) {
                         val state = currentPlayback()
                         val meta = currentMetadata()
+                        // 详尽的中文注释：在此对睡眠倒计时高频轮询的 chapters 数据源进行 map { it.chapter } 转换，
+                        // 使其维持为 List<ChapterEntity> 的传统强类型结构，彻底消除直接访问 DTO 产生的 unresolved reference 编译崩溃。
+                        val chapters = meta.chapters.map { it.chapter }
                         if (state.isPlaying) {
-                            val currentChapter = meta.chapters.findLast { state.currentPosition >= it.startPositionMs }
+                            val currentChapter = chapters.findLast { state.currentPosition >= it.startPositionMs }
                             val endPos = if (currentChapter != null) {
                                 currentChapter.startPositionMs + currentChapter.durationMs
                             } else {

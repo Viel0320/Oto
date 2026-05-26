@@ -1,7 +1,7 @@
 package com.viel.aplayer.ui.player
 
 import com.viel.aplayer.data.entity.BookmarkEntity
-import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.player.components.SubtitleLine
 
@@ -24,8 +24,8 @@ data class BookMetadataState(
     val thumbnailPath: String? = null,
     /** 封面物理文件最后更新的时间戳，用以在封面物理自愈生成后强制打破 Compose 新旧状态比较拦截，强推 UI 线程重绘刷新 */
     val coverLastUpdated: Long = 0L,
-    /** 章节列表 */
-    val chapters: List<ChapterEntity> = emptyList(),
+    /** 章节列表（嵌入关联物理文件就绪状态） */
+    val chapters: List<ChapterWithBookFile> = emptyList(),
     /** 字幕/歌词行列表 */
     val subtitles: List<SubtitleLine> = emptyList(),
     /** 用户添加的书签列表 */
@@ -43,7 +43,7 @@ data class BookMetadataState(
      */
     fun getChapterMarkers(totalDuration: Long): List<Float> {
         return if (totalDuration > 0) {
-            chapters.map { it.startPositionMs.toFloat() / totalDuration.toFloat() }
+            chapters.map { it.chapter.startPositionMs.toFloat() / totalDuration.toFloat() }
         } else {
             emptyList()
         }

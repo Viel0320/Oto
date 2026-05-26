@@ -93,9 +93,18 @@ fun PlayerScreen(
             thumbnailPath = null,
             coverLastUpdated = 0L,
             backgroundColorArgb = "#FF1E293B".toColorInt(), // 深色灰蓝色背景
+            // 详尽的中文注释：由于 BookMetadataState 中的 chapters 已重构升级为 List<ChapterWithBookFile> 关系模型，
+            // 此处在预览 Mock 时，需要将 ChapterEntity 用 ChapterWithBookFile 进行原子包裹，物理文件 bookFile 直接 mock 传入 null，
+            // 确保预览渲染链路契约一致且完美通过 Kotlin 强类型编译检验。
             chapters = listOf(
-                com.viel.aplayer.data.entity.ChapterEntity("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, "EMBEDDED"),
-                com.viel.aplayer.data.entity.ChapterEntity("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, "EMBEDDED")
+                com.viel.aplayer.data.entity.ChapterWithBookFile(
+                    chapter = com.viel.aplayer.data.entity.ChapterEntity("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, "EMBEDDED"),
+                    bookFile = null
+                ),
+                com.viel.aplayer.data.entity.ChapterWithBookFile(
+                    chapter = com.viel.aplayer.data.entity.ChapterEntity("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, "EMBEDDED"),
+                    bookFile = null
+                )
             )
         )
     } else {

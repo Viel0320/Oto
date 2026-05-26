@@ -29,6 +29,7 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.data.entity.ChapterWithBookFile
 import kotlinx.coroutines.flow.update
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.media.PlaybackManager
@@ -132,7 +133,7 @@ class PlayerViewModel : ViewModel() {
                 repo.getChapters(id),
                 repo.getBookmarks(id),
                 _currentSubtitles
-            ) { entity: com.viel.aplayer.data.entity.BookEntity?, chapters: List<com.viel.aplayer.data.entity.ChapterEntity>, bookmarks: List<com.viel.aplayer.data.entity.BookmarkEntity>, subtitles: List<com.viel.aplayer.ui.player.components.SubtitleLine> ->
+            ) { entity: com.viel.aplayer.data.entity.BookEntity?, chapters: List<com.viel.aplayer.data.entity.ChapterWithBookFile>, bookmarks: List<com.viel.aplayer.data.entity.BookmarkEntity>, subtitles: List<com.viel.aplayer.ui.player.components.SubtitleLine> ->
                 BookMetadataState(
                     id = id,
                     title = entity?.title ?: "",
@@ -211,13 +212,12 @@ class PlayerViewModel : ViewModel() {
         PlaybackProgressViewState(pos, dur, mode)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
 
-    // 新增极其低频的章节边界流通道。
-    // 仅在进度跨越章节临界点或者书籍章节列表改变时才射出新章节，实现章节标题组件 ChapterDisplay 的绝对低频重组。
+    // 极其低频的章节边界流通道，章节检索映射算法已彻底解耦至 PlaybackStateMapper，在 UI 端使用 chapter 解包以保持算法兼容性
     val currentChapterState: StateFlow<com.viel.aplayer.data.entity.ChapterEntity?> = combine(
         playbackState.map { it.currentPosition }.distinctUntilChanged(),
         metadataState.map { it.chapters }.distinctUntilChanged()
     ) { pos, chapters ->
-        com.viel.aplayer.media.ChapterTimeline.currentChapter(chapters, pos)
+        PlaybackStateMapper.currentChapter(chapters.map { it.chapter }, pos)
     }
     .distinctUntilChanged()
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -229,43 +229,27 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackControlState(false, 1.0f, false))
 
-    // 当前播放进度百分比 (0-100)，从真实的 playbackState 高频流派生。
-    // 供 DetailOverlay 在展示当前正在播放的书籍详情时，实时同步进度百分比，
-    // 避免在 Composable 中内联数学运算，遵循 ViewModel 单向数据流原则。
+    // 详尽的中文注释：当前播放进度百分比 (0-100)，核心公式和向上取整运算已被剥离委托给 PlaybackStateMapper
     val currentPlaybackProgressPercent: StateFlow<Int> = playbackState
         .map { state ->
-            if (state.duration > 0) {
-                kotlin.math.ceil(
-                    state.currentPosition.toDouble() / state.duration.toDouble() * 100
-                ).toInt().coerceIn(0, 100)
-            } else 0
+            PlaybackStateMapper.calculateProgressPercent(state.currentPosition, state.duration)
         }
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    // 迷你播放器显示进度 (0.0f - 1.0f)。
-    // 根据用户是否开启章节进度模式 (isChapterProgressMode)，自动选择：
-    // - 章节模式：计算当前章节内的局部进度比例（调用 ChapterTimeline）
-    // - 全局模式：使用 currentPosition / duration 的全局进度
-    // 此前该计算散落在 PlayerOverlay 的 MiniPlayerContent Composable 中，
-    // 现集中到 ViewModel 的 Flow 管道，UI 层只需订阅并渲染。
+    // 详尽的中文注释：迷你播放器显示进度 (0.0f - 1.0f)，复杂的局部进度和章节偏移计算逻辑完全由 PlaybackStateMapper 代理
     val miniPlayerProgress: StateFlow<Float> = combine(
         playbackState,
         metadataState.map { it.chapters }.distinctUntilChanged(),
         settingsState.map { it.isChapterProgressMode }.distinctUntilChanged()
     ) { state, chapters, isChapterMode ->
-        if (isChapterMode && chapters.isNotEmpty()) {
-            val currentChapter = ChapterTimeline.currentChapter(chapters, state.currentPosition)
-            val posInChapter = ChapterTimeline.positionInChapter(
-                chapters, currentChapter, state.currentPosition, state.duration
-            )
-            val chapterDuration = ChapterTimeline.duration(
-                chapters, currentChapter, state.duration
-            )
-            if (chapterDuration > 0) posInChapter.toFloat() / chapterDuration.toFloat() else 0f
-        } else {
-            state.progress
-        }
+        PlaybackStateMapper.calculateMiniPlayerProgress(
+            currentPosition = state.currentPosition,
+            duration = state.duration,
+            chapters = chapters.map { it.chapter },
+            isChapterMode = isChapterMode,
+            fallbackProgress = state.progress
+        )
     }
     .distinctUntilChanged()
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
@@ -606,8 +590,8 @@ class PlayerViewModel : ViewModel() {
     }
     fun onRouteChanged() = settingsManager.setMiniPlayerHidden(false)
 
-    fun skipToNextChapter() = playbackDelegate?.skipToNextChapter(metadataState.value.chapters, playbackState.value.currentPosition)
-    fun skipToPreviousChapter() = playbackDelegate?.skipToPreviousChapter(metadataState.value.chapters, playbackState.value.currentPosition)
+    fun skipToNextChapter() = playbackDelegate?.skipToNextChapter(metadataState.value.chapters.map { it.chapter }, playbackState.value.currentPosition)
+    fun skipToPreviousChapter() = playbackDelegate?.skipToPreviousChapter(metadataState.value.chapters.map { it.chapter }, playbackState.value.currentPosition)
 
     fun updateCoverPath(path: String?) {
         val id = _currentBookId.value ?: return

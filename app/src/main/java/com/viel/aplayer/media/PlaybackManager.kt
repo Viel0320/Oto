@@ -38,6 +38,9 @@ class PlaybackManager private constructor(context: Context) {
     // 实例化新的 AutoRewindManager 以便对自动回退逻辑进行精细化管理与状态维护。
     private val autoRewindManager = AutoRewindManager.getInstance(appContext)
 
+    // 进度同步追踪器实例，用于隔离进度高频轮询更新与底层的数据库落盘，实现单一职责设计与解耦。
+    private val progressSyncTracker: ProgressSyncTracker
+
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
     // 为本次桌面 widget 改动添加注释：记录异步连接 MediaController 期间的 autoplay 意图，确保 widget 冷启动恢复播放不会因为控制器尚未就绪而丢指令。
@@ -86,8 +89,20 @@ class PlaybackManager private constructor(context: Context) {
         get() = currentPlan?.bookId
 
     init {
+        // 构建进度同步追踪器，并通过 lambda 回调无缝对接 Flow 值的更新，实现管道式状态上报。
+        progressSyncTracker = ProgressSyncTracker(
+            context = appContext,
+            libraryRepository = libraryRepository,
+            scope = scope,
+            getController = { mediaController },
+            getCurrentPlan = { currentPlan },
+            onProgressUpdated = { positionMs, durationMs ->
+                _currentPosition.value = positionMs
+                _duration.value = durationMs
+            }
+        )
         initializeController()
-        startProgressPolling()
+        progressSyncTracker.startPolling()
     }
 
     private fun initializeController() {
@@ -141,7 +156,7 @@ class PlaybackManager private constructor(context: Context) {
         _isPlaying.value = controller.isPlaying
         _playbackState.value = controller.playbackState
         _currentMediaItem.value = controller.currentMediaItem
-        updateGlobalPositionAndDuration(controller)
+        progressSyncTracker.updateProgress(controller)
         _playbackSpeed.value = controller.playbackParameters.speed
 
         controller.addListener(object : Player.Listener {
@@ -151,7 +166,7 @@ class PlaybackManager private constructor(context: Context) {
                 _isPlaying.value = isPlaying
                 // 为本次桌面 widget 改动添加注释：播放/暂停按钮图标依赖此状态，变化后立即刷新所有播放器小组件。
                 PlayerWidgetProvider.updateAll(appContext)
-                saveProgress()
+                progressSyncTracker.saveProgress()
 
                 // 在后台协程中，实时将当前的物理播放状态（是否在播）同步写入 isLastPlaybackInterrupted，
                 // 用于冷启动时精准甄别上一次是否为非正常中断（强杀/闪退）以触发进度自愈机制。
@@ -172,8 +187,8 @@ class PlaybackManager private constructor(context: Context) {
                         controller = controller,
                         currentPlan = currentPlan,
                         scope = scope,
-                        onProgressUpdated = { conn -> updateGlobalPositionAndDuration(conn) },
-                        onSaveProgress = { saveProgress() }
+                        onProgressUpdated = { conn -> progressSyncTracker.updateProgress(conn) },
+                        onSaveProgress = { progressSyncTracker.saveProgress() }
                     )
                 }
             }
@@ -181,26 +196,26 @@ class PlaybackManager private constructor(context: Context) {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 _playbackState.value = playbackState
                 if (playbackState == Player.STATE_READY) {
-                    updateGlobalPositionAndDuration(controller)
+                    progressSyncTracker.updateProgress(controller)
                 }
                 // 为本次桌面 widget 改动添加注释：播放队列准备、结束或空闲时刷新小组件文案与按钮状态。
                 PlayerWidgetProvider.updateAll(appContext)
-                saveProgress()
+                progressSyncTracker.saveProgress()
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 _currentMediaItem.value = mediaItem
                 // 字幕文本由 PlayerViewModel 按当前文件懒加载，这里只清掉上一文件的缓存。
                 _currentSubtitles.value = emptyList()
-                updateGlobalPositionAndDuration(controller)
+                progressSyncTracker.updateProgress(controller)
                 
                 // 为本次桌面 widget 改动添加注释：切换分轨时刷新小组件，确保封面和书名仍对应当前播放书籍。
                 PlayerWidgetProvider.updateAll(appContext)
-                saveProgress()
+                progressSyncTracker.saveProgress()
             }
 
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-                updateGlobalPositionAndDuration(controller)
+                progressSyncTracker.updateProgress(controller)
             }
 
             override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
@@ -209,95 +224,12 @@ class PlaybackManager private constructor(context: Context) {
         })
     }
 
-    private fun updateGlobalPositionAndDuration(player: Player) {
-        val plan = currentPlan
-        if (plan != null && plan.files.isNotEmpty() && player.currentMediaItem != null) {
-            // UI 始终读取真实 MediaController 状态，只在这里转换成全书全局位置。
-            val fileIndex = player.currentMediaItemIndex.coerceIn(0, plan.files.lastIndex)
-            val positionInFile = player.currentPosition.coerceAtLeast(0L)
-            val totalDur = plan.files.sumOf { it.durationMs }
-            _currentPosition.value = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
-                .coerceIn(0L, totalDur.coerceAtLeast(0L))
-            _duration.value = totalDur
-        } else {
-            // 没有播放计划或播放计划为空时保持 MediaController 的真实单文件进度。
-            _currentPosition.value = player.currentPosition.coerceAtLeast(0L)
-            _duration.value = player.duration.coerceAtLeast(0L)
-        }
-    }
-
-    private fun startProgressPolling() {
-        scope.launch {
-            var saveCounter = 0
-            while (isActive) {
-                val controller = mediaController
-                if (controller != null && controller.isPlaying) {
-                    updateGlobalPositionAndDuration(controller)
-                    
-                    saveCounter++
-                    if (saveCounter >= 20) { // 10s
-                        saveCounter = 0
-                        saveProgress()
-                    }
-                }
-                val delayTime = if (mediaController?.isPlaying == true) 500L else 2000L
-                delay(delayTime)
-            }
-        }
-    }
-
     /**
      * 将当前进度持久化到数据库。
+     * 该方法保留以维持与外部调用组件及 AutoRewindManager 原本的契约，内部委托给 progressSyncTracker 执行。
      */
     fun saveProgress() {
-        val controller = mediaController ?: return
-        val mediaId = controller.currentMediaItem?.mediaId ?: return
-        if (!mediaId.contains(":")) return
-
-        val bookId = mediaId.substringBefore(":")
-        // 进度持久化使用真实播放队列索引和文件内位置，通知层的显示包装不参与存储。
-        val fileIndex = controller.currentMediaItemIndex.coerceAtLeast(0)
-        val positionInFile = controller.currentPosition.coerceAtLeast(0L)
-
-        scope.launch {
-            val files = libraryRepository.getFilesForBookSync(bookId)
-            if (files.isNotEmpty()) {
-                val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
-                val bookFileId = files.getOrNull(fileIndex)?.id
-                
-                libraryRepository.saveProgress(BookProgressEntity(
-                    bookId = bookId,
-                    globalPositionMs = globalPos,
-                    bookFileId = bookFileId,
-                    currentFileIndex = fileIndex,
-                    positionInFileMs = positionInFile,
-                    lastPlayedAt = System.currentTimeMillis()
-                ))
-            }
-        }
-    }
-
-    private fun persistProgress(bookId: String, fileIndex: Int, positionInFile: Long) {
-        scope.launch {
-            val files = libraryRepository.getFilesForBookSync(bookId)
-            if (files.isNotEmpty()) {
-                val safeFileIndex = fileIndex.coerceIn(0, files.lastIndex)
-                val safePositionInFile = positionInFile.coerceAtLeast(0L)
-                val globalPos = PositionMapper.fileToGlobalPosition(safeFileIndex, safePositionInFile, files)
-                    .coerceIn(0L, files.sumOf { it.durationMs }.coerceAtLeast(0L))
-                val bookFileId = files.getOrNull(safeFileIndex)?.id
-
-                // BookProgress is keyed by bookId, so this creates the first row or refreshes the existing row.
-                libraryRepository.saveProgress(BookProgressEntity(
-                    bookId = bookId,
-                    globalPositionMs = globalPos,
-                    bookFileId = bookFileId,
-                    currentFileIndex = safeFileIndex,
-                    positionInFileMs = safePositionInFile,
-                    lastPlayedAt = System.currentTimeMillis()
-                ))
-            }
-        }
+        progressSyncTracker.saveProgress()
     }
 
     /**
@@ -371,25 +303,8 @@ class PlaybackManager private constructor(context: Context) {
         // 把 applyPlaybackPlan 拆成“MediaItem 构建”和“controller.setMediaItems/prepare 下发”两段，
         // 用来判断多分轨队列构造还是 MediaController 会话调用更耗时。
         val applyPlanStart = SystemClock.elapsedRealtime()
-        val mediaItems = plan.files.map { file ->
-            val metadata = MediaMetadata.Builder()
-                .setTitle(plan.title)
-                .setArtist(plan.author)
-                .setAlbumTitle(plan.title)
-                // 每个分轨现在只共享同一个封面 URI，
-                // 不再把同一张封面原图字节重复挂到每个 MediaItem 上；
-                // 这样可以显著缩小 setMediaItems 前构造出的对象体积，并减少经由 MediaController 会话层传输时的复制成本。
-                .setArtworkUri(plan.artworkUri)
-                .build()
-            val builder = MediaItem.Builder()
-                // mediaId 后半段改为真实 BookFileEntity.id，让字幕、进度和后续 VFS 播放都能稳定回到同一条文件记录。
-                .setMediaId("${plan.bookId}:${file.id}")
-                // 播放器只接收应用内部 VFS URI，实际读流由 PlaybackService 的 VfsPlaybackDataSource 通过 rootId/sourcePath 完成。
-                .setUri(VfsPlaybackUri.fromBookFile(file))
-                .setMediaMetadata(metadata)
-            // 启动时不挂载全书字幕附件，避免为了多文件字幕扫描/解析阻塞 setMediaItems。
-            builder.build()
-        }
+        // 详尽的中文注释：调用 PlaybackPlanBuilder 的 buildMediaItems 接口对播放计划进行转换，完全剥离传输实体构建细节，实现工厂化解耦
+        val mediaItems = PlaybackPlanBuilder.buildMediaItems(plan)
         val mediaItemsBuildCost = SystemClock.elapsedRealtime() - applyPlanStart
         val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
         
@@ -417,7 +332,7 @@ class PlaybackManager private constructor(context: Context) {
             // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
             _currentSubtitles.value = emptyList()
             // Loading a book should create/update BookProgress immediately, even before playback events fire.
-            persistProgress(plan.bookId, fileIndex, positionInFile)
+            progressSyncTracker.persistProgress(plan.bookId, fileIndex, positionInFile)
         } ?: run {
             val totalApplyCost = SystemClock.elapsedRealtime() - applyPlanStart
             android.util.Log.d(
@@ -469,7 +384,7 @@ class PlaybackManager private constructor(context: Context) {
                 // 跳转后的字幕由 currentMediaItem 变化触发懒加载，避免 seek 时同步解析字幕。
                 _currentSubtitles.value = emptyList()
                 // User-initiated seek must persist immediately so BookProgress is not dependent on later callbacks.
-                persistProgress(bookId, fileIndex, positionInFile)
+                progressSyncTracker.persistProgress(bookId, fileIndex, positionInFile)
             }
         }
     }
@@ -481,6 +396,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     fun release() {
+        progressSyncTracker.stopPolling()
         scope.cancel()
         controllerFuture?.let {
             MediaController.releaseFuture(it)
