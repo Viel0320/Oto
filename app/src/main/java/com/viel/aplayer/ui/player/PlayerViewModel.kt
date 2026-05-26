@@ -407,29 +407,40 @@ class PlayerViewModel : ViewModel() {
                         _currentSubtitles.value = emptyList()
 
                         // 启动全新的字幕加载与 Fallback 竞争协程。
-                        // 优先通过 500ms 的 withTimeoutOrNull 监听来自底层 Media3 播放器提取抛出的内置 embeddedSubtitles；
-                        // 只要有任何合法非空的内置歌词到来，且窗口期处于激活状态，直接装载并拉闸锁定，杜绝外置检索；
-                        // 若超时触发（返回 null）或者被动异常，拉闸锁定内置状态，回退检索物理同级外置字幕文件，实现平滑降级。
+                        // 优先检查外置物理字幕文件，如果存在则直接使用并忽略内置歌词；
+                        // 若外置字幕不存在，则开启最多 500ms 的窗口期监听底层 Media3 提取出的内置歌词 embeddedSubtitles。
                         subtitleLoadJob = viewModelScope.launch {
                             isEmbeddedSearchActive = true
-                            val embeddedSubs = try {
-                                withTimeoutOrNull(500) {
-                                    manager.embeddedSubtitles.first { it.isNotEmpty() }
+                            
+                            // 开启一个异步任务去监听内置歌词（非阻塞）
+                            val embeddedDeferred = kotlinx.coroutines.async {
+                                try {
+                                    withTimeoutOrNull(500) {
+                                        manager.embeddedSubtitles.first { it.isNotEmpty() }
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("PlayerViewModel", "等待内置字幕时抛出异常", e)
+                                    null
                                 }
-                            } catch (e: Exception) {
-                                android.util.Log.e("PlayerViewModel", "等待内置字幕时抛出异常", e)
-                                null
                             }
 
-                            if (embeddedSubs != null && isEmbeddedSearchActive) {
-                                // 在 500ms 窗口期内拿到了合法的内置歌词，立即拉闸锁死状态，并装载内置歌词
+                            // 优先尝试加载外置物理字幕文件
+                            val externalSubs = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                                libraryRepository?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
+                            }
+
+                            if (externalSubs.isNotEmpty()) {
+                                // 找到外置字幕，优先使用，并取消内置监听
                                 isEmbeddedSearchActive = false
-                                _currentSubtitles.value = embeddedSubs
+                                embeddedDeferred.cancel()
+                                _currentSubtitles.value = externalSubs
                             } else {
-                                // 外置字幕回退通过 bookFileId 查入库文件并走 VFS 同级目录，不再从 MediaItem.uri 反查。
+                                // 外置字幕为空，等待内置歌词的监听结果
+                                val embeddedSubs = embeddedDeferred.await()
+                                if (embeddedSubs != null && isEmbeddedSearchActive) {
+                                    _currentSubtitles.value = embeddedSubs
+                                }
                                 isEmbeddedSearchActive = false
-                                val subs = libraryRepository?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
-                                _currentSubtitles.value = subs
                             }
                         }
                     }

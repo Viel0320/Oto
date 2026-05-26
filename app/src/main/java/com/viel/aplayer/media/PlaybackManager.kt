@@ -189,7 +189,16 @@ class PlaybackManager private constructor(context: Context) {
                 _playbackState.value = playbackState
                 if (playbackState == Player.STATE_READY) {
                     updateGlobalPositionAndDuration(controller)
-                    _metadataEntries.value = extractMetadataEntries(controller)
+                    val entries = extractMetadataEntries(controller)
+                    _metadataEntries.value = entries
+                    scope.launch {
+                        val subs = withContext(Dispatchers.IO) {
+                            extractLyricsFromEntries(entries)
+                        }
+                        if (subs.isNotEmpty()) {
+                            _embeddedSubtitles.emit(subs)
+                        }
+                    }
                 }
                 // 为本次桌面 widget 改动添加注释：播放队列准备、结束或空闲时刷新小组件文案与按钮状态。
                 PlayerWidgetProvider.updateAll(appContext)
@@ -201,7 +210,16 @@ class PlaybackManager private constructor(context: Context) {
                 // 字幕文本由 PlayerViewModel 按当前文件懒加载，这里只清掉上一文件的缓存。
                 _currentSubtitles.value = emptyList()
                 updateGlobalPositionAndDuration(controller)
-                _metadataEntries.value = extractMetadataEntries(controller)
+                val entries = extractMetadataEntries(controller)
+                _metadataEntries.value = entries
+                scope.launch {
+                    val subs = withContext(Dispatchers.IO) {
+                        extractLyricsFromEntries(entries)
+                    }
+                    if (subs.isNotEmpty()) {
+                        _embeddedSubtitles.emit(subs)
+                    }
+                }
                 // 为本次桌面 widget 改动添加注释：切换分轨时刷新小组件，确保封面和书名仍对应当前播放书籍。
                 PlayerWidgetProvider.updateAll(appContext)
                 saveProgress()
@@ -216,8 +234,12 @@ class PlaybackManager private constructor(context: Context) {
             // 因此必须开启协程并分发到 Dispatchers.IO 线程执行，以规避主线程卡顿并消除编译警告。
             override fun onMetadata(metadata: androidx.media3.common.Metadata) {
                 scope.launch {
+                    val entries = mutableListOf<androidx.media3.common.Metadata.Entry>()
+                    for (i in 0 until metadata.length()) {
+                        entries.add(metadata.get(i))
+                    }
                     val subs = withContext(Dispatchers.IO) {
-                        extractLyricsFromMetadata(metadata)
+                        extractLyricsFromEntries(entries)
                     }
                     if (subs.isNotEmpty()) {
                         _embeddedSubtitles.emit(subs)
@@ -229,36 +251,46 @@ class PlaybackManager private constructor(context: Context) {
 
     /**
      * 核心内置元数据歌词抓取与转化函数。
-     * 循环遍历 ExoPlayer 回调出的所有 Metadata 帧条目，寻找到 ID3 规范下的 UnsynchronisedLyricsFrame（无同步歌词帧）。
-     * 获得歌词正文文本后，重用 SubtitleParser 的通用 lrc 流式解析接口，一站式转换为 SubtitleLine 结构化集合，
-     * 充分消除重复造轮子所带来的隐患，实现底层高聚解耦。
+     * 遍历收集到的 Metadata.Entry 条目，分别针对 MP3(ID3)、FLAC(Vorbis)、MP4(TextInformationFrame) 进行反射读取歌词文本。
+     * 获得歌词正文文本后，重用 SubtitleParser 的通用 lrc 流式解析接口，一站式转换为 SubtitleLine 结构化集合。
+     * 物理规避 Media3 版本升级造成的类的包名变更等编译符号未解析崩溃。
      */
-    private fun extractLyricsFromMetadata(metadata: androidx.media3.common.Metadata): List<SubtitleLine> {
+    private fun extractLyricsFromEntries(entries: List<androidx.media3.common.Metadata.Entry>): List<SubtitleLine> {
         val subs = mutableListOf<SubtitleLine>()
-        for (i in 0 until metadata.length()) {
-            val entry = metadata.get(i)
-            // 为了完全规避 Media3 在不同版本更迭中对 UnsynchronisedLyricsFrame 物理包名（如在 extractor.metadata 或 common.metadata 间迁移）的变动，
-            // 物理防范因 compileSdk/依赖库演进而引发的编译符号未解析（Unresolved）崩溃，此处利用反射机制进行完全解耦的动态类型探测与数据读取。
+        for (entry in entries) {
             val entryClassName = entry.javaClass.name
-            if (entryClassName.endsWith("UnsynchronisedLyricsFrame")) {
-                try {
+            try {
+                var lyricsText: String? = null
+                if (entryClassName.endsWith("UnsynchronisedLyricsFrame")) {
                     val textField = entry.javaClass.getField("text")
-                    val lyricsText = textField.get(entry) as? String
-                    if (!lyricsText.isNullOrBlank()) {
-                        try {
-                            // 使用标准 Java 的 Charset.forName 动态指定 UTF-8 编码，彻底物理规避 Kotlin 特定包下扩展函数在部分编译环境下 unresolved 的致命缺陷
-                            val stream = java.io.ByteArrayInputStream(lyricsText.toByteArray(java.nio.charset.Charset.forName("UTF-8")))
-                            val parsed = SubtitleParser.parse(stream, "lrc")
-                            if (parsed.isNotEmpty()) {
-                                subs.addAll(parsed)
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("PlaybackManager", "解析内置元数据歌词失败", e)
-                        }
+                    lyricsText = textField.get(entry) as? String
+                } else if (entryClassName.endsWith("VorbisComment")) {
+                    val keyField = entry.javaClass.getField("key")
+                    val key = keyField.get(entry) as? String
+                    if (key.equals("LYRICS", ignoreCase = true)) {
+                        val valueField = entry.javaClass.getField("value")
+                        lyricsText = valueField.get(entry) as? String
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("PlaybackManager", "反射读取内置元数据歌词字段 text 失败", e)
+                } else if (entryClassName.endsWith("TextInformationFrame")) {
+                    val idField = entry.javaClass.getField("id")
+                    val id = idField.get(entry) as? String
+                    if (id.equals("©lyr", ignoreCase = true) || id.equals("LYRICS", ignoreCase = true)) {
+                        val valueField = entry.javaClass.getField("value")
+                        lyricsText = valueField.get(entry) as? String
+                    }
                 }
+                
+                if (!lyricsText.isNullOrBlank()) {
+                    // 使用标准 Java 的 Charset.forName 动态指定 UTF-8 编码，彻底物理规避 Kotlin 特定包下扩展函数在部分编译环境下 unresolved 的致命缺陷
+                    val stream = java.io.ByteArrayInputStream(lyricsText.toByteArray(java.nio.charset.Charset.forName("UTF-8")))
+                    val parsed = SubtitleParser.parse(stream, "lrc")
+                    if (parsed.isNotEmpty()) {
+                        subs.addAll(parsed)
+                        break // 一旦找到合法的全量内置歌词并解析成功，立即跳出循环，避免重复解析
+                    }
+                }
+            } catch (e: Exception) {
+                // 静默忽略反射属性缺失或解析异常，保障整体播放生命周期坚如磐石
             }
         }
         return subs
