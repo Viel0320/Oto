@@ -68,10 +68,10 @@ class PlaybackService : MediaSessionService() {
                     android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
                     android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                         // 被动临时失去焦点。只有当播放器正在播放时，才进行暂停并设定标志。
-                        // 在暂停前，通知 PlaybackManager 忽略下一次由于状态变动触发的自动回退逻辑，保障进度完美连续。
+                        // 在暂停前，通知 AutoRewindManager 忽略下一次由于状态变动触发的自动回退逻辑，保障进度完美连续。
                         if (player.isPlaying) {
                             isPausedByLossOfFocus = true
-                            com.viel.aplayer.media.PlaybackManager.getInstance(applicationContext).ignoreNextAutoRewind = true
+                            com.viel.aplayer.media.AutoRewindManager.getInstance(applicationContext).ignoreNextAutoRewind = true
                             player.pause()
                         }
                     }

@@ -22,6 +22,7 @@ import com.viel.aplayer.media.service.PlaybackService
 import com.viel.aplayer.media.subtitle.SubtitleParser
 import com.viel.aplayer.ui.player.components.SubtitleLine
 import com.viel.aplayer.widget.PlayerWidgetProvider
+import com.viel.aplayer.media.AutoRewindManager
 
 @OptIn(UnstableApi::class)
 class PlaybackManager private constructor(context: Context) {
@@ -35,6 +36,8 @@ class PlaybackManager private constructor(context: Context) {
     private val libraryRepository = LibraryRepository.getInstance(appContext)
     // 实例化 AppSettingsRepository 以便动态获取和监控用户的 HTTP 明文流量配置权限。
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
+    // 实例化新的 AutoRewindManager 以便对自动回退逻辑进行精细化管理与状态维护。
+    private val autoRewindManager = AutoRewindManager.getInstance(appContext)
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
@@ -83,9 +86,6 @@ class PlaybackManager private constructor(context: Context) {
 
     // 物理记录播放器前一时刻真实的播放状态，用以作为核心依据检测用户点击暂停、耳机拔出等导致的“播放->暂停”状态跃迁，以无缝触发自动回退功能。
     private var lastIsPlaying = false
-
-    // 设置临时状态标志，如果为 true，则在播放器状态转换到暂停时不应用自动回退逻辑（比如在音频焦点被动抢占、被迫暂停时）。
-    var ignoreNextAutoRewind: Boolean = false
 
     /** 当前播放计划的 bookId，非挂起，可从任意线程安全读取。 */
     val currentPlayingBookId: String?
@@ -173,13 +173,15 @@ class PlaybackManager private constructor(context: Context) {
                 // 
                 // 如果先前处于正在播放状态（wasPlaying 为 true），当前变化为了暂停或停止播放状态（isPlaying 为 false），
                 // 且用户在设置里开启了大于 0 秒的自动回退时间，则自动执行位置定位回退。
-                // 如果检测到 ignoreNextAutoRewind 为 true，说明此番暂停因临时失去焦点而被动触发，我们应跳过回退逻辑，并将标志重置为 false。
+                // 委托给 AutoRewindManager 进行暂停逻辑判断与回退处理。
                 if (wasPlaying && !isPlaying) {
-                    if (ignoreNextAutoRewind) {
-                        ignoreNextAutoRewind = false
-                    } else {
-                        applyAutoRewind()
-                    }
+                    autoRewindManager.handlePause(
+                        controller = controller,
+                        currentPlan = currentPlan,
+                        scope = scope,
+                        onProgressUpdated = { conn -> updateGlobalPositionAndDuration(conn) },
+                        onSaveProgress = { saveProgress() }
+                    )
                 }
             }
 
@@ -386,24 +388,8 @@ class PlaybackManager private constructor(context: Context) {
             val settingsReadStart = SystemClock.elapsedRealtime()
             val settings = settingsRepository.settingsFlow.first()
             val settingsReadCost = SystemClock.elapsedRealtime() - settingsReadStart
-            var finalPlan = plan
-
-            // 核心异常中断进度自愈机制判定。
-            // 如果上一次播放由于非正常中断（强杀/闪退/Crash，isLastPlaybackInterrupted = true），且设定了有效的回退时间，
-            // 则从全局起始进度中减去回退毫秒数作为进度自愈补偿，最低限制到 0ms 开头，
-            // 接着利用 copy 构造出自愈补偿后的 finalPlan，并在 DataStore 中立即复位中断标志为 false 防止切歌等二次触发自愈。
-            if (settings.isLastPlaybackInterrupted && settings.autoRewindSeconds > 0) {
-                val rewindMs = settings.autoRewindSeconds * 1000L
-                val restoredPos = (plan.startGlobalPositionMs - rewindMs).coerceAtLeast(0L)
-                finalPlan = plan.copy(startGlobalPositionMs = restoredPos)
-
-                // 自愈完成后瞬间重置异常中断标志为 false，保障状态正确复位。
-                settingsRepository.updateLastPlaybackInterrupted(false)
-                android.util.Log.d("PlaybackManager", "检测到上一次播放被异常中断，已自动回退 $rewindMs ms 进行自愈，最终起始进度: $restoredPos ms")
-            } else {
-                // 若非异常中断恢复，依然主动重置该状态为 false 以免残留脏数据污染。
-                settingsRepository.updateLastPlaybackInterrupted(false)
-            }
+            // 异常中断进度自愈机制已前置到应用冷启动阶段执行，此处直接使用传入的 plan
+            val finalPlan = plan
 
             android.util.Log.d(
                 "PlaybackManager",
@@ -414,7 +400,7 @@ class PlaybackManager private constructor(context: Context) {
             withContext(Dispatchers.Main) {
                 // 在切换或加载新的播放计划前，强行将 ignoreNextAutoRewind 设为 true。
                 // 这样能完美拦截由于切换书籍重载媒体资源导致播放器暂停状态改变时，误触发的针对上一本书或新书初始进度的自动回退动作。
-                ignoreNextAutoRewind = true
+                autoRewindManager.ignoreNextAutoRewind = true
 
                 this@PlaybackManager.currentPlan = finalPlan
                 this@PlaybackManager.pendingPlayWhenReady = playWhenReady
@@ -521,51 +507,6 @@ class PlaybackManager private constructor(context: Context) {
         executeOnMain { mediaController?.pause() }
     }
 
-    /**
-         * 执行暂停自动回退功能的核心逻辑。
-     * 从持久化设置中异步读取 autoRewindSeconds 属性。如果其值大于 0，
-     * 则计算目标毫秒位置（当前单文件位置减去回退时长），并使用 coerceAtLeast(0) 限制不超前当前文件的开头。
-     * 最后，调用底层 MediaController 进行寻址定位，在更新全局位置流后立即持久化同步保存到数据库中，
-     * 消除因突然进程中断或卸载引起的位置丢失风险。
-     */
-    private fun applyAutoRewind() {
-        val controller = mediaController ?: return
-        val plan = currentPlan
-        scope.launch {
-            try {
-                // 使用 first() 挂起并获取 DataStore 中的最新设置快照，确保数据一致性。
-                val settings = settingsRepository.settingsFlow.first()
-                val rewindSeconds = settings.autoRewindSeconds
-                if (rewindSeconds > 0) {
-                    val rewindMs = rewindSeconds * 1000L
-                    
-                    if (plan != null && plan.files.isNotEmpty()) {
-                        // 如果当前存在多文件播放计划，在全局大维度上计算当前进度，并执行精准的跨文件边界回退，
-                        // 彻底解决单文件回退时被强制截断在 0 秒而无法回退到上一音轨末尾的体验痛点。
-                        val fileIndex = controller.currentMediaItemIndex.coerceIn(0, plan.files.lastIndex)
-                        val positionInFile = controller.currentPosition.coerceAtLeast(0L)
-                        val currentGlobalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
-                        val targetGlobalPos = (currentGlobalPos - rewindMs).coerceAtLeast(0L)
-                        
-                        val (targetFileIndex, targetPosInFile) = PositionMapper.globalToFilePosition(targetGlobalPos, plan.files)
-                        // 跨文件定位可能导致媒体源发生变更，因此必须使用 index + file-position 执行 seek
-                        controller.seekTo(targetFileIndex, targetPosInFile)
-                    } else {
-                        // 兜底单文件播放场景下的普通回退寻址。
-                        val currentPos = controller.currentPosition
-                        val targetPos = (currentPos - rewindMs).coerceAtLeast(0L)
-                        controller.seekTo(targetPos)
-                    }
-                    
-                    updateGlobalPositionAndDuration(controller)
-                    // 回退完成后立即向本地数据库落盘保存进度，防丢失防倒退
-                    saveProgress()
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("PlaybackManager", "执行暂停自动回退失败", e)
-            }
-        }
-    }
 
     /**
      * 获取或设置当前播放器的内部音量比例（0.0f - 1.0f）。
@@ -675,7 +616,7 @@ class PlaybackManager private constructor(context: Context) {
         withContext(Dispatchers.Main) {
             // 在主动停止播放器前，强行将 ignoreNextAutoRewind 设为 true。
             // 这样可以拦截由于主动暂停/清除播放资源导致物理播放状态回调触发时，无意义且有隐患的自动回退与保存进度操作。
-            ignoreNextAutoRewind = true
+            autoRewindManager.ignoreNextAutoRewind = true
             controller?.let { conn ->
                 conn.pause()
                 conn.stop()
