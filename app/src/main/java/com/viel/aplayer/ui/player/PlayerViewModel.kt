@@ -30,6 +30,8 @@ import com.viel.aplayer.data.entity.BookmarkEntity
 import kotlinx.coroutines.flow.update
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.media.PlaybackManager
+import com.viel.aplayer.media.AutoRewindManager
+
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.bookmarks.BookmarkManager
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
@@ -340,6 +342,11 @@ class PlayerViewModel : ViewModel() {
         hasRestoredLastPlayedBook = true
 
         viewModelScope.launch {
+            // 在冷启动恢复迷你播放器进度之前，必须强力等待后台自愈计算执行完毕，消除并发竞争。
+            appContext?.let { ctx ->
+                AutoRewindManager.getInstance(ctx).performColdStartSelfHealing()
+            }
+
             // Cold start only prepares the latest saved book/progress for the compact player; it must not autoplay.
             val lastProgress = libraryRepository?.getLastPlayedProgressSync() ?: return@launch
             if (_currentBookId.value == null) {

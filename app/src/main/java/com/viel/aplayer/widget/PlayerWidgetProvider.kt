@@ -52,6 +52,8 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.media.PlaybackManager
+import com.viel.aplayer.media.AutoRewindManager
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -367,6 +369,9 @@ private object PlayerWidgetActions {
         manager: PlaybackManager,
         playWhenReady: Boolean
     ): Boolean {
+        // 在恢复最后一本书之前，强力调用冷启动自愈逻辑以保证拿到已自愈的位置，完美防止后台协程并发导致的时序竞争。
+        AutoRewindManager.getInstance(context).performColdStartSelfHealing()
+
         val repository = LibraryRepository.getInstance(context)
         val progress = repository.getLastPlayedProgressSync() ?: return false
         val plan = repository.getPlaybackPlan(progress.bookId) ?: return false
