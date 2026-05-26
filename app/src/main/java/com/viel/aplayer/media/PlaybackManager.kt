@@ -53,16 +53,10 @@ class PlaybackManager private constructor(context: Context) {
     private val _currentMediaItem = MutableStateFlow<MediaItem?>(null)
     val currentMediaItem = _currentMediaItem.asStateFlow()
 
-    private val _metadataEntries = MutableStateFlow<List<androidx.media3.common.Metadata.Entry>>(emptyList())
-    val metadataEntries = _metadataEntries.asStateFlow()
-
+    // 详尽的中文注释：底层的 Media3/ExoPlayer 已经通过 Mp3Extractor 和 DefaultRenderersFactory 彻底屏蔽了内置元数据和字幕轨道的解析与创建，
+    // 因此前后台桥接层无需再为任何媒体轨道维护内置字幕、元数据条目的缓存流或相关的事件监听器，此处仅保留用于承载物理外置字幕的 Flow 供 UI 层订阅
     private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
     val currentSubtitles = _currentSubtitles.asStateFlow()
-
-    // 新增 embeddedSubtitles 共享事件数据流，用于向前台实时广播从 ExoPlayer 中监听提取出的内置歌词。
-    // 为了防止切歌/切书时异步时序产生的旧歌词残留，将其重构为 Pair，其中 String 代表产生该歌词的 mediaId。
-    private val _embeddedSubtitles = MutableSharedFlow<Pair<String, List<SubtitleLine>>>(extraBufferCapacity = 1)
-    val embeddedSubtitles = _embeddedSubtitles.asSharedFlow()
 
     // 新增一次性 UI 反馈事件流，向外广播由 PlaybackService 发出的自定义界面提示事件（如静音跳过）
     private val _uiEvents = MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
@@ -147,7 +141,6 @@ class PlaybackManager private constructor(context: Context) {
         _isPlaying.value = controller.isPlaying
         _playbackState.value = controller.playbackState
         _currentMediaItem.value = controller.currentMediaItem
-        _metadataEntries.value = extractMetadataEntries(controller)
         updateGlobalPositionAndDuration(controller)
         _playbackSpeed.value = controller.playbackParameters.speed
 
@@ -189,19 +182,6 @@ class PlaybackManager private constructor(context: Context) {
                 _playbackState.value = playbackState
                 if (playbackState == Player.STATE_READY) {
                     updateGlobalPositionAndDuration(controller)
-                    val entries = extractMetadataEntries(controller)
-                    _metadataEntries.value = entries
-                    // 切歌/切书时，在主线程立即捕获当前的 mediaId，防止异步协程执行时 mediaId 发生变更
-                    val mediaId = controller.currentMediaItem?.mediaId
-                    scope.launch {
-                        val subs = withContext(Dispatchers.IO) {
-                            extractLyricsFromEntries(entries)
-                        }
-                        if (mediaId != null && subs.isNotEmpty()) {
-                            // 绑定当前提取的歌词与对应的 mediaId，规避时序残留问题
-                            _embeddedSubtitles.emit(mediaId to subs)
-                        }
-                    }
                 }
                 // 为本次桌面 widget 改动添加注释：播放队列准备、结束或空闲时刷新小组件文案与按钮状态。
                 PlayerWidgetProvider.updateAll(appContext)
@@ -213,9 +193,6 @@ class PlaybackManager private constructor(context: Context) {
                 // 字幕文本由 PlayerViewModel 按当前文件懒加载，这里只清掉上一文件的缓存。
                 _currentSubtitles.value = emptyList()
                 updateGlobalPositionAndDuration(controller)
-                // 修复字幕残留问题：不在 onMediaItemTransition 中提取内置字幕，
-                // 因为此时 player.currentTracks 仍未完成更新，提取出的将是上一首音频的旧字幕，从而产生残留 Bug。
-                // 所有的内置字幕提取统一由 onTracksChanged 阶段以及 onPlaybackStateChanged(STATE_READY) 负责。
                 
                 // 为本次桌面 widget 改动添加注释：切换分轨时刷新小组件，确保封面和书名仍对应当前播放书籍。
                 PlayerWidgetProvider.updateAll(appContext)
@@ -224,108 +201,12 @@ class PlaybackManager private constructor(context: Context) {
 
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                 updateGlobalPositionAndDuration(controller)
-                val entries = extractMetadataEntries(controller)
-                _metadataEntries.value = entries
-                // 当轨道发生物理变更时（此时 currentTracks 已安全更新为新轨），提取内置字幕并绑定最新的 mediaId
-                val mediaId = controller.currentMediaItem?.mediaId
-                scope.launch {
-                    val subs = withContext(Dispatchers.IO) {
-                        extractLyricsFromEntries(entries)
-                    }
-                    if (mediaId != null && subs.isNotEmpty()) {
-                        _embeddedSubtitles.emit(mediaId to subs)
-                    }
-                }
             }
 
             override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
                 _playbackSpeed.value = playbackParameters.speed
             }
-
-            // 重写 onMetadata 接口以监听流元数据。
-            // 由于解析元数据（尤其是提取内置歌词）涉及流式读取（InputStream.read），属于阻塞 I/O 操作，
-            // 因此必须开启协程并分发到 Dispatchers.IO 线程执行，以规避主线程卡顿并消除编译警告。
-            override fun onMetadata(metadata: androidx.media3.common.Metadata) {
-                // 在主线程捕捉当前的 mediaId，确保事件与轨道能精准关联
-                val mediaId = mediaController?.currentMediaItem?.mediaId
-                scope.launch {
-                    val entries = mutableListOf<androidx.media3.common.Metadata.Entry>()
-                    for (i in 0 until metadata.length()) {
-                        entries.add(metadata.get(i))
-                    }
-                    val subs = withContext(Dispatchers.IO) {
-                        extractLyricsFromEntries(entries)
-                    }
-                    if (mediaId != null && subs.isNotEmpty()) {
-                        // 发射已与 mediaId 关联的内置歌词数据包
-                        _embeddedSubtitles.emit(mediaId to subs)
-                    }
-                }
-            }
         })
-    }
-
-    /**
-     * 核心内置元数据歌词抓取与转化函数。
-     * 遍历收集到的 Metadata.Entry 条目，分别针对 MP3(ID3)、FLAC(Vorbis)、MP4(TextInformationFrame) 进行反射读取歌词文本。
-     * 获得歌词正文文本后，重用 SubtitleParser 的通用 lrc 流式解析接口，一站式转换为 SubtitleLine 结构化集合。
-     * 物理规避 Media3 版本升级造成的类的包名变更等编译符号未解析崩溃。
-     */
-    private fun extractLyricsFromEntries(entries: List<androidx.media3.common.Metadata.Entry>): List<SubtitleLine> {
-        val subs = mutableListOf<SubtitleLine>()
-        for (entry in entries) {
-            val entryClassName = entry.javaClass.name
-            try {
-                var lyricsText: String? = null
-                if (entryClassName.endsWith("UnsynchronisedLyricsFrame")) {
-                    val textField = entry.javaClass.getField("text")
-                    lyricsText = textField.get(entry) as? String
-                } else if (entryClassName.endsWith("VorbisComment")) {
-                    val keyField = entry.javaClass.getField("key")
-                    val key = keyField.get(entry) as? String
-                    if (key.equals("LYRICS", ignoreCase = true)) {
-                        val valueField = entry.javaClass.getField("value")
-                        lyricsText = valueField.get(entry) as? String
-                    }
-                } else if (entryClassName.endsWith("TextInformationFrame")) {
-                    val idField = entry.javaClass.getField("id")
-                    val id = idField.get(entry) as? String
-                    if (id.equals("©lyr", ignoreCase = true) || id.equals("LYRICS", ignoreCase = true)) {
-                        val valueField = entry.javaClass.getField("value")
-                        lyricsText = valueField.get(entry) as? String
-                    }
-                }
-                
-                if (!lyricsText.isNullOrBlank()) {
-                    // 使用标准 Java 的 Charset.forName 动态指定 UTF-8 编码，彻底物理规避 Kotlin 特定包下扩展函数在部分编译环境下 unresolved 的致命缺陷
-                    val stream = java.io.ByteArrayInputStream(lyricsText.toByteArray(java.nio.charset.Charset.forName("UTF-8")))
-                    val parsed = SubtitleParser.parse(stream, "lrc")
-                    if (parsed.isNotEmpty()) {
-                        subs.addAll(parsed)
-                        break // 一旦找到合法的全量内置歌词并解析成功，立即跳出循环，避免重复解析
-                    }
-                }
-            } catch (e: Exception) {
-                // 静默忽略反射属性缺失或解析异常，保障整体播放生命周期坚如磐石
-            }
-        }
-        return subs
-    }
-
-    private fun extractMetadataEntries(player: Player): List<androidx.media3.common.Metadata.Entry> {
-        val entries = mutableListOf<androidx.media3.common.Metadata.Entry>()
-        val tracks = player.currentTracks
-        for (group in tracks.groups) {
-            val trackGroup = group.mediaTrackGroup
-            for (i in 0 until trackGroup.length) {
-                val format = trackGroup.getFormat(i)
-                val metadata = format.metadata ?: continue
-                for (j in 0 until metadata.length()) {
-                    entries.add(metadata[j])
-                }
-            }
-        }
-        return entries
     }
 
     private fun updateGlobalPositionAndDuration(player: Player) {

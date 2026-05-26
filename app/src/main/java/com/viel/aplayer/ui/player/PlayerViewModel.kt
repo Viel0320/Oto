@@ -67,10 +67,6 @@ class PlayerViewModel : ViewModel() {
     // 用于控制内置歌词与外置字幕异步加载生命周期的 Job。每次切歌或销毁时进行物理取消，防止多协程并发竞争。
     private var subtitleLoadJob: kotlinx.coroutines.Job? = null
 
-    // 内置歌词检索激活状态闸门。若为 true，说明当前处于 500ms 等待内置歌词的窗口期；
-    // 一旦超时回退或成功匹配到内置歌词，立即物理置为 false，从而无条件过滤并丢弃任何底层延迟到达 of onMetadata 内置字幕回调。
-    private var isEmbeddedSearchActive = false
-
     private var bookmarkManager: BookmarkManager? = null
     private var playbackDelegate: MediaPlaybackDelegate? = null
     // 新增持有的 appContext 对象，在 initialize 时进行安全赋值，仅用于构造 lambda 桥接以规避内存泄露风险。
@@ -162,15 +158,15 @@ class PlayerViewModel : ViewModel() {
             if (id.isBlank() || id == "Unknown") {
                 return@flatMapLatest flowOf(RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
             }
-            
+
             val author = meta.author
             val narrator = meta.narrator
-            // 
+            //
             // 将推荐数据源绑定到 metadataState 响应式流上。
             // 这样，只要元数据从 Room 成功加载，或者用户在信息修改器中对属性进行了保存，
             // 都会触发 flatMapLatest 自动以正确的实机属性调用 usecase，彻底修复了原先 _currentBookId 刚更新时
             // 静态读取 metadataState.value 快照所导致的全空 Bug！
-            getRelatedBooksUseCase?.invoke(id, author, narrator) 
+            getRelatedBooksUseCase?.invoke(id, author, narrator)
                 ?: flowOf(RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
@@ -227,7 +223,7 @@ class PlayerViewModel : ViewModel() {
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val playbackControlState: StateFlow<PlaybackControlState> = playbackState
-        .map { 
+        .map {
             PlaybackControlState(it.isPlaying, it.playbackSpeed, it.isSpeedManualMode)
         }
         .distinctUntilChanged()
@@ -322,7 +318,7 @@ class PlayerViewModel : ViewModel() {
         val repo = container.libraryRepository
         libraryRepository = repo
         settingsRepository = container.settingsRepository
-        
+
         getRelatedBooksUseCase = GetRelatedBooksUseCase(repo)
         audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         playbackManager = PlaybackManager.getInstance(appContext)
@@ -382,7 +378,7 @@ class PlayerViewModel : ViewModel() {
         val manager = playbackManager ?: return
 
         viewModelScope.launch {
-            // 
+            //
             // 监听并订阅底层单例 PlaybackManager 广播的全局一次性 UI 事件共享流 uiEvents。
             // 当接收到事件（如静音跳过 EVENT_SKIP_SILENCE 触发的 UiEvent.ShowToast）时，
             // 立即将其向下层转发至当前 PlayerViewModel 持有的 uiEvents 流中，
@@ -403,59 +399,25 @@ class PlayerViewModel : ViewModel() {
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
 
-                        // 切歌/切书时，物理重置并取消上一个章节/分轨的字幕加载协程，清空上一音轨的字幕缓存
+                        // 详尽的中文注释：切歌/切书时，强行取消上一章节或分轨的字幕加载协程，清空字幕缓存，防止跨文件旧歌词时序残留
                         subtitleLoadJob?.cancel()
-                        isEmbeddedSearchActive = false
                         _currentSubtitles.value = emptyList()
 
-                        // 启动全新的字幕加载与 Fallback 竞争协程。
-                        // 优先检查外置物理字幕文件，如果存在则直接使用并忽略内置歌词；
-                        // 若外置字幕不存在，则开启最多 500ms 的窗口期监听当前书籍文件关联的内置歌词。
+                        // 详尽的中文注释：全面移除内置字幕歌词的超时竞争与合并逻辑，仅单向执行物理外置字幕的异步加载，显著提升性能并规避底层零元数据重构后的悬空引用
                         subtitleLoadJob = viewModelScope.launch {
-                            isEmbeddedSearchActive = true
-                            
-                            // 开启一个异步任务去监听内置歌词（非阻塞）
-                            val embeddedDeferred = async {
-                                try {
-                                    withTimeoutOrNull(500) {
-                                        // 过滤机制：仅当发射的内置字幕属于当前 mediaId 时，才予以采纳，彻底杜绝切歌/切书时旧歌词时序残留问题
-                                        manager.embeddedSubtitles.first { it.first == mediaId && it.second.isNotEmpty() }.second
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("PlayerViewModel", "等待内置字幕时抛出异常", e)
-                                    null
-                                }
-                            }
-
-                            // 优先尝试加载外置物理字幕文件
                             val externalSubs = kotlinx.coroutines.withContext(Dispatchers.IO) {
                                 libraryRepository?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
                             }
-
-                            if (externalSubs.isNotEmpty()) {
-                                // 找到外置字幕，优先使用，并取消内置监听
-                                isEmbeddedSearchActive = false
-                                embeddedDeferred.cancel()
-                                _currentSubtitles.value = externalSubs
-                            } else {
-                                // 外置字幕为空，等待内置歌词的监听结果
-                                val embeddedSubs = embeddedDeferred.await()
-                                if (embeddedSubs != null && isEmbeddedSearchActive) {
-                                    _currentSubtitles.value = embeddedSubs
-                                }
-                                isEmbeddedSearchActive = false
-                            }
+                            _currentSubtitles.value = externalSubs
                         }
                     } else {
-                        // 即使 mediaId 不包含冒号，也需要物理清空字幕缓存与加载协程
+                        // 详尽的中文注释：即使 mediaId 不包含冒号，也需物理取消字幕加载任务并清空字幕缓存
                         subtitleLoadJob?.cancel()
-                        isEmbeddedSearchActive = false
                         _currentSubtitles.value = emptyList()
                     }
                 } else {
-                    // mediaItem 为 null 时，彻底物理清空字幕缓存与重置协程，防任何旧缓存残留
+                    // 详尽的中文注释：mediaItem 为 null 时，彻底清空字幕缓存并重置协程，防任何旧缓存残留
                     subtitleLoadJob?.cancel()
-                    isEmbeddedSearchActive = false
                     _currentSubtitles.value = emptyList()
                 }
             }
@@ -496,9 +458,8 @@ class PlayerViewModel : ViewModel() {
             return
         }
 
-        // 加载新书时，必须彻底取消并物理回收正在运行的上一本书的字幕加载协程，重置闸门以杜绝残留回调污染新会话
+        // 详尽的中文注释：加载新书时，必须彻底强行取消并物理回收正在运行的上一本书的字幕加载协程任务，杜绝残留回调污染新会话
         subtitleLoadJob?.cancel()
-        isEmbeddedSearchActive = false
         _currentBookId.value = id
         _currentSubtitles.value = emptyList() // 重置上一本书的字幕
         settingsManager.setUndoSeekVisible(false)
@@ -545,9 +506,8 @@ class PlayerViewModel : ViewModel() {
      */
     fun closePlayback(bookId: String) {
         if (_currentBookId.value == bookId) {
-            // 停止播放新书或关闭物理会话时，必须物理取消正在运行的字幕检索协程并彻底闭锁状态阀门
+            // 详尽的中文注释：停止播放新书或关闭物理会话时，必须强行取消正在运行的字幕检索协程并清空字幕数据
             subtitleLoadJob?.cancel()
-            isEmbeddedSearchActive = false
             _currentBookId.value = null
             _currentSubtitles.value = emptyList()
             playbackManager?.pause()

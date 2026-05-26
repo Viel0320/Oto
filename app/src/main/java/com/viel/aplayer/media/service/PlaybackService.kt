@@ -1,7 +1,9 @@
 package com.viel.aplayer.media.service
 
 import android.app.PendingIntent
+import android.content.Context
 import android.os.Bundle
+import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.OptIn
@@ -11,6 +13,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.metadata.MetadataOutput
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
@@ -38,6 +42,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.ArrayList
 
 @UnstableApi
 class PlaybackService : MediaSessionService() {
@@ -162,6 +167,17 @@ class PlaybackService : MediaSessionService() {
                 
                 return sink
             }
+
+            override fun buildMetadataRenderers(
+                context: Context,
+                output: MetadataOutput,
+                outputLooper: Looper,
+                extensionRendererMode: Int,
+                out: ArrayList<Renderer>
+            ) {
+                // 详尽的中文注释：在此保持完全留空，物理阻止 ExoPlayer 加载任何 Metadata 渲染器，
+                // 从而在播放所有有声书格式时不请求、不分配任何容器元数据轨道，从根本上屏蔽元数据解析
+            }
         }.apply {
             // 允许 Media3 在硬件解码器失败时尝试备用解码器（甚至是软件解码器），增加稳定性。
             setEnableDecoderFallback(true)
@@ -170,7 +186,8 @@ class PlaybackService : MediaSessionService() {
         // 利用常量字面值定义直接读取采样表标志（1 shl 2，即十进制 4），物理防范编译期类符号未解析缺陷。
         val flagReadSampleTableDirectly = 1 shl 2
         val extractorsFactory = DefaultExtractorsFactory()
-            .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
+            // 详尽的中文注释：启用索引寻轨以加速 MP3 定位，同时显式附加禁用 ID3 元数据标志，使文件提取器跳过对 ID3 头的读取与解析，显著节省 I/O 资源
+            .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING or Mp3Extractor.FLAG_DISABLE_ID3_METADATA)
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
             // 极长 M4B 有声书内存映射优化。
             // 传入直接读取采样表标志数值，规避在加载超长（数十小时）M4B 文件时在 JVM 堆中展开数百万个 Sample 对象而招致 OOM 的隐患。
