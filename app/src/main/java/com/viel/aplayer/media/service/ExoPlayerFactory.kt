@@ -111,7 +111,6 @@ object ExoPlayerFactory {
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING or Mp3Extractor.FLAG_DISABLE_ID3_METADATA)
             // 开启 ADTS 格式的恒定码率快速寻轨
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
-            .setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA)
 
         // 4. 将提取器工厂与专用于虚拟文件系统寻轨的 VfsPlaybackDataSource 工厂绑定
         val mediaSourceFactory = DefaultMediaSourceFactory(VfsPlaybackDataSource.Factory(context), extractorsFactory)
