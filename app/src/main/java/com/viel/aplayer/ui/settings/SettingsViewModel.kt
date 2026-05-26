@@ -121,24 +121,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // 新增切换自动跳过静音（Skip Silence）功能全局总开关的交互方法。
+    /**
+     * 详尽的中文注释：
+     * 切换自动跳过静音（Skip Silence）功能全局总开关的交互方法。
+     * 经过重构，移除了自定义判定最小时长和温馨通知提示开关的交互逻辑。
+     */
     fun toggleSkipSilenceEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateSkipSilenceEnabled(enabled)
-        }
-    }
-
-    // 新增修改自动跳过静音的判定最小时长值（0.5s-5.0s）的交互方法。
-    fun updateSkipSilenceDurationThreshold(duration: Float) {
-        viewModelScope.launch {
-            settingsRepository.updateSkipSilenceDurationThreshold(duration)
-        }
-    }
-
-    // 新增切换是否在自动跳过静音发生时弹出 Toast 提示的全局开关交互方法。
-    fun toggleSkipSilenceNotificationEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.updateSkipSilenceNotificationEnabled(enabled)
         }
     }
 

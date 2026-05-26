@@ -179,10 +179,6 @@ class SettingsActivity : ComponentActivity() {
                                 onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
                                 isSkipSilenceEnabled = settingsState.isSkipSilenceEnabled,
                                 onSkipSilenceEnabledChange = { settingsViewModel.toggleSkipSilenceEnabled(it) },
-                                skipSilenceDurationThreshold = settingsState.skipSilenceDurationThreshold,
-                                onSkipSilenceDurationThresholdChange = { settingsViewModel.updateSkipSilenceDurationThreshold(it) },
-                                isSkipSilenceNotificationEnabled = settingsState.isSkipSilenceNotificationEnabled,
-                                onSkipSilenceNotificationEnabledChange = { settingsViewModel.toggleSkipSilenceNotificationEnabled(it) },
                                 isSleepFadeOutEnabled = settingsState.isSleepFadeOutEnabled,
                                 onSleepFadeOutEnabledChange = { settingsViewModel.toggleSleepFadeOutEnabled(it) },
                                 isShakeToResetEnabled = settingsState.isShakeToResetEnabled,
@@ -238,18 +234,13 @@ fun SettingsScreen(
     onCleartextTrafficAllowedChange: (Boolean) -> Unit,
     // 删除库根目录并释放物理授权的触发接口方法。
     onDeleteLibraryRoot: (LibraryRootEntity) -> Unit,
-    // 自动跳过静音（Skip Silence）功能是否启用的全局状态标志。
+    /**
+     * 详尽的中文注释：
+     * 自动跳过静音（Skip Silence）功能是否启用的全局状态标志及开关回调。
+     * 经过重构，去除了自定义静音最小时长与提示通知相关的参数。
+     */
     isSkipSilenceEnabled: Boolean,
-    // 切换自动跳过静音全局开关状态的回调事件。
     onSkipSilenceEnabledChange: (Boolean) -> Unit,
-    // 静音判定最小时长值（秒，默认2.0f）的状态。
-    skipSilenceDurationThreshold: Float,
-    // 修改静音判定最小时长值的回调事件。
-    onSkipSilenceDurationThresholdChange: (Float) -> Unit,
-    // 静音跳过时是否弹出 Toast 提示的全局状态标志。
-    isSkipSilenceNotificationEnabled: Boolean,
-    // 切换静音跳过 Toast 提示开关的回调事件。
-    onSkipSilenceNotificationEnabledChange: (Boolean) -> Unit,
     // 睡眠倒计时音量渐隐功能是否启用的全局状态标志。
     isSleepFadeOutEnabled: Boolean,
     // 切换睡眠倒计时音量渐隐开关的回调事件。
@@ -526,38 +517,17 @@ fun SettingsScreen(
                 SettingsSectionHeader(title = "自动跳过静音")
             }
             item {
-                // 新增“自动跳过静音期”全局控制开关项。
+                /**
+                 * 详尽的中文注释：
+                 * 自动跳过静音期全局控制开关项。
+                 * 经过重构，移除了自定义时长和提示通知子选项，直接使用 Media3 官方内置机制。
+                 */
                 SettingsToggleItem(
                     title = "自动跳过静音期",
                     subtitle = "在播放有声书时，自动跳过主播停顿、换气及章节末尾等无声片段以提高收听效率。",
                     icon = Icons.Rounded.LinearScale,
                     checked = isSkipSilenceEnabled,
                     onCheckedChange = onSkipSilenceEnabledChange
-                )
-            }
-            item {
-                // 判定最小时长滑块调节项。子选项常态渲染，但在全局静音跳过禁用时置灰。
-                SettingsSliderItem(
-                    title = "静音判定最小时长",
-                    subtitle = "判定静音的持续时间",
-                    icon = Icons.Rounded.LinearScale,
-                    value = skipSilenceDurationThreshold,
-                    onValueChange = onSkipSilenceDurationThresholdChange,
-                    valueRange = 0.5f..5.0f,
-                    steps = 8,
-                    valueFormatter = { String.format(java.util.Locale.US, "%.1f 秒", it) },
-                    enabled = isSkipSilenceEnabled
-                )
-            }
-            item {
-                // 跳过静音时弹出 Toast 温馨提醒开关项。子选项常态渲染，但在全局静音跳过禁用时置灰。
-                SettingsToggleItem(
-                    title = "跳过静音时弹出通知",
-                    subtitle = "当应用跳过静音时，以 Toast 形式在底部进行温馨提示。",
-                    icon = Icons.Rounded.LinearScale,
-                    checked = isSkipSilenceNotificationEnabled,
-                    onCheckedChange = onSkipSilenceNotificationEnabledChange,
-                    enabled = isSkipSilenceEnabled
                 )
             }
 
@@ -991,10 +961,6 @@ fun SettingsScreenPreview() {
             onDeleteLibraryRoot = {},
             isSkipSilenceEnabled = false,
             onSkipSilenceEnabledChange = {},
-            skipSilenceDurationThreshold = 2.0f,
-            onSkipSilenceDurationThresholdChange = {},
-            isSkipSilenceNotificationEnabled = true,
-            onSkipSilenceNotificationEnabledChange = {},
             isSleepFadeOutEnabled = true,
             onSleepFadeOutEnabledChange = {},
             isShakeToResetEnabled = true,

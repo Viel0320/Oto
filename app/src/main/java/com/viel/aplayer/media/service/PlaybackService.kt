@@ -62,8 +62,7 @@ class PlaybackService : MediaSessionService() {
     // 播放物理故障与安全审计拦截处理器组件
     private lateinit var failureHandler: PlaybackFailureHandler
 
-    // 静态静音跳过热调优与监测控制器组件，彻底打通并消除冗余反射残留
-    private val silenceController = SilenceProcessorController()
+    // 经过重构，移除了 silenceController 成员变量
 
     private lateinit var rewindButton: CommandButton
     private lateinit var forwardButton: CommandButton
@@ -156,31 +155,22 @@ class PlaybackService : MediaSessionService() {
                     audioFocusManager.handlePlayerPlayingStateChanged(isPlaying)
                 }
             },
-            isAutomaticAudioFocusAllowed = true, // 初始默认由 ExoPlayer 内部处理
-            sinkListener = object : ExoPlayerFactory.AudioSinkCreationListener {
-                override fun onAudioSinkCreated(sink: AudioSink, sonicProcessor: SonicAudioProcessor) {
-                    // 彻底物理对接已存在的静音跳过控制器，执行广度优先反射扫描与私有 SilenceSkippingAudioProcessor 的热绑定
-                    silenceController.findSilenceProcessorFromSink(sink)
-                    
-                    // 获取最小时长设置并进行首次热更应用
-                    serviceScope.launch {
-                        val settings = settingsRepository.settingsFlow.first()
-                        silenceController.updateSilenceProcessorDurationHot(settings.skipSilenceDurationThreshold)
-                    }
-                }
-            }
+            isAutomaticAudioFocusAllowed = true // 初始默认由 ExoPlayer 内部处理
         )
         this.player = playerInstance
 
         notificationPlayer = NotificationProgressPlayer(playerInstance)
         observeNotificationProgressMode()
 
-        // 4. 监听设置流，动态热更“静音跳过”开关、时长以及音频通知避让属性
+        // 4. 监听设置流，动态热更“静音跳过”开关以及音频通知避让属性
         serviceScope.launch {
             settingsRepository.settingsFlow.collect { settings ->
-                // 热重载有声书静音跳过属性
+                /**
+                 * 详尽的中文注释：
+                 * 动态热重载有声书静音跳过属性。
+                 * 经过重构，去除了反射式最小时长更新逻辑，纯粹使用官方标准的 skipSilenceEnabled 属性控制。
+                 */
                 playerInstance.skipSilenceEnabled = settings.isSkipSilenceEnabled
-                silenceController.updateSilenceProcessorDurationHot(settings.skipSilenceDurationThreshold)
 
                 // 实时热更新“通知避让”机制。
                 // 开启避让时，接管播放器焦点，交由自主逻辑处理；关闭时重新让 ExoPlayer 托管，并注销自主焦点

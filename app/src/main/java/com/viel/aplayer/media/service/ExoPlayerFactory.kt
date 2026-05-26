@@ -30,33 +30,20 @@ import com.viel.aplayer.media.VfsPlaybackDataSource
 object ExoPlayerFactory {
 
     /**
-     * 定义一个内部音频槽创建监听接口，用于解耦 AudioSink 创建后的处理器提取行为。
-     */
-    interface AudioSinkCreationListener {
-        /**
-         * 当底层 AudioSink 创建并初始化完成后触发。
-         *
-         * @param sink 生成的物理 DefaultAudioSink 实例
-         * @param sonicProcessor 被捆绑挂载的倍速音频处理器
-         */
-        fun onAudioSinkCreated(sink: AudioSink, sonicProcessor: SonicAudioProcessor)
-    }
-
-    /**
+     * 详尽的中文注释：
      * 模块化配置并生成一个专用于有声书播放的高度优化的 ExoPlayer 内核实例。
+     * 重构后已彻底移除用于反射提取底层处理器的 AudioSinkCreationListener 接口和回调逻辑。
      *
      * @param context 运行期上下文环境
      * @param listener 播放状态及异常发生监听器
      * @param isAutomaticAudioFocusAllowed 是否允许系统播放器内部自动处理音频焦点（关闭“通知避让”时为 true）
-     * @param sinkListener 底层音频渲染器 AudioSink 创建 of 反射与连接侦听回调
-     * @return 完美装配的 ExoPlayer 全能实例
+     * @return 装配完成的 ExoPlayer 实例
      */
     @Suppress("DEPRECATION")
     fun createExoPlayer(
         context: Context,
         listener: Player.Listener,
-        isAutomaticAudioFocusAllowed: Boolean,
-        sinkListener: AudioSinkCreationListener
+        isAutomaticAudioFocusAllowed: Boolean
     ): ExoPlayer {
         
         // 1. 配置前台极致秒开与缓存防卡顿缓冲区控制参数 (DefaultLoadControl)
@@ -76,16 +63,18 @@ object ExoPlayerFactory {
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean
             ): AudioSink {
-                // 实例化用于动态调整有声书倍速播放的 Sonic 处理器，common.audio 包路径
+                /**
+                 * 详尽的中文注释：
+                 * 实例化用于动态调整有声书倍速播放的 Sonic 处理器。
+                 * 经过重构，移除了将 AudioSink 生成信息暴露给外部以进行反射刺探的回调接口，
+                 * 彻底断开了不安全的反射修改链路，回归到 Media3 官方标准的音频渲染与倍速处理体系。
+                 */
                 val sonicProcessor = SonicAudioProcessor()
                 
-                // 将 Sonic 处理器强制捆绑塞入 DefaultAudioSink 渲染链中
+                // 将 Sonic 处理器塞入 DefaultAudioSink 渲染链中
                 val sink = DefaultAudioSink.Builder(context)
                     .setAudioProcessors(arrayOf(sonicProcessor))
                     .build()
-                
-                // 触发解耦回调，将生成的物理 sink 和倍速处理器暴露给外部，由控制组件执行反射提取与时长热更
-                sinkListener.onAudioSinkCreated(sink, sonicProcessor)
                 
                 return sink
             }
