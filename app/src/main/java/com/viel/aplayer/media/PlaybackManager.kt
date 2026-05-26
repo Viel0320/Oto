@@ -6,22 +6,29 @@ import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
-import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.entity.BookProgressEntity
+import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.media.service.PlaybackService
-import com.viel.aplayer.media.subtitle.SubtitleParser
 import com.viel.aplayer.ui.player.components.SubtitleLine
 import com.viel.aplayer.widget.PlayerWidgetProvider
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(UnstableApi::class)
 class PlaybackManager private constructor(context: Context) {

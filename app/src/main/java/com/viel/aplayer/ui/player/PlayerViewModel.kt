@@ -5,13 +5,23 @@ import android.media.AudioManager
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.media.AutoRewindManager
+import com.viel.aplayer.media.PlaybackManager
+import com.viel.aplayer.media.parser.ImageProcessor
+import com.viel.aplayer.ui.bookmarks.BookmarkManager
+import com.viel.aplayer.ui.settings.PlayerSettingsManager
+import com.viel.aplayer.ui.settings.PlayerSettingsState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -20,25 +30,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
-// 导入 async 扩展函数，用于在协程作用域内启动异步监听任务
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.first
-import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryRepository
-import com.viel.aplayer.data.entity.BookmarkEntity
-import com.viel.aplayer.data.entity.ChapterWithBookFile
 import kotlinx.coroutines.flow.update
-import com.viel.aplayer.media.ChapterTimeline
-import com.viel.aplayer.media.PlaybackManager
-import com.viel.aplayer.media.AutoRewindManager
-
-import com.viel.aplayer.media.parser.ImageProcessor
-import com.viel.aplayer.ui.bookmarks.BookmarkManager
-import com.viel.aplayer.ui.settings.PlayerSettingsManager
-import com.viel.aplayer.ui.settings.PlayerSettingsState
+import kotlinx.coroutines.launch
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerViewModel : ViewModel() {

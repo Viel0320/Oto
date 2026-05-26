@@ -1,6 +1,5 @@
 package com.viel.aplayer.data
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri

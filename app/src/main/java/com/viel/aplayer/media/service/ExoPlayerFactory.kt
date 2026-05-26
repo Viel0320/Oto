@@ -2,7 +2,6 @@ package com.viel.aplayer.media.service
 
 import android.content.Context
 import android.os.Looper
-import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -19,8 +18,8 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.extractor.ts.AdtsExtractor
+import androidx.media3.extractor.mp4.Mp4Extractor
 import com.viel.aplayer.media.VfsPlaybackDataSource
-import java.util.ArrayList
 
 /**
  * ExoPlayer 媒体播放内核生产构建工厂。
@@ -49,9 +48,10 @@ object ExoPlayerFactory {
      * @param context 运行期上下文环境
      * @param listener 播放状态及异常发生监听器
      * @param isAutomaticAudioFocusAllowed 是否允许系统播放器内部自动处理音频焦点（关闭“通知避让”时为 true）
-     * @param sinkListener 底层音频渲染器 AudioSink 创建的反射与连接侦听回调
+     * @param sinkListener 底层音频渲染器 AudioSink 创建 of 反射与连接侦听回调
      * @return 完美装配的 ExoPlayer 全能实例
      */
+    @Suppress("DEPRECATION")
     fun createExoPlayer(
         context: Context,
         listener: Player.Listener,
@@ -106,15 +106,12 @@ object ExoPlayerFactory {
         }
 
         // 3. 配置长有声书内存映射优化的多媒体文件提取器 (DefaultExtractorsFactory)
-        val flagReadSampleTableDirectly = 1 shl 2 // 对应 MP4 Extractor 的直接读取采样表标志 (1 shl 2)
         val extractorsFactory = DefaultExtractorsFactory()
             // 开启 MP3 索引寻轨并显式禁用内置 ID3 元数据加载以规避磁盘二次摩擦
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING or Mp3Extractor.FLAG_DISABLE_ID3_METADATA)
             // 开启 ADTS 格式的恒定码率快速寻轨
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
-            // 核心高风险防 OOM 优化：针对极长有声书（M4B 格式，动辄数十小时），
-            // 直接读取 SampleTable 标志，避免在 Java 堆内存中展开数百万个数据采样对象造成堆溢出
-            .setMp4ExtractorFlags(flagReadSampleTableDirectly)
+            .setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA)
 
         // 4. 将提取器工厂与专用于虚拟文件系统寻轨的 VfsPlaybackDataSource 工厂绑定
         val mediaSourceFactory = DefaultMediaSourceFactory(VfsPlaybackDataSource.Factory(context), extractorsFactory)

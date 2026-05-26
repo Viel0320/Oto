@@ -1,17 +1,9 @@
 package com.viel.aplayer.media.service
 
-import android.os.Bundle
 import android.util.Log
-import androidx.annotation.OptIn
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
-import com.viel.aplayer.data.AppSettingsRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 /**
  * 详尽的中文注释：

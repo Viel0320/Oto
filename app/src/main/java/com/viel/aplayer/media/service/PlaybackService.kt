@@ -1,18 +1,17 @@
 package com.viel.aplayer.media.service
 
 import android.app.PendingIntent
-import android.content.Context
 import android.os.Bundle
-import android.os.Looper
 import android.util.Log
 import android.widget.Toast
-import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -35,9 +34,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.util.ArrayList
-import androidx.media3.exoplayer.audio.AudioSink
-import androidx.media3.common.audio.SonicAudioProcessor
 
 /**
  * 核心前台媒体播放服务。
