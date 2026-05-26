@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+// 导入 async 扩展函数，用于在协程作用域内启动异步监听任务
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.AppSettingsRepository
@@ -401,22 +403,23 @@ class PlayerViewModel : ViewModel() {
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
 
-                        // 切歌时，物理重置并取消上一个章节/分轨的字幕加载协程，清空上一音轨的字幕缓存
+                        // 切歌/切书时，物理重置并取消上一个章节/分轨的字幕加载协程，清空上一音轨的字幕缓存
                         subtitleLoadJob?.cancel()
                         isEmbeddedSearchActive = false
                         _currentSubtitles.value = emptyList()
 
                         // 启动全新的字幕加载与 Fallback 竞争协程。
                         // 优先检查外置物理字幕文件，如果存在则直接使用并忽略内置歌词；
-                        // 若外置字幕不存在，则开启最多 500ms 的窗口期监听底层 Media3 提取出的内置歌词 embeddedSubtitles。
+                        // 若外置字幕不存在，则开启最多 500ms 的窗口期监听当前书籍文件关联的内置歌词。
                         subtitleLoadJob = viewModelScope.launch {
                             isEmbeddedSearchActive = true
                             
                             // 开启一个异步任务去监听内置歌词（非阻塞）
-                            val embeddedDeferred = kotlinx.coroutines.async {
+                            val embeddedDeferred = async {
                                 try {
                                     withTimeoutOrNull(500) {
-                                        manager.embeddedSubtitles.first { it.isNotEmpty() }
+                                        // 过滤机制：仅当发射的内置字幕属于当前 mediaId 时，才予以采纳，彻底杜绝切歌/切书时旧歌词时序残留问题
+                                        manager.embeddedSubtitles.first { it.first == mediaId && it.second.isNotEmpty() }.second
                                     }
                                 } catch (e: Exception) {
                                     android.util.Log.e("PlayerViewModel", "等待内置字幕时抛出异常", e)
@@ -443,7 +446,17 @@ class PlayerViewModel : ViewModel() {
                                 isEmbeddedSearchActive = false
                             }
                         }
+                    } else {
+                        // 即使 mediaId 不包含冒号，也需要物理清空字幕缓存与加载协程
+                        subtitleLoadJob?.cancel()
+                        isEmbeddedSearchActive = false
+                        _currentSubtitles.value = emptyList()
                     }
+                } else {
+                    // mediaItem 为 null 时，彻底物理清空字幕缓存与重置协程，防任何旧缓存残留
+                    subtitleLoadJob?.cancel()
+                    isEmbeddedSearchActive = false
+                    _currentSubtitles.value = emptyList()
                 }
             }
         }

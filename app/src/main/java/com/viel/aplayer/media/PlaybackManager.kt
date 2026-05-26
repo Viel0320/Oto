@@ -22,7 +22,6 @@ import com.viel.aplayer.media.service.PlaybackService
 import com.viel.aplayer.media.subtitle.SubtitleParser
 import com.viel.aplayer.ui.player.components.SubtitleLine
 import com.viel.aplayer.widget.PlayerWidgetProvider
-import com.viel.aplayer.media.AutoRewindManager
 
 @OptIn(UnstableApi::class)
 class PlaybackManager private constructor(context: Context) {
@@ -61,7 +60,8 @@ class PlaybackManager private constructor(context: Context) {
     val currentSubtitles = _currentSubtitles.asStateFlow()
 
     // 新增 embeddedSubtitles 共享事件数据流，用于向前台实时广播从 ExoPlayer 中监听提取出的内置歌词。
-    private val _embeddedSubtitles = MutableSharedFlow<List<SubtitleLine>>(extraBufferCapacity = 1)
+    // 为了防止切歌/切书时异步时序产生的旧歌词残留，将其重构为 Pair，其中 String 代表产生该歌词的 mediaId。
+    private val _embeddedSubtitles = MutableSharedFlow<Pair<String, List<SubtitleLine>>>(extraBufferCapacity = 1)
     val embeddedSubtitles = _embeddedSubtitles.asSharedFlow()
 
     // 新增一次性 UI 反馈事件流，向外广播由 PlaybackService 发出的自定义界面提示事件（如静音跳过）
@@ -191,12 +191,15 @@ class PlaybackManager private constructor(context: Context) {
                     updateGlobalPositionAndDuration(controller)
                     val entries = extractMetadataEntries(controller)
                     _metadataEntries.value = entries
+                    // 切歌/切书时，在主线程立即捕获当前的 mediaId，防止异步协程执行时 mediaId 发生变更
+                    val mediaId = controller.currentMediaItem?.mediaId
                     scope.launch {
                         val subs = withContext(Dispatchers.IO) {
                             extractLyricsFromEntries(entries)
                         }
-                        if (subs.isNotEmpty()) {
-                            _embeddedSubtitles.emit(subs)
+                        if (mediaId != null && subs.isNotEmpty()) {
+                            // 绑定当前提取的歌词与对应的 mediaId，规避时序残留问题
+                            _embeddedSubtitles.emit(mediaId to subs)
                         }
                     }
                 }
@@ -210,19 +213,29 @@ class PlaybackManager private constructor(context: Context) {
                 // 字幕文本由 PlayerViewModel 按当前文件懒加载，这里只清掉上一文件的缓存。
                 _currentSubtitles.value = emptyList()
                 updateGlobalPositionAndDuration(controller)
+                // 修复字幕残留问题：不在 onMediaItemTransition 中提取内置字幕，
+                // 因为此时 player.currentTracks 仍未完成更新，提取出的将是上一首音频的旧字幕，从而产生残留 Bug。
+                // 所有的内置字幕提取统一由 onTracksChanged 阶段以及 onPlaybackStateChanged(STATE_READY) 负责。
+                
+                // 为本次桌面 widget 改动添加注释：切换分轨时刷新小组件，确保封面和书名仍对应当前播放书籍。
+                PlayerWidgetProvider.updateAll(appContext)
+                saveProgress()
+            }
+
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                updateGlobalPositionAndDuration(controller)
                 val entries = extractMetadataEntries(controller)
                 _metadataEntries.value = entries
+                // 当轨道发生物理变更时（此时 currentTracks 已安全更新为新轨），提取内置字幕并绑定最新的 mediaId
+                val mediaId = controller.currentMediaItem?.mediaId
                 scope.launch {
                     val subs = withContext(Dispatchers.IO) {
                         extractLyricsFromEntries(entries)
                     }
-                    if (subs.isNotEmpty()) {
-                        _embeddedSubtitles.emit(subs)
+                    if (mediaId != null && subs.isNotEmpty()) {
+                        _embeddedSubtitles.emit(mediaId to subs)
                     }
                 }
-                // 为本次桌面 widget 改动添加注释：切换分轨时刷新小组件，确保封面和书名仍对应当前播放书籍。
-                PlayerWidgetProvider.updateAll(appContext)
-                saveProgress()
             }
 
             override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
@@ -233,6 +246,8 @@ class PlaybackManager private constructor(context: Context) {
             // 由于解析元数据（尤其是提取内置歌词）涉及流式读取（InputStream.read），属于阻塞 I/O 操作，
             // 因此必须开启协程并分发到 Dispatchers.IO 线程执行，以规避主线程卡顿并消除编译警告。
             override fun onMetadata(metadata: androidx.media3.common.Metadata) {
+                // 在主线程捕捉当前的 mediaId，确保事件与轨道能精准关联
+                val mediaId = mediaController?.currentMediaItem?.mediaId
                 scope.launch {
                     val entries = mutableListOf<androidx.media3.common.Metadata.Entry>()
                     for (i in 0 until metadata.length()) {
@@ -241,8 +256,9 @@ class PlaybackManager private constructor(context: Context) {
                     val subs = withContext(Dispatchers.IO) {
                         extractLyricsFromEntries(entries)
                     }
-                    if (subs.isNotEmpty()) {
-                        _embeddedSubtitles.emit(subs)
+                    if (mediaId != null && subs.isNotEmpty()) {
+                        // 发射已与 mediaId 关联的内置歌词数据包
+                        _embeddedSubtitles.emit(mediaId to subs)
                     }
                 }
             }
