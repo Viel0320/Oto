@@ -13,7 +13,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
 import com.viel.aplayer.data.db.AppDatabase
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.io.InputStream
@@ -24,7 +24,7 @@ class VfsPlaybackDataSource private constructor(
     private val context: Context
 ) : BaseDataSource(false) {
     private val database = AppDatabase.getInstance(context.applicationContext)
-    private val fileReader = VfsFileReader(context.applicationContext, database.libraryRootDao())
+    private val fileReader = VfsFileInterface(context.applicationContext, database.libraryRootDao())
 
     private var inputStream: InputStream? = null
     private var openedUri: Uri? = null

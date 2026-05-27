@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * 它不再暴露任何音频元数据、章节、封面相关 helper。
  */
-class VfsFileReader(
+class VfsFileInterface(
     context: Context,
     private val libraryRootDao: LibraryRootDao? = null,
     private val rootsById: Map<String, LibraryRootEntity> = emptyMap()

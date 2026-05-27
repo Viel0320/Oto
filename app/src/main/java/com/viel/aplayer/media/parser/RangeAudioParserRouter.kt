@@ -27,7 +27,7 @@ internal data class EmbeddedCoverBytes(
 }
 
 // parser 的最小输入只保留 sourceId、fileSize 与 readRange 回调；
-// 这样 parser 自己决定读哪些 offset/length，VfsFileReader 只负责提供底层 byte range 能力。
+// 这样 parser 自己决定读哪些 offset/length，VfsFileInterface 只负责提供底层 byte range 能力。
 internal data class RangeAudioParserInput(
     val sourceId: String,
     val fileSize: Long,

@@ -5,7 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
@@ -31,7 +31,7 @@ class MetadataResolver(context: Context) {
     // 全局元数据提取并发仍然限制在 4，
     // 防止大批量导入时多个 parser 同时读取大文件头尾造成内存与 I/O 抖动。
     private val semaphore = kotlinx.coroutines.sync.Semaphore(4)
-    private val fileReader = VfsFileReader(
+    private val fileReader = VfsFileInterface(
         context.applicationContext,
         AppDatabase.getInstance(context.applicationContext).libraryRootDao()
     )

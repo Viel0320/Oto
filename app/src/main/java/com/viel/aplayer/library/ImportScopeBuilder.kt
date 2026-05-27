@@ -4,7 +4,7 @@ import android.content.Context
 import com.viel.aplayer.media.manifest.CueManifestParser
 import com.viel.aplayer.media.manifest.M3u8ManifestParser
 import com.viel.aplayer.media.manifest.ManifestResolver
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import java.util.Locale
 
 // ImportScope 是“可以安全裁决并即时入库”的最小导入单元，避免直接按 VFS 父目录键切片导致 claim 与启发式聚合上下文不完整。
@@ -35,7 +35,7 @@ internal class ImportScopeBuilder(private val context: Context) {
 
     suspend fun buildScopes(inventory: FileInventory): List<ImportScope> {
         // 扫描期没有 DAO 注入，VFS reader 必须使用本轮 roots 映射，否则 CUE/M3U8 流会无法打开。
-        val fileReader = VfsFileReader(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
+        val fileReader = VfsFileInterface(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
         val audioLookup = AudioLookup(inventory.audioFiles)
         val manifestClaimedAudioIdentities = mutableSetOf<FileIdentity>()
         val scopes = mutableListOf<ImportScope>()
@@ -99,7 +99,7 @@ internal class ImportScopeBuilder(private val context: Context) {
     }
 
     // CUE 解析只用于 scope 闭包构建；真正的元数据与章节解析仍由 ManifestParseStep 在导入流水线中完成。
-    private suspend fun resolveCueAudioRefs(fileReader: VfsFileReader, cue: FileRef, audioLookup: AudioLookup): List<FileRef> =
+    private suspend fun resolveCueAudioRefs(fileReader: VfsFileInterface, cue: FileRef, audioLookup: AudioLookup): List<FileRef> =
         runCatching {
             CueManifestParser.parse(displayName = cue.displayName, openStream = { fileReader.open(cue) })
                 ?.referencedFiles
@@ -110,7 +110,7 @@ internal class ImportScopeBuilder(private val context: Context) {
         }.getOrDefault(emptyList())
 
     // M3U8 scope 闭包忽略远程 URL，只把能在当前 SAF 授权树中解析到的本地音频并入清单 scope。
-    private suspend fun resolveM3u8AudioRefs(fileReader: VfsFileReader, m3u8: FileRef, audioLookup: AudioLookup): List<FileRef> =
+    private suspend fun resolveM3u8AudioRefs(fileReader: VfsFileInterface, m3u8: FileRef, audioLookup: AudioLookup): List<FileRef> =
         runCatching {
             M3u8ManifestParser.parse(displayName = m3u8.displayName, openStream = { fileReader.open(m3u8) })
                 .items

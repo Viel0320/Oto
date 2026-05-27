@@ -5,7 +5,7 @@ import android.util.Log
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -88,7 +88,7 @@ object Mp4MetadataFrameReader {
         return displayName.isMp4FamilyName()
     }
 
-    suspend fun extract(file: FileRef, fileReader: VfsFileReader): Result? {
+    suspend fun extract(file: FileRef, fileReader: VfsFileInterface): Result? {
         if (!supports(file.displayName)) return null
         return extractWithRangeReader(
             displayName = file.displayName,
@@ -99,7 +99,7 @@ object Mp4MetadataFrameReader {
         )
     }
 
-    suspend fun extract(file: BookFileEntity, fileReader: VfsFileReader): Result? {
+    suspend fun extract(file: BookFileEntity, fileReader: VfsFileInterface): Result? {
         if (!supports(file.displayName)) return null
         return extractWithRangeReader(
             displayName = file.displayName,
@@ -110,7 +110,7 @@ object Mp4MetadataFrameReader {
         )
     }
 
-    suspend fun extractMetadata(file: FileRef, fileReader: VfsFileReader): AudiobookMetadata? {
+    suspend fun extractMetadata(file: FileRef, fileReader: VfsFileInterface): AudiobookMetadata? {
         if (!supports(file.displayName)) return null
         // 保留纯元数据入口给非导入场景使用，避免只需要标题/章节时也把 covr 图片字节带进内存。
         return extractWithRangeReader(
@@ -122,7 +122,7 @@ object Mp4MetadataFrameReader {
         )?.metadata
     }
 
-    suspend fun extractMetadata(file: BookFileEntity, fileReader: VfsFileReader): AudiobookMetadata? {
+    suspend fun extractMetadata(file: BookFileEntity, fileReader: VfsFileInterface): AudiobookMetadata? {
         if (!supports(file.displayName)) return null
         // 已入库文件的元数据重建仍默认只读轻量标签和章节，封面缓存继续交给恢复流程兜底。
         return extractWithRangeReader(
@@ -134,7 +134,7 @@ object Mp4MetadataFrameReader {
         )?.metadata
     }
 
-    suspend fun extractMetadataResult(file: FileRef, fileReader: VfsFileReader): Result? {
+    suspend fun extractMetadataResult(file: FileRef, fileReader: VfsFileInterface): Result? {
         if (!supports(file.displayName)) return null
         // 评估阶段在元数据流程中同步读取 covr，但暂不接管封面恢复落库路径，只用 Mp4Meta 日志比较耗时与字节量。
         return extractWithRangeReader(
@@ -146,7 +146,7 @@ object Mp4MetadataFrameReader {
         )
     }
 
-    suspend fun extractMetadataResult(file: BookFileEntity, fileReader: VfsFileReader): Result? {
+    suspend fun extractMetadataResult(file: BookFileEntity, fileReader: VfsFileInterface): Result? {
         if (!supports(file.displayName)) return null
         // 入库后元数据重建也临时同步读取 covr 评估性能，但不写封面缓存，原封面恢复路径保持不变。
         return extractWithRangeReader(
@@ -158,7 +158,7 @@ object Mp4MetadataFrameReader {
         )
     }
 
-    suspend fun extractCover(file: FileRef, fileReader: VfsFileReader): EmbeddedCover? {
+    suspend fun extractCover(file: FileRef, fileReader: VfsFileInterface): EmbeddedCover? {
         if (!supports(file.displayName)) return null
         // 封面恢复只读取 ilst/covr，不再解析章节表，避免后台封面自愈和导入元数据争抢大 M4B I/O。
         return extractWithRangeReader(
@@ -170,7 +170,7 @@ object Mp4MetadataFrameReader {
         )?.cover
     }
 
-    suspend fun extractCover(file: BookFileEntity, fileReader: VfsFileReader): EmbeddedCover? {
+    suspend fun extractCover(file: BookFileEntity, fileReader: VfsFileInterface): EmbeddedCover? {
         if (!supports(file.displayName)) return null
         // 已入库文件的封面重建也走 cover-only atom 读取，不重复解析章节和文字元数据。
         return extractWithRangeReader(

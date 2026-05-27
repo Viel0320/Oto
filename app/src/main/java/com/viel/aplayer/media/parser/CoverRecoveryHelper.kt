@@ -9,7 +9,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -37,7 +37,7 @@ class CoverRecoveryHelper(
 ) {
     // 封面重建会触发 VFS 读流、图片解码和主色提取，因此继续用信号量限制全局并发。
     private val regenerationSemaphore = Semaphore(MAX_CONCURRENT_COVER_REGENERATIONS)
-    private val fileReader = VfsFileReader(context.applicationContext, libraryRootDao)
+    private val fileReader = VfsFileInterface(context.applicationContext, libraryRootDao)
     // 所有内嵌封面字节都统一通过 MetadataResolver 向各格式 parser 请求。
     private val MetadataResolver = MetadataResolver(context.applicationContext)
 

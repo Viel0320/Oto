@@ -19,7 +19,7 @@ import com.viel.aplayer.library.orchestrator.steps.ManifestParsedResult
 import com.viel.aplayer.library.orchestrator.steps.ManifestParseStep
 import com.viel.aplayer.library.orchestrator.steps.MetadataResolveStep
 import com.viel.aplayer.library.orchestrator.steps.ResolvedMetadataDrafts
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.MetadataResolver
@@ -230,7 +230,7 @@ class ImportOrchestrator
     }
 
     private suspend fun saveExternalSidecarCover(sidecarFile: FileRef, inventory: FileInventory): CoverExtractor.CoverResult? {
-        val fileReader = VfsFileReader(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
+        val fileReader = VfsFileInterface(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
         val result = coverExtractor.processExternalImage(sidecarFile.vfsKey) { fileReader.open(sidecarFile) }
         return result.takeIf { it.hasImage() }
     }

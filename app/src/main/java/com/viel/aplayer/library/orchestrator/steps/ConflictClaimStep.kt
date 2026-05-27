@@ -586,7 +586,7 @@ internal class ConflictClaimStep(
             }
             metadataDuration.takeIf { it > 0L }?.let { return@runCatching it }
             /*
-                // 局部代理只为了平滑去掉 VfsFileReader 的兼容 helper；
+                // 局部代理只为了平滑去掉 VfsFileInterface 的兼容 helper；
                 // 实际时长仍然直接回到 MetadataResolver，再由各格式 parser 内部自行做范围读取。
                 suspend fun readAudioDuration(target: FileRef): Long = MetadataResolver.extract(target).durationMs
             }

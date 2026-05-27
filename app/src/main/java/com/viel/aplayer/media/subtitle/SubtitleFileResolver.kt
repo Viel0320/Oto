@@ -8,11 +8,10 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.BookFileEntity
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.VfsNode
 import com.viel.aplayer.media.PlaybackSubtitle
 import com.viel.aplayer.media.VfsPlaybackUri
-import com.viel.aplayer.media.subtitle.SubtitleParser
 import com.viel.aplayer.ui.player.components.SubtitleLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,7 +30,7 @@ class SubtitleFileResolver(
 ) {
     // 字幕文件的受支持后缀后缀集合。
     private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "lrc")
-    private val fileReader = VfsFileReader(context.applicationContext, libraryRootDao)
+    private val fileReader = VfsFileInterface(context.applicationContext, libraryRootDao)
 
     /**
      * 加载并解析指定入库音频文件所对应的字幕文件。

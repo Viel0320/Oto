@@ -9,7 +9,7 @@ import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 
 /**
  * 启发式智能聚类分步类
@@ -31,7 +31,7 @@ internal class HeuristicGroupStep(private val appContext: Context) : ImportStep<
         val fileReader = inventory?.let { scopedInventory ->
             // 启发式 parser 也只允许经由当前 scope 的 VFS reader 打开 txt 侧车，
             // 不直接接触 provider 原生对象。
-            VfsFileReader(
+            VfsFileInterface(
                 context = appContext.applicationContext,
                 rootsById = scopedInventory.roots.associateBy { it.id }
             )

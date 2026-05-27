@@ -10,7 +10,7 @@ import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import java.util.Locale
 
 /**
@@ -29,7 +29,7 @@ internal class ManifestParseStep(private val context: Context) : ImportStep<File
         context: ImportContext
     ): StepResult<ManifestParsedResult> = runCatching {
         // 清单解析使用当前 scope 的 roots 映射打开 VFS 流，避免无 DAO 的 reader 解析不到库根。
-        val fileReader = VfsFileReader(this.context.applicationContext, rootsById = input.roots.associateBy { it.id })
+        val fileReader = VfsFileInterface(this.context.applicationContext, rootsById = input.roots.associateBy { it.id })
         val cueDrafts = mutableListOf<ParsedCueDraft>()
         val m3u8Drafts = mutableListOf<ParsedM3u8Draft>()
         // 清单解析阶段复用扫描阶段已经收集到的音频列表，按“VFS 父目录键 + 文件名”查找，避免每个 CUE/M3U8 条目都触发目录枚举。

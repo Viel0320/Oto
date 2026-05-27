@@ -10,7 +10,7 @@ import com.viel.aplayer.library.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportStep
 import com.viel.aplayer.library.orchestrator.StepResult
-import com.viel.aplayer.library.vfs.VfsFileReader
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.MetadataResolver
 import java.util.UUID
@@ -113,7 +113,7 @@ internal class CoverExtractStep(
         fallbackAudio: List<FileRef>,
         inventory: FileInventory
     ): CoverExtractor.CoverResult? {
-        val fileReader = VfsFileReader(
+        val fileReader = VfsFileInterface(
             context.applicationContext,
             rootsById = inventory.roots.associateBy { it.id }
         )
