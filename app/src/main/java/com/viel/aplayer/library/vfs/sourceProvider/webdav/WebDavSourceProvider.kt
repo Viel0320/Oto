@@ -120,6 +120,8 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
                 if (offset > 0L) header("Range", "bytes=$offset-")
             }
             .build()
+        // 记录 WebDAV GET/Range 流打开请求的起始时间，用于计算整体网络耗时
+        val openStart = com.viel.aplayer.logger.VfsLogger.mark()
         val response = executeRequest(request)
         if (offset > 0L && response.code == HTTP_RANGE_NOT_SATISFIABLE) {
             response.close()
@@ -154,6 +156,14 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
                     }
             }
         }
+        // 记录 WebDAV GET/Range 流打开请求的完整耗时、HTTP 状态码与成功状态
+        com.viel.aplayer.logger.VfsLogger.logWebDavOpen(
+            sourcePath = file.metadata.sourcePath,
+            offset = offset,
+            costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(openStart),
+            httpCode = response.code,
+            success = true
+        )
     }
 
     override suspend fun readRange(file: SourceNode, offset: Long, length: Int): ByteArray? =
@@ -161,6 +171,8 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
             // 元数据帧读取必须发送闭区间 Range，严禁复用播放器的 bytes=offset- 开口请求。
             if (file.metadata.isDirectory || offset < 0L || length <= 0) return@withContext ByteArray(0)
             val rangeEnd = boundedRangeEnd(file, offset, length) ?: return@withContext null
+            // 记录 WebDAV Range 片段读取的起始时间
+            val rangeStart = com.viel.aplayer.logger.VfsLogger.mark()
             val request = Request.Builder()
                 .url(urlFor(file.root, file.metadata.sourcePath, directory = false))
                 .get()
@@ -169,15 +181,41 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
                 .build()
             executeRequestBlocking(request).use { response ->
                 when {
-                    response.code == HTTP_RANGE_NOT_SATISFIABLE -> return@withContext null
+                    response.code == HTTP_RANGE_NOT_SATISFIABLE -> {
+                        // 记录 Range 请求超出文件边界的失败结果
+                        com.viel.aplayer.logger.VfsLogger.logWebDavRange(
+                            sourcePath = file.metadata.sourcePath,
+                            offset = offset,
+                            requestedLength = length,
+                            costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(rangeStart),
+                            actualBytes = null
+                        )
+                        return@withContext null
+                    }
                     response.code == HTTP_OK -> {
                         // 服务器忽略闭区间 Range 时会返回完整文件，元数据解析必须立即拒绝并关闭响应。
+                        com.viel.aplayer.logger.VfsLogger.logWebDavRange(
+                            sourcePath = file.metadata.sourcePath,
+                            offset = offset,
+                            requestedLength = length,
+                            costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(rangeStart),
+                            actualBytes = null
+                        )
                         return@withContext null
                     }
                     !response.isSuccessful -> throw response.toWebDavException("GET Range")
                 }
                 val body = response.body ?: return@withContext null
-                body.byteStream().use { stream -> stream.readAtMost(length) }
+                val result = body.byteStream().use { stream -> stream.readAtMost(length) }
+                // 记录 Range 片段读取成功后的耗时与实际字节数
+                com.viel.aplayer.logger.VfsLogger.logWebDavRange(
+                    sourcePath = file.metadata.sourcePath,
+                    offset = offset,
+                    requestedLength = length,
+                    costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(rangeStart),
+                    actualBytes = result.size
+                )
+                result
             }
         }
 
@@ -196,6 +234,8 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
     private suspend fun propfind(root: LibraryRootEntity, sourcePath: String, depth: String): List<WebDavResource> =
         withContext(Dispatchers.IO) {
             // PROPFIND 包含同步网络请求和 XML body 读取，必须整体固定在 IO 线程，避免播放器/字幕回退从 Main 调用时崩溃。
+            // 记录 PROPFIND 请求的起始时间，用于计算网络 + XML 解析的整体耗时
+            val propfindStart = com.viel.aplayer.logger.VfsLogger.mark()
             val url = urlFor(root, sourcePath, directory = true)
             val request = Request.Builder()
                 .url(url)
@@ -213,9 +253,22 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
                 }
                 val xml = response.body?.string().orEmpty()
                 if (xml.isBlank()) {
+                    // 记录 PROPFIND 请求返回空 XML 的耗时
+                    com.viel.aplayer.logger.VfsLogger.logWebDavPropfind(
+                        sourcePath = sourcePath, depth = depth,
+                        costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(propfindStart),
+                        resourceCount = 1
+                    )
                     return@withContext listOf(rootFallbackResource(root))
                 }
-                return@withContext parsePropfindResponse(root, xml)
+                val resources = parsePropfindResponse(root, xml)
+                // 记录 PROPFIND 请求完成的耗时与返回的资源数量
+                com.viel.aplayer.logger.VfsLogger.logWebDavPropfind(
+                    sourcePath = sourcePath, depth = depth,
+                    costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(propfindStart),
+                    resourceCount = resources.size
+                )
+                return@withContext resources
             }
         }
 
@@ -231,12 +284,24 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
         } catch (error: WebDavException) {
             throw error
         } catch (error: SocketTimeoutException) {
+            // 记录 WebDAV 请求超时异常
+            com.viel.aplayer.logger.VfsLogger.logWebDavError(
+                url = request.url.toString(),
+                status = AudiobookSchema.AvailabilityStatus.TIMEOUT,
+                errorClass = error.javaClass.simpleName
+            )
             throw WebDavException(
                 availabilityStatus = AudiobookSchema.AvailabilityStatus.TIMEOUT,
                 message = "WebDAV request timed out: ${request.url}",
                 cause = error
             )
         } catch (error: IOException) {
+            // 记录 WebDAV 网络不可用异常
+            com.viel.aplayer.logger.VfsLogger.logWebDavError(
+                url = request.url.toString(),
+                status = AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE,
+                errorClass = error.javaClass.simpleName
+            )
             throw WebDavException(
                 availabilityStatus = AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE,
                 message = "WebDAV network request failed: ${request.url}",

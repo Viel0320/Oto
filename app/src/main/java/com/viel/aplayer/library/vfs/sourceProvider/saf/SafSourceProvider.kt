@@ -84,9 +84,11 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
             context.contentResolver.openInputStream(buildDocumentUriFromPath(file.root, file.metadata.sourcePath))
         }.getOrNull()
         val openCost = SystemClock.elapsedRealtime() - openStart
-        Log.d(
-            "SafSourceProvider",
-            "openInputStream(path=${file.metadata.sourcePath}, offset=0) cost=${openCost}ms, success=${stream != null}"
+        com.viel.aplayer.logger.VfsLogger.logSafOpen(
+            path = file.metadata.sourcePath,
+            offset = 0L,
+            costMs = openCost,
+            success = stream != null
         )
         return stream
     }
@@ -101,9 +103,11 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
             context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
         }.getOrNull() ?: run {
             val openCost = SystemClock.elapsedRealtime() - openStart
-            Log.d(
-                "SafSourceProvider",
-                "openInputStream(path=${file.metadata.sourcePath}, offset=$offset) cost=${openCost}ms, success=false"
+            com.viel.aplayer.logger.VfsLogger.logSafOpen(
+                path = file.metadata.sourcePath,
+                offset = offset,
+                costMs = openCost,
+                success = false
             )
             return null
         }
@@ -113,9 +117,11 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
                 input.channel.position(offset)
             }
             val openCost = SystemClock.elapsedRealtime() - openStart
-            Log.d(
-                "SafSourceProvider",
-                "openInputStream(path=${file.metadata.sourcePath}, offset=$offset) cost=${openCost}ms, success=true"
+            com.viel.aplayer.logger.VfsLogger.logSafOpen(
+                path = file.metadata.sourcePath,
+                offset = offset,
+                costMs = openCost,
+                success = true
             )
             object : FilterInputStream(input) {
                 override fun close() {
@@ -128,9 +134,12 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
             runCatching { input.close() }
             runCatching { pfd.close() }
             val openCost = SystemClock.elapsedRealtime() - openStart
-            Log.d(
-                "SafSourceProvider",
-                "openInputStream(path=${file.metadata.sourcePath}, offset=$offset) cost=${openCost}ms, success=false, error=${error.javaClass.simpleName}"
+            com.viel.aplayer.logger.VfsLogger.logSafOpen(
+                path = file.metadata.sourcePath,
+                offset = offset,
+                costMs = openCost,
+                success = false,
+                error = error.javaClass.simpleName
             )
             null
         }
@@ -158,9 +167,10 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
             context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
         }.getOrNull()
         val openCost = SystemClock.elapsedRealtime() - openStart
-        Log.d(
-            "SafSourceProvider",
-            "openFileDescriptor(path=${file.metadata.sourcePath}) cost=${openCost}ms, success=${descriptor != null}"
+        com.viel.aplayer.logger.VfsLogger.logSafOpenFd(
+            path = file.metadata.sourcePath,
+            costMs = openCost,
+            success = descriptor != null
         )
         return descriptor
     }

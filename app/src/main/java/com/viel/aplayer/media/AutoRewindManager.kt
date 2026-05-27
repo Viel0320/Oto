@@ -143,7 +143,11 @@ class AutoRewindManager private constructor(context: Context) {
                     }
                     
                     libraryRepository.saveProgress(healedProgress)
-                    android.util.Log.d("AutoRewindManager", "冷启动检测到异常中断，已自动回退 $rewindMs ms 进行自愈，书籍ID: ${lastProgress.bookId}, 最终起始进度: $targetGlobalPos ms")
+                    com.viel.aplayer.logger.AutoRewindLogger.logColdStartSelfHeal(
+                        bookId = lastProgress.bookId,
+                        rewindMs = rewindMs,
+                        targetPositionMs = targetGlobalPos
+                    )
                 }
                 
                 // 自愈完成后瞬间重置异常中断标志为 false，保障状态正确复位。

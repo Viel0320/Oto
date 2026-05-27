@@ -421,9 +421,12 @@ class BookLibraryRepository private constructor(context: Context) {
         
         if (files.isEmpty()) {
             val totalCost = SystemClock.elapsedRealtime() - planBuildStart
-            Log.d(
-                "BookLibraryRepository",
-                "getPlaybackPlan($bookId) 无可播放文件, book=${bookQueryCost}ms, files=${filesQueryCost}ms, progress=${progressQueryCost}ms, total=${totalCost}ms"
+            com.viel.aplayer.logger.LibraryLogger.logPlaybackPlanEmpty(
+                bookId = bookId,
+                bookQueryMs = bookQueryCost,
+                filesQueryMs = filesQueryCost,
+                progressQueryMs = progressQueryCost,
+                totalMs = totalCost
             )
             return@withContext null
         }
@@ -442,9 +445,14 @@ class BookLibraryRepository private constructor(context: Context) {
             startGlobalPositionMs = progress?.globalPositionMs ?: 0L
         )
         val totalCost = SystemClock.elapsedRealtime() - planBuildStart
-        Log.d(
-            "BookLibraryRepository",
-            "getPlaybackPlan($bookId) 完成, book=${bookQueryCost}ms, files=${filesQueryCost}ms, progress=${progressQueryCost}ms, total=${totalCost}ms, files=${plan.files.size}, start=${plan.startGlobalPositionMs}"
+        com.viel.aplayer.logger.LibraryLogger.logPlaybackPlanReady(
+            bookId = bookId,
+            bookQueryMs = bookQueryCost,
+            filesQueryMs = filesQueryCost,
+            progressQueryMs = progressQueryCost,
+            totalMs = totalCost,
+            fileCount = plan.files.size,
+            startPosition = plan.startGlobalPositionMs
         )
         plan
     }
@@ -499,14 +507,14 @@ class BookLibraryRepository private constructor(context: Context) {
                     val file = File(path)
                     if (file.exists()) {
                         val deleted = file.delete()
-                        Log.d("BookLibraryRepository", "物理删除有声书封面缓存文件成功，书籍ID: ${book.id}, 路径: $path, 结果: $deleted")
+                        com.viel.aplayer.logger.LibraryLogger.logCoverDeleted(book.id, path, deleted)
                     }
                 }
                 book.thumbnailPath?.let { path ->
                     val file = File(path)
                     if (file.exists()) {
                         val deleted = file.delete()
-                        Log.d("BookLibraryRepository", "物理删除有声书缩略图缓存文件成功，书籍ID: ${book.id}, 路径: $path, 结果: $deleted")
+                        com.viel.aplayer.logger.LibraryLogger.logThumbnailDeleted(book.id, path, deleted)
                     }
                 }
             }

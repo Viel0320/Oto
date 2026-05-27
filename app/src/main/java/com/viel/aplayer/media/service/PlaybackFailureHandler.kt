@@ -93,13 +93,13 @@ class PlaybackFailureHandler(
             // 2. 标记当前的物理分轨文件在数据库中为物理丢失 (UNAVAILABLE)
             libraryRepository.markPlaybackFileUnavailable(bookId, queueIndex)
             Toast.makeText(appContext, "文件不可用，正在自动寻找下一就绪分轨", Toast.LENGTH_SHORT).show()
-            Log.d("FailureHandler", "检测到分轨文件损坏或缺失，标记失效：$skipKey")
+            com.viel.aplayer.logger.PlaybackFailureLogger.logTrackMarkedUnavailable(skipKey)
 
             // 3. 在书籍分轨清册中动态寻找检索下一个可用（READY）音频轨执行自愈
             val next = libraryRepository.findNextAvailablePlaybackFile(bookId, queueIndex)
             if (next != null) {
                 val (nextIndex, _) = next
-                Log.d("FailureHandler", "灾备自愈成功，正在跳转到下一可用分轨：$nextIndex")
+                com.viel.aplayer.logger.PlaybackFailureLogger.logSelfHealSuccess(nextIndex)
                 player.seekTo(nextIndex, 0L)
                 player.prepare()
                 player.play()

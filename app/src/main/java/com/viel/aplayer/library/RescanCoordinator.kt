@@ -16,6 +16,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.logger.ImportTimingLogger
 import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.media.parser.MetadataResolver
 

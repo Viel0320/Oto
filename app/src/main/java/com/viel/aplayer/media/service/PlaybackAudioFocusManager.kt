@@ -47,7 +47,7 @@ class PlaybackAudioFocusManager(
                         // 永久失去音频焦点（如用户打开了别的音乐播放器），重置避让恢复标志并暂停当前播放
                         isPausedByLossOfFocus = false
                         player.pause()
-                        Log.d("AudioFocusManager", "永久失去焦点，执行暂停")
+                        com.viel.aplayer.logger.AudioFocusLogger.logPermanentLoss()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
@@ -58,7 +58,7 @@ class PlaybackAudioFocusManager(
                             // 保障用户在通知结束后自动续播时的绝对连续性，杜绝高频卡顿重播现象
                             AutoRewindManager.getInstance(appContext).ignoreNextAutoRewind = true
                             player.pause()
-                            Log.d("AudioFocusManager", "临时失去焦点，执行避让暂停并拦截回退")
+                            com.viel.aplayer.logger.AudioFocusLogger.logTransientLoss()
                         }
                     }
                     AudioManager.AUDIOFOCUS_GAIN -> {
@@ -66,7 +66,7 @@ class PlaybackAudioFocusManager(
                         if (isPausedByLossOfFocus) {
                             isPausedByLossOfFocus = false
                             player.play()
-                            Log.d("AudioFocusManager", "重获焦点，执行自动续播自愈")
+                            com.viel.aplayer.logger.AudioFocusLogger.logFocusRegained()
                         }
                     }
                 }
@@ -125,7 +125,7 @@ class PlaybackAudioFocusManager(
         
         val result = manager.requestAudioFocus(request)
         val success = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        Log.d("AudioFocusManager", "向系统申请音频焦点结果: $success (code: $result)")
+        com.viel.aplayer.logger.AudioFocusLogger.logFocusRequested(success, result)
         return success
     }
 
@@ -136,7 +136,7 @@ class PlaybackAudioFocusManager(
         val manager = audioManager ?: return
         audioFocusRequest?.let {
             val result = manager.abandonAudioFocusRequest(it)
-            Log.d("AudioFocusManager", "向系统释放音频焦点结果: $result")
+            com.viel.aplayer.logger.AudioFocusLogger.logFocusAbandoned(result)
             audioFocusRequest = null
         }
     }

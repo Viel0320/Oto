@@ -450,22 +450,26 @@ class PlayerViewModel : ViewModel() {
             val playbackPlanStart = SystemClock.elapsedRealtime()
             val plan = libraryRepository?.getPlaybackPlan(id)
             val playbackPlanCost = SystemClock.elapsedRealtime() - playbackPlanStart
-            android.util.Log.d(
-                "PlayerViewModel",
-                "loadBook($id) 播放计划构建耗时=${playbackPlanCost}ms, planReady=${plan != null}, playWhenReady=$playWhenReady"
+            com.viel.aplayer.logger.PlaybackTimingLogger.logPlaybackPlanBuild(
+                bookId = id,
+                costMs = playbackPlanCost,
+                planReady = plan != null,
+                playWhenReady = playWhenReady
             )
             if (plan != null) {
                 val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
-                android.util.Log.d(
-                    "PlayerViewModel",
-                    "loadBook($id) 即将交给 PlaybackDelegate, 总耗时=${totalCost}ms, files=${plan.files.size}, start=${plan.startGlobalPositionMs}"
+                com.viel.aplayer.logger.PlaybackTimingLogger.logLoadBookReady(
+                    bookId = id,
+                    totalMs = totalCost,
+                    fileCount = plan.files.size,
+                    startPosition = plan.startGlobalPositionMs
                 )
                 playbackDelegate?.loadBook(plan, playWhenReady) { updateCoverPath(it) }
             } else {
                 val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
-                android.util.Log.d(
-                    "PlayerViewModel",
-                    "loadBook($id) 未生成播放计划, 总耗时=${totalCost}ms"
+                com.viel.aplayer.logger.PlaybackTimingLogger.logLoadBookNoPlan(
+                    bookId = id,
+                    totalMs = totalCost
                 )
             }
         }

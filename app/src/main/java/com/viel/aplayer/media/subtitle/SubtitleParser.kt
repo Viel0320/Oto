@@ -20,7 +20,7 @@ object SubtitleParser {
      * @return A list of parsed SubtitleLine objects.
      */
     fun parse(inputStream: InputStream, extension: String): List<SubtitleLine> {
-        Log.d("SubtitleParser", "Parsing $extension")
+        com.viel.aplayer.logger.SubtitleLogger.logParseStart(extension)
         return when (extension.lowercase(Locale.ROOT)) {
             "srt" -> parseSrt(inputStream)
             "ass", "ssa" -> parseAss(inputStream)
@@ -28,7 +28,7 @@ object SubtitleParser {
             "lrc" -> parseLrc(inputStream)
             else -> emptyList()
         }.also {
-            Log.d("SubtitleParser", "Parsed ${it.size} lines")
+            com.viel.aplayer.logger.SubtitleLogger.logParseResult(it.size)
         }
     }
 

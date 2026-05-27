@@ -66,9 +66,13 @@ class VfsPlaybackDataSource private constructor(
         opened = true
         transferStarted(dataSpec)
         val totalOpenCost = SystemClock.elapsedRealtime() - openStart
-        Log.d(
-            "VfsPlaybackDataSource",
-            "open(bookFileId=$bookFileId, offset=${dataSpec.position}) db=${dbLookupCost}ms, vfs=${vfsOpenCost}ms, total=${totalOpenCost}ms, fileSize=${file.fileSize}"
+        com.viel.aplayer.logger.PlaybackTimingLogger.logDataSourceOpen(
+            bookFileId = bookFileId,
+            offset = dataSpec.position,
+            dbCostMs = dbLookupCost,
+            vfsCostMs = vfsOpenCost,
+            totalMs = totalOpenCost,
+            fileSize = file.fileSize
         )
         return if (dataSpec.length != C.LENGTH_UNSET.toLong()) dataSpec.length else bytesRemaining
     }

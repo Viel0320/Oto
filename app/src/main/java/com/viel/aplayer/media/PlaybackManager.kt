@@ -259,9 +259,13 @@ class PlaybackManager private constructor(context: Context) {
             // 异常中断进度自愈机制已前置到应用冷启动阶段执行，此处直接使用传入的 plan
             val finalPlan = plan
 
-            android.util.Log.d(
-                "PlaybackManager",
-                "setBookPlaybackPlan(${plan.bookId}) settingsRead=${settingsReadCost}ms, 原始起点=${plan.startGlobalPositionMs}, 最终起点=${finalPlan.startGlobalPositionMs}, files=${finalPlan.files.size}, playWhenReady=$playWhenReady"
+            com.viel.aplayer.logger.PlaybackTimingLogger.logSetPlanEntry(
+                bookId = plan.bookId,
+                settingsReadMs = settingsReadCost,
+                originalStart = plan.startGlobalPositionMs,
+                finalStart = finalPlan.startGlobalPositionMs,
+                fileCount = finalPlan.files.size,
+                playWhenReady = playWhenReady
             )
 
             // 完成进度自愈判定后，切回 Dispatchers.Main 线程，百分之百还原原作者的所有多线程渲染及安全检查逻辑。
@@ -295,9 +299,9 @@ class PlaybackManager private constructor(context: Context) {
                     }
                 } else {
                     val preApplyCost = SystemClock.elapsedRealtime() - setPlanStart
-                    android.util.Log.d(
-                        "PlaybackManager",
-                        "setBookPlaybackPlan(${plan.bookId}) 即将调用 applyPlaybackPlan, 前置总耗时=${preApplyCost}ms"
+                    com.viel.aplayer.logger.PlaybackTimingLogger.logPreApplyCost(
+                        bookId = plan.bookId,
+                        preApplyCostMs = preApplyCost
                     )
                     executeOnMain { applyPlaybackPlan(finalPlan) }
                 }
@@ -321,9 +325,14 @@ class PlaybackManager private constructor(context: Context) {
             controller.prepare()
             val controllerDispatchCost = SystemClock.elapsedRealtime() - controllerDispatchStart
             val totalApplyCost = SystemClock.elapsedRealtime() - applyPlanStart
-            android.util.Log.d(
-                "PlaybackManager",
-                "applyPlaybackPlan(${plan.bookId}) mediaItems构建=${mediaItemsBuildCost}ms, controller下发=${controllerDispatchCost}ms, total=${totalApplyCost}ms, files=${mediaItems.size}, fileIndex=$fileIndex, positionInFile=$positionInFile"
+            com.viel.aplayer.logger.PlaybackTimingLogger.logApplyPlan(
+                bookId = plan.bookId,
+                mediaItemsBuildMs = mediaItemsBuildCost,
+                controllerDispatchMs = controllerDispatchCost,
+                totalMs = totalApplyCost,
+                fileCount = mediaItems.size,
+                fileIndex = fileIndex,
+                positionInFile = positionInFile
             )
             if (pendingPlayWhenReady) {
                 // 为本次桌面 widget 改动添加注释：在 prepare 之后消费 autoplay 请求，避免先 play 后 setMediaItems 的异步时序丢失。
@@ -331,10 +340,7 @@ class PlaybackManager private constructor(context: Context) {
                 controller.play()
                 // 为播放慢定位添加详细中文注释：
                 // 明确记录 autoplay 指令已经被消费，方便和后续真正出声时间做对比。
-                android.util.Log.d(
-                    "PlaybackManager",
-                    "applyPlaybackPlan(${plan.bookId}) 已消费 autoplay 请求并调用 play()"
-                )
+                com.viel.aplayer.logger.PlaybackTimingLogger.logAutoplayConsumed(plan.bookId)
             }
             // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
             _currentSubtitles.value = emptyList()
@@ -342,9 +348,9 @@ class PlaybackManager private constructor(context: Context) {
             progressSyncTracker.persistProgress(plan.bookId, fileIndex, positionInFile)
         } ?: run {
             val totalApplyCost = SystemClock.elapsedRealtime() - applyPlanStart
-            android.util.Log.d(
-                "PlaybackManager",
-                "applyPlaybackPlan(${plan.bookId}) 跳过, mediaController 尚未就绪, total=${totalApplyCost}ms"
+            com.viel.aplayer.logger.PlaybackTimingLogger.logApplyPlanSkipped(
+                bookId = plan.bookId,
+                totalMs = totalApplyCost
             )
         }
     }

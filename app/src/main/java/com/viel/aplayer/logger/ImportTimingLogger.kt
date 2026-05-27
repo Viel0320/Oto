@@ -1,4 +1,4 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.logger
 
 import android.os.SystemClock
 import android.util.Log
