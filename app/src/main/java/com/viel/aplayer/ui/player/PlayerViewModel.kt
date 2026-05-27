@@ -126,7 +126,7 @@ class PlayerViewModel : ViewModel() {
                 repo.getChapters(id),
                 repo.getBookmarks(id),
                 _currentSubtitles
-            ) { entity: com.viel.aplayer.data.entity.BookEntity?, chapters: List<com.viel.aplayer.data.entity.ChapterWithBookFile>, bookmarks: List<com.viel.aplayer.data.entity.BookmarkEntity>, subtitles: List<com.viel.aplayer.ui.player.components.SubtitleLine> ->
+            ) { entity: com.viel.aplayer.data.entity.BookEntity?, chapters: List<com.viel.aplayer.data.entity.ChapterWithBookFile>, bookmarks: List<BookmarkEntity>, subtitles: List<com.viel.aplayer.ui.player.components.SubtitleLine> ->
                 BookMetadataState(
                     id = id,
                     title = entity?.title ?: "",

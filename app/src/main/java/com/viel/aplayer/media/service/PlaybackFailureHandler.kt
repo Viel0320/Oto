@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  */
 @UnstableApi
 class PlaybackFailureHandler(
-    private val context: Context,
+    context: Context,
     private val serviceScope: CoroutineScope,
     private val libraryRepository: LibraryRepository,
     private val settingsRepository: AppSettingsRepository
