@@ -56,7 +56,7 @@ private data class WebDavResource(
 )
 
 // WebDAV Provider 使用 OkHttp 实现 PROPFIND、GET 与 Range 读取，是远程标准件的第一条真实接入路径。
-class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider {
+class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     override val kind: LibrarySourceKind = LibrarySourceKind.WEBDAV
     override val capabilities: SourceCapabilities = SourceCapabilities(
         supportsDirectoryListing = true,
@@ -134,13 +134,19 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
             response.close()
             throw response.toWebDavException("GET")
         }
-        val body = response.body ?: run {
-            response.close()
-            throw WebDavException(
-                availabilityStatus = AudiobookSchema.AvailabilityStatus.SERVER_ERROR,
-                message = "WebDAV GET returned an empty body: ${file.metadata.sourcePath}"
-            )
-        }
+
+        // 获取响应体，此时 body 已被 IDE 推断为非空
+        val body = response.body
+
+        // 记录 WebDAV GET/Range 流打开请求的完整耗时、HTTP 状态码与成功状态
+        com.viel.aplayer.logger.VfsLogger.logWebDavOpen(
+            sourcePath = file.metadata.sourcePath,
+            offset = offset,
+            costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(openStart),
+            httpCode = response.code,
+            success = true
+        )
+
         return body.byteStream().also { stream ->
             // 少数服务器忽略 Range 并返回 200，此处保留本地 skip 兜底以维持播放器语义。
             if (offset > 0L && response.code == HTTP_OK) {
@@ -156,14 +162,6 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
                     }
             }
         }
-        // 记录 WebDAV GET/Range 流打开请求的完整耗时、HTTP 状态码与成功状态
-        com.viel.aplayer.logger.VfsLogger.logWebDavOpen(
-            sourcePath = file.metadata.sourcePath,
-            offset = offset,
-            costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(openStart),
-            httpCode = response.code,
-            success = true
-        )
     }
 
     override suspend fun readRange(file: SourceNode, offset: Long, length: Int): ByteArray? =
@@ -205,7 +203,7 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
                     }
                     !response.isSuccessful -> throw response.toWebDavException("GET Range")
                 }
-                val body = response.body ?: return@withContext null
+                val body = response.body
                 val result = body.byteStream().use { stream -> stream.readAtMost(length) }
                 // 记录 Range 片段读取成功后的耗时与实际字节数
                 com.viel.aplayer.logger.VfsLogger.logWebDavRange(
@@ -251,7 +249,7 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
                 if (response.code != HTTP_MULTI_STATUS && !response.isSuccessful) {
                     throw response.toWebDavException("PROPFIND")
                 }
-                val xml = response.body?.string().orEmpty()
+                val xml = response.body.string()
                 if (xml.isBlank()) {
                     // 记录 PROPFIND 请求返回空 XML 的耗时
                     com.viel.aplayer.logger.VfsLogger.logWebDavPropfind(
@@ -474,7 +472,7 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
 
     private fun boundedRangeEnd(file: SourceNode, offset: Long, length: Int): Long? {
         val knownSize = file.metadata.fileSize
-        if (knownSize > 0L && offset >= knownSize) return null
+        if (knownSize in 1..offset) return null
         val rawEnd = offset.saturatingAdd(length.toLong() - 1L)
         return if (knownSize > 0L) minOf(rawEnd, knownSize - 1L) else rawEnd
     }
@@ -498,7 +496,7 @@ class WebDavSourceProvider(private val context: Context) : LibrarySourceProvider
 
     private fun Element.elementsByLocalName(localName: String): List<Element> {
         val namespaced = getElementsByTagNameNS("*", localName).toElements()
-        return if (namespaced.isNotEmpty()) namespaced else getElementsByTagName(localName).toElements()
+        return namespaced.ifEmpty { getElementsByTagName(localName).toElements() }
     }
 
     private fun Element.firstText(localName: String): String? =

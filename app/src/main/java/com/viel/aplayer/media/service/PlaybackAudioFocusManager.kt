@@ -4,7 +4,6 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
-import android.util.Log
 import androidx.media3.common.Player
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.media.AutoRewindManager
@@ -19,7 +18,7 @@ import kotlinx.coroutines.launch
  * 实现了底层音频硬件监听行为与前台 Service 生命周期的物理隔离，提升核心业务系统的测试性与稳定性。
  */
 class PlaybackAudioFocusManager(
-    private val context: Context,
+    context: Context,
     private val serviceScope: CoroutineScope,
     private val settingsRepository: AppSettingsRepository,
     private val playerProvider: () -> Player?

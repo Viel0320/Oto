@@ -1,6 +1,5 @@
 package com.viel.aplayer.media.subtitle
 
-import android.util.Log
 import com.viel.aplayer.ui.player.components.SubtitleLine
 import java.io.BufferedReader
 import java.io.InputStream

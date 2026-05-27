@@ -13,9 +13,6 @@ internal object PlaybackTimingLogger {
 
     private const val TAG = "PlaybackTiming"
 
-    // 用于标记计时起始点，使用 elapsedRealtime 以排除系统休眠和时间调整的影响
-    fun mark(): Long = SystemClock.elapsedRealtime()
-
     // 将起始时间戳转换为已耗费的毫秒数
     fun elapsedMs(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
 
