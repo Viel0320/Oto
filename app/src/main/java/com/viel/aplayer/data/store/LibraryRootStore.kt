@@ -9,8 +9,8 @@ import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.availability.AvailabilityChecker
-import com.viel.aplayer.library.sourceProvider.LibrarySourceKind
-import com.viel.aplayer.library.sourceProvider.webdav.WebDavCredentialStore
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import androidx.core.net.toUri
 
 /**

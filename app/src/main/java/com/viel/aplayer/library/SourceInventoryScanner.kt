@@ -2,7 +2,7 @@ package com.viel.aplayer.library
 
 import android.content.Context
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.library.sourceProvider.LibrarySourceProviderFactory
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProviderFactory
 import com.viel.aplayer.library.vfs.VfsNode
 import com.viel.aplayer.library.vfs.VirtualFileSystem
 import kotlinx.coroutines.Dispatchers

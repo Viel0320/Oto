@@ -1,4 +1,4 @@
-package com.viel.aplayer.library.sourceProvider.saf
+package com.viel.aplayer.library.vfs.sourceProvider.saf
 
 import android.content.Context
 import android.os.SystemClock
@@ -8,11 +8,11 @@ import android.util.Log
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.library.sourceProvider.LibrarySourceKind
-import com.viel.aplayer.library.sourceProvider.LibrarySourceProvider
-import com.viel.aplayer.library.sourceProvider.SourceCapabilities
-import com.viel.aplayer.library.sourceProvider.SourceFileMetadata
-import com.viel.aplayer.library.sourceProvider.SourceNode
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
+import com.viel.aplayer.library.vfs.sourceProvider.SourceCapabilities
+import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
+import com.viel.aplayer.library.vfs.sourceProvider.SourceNode
 import java.io.FileInputStream
 import java.io.FilterInputStream
 import java.io.InputStream

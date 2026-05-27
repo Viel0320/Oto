@@ -1,4 +1,4 @@
-package com.viel.aplayer.library.sourceProvider.webdav
+package com.viel.aplayer.library.vfs.sourceProvider.webdav
 
 import android.content.Context
 import android.util.Base64

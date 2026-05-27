@@ -1,11 +1,11 @@
-package com.viel.aplayer.library.sourceProvider
+package com.viel.aplayer.library.vfs.sourceProvider
 
 import android.content.Context
 import android.os.ParcelFileDescriptor
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.library.sourceProvider.saf.SafSourceProvider
-import com.viel.aplayer.library.sourceProvider.webdav.WebDavSourceProvider
+import com.viel.aplayer.library.vfs.sourceProvider.saf.SafSourceProvider
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavSourceProvider
 import java.io.InputStream
 
 enum class LibrarySourceKind(val schemaValue: String) {

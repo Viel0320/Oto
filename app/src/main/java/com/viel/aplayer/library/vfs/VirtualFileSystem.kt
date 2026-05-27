@@ -2,10 +2,10 @@ package com.viel.aplayer.library.vfs
 
 import android.os.ParcelFileDescriptor
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.library.sourceProvider.LibrarySourceProvider
-import com.viel.aplayer.library.sourceProvider.LibrarySourceProviderFactory
-import com.viel.aplayer.library.sourceProvider.SourceFileMetadata
-import com.viel.aplayer.library.sourceProvider.SourceNode
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProviderFactory
+import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
+import com.viel.aplayer.library.vfs.sourceProvider.SourceNode
 import java.io.InputStream
 
 // VfsPath 是跨协议路径的统一外壳；SAF 和 WebDAV 都通过它描述来源内路径。

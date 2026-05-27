@@ -6,9 +6,9 @@ import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.library.sourceProvider.LibrarySourceKind
-import com.viel.aplayer.library.sourceProvider.LibrarySourceProviderFactory
-import com.viel.aplayer.library.sourceProvider.webdav.WebDavException
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProviderFactory
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavException
 import com.viel.aplayer.library.vfs.VfsPath
 import com.viel.aplayer.library.vfs.VirtualFileSystem
 

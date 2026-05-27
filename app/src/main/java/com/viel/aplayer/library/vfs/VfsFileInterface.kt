@@ -5,9 +5,9 @@ import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.library.sourceProvider.LibrarySourceProviderFactory
-import com.viel.aplayer.library.sourceProvider.SourceFileMetadata
-import com.viel.aplayer.library.sourceProvider.SourceNode
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProviderFactory
+import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
+import com.viel.aplayer.library.vfs.sourceProvider.SourceNode
 import java.io.InputStream
 import java.util.concurrent.ConcurrentHashMap
 

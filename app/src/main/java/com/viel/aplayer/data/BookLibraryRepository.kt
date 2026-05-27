@@ -23,8 +23,8 @@ import com.viel.aplayer.data.store.SearchHistoryStore
 import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.RescanCoordinator
 import com.viel.aplayer.library.RescanType
-import com.viel.aplayer.library.sourceProvider.LibrarySourceKind
-import com.viel.aplayer.library.sourceProvider.webdav.WebDavCredentialStore
+import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import com.viel.aplayer.media.BookPlaybackPlan
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
