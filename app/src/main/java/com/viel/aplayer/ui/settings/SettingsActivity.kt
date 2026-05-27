@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
-// 导入运行时系统安全区 Insets 与 PaddingValues，以支持设置页面横竖屏下的自适应刘海与系统栏避让
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.exclude
@@ -39,7 +38,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.LinearScale
 import androidx.compose.material.icons.rounded.Refresh
@@ -169,7 +167,6 @@ class SettingsActivity : ComponentActivity() {
                                     settingsViewModel.onWebDavRootSubmitted(url, username, password, displayName, basePath)
                                 },
 
-                                onClearHistory = { settingsViewModel.clearSearchHistory() },
                                 onRescan = { settingsViewModel.triggerRescan() },
                                 libraryRoots = libraryRoots,
                                 isChapterProgressMode = settingsState.isChapterProgressMode,
@@ -224,7 +221,6 @@ fun SettingsScreen(
     onLibraryRootSelected: (Uri) -> Unit,
     // WebDAV 表单提交回调只传标准连接字段，UI 不直接写数据库或凭据存储。
     onWebDavRootSubmitted: (url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
-    onClearHistory: () -> Unit,
     onRescan: () -> Unit,
     libraryRoots: List<LibraryRootEntity>,
     isChapterProgressMode: Boolean,
@@ -592,20 +588,6 @@ fun SettingsScreen(
             }
 
             // 
-            // === 第七分节：数据清理 ===
-            item {
-                SettingsSectionHeader(title = "数据清理")
-            }
-            item {
-                SettingsItem(
-                    title = stringResource(R.string.clear_history_title),
-                    subtitle = stringResource(R.string.clear_history_subtitle),
-                    icon = Icons.Rounded.DeleteSweep,
-                    onClick = onClearHistory
-                )
-            }
-
-            // 
             // === 第八分节：关于信息 ===
             // 在设置页底栏新增“关于”分节与“开源许可”条目，完美适配 safe drawing padding 安全边距避让。
             item {
@@ -951,7 +933,6 @@ fun SettingsScreenPreview() {
             onLibraryRootSelected = {},
             // Preview 不执行 WebDAV 持久化，只验证设置页参数链路完整。
             onWebDavRootSubmitted = { _, _, _, _, _ -> },
-            onClearHistory = {},
             onRescan = {},
             libraryRoots = emptyList(),
             isChapterProgressMode = false,

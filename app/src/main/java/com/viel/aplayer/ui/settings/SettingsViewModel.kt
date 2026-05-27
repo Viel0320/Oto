@@ -80,12 +80,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    fun clearSearchHistory() {
-        viewModelScope.launch {
-            libraryRepository.clearHistory()
-        }
-    }
-
     fun triggerRescan() {
         // 手动重扫只提交应用级扫描队列，设置页退场不会触发 JobCancellationException。
         libraryRepository.scheduleLibrarySync("USER")
