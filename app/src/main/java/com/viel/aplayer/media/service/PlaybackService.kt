@@ -22,7 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.media.NotificationProgressPlayer
 import com.viel.aplayer.media.PositionMapper
@@ -67,7 +67,8 @@ class PlaybackService : MediaSessionService() {
     private lateinit var rewindButton: CommandButton
     private lateinit var forwardButton: CommandButton
     private lateinit var bookmarkButton: CommandButton
-    private lateinit var libraryRepository: LibraryRepository
+    // 详尽的中文注释：在 M4.4 重构中，将旧的上帝仓库 libraryRepository 更换为全新的 LibraryFacade 门面
+    private lateinit var libraryFacade: LibraryFacade
     private lateinit var settingsRepository: AppSettingsRepository
     private lateinit var notificationPlayer: NotificationProgressPlayer
 
@@ -90,7 +91,8 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         
-        libraryRepository = LibraryRepository.getInstance(this)
+        val container = (applicationContext as com.viel.aplayer.APlayerApplication).container
+        libraryFacade = container.libraryFacade
         settingsRepository = AppSettingsRepository.getInstance(this)
 
         // 1. 初始化解耦出去的音频焦点管理器组件
@@ -102,10 +104,11 @@ class PlaybackService : MediaSessionService() {
         )
 
         // 2. 初始化解耦出去的播放物理故障与拦截处理器组件
+        // 详尽的中文注释：将 progressGateway 传入 PlaybackFailureHandler 故障灾备处理器以替代旧的 libraryRepository 依赖
         failureHandler = PlaybackFailureHandler(
             context = this,
             serviceScope = serviceScope,
-            libraryRepository = libraryRepository,
+            progressGateway = container.progressGateway,
             settingsRepository = settingsRepository
         )
 
@@ -262,8 +265,9 @@ class PlaybackService : MediaSessionService() {
         val bookId = mediaId.substringBefore(":")
 
         serviceScope.launch(Dispatchers.IO) {
-            val files = libraryRepository.getFilesForBookSync(bookId)
-            val chapters = libraryRepository.getChaptersForBookSync(bookId)
+            // 详尽的中文注释：通过高层门面 libraryFacade 同步获取特定书籍的全部物理分轨与章节清册
+            val files = libraryFacade.getFilesForBookSync(bookId)
+            val chapters = libraryFacade.getChaptersForBookSync(bookId)
             if (files.isNotEmpty()) {
                 launch(Dispatchers.Main) {
                     notificationBookId = bookId
@@ -341,7 +345,8 @@ class PlaybackService : MediaSessionService() {
                             val positionMs = (session.player as? NotificationProgressPlayer)
                                 ?.currentGlobalPosition()
                                 ?: currentGlobalPosition(session.player, bookId)
-                            libraryRepository.addBookmark(bookId, positionMs, "Bookmark")
+                            // 详尽的中文注释：使用 libraryFacade 门面接口在指定物理位置创建书签
+                            libraryFacade.addBookmark(bookId, positionMs, "Bookmark")
                             Toast.makeText(this@PlaybackService, "已添加当前播放位置到书签", Toast.LENGTH_SHORT).show()
                         }
                     }
@@ -364,8 +369,9 @@ class PlaybackService : MediaSessionService() {
     private suspend fun currentGlobalPosition(player: Player, bookId: String): Long {
         val fileIndex = player.currentMediaItemIndex.coerceAtLeast(0)
         val positionInFile = player.currentPosition.coerceAtLeast(0L)
+        // 详尽的中文注释：当通知栏缓存书籍信息不存在时，通过 libraryFacade 安全加载对应音频分轨以正确映射进度
         val files = notificationFiles.takeIf { notificationBookId == bookId && it.isNotEmpty() }
-            ?: libraryRepository.getFilesForBookSync(bookId)
+            ?: libraryFacade.getFilesForBookSync(bookId)
         
         return if (files.isNotEmpty()) {
             PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)

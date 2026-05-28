@@ -7,7 +7,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.gateway.ProgressGateway
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -17,12 +17,15 @@ import kotlinx.coroutines.launch
  * 专门负责在前台播放期间，网络流明文传输的安全合规检测与拦截、运行期音频物理丢失引发的 I/O 异常捕捉，
  * 以及多音轨下自动标记损坏分轨并动态自愈起播下一个就绪（READY）可用轨道。
  * 物理隔离了网络/存储底层容灾复杂逻辑，净化了播放器核心服务的业务环境。
+ * 
+ * 在 M4.4 重构中，将旧的 LibraryRepository 替换为更精确的 ProgressGateway 接口，
+ * 遵循单一职责和最小知识原则，提高架构组件的解耦纯净度。
  */
 @UnstableApi
 class PlaybackFailureHandler(
     context: Context,
     private val serviceScope: CoroutineScope,
-    private val libraryRepository: LibraryRepository,
+    private val progressGateway: ProgressGateway,
     private val settingsRepository: AppSettingsRepository
 ) {
     // 避免 Context 内存泄露，获取应用级别的唯一 Context 句柄
@@ -91,12 +94,14 @@ class PlaybackFailureHandler(
             }
 
             // 2. 标记当前的物理分轨文件在数据库中为物理丢失 (UNAVAILABLE)
-            libraryRepository.markPlaybackFileUnavailable(bookId, queueIndex)
+            // 详尽的中文注释：使用 progressGateway 的 markPlaybackFileUnavailable 方法将故障音频轨在数据库中标记为不可读
+            progressGateway.markPlaybackFileUnavailable(bookId, queueIndex)
             Toast.makeText(appContext, "文件不可用，正在自动寻找下一就绪分轨", Toast.LENGTH_SHORT).show()
             com.viel.aplayer.logger.PlaybackFailureLogger.logTrackMarkedUnavailable(skipKey)
 
             // 3. 在书籍分轨清册中动态寻找检索下一个可用（READY）音频轨执行自愈
-            val next = libraryRepository.findNextAvailablePlaybackFile(bookId, queueIndex)
+            // 详尽的中文注释：通过 progressGateway 的 findNextAvailablePlaybackFile 服务检索下一首正常的音频分轨以自动自愈起播
+            val next = progressGateway.findNextAvailablePlaybackFile(bookId, queueIndex)
             if (next != null) {
                 val (nextIndex, _) = next
                 com.viel.aplayer.logger.PlaybackFailureLogger.logSelfHealSuccess(nextIndex)

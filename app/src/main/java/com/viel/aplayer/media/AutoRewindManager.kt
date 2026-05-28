@@ -112,18 +112,24 @@ class AutoRewindManager private constructor(context: Context) {
      * 读取 AppSettings，如果上次播放异常中断且开启了回退秒数，
      * 则查询最后一次播放的进度，并对其进行回退补偿。
      */
-    suspend fun performColdStartSelfHealing() {
+     suspend fun performColdStartSelfHealing() {
         try {
             // 挂起并获取 DataStore 中的最新设置快照，确保数据一致性。
             val settings = settingsRepository.settingsFlow.first()
             if (settings.isLastPlaybackInterrupted && settings.autoRewindSeconds > 0) {
-                val libraryRepository = com.viel.aplayer.data.LibraryRepository.getInstance(appContext)
-                val lastProgress = libraryRepository.getLastPlayedProgressSync()
+                // 详尽的中文注释：
+                // 在 M4.3 重构中，摒弃重量级的 LibraryRepository，通过 Application 的 container 
+                // 获取解耦后的只读网关 bookQueryGateway 以及进度网关 progressGateway。
+                val container = (appContext as com.viel.aplayer.APlayerApplication).container
+                val bookQueryGateway = container.bookQueryGateway
+                val progressGateway = container.progressGateway
+
+                val lastProgress = progressGateway.getLastPlayedProgressSync()
                 if (lastProgress != null) {
                     val rewindMs = settings.autoRewindSeconds * 1000L
                     val targetGlobalPos = (lastProgress.globalPositionMs - rewindMs).coerceAtLeast(0L)
                     
-                    val files = libraryRepository.getFilesForBookSync(lastProgress.bookId)
+                    val files = bookQueryGateway.getFilesForBookSync(lastProgress.bookId)
                     val healedProgress = if (files.isNotEmpty()) {
                         val (targetFileIndex, targetPosInFile) = PositionMapper.globalToFilePosition(targetGlobalPos, files)
                         val bookFileId = files.getOrNull(targetFileIndex)?.id
@@ -141,7 +147,7 @@ class AutoRewindManager private constructor(context: Context) {
                         )
                     }
                     
-                    libraryRepository.saveProgress(healedProgress)
+                    progressGateway.saveProgress(healedProgress)
                     com.viel.aplayer.logger.AutoRewindLogger.logColdStartSelfHeal(
                         bookId = lastProgress.bookId,
                         rewindMs = rewindMs,

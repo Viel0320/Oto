@@ -13,7 +13,6 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryRepository
 import com.viel.aplayer.media.service.PlaybackService
 import com.viel.aplayer.ui.player.components.SubtitleLine
 import com.viel.aplayer.widget.PlayerWidgetProvider
@@ -39,7 +38,14 @@ class PlaybackManager private constructor(context: Context) {
         android.util.Log.e("PlaybackManager", "Unhandled coroutine exception in PlaybackManager", exception)
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
-    private val libraryRepository = LibraryRepository.getInstance(appContext)
+
+    // 详尽的中文注释：
+    // 在 M4.1 重构中，为了彻底摆脱庞大重量级的 LibraryRepository 依赖，
+    // 获取全局 Application 中的 container，并提取只读的 bookQueryGateway 以及用于进度保存的 progressGateway。
+    private val container = (appContext as com.viel.aplayer.APlayerApplication).container
+    private val bookQueryGateway = container.bookQueryGateway
+    private val progressGateway = container.progressGateway
+
     // 实例化 AppSettingsRepository 以便动态获取和监控用户的 HTTP 明文流量配置权限。
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
     // 实例化新的 AutoRewindManager 以便对自动回退逻辑进行精细化管理与状态维护。
@@ -99,7 +105,8 @@ class PlaybackManager private constructor(context: Context) {
         // 构建进度同步追踪器，并通过 lambda 回调无缝对接 Flow 值的更新，实现管道式状态上报。
         progressSyncTracker = ProgressSyncTracker(
             context = appContext,
-            libraryRepository = libraryRepository,
+            bookQueryGateway = bookQueryGateway,
+            progressGateway = progressGateway,
             scope = scope,
             getController = { mediaController },
             getCurrentPlan = { currentPlan },
@@ -384,7 +391,8 @@ class PlaybackManager private constructor(context: Context) {
             val mediaId = controller.currentMediaItem?.mediaId ?: return@launch
             if (!mediaId.contains(":")) return@launch
             val bookId = mediaId.substringBefore(":")
-            val files = libraryRepository.getFilesForBookSync(bookId)
+            // 详尽的中文注释：使用 bookQueryGateway 接口查询指定书籍的物理音频分轨，以执行高精度的 seek 定位跳转
+            val files = bookQueryGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val totalDuration = files.sumOf { it.durationMs }
                 val targetGlobal = globalPositionMs.coerceIn(0L, totalDuration.coerceAtLeast(0L))

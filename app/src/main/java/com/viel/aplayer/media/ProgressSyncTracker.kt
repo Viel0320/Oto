@@ -2,19 +2,24 @@ package com.viel.aplayer.media
 
 import android.content.Context
 import androidx.media3.session.MediaController
-import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.data.entity.BookProgressEntity
 import kotlinx.coroutines.*
 
 /**
- * 详尽的中文注释：
+ * 详尽 of 中文注释：
  * 进度同步追踪器（ProgressSyncTracker）。
  * 作为 PlaybackManager 的协从组件，用于将高频进度轮询与数据库持久化落库的逻辑从大单例中解耦出来。
  * 追踪器维持核心数据落盘功能，提供清晰的进度计算与回传生命周期控制。
+ * 
+ * 在 M4.2 重构中，将旧的 LibraryRepository 彻底解耦，拆分为 BookQueryGateway 以及 ProgressGateway，
+ * 遵循高内聚低耦合的架构设计。
  */
 class ProgressSyncTracker(
     private val context: Context,
-    private val libraryRepository: LibraryRepository,
+    private val bookQueryGateway: BookQueryGateway,
+    private val progressGateway: ProgressGateway,
     private val scope: CoroutineScope,
     private val getController: () -> MediaController?,
     private val getCurrentPlan: () -> BookPlaybackPlan?,
@@ -114,13 +119,14 @@ class ProgressSyncTracker(
         val positionInFile = controller.currentPosition.coerceAtLeast(0L)
 
         scope.launch {
-            val files = libraryRepository.getFilesForBookSync(bookId)
+            // 详尽的中文注释：使用解耦后的 bookQueryGateway 网关服务获取书籍相关的全部音频分轨文件列表
+            val files = bookQueryGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
                 val bookFileId = files.getOrNull(fileIndex)?.id
 
-                // 详尽的中文注释：将换算完毕的播放进度持久化写入 Room 数据库
-                libraryRepository.saveProgress(
+                // 详尽的中文注释：使用专门用于进度持久化的 progressGateway 异步落库当前的播放进度
+                progressGateway.saveProgress(
                     BookProgressEntity(
                         bookId = bookId,
                         globalPositionMs = globalPos,
@@ -146,7 +152,8 @@ class ProgressSyncTracker(
      */
     fun persistProgress(bookId: String, fileIndex: Int, positionInFile: Long) {
         scope.launch {
-            val files = libraryRepository.getFilesForBookSync(bookId)
+            // 详尽的中文注释：使用解耦后的 bookQueryGateway 只读网关服务同步获取最新的书籍音频分轨列表
+            val files = bookQueryGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val safeFileIndex = fileIndex.coerceIn(0, files.lastIndex)
                 val safePositionInFile = positionInFile.coerceAtLeast(0L)
@@ -154,8 +161,8 @@ class ProgressSyncTracker(
                     .coerceIn(0L, files.sumOf { it.durationMs }.coerceAtLeast(0L))
                 val bookFileId = files.getOrNull(safeFileIndex)?.id
 
-                // 详尽的中文注释：保存该指定的高精度进度快照
-                libraryRepository.saveProgress(
+                // 详尽的中文注释：调用 progressGateway 网关将高精度的定位快照保存落库
+                progressGateway.saveProgress(
                     BookProgressEntity(
                         bookId = bookId,
                         globalPositionMs = globalPos,

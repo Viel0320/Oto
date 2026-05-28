@@ -49,7 +49,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.color.ColorProvider
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
-import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.media.AutoRewindManager
@@ -105,13 +105,15 @@ object PlayerGlanceWidget : GlanceAppWidget() {
     }
 
     private suspend fun readWidgetSnapshot(context: Context): WidgetSnapshot {
-        val repository = LibraryRepository.getInstance(context)
+        // 详尽的中文注释：在 M4.6 重构中，通过全局 APlayerApplication 获取解耦门面 libraryFacade，完全剔除直接实例化旧仓库的操作。
+        val container = (context.applicationContext as com.viel.aplayer.APlayerApplication).container
+        val libraryFacade = container.libraryFacade
         val manager = PlaybackManager.getInstance(context)
         // 为本次桌面 widget Glance 迁移添加注释：仍只读取 PlaybackManager StateFlow 快照，避免在 Glance Worker 线程直接访问 MediaController。
         val activeBookId = manager.currentMediaItem.first()?.mediaId?.substringBefore(":")
             ?: manager.currentPlayingBookId
-        val fallbackProgress = if (activeBookId == null) repository.getLastPlayedProgressSync() else null
-        val book = (activeBookId ?: fallbackProgress?.bookId)?.let { repository.getBookById(it) }
+        val fallbackProgress = if (activeBookId == null) libraryFacade.getLastPlayedProgressSync() else null
+        val book = (activeBookId ?: fallbackProgress?.bookId)?.let { libraryFacade.getBookById(it) }
         val isPlaying = manager.isPlaying.first()
         return WidgetSnapshot(
             title = book?.title?.takeIf { it.isNotBlank() } ?: context.getString(R.string.player_widget_empty_title),
@@ -372,9 +374,11 @@ private object PlayerWidgetActions {
         // 在恢复最后一本书之前，强力调用冷启动自愈逻辑以保证拿到已自愈的位置，完美防止后台协程并发导致的时序竞争。
         AutoRewindManager.getInstance(context).performColdStartSelfHealing()
 
-        val repository = LibraryRepository.getInstance(context)
-        val progress = repository.getLastPlayedProgressSync() ?: return false
-        val plan = repository.getPlaybackPlan(progress.bookId) ?: return false
+        // 详尽的中文注释：在 widget 恢复最后一本书的逻辑中，使用解耦的 libraryFacade 来代替原有的 repository 获取播放计划与最近进度
+        val container = (context.applicationContext as com.viel.aplayer.APlayerApplication).container
+        val libraryFacade = container.libraryFacade
+        val progress = libraryFacade.getLastPlayedProgressSync() ?: return false
+        val plan = libraryFacade.getPlaybackPlan(progress.bookId) ?: return false
         // 为本次桌面 widget Glance 迁移添加注释：复用播放计划构建逻辑，确保 widget 与应用内播放使用同一套章节、封面、进度数据。
         manager.setBookPlaybackPlan(plan, playWhenReady)
         return true
