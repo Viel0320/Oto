@@ -1,7 +1,6 @@
 package com.viel.aplayer.data.usecase
 
 import android.util.Log
-import com.viel.aplayer.data.BookLibraryRepository
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.media.PlaybackManager
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +20,8 @@ import kotlinx.coroutines.withContext
  */
 class DeleteLibraryRootUseCase(
     private val playbackManager: PlaybackManager,
-    private val bookLibraryRepository: BookLibraryRepository
+    private val bookQueryGateway: com.viel.aplayer.data.gateway.BookQueryGateway,
+    private val libraryRootGateway: com.viel.aplayer.data.gateway.LibraryRootGateway
 ) {
 
     /**
@@ -36,8 +36,8 @@ class DeleteLibraryRootUseCase(
         try {
             val currentBookId = playbackManager.currentPlayingBookId
             if (currentBookId != null) {
-                // 2. 根据 ID 查询书籍实体，判断其所属的书库根 ID 是否与当前待删的根匹配
-                val currentBook = bookLibraryRepository.getBookById(currentBookId)
+                // 2. 详尽的中文注释：使用书籍查询网关 getBookById 接口检索当前播放的书籍实体以进行归属判断
+                val currentBook = bookQueryGateway.getBookById(currentBookId)
                 if (currentBook != null && currentBook.rootId == root.id) {
                     // 3. 如果属于被删书库，立即下发紧急停播指令，并锁定返回状态
                     playbackManager.stopPlayback()
@@ -49,8 +49,8 @@ class DeleteLibraryRootUseCase(
             Log.e("DeleteLibraryRootUseCase", "检测或暂停被删除根目录的有声书播放时发生异常", e)
         }
 
-        // 4. 调用数据领域的纯数据清理接口，物理删除对应文件与 Room 实体
-        bookLibraryRepository.deleteLibraryRootDataOnly(root)
+        // 4. 详尽的中文注释：使用书库根网关的 deleteLibraryRootDataOnly 接口完成本地缓存、SAF授权及Room记录的彻底级联清理
+        libraryRootGateway.deleteLibraryRootDataOnly(root)
 
         playbackStopped
     }

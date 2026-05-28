@@ -37,4 +37,9 @@ interface CoverGateway {
      * 在底层物理文件系统（VFS）中校验该书籍的主音轨文件是否在物理上真实可读存在。
      */
     suspend fun checkPrimaryAudioFileExists(bookId: String): Boolean
+
+    /**
+     * 根据音频物理分轨文件的唯一 ID，异步在底层 VFS 中检索并加载解析其关联的外置字幕。
+     */
+    suspend fun loadSubtitlesForBookFile(bookFileId: String): List<com.viel.aplayer.ui.player.components.SubtitleLine>
 }

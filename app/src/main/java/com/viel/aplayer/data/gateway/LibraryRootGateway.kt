@@ -77,4 +77,10 @@ interface LibraryRootGateway {
      * 异步刷新并校验所有书库根目录在底层的真实授权/连接状态。
      */
     suspend fun refreshLibraryRootStatuses()
+
+    /**
+     * 仅清理与书库根相关的底层数据（物理封面图清理、SAF授权释放、WebDAV凭证物理删除、Room级联记录删除）。
+     * 此操作为纯数据层职责，不参与任何播放状态的控制，解耦反向依赖。
+     */
+    suspend fun deleteLibraryRootDataOnly(root: LibraryRootEntity)
 }

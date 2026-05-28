@@ -2,9 +2,6 @@ package com.viel.aplayer
 
 import android.content.Context
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryRepository
-import com.viel.aplayer.data.BookLibraryRepository
-import com.viel.aplayer.data.PlaybackHistoryRepository
 import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
@@ -22,13 +19,20 @@ import com.viel.aplayer.data.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.media.PlaybackFileLookup
+import com.viel.aplayer.media.parser.CoverExtractor
+import com.viel.aplayer.media.parser.CoverRecoveryHelper
+import com.viel.aplayer.media.parser.MetadataResolver
+import com.viel.aplayer.media.subtitle.SubtitleFileResolver
+import com.viel.aplayer.library.DetailAvailabilityChecker
+import com.viel.aplayer.library.availability.AvailabilityChecker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * 简单的依赖注入容器，用于统一管理与初始化全局仓库与高层跨域用例。
  */
 interface AppContainer {
-    @Deprecated("请逐步切换到使用更精细的 Gateway 分域网关或高层的 libraryFacade 进行交互")
-    val libraryRepository: LibraryRepository
     val settingsRepository: AppSettingsRepository
     
     /**
@@ -83,12 +87,20 @@ interface AppContainer {
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
-    @Suppress("DEPRECATION")
-    @Deprecated("请逐步切换到使用更精细的 Gateway 分域网关或高层的 libraryFacade 进行交互")
-    override val libraryRepository: LibraryRepository by lazy {
-        LibraryRepository.getInstance(context, vfsFileInterface)
+
+    private val database: AppDatabase by lazy {
+        AppDatabase.getInstance(context)
     }
-    
+
+    // 详尽的中文注释：延迟实例化用于运行期音轨物理可读性检测与异常跳轨处理的就绪自愈管理器单例
+    private val playbackReachabilityManager: com.viel.aplayer.media.PlaybackReachabilityManager by lazy {
+        com.viel.aplayer.media.PlaybackReachabilityManager(
+            context,
+            database.bookDao(),
+            database.libraryRootDao()
+        )
+    }
+
     override val settingsRepository: AppSettingsRepository by lazy {
         AppSettingsRepository.getInstance(context)
     }
@@ -96,57 +108,137 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     /**
      * 延迟实例化注销书库根目录用例，通过构造注入同时关联媒体播放与底层数据源仓储。
      */
+    /**
+     * 详尽的中文注释：延迟实例化注销书库根目录用例。
+     * 向其直接注入播放管理器、书籍查询网关和书库根管理网关，彻底消除了对旧仓库的直接依赖。
+     */
     override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
         DeleteLibraryRootUseCase(
             playbackManager = com.viel.aplayer.media.PlaybackManager.getInstance(context),
-            bookLibraryRepository = BookLibraryRepository.getInstance(context)
+            bookQueryGateway = bookQueryGateway,
+            libraryRootGateway = libraryRootGateway
+        )
+    }
+
+    // 详尽的中文注释：延迟实例化物理封面图沙盒物理提取及裁剪器单例以直接提供封面处理能力
+    private val coverExtractor: CoverExtractor by lazy {
+        CoverExtractor(context.applicationContext)
+    }
+
+    // 详尽的中文注释：延迟实例化多媒体音频物理元数据标签解析提取器单例以直接提供元数据解析能力
+    private val metadataResolver: MetadataResolver by lazy {
+        MetadataResolver(context.applicationContext)
+    }
+
+    // 详尽的中文注释：延迟实例化有声书详情物理授权及可达性验证器单例以直接提供详情可用性判断
+    private val detailAvailabilityChecker: DetailAvailabilityChecker by lazy {
+        DetailAvailabilityChecker(context.applicationContext)
+    }
+
+    // 详尽的中文注释：延迟实例化音频分轨单文件可用性物理验证器单例以直接提供单轨可用性探测
+    private val availabilityChecker: AvailabilityChecker by lazy {
+        AvailabilityChecker(context.applicationContext)
+    }
+
+    // 详尽的中文注释：延迟实例化字幕定位与流式 VFS 检索解析门面单例以直接提供字幕检索与解析
+    private val subtitleFileResolver: SubtitleFileResolver by lazy {
+        SubtitleFileResolver(
+            context = context.applicationContext,
+            bookDao = database.bookDao(),
+            fileReader = vfsFileInterface
+        )
+    }
+
+    // 详尽的中文注释：延迟实例化封面物理丢失自动重构与自愈助手单例。
+    // 在内部创建专属的后台 IO 协程作用域以防主线程卡死，并注入共享的虚拟文件系统接口。
+    private val coverRecoveryHelper: CoverRecoveryHelper by lazy {
+        CoverRecoveryHelper(
+            context = context.applicationContext,
+            bookDao = database.bookDao(),
+            libraryRootDao = database.libraryRootDao(),
+            coverExtractor = coverExtractor,
+            scope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+            fileReader = vfsFileInterface
         )
     }
 
     /**
-     * 延迟初始化有声书及章节书签只读只写网关。
+     * 详尽的中文注释：延迟初始化有声书及章节书签只读只写网关服务。
+     * 直接向其注入所需的数据库各个精细 DAO 接口与全局封面丢失自愈助手单例，解耦对旧有上帝类仓库与物理文件解析器的依赖。
      */
     override val bookQueryGateway: BookQueryGateway by lazy {
-        BookQueryService(BookLibraryRepository.getInstance(context))
-    }
-
-    /**
-     * 延迟初始化播放位置与进度落库服务网关。
-     */
-    override val progressGateway: ProgressGateway by lazy {
-        ProgressService(PlaybackHistoryRepository.getInstance(context))
-    }
-
-    /**
-     * 延迟初始化前后台扫描重扫派关。
-     */
-    override val scanScheduler: ScanScheduler by lazy {
-        ScanService(BookLibraryRepository.getInstance(context))
-    }
-
-    // 详尽的中文注释：在 M5a.8 中，延迟实例化新创建的书库根目录网关、封面网关和检索词历史网关实现服务。
-    override val libraryRootGateway: LibraryRootGateway by lazy {
-        LibraryRootService(BookLibraryRepository.getInstance(context))
-    }
-
-    // 详尽的中文注释：延迟初始化物理文件解析器单例以统一运行期 VFS 配置并供分域网关调用
-    private val physicalFileResolver: com.viel.aplayer.data.PhysicalFileResolver by lazy {
-        com.viel.aplayer.data.PhysicalFileResolver.getInstance(context, vfsFileInterface)
-    }
-
-    override val coverGateway: CoverGateway by lazy {
-        CoverService(
-            BookLibraryRepository.getInstance(context),
-            physicalFileResolver
+        BookQueryService(
+            bookDao = database.bookDao(),
+            chapterDao = database.chapterDao(),
+            bookmarkDao = database.bookmarkDao(),
+            scanSessionDao = database.scanSessionDao(),
+            coverRecoveryHelper = coverRecoveryHelper
         )
     }
 
-    override val searchHistoryGateway: SearchHistoryGateway by lazy {
-        SearchService(BookLibraryRepository.getInstance(context))
+    /**
+     * 详尽的中文注释：延迟初始化播放位置与进度落库服务网关。
+     * 向其直接注入 database.bookDao() 以及就绪自愈管理器，解耦对旧有 PlaybackHistoryRepository 仓库的直接依赖。
+     */
+    override val progressGateway: ProgressGateway by lazy {
+        ProgressService(
+            bookDao = database.bookDao(),
+            reachabilityManager = playbackReachabilityManager
+        )
     }
 
     /**
-     * 聚合新高层门面组件，注入三大子网关及旧仓库依赖，实现平滑重构。
+     * 详尽的中文注释：延迟初始化前后台物理重扫与扫描调度网关服务。
+     * 直接向其注入 applicationContext 与全局封面丢失自愈助手，消除对旧有 BookLibraryRepository 的直接依赖。
+     */
+    override val scanScheduler: ScanScheduler by lazy {
+        ScanService(
+            context = context,
+            coverRecoveryHelper = coverRecoveryHelper
+        )
+    }
+
+    // 详尽的中文注释：延迟实例化新创建的书库根目录网关。
+    // 向其直接注入 DAO 接口与扫描调度器，彻底避免了旧上帝仓库的薄适配委托。
+    override val libraryRootGateway: LibraryRootGateway by lazy {
+        LibraryRootService(
+            context = context,
+            libraryRootDao = database.libraryRootDao(),
+            bookDao = database.bookDao(),
+            scanScheduler = scanScheduler
+        )
+    }
+
+    /**
+     * 详尽的中文注释：延迟实例化新创建的封面网关服务。
+     * 直接向其注入 bookDao、chapterDao 接口以及六个精细化的解耦物理处理与自愈单例，彻底摆脱了对旧上帝仓库的薄适配委托。
+     */
+    override val coverGateway: CoverGateway by lazy {
+        CoverService(
+            bookDao = database.bookDao(),
+            chapterDao = database.chapterDao(),
+            coverRecoveryHelper = coverRecoveryHelper,
+            coverExtractor = coverExtractor,
+            metadataResolver = metadataResolver,
+            subtitleResolver = subtitleFileResolver,
+            detailAvailabilityChecker = detailAvailabilityChecker,
+            availabilityChecker = availabilityChecker
+        )
+    }
+
+    /**
+     * 详尽的中文注释：延迟实例化新创建的搜索历史网关服务。
+     * 直接向其注入检索历史存储 DataStore 门面，彻底消除了对旧上帝仓库的直接依赖。
+     */
+    override val searchHistoryGateway: SearchHistoryGateway by lazy {
+        SearchService(
+            searchHistoryStore = com.viel.aplayer.data.store.SearchHistoryStore.getInstance(context)
+        )
+    }
+
+    /**
+     * 详尽的中文注释：聚合新高层媒体库业务门面组件。
+     * 直接向其组合式注入六大精细化分域 Gateway 网关，无需再传递任何 legacy 废弃仓库依赖，达成终极物理重构。
      */
     override val libraryFacade: LibraryFacade by lazy {
         LibraryFacade(
@@ -155,8 +247,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             scanScheduler = scanScheduler,
             libraryRootGateway = libraryRootGateway,
             coverGateway = coverGateway,
-            searchHistoryGateway = searchHistoryGateway,
-            legacyRepository = libraryRepository
+            searchHistoryGateway = searchHistoryGateway
         )
     }
 

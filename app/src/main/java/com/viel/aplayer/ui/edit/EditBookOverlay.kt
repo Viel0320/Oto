@@ -26,7 +26,8 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
  * 其生命周期已成功与 EditBookActivity 解耦，现在挂载于主 App 的 Activity 级作用域中。
  */
 class EditBookViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = (application as APlayerApplication).container.libraryRepository
+    // 详尽的中文注释：在 M6 物理收口中，将 EditBookViewModel 中对旧仓库的依赖彻底移去，替换为引入高层业务门面 libraryFacade。
+    private val libraryFacade = (application as APlayerApplication).container.libraryFacade
 
     private val _bookState = MutableStateFlow<BookEntity?>(null)
     val bookState = _bookState.asStateFlow()
@@ -35,7 +36,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     val isVisible = _isVisible.asStateFlow()
 
     /**
-         * 启动编辑书籍流程。触发异步读取数据，并将悬浮 Overlay 的可见状态设为 true。
+     * 启动编辑书籍流程。触发异步读取数据，并将悬浮 Overlay 的可见状态设为 true。
      */
     fun startEdit(bookId: String) {
         loadBook(bookId)
@@ -43,7 +44,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-         * 控制编辑 Overlay 悬浮层的显隐。
+     * 控制编辑 Overlay 悬浮层的显隐。
      * 当关闭悬浮层时，主动将 bookState 置为空，彻底清除脏数据缓存，防止下一次拉起时发生界面闪烁。
      */
     fun setVisible(visible: Boolean) {
@@ -58,12 +59,13 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
      */
     fun loadBook(bookId: String) {
         viewModelScope.launch {
-            _bookState.value = repository.getBookById(bookId)
+            // 详尽的中文注释：使用 libraryFacade 高层门面异步获取书籍详情信息
+            _bookState.value = libraryFacade.getBookById(bookId)
         }
     }
 
     /**
-         * 将编辑好的全新元数据以及用户手动上传裁剪后的自定义封面路径异步保存并持久化回数据库。
+     * 将编辑好的全新元数据以及用户手动上传裁剪后的自定义封面路径异步保存并持久化回数据库。
      * @param newCoverPath 用户手动裁剪生成的临时封面文件绝对物理路径，如果为 null 则表示未修改封面
      * @param onComplete 保存成功并持久化后的回调，一般用于关闭悬浮 Overlay
      */
@@ -78,8 +80,8 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     ) {
         val currentBook = _bookState.value ?: return
         viewModelScope.launch {
-            // 异步持久化修改后的文本元数据字段到 Room
-            repository.updateBookDetails(
+            // 详尽的中文注释：使用 libraryFacade 异步持久化修改后的文本元数据字段到 Room
+            libraryFacade.updateBookDetails(
                 id = currentBook.id,
                 title = title.trim(),
                 author = author.trim(),
@@ -87,9 +89,9 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
                 description = description.trim(),
                 year = year.trim()
             )
-            // 如果用户手动更换了封面，则触发 repository 级联存储，物理清理旧文件，并生成新封面/缩略图与调色板
+            // 详尽的中文注释：如果更换了封面，调用 libraryFacade 级联存储以物理清理老封面残余并重刷自愈封面
             if (newCoverPath != null) {
-                repository.saveCustomCover(currentBook.id, newCoverPath)
+                libraryFacade.saveCustomCover(currentBook.id, newCoverPath)
             }
             onComplete()
         }
