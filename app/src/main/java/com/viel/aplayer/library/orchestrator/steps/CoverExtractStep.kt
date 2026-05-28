@@ -26,13 +26,18 @@ import kotlinx.coroutines.sync.withPermit
 @UnstableApi
 internal class CoverExtractStep(
     private val context: Context,
+    // 详尽的中文注释：添加虚拟文件系统物理 I/O 读取通道接口的注入
+    private val vfsFileInterface: VfsFileInterface,
     private val coverExtractor: CoverExtractor = CoverExtractor(context),
     private val maxConcurrent: Int = 4
 ) : ImportStep<GroupedBookDrafts, CoverExtractedResult> {
 
     override val stepName: String = "CoverExtractStep"
     private val semaphore = Semaphore(maxConcurrent)
-    private val MetadataResolver = MetadataResolver(context.applicationContext)
+    
+    // 详尽的中文注释：物理封面图提取需配合 MetadataResolver 向各 parser 范围读取请求，
+    // 注入 vfsFileInterface 实例进行规整重构，消除底层隐式自构行为。
+    private val MetadataResolver = MetadataResolver(vfsFileInterface)
 
     override suspend fun execute(
         input: GroupedBookDrafts,

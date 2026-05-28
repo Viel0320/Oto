@@ -1,8 +1,6 @@
 package com.viel.aplayer.media.parser
 
-import android.content.Context
 import androidx.media3.common.util.UnstableApi
-import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.vfs.VfsFileInterface
@@ -27,14 +25,14 @@ internal data class ExtractedAudiobookMetadata(
  * 而是统一交给各自的范围读取 parser；MetadataResolver 只负责路由、标题兜底与乱码修正。
  */
 @UnstableApi
-class MetadataResolver(context: Context) {
+class MetadataResolver(
+    // 由调用方注入运行期 VFS 单例或扫描快照 VFS，
+    // 消除内部自构 AppDatabase→libraryRootDao→VfsFileInterface 的隐式依赖。
+    private val fileReader: VfsFileInterface
+) {
     // 全局元数据提取并发仍然限制在 4，
     // 防止大批量导入时多个 parser 同时读取大文件头尾造成内存与 I/O 抖动。
     private val semaphore = kotlinx.coroutines.sync.Semaphore(4)
-    private val fileReader = VfsFileInterface(
-        context.applicationContext,
-        AppDatabase.getInstance(context.applicationContext).libraryRootDao()
-    )
 
     suspend fun extract(file: FileRef): AudiobookMetadata =
         extractInternal(file, includeEmbeddedCover = false).metadata

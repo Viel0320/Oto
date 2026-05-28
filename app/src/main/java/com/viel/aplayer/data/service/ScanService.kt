@@ -8,6 +8,7 @@ import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.RescanCoordinator
 import com.viel.aplayer.library.RescanType
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +27,9 @@ import kotlinx.coroutines.withContext
  */
 class ScanService(
     context: Context,
-    private val coverRecoveryHelper: CoverRecoveryHelper
+    private val coverRecoveryHelper: CoverRecoveryHelper,
+    // 详尽的中文注释：由依赖注入容器提供运行期唯一的虚拟文件系统读取门面，避免底层组件自行初始化
+    private val vfsFileInterface: VfsFileInterface
 ) : ScanScheduler {
 
     // 详尽的中文注释：采用全局 applicationContext 隔离以彻底斩断潜在的内存泄漏风险
@@ -72,9 +75,11 @@ class ScanService(
             RescanType.USER_GLOBAL
         }
 
-        // 3. 构建临时扫描协调器，并挂载封面文件解析器的自愈检查回调，在书籍入库瞬间快速自检封面可达性
+        // 3. 构建临时扫描协调器，并挂载封面文件解析器的自愈检查回调，在书籍入库瞬间快速自检封面可达性。
+        // 同时注入全局统一的 vfsFileInterface 虚拟文件系统通道以规避底层隐式自构。
         val session = RescanCoordinator(
             context = appContext,
+            vfsFileInterface = vfsFileInterface,
             triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
         ).rescan(type)
 

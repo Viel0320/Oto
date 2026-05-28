@@ -125,9 +125,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         CoverExtractor(context.applicationContext)
     }
 
-    // 详尽的中文注释：延迟实例化多媒体音频物理元数据标签解析提取器单例以直接提供元数据解析能力
+    // 详尽的中文注释：延迟实例化多媒体音频物理元数据标签解析提取器单例，注入运行期 VFS 单例以避免 MetadataResolver 自行获取 AppDatabase
     private val metadataResolver: MetadataResolver by lazy {
-        MetadataResolver(context.applicationContext)
+        MetadataResolver(vfsFileInterface)
     }
 
     // 详尽的中文注释：延迟实例化有声书详情物理授权及可达性验证器单例以直接提供详情可用性判断
@@ -194,7 +194,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     override val scanScheduler: ScanScheduler by lazy {
         ScanService(
             context = context,
-            coverRecoveryHelper = coverRecoveryHelper
+            coverRecoveryHelper = coverRecoveryHelper,
+            vfsFileInterface = vfsFileInterface
         )
     }
 

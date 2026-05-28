@@ -19,6 +19,7 @@ import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.logger.ImportTimingLogger
 import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.media.parser.MetadataResolver
+import com.viel.aplayer.library.vfs.VfsFileInterface
 
 enum class RescanType {
     COLD_START_LIGHT,
@@ -36,6 +37,8 @@ private const val DIRECTORY_AUDIO_METADATA_BATCH_SIZE: Int = DEFAULT_SCOPE_IO_CO
 @UnstableApi
 class RescanCoordinator(
     private val context: Context,
+    // 详尽的中文注释：添加虚拟文件系统门面单例的注入
+    private val vfsFileInterface: VfsFileInterface,
     // 导入链路只负责先把书和章节落库；封面缓存重建通过外部注入的异步回调复用 Repository 里已有的 CoverRecoveryHelper 去重与后台执行能力。
     private val triggerCoverRegeneration: (BookEntity) -> Unit = {}
 ) {
@@ -47,11 +50,14 @@ class RescanCoordinator(
     private val directoryCacheDao = database.directoryCacheDao()
     // 扫描入口切到 VFS 标准件实现；当前仍由 SAF Provider 驱动，导入行为保持不变。
     private val scanner = SourceInventoryScanner(context)
-    private val orchestrator = ImportOrchestrator(context)
+    
+    // 目录剩余音频需要先读取元数据来识别“自带章节”的可提前入库音频，避免整个大目录被启发式批处理阻塞。
+    // 注入 vfsFileInterface 实例，消除底层隐式自构行为。
+    private val metadataResolver = MetadataResolver(vfsFileInterface)
+    
+    private val orchestrator = ImportOrchestrator(context, metadataResolver)
     private val importer = BookImporter(context)
     private val missingRecoveryChecker = MissingBookFileRecoveryChecker(context)
-    // 目录剩余音频需要先读取元数据来识别“自带章节”的可提前入库音频，避免整个大目录被启发式批处理阻塞。
-    private val metadataResolver = MetadataResolver(context)
 
     suspend fun rescan(type: RescanType, rootId: String? = null): ScanSessionEntity = withContext(Dispatchers.IO) {
         val scanId = UUID.randomUUID().toString()

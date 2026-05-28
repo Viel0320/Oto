@@ -21,7 +21,8 @@ import com.viel.aplayer.media.parser.MetadataResolver
 @UnstableApi
 internal class MetadataResolveStep(
     private val context: Context,
-    private val metadataResolver: MetadataResolver = MetadataResolver(context)
+    // 详尽的中文注释：强制从外部注入由 VfsFileInterface 初始化的 MetadataResolver 实例
+    private val metadataResolver: MetadataResolver
 ) : ImportStep<ManifestParsedResult, ResolvedMetadataDrafts> {
 
     override val stepName: String = "MetadataResolveStep"

@@ -36,10 +36,10 @@ import java.util.UUID
  * 既保证了 RescanCoordinator 不受影响，又彻底实现了物理结构的解耦！
  */
 @OptIn(UnstableApi::class)
-class ImportOrchestrator
-    (
+class ImportOrchestrator(
     private val context: Context,
-    metadataResolver: MetadataResolver = MetadataResolver(context)
+    // 详尽的中文注释：强制从外部注入元数据标签解析提取器，消除自构 VFS 的失效默认值
+    private val metadataResolver: MetadataResolver
 ) {
     // 实例化拆分出的具体工位步骤，实现单一职责
     private val manifestParseStep = ManifestParseStep(context)
