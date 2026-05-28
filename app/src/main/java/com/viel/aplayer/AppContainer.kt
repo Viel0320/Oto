@@ -9,9 +9,15 @@ import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
+import com.viel.aplayer.data.gateway.LibraryRootGateway
+import com.viel.aplayer.data.gateway.CoverGateway
+import com.viel.aplayer.data.gateway.SearchHistoryGateway
 import com.viel.aplayer.data.service.BookQueryService
 import com.viel.aplayer.data.service.ProgressService
 import com.viel.aplayer.data.service.ScanService
+import com.viel.aplayer.data.service.LibraryRootService
+import com.viel.aplayer.data.service.CoverService
+import com.viel.aplayer.data.service.SearchService
 import com.viel.aplayer.data.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.data.db.AppDatabase
@@ -49,6 +55,21 @@ interface AppContainer {
      * 媒体重扫触发及定时任务调度网关。
      */
     val scanScheduler: ScanScheduler
+
+    /**
+     * 书库根目录管理及维护分域网关。
+     */
+    val libraryRootGateway: LibraryRootGateway
+
+    /**
+     * 封面元数据提取及背景色维护分域网关。
+     */
+    val coverGateway: CoverGateway
+
+    /**
+     * 搜索检索词历史维护分域网关。
+     */
+    val searchHistoryGateway: SearchHistoryGateway
 
     /**
      * 运行期唯一的底层虚拟文件系统物理 I/O 读取通道单例。
@@ -103,6 +124,27 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         ScanService(BookLibraryRepository.getInstance(context))
     }
 
+    // 详尽的中文注释：在 M5a.8 中，延迟实例化新创建的书库根目录网关、封面网关和检索词历史网关实现服务。
+    override val libraryRootGateway: LibraryRootGateway by lazy {
+        LibraryRootService(BookLibraryRepository.getInstance(context))
+    }
+
+    // 详尽的中文注释：延迟初始化物理文件解析器单例以统一运行期 VFS 配置并供分域网关调用
+    private val physicalFileResolver: com.viel.aplayer.data.PhysicalFileResolver by lazy {
+        com.viel.aplayer.data.PhysicalFileResolver.getInstance(context, vfsFileInterface)
+    }
+
+    override val coverGateway: CoverGateway by lazy {
+        CoverService(
+            BookLibraryRepository.getInstance(context),
+            physicalFileResolver
+        )
+    }
+
+    override val searchHistoryGateway: SearchHistoryGateway by lazy {
+        SearchService(BookLibraryRepository.getInstance(context))
+    }
+
     /**
      * 聚合新高层门面组件，注入三大子网关及旧仓库依赖，实现平滑重构。
      */
@@ -111,6 +153,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             bookQueryGateway = bookQueryGateway,
             progressGateway = progressGateway,
             scanScheduler = scanScheduler,
+            libraryRootGateway = libraryRootGateway,
+            coverGateway = coverGateway,
+            searchHistoryGateway = searchHistoryGateway,
             legacyRepository = libraryRepository
         )
     }

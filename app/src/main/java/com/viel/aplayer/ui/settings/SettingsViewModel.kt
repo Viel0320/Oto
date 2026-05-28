@@ -20,7 +20,12 @@ import com.viel.aplayer.data.store.SleepMode
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as APlayerApplication).container
     private val settingsRepository = container.settingsRepository
-    private val libraryRepository = container.libraryRepository
+    
+    // 详尽的中文注释：
+    // 在 M5b.1 迁移中，将 SettingsViewModel 中对旧仓库 libraryRepository 的依赖彻底剥离，
+    // 降级解耦为书库根网关 libraryRootGateway 与增量扫描网关 scanScheduler。
+    private val libraryRootGateway = container.libraryRootGateway
+    private val scanScheduler = container.scanScheduler
     
     /**
      * 跨域书库根目录删除协调器用例，用于替代原有的门面仓库调用，以符合领域解耦规范。
@@ -36,11 +41,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
 
     /** 暴露给 UI 的媒体库根目录流 */
-    val libraryRoots: StateFlow<List<LibraryRootEntity>> = libraryRepository.observeLibraryRoots()
+    // 详尽的中文注释：使用 libraryRootGateway 网关响应式观察观察注册的书库目录并获取内存快照初始缓存值，以消解首帧空白和布局闪烁
+    val libraryRoots: StateFlow<List<LibraryRootEntity>> = libraryRootGateway.observeLibraryRoots()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = libraryRepository.getCachedLibraryRoots() // 使用全局单例 LibraryRepository 内存中的最新缓存作为初始值，确保首帧瞬间加载出目录，杜绝首帧空白引起的布局抖动
+            initialValue = libraryRootGateway.getCachedLibraryRoots()
         )
 
     init {
@@ -48,7 +54,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             // Settings entry should show current SAF grant status, including revoked roots.
             // 延迟 500 毫秒后再触发系统的 SAF 物理授权检测，以完美避开 Activity 启动转场动画及首帧绘制的核心渲染时间，保证界面展示绝对丝滑
             kotlinx.coroutines.delay(500)
-            libraryRepository.refreshLibraryRootStatuses()
+            // 详尽的中文注释：使用 libraryRootGateway 的 refreshLibraryRootStatuses 校验书库目录可达性
+            libraryRootGateway.refreshLibraryRootStatuses()
         }
     }
 
@@ -56,7 +63,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             // Route entry calls this explicitly because the SettingsViewModel may be created before navigation.
             // 手动触发的刷新依然走异步协程检测，保证物理可达性更新。
-            libraryRepository.refreshLibraryRootStatuses()
+            // 详尽的中文注释：通过 libraryRootGateway 异步校验当前全部已添加的 SAF 目录授权可达状态
+            libraryRootGateway.refreshLibraryRootStatuses()
         }
     }
 
@@ -64,8 +72,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // 在设置页中选择媒体库目录后的回调逻辑，负责获取持久化 SAF 授权，将其存入数据库并异步触发 USER 手动增量扫描任务。
     // 这能让设置页完全独立处理 SAF 动作，从而将 LibraryViewModel 彻底解耦，消除 Activity 切换时的冷启动扫描问题。
     fun onLibraryRootSelected(uri: Uri) {
-        // 设置页只提交选择结果，授权持久化、root 入库和扫描均由 Repository 应用级后台任务接管。
-        libraryRepository.addLibraryRootAndScheduleSync(uri)
+        // 详尽的中文注释：利用 libraryRootGateway 写入新选择的本地 SAF 授权目录，并在应用级后台执行同步
+        libraryRootGateway.addLibraryRootAndScheduleSync(uri)
     }
 
     fun onWebDavRootSubmitted(
@@ -75,8 +83,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         displayName: String,
         basePath: String
     ) {
-        // WebDAV 添加与扫描调度合并为 Repository 应用级任务，远程长扫描不会被设置页返回或切页取消。
-        libraryRepository.addWebDavLibraryRootAndScheduleSync(
+        // 详尽的中文注释：使用 libraryRootGateway 在后台注册并立即调度 WebDAV 网络书库目录的文件同步
+        libraryRootGateway.addWebDavLibraryRootAndScheduleSync(
             url = url,
             username = username,
             password = password,
@@ -86,8 +94,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun triggerRescan() {
-        // 手动重扫只提交应用级扫描队列，设置页退场不会触发 JobCancellationException。
-        libraryRepository.scheduleLibrarySync("USER")
+        // 详尽的中文注释：调用 scanScheduler 网关异步提交 USER 手动增量重扫指令
+        scanScheduler.scheduleLibrarySync("USER")
     }
 
     fun toggleChapterProgressMode(enabled: Boolean) {

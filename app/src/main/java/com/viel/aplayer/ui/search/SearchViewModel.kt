@@ -16,12 +16,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.SearchHistoryEntry
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = LibraryRepository.getInstance(application)
+    // 详尽的中文注释：在 M5b.2 迁移中，将旧仓库 LibraryRepository 替换为高层业务门面 libraryFacade。
+    // 这解除了 ViewModel 与庞大重量级底层的直接强耦合，将所有操作直接委托路由给分域 Gateway 服务。
+    private val libraryFacade = (application as APlayerApplication).container.libraryFacade
 
     // 
     // 控制同 Activity 内非独立搜索悬浮层 (SearchOverlay) 是否可见的响应式状态流。
@@ -38,7 +41,8 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val _query = MutableStateFlow(TextFieldValue(""))
     val query: StateFlow<TextFieldValue> = _query.asStateFlow()
 
-    val searchHistory: StateFlow<List<SearchHistoryEntry>> = repository.searchHistory
+    // 详尽的中文注释：使用 libraryFacade 门面响应式观察搜索检索历史
+    val searchHistory: StateFlow<List<SearchHistoryEntry>> = libraryFacade.searchHistory
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -61,13 +65,13 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                         val content = parts[1].trim()
                         
                         when (command) {
-                            "year" -> if (content.isEmpty()) repository.audiobooks else repository.filterByYear(content)
-                            "writer", "author" -> if (content.isEmpty()) repository.audiobooks else repository.filterByAuthor(content)
-                            "narrator" -> if (content.isEmpty()) repository.audiobooks else repository.filterByNarrator(content)
-                            else -> repository.audiobooks
+                            "year" -> if (content.isEmpty()) libraryFacade.audiobooks else libraryFacade.filterByYear(content)
+                            "writer", "author" -> if (content.isEmpty()) libraryFacade.audiobooks else libraryFacade.filterByAuthor(content)
+                            "narrator" -> if (content.isEmpty()) libraryFacade.audiobooks else libraryFacade.filterByNarrator(content)
+                            else -> libraryFacade.audiobooks
                         }
                     } else {
-                        repository.searchAudiobooks(token)
+                        libraryFacade.searchAudiobooks(token)
                     }
                 }
 
@@ -97,7 +101,8 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     fun saveSearchHistory(queryToSave: String) {
         if (queryToSave.isNotBlank()) {
             viewModelScope.launch {
-                repository.addToHistory(queryToSave.trim())
+                // 详尽的中文注释：使用 libraryFacade 将检索历史写入持久化记录
+                libraryFacade.addToHistory(queryToSave.trim())
             }
         }
     }
@@ -109,13 +114,15 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     fun deleteHistory(history: SearchHistoryEntry) {
         viewModelScope.launch {
-            repository.deleteFromHistory(history)
+            // 详尽的中文注释：使用 libraryFacade 物理删除单个搜索历史条目
+            libraryFacade.deleteFromHistory(history)
         }
     }
 
     fun clearHistory() {
         viewModelScope.launch {
-            repository.clearHistory()
+            // 详尽的中文注释：使用 libraryFacade 一键清理全部历史检索词
+            libraryFacade.clearHistory()
         }
     }
 }
