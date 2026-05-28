@@ -104,13 +104,14 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     /**
-     * 聚合新高层门面组件，通过接口委托注入三大子网关实例，实现低耦合的跨领域调用。
+     * 聚合新高层门面组件，注入三大子网关及旧仓库依赖，实现平滑重构。
      */
     override val libraryFacade: LibraryFacade by lazy {
         LibraryFacade(
             bookQueryGateway = bookQueryGateway,
             progressGateway = progressGateway,
-            scanScheduler = scanScheduler
+            scanScheduler = scanScheduler,
+            legacyRepository = libraryRepository
         )
     }
 

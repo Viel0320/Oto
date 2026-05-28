@@ -21,8 +21,8 @@ import com.viel.aplayer.media.parser.ImageProcessor
  * 从 LibraryViewModel 中独立出来，使各 ViewModel 职责单一、边界清晰。
  */
 class DetailViewModel(application: Application) : AndroidViewModel(application) {
-    // 通过 Application 容器获取数据仓库依赖
-    private val repository = (application as APlayerApplication).container.libraryRepository
+    // 通过 Application 容器获取解耦后的高层业务门面
+    private val libraryFacade = (application as APlayerApplication).container.libraryFacade
 
     // 订阅观察书籍元数据变更的协程 Job，用于响应式实时刷新详情页展示的数据
     private var bookObserveJob: kotlinx.coroutines.Job? = null
@@ -92,8 +92,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             // 启动协程异步加载该有声书底层的物理文件，并根据不同的有声书源类型提取对应的源文件名，
             // 并在 ViewModel 侧直接进行 SAF URL 解码和物理路径中 "primary:" 前缀的截取与路径拼接，从而将干净的 fullSourcePath 供给 UI 渲染
             viewModelScope.launch {
-                // 改用无过滤的 getAllFilesForBookSync 接口，确保拉取到包含 SOURCE_MANIFEST 角色在内的完整物理文件列表
-                val files = repository.getAllFilesForBookSync(book.book.id)
+                // 改用业务门面提供的 getAllFilesForBookSync 接口，确保拉取到完整的物理文件列表
+                val files = libraryFacade.getAllFilesForBookSync(book.book.id)
                 val fileName = when (book.book.sourceType) {
                     com.viel.aplayer.data.db.AudiobookSchema.SourceType.SINGLE_AUDIO -> {
                         // 单音频文件，文件名（带拓展名）直接取首个关联文件的 displayName
@@ -144,8 +144,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             viewModelScope.launch {
                 // 记录本次检测对应的书籍 ID，防止切换详情页后旧检测结果覆盖新书的乐观状态。
                 val checkedBookId = book.book.id
-                // 异步检查当前选中书籍的物理文件可用性
-                val isAvailable = repository.checkDetailAvailability(checkedBookId)
+                // 异步检查当前选中书籍的物理文件可用性（使用新门面）
+                val isAvailable = libraryFacade.checkDetailAvailability(checkedBookId)
                 _uiState.update { state ->
                     // 只有当前仍显示同一本书时才应用检测结果，避免异步检测完成顺序导致详情页状态串扰。
                     if (state.book?.book?.id == checkedBookId) {
@@ -159,7 +159,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             // 异步订阅观察该图书底层的数据库记录 Flow。
             // 当 EditBookActivity 在外部编辑并写入数据库后，此处自动感知并刷新 _uiState.book，实现 UI 响应式无缝更新
             bookObserveJob = viewModelScope.launch {
-                repository.observeBookById(book.book.id).collect { updatedBook ->
+                libraryFacade.observeBookById(book.book.id).collect { updatedBook ->
                     if (updatedBook != null) {
                         _uiState.update { state ->
                             state.book?.let { currentBwp ->
@@ -184,13 +184,13 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
         if (book != null && (book.book.coverPath != current.book?.book?.coverPath
                     || current.backgroundColorArgb == ImageProcessor.DEFAULT_BACKGROUND_ARGB)) {
             viewModelScope.launch(Dispatchers.Default) {
-                val cachedColor = repository.getBookById(book.book.id)?.backgroundColorArgb
+                val cachedColor = libraryFacade.getBookById(book.book.id)?.backgroundColorArgb
                 val backgroundColor = cachedColor ?: ImageProcessor.getDominantColor(book.book.coverPath)
                 _uiState.value = _uiState.value.copy(backgroundColorArgb = backgroundColor)
 
                 // 如果本次新提取了主色调，则写回数据库供下次复用
                 if (cachedColor == null) {
-                    repository.updateBackgroundColor(book.book.id, backgroundColor)
+                    libraryFacade.updateBackgroundColor(book.book.id, backgroundColor)
                 }
             }
         }

@@ -2,7 +2,7 @@ package com.viel.aplayer.ui.bookmarks
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.entity.BookmarkEntity
 
 /**
@@ -10,7 +10,7 @@ import com.viel.aplayer.data.entity.BookmarkEntity
  * 负责书签的增、删、改操作。
  */
 class BookmarkManager(
-    private val repository: LibraryRepository,
+    private val repository: BookQueryGateway,
     private val scope: CoroutineScope
 ) {
     /**

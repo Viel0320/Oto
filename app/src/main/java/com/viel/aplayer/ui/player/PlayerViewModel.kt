@@ -41,7 +41,8 @@ class PlayerViewModel : ViewModel() {
     }
 
     private var playbackManager: PlaybackManager? = null
-    private var libraryRepository: LibraryRepository? = null
+    // 切换至高层业务门面以隔离直接的重量级数据库依赖
+    private var libraryFacade: com.viel.aplayer.data.LibraryFacade? = null
     private var settingsRepository: AppSettingsRepository? = null
     private var getRelatedBooksUseCase: GetRelatedBooksUseCase? = null
     private var audioManager: AudioManager? = null
@@ -118,13 +119,13 @@ class PlayerViewModel : ViewModel() {
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val metadataState: StateFlow<BookMetadataState> = _currentBookId
         .flatMapLatest { id ->
-            val repo = libraryRepository ?: return@flatMapLatest flowOf(BookMetadataState())
+            val facade = libraryFacade ?: return@flatMapLatest flowOf(BookMetadataState())
             if (id == null) return@flatMapLatest flowOf(BookMetadataState())
-
+ 
             combine(
-                repo.observeBookById(id),
-                repo.getChapters(id),
-                repo.getBookmarks(id),
+                facade.observeBookById(id),
+                facade.getChapters(id),
+                facade.getBookmarks(id),
                 _currentSubtitles
             ) { entity: com.viel.aplayer.data.entity.BookEntity?, chapters: List<com.viel.aplayer.data.entity.ChapterWithBookFile>, bookmarks: List<BookmarkEntity>, subtitles: List<com.viel.aplayer.ui.player.components.SubtitleLine> ->
                 BookMetadataState(
@@ -291,19 +292,23 @@ class PlayerViewModel : ViewModel() {
         val appContext = context.applicationContext
         this.appContext = appContext
         val container = (appContext as APlayerApplication).container
-        // 使用局部作用域变量分配，彻底物理规避连续多次 !! 解包引发的 NPE 风险 (H-11)
-        val repo = container.libraryRepository
-        libraryRepository = repo
+        
+        // 详尽的中文注释：
+        // 从应用容器 container 中安全获取解耦门面 libraryFacade 以及只读网关 bookQueryGateway。
+        // 用局部变量接收以规避连续非空断言引发的潜在 NPE 风险，同时解除对旧有 BookLibraryRepository 的重量级依赖。
+        val facade = container.libraryFacade
+        libraryFacade = facade
+        val queryGateway = container.bookQueryGateway
         settingsRepository = container.settingsRepository
 
-        getRelatedBooksUseCase = GetRelatedBooksUseCase(repo)
+        getRelatedBooksUseCase = GetRelatedBooksUseCase(queryGateway)
         audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         playbackManager = PlaybackManager.getInstance(appContext)
 
-        bookmarkManager = BookmarkManager(repo, viewModelScope)
+        bookmarkManager = BookmarkManager(queryGateway, viewModelScope)
         playbackDelegate = MediaPlaybackDelegate(
             playbackManager = { playbackManager },
-            repository = repo,
+            repository = queryGateway,
             scope = viewModelScope
         )
 
@@ -322,8 +327,8 @@ class PlayerViewModel : ViewModel() {
                 AutoRewindManager.getInstance(ctx).performColdStartSelfHealing()
             }
 
-            // Cold start only prepares the latest saved book/progress for the compact player; it must not autoplay.
-            val lastProgress = libraryRepository?.getLastPlayedProgressSync() ?: return@launch
+            // Prepare the latest saved book/progress for compact player using facade
+            val lastProgress = libraryFacade?.getLastPlayedProgressSync() ?: return@launch
             if (_currentBookId.value == null) {
                 loadBook(lastProgress.bookId, playWhenReady = false)
                 // 为本次桌面 widget 改动添加注释：如果外部入口已经请求播放页 overlay，冷启动恢复最近播放书籍时不再强制收回到迷你播放器。
@@ -380,10 +385,13 @@ class PlayerViewModel : ViewModel() {
                         subtitleLoadJob?.cancel()
                         _currentSubtitles.value = emptyList()
 
-                        // 详尽的中文注释：全面移除内置字幕歌词的超时竞争与合并逻辑，仅单向执行物理外置字幕的异步加载，显著提升性能并规避底层零元数据重构后的悬空引用
+                        // 详尽的中文注释：
+                        // 全面移除内置字幕歌词的超时竞争与合并逻辑，仅单向执行物理外置字幕的异步加载。
+                        // 将异步加载包裹在 subtitleLoadJob = viewModelScope.launch 中，
+                        // 便于在切歌或销毁时进行物理取消，防止多协程并发竞争以及悬空引用的内存泄露风险。
                         subtitleLoadJob = viewModelScope.launch {
                             val externalSubs = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                                libraryRepository?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
+                                libraryFacade?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
                             }
                             _currentSubtitles.value = externalSubs
                         }
@@ -444,11 +452,8 @@ class PlayerViewModel : ViewModel() {
         settingsManager.dismissBookmarkDialog()
 
         viewModelScope.launch {
-            // 为播放慢定位添加详细中文注释：
-            // 单独记录播放计划构建耗时，
-            // 这样日志里可以直接看出卡顿是否已经发生在 PlayerViewModel -> Repository 这一跳。
             val playbackPlanStart = SystemClock.elapsedRealtime()
-            val plan = libraryRepository?.getPlaybackPlan(id)
+            val plan = libraryFacade?.getPlaybackPlan(id)
             val playbackPlanCost = SystemClock.elapsedRealtime() - playbackPlanStart
             com.viel.aplayer.logger.PlaybackTimingLogger.logPlaybackPlanBuild(
                 bookId = id,
@@ -576,7 +581,7 @@ class PlayerViewModel : ViewModel() {
             emit(true)
             return@flow
         }
-        emit(libraryRepository?.checkCurrentPlaybackFileAvailability(bookId) ?: false)
+        emit(libraryFacade?.checkCurrentPlaybackFileAvailability(bookId) ?: false)
     }
     
     fun toggleProgressMode() {
@@ -594,13 +599,13 @@ class PlayerViewModel : ViewModel() {
         val id = _currentBookId.value ?: return
         path?.let { p ->
             viewModelScope.launch(Dispatchers.Default) {
-                val entity = libraryRepository?.getBookById(id)
+                val entity = libraryFacade?.getBookById(id)
                 if (entity?.backgroundColorArgb != null) {
                     _lastDominantColor = entity.backgroundColorArgb
                 } else {
                     val color = ImageProcessor.getDominantColor(p)
                     _lastDominantColor = color
-                    libraryRepository?.updateBackgroundColor(id, color)
+                    libraryFacade?.updateBackgroundColor(id, color)
                 }
                 settingsManager.setSelectedContentTab(settingsState.value.selectedContentTab)
             }

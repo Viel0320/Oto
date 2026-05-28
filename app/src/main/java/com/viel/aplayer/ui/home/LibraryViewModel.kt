@@ -22,7 +22,8 @@ import com.viel.aplayer.ui.common.UiEvent
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as APlayerApplication).container
-    private val repository = container.libraryRepository
+    // 切换到高层门面 libraryFacade 以实现接口解耦与防腐
+    private val libraryFacade = container.libraryFacade
     private val settingsRepository = container.settingsRepository
 
     /**
@@ -50,7 +51,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private var isFirstLoad = true
 
     val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
-        repository.audiobooks,
+        libraryFacade.audiobooks,
         _selectedFilter,
         settingsRepository.settingsFlow
     ) { audiobooks, userSelection, appSettings ->
@@ -148,14 +149,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     init {
-        // 冷启动扫描直接交给 Repository 应用级后台队列，主页 ViewModel 销毁或切换页面不会取消扫描。
-        repository.scheduleLibrarySync("COLD_START")
+        // 冷启动扫描直接提交至新业务门面底层，使 ViewModel 彻底与具体的 WorkManager/并发解耦
+        libraryFacade.scheduleLibrarySync("COLD_START")
         observeScanSessions()
     }
 
     private fun observeScanSessions() {
         viewModelScope.launch {
-            repository.observeLatestScanSession().collect { session ->
+            libraryFacade.observeLatestScanSession().collect { session ->
                 if (session != null && session.id != lastCompletedSessionId) {
                     // 
                     // 只有当扫描会话的完成时间晚于本次启动时间戳时，才触发 Toast 提示或弹窗展示。
@@ -205,10 +206,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 playbackManager.stopPlayback()
             }
 
-            // 删除反馈通过 VFS 检测主音频可达性，不再回退到 URI 直连检测。
-            val fileExists = repository.checkPrimaryAudioFileExists(bookId)
+            // 用新门面接口检查物理音频文件存在性并删除书籍记录
+            val fileExists = libraryFacade.checkPrimaryAudioFileExists(bookId)
 
-            repository.deleteBook(bookId)
+            libraryFacade.deleteBook(bookId)
 
             // 使用通用的 UiEvent.ShowToast 发射图书移除结果 Toast。
             val fileStatus = if (fileExists) "源文件已保留" else "源文件已丢失或不存在"
@@ -220,7 +221,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     // 更新有声书的阅读状态（未开始/进行中/已完成）到持久化数据库中，并展示高交互性轻量 Toast 提示
     fun updateBookReadStatus(bookId: String, readStatus: String) {
         viewModelScope.launch {
-            repository.updateBookReadStatus(bookId, readStatus)
+            // 使用新高层门面更新书籍阅读状态
+            libraryFacade.updateBookReadStatus(bookId, readStatus)
             val message = when (readStatus) {
                 com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.NOT_STARTED -> "已标记为：未开始"
                 com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.IN_PROGRESS -> "已标记为：进行中"
@@ -235,7 +237,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     fun forceRegenerateCoverAndMetadata(bookId: String) {
         viewModelScope.launch {
             _uiEvents.tryEmit(UiEvent.ShowToast("正在重建封面与元数据..."))
-            repository.forceRegenerateCoverAndMetadata(bookId)
+            // 用新高层门面深度重构封面与元数据物理缓存
+            libraryFacade.forceRegenerateCoverAndMetadata(bookId)
             _uiEvents.tryEmit(UiEvent.ShowToast("封面与元数据重建已完成"))
         }
     }
@@ -251,8 +254,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onLibraryRootSelected(uri: Uri) {
-        // 目录授权、root 入库和扫描都交给 Repository 应用级任务，避免主页切到设置页或详情页时中断导入。
-        repository.addLibraryRootAndScheduleSync(uri)
+        // 目录授权、root 入库和扫描均通过新门面在应用级完成
+        libraryFacade.addLibraryRootAndScheduleSync(uri)
     }
 
     // 删除库根目录并释放 SAF 授权，通过专职用例协调安全停播与数据清理，然后通过 Toast 通知用户结果。
@@ -277,12 +280,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearSearchHistory() {
         viewModelScope.launch {
-            repository.clearHistory()
+            // 通过新门面清空检索词历史
+            libraryFacade.clearHistory()
         }
     }
 
     fun triggerRescan() {
-        // 手动重扫只提交到应用级扫描队列，不再由页面持有 WorkManager 或协程调度状态。
-        repository.scheduleLibrarySync("USER")
+        // 手动触发增量重扫，提交至门面调度器队列
+        libraryFacade.scheduleLibrarySync("USER")
     }
 }

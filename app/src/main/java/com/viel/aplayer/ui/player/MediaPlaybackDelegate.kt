@@ -3,7 +3,7 @@ package com.viel.aplayer.ui.player
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.viel.aplayer.data.LibraryRepository
+import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.media.BookPlaybackPlan
 import com.viel.aplayer.media.ChapterTimeline
@@ -15,7 +15,7 @@ import com.viel.aplayer.media.PlaybackManager
  */
 class MediaPlaybackDelegate(
     private val playbackManager: () -> PlaybackManager?,
-    private val repository: LibraryRepository,
+    private val repository: BookQueryGateway,
     private val scope: CoroutineScope
 ) {
     fun play() = playbackManager()?.play()
