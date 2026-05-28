@@ -236,7 +236,21 @@ object Mp4MetadataFrameReader {
         val album = ilstData.textValues.firstText("\u00A9alb")
         val author = ilstData.textValues.firstText("\u00A9ART", "aART")
         val narrator = ilstData.textValues.firstText("\u00A9nrt", "\u00A9wrt", "\u00A9com")
-        val description = ilstData.textValues.firstText("desc", "ldes", "\u00A9des")
+        // MP4/M4B 的简介来源在不同工具里并不统一。
+        // 这里优先采用人工维护倾向更强的 freeform 自定义字段，再回退到标准 desc/ldes 和通用 comment，
+        // 避免导入时被自动写入的普通备注覆盖更完整的书籍简介。
+        val description = MetadataDescriptionRules.firstDescriptionFromCustomAndFallback(
+            values = ilstData.textValues,
+            customPrefix = "----",
+            fallbackKeys = listOf(
+                "desc",
+                "ldes",
+                "\u00A9des",
+                "\u00A9cmt",
+                "cmt",
+                "cmmt"
+            )
+        )
         val rawYear = ilstData.textValues.firstText("\u00A9day")
         val year = Regex("\\d{4}").find(rawYear)?.value ?: rawYear
 
@@ -268,10 +282,23 @@ object Mp4MetadataFrameReader {
         var pos = ilst.contentOffset
         while (pos + ATOM_HEADER_SIZE <= ilst.endOffset) {
             val item = readAtom(pos, ilst.endOffset, readRange) ?: break
+            // iTunes freeform 元数据用顶层 "----" atom 承载，字段名分散在 mean/name/data 子 atom 中。
+            // 这些值必须在遍历同一个 item 的所有子 atom 后再写入 textValues，否则无法知道 data 对应的真实字段名。
+            var freeformMean: String? = null
+            var freeformName: String? = null
+            var freeformText: String? = null
             var childPos = item.contentOffset
             while (childPos + ATOM_HEADER_SIZE <= item.endOffset) {
                 val child = readAtom(childPos, item.endOffset, readRange) ?: break
-                if (child.type == "data") {
+                if (item.type == "----" && options.includeMetadataFields) {
+                    val dataLength = (child.size - child.headerSize).coerceAtMost(MAX_TEXT_DATA_BYTES.toLong()).toInt()
+                    val payload = readRange(child.contentOffset, dataLength) ?: ByteArray(0)
+                    when (child.type) {
+                        "mean" -> freeformMean = parseFreeformLabel(payload)
+                        "name" -> freeformName = parseFreeformLabel(payload)
+                        "data" -> freeformText = parseTextData(payload)
+                    }
+                } else if (child.type == "data") {
                     when (item.type) {
                         "covr" -> if (options.includeCover && cover == null) {
                             val dataLength = (child.size - child.headerSize).coerceAtMost(MAX_COVER_BYTES.toLong()).toInt()
@@ -295,6 +322,7 @@ object Mp4MetadataFrameReader {
                 }
                 childPos = child.nextOffsetOrBreak(childPos)
             }
+            putFreeformTextValue(textValues, freeformMean, freeformName, freeformText)
             pos = item.nextOffsetOrBreak(pos)
         }
         return IlstData(textValues, trackIndex, cover)
@@ -306,6 +334,39 @@ object Mp4MetadataFrameReader {
         return String(textBytes, StandardCharsets.UTF_8)
             .trim { it <= ' ' }
             .takeIf { it.isNotBlank() }
+    }
+
+    private fun parseFreeformLabel(payload: ByteArray): String? {
+        if (payload.isEmpty()) return null
+        // mean/name 子 atom 通常以 4 字节 version/flags 开头；少数非标准写入器可能省略该头。
+        // 两种偏移都尝试，保证自定义 DESCRIPTION/COMMENT 字段不会因为头部差异被漏掉。
+        return listOf(FREEFORM_LABEL_HEADER_BYTES, 0)
+            .asSequence()
+            .filter { start -> start < payload.size }
+            .map { start ->
+                String(payload.copyOfRange(start, payload.size), StandardCharsets.UTF_8)
+                    .trim('\u0000', ' ', '\n', '\r', '\t')
+            }
+            .firstOrNull { value -> value.isNotBlank() }
+    }
+
+    private fun putFreeformTextValue(
+        textValues: MutableMap<String, String>,
+        mean: String?,
+        name: String?,
+        value: String?
+    ) {
+        val normalizedName = name?.let(MetadataDescriptionRules::normalizedFieldKey).orEmpty()
+        val normalizedValue = value?.trim().orEmpty()
+        if (normalizedName.isBlank() || normalizedValue.isBlank()) return
+
+        // description 读取只依赖字段名，mean 仍作为附加键保留，便于后续需要区分写入来源时复用。
+        textValues.putIfAbsent("----:$normalizedName", normalizedValue)
+        mean?.let(MetadataDescriptionRules::normalizedFieldKey)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { normalizedMean ->
+                textValues.putIfAbsent("----:$normalizedMean:$normalizedName", normalizedValue)
+            }
     }
 
     private fun parseCoverData(payload: ByteArray): EmbeddedCover? {
@@ -882,6 +943,7 @@ object Mp4MetadataFrameReader {
     private const val ATOM_HEADER_SIZE = 8
     private const val EXTENDED_ATOM_HEADER_SIZE = 16
     private const val DATA_HEADER_SIZE = 8
+    private const val FREEFORM_LABEL_HEADER_BYTES = 4
     private const val MAX_ATOM_SCAN_COUNT = 20_000
     private const val MAX_TEXT_DATA_BYTES = 256 * 1024
     private const val MAX_COVER_BYTES = 16 * 1024 * 1024

@@ -61,7 +61,8 @@ internal object FlacMetadataRangeParser : RangeAudioFormatParser {
                     author = author ?: RangeAudioParserSupport.mergeFirstNonBlank(comments["ARTIST"], comments["AUTHOR"])
                     narrator = narrator ?: RangeAudioParserSupport.mergeFirstNonBlank(comments["NARRATOR"], comments["READER"], comments["PERFORMER"], comments["COMPOSER"])
                     album = album ?: comments["ALBUM"]
-                    description = description ?: RangeAudioParserSupport.mergeFirstNonBlank(comments["DESCRIPTION"], comments["COMMENT"], comments["SUMMARY"])
+                    // Vorbis comment 是开放字段集合，简介字段优先于泛用 COMMENT 备注。
+                    description = description ?: MetadataDescriptionRules.firstDescriptionFromFields(comments)
                     year = year ?: RangeAudioParserSupport.mergeFirstNonBlank(comments["DATE"], comments["YEAR"])
                     trackIndex = trackIndex ?: RangeAudioParserSupport.normalizeTrackIndex(
                         RangeAudioParserSupport.mergeFirstNonBlank(comments["TRACKNUMBER"], comments["TRACK"])

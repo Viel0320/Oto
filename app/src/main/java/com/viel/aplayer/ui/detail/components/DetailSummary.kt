@@ -71,15 +71,14 @@ private val htmlDescriptionPattern = Regex("""</?[a-zA-Z][a-zA-Z0-9]*(\s[^>]*)?/
 
 /**
  * 渲染简介文本的辅助方法。
- * 1. 规范化换行符（CRLF/CR -> LF）。
- * 2. 如果包含 HTML 标签，则使用 HtmlCompat 进行解析。
- * 3. 否则直接返回普通字符串。
+ * 1. parser / 导入层负责换行归一化和字面量 "\n" 还原。
+ * 2. UI 层只判断是否需要 HTML 解析，避免展示组件耦合音频标签格式差异。
+ * 3. 非 HTML 内容保持入库后的文本原样展示。
  */
 private fun renderDescriptionText(rawDescription: String): CharSequence {
-    val normalizedDescription = rawDescription.replace("\r\n", "\n").replace('\r', '\n')
-    return if (htmlDescriptionPattern.containsMatchIn(normalizedDescription)) {
-        HtmlCompat.fromHtml(normalizedDescription, HtmlCompat.FROM_HTML_MODE_COMPACT)
+    return if (htmlDescriptionPattern.containsMatchIn(rawDescription)) {
+        HtmlCompat.fromHtml(rawDescription, HtmlCompat.FROM_HTML_MODE_COMPACT)
     } else {
-        normalizedDescription
+        rawDescription
     }
 }

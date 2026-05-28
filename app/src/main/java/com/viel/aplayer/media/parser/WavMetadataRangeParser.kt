@@ -62,7 +62,8 @@ internal object WavMetadataRangeParser : RangeAudioFormatParser {
                             "INAM" -> if (title.isBlank()) title = value
                             "IART" -> if (author.isBlank()) author = value
                             "IPRD" -> if (album.isBlank()) album = value
-                            "ICMT" -> if (description.isBlank()) description = value
+                            // WAV INFO 没有统一的自定义简介字段，至少在导入层处理 ICMT 里的字面量换行。
+                            "ICMT" -> if (description.isBlank()) description = MetadataDescriptionRules.normalizeDescriptionText(value)
                             "ICRD" -> if (year.isBlank()) year = value
                             "IENG", "ITCH" -> if (narrator.isBlank()) narrator = value
                         }

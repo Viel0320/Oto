@@ -76,7 +76,8 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
             trackIndex = RangeAudioParserSupport.normalizeTrackIndex(
                 RangeAudioParserSupport.mergeFirstNonBlank(comments["TRACKNUMBER"], comments["TRACK"])
             ),
-            description = RangeAudioParserSupport.mergeFirstNonBlank(comments["DESCRIPTION"], comments["COMMENT"], comments["SUMMARY"]),
+            // Ogg/Opus/Vorbis comment 同样是开放字段集合，复用统一简介优先级，避免 COMMENT 抢在 SUMMARY 等字段前面。
+            description = MetadataDescriptionRules.firstDescriptionFromFields(comments),
             year = RangeAudioParserSupport.mergeFirstNonBlank(comments["DATE"], comments["YEAR"]),
             durationMs = durationMs
         )

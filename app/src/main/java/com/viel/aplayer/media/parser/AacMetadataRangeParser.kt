@@ -138,6 +138,7 @@ internal object AacMetadataRangeParser : RangeAudioFormatParser {
         var author: String? = null
         var narrator: String? = null
         var album: String? = null
+        val customDescriptionFields = linkedMapOf<String, String>()
         var description: String? = null
         var year: String? = null
         var trackIndex: Int? = null
@@ -172,6 +173,12 @@ internal object AacMetadataRangeParser : RangeAudioFormatParser {
                 "TYE", "TYER", "TDRC", "TDAT" -> year = year ?: RangeAudioParserSupport.normalizeYear(decodeId3TextFrame(payload)).ifBlank { null }
                 "TRK", "TRCK" -> trackIndex = trackIndex ?: RangeAudioParserSupport.normalizeTrackIndex(decodeId3TextFrame(payload))
                 "TLE", "TLEN" -> durationMs = durationMs ?: decodeId3TextFrame(payload)?.toLongOrNull()
+                "TXX", "TXXX" -> {
+                    // TXXX/TXX 是用户自定义字段集合，先记录字段名和值，最终交给统一 description 规则按优先级挑选。
+                    decodeId3UserTextFrame(payload)?.let { (fieldName, value) ->
+                        customDescriptionFields.putIfAbsent(fieldName, value)
+                    }
+                }
                 "COM", "COMM" -> description = description ?: decodeId3CommentFrame(payload)
                 "PIC", "APIC" -> if (options.includeEmbeddedCover && embeddedCover == null) {
                     embeddedCover = decodeId3ApicFrame(payload)
@@ -190,7 +197,10 @@ internal object AacMetadataRangeParser : RangeAudioFormatParser {
             author = author,
             narrator = narrator,
             album = album,
-            description = description,
+            // ID3 自定义文本帧更可能承载用户维护的书籍简介，优先于泛用 COMM 备注帧。
+            description = MetadataDescriptionRules.firstDescriptionFromFields(customDescriptionFields)
+                .takeIf { it.isNotBlank() }
+                ?: description,
             year = year,
             trackIndex = trackIndex,
             durationMs = durationMs,
@@ -210,6 +220,19 @@ internal object AacMetadataRangeParser : RangeAudioFormatParser {
             .firstOrNull { line -> line.isNotBlank() }
     }
 
+    private fun decodeId3UserTextFrame(payload: ByteArray): Pair<String, String>? {
+        if (payload.isEmpty()) return null
+        val charset = id3Charset(payload[0].toInt() and 0xff)
+        val (fieldName, valueOffset) = RangeAudioParserSupport.readNullTerminatedText(payload, 1, charset)
+        if (!MetadataDescriptionRules.isDescriptionFieldName(fieldName) || valueOffset >= payload.size) return null
+        val value = payload.copyOfRange(valueOffset, payload.size)
+            .toString(charset)
+            .trim('\u0000', ' ', '\n', '\r', '\t')
+            .takeIf { it.isNotBlank() }
+            ?: return null
+        return fieldName to value
+    }
+
     private fun decodeId3CommentFrame(payload: ByteArray): String? {
         if (payload.size < 5) return null
         val charset = id3Charset(payload[0].toInt() and 0xff)
@@ -217,6 +240,7 @@ internal object AacMetadataRangeParser : RangeAudioFormatParser {
         if (nextOffset >= payload.size) return null
         return payload.copyOfRange(nextOffset, payload.size)
             .toString(charset)
+            .let(MetadataDescriptionRules::normalizeDescriptionText)
             .trim('\u0000', ' ', '\n', '\r', '\t')
             .takeIf { it.isNotBlank() }
     }
