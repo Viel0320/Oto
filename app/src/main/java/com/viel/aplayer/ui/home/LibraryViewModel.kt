@@ -25,6 +25,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val repository = container.libraryRepository
     private val settingsRepository = container.settingsRepository
 
+    /**
+     * 跨域书库根目录删除协调器用例，用于替代原有的门面仓库调用，以满足解耦要求。
+     */
+    private val deleteLibraryRootUseCase = container.deleteLibraryRootUseCase
+
     private val _scanResultDialogState = MutableStateFlow<ScanSessionEntity?>(null)
     val scanResultDialogState: StateFlow<ScanSessionEntity?> = _scanResultDialogState.asStateFlow()
 
@@ -250,10 +255,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         repository.addLibraryRootAndScheduleSync(uri)
     }
 
-    // 删除库根目录并释放 SAF 授权，通过 Toast 通知用户结果。
+    // 删除库根目录并释放 SAF 授权，通过专职用例协调安全停播与数据清理，然后通过 Toast 通知用户结果。
     fun deleteLibraryRoot(root: com.viel.aplayer.data.entity.LibraryRootEntity) {
         viewModelScope.launch {
-            val playbackWasStopped = repository.deleteLibraryRoot(root)
+            // 调用高层跨域用例执行删除，规避由 Repository 直接触发播放器停播的反向依赖问题
+            val playbackWasStopped = deleteLibraryRootUseCase.invoke(root)
             val message = if (playbackWasStopped) {
                 "媒体库已移除，当前播放已停止"
             } else {

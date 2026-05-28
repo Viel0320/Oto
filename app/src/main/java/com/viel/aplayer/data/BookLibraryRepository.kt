@@ -481,25 +481,17 @@ class BookLibraryRepository private constructor(context: Context) {
     // 9. 注销/物理注销书库根目录
     // ==========================================
 
-    suspend fun deleteLibraryRoot(root: LibraryRootEntity): Boolean = withContext(Dispatchers.IO) {
-        var playbackStopped = false
-
-        // 1. 若当前被卸载的书库内包含正在播放的有声书，先执行紧急停止指令
-        try {
-            val playbackManager = com.viel.aplayer.media.PlaybackManager.getInstance(context)
-            val currentBookId = playbackManager.currentPlayingBookId
-            if (currentBookId != null) {
-                val currentBook = bookDao.getBookById(currentBookId)
-                if (currentBook != null && currentBook.rootId == root.id) {
-                    playbackManager.stopPlayback()
-                    playbackStopped = true
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("BookLibraryRepository", "检测或暂停被删除根目录的有声书播放时发生异常", e)
-        }
-
-        // 2. 在 Room 级联删除关系记录前，先递归检索该库下所有书籍并主动物理清理封面和缩略图物理文件，杜绝残留垃圾
+    /**
+     * 仅清理与书库根相关的底层数据（包括物理封面、缩略图文件清理，系统 SAF 权限释放/WebDAV 凭证删除，以及数据库 Room 级联记录删除）。
+     * 此方法不包含任何播放器状态的交互，旨在将数据清理职责与业务控制流解耦，消除数据层对媒体播放层（PlaybackManager）的反向依赖。
+     *
+     * 详尽步骤：
+     * 1. 递归检索根目录下的所有书籍，物理删除其磁盘上的封面和缩略图文件，防止产生文件残留垃圾。
+     * 2. 根据数据源类型（SAF 或 WEBDAV），释放系统持久化 URI 访问权限或删除对应的网络存储凭据。
+     * 3. 在 Room 中删除该书库根记录，依靠外键的级联删除（ON DELETE CASCADE）在同一数据库事务中自动擦除该库所属的所有书籍和音轨。
+     */
+    suspend fun deleteLibraryRootDataOnly(root: LibraryRootEntity): Unit = withContext(Dispatchers.IO) {
+        // 1. 在数据库级联删除前，物理清除磁盘上的封面与缩略图缓存文件
         try {
             val books = bookDao.getBooksByRootId(root.id)
             books.forEach { book ->
@@ -542,6 +534,34 @@ class BookLibraryRepository private constructor(context: Context) {
 
         // 4. 从 Room 中彻底删除（由于级联的外键约束，其所属的书籍和音轨实体会在事务中自动被自动擦除）
         libraryRootDao.deleteRoot(root)
+    }
+
+    /**
+     * 注销并清理书库根目录。
+     * @deprecated 该方法直接调用了媒体层的 PlaybackManager，破坏了单向依赖原则。
+     * 请改用 [DeleteLibraryRootUseCase] 具体用例来进行跨领域（播放停止与数据清理）的流程协调。
+     */
+    @Deprecated("请改用 DeleteLibraryRootUseCase，以遵循领域依赖规范，避免仓库直接依赖播放层")
+    suspend fun deleteLibraryRoot(root: LibraryRootEntity): Boolean = withContext(Dispatchers.IO) {
+        var playbackStopped = false
+
+        // 1. 若当前被卸载的书库内包含正在播放的有声书，先执行紧急停止指令以防止播放器崩溃
+        try {
+            val playbackManager = com.viel.aplayer.media.PlaybackManager.getInstance(context)
+            val currentBookId = playbackManager.currentPlayingBookId
+            if (currentBookId != null) {
+                val currentBook = bookDao.getBookById(currentBookId)
+                if (currentBook != null && currentBook.rootId == root.id) {
+                    playbackManager.stopPlayback()
+                    playbackStopped = true
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("BookLibraryRepository", "检测或暂停被删除根目录的有声书播放时发生异常", e)
+        }
+
+        // 2. 调用仅做数据清理的方法，执行物理文件和数据库记录的级联删除
+        deleteLibraryRootDataOnly(root)
         playbackStopped
     }
 

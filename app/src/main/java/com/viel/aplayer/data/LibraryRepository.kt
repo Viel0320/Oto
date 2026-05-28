@@ -348,9 +348,17 @@ class LibraryRepository private constructor(context: Context) {
     suspend fun deleteBookmark(bookmark: BookmarkEntity) = bookLibrary.deleteBookmark(bookmark)
 
     /**
-     * 移除特定书库根目录。
-     * 级联安全注销权限并物理递归删除所属书籍的所有封面缓存以杜绝磁盘垃圾残留。
+     * 仅清理与书库根相关的底层数据（包括物理封面、缩略图清理，系统 SAF 权限释放/WebDAV 凭证删除，Room 数据库记录删除）。
+     * 此操作不与播放层 PlaybackManager 进行任何直接交互，以解耦数据层与播放控制。
      */
+    suspend fun deleteLibraryRootDataOnly(root: LibraryRootEntity): Unit =
+        bookLibrary.deleteLibraryRootDataOnly(root)
+
+    /**
+     * 移除特定书库根目录。
+     * @deprecated 请改用 [DeleteLibraryRootUseCase] 进行播放状态与数据清理的流程编排，以消除门面仓库层对媒体播放器的硬编码依赖。
+     */
+    @Deprecated("请改用 DeleteLibraryRootUseCase，以规避门面仓库直接依赖播放层的问题")
     suspend fun deleteLibraryRoot(root: LibraryRootEntity): Boolean = bookLibrary.deleteLibraryRoot(root)
 
     companion object {
