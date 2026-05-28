@@ -26,7 +26,10 @@ import java.io.File
  * 遵循单一职责与数据层隔离原则，将繁重的磁盘 I/O 和多媒体元数据物理提取逻辑从主仓库中剥离。
  */
 @OptIn(UnstableApi::class)
-class PhysicalFileResolver private constructor(context: Context) {
+class PhysicalFileResolver private constructor(
+    context: Context,
+    private val vfsFileInterface: com.viel.aplayer.library.vfs.VfsFileInterface
+) {
     // 使用 applicationContext 防止 Activity 级别的内存泄漏
     private val context = context.applicationContext
     
@@ -51,16 +54,17 @@ class PhysicalFileResolver private constructor(context: Context) {
     private val coverExtractor = CoverExtractor(this.context)
     private val metadataResolver = MetadataResolver(this.context)
 
-    // 字幕路径定位与流式解析门面，直连 VFS 读流
-    private val subtitleResolver = SubtitleFileResolver(this.context, bookDao, libraryRootDao)
+    // 字幕路径定位与流式解析门面，直连注入共享的 VFS 读流通道单例
+    private val subtitleResolver = SubtitleFileResolver(this.context, bookDao, vfsFileInterface)
 
-    // 封面恢复助手，负责在封面物理文件丢失时自动从音频原文件中非阻塞重构并重建缓存
+    // 封面恢复助手，负责在封面物理文件丢失时自动从音频原文件中非阻塞重构并重建缓存，共享统一的 VfsFileInterface 实例
     val coverRecoveryHelper = CoverRecoveryHelper(
         this.context,
         bookDao,
         libraryRootDao,
         coverExtractor,
-        scope
+        scope,
+        vfsFileInterface
     )
 
     /**
@@ -154,10 +158,18 @@ class PhysicalFileResolver private constructor(context: Context) {
 
         /**
          * 获取物理文件解析器的双检锁线程安全单例。
+         * 支持通过参数传入共享的 VfsFileInterface 虚拟文件通道单例，以在运行期达成统一；
+         * 若不传，则内部自建一个默认虚拟通道进行平滑向下兼容。
          */
-        fun getInstance(context: Context): PhysicalFileResolver {
+        fun getInstance(
+            context: Context,
+            vfsFileInterface: com.viel.aplayer.library.vfs.VfsFileInterface? = null
+        ): PhysicalFileResolver {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: PhysicalFileResolver(context).also { INSTANCE = it }
+                val appCtx = context.applicationContext
+                val db = AppDatabase.getInstance(appCtx)
+                val resolvedVfs = vfsFileInterface ?: com.viel.aplayer.library.vfs.VfsFileInterface(appCtx, db.libraryRootDao())
+                INSTANCE ?: PhysicalFileResolver(appCtx, resolvedVfs).also { INSTANCE = it }
             }
         }
     }

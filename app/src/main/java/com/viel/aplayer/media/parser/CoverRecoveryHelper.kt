@@ -33,11 +33,11 @@ class CoverRecoveryHelper(
     private val bookDao: BookDao,
     private val libraryRootDao: LibraryRootDao,
     private val coverExtractor: CoverExtractor,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val fileReader: VfsFileInterface
 ) {
     // 封面重建会触发 VFS 读流、图片解码和主色提取，因此继续用信号量限制全局并发。
     private val regenerationSemaphore = Semaphore(MAX_CONCURRENT_COVER_REGENERATIONS)
-    private val fileReader = VfsFileInterface(context.applicationContext, libraryRootDao)
     // 所有内嵌封面字节都统一通过 MetadataResolver 向各格式 parser 请求。
     private val MetadataResolver = MetadataResolver(context.applicationContext)
 

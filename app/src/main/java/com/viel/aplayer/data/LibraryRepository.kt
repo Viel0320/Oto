@@ -31,12 +31,15 @@ import kotlinx.coroutines.flow.Flow
  * 保障了上游视图模型（ViewModel）和前台服务（PlaybackService）的向后兼容，真正做到了“零编译破坏”。
  */
 @OptIn(UnstableApi::class)
-class LibraryRepository private constructor(context: Context) {
+class LibraryRepository private constructor(
+    context: Context,
+    vfsFileInterface: com.viel.aplayer.library.vfs.VfsFileInterface? = null
+) {
 
-    // 实例化三大子领域仓库实例
+    // 实例化三大子领域仓库实例，在 PhysicalFileResolver 处注入共享的 VFS 读取单例
     private val bookLibrary = BookLibraryRepository.getInstance(context)
     private val playbackHistory = PlaybackHistoryRepository.getInstance(context)
-    private val physicalFileResolver = PhysicalFileResolver.getInstance(context)
+    private val physicalFileResolver = PhysicalFileResolver.getInstance(context, vfsFileInterface)
 
     // ==========================================
     // 1. 物理文件系统及字幕交互（委托给 PhysicalFileResolver）
@@ -368,10 +371,14 @@ class LibraryRepository private constructor(context: Context) {
 
         /**
          * 获取媒体库门面仓库的双检锁线程安全单例。
+         * 支持在创建单例时接收共享的 VfsFileInterface 读取单例并传递给物理文件解析器，以确保全应用统一。
          */
-        fun getInstance(context: Context): LibraryRepository {
+        fun getInstance(
+            context: Context,
+            vfsFileInterface: com.viel.aplayer.library.vfs.VfsFileInterface? = null
+        ): LibraryRepository {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: LibraryRepository(context).also { INSTANCE = it }
+                INSTANCE ?: LibraryRepository(context, vfsFileInterface).also { INSTANCE = it }
             }
         }
     }

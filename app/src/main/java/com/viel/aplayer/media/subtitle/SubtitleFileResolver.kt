@@ -26,11 +26,10 @@ import java.util.Locale
 class SubtitleFileResolver(
     private val context: Context,
     private val bookDao: BookDao,
-    private val libraryRootDao: LibraryRootDao
+    private val fileReader: VfsFileInterface
 ) {
     // 字幕文件的受支持后缀后缀集合。
     private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "lrc")
-    private val fileReader = VfsFileInterface(context.applicationContext, libraryRootDao)
 
     /**
      * 加载并解析指定入库音频文件所对应的字幕文件。

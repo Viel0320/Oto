@@ -13,6 +13,9 @@ import com.viel.aplayer.data.service.BookQueryService
 import com.viel.aplayer.data.service.ProgressService
 import com.viel.aplayer.data.service.ScanService
 import com.viel.aplayer.data.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.library.vfs.VfsFileInterface
+import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.media.PlaybackFileLookup
 
 /**
  * 简单的依赖注入容器，用于统一管理与初始化全局仓库与高层跨域用例。
@@ -46,13 +49,23 @@ interface AppContainer {
      * 媒体重扫触发及定时任务调度网关。
      */
     val scanScheduler: ScanScheduler
+
+    /**
+     * 运行期唯一的底层虚拟文件系统物理 I/O 读取通道单例。
+     */
+    val vfsFileInterface: VfsFileInterface
+
+    /**
+     * 供播放层使用的音频物理文件快速检索接口。
+     */
+    val playbackFileLookup: PlaybackFileLookup
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
     @Suppress("DEPRECATION")
     @Deprecated("请逐步切换到使用更精细的 Gateway 分域网关或高层的 libraryFacade 进行交互")
     override val libraryRepository: LibraryRepository by lazy {
-        LibraryRepository.getInstance(context)
+        LibraryRepository.getInstance(context, vfsFileInterface)
     }
     
     override val settingsRepository: AppSettingsRepository by lazy {
@@ -84,7 +97,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     /**
-     * 延迟初始化前后台扫描重扫派发网关。
+     * 延迟初始化前后台扫描重扫派关。
      */
     override val scanScheduler: ScanScheduler by lazy {
         ScanService(BookLibraryRepository.getInstance(context))
@@ -98,6 +111,25 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             bookQueryGateway = bookQueryGateway,
             progressGateway = progressGateway,
             scanScheduler = scanScheduler
+        )
+    }
+
+    /**
+     * 延迟初始化运行期唯一的虚拟文件系统物理数据通道单例，供前台播放与恢复机制共享。
+     */
+    override val vfsFileInterface: VfsFileInterface by lazy {
+        VfsFileInterface(
+            context.applicationContext,
+            libraryRootDao = AppDatabase.getInstance(context).libraryRootDao()
+        )
+    }
+
+    /**
+     * 延迟初始化供播放器数据源使用的音频文件数据库查询服务。
+     */
+    override val playbackFileLookup: PlaybackFileLookup by lazy {
+        com.viel.aplayer.media.DefaultPlaybackFileLookup(
+            AppDatabase.getInstance(context).bookDao()
         )
     }
 }

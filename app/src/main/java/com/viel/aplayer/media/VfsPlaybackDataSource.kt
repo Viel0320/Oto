@@ -20,10 +20,9 @@ import kotlin.math.min
 
 @OptIn(UnstableApi::class)
 class VfsPlaybackDataSource private constructor(
-    context: Context
+    private val fileLookup: PlaybackFileLookup,
+    private val fileReader: VfsFileInterface
 ) : BaseDataSource(false) {
-    private val database = AppDatabase.getInstance(context.applicationContext)
-    private val fileReader = VfsFileInterface(context.applicationContext, database.libraryRootDao())
 
     private var inputStream: InputStream? = null
     private var openedUri: Uri? = null
@@ -40,7 +39,8 @@ class VfsPlaybackDataSource private constructor(
 
         transferInitializing(dataSpec)
         val dbLookupStart = SystemClock.elapsedRealtime()
-        val file = runBlocking { database.bookDao().getBookFileById(bookFileId) }
+        // 依托解耦后的快速物理文件检索服务进行音频文件的库表查找
+        val file = runBlocking { fileLookup.getBookFileById(bookFileId) }
             ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
         val dbLookupCost = SystemClock.elapsedRealtime() - dbLookupStart
         // 播放层只传 offset 给 VFS，SAF 由默认 skip 处理，WebDAV 由 Provider 转成 Range 请求。
@@ -126,8 +126,12 @@ class VfsPlaybackDataSource private constructor(
 
     class Factory(context: Context) : DataSource.Factory {
         private val appContext = context.applicationContext
+        private val container = (appContext as com.viel.aplayer.APlayerApplication).container
 
         override fun createDataSource(): DataSource =
-            VfsPlaybackDataSource(appContext)
+            VfsPlaybackDataSource(
+                fileLookup = container.playbackFileLookup,
+                fileReader = container.vfsFileInterface
+            )
     }
 }
