@@ -75,7 +75,6 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     }
 
     override suspend fun openInputStream(file: SourceNode): InputStream? {
-        // 为播放慢定位添加详细中文注释：
         // 记录顺序读流时“重建 DocumentUri + openInputStream”的整体耗时，
         // 便于判断 SAF 普通打开是否已经占了明显比例。
         val openStart = SystemClock.elapsedRealtime()
@@ -94,7 +93,6 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
 
     override suspend fun openInputStream(file: SourceNode, offset: Long): InputStream? {
         if (offset <= 0L) return openInputStream(file)
-        // 为播放慢定位添加详细中文注释：
         // offset 打开是 seek / resume / 容器探测时最关键的一条随机读路径；
         // 这里单独记录 openFileDescriptor + channel.position 的总耗时，便于确认 SAF 随机定位成本。
         val openStart = SystemClock.elapsedRealtime()
@@ -159,7 +157,6 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     }
 
     override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? {
-        // 为播放慢定位添加详细中文注释：
         // 单独记录 openFileDescriptor 的耗时，帮助区分“FD 打开慢”还是“后续随机定位慢”。
         val openStart = SystemClock.elapsedRealtime()
         val descriptor = runCatching {

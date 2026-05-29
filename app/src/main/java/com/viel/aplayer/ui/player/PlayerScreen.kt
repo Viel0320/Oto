@@ -93,7 +93,7 @@ fun PlayerScreen(
             thumbnailPath = null,
             coverLastUpdated = 0L,
             backgroundColorArgb = "#FF1E293B".toColorInt(), // 深色灰蓝色背景
-            // 详尽的中文注释：由于 BookMetadataState 中的 chapters 已重构升级为 List<ChapterWithBookFile> 关系模型，
+            // 由于 BookMetadataState 中的 chapters 已重构升级为 List<ChapterWithBookFile> 关系模型，
             // 此处在预览 Mock 时，需要将 ChapterEntity 用 ChapterWithBookFile 进行原子包裹，物理文件 bookFile 直接 mock 传入 null，
             // 确保预览渲染链路契约一致且完美通过 Kotlin 强类型编译检验。
             chapters = listOf(

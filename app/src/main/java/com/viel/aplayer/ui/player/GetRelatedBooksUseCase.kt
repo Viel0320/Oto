@@ -10,7 +10,6 @@ import com.viel.aplayer.data.entity.BookWithProgress
  * 更是置顶新增了由 100% 响应式 Flow 驱动的“启发式推荐” (Heuristic Recommendation) 算法，
  * 深度结合书名相似度（LCS 最长公共子串算法）、作者/播讲人重合度、年份匹配以及添加时间新鲜度进行多维度加权打分，并配备智能兜底填充策略。
  * 
- * 详尽的中文注释：
  * 在 M3.3 重构中，将旧的 LibraryRepository 仓库依赖替换为更狭窄的 BookQueryGateway 接口。
  * 遵循面向接口编程和单一职责原则，解除高层业务用例与底层臃肿仓库的直接耦合。
  */

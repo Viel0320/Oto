@@ -67,7 +67,7 @@ class PlaybackService : MediaSessionService() {
     private lateinit var rewindButton: CommandButton
     private lateinit var forwardButton: CommandButton
     private lateinit var bookmarkButton: CommandButton
-    // 详尽的中文注释：在 M4.4 重构中，将旧的上帝仓库 libraryRepository 更换为全新的 LibraryFacade 门面
+    // 在 M4.4 重构中，将旧的上帝仓库 libraryRepository 更换为全新的 LibraryFacade 门面
     private lateinit var libraryFacade: LibraryFacade
     private lateinit var settingsRepository: AppSettingsRepository
     private lateinit var notificationPlayer: NotificationProgressPlayer
@@ -104,7 +104,7 @@ class PlaybackService : MediaSessionService() {
         )
 
         // 2. 初始化解耦出去的播放物理故障与拦截处理器组件
-        // 详尽的中文注释：将 progressGateway 传入 PlaybackFailureHandler 故障灾备处理器以替代旧的 libraryRepository 依赖
+        // 将 progressGateway 传入 PlaybackFailureHandler 故障灾备处理器以替代旧的 libraryRepository 依赖
         failureHandler = PlaybackFailureHandler(
             context = this,
             serviceScope = serviceScope,
@@ -169,7 +169,6 @@ class PlaybackService : MediaSessionService() {
         serviceScope.launch {
             settingsRepository.settingsFlow.collect { settings ->
                 /**
-                 * 详尽的中文注释：
                  * 动态热重载有声书静音跳过属性。
                  * 经过重构，去除了反射式最小时长更新逻辑，纯粹使用官方标准的 skipSilenceEnabled 属性控制。
                  */
@@ -265,14 +264,14 @@ class PlaybackService : MediaSessionService() {
         val bookId = mediaId.substringBefore(":")
 
         serviceScope.launch(Dispatchers.IO) {
-            // 详尽的中文注释：通过高层门面 libraryFacade 同步获取特定书籍的全部物理分轨与章节清册
+            // 通过高层门面 libraryFacade 同步获取特定书籍的全部物理分轨与章节清册
             val files = libraryFacade.getFilesForBookSync(bookId)
             val chapters = libraryFacade.getChaptersForBookSync(bookId)
             if (files.isNotEmpty()) {
                 launch(Dispatchers.Main) {
                     notificationBookId = bookId
                     notificationFiles = files
-                    // 详尽的中文注释：由于 chapters 现在的底层类型是 ChapterWithBookFile（包含物理音轨文件状态），
+                    // 由于 chapters 现在的底层类型是 ChapterWithBookFile（包含物理音轨文件状态），
                     // 而前台通知栏的时间轴播放计算器 notificationPlayer 仅需要原始的章节区间实体 ChapterEntity，
                     // 因此在此处通过 .map { it.chapter } 进行轻量解包，确保向后兼容与类型安全。
                     notificationPlayer.updateBookTimeline(bookId, files, chapters.map { it.chapter })
@@ -345,7 +344,7 @@ class PlaybackService : MediaSessionService() {
                             val positionMs = (session.player as? NotificationProgressPlayer)
                                 ?.currentGlobalPosition()
                                 ?: currentGlobalPosition(session.player, bookId)
-                            // 详尽的中文注释：使用 libraryFacade 门面接口在指定物理位置创建书签
+                            // 使用 libraryFacade 门面接口在指定物理位置创建书签
                             libraryFacade.addBookmark(bookId, positionMs, "Bookmark")
                             Toast.makeText(this@PlaybackService, "已添加当前播放位置到书签", Toast.LENGTH_SHORT).show()
                         }
@@ -369,7 +368,7 @@ class PlaybackService : MediaSessionService() {
     private suspend fun currentGlobalPosition(player: Player, bookId: String): Long {
         val fileIndex = player.currentMediaItemIndex.coerceAtLeast(0)
         val positionInFile = player.currentPosition.coerceAtLeast(0L)
-        // 详尽的中文注释：当通知栏缓存书籍信息不存在时，通过 libraryFacade 安全加载对应音频分轨以正确映射进度
+        // 当通知栏缓存书籍信息不存在时，通过 libraryFacade 安全加载对应音频分轨以正确映射进度
         val files = notificationFiles.takeIf { notificationBookId == bookId && it.isNotEmpty() }
             ?: libraryFacade.getFilesForBookSync(bookId)
         

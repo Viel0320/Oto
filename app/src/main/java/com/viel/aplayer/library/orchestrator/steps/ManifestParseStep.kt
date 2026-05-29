@@ -8,28 +8,25 @@ import com.viel.aplayer.media.manifest.M3u8ManifestParser
 import com.viel.aplayer.media.manifest.ManifestResolver
 import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 import com.viel.aplayer.library.orchestrator.ImportContext
-import com.viel.aplayer.library.orchestrator.ImportStep
-import com.viel.aplayer.library.orchestrator.StepResult
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import java.util.Locale
 
 /**
- * 清单解析工位
- * 
- * 本类专门独立出来解析 CUE 和 M3U8 清单物理文件。
- * 它调用现有的 CueManifestParser 和 M3u8ManifestParser 算法解析出轨道和引用的音频文件名，
- * 并通过本轮扫描得到的同目录音频索引验证引用的音频是否真的物理存在，避免清单解析阶段重复访问 SAF。
+ * 清单解析工位。本类已被重构，去除了原有的泛型接口 ImportStep<I, O> 和 StepResult 密封类包装。
+ * 现在 execute 方法直接返回具体的 ManifestParsedResult 结果，当遇到异常时将自然向上抛出，
+ * 简化了调用链路的错误处理并消除了过度设计。
  */
-internal class ManifestParseStep(private val context: Context) : ImportStep<FileInventory, ManifestParsedResult> {
+internal class ManifestParseStep(private val context: Context) {
 
-    override val stepName: String = "ManifestParseStep"
-
-    override suspend fun execute(
+    /**
+     * 执行清单解析逻辑。直接接收 FileInventory 输入并返回 ManifestParsedResult，不再包装在 StepResult 中。
+     */
+    suspend fun execute(
         input: FileInventory,
         context: ImportContext
-    ): StepResult<ManifestParsedResult> = runCatching {
-        // 清单解析使用当前 scope 的 roots 映射打开 VFS 流，避免无 DAO 的 reader 解析不到库根。
-        val fileReader = VfsFileInterface(this.context.applicationContext, rootsById = input.roots.associateBy { it.id })
+    ): ManifestParsedResult {
+        // 复用从 ImportContext 传入的会话级唯一 VFS 读取门面，规避冗余自构开销
+        val fileReader = context.scopeFileReader ?: return ManifestParsedResult(emptyList(), emptyList())
         val cueDrafts = mutableListOf<ParsedCueDraft>()
         val m3u8Drafts = mutableListOf<ParsedM3u8Draft>()
         // 清单解析阶段复用扫描阶段已经收集到的音频列表，按“VFS 父目录键 + 文件名”查找，避免每个 CUE/M3U8 条目都触发目录枚举。
@@ -59,10 +56,10 @@ internal class ManifestParseStep(private val context: Context) : ImportStep<File
                 }
                 
                 cueDrafts.add(ParsedCueDraft(
-                    sourceFile = cue,
-                    result = result,
-                    resolvedAudioKeys = resolved.toMap(),
-                    missingCount = missingCount
+                     sourceFile = cue,
+                     result = result,
+                     resolvedAudioKeys = resolved.toMap(),
+                     missingCount = missingCount
                 ))
             }
         }
@@ -98,9 +95,7 @@ internal class ManifestParseStep(private val context: Context) : ImportStep<File
             ))
         }
 
-        StepResult.Success(ManifestParsedResult(cueDrafts, m3u8Drafts))
-    }.getOrElse { e ->
-        StepResult.Failure(e, "清单文件深度物理解析异常，详情: ${e.localizedMessage}")
+        return ManifestParsedResult(cueDrafts, m3u8Drafts)
     }
 
     private fun isAudioName(value: String): Boolean {

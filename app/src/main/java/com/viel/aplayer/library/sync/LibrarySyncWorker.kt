@@ -15,7 +15,7 @@ class LibrarySyncWorker(
         return try {
             val trigger = inputData.getString("trigger") ?: "USER"
             
-            // 详尽的中文注释：
+            // 
             // 在 M4.5 重构中，为了解除后台定时同步任务对重量级旧仓库的硬编码依赖，
             // 切换为从 Application 的 container 中提取更小知识面的 ScanScheduler 网关组件，
             // 异步在物理后台调度触发书库文件增量扫描同步逻辑。

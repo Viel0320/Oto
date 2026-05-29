@@ -202,7 +202,7 @@ class SleepTimerManager(
             // 章节结束停止模式
             val meta = currentMetadata()
             val state = currentPlayback()
-            // 详尽的中文注释：对关系查询包装列表 meta.chapters 进行就地轻量级解包映射（map { it.chapter }），
+            // 对关系查询包装列表 meta.chapters 进行就地轻量级解包映射（map { it.chapter }），
             // 转换为原始的 List<ChapterEntity> 局部变量，从而规避底层 DTO 带来的字段与类型编译冲突，保持核心倒计时算法的完美稳定性。
             val chapters = meta.chapters.map { it.chapter }
             // 查找当前所处章节
@@ -275,7 +275,7 @@ class SleepTimerManager(
                     while (true) {
                         val state = currentPlayback()
                         val meta = currentMetadata()
-                        // 详尽的中文注释：在此对睡眠倒计时高频轮询的 chapters 数据源进行 map { it.chapter } 转换，
+                        // 在此对睡眠倒计时高频轮询的 chapters 数据源进行 map { it.chapter } 转换，
                         // 使其维持为 List<ChapterEntity> 的传统强类型结构，彻底消除直接访问 DTO 产生的 unresolved reference 编译崩溃。
                         val chapters = meta.chapters.map { it.chapter }
                         if (state.isPlaying) {

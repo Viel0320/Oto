@@ -22,7 +22,7 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.SearchHistoryEntry
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
-    // 详尽的中文注释：在 M5b.2 迁移中，将旧仓库 LibraryRepository 替换为高层业务门面 libraryFacade。
+    // 在 M5b.2 迁移中，将旧仓库 LibraryRepository 替换为高层业务门面 libraryFacade。
     // 这解除了 ViewModel 与庞大重量级底层的直接强耦合，将所有操作直接委托路由给分域 Gateway 服务。
     private val libraryFacade = (application as APlayerApplication).container.libraryFacade
 
@@ -41,7 +41,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val _query = MutableStateFlow(TextFieldValue(""))
     val query: StateFlow<TextFieldValue> = _query.asStateFlow()
 
-    // 详尽的中文注释：使用 libraryFacade 门面响应式观察搜索检索历史
+    // 使用 libraryFacade 门面响应式观察搜索检索历史
     val searchHistory: StateFlow<List<SearchHistoryEntry>> = libraryFacade.searchHistory
         .stateIn(
             scope = viewModelScope,
@@ -101,7 +101,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     fun saveSearchHistory(queryToSave: String) {
         if (queryToSave.isNotBlank()) {
             viewModelScope.launch {
-                // 详尽的中文注释：使用 libraryFacade 将检索历史写入持久化记录
+                // 使用 libraryFacade 将检索历史写入持久化记录
                 libraryFacade.addToHistory(queryToSave.trim())
             }
         }
@@ -114,14 +114,14 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     fun deleteHistory(history: SearchHistoryEntry) {
         viewModelScope.launch {
-            // 详尽的中文注释：使用 libraryFacade 物理删除单个搜索历史条目
+            // 使用 libraryFacade 物理删除单个搜索历史条目
             libraryFacade.deleteFromHistory(history)
         }
     }
 
     fun clearHistory() {
         viewModelScope.launch {
-            // 详尽的中文注释：使用 libraryFacade 一键清理全部历史检索词
+            // 使用 libraryFacade 一键清理全部历史检索词
             libraryFacade.clearHistory()
         }
     }

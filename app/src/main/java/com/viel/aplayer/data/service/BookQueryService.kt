@@ -48,21 +48,21 @@ class BookQueryService
     private val coverRecoveryHelper: CoverRecoveryHelper
 ) : BookQueryGateway {
 
-    // 详尽 of 中文注释：异步非阻塞元数据覆写的专属协程异常拦截器
+    // 异步非阻塞元数据覆写的专属协程异常拦截器
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         Log.e("BookQueryService", "协程在 BookQueryService 运行中捕获到未处理异常", exception)
     }
 
-    // 详尽的中文注释：该服务独享的后台协程作用域，用于执行诸如异步更新书籍元数据章节等非阻塞写操作
+    // 该服务独享的后台协程作用域，用于执行诸如异步更新书籍元数据章节等非阻塞写操作
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
-    // 详尽的中文注释：用于在流式加载书籍列表时自动触发封面缓存物理自愈的响应式 Flow 拦截器
+    // 用于在流式加载书籍列表时自动触发封面缓存物理自愈的响应式 Flow 拦截器
     @OptIn(UnstableApi::class)
     private fun Flow<List<BookWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
         list.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
     }
 
-    // 详尽的中文注释：锚定计算时使用的辅助数据元组，用于承载文件ID、偏移、指纹及状态
+    // 锚定计算时使用的辅助数据元组，用于承载文件ID、偏移、指纹及状态
     private data class Quad(
         val bookFileId: String?,
         val fileOffsetMs: Long,
@@ -74,12 +74,12 @@ class BookQueryService
         get() = bookDao.getAllBooksWithProgress().checkCovers()
 
     override suspend fun getBookById(id: String): BookEntity? = withContext(Dispatchers.IO) {
-        // 详尽的中文注释：获取书籍详情时，若书籍封面物理丢失，则非阻塞地触发封面的自动提取与自愈
+        // 获取书籍详情时，若书籍封面物理丢失，则非阻塞地触发封面的自动提取与自愈
         bookDao.getBookById(id)?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
     }
 
     override fun observeBookById(id: String): Flow<BookEntity?> {
-        // 详尽的中文注释：响应式订阅单本书籍的最新状态，并在发生变动时协同封面自愈助手执行非阻塞检查
+        // 响应式订阅单本书籍的最新状态，并在发生变动时协同封面自愈助手执行非阻塞检查
         return bookDao.observeBookById(id).map { book ->
             book?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
         }
@@ -125,7 +125,7 @@ class BookQueryService
     override suspend fun deleteBook(bookId: String) = withContext(Dispatchers.IO) {
         val book = bookDao.getBookById(bookId)
         if (book != null) {
-            // 详尽的中文注释：执行软删除标识更新，保留数据以支持历史排重，而不是物理抹除
+            // 执行软删除标识更新，保留数据以支持历史排重，而不是物理抹除
             bookDao.updateBookStatus(bookId, AudiobookSchema.BookStatus.DELETED)
         }
     }
@@ -154,7 +154,7 @@ class BookQueryService
     }
 
     override fun observeLatestScanSession(): Flow<ScanSessionEntity?> {
-        // 详尽的中文注释：响应式订阅观察最后一次物理文件扫描会话的记录状态
+        // 响应式订阅观察最后一次物理文件扫描会话的记录状态
         return scanSessionDao.observeLatestCompletedSession()
     }
 
@@ -164,7 +164,7 @@ class BookQueryService
         val book = bookDao.getBookById(bookId) ?: return@withContext null
         val bookQueryCost = SystemClock.elapsedRealtime() - bookQueryStart
         
-        // 详尽的中文注释：在构建起播计划时，协同触发物理封面的自愈与物理提取自愈操作
+        // 在构建起播计划时，协同触发物理封面的自愈与物理提取自愈操作
         coverRecoveryHelper.checkAndTriggerCoverRegeneration(book)
         
         val filesQueryStart = SystemClock.elapsedRealtime()
@@ -188,7 +188,7 @@ class BookQueryService
         }
         
         val artworkPath = book.coverPath
-        // 详尽的中文注释：播放计划只暴露轻量级的 file:// 协议封面 URI，规避大文件读取开销与队列重复附加开销
+        // 播放计划只暴露轻量级的 file:// 协议封面 URI，规避大文件读取开销与队列重复附加开销
         val artworkUri = artworkPath?.let { Uri.fromFile(File(it)) }
 
         val plan = BookPlaybackPlan(
@@ -221,7 +221,7 @@ class BookQueryService
         description: String?,
         duration: Long
     ) {
-        // 详尽的中文注释：在后台协程域中非阻塞地写回扫描覆盖获取的物理多媒体元数据标签信息
+        // 在后台协程域中非阻塞地写回扫描覆盖获取的物理多媒体元数据标签信息
         scope.launch {
             val existing = bookDao.getBookById(bookId) ?: return@launch
             val newTitle = if (!title.isNullOrBlank()) title else existing.title
@@ -247,7 +247,7 @@ class BookQueryService
     }
 
     override fun saveChapters(bookId: String, chapters: List<ChapterEntity>) {
-        // 详尽的中文注释：在专属后台协程域中执行物理分轨章节实体的清空与批量写入
+        // 在专属后台协程域中执行物理分轨章节实体的清空与批量写入
         scope.launch {
             if (bookDao.getBookById(bookId) != null) {
                 chapterDao.deleteChaptersForBook(bookId)
@@ -262,7 +262,7 @@ class BookQueryService
 
     override suspend fun addBookmark(bookId: String, position: Long, title: String) = withContext(Dispatchers.IO) {
         val files = bookDao.getFilesForBookList(bookId)
-        // 详尽的中文注释：在添加书签时精确计算当前绝对毫秒位置在多音频物理分轨中的实际映射偏移、指纹及锚定状态
+        // 在添加书签时精确计算当前绝对毫秒位置在多音频物理分轨中的实际映射偏移、指纹及锚定状态
         val (bookFileId, fileOffsetMs, fingerprint, anchorStatus) = if (files.isNotEmpty()) {
             val (fileIndex, offset) = PositionMapper.globalToFilePosition(position, files)
             val file = files.getOrNull(fileIndex)
@@ -281,19 +281,19 @@ class BookQueryService
             anchorStatus = anchorStatus,
             title = title
         ))
-        // 详尽的中文注释：显式返回 Unit 以强行匹配网关接口的方法签名定义
+        // 显式返回 Unit 以强行匹配网关接口的方法签名定义
         Unit
     }
 
     override suspend fun updateBookmark(bookmark: BookmarkEntity) = withContext(Dispatchers.IO) {
         bookmarkDao.insert(bookmark)
-        // 详尽的中文注释：显式返回 Unit 避免 Long 类型隐式返回
+        // 显式返回 Unit 避免 Long 类型隐式返回
         Unit
     }
 
     override suspend fun deleteBookmark(bookmark: BookmarkEntity) = withContext(Dispatchers.IO) {
         bookmarkDao.delete(bookmark)
-        // 详尽的中文注释：显式返回 Unit
+        // 显式返回 Unit
         Unit
     }
 }

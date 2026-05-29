@@ -94,13 +94,13 @@ class PlaybackFailureHandler(
             }
 
             // 2. 标记当前的物理分轨文件在数据库中为物理丢失 (UNAVAILABLE)
-            // 详尽的中文注释：使用 progressGateway 的 markPlaybackFileUnavailable 方法将故障音频轨在数据库中标记为不可读
+            // 使用 progressGateway 的 markPlaybackFileUnavailable 方法将故障音频轨在数据库中标记为不可读
             progressGateway.markPlaybackFileUnavailable(bookId, queueIndex)
             Toast.makeText(appContext, "文件不可用，正在自动寻找下一就绪分轨", Toast.LENGTH_SHORT).show()
             com.viel.aplayer.logger.PlaybackFailureLogger.logTrackMarkedUnavailable(skipKey)
 
             // 3. 在书籍分轨清册中动态寻找检索下一个可用（READY）音频轨执行自愈
-            // 详尽的中文注释：通过 progressGateway 的 findNextAvailablePlaybackFile 服务检索下一首正常的音频分轨以自动自愈起播
+            // 通过 progressGateway 的 findNextAvailablePlaybackFile 服务检索下一首正常的音频分轨以自动自愈起播
             val next = progressGateway.findNextAvailablePlaybackFile(bookId, queueIndex)
             if (next != null) {
                 val (nextIndex, _) = next

@@ -36,7 +36,7 @@ class DeleteLibraryRootUseCase(
         try {
             val currentBookId = playbackManager.currentPlayingBookId
             if (currentBookId != null) {
-                // 2. 详尽的中文注释：使用书籍查询网关 getBookById 接口检索当前播放的书籍实体以进行归属判断
+                // 2. 使用书籍查询网关 getBookById 接口检索当前播放的书籍实体以进行归属判断
                 val currentBook = bookQueryGateway.getBookById(currentBookId)
                 if (currentBook != null && currentBook.rootId == root.id) {
                     // 3. 如果属于被删书库，立即下发紧急停播指令，并锁定返回状态
@@ -49,7 +49,7 @@ class DeleteLibraryRootUseCase(
             Log.e("DeleteLibraryRootUseCase", "检测或暂停被删除根目录的有声书播放时发生异常", e)
         }
 
-        // 4. 详尽的中文注释：使用书库根网关的 deleteLibraryRootDataOnly 接口完成本地缓存、SAF授权及Room记录的彻底级联清理
+        // 4. 使用书库根网关的 deleteLibraryRootDataOnly 接口完成本地缓存、SAF授权及Room记录的彻底级联清理
         libraryRootGateway.deleteLibraryRootDataOnly(root)
 
         playbackStopped

@@ -2,6 +2,7 @@ package com.viel.aplayer.library.orchestrator
 
 import com.viel.aplayer.library.FileIdentity
 import com.viel.aplayer.library.FileInventory
+import com.viel.aplayer.library.vfs.VfsFileInterface
 
 /**
  * 导入同步上下文
@@ -23,5 +24,8 @@ internal data class ImportContext(
     var sharedInventory: FileInventory? = null,
     
     // 已被清单文件（CUE/M3U8）预占用的音频物理标识，防止它们参与启发式智能聚类
-    val reservedAudioIdentities: MutableSet<FileIdentity> = mutableSetOf()
+    val reservedAudioIdentities: MutableSet<FileIdentity> = mutableSetOf(),
+
+    // 会话生命周期级统一的虚拟文件系统读取门面，避免下层步骤重复构建 VFS 快照
+    val scopeFileReader: VfsFileInterface? = null
 )

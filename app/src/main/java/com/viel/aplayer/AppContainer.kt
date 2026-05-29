@@ -93,7 +93,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         AppDatabase.getInstance(context)
     }
 
-    // 详尽的中文注释：延迟实例化用于运行期音轨物理可读性检测与异常跳轨处理的就绪自愈管理器单例
+    // 延迟实例化用于运行期音轨物理可读性检测与异常跳轨处理的就绪自愈管理器单例
     private val playbackReachabilityManager: PlaybackReachabilityManager by lazy {
         PlaybackReachabilityManager(
             context,
@@ -109,8 +109,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     /**
      * 延迟实例化注销书库根目录用例，通过构造注入同时关联媒体播放与底层数据源仓储。
      */
-    /**
-     * 详尽的中文注释：延迟实例化注销书库根目录用例。
+    /**延迟实例化注销书库根目录用例。
      * 向其直接注入播放管理器、书籍查询网关和书库根管理网关，彻底消除了对旧仓库的直接依赖。
      */
     override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
@@ -121,27 +120,27 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    // 详尽的中文注释：延迟实例化物理封面图沙盒物理提取及裁剪器单例以直接提供封面处理能力
+    // 延迟实例化物理封面图沙盒物理提取及裁剪器单例以直接提供封面处理能力
     private val coverExtractor: CoverExtractor by lazy {
         CoverExtractor(context.applicationContext)
     }
 
-    // 详尽的中文注释：延迟实例化多媒体音频物理元数据标签解析提取器单例，注入运行期 VFS 单例以避免 MetadataResolver 自行获取 AppDatabase
+    // 延迟实例化多媒体音频物理元数据标签解析提取器单例，注入运行期 VFS 单例以避免 MetadataResolver 自行获取 AppDatabase
     private val metadataResolver: MetadataResolver by lazy {
         MetadataResolver(vfsFileInterface)
     }
 
-    // 详尽的中文注释：延迟实例化有声书详情物理授权及可达性验证器单例以直接提供详情可用性判断
+    // 延迟实例化有声书详情物理授权及可达性验证器单例以直接提供详情可用性判断
     private val detailAvailabilityChecker: DetailAvailabilityChecker by lazy {
         DetailAvailabilityChecker(context.applicationContext)
     }
 
-    // 详尽的中文注释：延迟实例化音频分轨单文件可用性物理验证器单例以直接提供单轨可用性探测
+    // 延迟实例化音频分轨单文件可用性物理验证器单例以直接提供单轨可用性探测
     private val availabilityChecker: AvailabilityChecker by lazy {
         AvailabilityChecker(context.applicationContext)
     }
 
-    // 详尽的中文注释：延迟实例化字幕定位与流式 VFS 检索解析门面单例以直接提供字幕检索与解析
+    // 延迟实例化字幕定位与流式 VFS 检索解析门面单例以直接提供字幕检索与解析
     private val subtitleFileResolver: SubtitleFileResolver by lazy {
         SubtitleFileResolver(
             context = context.applicationContext,
@@ -150,7 +149,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    // 详尽的中文注释：延迟实例化封面物理丢失自动重构与自愈助手单例。
+    // 延迟实例化封面物理丢失自动重构与自愈助手单例。
     // 在内部创建专属的后台 IO 协程作用域以防主线程卡死，并注入共享的虚拟文件系统接口。
     private val coverRecoveryHelper: CoverRecoveryHelper by lazy {
         CoverRecoveryHelper(
@@ -163,8 +162,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**
-     * 详尽的中文注释：延迟初始化有声书及章节书签只读只写网关服务。
+    /**延迟初始化有声书及章节书签只读只写网关服务。
      * 直接向其注入所需的数据库各个精细 DAO 接口与全局封面丢失自愈助手单例，解耦对旧有上帝类仓库与物理文件解析器的依赖。
      */
     override val bookQueryGateway: BookQueryGateway by lazy {
@@ -177,8 +175,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**
-     * 详尽的中文注释：延迟初始化播放位置与进度落库服务网关。
+    /**延迟初始化播放位置与进度落库服务网关。
      * 向其直接注入 database.bookDao() 以及就绪自愈管理器，解耦对旧有 PlaybackHistoryRepository 仓库的直接依赖。
      */
     override val progressGateway: ProgressGateway by lazy {
@@ -188,8 +185,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**
-     * 详尽的中文注释：延迟初始化前后台物理重扫与扫描调度网关服务。
+    /**延迟初始化前后台物理重扫与扫描调度网关服务。
      * 直接向其注入 applicationContext 与全局封面丢失自愈助手，消除对旧有 BookLibraryRepository 的直接依赖。
      */
     override val scanScheduler: ScanScheduler by lazy {
@@ -200,7 +196,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    // 详尽的中文注释：延迟实例化新创建的书库根目录网关。
+    // 延迟实例化新创建的书库根目录网关。
     // 向其直接注入 DAO 接口与扫描调度器，彻底避免了旧上帝仓库的薄适配委托。
     override val libraryRootGateway: LibraryRootGateway by lazy {
         LibraryRootService(
@@ -211,8 +207,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**
-     * 详尽的中文注释：延迟实例化新创建的封面网关服务。
+    /**延迟实例化新创建的封面网关服务。
      * 直接向其注入 bookDao、chapterDao 接口以及六个精细化的解耦物理处理与自愈单例，彻底摆脱了对旧上帝仓库的薄适配委托。
      */
     override val coverGateway: CoverGateway by lazy {
@@ -228,8 +223,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**
-     * 详尽的中文注释：延迟实例化新创建的搜索历史网关服务。
+    /**延迟实例化新创建的搜索历史网关服务。
      * 直接向其注入检索历史存储 DataStore 门面，彻底消除了对旧上帝仓库的直接依赖。
      */
     override val searchHistoryGateway: SearchHistoryGateway by lazy {
@@ -238,8 +232,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**
-     * 详尽的中文注释：聚合新高层媒体库业务门面组件。
+    /**聚合新高层媒体库业务门面组件。
      * 直接向其组合式注入六大精细化分域 Gateway 网关，无需再传递任何 legacy 废弃仓库依赖，达成终极物理重构。
      */
     override val libraryFacade: LibraryFacade by lazy {

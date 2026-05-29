@@ -21,7 +21,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val container = (application as APlayerApplication).container
     private val settingsRepository = container.settingsRepository
     
-    // 详尽的中文注释：
+    // 
     // 在 M5b.1 迁移中，将 SettingsViewModel 中对旧仓库 libraryRepository 的依赖彻底剥离，
     // 降级解耦为书库根网关 libraryRootGateway 与增量扫描网关 scanScheduler。
     private val libraryRootGateway = container.libraryRootGateway
@@ -41,7 +41,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
 
     /** 暴露给 UI 的媒体库根目录流 */
-    // 详尽的中文注释：使用 libraryRootGateway 网关响应式观察观察注册的书库目录并获取内存快照初始缓存值，以消解首帧空白和布局闪烁
+    // 使用 libraryRootGateway 网关响应式观察观察注册的书库目录并获取内存快照初始缓存值，以消解首帧空白和布局闪烁
     val libraryRoots: StateFlow<List<LibraryRootEntity>> = libraryRootGateway.observeLibraryRoots()
         .stateIn(
             scope = viewModelScope,
@@ -54,7 +54,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             // Settings entry should show current SAF grant status, including revoked roots.
             // 延迟 500 毫秒后再触发系统的 SAF 物理授权检测，以完美避开 Activity 启动转场动画及首帧绘制的核心渲染时间，保证界面展示绝对丝滑
             kotlinx.coroutines.delay(500)
-            // 详尽的中文注释：使用 libraryRootGateway 的 refreshLibraryRootStatuses 校验书库目录可达性
+            // 使用 libraryRootGateway 的 refreshLibraryRootStatuses 校验书库目录可达性
             libraryRootGateway.refreshLibraryRootStatuses()
         }
     }
@@ -63,7 +63,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             // Route entry calls this explicitly because the SettingsViewModel may be created before navigation.
             // 手动触发的刷新依然走异步协程检测，保证物理可达性更新。
-            // 详尽的中文注释：通过 libraryRootGateway 异步校验当前全部已添加的 SAF 目录授权可达状态
+            // 通过 libraryRootGateway 异步校验当前全部已添加的 SAF 目录授权可达状态
             libraryRootGateway.refreshLibraryRootStatuses()
         }
     }
@@ -72,7 +72,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // 在设置页中选择媒体库目录后的回调逻辑，负责获取持久化 SAF 授权，将其存入数据库并异步触发 USER 手动增量扫描任务。
     // 这能让设置页完全独立处理 SAF 动作，从而将 LibraryViewModel 彻底解耦，消除 Activity 切换时的冷启动扫描问题。
     fun onLibraryRootSelected(uri: Uri) {
-        // 详尽的中文注释：利用 libraryRootGateway 写入新选择的本地 SAF 授权目录，并在应用级后台执行同步
+        // 利用 libraryRootGateway 写入新选择的本地 SAF 授权目录，并在应用级后台执行同步
         libraryRootGateway.addLibraryRootAndScheduleSync(uri)
     }
 
@@ -83,7 +83,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         displayName: String,
         basePath: String
     ) {
-        // 详尽的中文注释：使用 libraryRootGateway 在后台注册并立即调度 WebDAV 网络书库目录的文件同步
+        // 使用 libraryRootGateway 在后台注册并立即调度 WebDAV 网络书库目录的文件同步
         libraryRootGateway.addWebDavLibraryRootAndScheduleSync(
             url = url,
             username = username,
@@ -94,7 +94,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun triggerRescan() {
-        // 详尽的中文注释：调用 scanScheduler 网关异步提交 USER 手动增量重扫指令
+        // 调用 scanScheduler 网关异步提交 USER 手动增量重扫指令
         scanScheduler.scheduleLibrarySync("USER")
     }
 
@@ -130,7 +130,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * 详尽的中文注释：
      * 切换自动跳过静音（Skip Silence）功能全局总开关的交互方法。
      * 经过重构，移除了自定义判定最小时长和温馨通知提示开关的交互逻辑。
      */

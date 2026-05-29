@@ -222,7 +222,7 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackControlState(false, 1.0f, false))
 
-    // 详尽的中文注释：当前播放进度百分比 (0-100)，核心公式和向上取整运算已被剥离委托给 PlaybackStateMapper
+    // 当前播放进度百分比 (0-100)，核心公式和向上取整运算已被剥离委托给 PlaybackStateMapper
     val currentPlaybackProgressPercent: StateFlow<Int> = playbackState
         .map { state ->
             PlaybackStateMapper.calculateProgressPercent(state.currentPosition, state.duration)
@@ -230,7 +230,7 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    // 详尽的中文注释：迷你播放器显示进度 (0.0f - 1.0f)，复杂的局部进度和章节偏移计算逻辑完全由 PlaybackStateMapper 代理
+    // 迷你播放器显示进度 (0.0f - 1.0f)，复杂的局部进度和章节偏移计算逻辑完全由 PlaybackStateMapper 代理
     val miniPlayerProgress: StateFlow<Float> = combine(
         playbackState,
         metadataState.map { it.chapters }.distinctUntilChanged(),
@@ -292,7 +292,6 @@ class PlayerViewModel : ViewModel() {
         this.appContext = appContext
         val container = (appContext as APlayerApplication).container
         
-        // 详尽的中文注释：
         // 从应用容器 container 中安全获取解耦门面 libraryFacade 以及只读网关 bookQueryGateway。
         // 用局部变量接收以规避连续非空断言引发的潜在 NPE 风险，同时解除对旧有 BookLibraryRepository 的重量级依赖。
         val facade = container.libraryFacade
@@ -380,11 +379,10 @@ class PlayerViewModel : ViewModel() {
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
 
-                        // 详尽的中文注释：切歌/切书时，强行取消上一章节或分轨的字幕加载协程，清空字幕缓存，防止跨文件旧歌词时序残留
+                        // 切歌/切书时，强行取消上一章节或分轨的字幕加载协程，清空字幕缓存，防止跨文件旧歌词时序残留
                         subtitleLoadJob?.cancel()
                         _currentSubtitles.value = emptyList()
 
-                        // 详尽的中文注释：
                         // 全面移除内置字幕歌词的超时竞争与合并逻辑，仅单向执行物理外置字幕的异步加载。
                         // 将异步加载包裹在 subtitleLoadJob = viewModelScope.launch 中，
                         // 便于在切歌或销毁时进行物理取消，防止多协程并发竞争以及悬空引用的内存泄露风险。
@@ -395,12 +393,12 @@ class PlayerViewModel : ViewModel() {
                             _currentSubtitles.value = externalSubs
                         }
                     } else {
-                        // 详尽的中文注释：即使 mediaId 不包含冒号，也需物理取消字幕加载任务并清空字幕缓存
+                        // 即使 mediaId 不包含冒号，也需物理取消字幕加载任务并清空字幕缓存
                         subtitleLoadJob?.cancel()
                         _currentSubtitles.value = emptyList()
                     }
                 } else {
-                    // 详尽的中文注释：mediaItem 为 null 时，彻底清空字幕缓存并重置协程，防任何旧缓存残留
+                    // mediaItem 为 null 时，彻底清空字幕缓存并重置协程，防任何旧缓存残留
                     subtitleLoadJob?.cancel()
                     _currentSubtitles.value = emptyList()
                 }
@@ -427,7 +425,6 @@ class PlayerViewModel : ViewModel() {
     }
 
     fun loadBook(id: String, playWhenReady: Boolean = true) {
-        // 为播放慢定位添加详细中文注释：
         // 记录用户触发 loadBook 到播放计划准备完成的整段耗时，
         // 便于区分入口层、Repository 取计划层是否参与了启动延迟。
         val loadBookRequestStart = SystemClock.elapsedRealtime()
@@ -442,7 +439,7 @@ class PlayerViewModel : ViewModel() {
             return
         }
 
-        // 详尽的中文注释：加载新书时，必须彻底强行取消并物理回收正在运行的上一本书的字幕加载协程任务，杜绝残留回调污染新会话
+        // 加载新书时，必须彻底强行取消并物理回收正在运行的上一本书的字幕加载协程任务，杜绝残留回调污染新会话
         subtitleLoadJob?.cancel()
         _currentBookId.value = id
         _currentSubtitles.value = emptyList() // 重置上一本书的字幕
@@ -491,7 +488,7 @@ class PlayerViewModel : ViewModel() {
      */
     fun closePlayback(bookId: String) {
         if (_currentBookId.value == bookId) {
-            // 详尽的中文注释：停止播放新书或关闭物理会话时，必须强行取消正在运行的字幕检索协程并清空字幕数据
+            // 停止播放新书或关闭物理会话时，必须强行取消正在运行的字幕检索协程并清空字幕数据
             subtitleLoadJob?.cancel()
             _currentBookId.value = null
             _currentSubtitles.value = emptyList()

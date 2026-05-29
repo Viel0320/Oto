@@ -39,7 +39,7 @@ class PlaybackManager private constructor(context: Context) {
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
 
-    // 详尽的中文注释：
+    // 
     // 在 M4.1 重构中，为了彻底摆脱庞大重量级的 LibraryRepository 依赖，
     // 获取全局 Application 中的 container，并提取只读的 bookQueryGateway 以及用于进度保存的 progressGateway。
     private val container = (appContext as com.viel.aplayer.APlayerApplication).container
@@ -69,7 +69,7 @@ class PlaybackManager private constructor(context: Context) {
     private val _currentMediaItem = MutableStateFlow<MediaItem?>(null)
     val currentMediaItem = _currentMediaItem.asStateFlow()
 
-    // 详尽的中文注释：底层的 Media3/ExoPlayer 已经通过 Mp3Extractor 和 DefaultRenderersFactory 彻底屏蔽了内置元数据和字幕轨道的解析与创建，
+    // 底层的 Media3/ExoPlayer 已经通过 Mp3Extractor 和 DefaultRenderersFactory 彻底屏蔽了内置元数据和字幕轨道的解析与创建，
     // 因此前后台桥接层无需再为任何媒体轨道维护内置字幕、元数据条目的缓存流或相关的事件监听器，此处仅保留用于承载物理外置字幕的 Flow 供 UI 层订阅
     private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
     val currentSubtitles = _currentSubtitles.asStateFlow()
@@ -255,8 +255,7 @@ class PlaybackManager private constructor(context: Context) {
      */
     fun setBookPlaybackPlan(plan: BookPlaybackPlan, playWhenReady: Boolean = false) {
         scope.launch {
-            // 为播放慢定位添加详细中文注释：
-            // 记录 PlaybackManager 从拿到播放计划到真正准备下发给 MediaController 的耗时，
+                // 记录 PlaybackManager 从拿到播放计划到真正准备下发给 MediaController 的耗时，
             // 这样可以看出 DataStore 读取、异常中断修正等前置逻辑是否在这一层拖慢启动。
             val setPlanStart = SystemClock.elapsedRealtime()
             // 异步从设置仓库中读取最新的全局持久化快照。
@@ -317,11 +316,10 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     private fun applyPlaybackPlan(plan: BookPlaybackPlan) {
-        // 为播放慢定位添加详细中文注释：
         // 把 applyPlaybackPlan 拆成“MediaItem 构建”和“controller.setMediaItems/prepare 下发”两段，
         // 用来判断多分轨队列构造还是 MediaController 会话调用更耗时。
         val applyPlanStart = SystemClock.elapsedRealtime()
-        // 详尽的中文注释：调用 PlaybackPlanBuilder 的 buildMediaItems 接口对播放计划进行转换，完全剥离传输实体构建细节，实现工厂化解耦
+        // 调用 PlaybackPlanBuilder 的 buildMediaItems 接口对播放计划进行转换，完全剥离传输实体构建细节，实现工厂化解耦
         val mediaItems = PlaybackPlanBuilder.buildMediaItems(plan)
         val mediaItemsBuildCost = SystemClock.elapsedRealtime() - applyPlanStart
         val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
@@ -345,8 +343,7 @@ class PlaybackManager private constructor(context: Context) {
                 // 为本次桌面 widget 改动添加注释：在 prepare 之后消费 autoplay 请求，避免先 play 后 setMediaItems 的异步时序丢失。
                 pendingPlayWhenReady = false
                 controller.play()
-                // 为播放慢定位添加详细中文注释：
-                // 明确记录 autoplay 指令已经被消费，方便和后续真正出声时间做对比。
+                        // 明确记录 autoplay 指令已经被消费，方便和后续真正出声时间做对比。
                 com.viel.aplayer.logger.PlaybackTimingLogger.logAutoplayConsumed(plan.bookId)
             }
             // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
@@ -391,7 +388,7 @@ class PlaybackManager private constructor(context: Context) {
             val mediaId = controller.currentMediaItem?.mediaId ?: return@launch
             if (!mediaId.contains(":")) return@launch
             val bookId = mediaId.substringBefore(":")
-            // 详尽的中文注释：使用 bookQueryGateway 接口查询指定书籍的物理音频分轨，以执行高精度的 seek 定位跳转
+            // 使用 bookQueryGateway 接口查询指定书籍的物理音频分轨，以执行高精度的 seek 定位跳转
             val files = bookQueryGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val totalDuration = files.sumOf { it.durationMs }

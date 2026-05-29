@@ -36,27 +36,27 @@ class LibraryRootService(
     private val scanScheduler: ScanScheduler
 ) : LibraryRootGateway {
 
-    // 详尽的中文注释：采用全局 applicationContext 阻断潜在的生命周期泄露
+    // 采用全局 applicationContext 阻断潜在的生命周期泄露
     private val appContext = context.applicationContext
 
-    // 详尽的中文注释：物理目录与 WebDAV 凭据底层管理组件
+    // 物理目录与 WebDAV 凭据底层管理组件
     private val rootStore = LibraryRootStore(appContext)
     private val webDavCredentialStore = WebDavCredentialStore(appContext)
 
-    // 详尽的中文注释：后台热缓存更新专属协程异常拦截器
+    // 后台热缓存更新专属协程异常拦截器
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         Log.e("LibraryRootService", "协程在 LibraryRootService 运行中捕获到未处理异常", exception)
     }
 
-    // 详尽的中文注释：服务专属异步写与缓存操作协程上下文
+    // 服务专属异步写与缓存操作协程上下文
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
-    // 详尽的中文注释：零延迟冷启动极速渲染缓存，消解 Room 异步流读取导致的首帧闪烁
+    // 零延迟冷启动极速渲染缓存，消解 Room 异步流读取导致的首帧闪烁
     @Volatile
     private var cachedRoots: List<LibraryRootEntity> = emptyList()
 
     init {
-        // 详尽的中文注释：在服务初始化时即刻订阅书库根的变动 Flow，热同步内存缓存
+        // 在服务初始化时即刻订阅书库根的变动 Flow，热同步内存缓存
         scope.launch {
             observeLibraryRoots().collect {
                 cachedRoots = it
@@ -95,13 +95,13 @@ class LibraryRootService(
     override fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String) {
         scope.launch {
             runCatching {
-                // 详尽的中文注释：向系统内容解析器确保持久化申请 SAF 本地目录树级别读取授权，防止关机重启后吊销
+                // 向系统内容解析器确保持久化申请 SAF 本地目录树级别读取授权，防止关机重启后吊销
                 appContext.contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
                 setLibraryRoot(uri)
-                // 详尽的中文注释：通过注入的扫描网关，非阻塞触发本次新入库物理路径的文件深度同步
+                // 通过注入的扫描网关，非阻塞触发本次新入库物理路径的文件深度同步
                 scanScheduler.syncLibrary(trigger)
             }.onFailure { error ->
                 Log.e("LibraryRootService", "添加本地 SAF 根目录并调度扫描时发生异常", error)
@@ -120,7 +120,7 @@ class LibraryRootService(
         scope.launch {
             runCatching {
                 addWebDavLibraryRoot(url, username, password, displayName, basePath)
-                // 详尽的中文注释：通过注入的扫描网关，非阻塞触发本次新入库网络路径的文件深度同步
+                // 通过注入的扫描网关，非阻塞触发本次新入库网络路径的文件深度同步
                 scanScheduler.syncLibrary(trigger)
             }.onFailure { error ->
                 Log.e("LibraryRootService", "添加 WebDAV 远端根目录并调度扫描时发生异常", error)

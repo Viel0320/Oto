@@ -26,7 +26,7 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
  * 其生命周期已成功与 EditBookActivity 解耦，现在挂载于主 App 的 Activity 级作用域中。
  */
 class EditBookViewModel(application: Application) : AndroidViewModel(application) {
-    // 详尽的中文注释：在 M6 物理收口中，将 EditBookViewModel 中对旧仓库的依赖彻底移去，替换为引入高层业务门面 libraryFacade。
+    // 在 M6 物理收口中，将 EditBookViewModel 中对旧仓库的依赖彻底移去，替换为引入高层业务门面 libraryFacade。
     private val libraryFacade = (application as APlayerApplication).container.libraryFacade
 
     private val _bookState = MutableStateFlow<BookEntity?>(null)
@@ -59,7 +59,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
      */
     fun loadBook(bookId: String) {
         viewModelScope.launch {
-            // 详尽的中文注释：使用 libraryFacade 高层门面异步获取书籍详情信息
+            // 使用 libraryFacade 高层门面异步获取书籍详情信息
             _bookState.value = libraryFacade.getBookById(bookId)
         }
     }
@@ -80,7 +80,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     ) {
         val currentBook = _bookState.value ?: return
         viewModelScope.launch {
-            // 详尽的中文注释：使用 libraryFacade 异步持久化修改后的文本元数据字段到 Room
+            // 使用 libraryFacade 异步持久化修改后的文本元数据字段到 Room
             libraryFacade.updateBookDetails(
                 id = currentBook.id,
                 title = title.trim(),
@@ -89,7 +89,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
                 description = description.trim(),
                 year = year.trim()
             )
-            // 详尽的中文注释：如果更换了封面，调用 libraryFacade 级联存储以物理清理老封面残余并重刷自愈封面
+            // 如果更换了封面，调用 libraryFacade 级联存储以物理清理老封面残余并重刷自愈封面
             if (newCoverPath != null) {
                 libraryFacade.saveCustomCover(currentBook.id, newCoverPath)
             }

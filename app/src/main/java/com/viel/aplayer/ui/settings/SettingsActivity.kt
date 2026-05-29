@@ -231,7 +231,6 @@ fun SettingsScreen(
     // 删除库根目录并释放物理授权的触发接口方法。
     onDeleteLibraryRoot: (LibraryRootEntity) -> Unit,
     /**
-     * 详尽的中文注释：
      * 自动跳过静音（Skip Silence）功能是否启用的全局状态标志及开关回调。
      * 经过重构，去除了自定义静音最小时长与提示通知相关的参数。
      */
@@ -514,7 +513,6 @@ fun SettingsScreen(
             }
             item {
                 /**
-                 * 详尽的中文注释：
                  * 自动跳过静音期全局控制开关项。
                  * 经过重构，移除了自定义时长和提示通知子选项，直接使用 Media3 官方内置机制。
                  */

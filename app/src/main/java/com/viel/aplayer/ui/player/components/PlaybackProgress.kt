@@ -54,7 +54,7 @@ fun PlaybackProgressStateful(
         currentPosition = progressState.elapsedMs,
         totalDuration = progressState.durationMs,
         isChapterMode = progressState.isChapterProgressMode,
-        // 详尽的中文注释：底层的 PlaybackProgress 时间轴计算组件仅需要章节的位置范围等定义（ChapterEntity），
+        // 底层的 PlaybackProgress 时间轴计算组件仅需要章节的位置范围等定义（ChapterEntity），
         // 并不关心物理音频分轨（BookFile）的挂载状态。因此，在此处使用 .map { it.chapter }
         // 对 ChapterWithBookFile 关系列表进行就地解包，满足类型契约且保证功能完美拆分。
         chapters = metadata.chapters.map { it.chapter },

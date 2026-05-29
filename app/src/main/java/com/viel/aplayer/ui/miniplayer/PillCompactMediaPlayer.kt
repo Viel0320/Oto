@@ -225,7 +225,7 @@ fun PillCompactMediaPlayer(
                     coverPath?.let(::File)
                 }
 
-                // 封面：为每一次改动添加详尽的中文注释 — 12.dp 圆角，与卡片整体的圆润风格相得益彰
+                // 封面： — 12.dp 圆角，与卡片整体的圆润风格相得益彰
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -302,7 +302,7 @@ fun PillCompactMediaPlayer(
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // 播放/暂停控制按钮：为每一次改动添加详尽的中文注释 — 保留原本唯一的播放控制功能，无圆边无框极简扁平呈现
+                // 播放/暂停控制按钮： — 保留原本唯一的播放控制功能，无圆边无框极简扁平呈现
                 IconButton(
                     onClick = actions.onPlayPauseClick,
                     modifier = Modifier.size(40.dp)

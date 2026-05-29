@@ -105,7 +105,7 @@ object PlayerGlanceWidget : GlanceAppWidget() {
     }
 
     private suspend fun readWidgetSnapshot(context: Context): WidgetSnapshot {
-        // 详尽的中文注释：在 M4.6 重构中，通过全局 APlayerApplication 获取解耦门面 libraryFacade，完全剔除直接实例化旧仓库的操作。
+        // 在 M4.6 重构中，通过全局 APlayerApplication 获取解耦门面 libraryFacade，完全剔除直接实例化旧仓库的操作。
         val container = (context.applicationContext as com.viel.aplayer.APlayerApplication).container
         val libraryFacade = container.libraryFacade
         val manager = PlaybackManager.getInstance(context)
@@ -374,7 +374,7 @@ private object PlayerWidgetActions {
         // 在恢复最后一本书之前，强力调用冷启动自愈逻辑以保证拿到已自愈的位置，完美防止后台协程并发导致的时序竞争。
         AutoRewindManager.getInstance(context).performColdStartSelfHealing()
 
-        // 详尽的中文注释：在 widget 恢复最后一本书的逻辑中，使用解耦的 libraryFacade 来代替原有的 repository 获取播放计划与最近进度
+        // 在 widget 恢复最后一本书的逻辑中，使用解耦的 libraryFacade 来代替原有的 repository 获取播放计划与最近进度
         val container = (context.applicationContext as com.viel.aplayer.APlayerApplication).container
         val libraryFacade = container.libraryFacade
         val progress = libraryFacade.getLastPlayedProgressSync() ?: return false

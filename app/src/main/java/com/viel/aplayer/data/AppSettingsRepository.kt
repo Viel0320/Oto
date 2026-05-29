@@ -30,7 +30,6 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         // 新增 PreferenceKey 存储键名，用于指示是否开启明文 http 连接授权状态。
         val IS_CLEARTEXT_TRAFFIC_ALLOWED = booleanPreferencesKey("is_cleartext_traffic_allowed")
         /**
-         * 详尽的中文注释：
          * 自动跳过静音开关持久化存储 Key。已经过重构去除了自定义判定时长和通知开关相关的 Key。
          */
         val IS_SKIP_SILENCE_ENABLED = booleanPreferencesKey("is_skip_silence_enabled")
@@ -62,7 +61,6 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             // 从 DataStore 缓存中提取明文 http 流量授权状态，缺失则以 true 默认授权状态加载，以提供更友好的初始 WebDAV 配置体验。
             isCleartextTrafficAllowed = preferences[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] ?: true,
             /**
-             * 详尽的中文注释：
              * 从 DataStore 物理读取自动跳过静音的开关状态，默认值为 false。
              * 经过重构，移除了自定义时长和提示通知字段的读取，遵循官方默认配置。
              */
@@ -109,7 +107,6 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     }
 
     /**
-     * 详尽的中文注释：
      * 提供修改自动跳过静音开关持久化配置的接口函数。
      * 重构后已彻底移除自定义判定时长和通知提示开关持久化更新函数。
      */

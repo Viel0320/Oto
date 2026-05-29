@@ -7,42 +7,35 @@ import com.viel.aplayer.media.manifest.HeuristicAggregationPlan
 import com.viel.aplayer.media.manifest.HeuristicAudioAggregator
 import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 import com.viel.aplayer.library.orchestrator.ImportContext
-import com.viel.aplayer.library.orchestrator.ImportStep
-import com.viel.aplayer.library.orchestrator.StepResult
 import com.viel.aplayer.library.vfs.VfsFileInterface
 
 /**
- * 启发式智能聚类分步类
+ * 启发式智能聚类分步类。
  * 
- * 本工位接收已提取元数据的散落音频，按照文件夹边界以及 HeuristicAudioAggregator.shouldAggregate
- * 的逻辑对其进行智能分类聚合，决定它们是汇编成一部“聚合有声书”，还是分别作为“单音频独立有声书”。
+ * 本类已被重构，去除了原有的泛型接口 ImportStep<I, O> 和 StepResult 密封类包装。
+ * 现在 execute 方法直接返回具体的 GroupedBookDrafts 结果，遇到异常自然向上抛出。
  */
-internal class HeuristicGroupStep(private val appContext: Context) : ImportStep<ResolvedMetadataDrafts, GroupedBookDrafts> {
+internal class HeuristicGroupStep(private val appContext: Context) {
 
-    override val stepName: String = "HeuristicGroupStep"
-
-    override suspend fun execute(
+    /**
+     * 执行聚类分步逻辑。直接接收 ResolvedMetadataDrafts 并返回 GroupedBookDrafts 结果，不再包装在 StepResult 中。
+     */
+    suspend fun execute(
         input: ResolvedMetadataDrafts,
         context: ImportContext
-    ): StepResult<GroupedBookDrafts> = runCatching {
+    ): GroupedBookDrafts {
         val aggregatedPlans = mutableListOf<HeuristicAggregationPlan>()
         val singleAudios = mutableListOf<AudioMetadataRef>()
         val inventory = context.sharedInventory
-        val fileReader = inventory?.let { scopedInventory ->
-            // 启发式 parser 也只允许经由当前 scope 的 VFS reader 打开 txt 侧车，
-            // 不直接接触 provider 原生对象。
-            VfsFileInterface(
-                context = appContext.applicationContext,
-                rootsById = scopedInventory.roots.associateBy { it.id }
-            )
-        }
+        // 复用从 ImportContext 传入的统一会话级 VFS 读取门面，避免多处自构造成额外性能开销
+        val fileReader = context.scopeFileReader
 
         val pendingHeuristic = mutableListOf<AudioMetadataRef>()
 
         suspend fun flushHeuristic() {
             if (pendingHeuristic.isEmpty()) return
             if (HeuristicAudioAggregator.shouldAggregate(pendingHeuristic)) {
-                // 如果满足启发式合并条件（如共享相同的 album 或者文件名呈数字递增关系），则构造成一本书的 plan
+                // 如果满足启发式合并条件（如共享相同的 album 或者文件名呈数字递增关系），则构造成一本书 the plan
                 val first = pendingHeuristic.first()
                 val plan = HeuristicAudioAggregator.buildPlan(
                     files = pendingHeuristic.toList(),
@@ -74,13 +67,11 @@ internal class HeuristicGroupStep(private val appContext: Context) : ImportStep<
         }
         flushHeuristic()
 
-        StepResult.Success(GroupedBookDrafts(
+        return GroupedBookDrafts(
             manifestParsedResult = input.manifestParsedResult,
             aggregatedPlans = aggregatedPlans,
             singleAudios = singleAudios
-        ))
-    }.getOrElse { e ->
-        StepResult.Failure(e, "启发式分类聚合处理失败，详情: ${e.localizedMessage}")
+        )
     }
 
     private fun directoryContextFor(input: FileInventory?, parentKey: String): ManifestSidecarSupport.DirectoryContext =

@@ -299,7 +299,7 @@ fun ChapterListContent(
                     val rowShape = RoundedCornerShape(8.dp)
                     ListItem(
                         headlineContent = {
-                            // 详尽的中文注释：去除了原本冗余的 “[文件不可用]” 红色文案以配合右侧精致的 Rounded.Warning 警告图标，
+                            // 去除了原本冗余的 “[文件不可用]” 红色文案以配合右侧精致的 Rounded.Warning 警告图标，
                             // 同时物理拆除了无意义的 Row 容器嵌套，仅直接呈现章节标题 Text，在减少重组树深度、提升渲染性能的同时，实现了更极致的极简设计。
                             Text(
                                 text = chapter.title,
@@ -328,7 +328,7 @@ fun ChapterListContent(
                         },
                         trailingContent = {
                             if (isMissing) {
-                                // 详尽的中文注释：若该章节对应的物理文件缺失，用高保真的红色警告图标优雅地【替换】时间显示，
+                                // 若该章节对应的物理文件缺失，用高保真的红色警告图标优雅地【替换】时间显示，
                                 // 不仅提供更直观、高级的警示视觉反馈，同时提升了列表整体在异常情况下的排版质感。
                                 Icon(
                                     imageVector = Icons.Rounded.Warning,

@@ -19,7 +19,7 @@ internal data class ImportScope(
     val inventory: FileInventory
 )
 
-// 显式区分清单 scope 与散落音频 scope，让 RescanCoordinator 可以按 CUE、M3U8、启发式剩余音频的优先级稳定处理。
+// 显式区分清单 scope 与散落音频 scope，让 ScopeOrchestrator 可以按 CUE、M3U8、启发式剩余音频的优先级稳定处理。
 internal enum class ImportScopeKind {
     CUE_MANIFEST,
     M3U8_MANIFEST,
@@ -27,7 +27,11 @@ internal enum class ImportScopeKind {
 }
 
 // 从目录关闭事件增量构建 claim-safe scope；清单只认同级音频，已被清单引用的同级音频会从后续启发式目录 scope 中排除。
-internal class ImportScopeBuilder(private val context: Context) {
+internal class ImportScopeBuilder(
+    private val context: Context,
+    // 注入统一会话级 VFS 读取门面，消除了原本方法体内每次执行 buildScopes 时的自构开销
+    private val fileReader: VfsFileInterface
+) {
     suspend fun onDirectoryClosed(directory: DirectoryInventory): List<ImportScope> {
         // manifest 已收窄为同级目录语义，因此目录一关闭即可安全释放该目录的清单 scope 与剩余音频启发式 scope。
         return buildScopes(directory.toFileInventory())
@@ -39,8 +43,6 @@ internal class ImportScopeBuilder(private val context: Context) {
     }
 
     suspend fun buildScopes(inventory: FileInventory): List<ImportScope> {
-        // 扫描期没有 DAO 注入，VFS reader 必须使用本轮 roots 映射，否则 CUE/M3U8 流会无法打开。
-        val fileReader = VfsFileInterface(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
         val audioLookup = AudioLookup(inventory.audioFiles)
         val manifestClaimedAudioIdentities = mutableSetOf<FileIdentity>()
         val scopes = mutableListOf<ImportScope>()

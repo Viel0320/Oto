@@ -33,7 +33,6 @@ data class AppSettings(
     /** 新增是否允许明文 HTTP 流量持久化配置属性，默认值为 true 以提供更便捷的初次 WebDAV 配置体验。 */
     val isCleartextTrafficAllowed: Boolean = true,
     /**
-     * 详尽的中文注释：
      * 自动跳过静音期 (Skip Silence) 全局控制开关，默认关闭以提供安全非打扰的默认播放体验。
      * 经过重构，移除了自定义判定时长和通知开关，直接使用 Media3 官方默认行为。
      */

@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.library.orchestrator.draftmodels.BookDraft
+import com.viel.aplayer.library.orchestrator.draftmodels.ImportCommand
+import com.viel.aplayer.library.orchestrator.draftmodels.ImportRunResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

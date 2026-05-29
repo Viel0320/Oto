@@ -20,19 +20,19 @@ class SearchService(
         get() = searchHistoryStore.history
 
     override suspend fun addToHistory(query: String) {
-        // 详尽的中文注释：校验检索词非空后，将其异步以追加合并的方式写入 DataStore 存储
+        // 校验检索词非空后，将其异步以追加合并的方式写入 DataStore 存储
         if (query.isNotBlank()) {
             searchHistoryStore.add(query)
         }
     }
 
     override suspend fun deleteFromHistory(history: SearchHistoryEntry) {
-        // 详尽的中文注释：物理删除指定的搜索历史条目
+        // 物理删除指定的搜索历史条目
         searchHistoryStore.delete(history)
     }
 
     override suspend fun clearHistory() {
-        // 详尽的中文注释：一键物理清空 DataStore 中的全部搜索历史清单
+        // 一键物理清空 DataStore 中的全部搜索历史清单
         searchHistoryStore.clear()
     }
 }

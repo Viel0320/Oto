@@ -5,7 +5,7 @@ import com.viel.aplayer.library.FileIdentity
 
 // In-memory first-claim-wins ledger for one import run.
 class RunClaimLedger(
-    // 允许 RescanCoordinator 传入同一轮扫描共享的 owner map，从而跨 scope 保留 claim 预留状态。
+    // 允许 ScopeOrchestrator 传入同一轮扫描共享的 owner map，从而跨 scope 保留 claim 预留状态。
     private val ownerByKey: MutableMap<String, ImportSourceRef> = mutableMapOf()
 ) {
 

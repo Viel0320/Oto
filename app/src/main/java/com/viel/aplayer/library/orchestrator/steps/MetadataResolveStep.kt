@@ -5,32 +5,30 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.library.orchestrator.mapWithBoundedConcurrency
 import com.viel.aplayer.library.orchestrator.ImportContext
-import com.viel.aplayer.library.orchestrator.ImportStep
-import com.viel.aplayer.library.orchestrator.StepResult
 import com.viel.aplayer.media.parser.MetadataResolver
 
 /**
- * 媒体元数据 ID3 并发解析步骤物理类
+ * 媒体元数据 ID3 并发解析步骤物理类。
  * 
- * 本工位从上一工位解析的清单数据入手，过滤掉已被 CUE/M3U8 认领的物理音频，
- * 剩余的散落音频文件则通过 MetadataResolver 提取内嵌的 ID3 标签。
- * 这里使用有界并发读取元数据，但返回结果保持原文件顺序，避免启发式聚合顺序漂移。
+ * 本类已被重构，去除了原有的泛型接口 ImportStep<I, O> 和 StepResult 密封类包装。
+ * 现在 execute 方法直接返回具体的 ResolvedMetadataDrafts 结果，遇到异常自然向上抛出。
  */
 // 声明步骤类可见性为 internal，收紧本模块内部可见，彻底防止由于对外暴露 internal 音频实体类型而报的类型泄漏错误
 
 @UnstableApi
 internal class MetadataResolveStep(
     private val context: Context,
-    // 详尽的中文注释：强制从外部注入由 VfsFileInterface 初始化的 MetadataResolver 实例
+    // 强制从外部注入由 VfsFileInterface 初始化的 MetadataResolver 实例
     private val metadataResolver: MetadataResolver
-) : ImportStep<ManifestParsedResult, ResolvedMetadataDrafts> {
+) {
 
-    override val stepName: String = "MetadataResolveStep"
-
-    override suspend fun execute(
+    /**
+     * 执行元数据解析。并发对每个散落音频提取元数据，直接返回 ResolvedMetadataDrafts 结果，不再包装在 StepResult 中。
+     */
+    suspend fun execute(
         input: ManifestParsedResult,
         context: ImportContext
-    ): StepResult<ResolvedMetadataDrafts> = runCatching {
+    ): ResolvedMetadataDrafts {
         // 1. 将 CUE 声明的关联音轨 identity 全数录入 reserved 预占用账本
         // 清单预占用按 VFS 文件键回查扫描快照，不再用 provider URI 做关联。
         val audioByVfsKey = context.sharedInventory?.audioFiles.orEmpty().associateBy { it.vfsKey }
@@ -68,12 +66,10 @@ internal class MetadataResolveStep(
             AudioMetadataRef(audio, extracted.metadata, extracted.embeddedCover)
         }
 
-        StepResult.Success(ResolvedMetadataDrafts(
+        return ResolvedMetadataDrafts(
             manifestParsedResult = input,
             looseAudioMetadataRefs = resolvedList
-        ))
-    }.getOrElse { e ->
-        StepResult.Failure(e, "散落音频 ID3 元数据读取发生故障，详情: ${e.localizedMessage}")
+        )
     }
 }
 

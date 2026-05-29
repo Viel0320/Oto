@@ -7,7 +7,7 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.library.LibraryRootStore
-import com.viel.aplayer.library.orchestrator.RescanCoordinator
+import com.viel.aplayer.library.orchestrator.ScanSessionRunner
 import com.viel.aplayer.library.orchestrator.RescanType
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.library.vfs.VfsFileInterface
@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
  * 媒体库扫描调度应用服务（实现了 ScanScheduler 接口）。
  *
  * 核心设计目标：
- * 1. 彻底解耦消灭大上帝仓库：在 M6c 阶段直接直连配合 LibraryRootStore 与 RescanCoordinator，完全隔离并彻底废除对 BookLibraryRepository 的依赖。
+ * 1. 彻底解耦消灭大上帝仓库：在 M6c 阶段直接直连配合 LibraryRootStore 与 ScanSessionRunner，完全隔离并彻底废除对 BookLibraryRepository 的依赖。
  * 2. 完美平移串行同步锁：在类内部独立维护 Mutex 串行锁，并保留 COLD_START_LIGHT 与 USER_GLOBAL 扫描类型的智能研判逻辑，确保扫描安全。
  */
 @OptIn(UnstableApi::class)
@@ -32,41 +32,40 @@ class ScanService
     (
     context: Context,
     private val coverRecoveryHelper: CoverRecoveryHelper,
-    // 详尽的中文注释：由依赖注入容器提供运行期唯一的虚拟文件系统读取门面，避免底层组件自行初始化
+    // 由依赖注入容器提供运行期唯一的虚拟文件系统读取门面，避免底层组件自行初始化
     private val vfsFileInterface: VfsFileInterface
 ) : ScanScheduler {
 
-    // 详尽的中文注释：采用全局 applicationContext 隔离以彻底斩断潜在的内存泄漏风险
+    // 采用全局 applicationContext 隔离以彻底斩断潜在的内存泄漏风险
     private val appContext = context.applicationContext
 
-    // 详尽的中文注释：直接实例化底层的 SAF 及 WebDAV 挂载库提供者组件
+    // 直接实例化底层的 SAF 及 WebDAV 挂载库提供者组件
     private val rootStore = LibraryRootStore(appContext)
 
-    // 详尽的中文注释：串行扫描专属后台协程异常拦截器
+    // 串行扫描专属后台协程异常拦截器
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         Log.e("ScanService", "协程在 ScanService 运行中捕获到未处理异常", exception)
     }
 
-    // 详尽的中文注释：专门维护在 IO 线程池中的扫描异步同步后台作用域
+    // 专门维护在 IO 线程池中的扫描异步同步后台作用域
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
-    // 详尽的中文注释：同步扫描的串行排他锁，杜绝前后台多任务重叠扫描引发的 Room 并发读写冲突
+    // 同步扫描的串行排他锁，杜绝前后台多任务重叠扫描引发的 Room 并发读写冲突
     private val scanMutex = Mutex()
 
     override suspend fun syncLibrary(trigger: String): Unit = scanMutex.withLock {
-        // 详尽的中文注释：在持有串行扫描锁 the 受保护作用域中，执行同步物理文件扫描任务
+        // 在持有串行扫描锁 the 受保护作用域中，执行同步物理文件扫描任务
         runSyncLibrary(trigger)
     }
 
     override fun scheduleLibrarySync(trigger: String) {
-        // 详尽的中文注释：向前台或后台 WorkManager 暴露的非阻塞式扫描调度异步接口
+        // 向前台或后台 WorkManager 暴露的非阻塞式扫描调度异步接口
         scope.launch {
             syncLibrary(trigger)
         }
     }
 
-    /**
-     * 详尽的中文注释：具体的书库物理文件与元数据同步核心流程，结合扫描自愈提取
+    /**具体的书库物理文件与元数据同步核心流程，结合扫描自愈提取
      */
     private suspend fun runSyncLibrary(trigger: String) = withContext(Dispatchers.IO) {
         // 1. 同步校验并刷新所有 SAF 本地目录授权状态与 WebDAV 网络挂载连接状态
@@ -81,7 +80,8 @@ class ScanService
 
         // 3. 构建临时扫描协调器，并挂载封面文件解析器的自愈检查回调，在书籍入库瞬间快速自检封面可达性。
         // 同时注入全局统一的 vfsFileInterface 虚拟文件系统通道以规避底层隐式自构。
-        val session = RescanCoordinator(
+        // 实例化重构后的 ScanSessionRunner，委托其执行全局扫描与生命周期调度
+        val session = ScanSessionRunner(
             context = appContext,
             vfsFileInterface = vfsFileInterface,
             triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration

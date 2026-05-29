@@ -117,7 +117,7 @@ class AutoRewindManager private constructor(context: Context) {
             // 挂起并获取 DataStore 中的最新设置快照，确保数据一致性。
             val settings = settingsRepository.settingsFlow.first()
             if (settings.isLastPlaybackInterrupted && settings.autoRewindSeconds > 0) {
-                // 详尽的中文注释：
+                // 
                 // 在 M4.3 重构中，摒弃重量级的 LibraryRepository，通过 Application 的 container 
                 // 获取解耦后的只读网关 bookQueryGateway 以及进度网关 progressGateway。
                 val container = (appContext as com.viel.aplayer.APlayerApplication).container

@@ -30,7 +30,6 @@ import com.viel.aplayer.media.VfsPlaybackDataSource
 object ExoPlayerFactory {
 
     /**
-     * 详尽的中文注释：
      * 模块化配置并生成一个专用于有声书播放的高度优化的 ExoPlayer 内核实例。
      * 重构后已彻底移除用于反射提取底层处理器的 AudioSinkCreationListener 接口和回调逻辑。
      *
@@ -64,7 +63,6 @@ object ExoPlayerFactory {
                 enableAudioTrackPlaybackParams: Boolean
             ): AudioSink {
                 /**
-                 * 详尽的中文注释：
                  * 实例化用于动态调整有声书倍速播放的 Sonic 处理器。
                  * 经过重构，移除了将 AudioSink 生成信息暴露给外部以进行反射刺探的回调接口，
                  * 彻底断开了不安全的反射修改链路，回归到 Media3 官方标准的音频渲染与倍速处理体系。

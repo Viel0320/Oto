@@ -29,7 +29,6 @@ class VfsPlaybackDataSource private constructor(
     private var opened = false
 
     override fun open(dataSpec: DataSpec): Long {
-        // 为播放慢定位添加详细中文注释：
         // 把 DataSource.open 拆成“查 BookFileEntity”和“通过 VFS 打开流”两段，
         // 便于确认首包读流前的固定成本到底落在数据库还是存储层。
         val openStart = SystemClock.elapsedRealtime()
