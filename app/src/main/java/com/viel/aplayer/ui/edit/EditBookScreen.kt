@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.exclude
+// 详尽的中文注释：显式导入 ime Insets 依赖，以支持在布局与组件中排除软键盘高度，完美避免多重避让冲突
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.WindowInsets
@@ -268,13 +270,17 @@ fun EditBookScreen(
                 )
         ) {
             Scaffold(
-                // 允许背景和 TopAppBar 沉浸式通铺到屏幕顶端及底端，通过 contentWindowInsets 托管给系统进行统一物理规避
+                // 详尽的中文注释：允许背景和 TopAppBar 沉浸式通铺到屏幕顶端及底端。通过在 contentWindowInsets 中排除 WindowInsets.ime（软键盘），
+                // 可以彻底避免 Scaffold 的 paddingValues 自动累加键盘高度。这使得内部的 Column 在使用 .imePadding() 时，能够精准独立地进行单次键盘避让，
+                // 从而完美解决软键盘弹起时页面高度被双重 Padding 极度压缩、导致无法正常滚动和编辑的严重显示异常。
                 modifier = Modifier.fillMaxSize(),
-                contentWindowInsets = WindowInsets.safeDrawing,
+                contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
                 topBar = {
                     TopAppBar(
                         modifier = Modifier,
-                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
+                        // 详尽的中文注释：在此处对顶部标题栏的 windowInsets 同样排除 WindowInsets.ime 软键盘的高度。
+                        // 这能确保在软键盘弹出时，TopAppBar 的底部高度不会被错误地添加软键盘高度垫高，从而彻底根治标题栏与下方表单之间大面积空白及组件错位的显示 Bug。
+                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                         title = {
                             Text(
                                 text = "修改书籍信息",
