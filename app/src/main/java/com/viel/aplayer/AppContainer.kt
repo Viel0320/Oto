@@ -23,8 +23,9 @@ import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.media.parser.MetadataResolver
 import com.viel.aplayer.media.subtitle.SubtitleFileResolver
-import com.viel.aplayer.library.DetailAvailabilityChecker
+import com.viel.aplayer.library.availability.DetailAvailabilityChecker
 import com.viel.aplayer.library.availability.AvailabilityChecker
+import com.viel.aplayer.library.availability.PlaybackReachabilityManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -93,8 +94,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     // 详尽的中文注释：延迟实例化用于运行期音轨物理可读性检测与异常跳轨处理的就绪自愈管理器单例
-    private val playbackReachabilityManager: com.viel.aplayer.media.PlaybackReachabilityManager by lazy {
-        com.viel.aplayer.media.PlaybackReachabilityManager(
+    private val playbackReachabilityManager: PlaybackReachabilityManager by lazy {
+        PlaybackReachabilityManager(
             context,
             database.bookDao(),
             database.libraryRootDao()

@@ -1,4 +1,4 @@
-package com.viel.aplayer.media
+package com.viel.aplayer.library.availability
 
 import android.content.Context
 import com.viel.aplayer.data.dao.BookDao
@@ -6,7 +6,7 @@ import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
-import com.viel.aplayer.library.availability.AvailabilityChecker
+import com.viel.aplayer.media.PositionMapper
 import kotlinx.coroutines.delay
 
 /**

@@ -1,4 +1,4 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.library.orchestrator
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll

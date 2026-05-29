@@ -1,6 +1,7 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.library.orchestrator
 
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.library.FileIdentity
 
 // Derived from BookFile rows; this is the only persisted source of file ownership.
 class ExistingClaimIndex private constructor(

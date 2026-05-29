@@ -1,6 +1,7 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.library.orchestrator
 
 import android.content.Context
+import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -14,12 +15,20 @@ import kotlinx.coroutines.withContext
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.data.entity.DirectoryCacheEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.library.FileInventory
+import com.viel.aplayer.library.FileRef
+import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
+import com.viel.aplayer.library.availability.MissingBookFileRecoveryResult
+import com.viel.aplayer.library.SourceInventoryScanner
+import com.viel.aplayer.library.sortedByStableFileKey
 import com.viel.aplayer.logger.ImportTimingLogger
 import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.media.parser.MetadataResolver
 import com.viel.aplayer.library.vfs.VfsFileInterface
+import kotlin.collections.plus
 
 enum class RescanType {
     COLD_START_LIGHT,
@@ -38,7 +47,7 @@ private const val DIRECTORY_AUDIO_METADATA_BATCH_SIZE: Int = DEFAULT_SCOPE_IO_CO
 class RescanCoordinator(
     private val context: Context,
     // 详尽的中文注释：添加虚拟文件系统门面单例的注入
-    private val vfsFileInterface: VfsFileInterface,
+    vfsFileInterface: VfsFileInterface,
     // 导入链路只负责先把书和章节落库；封面缓存重建通过外部注入的异步回调复用 Repository 里已有的 CoverRecoveryHelper 去重与后台执行能力。
     private val triggerCoverRegeneration: (BookEntity) -> Unit = {}
 ) {
@@ -415,7 +424,7 @@ class RescanCoordinator(
             // 自动将其当前的物理 lastModified 时间戳与 rootId 持久化更新存储到数据库缓存中，为下次增量重扫建立加速基线，实现物理缓存生命周期闭环。
             try {
                 directoryCacheDao.insert(
-                    com.viel.aplayer.data.entity.DirectoryCacheEntity(
+                    DirectoryCacheEntity(
                         cacheKey = "${directory.root.id}:${directory.sourcePath}",
                         sourcePath = directory.sourcePath,
                         lastModified = directory.lastModified,
@@ -423,7 +432,7 @@ class RescanCoordinator(
                     )
                 )
             } catch (e: Exception) {
-                android.util.Log.e("RescanCoordinator", "Failed to cache directory lastModified for ${directory.root.id}:${directory.sourcePath}", e)
+                Log.e("RescanCoordinator", "Failed to cache directory lastModified for ${directory.root.id}:${directory.sourcePath}", e)
             }
         }
         // 扫描流结束后调用 finish，当前目录级策略通常为空，后续跨目录策略仍可在这里收尾。
@@ -505,8 +514,7 @@ class RescanCoordinator(
             audioFiles = audioFiles.sortedByStableFileKey(),
             imageFilesByParent = imageFilesByParent
                 .filterKeys { it in parentKeys }
-                .mapValues { (_, images) -> images.sortedByStableFileKey() }
-            ,
+                .mapValues { (_, images) -> images.sortedByStableFileKey() },
             // 目录音频子批次在保留图片侧车的同时，也保留对应父目录的 txt 侧车，
             // 这样后续如果需要在子批次上做描述兜底，仍然拥有完整目录上下文。
             textFilesByParent = textFilesByParent

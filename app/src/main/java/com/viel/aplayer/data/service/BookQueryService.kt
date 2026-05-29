@@ -3,6 +3,8 @@ package com.viel.aplayer.data.service
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.ChapterDao
 import com.viel.aplayer.data.dao.BookmarkDao
@@ -37,8 +39,9 @@ import java.util.UUID
  * 1. 领域解耦与消灭上帝类：在 M6 阶段彻底脱离对 BookLibraryRepository 的依赖，直接直连注入各个精细化 Room DAO 与物理文件解析器。
  * 2. 完整保留运行语义：精心平移并保留书签锚定计算、播放计划构建的耗时性能日志、观察书籍时的封面自愈触发算子等核心运行期行为。
  */
-class BookQueryService(
-    private val bookDao: BookDao,
+@OptIn(UnstableApi::class)
+class BookQueryService
+    (private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val bookmarkDao: BookmarkDao,
     private val scanSessionDao: ScanSessionDao,
@@ -54,6 +57,7 @@ class BookQueryService(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
     // 详尽的中文注释：用于在流式加载书籍列表时自动触发封面缓存物理自愈的响应式 Flow 拦截器
+    @OptIn(UnstableApi::class)
     private fun Flow<List<BookWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
         list.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
     }

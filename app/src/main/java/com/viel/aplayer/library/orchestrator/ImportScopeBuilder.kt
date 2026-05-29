@@ -1,6 +1,11 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.library.orchestrator
 
 import android.content.Context
+import com.viel.aplayer.library.DirectoryInventory
+import com.viel.aplayer.library.FileIdentity
+import com.viel.aplayer.library.FileInventory
+import com.viel.aplayer.library.FileRef
+import com.viel.aplayer.library.sortedByStableFileKey
 import com.viel.aplayer.media.manifest.CueManifestParser
 import com.viel.aplayer.media.manifest.M3u8ManifestParser
 import com.viel.aplayer.media.manifest.ManifestResolver

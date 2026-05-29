@@ -1,24 +1,10 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.library.orchestrator
 
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.PendingScanActionEntity
-
-// One scan/import run accumulates ready commands and pending decisions before any DB write.
-data class ImportRunContext(
-    val scanId: String,
-    val existingClaimIndex: ExistingClaimIndex,
-    // Cover fallback needs the current scan inventory to find same-directory images.
-    val inventory: FileInventory,
-    val runClaimLedger: RunClaimLedger = RunClaimLedger(),
-    val reservedAudioIdentities: MutableSet<FileIdentity> = mutableSetOf(),
-    val readyImports: MutableList<ImportCommand.CreateReadyBook> = mutableListOf(),
-    val refreshedBooks: MutableList<ImportCommand.RefreshExistingBook> = mutableListOf(),
-    val pendingActions: MutableList<ImportCommand.CreatePendingAction> = mutableListOf(),
-    val failures: MutableList<ImportCommand.RecordFailure> = mutableListOf()
-)
 
 sealed interface ImportCommand {
     data class CreateReadyBook(val draft: BookDraft) : ImportCommand

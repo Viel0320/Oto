@@ -1,14 +1,14 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.library.orchestrator
 
 import android.content.Context
 import androidx.room.withTransaction
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 // Import persistence boundary for the new scan model.
-class BookImporter(private val context: Context) {
+class BookImporter(context: Context) {
     private val database = AppDatabase.getInstance(context)
     private val bookDao = database.bookDao()
     private val chapterDao = database.chapterDao()

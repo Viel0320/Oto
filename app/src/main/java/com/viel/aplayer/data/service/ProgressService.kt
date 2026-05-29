@@ -6,7 +6,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.gateway.ProgressGateway
-import com.viel.aplayer.media.PlaybackReachabilityManager
+import com.viel.aplayer.library.availability.PlaybackReachabilityManager
 import com.viel.aplayer.media.PositionMapper
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope

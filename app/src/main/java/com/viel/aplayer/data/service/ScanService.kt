@@ -2,11 +2,13 @@ package com.viel.aplayer.data.service
 
 import android.content.Context
 import android.util.Log
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.library.LibraryRootStore
-import com.viel.aplayer.library.RescanCoordinator
-import com.viel.aplayer.library.RescanType
+import com.viel.aplayer.library.orchestrator.RescanCoordinator
+import com.viel.aplayer.library.orchestrator.RescanType
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -25,7 +27,9 @@ import kotlinx.coroutines.withContext
  * 1. 彻底解耦消灭大上帝仓库：在 M6c 阶段直接直连配合 LibraryRootStore 与 RescanCoordinator，完全隔离并彻底废除对 BookLibraryRepository 的依赖。
  * 2. 完美平移串行同步锁：在类内部独立维护 Mutex 串行锁，并保留 COLD_START_LIGHT 与 USER_GLOBAL 扫描类型的智能研判逻辑，确保扫描安全。
  */
-class ScanService(
+@OptIn(UnstableApi::class)
+class ScanService
+    (
     context: Context,
     private val coverRecoveryHelper: CoverRecoveryHelper,
     // 详尽的中文注释：由依赖注入容器提供运行期唯一的虚拟文件系统读取门面，避免底层组件自行初始化

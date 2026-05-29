@@ -1,12 +1,10 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.library.orchestrator
 
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import com.viel.aplayer.library.orchestrator.ImportContext
-import com.viel.aplayer.library.orchestrator.StepResult
+import com.viel.aplayer.library.FileInventory
+import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.orchestrator.steps.ConflictClaimStep
 import com.viel.aplayer.library.orchestrator.steps.CoverExtractedAggregated
 import com.viel.aplayer.library.orchestrator.steps.CoverExtractedCue
@@ -15,8 +13,8 @@ import com.viel.aplayer.library.orchestrator.steps.CoverExtractedResult
 import com.viel.aplayer.library.orchestrator.steps.CoverExtractedSingle
 import com.viel.aplayer.library.orchestrator.steps.GroupedBookDrafts
 import com.viel.aplayer.library.orchestrator.steps.HeuristicGroupStep
-import com.viel.aplayer.library.orchestrator.steps.ManifestParsedResult
 import com.viel.aplayer.library.orchestrator.steps.ManifestParseStep
+import com.viel.aplayer.library.orchestrator.steps.ManifestParsedResult
 import com.viel.aplayer.library.orchestrator.steps.MetadataResolveStep
 import com.viel.aplayer.library.orchestrator.steps.ResolvedMetadataDrafts
 import com.viel.aplayer.library.vfs.VfsFileInterface
@@ -24,11 +22,13 @@ import com.viel.aplayer.logger.ImportTimingLogger
 import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.MetadataResolver
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
  * 扫描导入大调度器（流水线委托入口）
- * 
+ *
  * 【重要重构说明】：
  * 本类原为 800 余行的单体面条类，经过解耦重构后，其内部所有的业务逻辑均已被
  * 物理切分到了 `orchestrator/steps` 包下的各个独立工位 Step 类中。
@@ -39,7 +39,7 @@ import java.util.UUID
 class ImportOrchestrator(
     private val context: Context,
     // 详尽的中文注释：强制从外部注入元数据标签解析提取器，消除自构 VFS 的失效默认值
-    private val metadataResolver: MetadataResolver
+    metadataResolver: MetadataResolver
 ) {
     // 实例化拆分出的具体工位步骤，实现单一职责
     private val manifestParseStep = ManifestParseStep(context)
@@ -56,7 +56,7 @@ class ImportOrchestrator(
         runClaimLedger: RunClaimLedger = RunClaimLedger(),
         timingScopeId: String = "inventory:$scanId"
     ): ImportRunResult = withContext(Dispatchers.IO) {
-        
+
         // 1. 初始化统一导入上下文，将 inventory 缓存入内
         val importCtx = ImportContext(
             scanId = scanId,
@@ -147,7 +147,10 @@ class ImportOrchestrator(
 
         // 目录剩余音频没有 CUE/M3U8 清单输入，直接从预读取音频元数据进入启发式分组步骤。
         val resolvedMetadataDrafts = ResolvedMetadataDrafts(
-            manifestParsedResult = ManifestParsedResult(cueDrafts = emptyList(), m3u8Drafts = emptyList()),
+            manifestParsedResult = ManifestParsedResult(
+                cueDrafts = emptyList(),
+                m3u8Drafts = emptyList()
+            ),
             looseAudioMetadataRefs = looseAudioMetadataRefs
         )
 
@@ -194,21 +197,33 @@ class ImportOrchestrator(
         return CoverExtractedResult(
             cueBooks = manifestParsedResult.cueDrafts.map { cueDraft ->
                 // Manifest 书籍的音频引用仍从当前 scope inventory 映射，保证 claim 使用的音频列表不依赖封面解析步骤。
-                val audioRefs = cueDraft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
+                val audioRefs =
+                    cueDraft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
                 val coverResult = cueDraft.result.sidecarCoverFile?.let { sidecarFile ->
                     // manifest parser 已经选出同目录最合适的 sidecover 候选，
                     // 这里不再自己做第二套目录图片优先级判断，只负责把 parser 结果落成缓存封面。
                     saveExternalSidecarCover(sidecarFile, inventory)
                 }
-                CoverExtractedCue(UUID.randomUUID().toString(), cueDraft, audioRefs, coverResult = coverResult)
+                CoverExtractedCue(
+                    UUID.randomUUID().toString(),
+                    cueDraft,
+                    audioRefs,
+                    coverResult = coverResult
+                )
             },
             m3u8Books = manifestParsedResult.m3u8Drafts.map { m3u8Draft ->
                 // M3U8 书籍同样保留解析到的音频文件列表，只延迟封面生成，不延迟 claim 和章节入库。
-                val audioRefs = m3u8Draft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
+                val audioRefs =
+                    m3u8Draft.resolvedAudioKeys.values.mapNotNull { key -> audioByVfsKey[key] }
                 val coverResult = m3u8Draft.result.sidecarCoverFile?.let { sidecarFile ->
                     saveExternalSidecarCover(sidecarFile, inventory)
                 }
-                CoverExtractedM3u8(UUID.randomUUID().toString(), m3u8Draft, audioRefs, coverResult = coverResult)
+                CoverExtractedM3u8(
+                    UUID.randomUUID().toString(),
+                    m3u8Draft,
+                    audioRefs,
+                    coverResult = coverResult
+                )
             },
             aggregatedBooks = aggregatedPlans.map { plan ->
                 // 启发式聚合书籍先尝试写入预读封面，失败才以空封面入库并等待恢复流程补齐。
@@ -231,7 +246,9 @@ class ImportOrchestrator(
     }
 
     private suspend fun saveExternalSidecarCover(sidecarFile: FileRef, inventory: FileInventory): CoverExtractor.CoverResult? {
-        val fileReader = VfsFileInterface(context.applicationContext, rootsById = inventory.roots.associateBy { it.id })
+        val fileReader = VfsFileInterface(
+            context.applicationContext,
+            rootsById = inventory.roots.associateBy { it.id })
         val result = coverExtractor.processExternalImage(sidecarFile.vfsKey) { fileReader.open(sidecarFile) }
         return result.takeIf { it.hasImage() }
     }

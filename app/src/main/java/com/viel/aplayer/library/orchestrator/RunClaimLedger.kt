@@ -1,6 +1,7 @@
-package com.viel.aplayer.library
+package com.viel.aplayer.library.orchestrator
 
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.library.FileIdentity
 
 // In-memory first-claim-wins ledger for one import run.
 class RunClaimLedger(
