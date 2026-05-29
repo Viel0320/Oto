@@ -15,7 +15,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.media.service.PlaybackService
 import com.viel.aplayer.ui.player.components.SubtitleLine
-import com.viel.aplayer.widget.PlayerWidgetProvider
+
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -154,8 +154,7 @@ class PlaybackManager private constructor(context: Context) {
                         setupController(conn)
                         // Cold-start restore may set the playback plan before MediaController connects; apply it once ready.
                         currentPlan?.let { setBookPlaybackPlan(it) }
-                        // 为本次桌面 widget 改动添加注释：控制器连上后立即刷新小组件，让桌面状态跟随真实 MediaSession。
-                        PlayerWidgetProvider.updateAll(appContext)
+                        // 详尽的中文注释：由于桌面小组件已彻底下线，此处移除原有的 PlayerWidgetProvider.updateAll 更新小组件状态的调用
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -178,8 +177,7 @@ class PlaybackManager private constructor(context: Context) {
                 val wasPlaying = lastIsPlaying
                 lastIsPlaying = isPlaying
                 _isPlaying.value = isPlaying
-                // 为本次桌面 widget 改动添加注释：播放/暂停按钮图标依赖此状态，变化后立即刷新所有播放器小组件。
-                PlayerWidgetProvider.updateAll(appContext)
+                // 详尽的中文注释：随着桌面小组件功能的移除，此处不再需要在播放/暂停状态改变时刷新小组件，已移除 PlayerWidgetProvider.updateAll 逻辑
                 progressSyncTracker.saveProgress()
 
                 // 在后台协程中，实时将当前的物理播放状态（是否在播）同步写入 isLastPlaybackInterrupted，
@@ -212,8 +210,7 @@ class PlaybackManager private constructor(context: Context) {
                 if (playbackState == Player.STATE_READY) {
                     progressSyncTracker.updateProgress(controller)
                 }
-                // 为本次桌面 widget 改动添加注释：播放队列准备、结束或空闲时刷新小组件文案与按钮状态。
-                PlayerWidgetProvider.updateAll(appContext)
+                // 详尽的中文注释：由于桌面小组件功能已废弃，此处在播放队列准备或结束状态变更时不再需要同步更新小组件状态
                 progressSyncTracker.saveProgress()
             }
 
@@ -223,8 +220,7 @@ class PlaybackManager private constructor(context: Context) {
                 _currentSubtitles.value = emptyList()
                 progressSyncTracker.updateProgress(controller)
                 
-                // 为本次桌面 widget 改动添加注释：切换分轨时刷新小组件，确保封面和书名仍对应当前播放书籍。
-                PlayerWidgetProvider.updateAll(appContext)
+                // 详尽的中文注释：小组件已移除，切换分轨时不再执行小组件后台状态刷新逻辑
                 progressSyncTracker.saveProgress()
             }
 
@@ -287,8 +283,7 @@ class PlaybackManager private constructor(context: Context) {
                 val totalDur = finalPlan.files.sumOf { it.durationMs }
                 _currentPosition.value = finalPlan.startGlobalPositionMs
                 _duration.value = totalDur
-                // 为本次桌面 widget 改动添加注释：播放计划一旦切换，桌面小组件可以立即显示目标书籍，而不必等 MediaController 回调。
-                PlayerWidgetProvider.updateAll(appContext)
+                // 详尽的中文注释：桌面小组件功能已完全停用，加载新播放计划时移除对 PlayerWidgetProvider.updateAll 的调用
 
                 // 播放器计划只接收 VFS URI；本地/非本地策略后续按 LibraryRoot.sourceType 判断，不再从 BookFile.uri 探测 HTTP。
                 val hasHttp = false

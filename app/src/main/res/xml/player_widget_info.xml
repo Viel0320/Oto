@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 为本次桌面 widget Glance 迁移添加注释：声明 2x2 桌面播放器小组件；运行时 UI 由 Glance 生成，initialLayout 仅作为 Glance 渲染前的加载占位。 -->
+<!-- 详尽的中文注释：由于 glance 库编译依赖已被完全移除，此处将 initialLayout 与 previewLayout 替换为本地保留的 widget_player_2x2 布局以防编译失败 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/player_widget_description"
-    android:initialLayout="@layout/glance_default_loading_layout"
+    android:initialLayout="@layout/widget_player_2x2"
     android:minWidth="110dp"
     android:minHeight="110dp"
-    android:previewLayout="@layout/glance_default_loading_layout"
+    android:previewLayout="@layout/widget_player_2x2"
+    android:previewImage="@drawable/widget_preview"
     android:resizeMode="none"
     android:targetCellWidth="2"
     android:targetCellHeight="2"

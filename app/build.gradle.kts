@@ -98,7 +98,8 @@ dependencies {
     // 引入新依赖 miuix-blur 模糊库，实现 Android 13 原生硬件级视窗高阶磨砂模糊渲染。
     implementation(libs.miuix.blur)
 
-    // 为本次桌面 widget Glance 迁移添加注释：引入 Jetpack Glance AppWidget 与 Material3 动态色支持，用声明式 API 生成桌面小组件 RemoteViews。
+    // 详尽的中文注释：重新声明并引入 Jetpack Glance 相关依赖，包括核心声明式包、桌面 AppWidget 小组件包，以及 Material 3 配色自适应支持包
+    implementation(libs.androidx.glance)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
 

@@ -17,7 +17,9 @@ documentfile = "1.1.0"
 coil = "2.7.0"
 palette = "1.0.0"
 datastore = "1.2.1"
-glance = "1.2.0-rc01"
+# 详尽的中文注释：废弃桌面小组件相关功能，已移除原有的 glance 版本定义
+# 详尽的中文注释：因小组件重建需要，重新声明稳定的 Jetpack Glance 库版本，用以构建 2x2 播控面板
+glance = "1.1.1"
 # WebDAV 传输层需要稳定支持 PROPFIND 与 Range 请求，因此新增 OkHttp 版本声明。
 okhttp = "5.3.2"
 # 引入 miuix 库版本声明，用于引入硬件级高阶模糊效果组件 miuix-blur。
@@ -54,6 +56,9 @@ androidx-documentfile = { group = "androidx.documentfile", name = "documentfile"
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+# 详尽的中文注释：废弃桌面小组件相关功能，已移除原有的 androidx-glance 库声明
+# 详尽的中文注释：因小组件重建需要，重新声明稳定的 Jetpack Glance 依赖库以提供声明式桌面 Widget 构建支持
+androidx-glance = { group = "androidx.glance", name = "glance", version.ref = "glance" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 # WebDAV Provider 通过 OkHttp 发起 PROPFIND/GET/Range，避免手写底层 HTTP 兼容逻辑。

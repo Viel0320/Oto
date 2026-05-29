@@ -34,6 +34,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+// 详尽的中文注释：因小组件重建，在此处引入小组件状态同步助手，用于将实时期播放状态持久化推送到桌面小组件 DataStore
+import com.viel.aplayer.widget.PlayerWidgetStateHelper
 
 /**
  * 核心前台媒体播放服务。
@@ -115,7 +117,7 @@ class PlaybackService : MediaSessionService() {
         // 3. 委托 ExoPlayerFactory 生产配置并创建核心播放器实例
         val playerInstance = ExoPlayerFactory.createExoPlayer(
             context = this,
-            listener = object : Player.Listener {
+             listener = object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
                     Log.e("PlaybackService", "播放器内核物理轨道加载故障: ${error.message}", error)
                     // 委托给灾备处理器进行 HTTP 安全流量审计与音轨缺失自愈跳轨
@@ -128,14 +130,18 @@ class PlaybackService : MediaSessionService() {
                             Log.e("PlaybackService", "解析器物理结构异常: contentIsMalformed=${cause.contentIsMalformed}")
                         }
                     }
+                    // 详尽的中文注释：当播放器抛出内核物理加载异常导致轨道中断时，即时同步并推送播放失败状态给桌面小组件
+                    updateWidgetState()
                 }
-
+ 
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                     // 音轨成功过渡，重置跳轨重试防抖锁
                     failureHandler.clearSkipGuard()
                     updateNotificationTimeline(mediaItem)
+                    // 详尽的中文注释：有声书物理分轨音轨切换过渡时，即时提取新音轨所属的书籍元数据与本地封面并刷新桌面小组件
+                    updateWidgetState()
                 }
-
+ 
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
                         // 当检测到整个播放队列播放结束时，弹出提示并启动 5 秒倒计时安全退出
@@ -151,11 +157,15 @@ class PlaybackService : MediaSessionService() {
                         exitJob?.cancel()
                         exitJob = null
                     }
+                    // 详尽的中文注释：播放器整体状态（缓冲、就绪、播放完毕）发生物理更改时，即时同步播控状态给桌面小组件
+                    updateWidgetState()
                 }
-
+ 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     // 将实际的物理播放状态变更委托给音频焦点管理器，用于同步系统焦点与焦点避让状态机
                     audioFocusManager.handlePlayerPlayingStateChanged(isPlaying)
+                    // 详尽的中文注释：用户的播放/暂停动作引起 isPlaying 标识位实质变动时，即时向桌面小组件推送最新播控标志
+                    updateWidgetState()
                 }
             },
             isAutomaticAudioFocusAllowed = true // 初始默认由 ExoPlayer 内部处理
@@ -380,7 +390,60 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    // 详尽的中文注释：安全地将当前的播放状态、有声书名字、作者在 Main 线程提取出来，避开 IO 协程交叉刺探 Player 导致 wrong thread 崩溃，然后再通过 LibraryFacade 在后台异步查询并推送状态
+    private fun updateWidgetState() {
+        val playerInstance = player ?: return
+        
+        // 详尽的中文注释：所有与物理 ExoPlayer 实例属性的通信握手（如 isPlaying、currentMediaItem）必须强制在 Main 主线程执行以确保线程安全
+        val isPlaying = playerInstance.isPlaying
+        val mediaItem = playerInstance.currentMediaItem
+        val mediaId = mediaItem?.mediaId
+        val fallbackTitle = mediaItem?.mediaMetadata?.title?.toString()
+        val fallbackArtist = mediaItem?.mediaMetadata?.artist?.toString()
+
+        if (mediaId != null && mediaId.contains(":")) {
+            val bookId = mediaId.substringBefore(":")
+            serviceScope.launch(Dispatchers.IO) {
+                // 详尽的中文注释：通过 LibraryFacade 高层业务门面在 IO 协程中异步提取当前书籍记录
+                val book = libraryFacade.getBookById(bookId)
+                val title = book?.title ?: fallbackTitle
+                val author = book?.author ?: fallbackArtist
+                val coverPath = book?.thumbnailPath ?: book?.coverPath
+                
+                // 详尽的中文注释：借助小组件同步助手，更新并刷新桌面组件 UI
+                PlayerWidgetStateHelper.updateWidgetState(
+                    context = this@PlaybackService,
+                    isPlaying = isPlaying,
+                    title = title,
+                    author = author,
+                    coverPath = coverPath
+                )
+            }
+        } else {
+            // 详尽的中文注释：若未播放任何书籍，则向小组件推送默认的静置空数据状态以重置 UI 样式
+            serviceScope.launch {
+                PlayerWidgetStateHelper.updateWidgetState(
+                    context = this@PlaybackService,
+                    isPlaying = false,
+                    title = null,
+                    author = null,
+                    coverPath = null
+                )
+            }
+        }
+    }
+
     override fun onDestroy() {
+        // 详尽的中文注释：当前后台播放服务完全销毁生命周期退出时，强行重置并向小组件写入静置状态，保证桌面小组件状态不残留
+        serviceScope.launch {
+            PlayerWidgetStateHelper.updateWidgetState(
+                context = this@PlaybackService,
+                isPlaying = false,
+                title = null,
+                author = null,
+                coverPath = null
+            )
+        }
         serviceScope.cancel()
         audioFocusManager.reset() // 注销并安全释放占用的系统音频焦点
         notificationSession?.run {

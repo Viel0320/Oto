@@ -72,13 +72,20 @@
             android:label="设置"
             android:theme="@style/Theme.APlayer" />
 
-        <!-- 为本次桌面 widget Glance 迁移添加注释：注册 2x2 播放器 Glance 小组件接收器，系统仍通过标准 AppWidget 更新广播触发 Glance 渲染。 -->
+        <!-- 详尽的中文注释：因小组件重建，在此处重新注册专用的桌面小组件广播接收器 PlayerWidgetReceiver。
+             它继承自 GlanceAppWidgetReceiver，绑定 APPWIDGET_UPDATE 广播动作，
+             同时我们加入了自定义的媒体控制广播行为，用以在不需要启动前台 MainActivity 的情况下，
+             直接通过接收器拉起并绑定播放服务执行控制命令，完全实现组件间解耦。 -->
         <receiver
-            android:name=".widget.PlayerWidgetProvider"
-            android:exported="true"
-            android:label="@string/player_widget_name">
+            android:name=".widget.PlayerWidgetReceiver"
+            android:enabled="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <!-- 详尽的中文注释：自定义的媒体控制动作广播，分别对应快退、快进、播放/暂停 -->
+                <action android:name="com.viel.aplayer.widget.ACTION_REWIND" />
+                <action android:name="com.viel.aplayer.widget.ACTION_FORWARD" />
+                <action android:name="com.viel.aplayer.widget.ACTION_PLAY_PAUSE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
