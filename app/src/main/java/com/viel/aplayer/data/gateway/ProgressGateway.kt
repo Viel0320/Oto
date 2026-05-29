@@ -2,7 +2,6 @@ package com.viel.aplayer.data.gateway
 
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
-import kotlinx.coroutines.flow.Flow
 
 /**
  * 领域解耦的网关接口：专注于有声书的播放位置更新、记忆持久化以及多音轨物理可用性状态流转。

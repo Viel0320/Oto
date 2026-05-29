@@ -6,7 +6,6 @@ import android.util.Log
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
-import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.VfsNode

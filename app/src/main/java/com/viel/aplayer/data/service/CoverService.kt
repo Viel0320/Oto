@@ -1,6 +1,8 @@
 package com.viel.aplayer.data.service
 
 import android.util.Log
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.ChapterDao
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -26,6 +28,7 @@ import java.io.File
  * 1. 彻底解耦并消灭大仓库：在 M6e 阶段直接直连注入 BookDao, ChapterDao 以及精细化的物理处理组件，彻底废弃旧有 PhysicalFileResolver 仓库的直接委托。
  * 2. 完美平移元数据物理重扫与自愈：精心保留自定义封面保存写入 Room、主背景色异步写缓存以及深度的分轨物理元数据强制重扫和章节实体级联刷新自愈动作。
  */
+@OptIn(UnstableApi::class)
 class CoverService(
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,

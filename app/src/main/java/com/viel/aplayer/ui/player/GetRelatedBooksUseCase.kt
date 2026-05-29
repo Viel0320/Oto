@@ -223,7 +223,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
                     }
                     
                     // B. 作者匹配打分：+10.0 分
-                    if (authorList.isNotEmpty() && !book.author.isNullOrBlank()) {
+                    if (authorList.isNotEmpty() && book.author.isNotBlank()) {
                         val candidateAuthors = book.author.split(",").map { it.trim() }
                         if (authorList.any { a -> candidateAuthors.any { ca -> ca.equals(a, ignoreCase = true) } }) {
                             score += 10.0
@@ -231,7 +231,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
                     }
                     
                     // C. 讲述人（播讲人）匹配打分：+8.0 分
-                    if (narratorList.isNotEmpty() && !book.narrator.isNullOrBlank()) {
+                    if (narratorList.isNotEmpty() && book.narrator.isNotBlank()) {
                         val candidateNarrators = book.narrator.split(",").map { it.trim() }
                         if (narratorList.any { n -> candidateNarrators.any { cn -> cn.equals(n, ignoreCase = true) } }) {
                             score += 8.0
@@ -239,7 +239,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
                     }
                     
                     // D. 出版年份匹配打分：+4.0 分
-                    if (currentYear.isNotBlank() && !book.year.isNullOrBlank() && currentYear == book.year) {
+                    if (currentYear.isNotBlank() && book.year.isNotBlank() && currentYear == book.year) {
                         score += 4.0
                     }
                     

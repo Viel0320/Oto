@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.viel.aplayer.data.gateway.ScanScheduler
 
 class LibrarySyncWorker(
     context: Context,

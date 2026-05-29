@@ -5,6 +5,9 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.store.SearchHistoryEntry
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,10 +19,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.data.LibraryFacade
-import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.store.SearchHistoryEntry
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
     // 在 M5b.2 迁移中，将旧仓库 LibraryRepository 替换为高层业务门面 libraryFacade。

@@ -3,12 +3,11 @@ package com.viel.aplayer.library.orchestrator.steps
 import android.content.Context
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
+import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.media.manifest.CueManifestParser
 import com.viel.aplayer.media.manifest.M3u8ManifestParser
 import com.viel.aplayer.media.manifest.ManifestResolver
 import com.viel.aplayer.media.manifest.ManifestSidecarSupport
-import com.viel.aplayer.library.orchestrator.ImportContext
-import com.viel.aplayer.library.vfs.VfsFileInterface
 import java.util.Locale
 
 /**

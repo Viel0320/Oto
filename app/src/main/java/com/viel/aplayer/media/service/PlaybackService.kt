@@ -1,5 +1,6 @@
 package com.viel.aplayer.media.service
 
+// 详尽的中文注释：因小组件重建，在此处引入小组件状态同步助手，用于将实时期播放状态持久化推送到桌面小组件 DataStore
 import android.app.PendingIntent
 import android.os.Bundle
 import android.util.Log
@@ -8,10 +9,8 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -26,16 +25,14 @@ import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.media.NotificationProgressPlayer
 import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.widget.PlayerWidgetStateHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-// 详尽的中文注释：因小组件重建，在此处引入小组件状态同步助手，用于将实时期播放状态持久化推送到桌面小组件 DataStore
-import com.viel.aplayer.widget.PlayerWidgetStateHelper
 
 /**
  * 核心前台媒体播放服务。

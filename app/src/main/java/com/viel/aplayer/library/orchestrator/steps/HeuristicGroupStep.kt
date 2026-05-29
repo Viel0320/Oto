@@ -2,12 +2,11 @@ package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
 import com.viel.aplayer.library.FileInventory
+import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.media.manifest.HeuristicAggregationPlan
 import com.viel.aplayer.media.manifest.HeuristicAudioAggregator
 import com.viel.aplayer.media.manifest.ManifestSidecarSupport
-import com.viel.aplayer.library.orchestrator.ImportContext
-import com.viel.aplayer.library.vfs.VfsFileInterface
 
 /**
  * 启发式智能聚类分步类。

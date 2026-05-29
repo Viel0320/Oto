@@ -18,7 +18,6 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.extractor.ts.AdtsExtractor
-import androidx.media3.extractor.mp4.Mp4Extractor
 import com.viel.aplayer.media.VfsPlaybackDataSource
 
 /**
