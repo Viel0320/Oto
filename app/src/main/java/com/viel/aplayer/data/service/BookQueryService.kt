@@ -188,8 +188,12 @@ class BookQueryService
         }
         
         val artworkPath = book.coverPath
-        // 播放计划只暴露轻量级的 file:// 协议封面 URI，规避大文件读取开销与队列重复附加开销
-        val artworkUri = artworkPath?.let { Uri.fromFile(File(it)) }
+        // 强力防御物理文件丢失导致的 java.io.FileNotFoundException: ENOENT 异常。
+        val artworkUri = if (artworkPath != null && File(artworkPath).exists()) {
+            Uri.fromFile(File(artworkPath))
+        } else {
+            null
+        }
 
         val plan = BookPlaybackPlan(
             bookId = bookId,
