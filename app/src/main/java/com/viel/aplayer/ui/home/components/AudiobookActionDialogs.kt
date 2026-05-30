@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.home
+package com.viel.aplayer.ui.home.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDialog
@@ -45,7 +46,7 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
  * 
  * 独立出来的有声书长按管理与确认软删除系列 Dialog 组件。
  * 它将一级管理面板 Dialog 与二级删除确认 Dialog 统一打包封装，
- * 隔离了 Dialog 内部的显隐次序逻辑，极大程度瘦身了 HomeScreen.kt 主文件。
+ * 隔离了 Dialog 内部的显隐次序逻辑，极大程度瘦身了 HomeScreenState.kt 主文件。
  *
  * 升级说明（miuix-blur 磨砂玻璃）：
  * 将此前 Window 级 blurBehindRadius 模糊替换为 [BlurDialog] 内部的 miuix-blur 绘制，
@@ -156,9 +157,9 @@ fun AudiobookActionDialogs(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val statusList = listOf(
-                            com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.NOT_STARTED to "未开始",
-                            com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.IN_PROGRESS to "进行中",
-                            com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.FINISHED to "已完成"
+                            AudiobookSchema.ReadStatus.NOT_STARTED to "未开始",
+                            AudiobookSchema.ReadStatus.IN_PROGRESS to "进行中",
+                            AudiobookSchema.ReadStatus.FINISHED to "已完成"
                         )
                         statusList.forEach { (status, label) ->
                             val isSelected = book.readStatus == status

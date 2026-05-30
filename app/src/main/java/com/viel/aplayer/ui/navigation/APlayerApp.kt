@@ -26,7 +26,7 @@ import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.detail.DetailOverlay
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.LibraryViewModel
-import com.viel.aplayer.ui.home.ScanResultDialog
+import com.viel.aplayer.ui.home.components.ScanResultDialog
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.PlayerOverlay

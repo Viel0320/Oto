@@ -15,7 +15,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.ui.home.ListItem
+import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.player.RelatedSection
 import com.viel.aplayer.ui.theme.APlayerTheme
 

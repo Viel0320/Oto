@@ -1,6 +1,7 @@
-package com.viel.aplayer.ui.settings
+package com.viel.aplayer.ui.settings.about
 
 import android.content.Intent
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -67,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -178,7 +180,7 @@ fun AboutLibrariesScreen(
     val layoutDirection = LocalLayoutDirection.current
 
     // 判定大屏或横屏以适配优雅的中轴窄布局，使排版更具呼吸感
-    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val isWideScreen = configuration.screenWidthDp >= 600
     val useWideLayout = isLandscape || isWideScreen
 
@@ -515,8 +517,8 @@ private fun LibraryCard(
  * BorderStroke 的便捷声明封装。
  */
 @Composable
-private fun borderStroke(width: androidx.compose.ui.unit.Dp, color: Color) =
-    androidx.compose.foundation.BorderStroke(width, color)
+private fun borderStroke(width: Dp, color: Color) =
+    BorderStroke(width, color)
 
 /**
  * 开源许可页面预览。

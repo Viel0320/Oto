@@ -1,8 +1,10 @@
-package com.viel.aplayer.ui.home
+package com.viel.aplayer.ui.home.components
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 // 补充导入 getValue 和 setValue 扩展函数以完美适配 Composable 的 by 属性代理逻辑 (H-15)
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -34,13 +37,17 @@ import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.blur
 import com.viel.aplayer.data.store.GlassEffectMode
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import java.io.File
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.theme.APlayerTheme
@@ -103,12 +110,12 @@ fun RecentlyItem(
                     )
             ) {
                 // 利用 Coil 的 onError 物理防抖回调，完全剥离 Composable 重组中主线程同步调用 File.exists() 的性能隐患 (H-15)
-                var isImageError by androidx.compose.runtime.remember(coverPath) { androidx.compose.runtime.mutableStateOf(false) }
+                var isImageError by remember(coverPath) { mutableStateOf(false) }
                 if ((coverPath != null) && !isImageError) {
                     // 使用 LocalContext 构建附带 lastScannedAt 作为更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
-                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val context = LocalContext.current
                     val request = remember(coverPath, coverLastUpdated) {
-                        coil.request.ImageRequest.Builder(context)
+                        ImageRequest.Builder(context)
                             .data(File(coverPath))
                             .memoryCacheKey("$coverPath?t=$coverLastUpdated")
                             .diskCacheKey("$coverPath?t=$coverLastUpdated")
@@ -123,7 +130,7 @@ fun RecentlyItem(
                         onError = { state ->
                             isImageError = true
                             // 当封面物理文件损坏、Scoped Storage 权限临时受阻等加载失败时，在控制台打印高清晰的可调试路径和根本原因
-                            android.util.Log.e(
+                            Log.e(
                                 "RecentlyItem",
                                 "RecentlyItem 封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
                                 state.result.throwable
@@ -148,7 +155,7 @@ fun RecentlyItem(
             // Progress Badge
             // 重构进度 Badge 容器为支持 miuix-blur 雾化的高雅白羽 Surface。
             // 当启用毛玻璃时，引入定制后可灵动调节透明度的模糊材质、透光 0.5.dp 微光描边边框；在传统模式下平滑退回为原生 Material 经典高饱和度小圆角容器。
-            val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isDark = isSystemInDarkTheme()
 
             // 
             // 升级采用基于明亮度判定（luminance）的 RGB 65% 物理通道混色强力拉伸对比度算法：
@@ -156,12 +163,12 @@ fun RecentlyItem(
             // - 亮色模式下：如果封面取色偏亮（luminance > 0.5f），与纯黑色按 65% 比例拉伸混色（0.35f * rawColor），强力压低亮度以防止文字在乳白半透磨砂卡片上发生视觉消融。
             val coverColor = remember(coverColorArgb, isDark) {
                 coverColorArgb?.let { argb ->
-                    val rawColor = androidx.compose.ui.graphics.Color(argb)
+                    val rawColor = Color(argb)
                     val lum = rawColor.luminance()
                     if (isDark) {
                         if (lum < 0.5f) {
                             // 深色模式且取色偏暗时，应用 65% 白色强力提亮拉伸以保障对比度（0.35 * rawColor + 0.65）
-                            androidx.compose.ui.graphics.Color(
+                            Color(
                                 red = rawColor.red * 0.35f + 0.65f,
                                 green = rawColor.green * 0.35f + 0.65f,
                                 blue = rawColor.blue * 0.35f + 0.65f,
@@ -173,7 +180,7 @@ fun RecentlyItem(
                     } else {
                         if (lum > 0.5f) {
                             // 亮色模式且取色偏亮时，应用 65% 黑色强力压暗拉伸以保障辨识度（0.35 * rawColor）
-                            androidx.compose.ui.graphics.Color(
+                            Color(
                                 red = rawColor.red * 0.35f,
                                 green = rawColor.green * 0.35f,
                                 blue = rawColor.blue * 0.35f,
@@ -206,9 +213,9 @@ fun RecentlyItem(
                                 // 使用 background 蒙版混合底色，亮色模式采用白羽半透底，深色模式采用玄羽半透底，保证最佳边缘对比度
                                 .background(
                                     if (isDark) {
-                                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f)
+                                        Color.Black.copy(alpha = 0.4f)
                                     } else {
-                                        androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f)
+                                        Color.White.copy(alpha = 0.8f)
                                     }
                                 )
                         } else {
@@ -218,7 +225,7 @@ fun RecentlyItem(
                 color = if (isBlur) {
                     // 毛玻璃模式下，由于底层的 drawBackdrop 已精细融合了半透明蒙版底色，
                     // 此处 Surface 应置为完全透明（Color.Transparent），防止双重蒙版物理重叠导致玻璃失去透光感与呼吸感。
-                    androidx.compose.ui.graphics.Color.Transparent
+                    Color.Transparent
                 } else {
                     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
                 },
@@ -234,7 +241,7 @@ fun RecentlyItem(
                     text = progressText,
                     // 将左右内边距从 6.dp 增宽至 10.dp，使小胶囊的横向视觉延伸更加舒展、饱满且具备呼吸感
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    textAlign = TextAlign.Center,
                     // 使用 .copy(fontWeight = FontWeight.ExtraBold) 显式融于 Style 中，强制启用 ExtraBold (超强加粗) 字重，以在细小字号及毛玻璃背景下压榨出极致的边缘清晰度与轮廓质感
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
                     color = if (isBlur) {
@@ -243,7 +250,7 @@ fun RecentlyItem(
                         // - 亮色模式下使用原生 primary 强调色。
                         // - 深色模式下使用纯白色（androidx.compose.ui.graphics.Color.White），达成 100% 极佳对比度与高级毛玻璃观感。
                         coverColor ?: if (isDark) {
-                            androidx.compose.ui.graphics.Color.White
+                            Color.White
                         } else {
                             MaterialTheme.colorScheme.primary
                         }

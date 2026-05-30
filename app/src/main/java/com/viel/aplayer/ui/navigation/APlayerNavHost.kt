@@ -1,10 +1,7 @@
 package com.viel.aplayer.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -12,7 +9,6 @@ import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.player.PlayerViewModel
-import com.viel.aplayer.ui.settings.SettingsActivity
 
 /**
  * 系统导航管理容器，承载应用核心页面。
@@ -31,74 +27,24 @@ fun APlayerNavHost(
     detailViewModel: DetailViewModel,
     canStartNavigation: () -> Boolean,
     navigateBack: () -> Unit,
-    // 
-    // 引入非独立的 SearchViewModel，点击搜索按钮时将通过修改其显隐状态来打开悬浮层，
-    // 能够零延迟地共享全局 appBlurBackdrop 毛玻璃模糊背景，并且 100% 杜绝桌面穿帮问题。
+    // 详尽的中文注释：引入非独立的 SearchViewModel，用于长按或点击搜索时无延迟展开同一个 Activity 内的搜索悬浮层
     searchViewModel: com.viel.aplayer.ui.search.SearchViewModel
 ) {
-    val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
-    val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-
     NavHost(
         navController = navController,
         startDestination = "home",
         modifier = modifier
     ) {
         composable("home") {
+            // 详尽的中文注释：调用重构后的 Stateful HomeScreen，直接将导航宿主持有的各 ViewModel 注入。
+            // 遵循单一职责，NavHost 不再承担为 HomeScreen 收集 UI State 并进行长参下发的职责。
             HomeScreen(
-                // 从 ViewModel 预计算 of UiState 中直接传入各字段，UI 层不做任何运算
-                selectedFilter = libraryUiState.selectedFilter,
-                groupedByAuthor = libraryUiState.groupedByAuthor,
-                recentBooks = libraryUiState.recentBooks,
-                shouldShowRecentBooks = libraryUiState.shouldShowRecentBooks,
-                recentTitleRes = libraryUiState.recentTitleRes,
-                onFilterSelected = { libraryViewModel.setFilter(it) },
-                isMiniPlayerVisible = playerUiState.hasActiveTrack,
-                // 把设置页持久化的玻璃效果模式传入首页，控制长按操作 Dialog 的 Material/miuix-blur 切换。
-                glassEffectMode = libraryUiState.glassEffectMode,
-                onNavigateToDetail = { id: String ->
-                    val book = libraryUiState.audiobooks.find { it.book.id == id }
-                    detailViewModel.selectBook(book)
-                },
-                // 
-                // 点击搜索按钮时，不再拉起独立的 Activity（以防窗口模糊透出系统桌面壁纸），
-                // 而是直接调用 searchViewModel.setVisible(true)，以展开同一个 Activity 内部的 SearchOverlay 搜索悬浮层，
-                // 以获得完全真实的、共享全局 appBlurBackdrop 采样源的超凡磨砂玻璃透光体验。
-                onNavigateToSearch = {
-                    if (canStartNavigation()) {
-                        searchViewModel.setVisible(true)
-                    }
-                },
-                onLoadBook = { id: String ->
-                    playerViewModel.loadBook(id)
-                },
-                onNavigateToPlayer = {
-                    playerViewModel.setFullPlayerVisible(true)
-                },
-                onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
-                // 
-                // 点击设置按钮时，启动 SettingsActivity，由于设置页不需要结果回传，直接使用普通的 startActivity 启动。
-                onNavigateToSettings = {
-                    if (canStartNavigation()) {
-                        val intent = SettingsActivity.createIntent(context)
-                        context.startActivity(intent)
-                    }
-                },
-                // 桥接长按菜单中的标记阅读状态修改事件，将更新结果写入数据库中
-                onUpdateReadStatus = { bookId, status ->
-                    libraryViewModel.updateBookReadStatus(bookId, status)
-                },
-                // 桥接长按菜单中的强制重建封面和元数据事件，通知 ViewModel 在后台协程执行重建
-                onForceRegenerate = { bookId ->
-                    libraryViewModel.forceRegenerateCoverAndMetadata(bookId)
-                },
-                // 桥接长按菜单中的删除书籍事件，触发软删除以及释放文件占用。
-                // 如果删除的是当前正在播放的书籍，需要先通知播放器 ViewModel 清理播放状态，关闭前台迷你播放器与全屏播放器界面，以确保端到端的前后台同步级联销毁逻辑。
-                onDeleteBook = { bookId ->
-                    playerViewModel.closePlayback(bookId)
-                    libraryViewModel.deleteBook(bookId)
-                }
+                libraryViewModel = libraryViewModel,
+                playerViewModel = playerViewModel,
+                detailViewModel = detailViewModel,
+                searchViewModel = searchViewModel,
+                canStartNavigation = canStartNavigation,
+                navigateBack = navigateBack
             )
         }
     }

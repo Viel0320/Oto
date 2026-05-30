@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.home
 
-// 导入运行时动态安全区 Insets 计算所需的系统 API 依赖，以支持无硬编码刘海屏/导航栏避让
 import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,15 +16,14 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
-// 显式导入 WindowInsets.ime 扩展属性，用以在 exclude 排除计算中精准定位软键盘区域
-import top.yukonga.miuix.kmp.blur.layerBackdrop // 注意：确保在此处或者后面导入正确的 ime 属性，或者是 androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -48,7 +46,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,31 +65,23 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerFilterChip
+import com.viel.aplayer.ui.home.components.AudiobookActionDialogs
+import com.viel.aplayer.ui.home.components.ListItem
+import com.viel.aplayer.ui.home.components.RecentlyAddedSection
 import com.viel.aplayer.ui.theme.APlayerTheme
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
- * 首页图书馆的过滤选项枚举。
- */
-enum class HomeFilter {
-    /** 正在阅读（播放进度 > 0 且未读完） */
-    InProgress,
-    /** 未开始 */
-    NotStarted,
-    /** 已读完 */
-    Finished
-}
-
-/**
- * 首页 Composable，纯 UI 渲染层。
- * 所有数据变换（过滤、分组、排序截取）已全部迁移至 LibraryViewModel 的 Flow 管道，
- * 此函数仅负责接收预计算好的数据并渲染界面，不做任何业务运算。
+ * 首页内容展示组件（Stateless），纯 UI 渲染层。
+ * 
+ * 经过解耦重构，HomeScreenContent 实现了完全的无状态，不再持有任何 ViewModel 或 context 上下文。
+ * 所有的交互行为与数据下发全部通过纯粹的声明式参数与 Lambda 回调函数进行，极大提高了组件的单元测试性与预览灵活性。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
+fun HomeScreenContent(
     modifier: Modifier = Modifier,
     // 以下为从 LibraryUiState 拆解传入的预计算字段，Composable 无需再做 remember 运算。
     // selectedFilter 为 null 时表示 ViewModel 的 combine 管道尚未产出首个最终决策，此时不渲染 FilterChip 行以避免跳变动画。
@@ -101,10 +90,10 @@ fun HomeScreen(
     recentBooks: List<BookWithProgress> = emptyList(),
     shouldShowRecentBooks: Boolean = false,
     @StringRes recentTitleRes: Int = 0,
-    onFilterSelected: (HomeFilter) -> Unit = {},
-    isMiniPlayerVisible: Boolean = false,
-    // 玻璃效果模式必须由 NavHost 从设置状态显式传入，主页本身不再声明 Material 默认值。
     glassEffectMode: GlassEffectMode,
+    isMiniPlayerVisible: Boolean = false,
+    recentListState: LazyListState,
+    onFilterSelected: (HomeFilter) -> Unit = {},
     onNavigateToSearch: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
@@ -120,36 +109,6 @@ fun HomeScreen(
 ) {
     // 使用 remember 级联监听当前被长按的有声书状态，决定一级Dialog的渲染
     var activeBookForMenu by remember { mutableStateOf<BookWithProgress?>(null) }
-
-    // 详尽中文注释：为主页“最近”横向滚动列表维护独立的滚动状态，放在最外层，
-    // 防止在网格（LazyVerticalGrid）上下滚动时，该横向列表的状态由于离开屏幕而被销毁重置。
-    val recentListState = rememberLazyListState()
-
-    // 详尽中文注释：利用 state 变量记录上一次渲染时的首轨书籍 ID 以及是否需要重置滚动的标记。
-    // 在 composition 阶段，列表的实际 layout 尚未运行，因此此时的 `firstVisibleItemIndex` 和 `firstVisibleItemScrollOffset`
-    // 依旧保留着上一帧的真实滚动位置。这能让我们在多本书籍批量插入导致 layout 发生物理移位前，精准捕获到“变更前是否处于起点”的状态，
-    // 彻底规避多项目批量导入时由于 Compose 默认锚定导致的状态判断失效与竞态问题。
-    var prevFirstBookId by remember { mutableStateOf<String?>(null) }
-    var shouldScrollToStart by remember { mutableStateOf(false) }
-
-    val firstBookId = recentBooks.firstOrNull()?.book?.id
-    if (firstBookId != prevFirstBookId) {
-        // 数据源首项发生变更（有新书导入或切换了过滤器）
-        val wasAtStart = recentListState.firstVisibleItemIndex == 0 && recentListState.firstVisibleItemScrollOffset == 0
-        if (wasAtStart) {
-            shouldScrollToStart = true
-        }
-        prevFirstBookId = firstBookId
-    }
-
-    LaunchedEffect(shouldScrollToStart) {
-        if (shouldScrollToStart) {
-            // 详尽中文注释：在 layout 运行且视口由于锚定发生偏移后，由 LaunchedEffect 异步安全地重置视口到最左侧第 0 项。
-            // 这样无论一次性导入多少本书，只要用户之前在起点，视口就会始终锁定在最左侧的最新书籍上，将旧书籍顺延推到右侧。
-            recentListState.scrollToItem(0)
-            shouldScrollToStart = false
-        }
-    }
 
     // 为长按操作 Dialog 创建 LayerBackdrop 状态机；Scaffold 作为采样源，Dialog 面板作为模糊渲染面。
     val actionDialogBackdrop = rememberLayerBackdrop()
@@ -198,7 +157,7 @@ fun HomeScreen(
     // 
     // 重构网格内边距策略：此处 gridStart/EndPadding 仅保留物理安全区域（如刘海、侧边导航栏）。
     // 将 16dp/24dp 的业务逻辑边距从 Grid 容器层剥离，下沉到具体的标题和列表项中自行实现。
-    // 这样做能够确保 ListItem 的点击水波纹（Ripple）和滑动的滚动条能够紧贴屏幕物理边缘，实现极致的 Edge-to-Edge 视觉高级感。
+    // 这样做能够确保 ListItem 的点击水波纹（Ripple） and 滑动的滚动条能够紧贴屏幕物理边缘，实现极致的 Edge-to-Edge 视觉高级感。
     val gridStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val gridEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
 
@@ -347,50 +306,17 @@ fun HomeScreen(
                 }
 
                 if (shouldShowRecentBooks) {
-                    // Recently Added 标题通过 span 指定其必须占满全宽。
+                    // 详尽的中文注释：使用解耦出来的独立组件渲染“最近播放/最近添加”区块，并使用 GridItemSpan(maxLineSpan) 确保其跨满网格全宽
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            text = recentTitle,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            // 
-                            // 此处显式注入 screenHorizontalPadding。由于父容器 Grid 的 contentPadding 仅包含物理安全区，
-                            // 这里的手动边距确保了标题文字能精准对齐设计的 16dp/24dp “视觉安全线”。
-                            modifier = Modifier.padding(horizontal = screenHorizontalPadding, vertical = 16.dp)
+                        RecentlyAddedSection(
+                            recentTitle = recentTitle,
+                            recentBooks = recentBooks,
+                            recentListState = recentListState,
+                            glassEffectMode = glassEffectMode,
+                            screenHorizontalPadding = screenHorizontalPadding,
+                            onNavigateToDetail = onNavigateToDetail,
+                            onBookLongClick = { activeBookForMenu = it }
                         )
-                    }
-
-                    // 横向滚动的 Recently Items 同样跨列占满整宽，并动态计算左边缘的缩进。
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        LazyRow(
-                            state = recentListState,
-                            modifier = Modifier.fillMaxWidth(),
-                            // 
-                            // RecentlyItem 内部自带 8dp padding 用于卡片间距。
-                            // 为了让首张封面的“物理左边缘”与上方的标题文字垂直对齐，
-                            // 此处 contentPadding 需设为 (业务边距 - 8dp)，实现完美的视觉补偿。
-                            contentPadding = PaddingValues(horizontal = screenHorizontalPadding - 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // M-20 修复 — 使用 book.id 作为稳定 key，避免最近添加列表更新时封面加载状态错位
-                            items(recentBooks, key = { it.book.id }) { book ->
-                                RecentlyItem(
-                                    title = book.book.title,
-                                    author = book.book.author,
-                                    narrator = book.book.narrator,
-                                    progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
-                                    coverPath = book.book.thumbnailPath ?: book.book.coverPath,
-                                    coverLastUpdated = book.book.lastScannedAt, // 桥接 Room 中的扫描/更新时间戳，令 Coil 声明式打破缓存以即时更新界面
-                                    onClick = { onNavigateToDetail(book.book.id) },
-                                    // 绑定长按RecentlyItem卡片事件以唤起操作一级菜单
-                                    onLongClick = { activeBookForMenu = book },
-                                    // 向 RecentlyItem 传递当前全局的磨砂玻璃模式状态以进行极致毛玻璃视觉适配
-                                    glassEffectMode = glassEffectMode,
-                                    // 将 Room 数据库中持久化缓存的书籍封面 ARGB 主色调传递给卡片组件
-                                    coverColorArgb = book.book.backgroundColorArgb
-                                )
-                            }
-                        }
                     }
                 }
 
@@ -435,7 +361,7 @@ fun HomeScreen(
                             // 长按有声书列表项时将当前书籍状态记录到 activeBookForMenu 中，用以唤起操作 Dialog 菜单
                             onLongClick = { activeBookForMenu = book },
                             modifier = itemModifier
-                        ) { 
+                        ) {
                             onLoadBook(book.book.id)
                             onNavigateToPlayer()
                         }
@@ -478,7 +404,8 @@ fun HomeScreenNotStartedPreview() {
     )
 
     APlayerTheme {
-        HomeScreen(
+        val mockListState = rememberLazyListState()
+        HomeScreenContent(
             // Preview 中模拟 ViewModel 预计算后的数据结构
             selectedFilter = HomeFilter.NotStarted,
             groupedByAuthor = mockBooks.groupBy { it.book.author },
@@ -486,7 +413,8 @@ fun HomeScreenNotStartedPreview() {
             shouldShowRecentBooks = true,
             recentTitleRes = R.string.recently_added_title,
             isMiniPlayerVisible = false,
-            // Preview 显式引用设置模型里的默认玻璃效果，避免 HomeScreen 参数重新拥有局部默认值。
+            recentListState = mockListState,
+            // Preview 显式引用设置模型里的默认玻璃效果，避免 HomeScreenContent 参数重新拥有局部默认值。
             glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
         )
     }
