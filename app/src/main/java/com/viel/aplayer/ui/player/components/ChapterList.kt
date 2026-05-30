@@ -51,7 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.store.AppSettings
@@ -61,7 +60,6 @@ import com.viel.aplayer.ui.common.BlurModalBottomSheet
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
-import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import com.viel.aplayer.ui.theme.APlayerTheme
 import kotlinx.coroutines.flow.filter
@@ -73,12 +71,13 @@ import java.util.UUID
 
 // 
 // 5. 章节列表弹窗有状态局部隔间 ChapterListSheetStateful
-// 本隔间仅当弹窗真正可见（isVisible == true）时才订阅高频流以获取进度和高亮，
-// 在弹窗关闭（isVisible == false）时整个有状态隔间不执行内部订阅代码，完全停摆，避免无意义的高频空耗。
+// 本隔间仅当弹窗真正可见（isVisible == true）时才渲染并计算当前章节，
+// 并完全消除对 PlayerViewModel 的依赖，改由外部传入扁平化的高频状态值以契合三层架构规范。
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChapterListSheetStateful(
-    viewModel: PlayerViewModel,
+    currentPosition: Long, // 当前播放进度（毫秒），从上层无状态容器传入以解耦 ViewModel
+    totalDuration: Long, // 媒体总时长（毫秒）
     metadata: BookMetadataState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
@@ -89,24 +88,15 @@ fun ChapterListSheetStateful(
     glassEffectMode: GlassEffectMode
 ) {
     if (settings.isChapterListVisible) {
-        val isPreview = LocalInspectionMode.current
-        val progressState = if (isPreview) {
-            PlayerViewModel.PlaybackProgressViewState(
-                elapsedMs = 120000L,
-                durationMs = 360000L,
-                isChapterProgressMode = false
-            )
-        } else {
-            viewModel.playbackProgressState.collectAsStateWithLifecycle().value
-        }
-        val currentChapter = remember(progressState.elapsedMs, metadata.chapters) {
-            ChapterTimeline.currentChapter(metadata.chapters.map { it.chapter }, progressState.elapsedMs)
+        // 根据外部传入的当前位置以及章节信息计算当前所在章节
+        val currentChapter = remember(currentPosition, metadata.chapters) {
+            ChapterTimeline.currentChapter(metadata.chapters.map { it.chapter }, currentPosition)
         }
         ChapterListSheet(
             isVisible = true,
             chapters = metadata.chapters,
             currentChapter = currentChapter,
-            totalDuration = progressState.durationMs,
+            totalDuration = totalDuration,
             onDismissRequest = actions.content.onDismissChapterList,
             onChapterClick = { pos ->
                 actions.playback.onSeek(pos, true)
@@ -374,8 +364,7 @@ fun ChapterListContent(
     }
 }
 
-// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
-@Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
+// 章节列表弹窗有状态桥接组件的预览，由于已完成去 ViewModel 化，可以直接传入 Mock 的进度与总时长，无需构造 ViewModel。
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
@@ -383,7 +372,8 @@ fun ChapterListSheetStatefulPreview() {
     APlayerTheme {
         Surface {
             ChapterListSheetStateful(
-                viewModel = PlayerViewModel(),
+                currentPosition = 120000L,
+                totalDuration = 360000L,
                 metadata = BookMetadataState(title = "三体"),
                 settings = PlayerSettingsState(isChapterListVisible = true),
                 actions = PlayerActions(),

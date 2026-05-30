@@ -3,6 +3,7 @@ package com.viel.aplayer.library.vfs.sourceProvider.webdav
 import android.content.Context
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import androidx.core.net.toUri
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
@@ -10,16 +11,8 @@ import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.aplayer.library.vfs.sourceProvider.SourceCapabilities
 import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.aplayer.library.vfs.sourceProvider.SourceNode
-import java.io.ByteArrayOutputStream
-import java.io.EOFException
-import java.io.IOException
-import java.io.InputStream
-import java.net.SocketTimeoutException
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
-import java.util.concurrent.TimeUnit
-import javax.xml.parsers.DocumentBuilderFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.Credentials
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -31,9 +24,16 @@ import okhttp3.Response
 import org.w3c.dom.Element
 import org.w3c.dom.NodeList
 import org.xml.sax.InputSource
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.core.net.toUri
+import java.io.ByteArrayOutputStream
+import java.io.EOFException
+import java.io.IOException
+import java.io.InputStream
+import java.net.SocketTimeoutException
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
+import java.util.concurrent.TimeUnit
+import javax.xml.parsers.DocumentBuilderFactory
 
 // WebDavException 将 HTTP/网络错误先映射成统一可用性状态，避免上层解析 OkHttp 异常细节。
 class WebDavException(

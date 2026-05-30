@@ -14,56 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.theme.APlayerTheme
-import com.viel.aplayer.data.store.GlassEffectMode
-
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.aplayer.ui.player.BookMetadataState
-import com.viel.aplayer.ui.player.PlayerActions
-import com.viel.aplayer.ui.player.PlayerViewModel
-
-/**
- * 播放进度条的有状态包装组件。
- * 局部订阅高频的 elapsedMs 进度状态，确保每 500ms 一次的进度更新
- * 仅在 PlaybackProgress 内部引起局部重组，防止 PlayerScreen 的大面积重绘。
- */
-@Composable
-fun PlaybackProgressStateful(
-    viewModel: PlayerViewModel,
-    metadata: BookMetadataState,
-    actions: PlayerActions,
-    modifier: Modifier = Modifier,
-    // 新增玻璃视效选择模式参数，透传至底层进度条组件。
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-) {
-    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    val progressState = if (isPreview) {
-        PlayerViewModel.PlaybackProgressViewState(
-            elapsedMs = 120000L,
-            durationMs = 360000L,
-            isChapterProgressMode = false
-        )
-    } else {
-        viewModel.playbackProgressState.collectAsStateWithLifecycle().value
-    }
-
-    PlaybackProgress(
-        currentPosition = progressState.elapsedMs,
-        totalDuration = progressState.durationMs,
-        isChapterMode = progressState.isChapterProgressMode,
-        // 底层的 PlaybackProgress 时间轴计算组件仅需要章节的位置范围等定义（ChapterEntity），
-        // 并不关心物理音频分轨（BookFile）的挂载状态。因此，在此处使用 .map { it.chapter }
-        // 对 ChapterWithBookFile 关系列表进行就地解包，满足类型契约且保证功能完美拆分。
-        chapters = metadata.chapters.map { it.chapter },
-        markers = metadata.getChapterMarkers(progressState.durationMs),
-        onSeek = { pos -> actions.playback.onSeek(pos, true) },
-        modifier = modifier,
-        glassEffectMode = glassEffectMode
-    )
-}
 
 /**
  * 播放进度条组件。
@@ -151,22 +106,7 @@ fun PlaybackProgress(
     }
 }
 
-// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
-@Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
-@Preview(showBackground = true, apiLevel = 36)
-@Composable
-fun PlaybackProgressStatefulPreview() {
-    APlayerTheme {
-        Surface {
-            PlaybackProgressStateful(
-                viewModel = PlayerViewModel(),
-                metadata = BookMetadataState(title = "三体"),
-                actions = PlayerActions(),
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    }
-}
+
 
 @Preview(showBackground = true, apiLevel = 36)
 @Composable

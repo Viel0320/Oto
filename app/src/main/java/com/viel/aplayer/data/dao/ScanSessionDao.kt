@@ -1,9 +1,12 @@
 package com.viel.aplayer.data.dao
 
-import androidx.room.*
-import kotlinx.coroutines.flow.Flow
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
 import com.viel.aplayer.data.entity.PendingScanActionEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ScanSessionDao {

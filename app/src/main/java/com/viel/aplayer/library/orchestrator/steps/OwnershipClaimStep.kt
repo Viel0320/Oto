@@ -7,14 +7,14 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.PendingScanActionEntity
 import com.viel.aplayer.library.FileIdentity
 import com.viel.aplayer.library.FileRef
+import com.viel.aplayer.library.orchestrator.BookDraftFactory
+import com.viel.aplayer.library.orchestrator.ImportContext
+import com.viel.aplayer.library.orchestrator.ImportSourceRef
+import com.viel.aplayer.library.orchestrator.ReservationResult
+import com.viel.aplayer.library.orchestrator.draftmodels.CoverExtractedResult
 import com.viel.aplayer.library.orchestrator.draftmodels.ImportCommand
 import com.viel.aplayer.library.orchestrator.draftmodels.ImportFailure
 import com.viel.aplayer.library.orchestrator.draftmodels.ImportRunResult
-import com.viel.aplayer.library.orchestrator.ImportSourceRef
-import com.viel.aplayer.library.orchestrator.ReservationResult
-import com.viel.aplayer.library.orchestrator.ImportContext
-import com.viel.aplayer.library.orchestrator.BookDraftFactory
-import com.viel.aplayer.library.orchestrator.draftmodels.CoverExtractedResult
 import java.util.UUID
 
 // 修复 ChapterCandidate 与 MetadataSuggestion 的包名导入错误，以正确找到在 com.viel.aplayer.library 下定义的类型

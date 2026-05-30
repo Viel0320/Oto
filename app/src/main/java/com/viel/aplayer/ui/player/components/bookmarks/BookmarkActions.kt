@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.bookmarks
+package com.viel.aplayer.ui.player.components.bookmarks
 
 import com.viel.aplayer.data.entity.BookmarkEntity
 

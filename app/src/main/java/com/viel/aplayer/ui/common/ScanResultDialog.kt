@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.home.components
+package com.viel.aplayer.ui.common
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,8 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.json.JSONObject
 import com.viel.aplayer.data.entity.ScanSessionEntity
+import org.json.JSONObject
 
 @Composable
 fun ScanResultDialog(

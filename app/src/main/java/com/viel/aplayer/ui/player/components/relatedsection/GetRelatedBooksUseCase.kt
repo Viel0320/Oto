@@ -1,8 +1,11 @@
-package com.viel.aplayer.ui.player
+package com.viel.aplayer.ui.player.components.relatedsection
 
-import kotlinx.coroutines.flow.*
-import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.gateway.BookQueryGateway
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 /**
  * 用例类：获取与当前书籍相关的推荐列表。
@@ -84,7 +87,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
         val anyNumPattern = "(\\d+)".toRegex()
         anyNumPattern.findAll(clean).forEach { match ->
             val num = match.groupValues[1].toDoubleOrNull()
-            if (num != null && (num < 1000 || num > 2200)) {
+            if (num != null && (num !in 1000.0..2200.0)) {
                 return num
             }
         }
@@ -171,10 +174,10 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
         // 一旦用户在详情页右上角修改了元数据并保存，该数据流管道会瞬间重新捕获，触发算法跑分重算，极速响应式实时更新播放面板推荐页。
         val currentBookFlow = repository.observeBookById(currentId)
         val heuristicFlow = combine(repository.audiobooks, currentBookFlow) { allBooks, currentBook ->
-            if (currentBook == null) return@combine emptyList<BookWithProgress>()
+            if (currentBook == null) return@combine emptyList()
             
             val currentTitle = currentBook.title
-            val currentYear = currentBook.year ?: ""
+            val currentYear = currentBook.year
             
             // 筛选并计算候选书籍评分
             val scoredBooks = allBooks.filter { it.book.id != currentId }

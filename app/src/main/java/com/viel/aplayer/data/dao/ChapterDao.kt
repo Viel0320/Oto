@@ -5,9 +5,9 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
-import kotlinx.coroutines.flow.Flow
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChapterDao {

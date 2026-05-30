@@ -7,11 +7,11 @@ import android.util.Log
 import android.util.LruCache
 import androidx.core.graphics.scale
 import androidx.palette.graphics.Palette
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * 图像处理中心。

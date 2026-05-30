@@ -1,7 +1,10 @@
 package com.viel.aplayer.ui.player.components
 
+// 导入基础 background 修饰符，修复 miuix-blur 磨砂玻璃大圆钮的背景修饰符编译未解析引用问题
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -42,22 +46,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.player.PlaybackControlActions
 import com.viel.aplayer.ui.theme.APlayerTheme
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.drawBackdrop
-import top.yukonga.miuix.kmp.blur.blur
-import top.yukonga.miuix.kmp.blur.textureBlur
-import top.yukonga.miuix.kmp.blur.BlurColors
+import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
-import androidx.compose.foundation.border
-import androidx.compose.ui.graphics.Brush
-
-// 导入基础 background 修饰符，修复 miuix-blur 磨砂玻璃大圆钮的背景修饰符编译未解析引用问题
-import androidx.compose.foundation.background
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

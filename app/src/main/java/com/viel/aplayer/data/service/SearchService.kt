@@ -1,8 +1,8 @@
 package com.viel.aplayer.data.service
 
+import com.viel.aplayer.data.gateway.SearchHistoryGateway
 import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.data.store.SearchHistoryStore
-import com.viel.aplayer.data.gateway.SearchHistoryGateway
 import kotlinx.coroutines.flow.Flow
 
 /**

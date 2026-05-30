@@ -2,10 +2,14 @@ package com.viel.aplayer.media
 
 import android.content.Context
 import androidx.media3.session.MediaController
+import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
-import com.viel.aplayer.data.entity.BookProgressEntity
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * 

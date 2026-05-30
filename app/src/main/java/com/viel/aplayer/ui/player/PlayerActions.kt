@@ -2,8 +2,8 @@ package com.viel.aplayer.ui.player
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.viel.aplayer.ui.bookmarks.BookmarkActions
 import com.viel.aplayer.ui.home.ContentActions
+import com.viel.aplayer.ui.player.components.bookmarks.BookmarkActions
 
 /**
  * 播放器操作聚合类。

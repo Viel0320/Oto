@@ -35,31 +35,63 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.bookmarks.BookmarkListViewStateful
 import com.viel.aplayer.ui.common.BottomNavTabs
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
 import com.viel.aplayer.ui.player.PlayerUiState
-import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.PlayerControlPanel
 import com.viel.aplayer.ui.player.components.PlayerLandscapeHeader
 import com.viel.aplayer.ui.player.components.RelatedBooksView
-import com.viel.aplayer.ui.player.components.SubtitlesViewStateful
+import com.viel.aplayer.ui.player.components.SubtitlesView
+import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-
 
 /**
  * 手机横屏播放器布局组件 (PlayerLandscapePhone)。
  * 专门针对普通智能手机横屏状态下“垂直高度极窄、水平面积极宽”的场景做视觉深度定制优化。
  * 左右双栏对称铺开，并将控制条沉底压实。
+ *
+ * 已经过重构彻底消除了对 PlayerViewModel 及其内部 State 类型的任何依赖，
+ * 达成了 100% 纯无状态 L3 布局组件的高标准，符合 Compose 架构分层设计。
+ *
+ * @param currentPosition 播放器当前物理播放进度（毫秒）
+ * @param totalDuration 播放器当前物理总时长（毫秒）
+ * @param isChapterMode 当前进度条是否处于章节进度视图模式
+ * @param currentChapter 当前正处于播放状态的章节实体
+ * @param isPlaying 当前是否处于播放中状态
+ * @param playbackSpeed 当前的播放速率
+ * @param isSpeedManualMode 播放速率是否被手动调节锁定
+ * @param bookmarkToDelete 待删除书签实体
+ * @param bookmarkToEdit 待编辑书签实体
+ * @param bookmarkEditTitle 编辑书签时输入框中的草稿标题
+ * @param onRequestDeleteBookmark 触发删除书签确认弹窗的回调
+ * @param onRequestEditBookmark 触发编辑书签弹窗的回调
+ * @param onBookmarkEditTitleChange 书签编辑标题输入变更的回调
+ * @param onConfirmDeleteBookmark 确认删除书签的回调
+ * @param onConfirmUpdateBookmark 确认更新书签标题的回调
+ * @param onDismissBookmarkDialogs 取消/关闭书签对话框的回调
  */
 @Composable
 fun PlayerLandscapePhone(
-    viewModel: PlayerViewModel,
+    currentPosition: Long,
+    totalDuration: Long,
+    isChapterMode: Boolean,
+    currentChapter: com.viel.aplayer.data.entity.ChapterEntity?,
+    isPlaying: Boolean,
+    playbackSpeed: Float,
+    isSpeedManualMode: Boolean,
+    bookmarkToDelete: com.viel.aplayer.data.entity.BookmarkEntity?,
+    bookmarkToEdit: com.viel.aplayer.data.entity.BookmarkEntity?,
+    bookmarkEditTitle: String,
+    onRequestDeleteBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit,
+    onRequestEditBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit,
+    onBookmarkEditTitleChange: (String) -> Unit,
+    onConfirmDeleteBookmark: () -> Unit,
+    onConfirmUpdateBookmark: () -> Unit,
+    onDismissBookmarkDialogs: () -> Unit,
     metadata: BookMetadataState,
-    controls: PlayerViewModel.PlaybackControlState,
     settings: com.viel.aplayer.ui.settings.PlayerSettingsState,
     actions: PlayerActions,
     fullUiState: PlayerUiState,
@@ -200,10 +232,11 @@ fun PlayerLandscapePhone(
                                 when (topMode) {
                                     PlayerScreenMode.SUBTITLES -> {
                                         Box(modifier = Modifier.fillMaxSize()) {
-                                            SubtitlesViewStateful(
-                                                viewModel = viewModel,
-                                                metadata = metadata,
-                                                actions = actions,
+                                            // 直接调用无状态的 SubtitlesView 渲染字幕组件，实现极致的重绘隔离
+                                            SubtitlesView(
+                                                subtitles = metadata.subtitles,
+                                                currentPosition = currentPosition,
+                                                onSeek = { actions.playback.onSeek(it, true) },
                                                 modifier = Modifier.fillMaxSize()
                                             )
                                         }
@@ -212,7 +245,7 @@ fun PlayerLandscapePhone(
                                         // 独立手势声音/左右切歌大封面，在横大屏下高度自适应顶满
                                         PlayerCover(
                                             coverPath = metadata.coverPath,
-                                            isPlaying = controls.isPlaying,
+                                            isPlaying = isPlaying,
                                             coverLastUpdated = metadata.coverLastUpdated,
                                             onAdjustVolume = { actions.playback.onAdjustVolume(it) },
                                             onNextChapter = { actions.playback.onNextChapter() },
@@ -223,11 +256,21 @@ fun PlayerLandscapePhone(
                             }
                         }
                         PlayerContentShell.Bookmarks -> {
+                            // 直接调用无状态的 BookmarkListView，解耦所有的有状态桥接层
                             Box(modifier = Modifier.fillMaxSize()) {
-                                BookmarkListViewStateful(
-                                    viewModel = viewModel,
-                                    metadata = metadata,
-                                    actions = actions,
+                                BookmarkListView(
+                                    bookmarks = metadata.bookmarks,
+                                    bookmarkToDelete = bookmarkToDelete,
+                                    bookmarkToEdit = bookmarkToEdit,
+                                    bookmarkEditTitle = bookmarkEditTitle,
+                                    onBookmarkClick = { pos -> actions.playback.onSeek(pos, true) },
+                                    onRequestDelete = onRequestDeleteBookmark,
+                                    onRequestEdit = onRequestEditBookmark,
+                                    onEditTitleChange = onBookmarkEditTitleChange,
+                                    onConfirmDelete = onConfirmDeleteBookmark,
+                                    onConfirmUpdate = onConfirmUpdateBookmark,
+                                    onDismissDialogs = onDismissBookmarkDialogs,
+                                    currentPosition = currentPosition,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -284,11 +327,17 @@ fun PlayerLandscapePhone(
                 // 撑满多余的垂直高度，强制使控制面板在底部对齐
                 Spacer(modifier = Modifier.weight(1f))
                 
-                // 横屏下的主要播放控制按钮及细长进度调节面板，采用全宽自适应填充
+                // 横屏下的主要播放控制按钮及细长进度调节面板，采用全宽自适应填充。
+                // 传入解包后的参数，彻底去除对 PlayerViewModel 的依赖。
                 PlayerControlPanel(
-                    viewModel = viewModel,
+                    currentPosition = currentPosition,
+                    totalDuration = totalDuration,
+                    isChapterMode = isChapterMode,
+                    currentChapter = currentChapter,
+                    isPlaying = isPlaying,
+                    playbackSpeed = playbackSpeed,
+                    isSpeedManualMode = isSpeedManualMode,
                     metadata = metadata,
-                    controls = controls,
                     settings = settings,
                     actions = actions,
                     buttonColor = animatedBgColor,

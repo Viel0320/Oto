@@ -1,10 +1,11 @@
 package com.viel.aplayer.ui.home.components
 
 // 新增 combinedClickable 导入以响应列表项目长按的高阶手势监听
-import android.util.Log
-import androidx.compose.foundation.combinedClickable
 // 新增 ExperimentalFoundationApi 导入，由于 combinedClickable 在旧版中是实验性 API，这里作为安全屏障防御编译期缺陷
+// 补充导入 getValue 和 setValue 的扩展方法以支持 Composable 属性代理委托机制 (H-13)
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,10 +24,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-// 补充导入 getValue 和 setValue 的扩展方法以支持 Composable 属性代理委托机制 (H-13)
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,10 +40,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import java.io.File
 import com.viel.aplayer.ui.common.formatCompactDuration
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.theme.APlayerTheme
+import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

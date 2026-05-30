@@ -1,9 +1,9 @@
-package com.viel.aplayer.ui.bookmarks
+package com.viel.aplayer.ui.player.components.bookmarks
 
+import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.data.gateway.BookQueryGateway
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import com.viel.aplayer.data.gateway.BookQueryGateway
-import com.viel.aplayer.data.entity.BookmarkEntity
 
 /**
  * 书签业务逻辑管理器。

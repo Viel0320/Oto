@@ -1,14 +1,14 @@
 package com.viel.aplayer.media.manifest
 
 import android.util.Log
+import com.viel.aplayer.library.ChapterCandidate
+import com.viel.aplayer.library.FileRef
+import com.viel.aplayer.library.MetadataSuggestion
 import java.io.BufferedInputStream
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.nio.charset.Charset
-import com.viel.aplayer.library.ChapterCandidate
-import com.viel.aplayer.library.FileRef
-import com.viel.aplayer.library.MetadataSuggestion
 
 /**
  * 工业级 CUE 标准解析器。

@@ -1,6 +1,9 @@
 package com.viel.aplayer.ui.settings
 
 import android.content.Context
+import com.viel.aplayer.media.PlaybackManager
+import com.viel.aplayer.ui.player.BookMetadataState
+import com.viel.aplayer.ui.player.PlaybackState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -8,9 +11,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import com.viel.aplayer.media.PlaybackManager
-import com.viel.aplayer.ui.player.BookMetadataState
-import com.viel.aplayer.ui.player.PlaybackState
 import kotlin.math.ln
 
 /**

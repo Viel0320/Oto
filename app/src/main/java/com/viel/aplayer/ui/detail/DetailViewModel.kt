@@ -1,8 +1,12 @@
 package com.viel.aplayer.ui.detail
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.media.parser.ImageProcessor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,10 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import android.os.SystemClock
-import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.media.parser.ImageProcessor
 
 /**
  * 书籍详情页的 ViewModel。

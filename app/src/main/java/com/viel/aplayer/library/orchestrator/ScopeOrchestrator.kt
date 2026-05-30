@@ -12,9 +12,9 @@ import com.viel.aplayer.library.SourceInventoryScanner
 import com.viel.aplayer.library.orchestrator.draftmodels.ImportCommand
 import com.viel.aplayer.library.orchestrator.draftmodels.ImportFailure
 import com.viel.aplayer.library.orchestrator.draftmodels.ImportRunResult
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.logger.ImportTimingLogger
 import kotlinx.coroutines.CancellationException
-import com.viel.aplayer.library.vfs.VfsFileInterface
 
 /**
  * 全局扫描会话调度引擎工位（ScopeOrchestrator）。

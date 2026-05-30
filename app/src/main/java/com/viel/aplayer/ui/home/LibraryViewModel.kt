@@ -1,9 +1,15 @@
 package com.viel.aplayer.ui.home
 
+// 导入全局通用的 UI 一次性反馈事件定义，用以解耦模块专有的 LibraryUiEvent
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.R
+import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.ui.common.UiEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -13,12 +19,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.R
-import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.entity.ScanSessionEntity
-// 导入全局通用的 UI 一次性反馈事件定义，用以解耦模块专有的 LibraryUiEvent
-import com.viel.aplayer.ui.common.UiEvent
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as APlayerApplication).container

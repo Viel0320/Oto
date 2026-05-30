@@ -2,14 +2,14 @@ package com.viel.aplayer.ui.settings
 
 import android.content.Context
 import android.media.AudioManager
+import com.viel.aplayer.media.PlaybackManager
+import com.viel.aplayer.ui.player.BookMetadataState
+import com.viel.aplayer.ui.player.PlaybackState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import com.viel.aplayer.media.PlaybackManager
-import com.viel.aplayer.ui.player.BookMetadataState
-import com.viel.aplayer.ui.player.PlaybackState
 
 /**
  * 播放器设置与 UI 交互管理器。

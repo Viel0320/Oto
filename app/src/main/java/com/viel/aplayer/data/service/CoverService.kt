@@ -7,8 +7,8 @@ import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.ChapterDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.gateway.CoverGateway
-import com.viel.aplayer.library.availability.DetailAvailabilityChecker
 import com.viel.aplayer.library.availability.AvailabilityChecker
+import com.viel.aplayer.library.availability.DetailAvailabilityChecker
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.media.parser.MetadataResolver

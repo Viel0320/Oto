@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.player
 
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.ui.player.components.relatedsection.RelatedSection
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 
 /**

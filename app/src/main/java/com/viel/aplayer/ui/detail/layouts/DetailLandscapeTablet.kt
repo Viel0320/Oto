@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,31 +24,32 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
 import com.viel.aplayer.ui.detail.components.DetailHeader
 import com.viel.aplayer.ui.detail.components.DetailSummary
-import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
- * 平板/大屏自适应布局 (Tablets / Medium-Expanded)
- * 采用经典的双栏设计，左侧为固定书籍元数据与操作区，右侧为简介。
+ * 平板/大屏横屏自适应布局 (DetailTabletLandscape)
+ * 专门在平板横屏大屏幕或折叠屏展开的横屏状态下提供双栏排版：
+ * 左侧为固定封面、元数据与操作播放控制区，右侧为详情简介。
  */
 @Composable
-fun DetailTablet(
-    book: BookEntity?,
-    uiState: DetailUiState,
-    padding: PaddingValues,
-    safeDrawingPadding: PaddingValues,
-    glassEffectMode: GlassEffectMode,
-    detailBackdrop: LayerBackdrop,
-    onPlayPressed: () -> Unit,
-    onPlayClick: () -> Unit,
-    onSearchClick: (String) -> Unit,
-    onShowInfo: (String, String) -> Unit,
+fun DetailTabletLandscape(
+    book: BookEntity?, // 书籍元数据实体
+    uiState: DetailUiState, // UI状态模型
+    padding: PaddingValues, // scaffold 内边距
+    safeDrawingPadding: PaddingValues, // 物理安全区
+    glassEffectMode: GlassEffectMode, // 玻璃视效选择模式
+    detailBackdrop: LayerBackdrop, // 背景采样源
+    onPlayPressed: () -> Unit, // 播放物理触发前防抖回调
+    onPlayClick: () -> Unit, // 确认播放操作回调
+    onSearchClick: (String) -> Unit, // 搜索回调
+    onShowInfo: (String, String) -> Unit, // 弹窗详情展示回调
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
@@ -156,10 +155,10 @@ fun DetailTablet(
 
 @Preview(showBackground = true, apiLevel = 36, widthDp = 1280, heightDp = 800)
 @Composable
-fun DetailTabletPreview() {
+fun DetailTabletLandscapePreview() {
     APlayerTheme {
         Surface {
-            DetailTablet(
+            DetailTabletLandscape(
                 book = BookEntity(id = "1", rootId = "root", sourceType = "LOCAL", title = "三体", author = "刘慈欣", narrator = "王明", description = "这是一部科幻巨著。"),
                 uiState = DetailUiState(),
                 padding = PaddingValues(24.dp),

@@ -6,10 +6,10 @@ import com.viel.aplayer.library.FileIdentity
 import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.sortedByStableFileKey
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.manifest.CueManifestParser
 import com.viel.aplayer.media.manifest.M3u8ManifestParser
 import com.viel.aplayer.media.manifest.ManifestResolver
-import com.viel.aplayer.library.vfs.VfsFileInterface
 import java.util.Locale
 
 // ImportScope 是“可以安全裁决并即时入库”的最小导入单元，避免直接按 VFS 父目录键切片导致 claim 与启发式聚合上下文不完整。

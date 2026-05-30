@@ -7,18 +7,18 @@ import androidx.room.RoomDatabase
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookmarkDao
 import com.viel.aplayer.data.dao.ChapterDao
+import com.viel.aplayer.data.dao.DirectoryCacheDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.dao.ScanSessionDao
-import com.viel.aplayer.data.dao.DirectoryCacheDao
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.entity.DirectoryCacheEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.PendingScanActionEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
-import com.viel.aplayer.data.entity.DirectoryCacheEntity
 
 @Database(
     entities = [

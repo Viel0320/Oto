@@ -6,7 +6,6 @@ import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,10 +28,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.aplayer.ui.player.BookMetadataState
-import com.viel.aplayer.ui.player.PlayerActions
-import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 data class SubtitleLine(
@@ -40,34 +35,6 @@ data class SubtitleLine(
     val endTime: Long,
     val text: String
 )
-
-// 
-// 4. 歌词字幕有状态局部隔间 SubtitlesViewStateful
-// 局部订阅高频进度，维持流畅高频的歌词定位，阻断该高频对外部容器和 AppBar 等的刷新污染。
-@Composable
-fun SubtitlesViewStateful(
-    viewModel: PlayerViewModel,
-    metadata: BookMetadataState,
-    actions: PlayerActions,
-    modifier: Modifier = Modifier
-) {
-    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    val progressState = if (isPreview) {
-        PlayerViewModel.PlaybackProgressViewState(
-            elapsedMs = 120000L,
-            durationMs = 360000L,
-            isChapterProgressMode = false
-        )
-    } else {
-        viewModel.playbackProgressState.collectAsStateWithLifecycle().value
-    }
-    SubtitlesView(
-        subtitles = metadata.subtitles,
-        currentPosition = progressState.elapsedMs,
-        onSeek = { pos -> actions.playback.onSeek(pos, true) },
-        modifier = modifier
-    )
-}
 
 @Composable
 fun SubtitlesView(
@@ -170,22 +137,7 @@ fun SubtitlesView(
 }
 
 
-// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
-@Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
-@Preview(showBackground = true, apiLevel = 36)
-@Composable
-fun SubtitlesViewStatefulPreview() {
-    APlayerTheme {
-        Surface {
-            SubtitlesViewStateful(
-                viewModel = PlayerViewModel(),
-                metadata = BookMetadataState(title = "三体"),
-                actions = PlayerActions(),
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    }
-}
+
 
 @Preview(showBackground = true, apiLevel = 36)
 @Composable

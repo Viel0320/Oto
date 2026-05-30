@@ -5,11 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import com.viel.aplayer.media.service.PlaybackService
 
 /**

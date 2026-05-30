@@ -1,13 +1,13 @@
 package com.viel.aplayer.media.manifest
 
 import android.util.Log
-import java.io.BufferedReader
-import java.io.InputStream
-import java.io.InputStreamReader
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.MetadataSuggestion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
+import java.io.InputStream
+import java.io.InputStreamReader
 
 /**
  * M3U8/M3U 播放列表解析器。

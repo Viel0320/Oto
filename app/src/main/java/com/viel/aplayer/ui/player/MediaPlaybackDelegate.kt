@@ -1,13 +1,13 @@
 package com.viel.aplayer.ui.player
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.media.BookPlaybackPlan
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.media.PlaybackManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * 媒体播放逻辑委托类。
@@ -31,10 +31,7 @@ class MediaPlaybackDelegate(
         playWhenReady: Boolean,
         onCoverUpdate: (String?) -> Unit
     ) {
-        playbackManager()?.let { manager ->
-            // 为本次桌面 widget 改动添加注释：将“加载后是否立即播放”下沉给 PlaybackManager，保证桌面小组件冷启动连接 MediaController 时也能可靠 autoplay。
-            manager.setBookPlaybackPlan(plan, playWhenReady)
-        }
+        playbackManager()?.setBookPlaybackPlan(plan, playWhenReady)
 
         // 轮询封面路径
         scope.launch {

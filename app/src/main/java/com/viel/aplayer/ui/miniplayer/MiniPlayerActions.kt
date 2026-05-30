@@ -1,5 +1,4 @@
-package com.viel.aplayer.ui.player
-
+package com.viel.aplayer.ui.miniplayer
 
 data class MiniPlayerActions(
     val onPlayPauseClick: () -> Unit = {},

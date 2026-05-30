@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.bookmarks
+package com.viel.aplayer.ui.player.components.bookmarks
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +11,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,9 +30,9 @@ fun BookmarkDialog(
     onDismiss: () -> Unit
 ) {
     if (isVisible) {
-        // 利用 remember(isVisible) 在 Dialog 显示时初始化 localTitle 变量，
-        // 用户键盘打字只会更新此局部状态并重组当前 Dialog 内部，确保整个 APlayer 主界面不会因打字而卡顿。
-        var localTitle by remember(isVisible) { mutableStateOf(defaultTitle) }
+        // 升级 remember 为 rememberSaveable(isVisible)，在 Dialog 显示时初始化 localTitle，
+        // 并在设备屏幕旋转等配置变更（Configuration Changes）时自动从 Bundle 完美恢复内容，彻底修复输入丢失问题。
+        var localTitle by rememberSaveable(isVisible) { mutableStateOf(defaultTitle) }
 
         AlertDialog(
             onDismissRequest = onDismiss,

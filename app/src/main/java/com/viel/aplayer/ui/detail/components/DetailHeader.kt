@@ -3,7 +3,6 @@ package com.viel.aplayer.ui.detail.components
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.text.SpannableStringBuilder
 import android.text.style.LeadingMarginSpan
 import android.view.ActionMode

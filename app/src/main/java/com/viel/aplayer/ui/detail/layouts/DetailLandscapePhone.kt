@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,11 +25,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
 import com.viel.aplayer.ui.detail.components.DetailHeader
 import com.viel.aplayer.ui.detail.components.DetailSummary
-import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop

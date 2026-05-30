@@ -10,7 +10,6 @@ import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
-import java.util.LinkedHashMap
 import java.util.UUID
 
 // MP4/M4B 元数据帧读取器只通过 VFS Range 小片段读取 moov/ilst/covr atom，不下载远程整文件。

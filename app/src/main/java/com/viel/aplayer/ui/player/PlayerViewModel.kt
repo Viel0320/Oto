@@ -11,7 +11,9 @@ import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.media.AutoRewindManager
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.media.parser.ImageProcessor
-import com.viel.aplayer.ui.bookmarks.BookmarkManager
+import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
+import com.viel.aplayer.ui.player.components.relatedsection.GetRelatedBooksUseCase
+import com.viel.aplayer.ui.player.components.relatedsection.RelatedData
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +37,7 @@ import kotlinx.coroutines.launch
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerViewModel : ViewModel() {
     companion object {
-        private val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
+        private val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f)
         private val SLEEP_TIMER_OPTIONS = listOf(0, -1, -2, 15, 30, 60)
     }
 
@@ -175,7 +177,14 @@ class PlayerViewModel : ViewModel() {
         .flatMapLatest { meta ->
             val id = meta.id
             if (id.isBlank() || id == "Unknown") {
-                return@flatMapLatest flowOf(RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
+                return@flatMapLatest flowOf(
+                    RelatedData(
+                        emptyList(),
+                        emptyList(),
+                        emptyList(),
+                        emptyList()
+                    )
+                )
             }
 
             val author = meta.author
@@ -188,7 +197,9 @@ class PlayerViewModel : ViewModel() {
             getRelatedBooksUseCase?.invoke(id, author, narrator)
                 ?: flowOf(RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000),
+            RelatedData(emptyList(), emptyList(), emptyList(), emptyList())
+        )
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val playbackState: StateFlow<PlaybackState> = _currentBookId
@@ -643,9 +654,4 @@ class PlayerViewModel : ViewModel() {
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        // H-21: 不再释放进程级单例 PlaybackManager，避免破坏其他持有者（迷你播放器、Service）的会话。
-        // PlaybackManager 的生命周期由进程管理，不应由单个 ViewModel 控制。
-    }
 }

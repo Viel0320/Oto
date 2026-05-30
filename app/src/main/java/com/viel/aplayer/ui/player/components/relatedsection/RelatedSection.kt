@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.player
+package com.viel.aplayer.ui.player.components.relatedsection
 
 import com.viel.aplayer.data.entity.BookWithProgress
 

@@ -35,31 +35,43 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.bookmarks.BookmarkListViewStateful
 import com.viel.aplayer.ui.common.BottomNavTabs
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
 import com.viel.aplayer.ui.player.PlayerUiState
-import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.PlayerControlPanel
 import com.viel.aplayer.ui.player.components.PlayerLandscapeHeader
 import com.viel.aplayer.ui.player.components.RelatedBooksView
-import com.viel.aplayer.ui.player.components.SubtitlesViewStateful
+import com.viel.aplayer.ui.player.components.SubtitlesView
+import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
-
 /**
- * 平板/大屏播放器自适应布局组件 (PlayerTablet)。
- * 在平板大屏幕、折叠屏横竖屏下提供顶级的视觉表现。
+ * 平板/大屏横屏播放器自适应布局组件 (PlayerTabletLandscape)。
+ * 专门在平板横屏大屏幕或折叠屏展开的横屏状态下提供顶级的视觉表现。
  * 左右双栏对称铺开，上下应用 10% 屏幕高度的大边距，产生极其尊贵的高级感与舒适空灵的呼吸感。
  */
 @Composable
-fun PlayerTablet(
-    viewModel: PlayerViewModel,
+fun PlayerTabletLandscape(
+    currentPosition: Long, // 播放器当前物理播放进度（毫秒）
+    totalDuration: Long, // 播放器当前物理总时长（毫秒）
+    isChapterMode: Boolean, // 当前进度条是否处于章节进度视图模式
+    currentChapter: com.viel.aplayer.data.entity.ChapterEntity?, // 当前正处于播放状态的章节实体
+    isPlaying: Boolean, // 当前是否处于播放中状态
+    playbackSpeed: Float, // 当前的播放速率
+    isSpeedManualMode: Boolean, // 播放速率是否被手动调节锁定
+    bookmarkToDelete: com.viel.aplayer.data.entity.BookmarkEntity?, // 待删除书签实体
+    bookmarkToEdit: com.viel.aplayer.data.entity.BookmarkEntity?, // 待编辑书签实体
+    bookmarkEditTitle: String, // 编辑书签时输入框中的草稿标题
+    onRequestDeleteBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit, // 触发删除书签确认弹窗的回调
+    onRequestEditBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit, // 触发编辑书签弹窗的回调
+    onBookmarkEditTitleChange: (String) -> Unit, // 书签编辑标题输入变更的回调
+    onConfirmDeleteBookmark: () -> Unit, // 确认删除书签的回调
+    onConfirmUpdateBookmark: () -> Unit, // 确认更新书签标题的回调
+    onDismissBookmarkDialogs: () -> Unit, // 取消/关闭书签对话框的回调
     metadata: BookMetadataState,
-    controls: PlayerViewModel.PlaybackControlState,
     settings: com.viel.aplayer.ui.settings.PlayerSettingsState,
     actions: PlayerActions,
     fullUiState: PlayerUiState,
@@ -114,7 +126,7 @@ fun PlayerTablet(
         }
 
         // ==========================================
-        // 1. 左侧大屏页签操作区 (分配比重 1f)
+        // 1. Left side tab content column (Ratio 1f)
         // ==========================================
         Column(
             modifier = Modifier
@@ -198,10 +210,11 @@ fun PlayerTablet(
                                 when (topMode) {
                                     PlayerScreenMode.SUBTITLES -> {
                                         Box(modifier = Modifier.fillMaxSize()) {
-                                            SubtitlesViewStateful(
-                                                viewModel = viewModel,
-                                                metadata = metadata,
-                                                actions = actions,
+                                            // 直接调用无状态的 SubtitlesView 渲染字幕组件
+                                            SubtitlesView(
+                                                subtitles = metadata.subtitles,
+                                                currentPosition = currentPosition,
+                                                onSeek = { actions.playback.onSeek(it, true) },
                                                 modifier = Modifier.fillMaxSize()
                                             )
                                         }
@@ -209,7 +222,7 @@ fun PlayerTablet(
                                     else -> {
                                         PlayerCover(
                                             coverPath = metadata.coverPath,
-                                            isPlaying = controls.isPlaying,
+                                            isPlaying = isPlaying,
                                             coverLastUpdated = metadata.coverLastUpdated,
                                             onAdjustVolume = { actions.playback.onAdjustVolume(it) },
                                             onNextChapter = { actions.playback.onNextChapter() },
@@ -220,11 +233,21 @@ fun PlayerTablet(
                             }
                         }
                         PlayerContentShell.Bookmarks -> {
+                            // 直接调用无状态的 BookmarkListView，解耦桥接
                             Box(modifier = Modifier.fillMaxSize()) {
-                                BookmarkListViewStateful(
-                                    viewModel = viewModel,
-                                    metadata = metadata,
-                                    actions = actions,
+                                BookmarkListView(
+                                    bookmarks = metadata.bookmarks,
+                                    bookmarkToDelete = bookmarkToDelete,
+                                    bookmarkToEdit = bookmarkToEdit,
+                                    bookmarkEditTitle = bookmarkEditTitle,
+                                    onBookmarkClick = { pos -> actions.playback.onSeek(pos, true) },
+                                    onRequestDelete = onRequestDeleteBookmark,
+                                    onRequestEdit = onRequestEditBookmark,
+                                    onEditTitleChange = onBookmarkEditTitleChange,
+                                    onConfirmDelete = onConfirmDeleteBookmark,
+                                    onConfirmUpdate = onConfirmUpdateBookmark,
+                                    onDismissDialogs = onDismissBookmarkDialogs,
+                                    currentPosition = currentPosition,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -256,7 +279,7 @@ fun PlayerTablet(
         }
 
         // ==========================================
-        // 2. 右侧平板控制与标题卡 (分配占比 1f)
+        // 2. Right side tablet controls & title header (Ratio 1f)
         // ==========================================
         Surface(
             modifier = Modifier
@@ -281,11 +304,17 @@ fun PlayerTablet(
                 // 强制将控制面板下压靠底
                 Spacer(modifier = Modifier.weight(1f))
                 
-                // 平板主控制面板
+                // 平板主控制面板。
+                // 传入解包后的基础数据类型，彻底解耦 PlayerViewModel。
                 PlayerControlPanel(
-                    viewModel = viewModel,
+                    currentPosition = currentPosition,
+                    totalDuration = totalDuration,
+                    isChapterMode = isChapterMode,
+                    currentChapter = currentChapter,
+                    isPlaying = isPlaying,
+                    playbackSpeed = playbackSpeed,
+                    isSpeedManualMode = isSpeedManualMode,
                     metadata = metadata,
-                    controls = controls,
                     settings = settings,
                     actions = actions,
                     buttonColor = animatedBgColor,
@@ -297,3 +326,5 @@ fun PlayerTablet(
         }
     }
 }
+
+

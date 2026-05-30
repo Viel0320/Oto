@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.navigation
 
+//
+// 引入 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现更加清透的视口级高斯模糊折射效果
 import android.text.Layout
 import android.text.SpannableString
 import android.text.Spanned
@@ -7,11 +9,11 @@ import android.text.style.AlignmentSpan
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,25 +24,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.detail.DetailOverlay
 import com.viel.aplayer.ui.detail.DetailViewModel
-import com.viel.aplayer.ui.home.LibraryViewModel
-import com.viel.aplayer.ui.home.components.ScanResultDialog
-import com.viel.aplayer.ui.player.MiniPlayerActions
-import com.viel.aplayer.ui.player.PlayerViewModel
-import com.viel.aplayer.ui.player.components.PlayerOverlay
-import com.viel.aplayer.ui.miniplayer.MiniPlayerOverlay
-import com.viel.aplayer.ui.player.rememberActions
-import com.viel.aplayer.ui.theme.APlayerTheme
-import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.edit.EditBookOverlay
 import com.viel.aplayer.ui.edit.EditBookViewModel
-
-// 
-// 引入 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现更加清透的视口级高斯模糊折射效果
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import com.viel.aplayer.ui.home.LibraryViewModel
+import com.viel.aplayer.ui.common.ScanResultDialog
+import com.viel.aplayer.ui.miniplayer.MiniPlayerActions
+import com.viel.aplayer.ui.miniplayer.MiniPlayerOverlay
+import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.player.components.PlayerOverlay
+import com.viel.aplayer.ui.player.rememberActions
+import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 @Composable
 fun APlayerApp(

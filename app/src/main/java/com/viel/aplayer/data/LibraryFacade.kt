@@ -1,10 +1,10 @@
 package com.viel.aplayer.data
 
 import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.CoverGateway
+import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
-import com.viel.aplayer.data.gateway.LibraryRootGateway
-import com.viel.aplayer.data.gateway.CoverGateway
 import com.viel.aplayer.data.gateway.SearchHistoryGateway
 
 /**

@@ -1,12 +1,18 @@
 package com.viel.aplayer.ui.player.components
 
+// 引入 Spacer 和 width 布局扩展，用以精细编排自定义磨砂药丸内的图标与文字间距
+
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-// 引入 Spacer 和 width 布局扩展，用以精细编排自定义磨砂药丸内的图标与文字间距
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,65 +30,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.theme.APlayerTheme
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-
-
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.aplayer.ui.player.BookMetadataState
-import com.viel.aplayer.ui.player.PlayerActions
-import com.viel.aplayer.ui.player.PlayerViewModel
-
-/**
- * 章节标题显示的有状态局部隔间。
- * 本组件局部订阅极其低频的章节变化通道 currentChapterState。
- * 只有在真正切换音频章节的边界临界点时才会触发重组，实现了极致的重组频率隔离。
- */
-@Composable
-fun ChapterDisplayStateful(
-    viewModel: PlayerViewModel,
-    metadata: BookMetadataState,
-    actions: PlayerActions,
-    glassEffectMode: GlassEffectMode,
-    backdrop: LayerBackdrop?,
-    modifier: Modifier = Modifier
-) {
-    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    val currentChapter = if (isPreview) {
-        com.viel.aplayer.data.entity.ChapterEntity(
-            id = "chapter_1",
-            bookId = "book_1",
-            bookFileId = "file_1",
-            index = 1,
-            title = "第一章：危机纪元",
-            startPositionMs = 0L,
-            durationMs = 360000L,
-            fileOffsetMs = 0L,
-            source = "EMBEDDED"
-        )
-    } else {
-        viewModel.currentChapterState.collectAsStateWithLifecycle().value
-    }
-    ChapterDisplay(
-        currentChapterTitle = currentChapter?.title ?: metadata.title,
-        onChapterClick = actions.content.onShowChapterList,
-        onBookmarkClick = actions.bookmarks.onShowDialog,
-        glassEffectMode = glassEffectMode,
-        backdrop = backdrop,
-        modifier = modifier
-    )
-}
 
 @Composable
 fun ChapterDisplay(
@@ -229,26 +184,7 @@ fun ChapterDisplay(
     }
 }
 
-// Added apiLevel = 36 to resolve layout fidelity warning in Android Studio Preview
-// when using a compileSdk higher than the layout editor's supported range.
-// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
-@Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
-@Preview(showBackground = true, apiLevel = 36)
-@Composable
-fun ChapterDisplayStatefulPreview() {
-    APlayerTheme {
-        Surface {
-            ChapterDisplayStateful(
-                viewModel = PlayerViewModel(),
-                metadata = BookMetadataState(title = "三体"),
-                actions = PlayerActions(),
-                glassEffectMode = GlassEffectMode.Material,
-                backdrop = rememberLayerBackdrop(),
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    }
-}
+
 
 @Preview(showBackground = true, apiLevel = 36)
 @Composable

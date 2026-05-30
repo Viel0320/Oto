@@ -48,14 +48,14 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterListSheetStateful
+import com.viel.aplayer.ui.player.components.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
 import com.viel.aplayer.ui.player.layouts.PlayerPortrait
-import com.viel.aplayer.ui.player.layouts.PlayerTablet
+import com.viel.aplayer.ui.player.layouts.PlayerTabletLandscape
 import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -81,6 +81,46 @@ fun PlayerScreen(
     fullPageBackdrop: LayerBackdrop? = null,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+
+    // =====================================================================
+    // 第二阶段重构：统一在 L2 容器级别收集所有高频和低频的状态。
+    // 这将实现 Layout 层的纯无状态化，极大方便 UI 多渠道适配、解耦与真机测试。
+    // =====================================================================
+    val progressState = if (isPreview) {
+        PlayerViewModel.PlaybackProgressViewState(
+            elapsedMs = 120000L,
+            durationMs = 360000L,
+            isChapterProgressMode = false
+        )
+    } else {
+        viewModel.playbackProgressState.collectAsStateWithLifecycle().value
+    }
+
+    val currentChapter = if (isPreview) {
+        com.viel.aplayer.data.entity.ChapterEntity(
+            id = "chapter_1",
+            bookId = "book_1",
+            bookFileId = "file_1",
+            index = 1,
+            title = "第一章：危机纪元",
+            startPositionMs = 0L,
+            durationMs = 360000L,
+            fileOffsetMs = 0L,
+            source = "EMBEDDED"
+        )
+    } else {
+        viewModel.currentChapterState.collectAsStateWithLifecycle().value
+    }
+
+    val bookmarkDialogs = if (isPreview) {
+        PlayerViewModel.BookmarkDialogsState(
+            toDelete = null,
+            toEdit = null,
+            editTitle = ""
+        )
+    } else {
+        viewModel.bookmarkDialogs.collectAsStateWithLifecycle().value
+    }
 
     // 如果处于 IDE 预览环境，则注入精美的 Mock 数据，避免底层的 Flow 订阅和 ViewModel 的初始化依赖
     val metadata = if (isPreview) {
@@ -271,14 +311,37 @@ fun PlayerScreen(
                 Box(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // 根据系统配置，自适应分流调用三大 layouts
+                    // 仅当设备的最小宽度 dp 大于等于 600 (即平板设备) 且当前为横屏状态时，才启用平板横屏双栏自适应布局
                     val isTablet = configuration.smallestScreenWidthDp >= 600
+                    val isTabletLandscape = isTablet && isLandscape
                     when {
-                        isTablet -> {
-                            PlayerTablet(
-                                viewModel = viewModel,
+                        isTabletLandscape -> {
+                            PlayerTabletLandscape(
+                                currentPosition = progressState.elapsedMs,
+                                totalDuration = progressState.durationMs,
+                                isChapterMode = progressState.isChapterProgressMode,
+                                currentChapter = currentChapter,
+                                isPlaying = controls.isPlaying,
+                                playbackSpeed = controls.playbackSpeed,
+                                isSpeedManualMode = controls.isSpeedManualMode,
+                                bookmarkToDelete = bookmarkDialogs.toDelete,
+                                bookmarkToEdit = bookmarkDialogs.toEdit,
+                                bookmarkEditTitle = bookmarkDialogs.editTitle,
+                                onRequestDeleteBookmark = { viewModel.requestDeleteBookmark(it) },
+                                onRequestEditBookmark = { viewModel.requestEditBookmark(it) },
+                                onBookmarkEditTitleChange = { viewModel.onBookmarkEditTitleChange(it) },
+                                onConfirmDeleteBookmark = {
+                                    bookmarkDialogs.toDelete?.let { bookmark ->
+                                        actions.bookmarks.onDelete(bookmark)
+                                    }
+                                },
+                                onConfirmUpdateBookmark = {
+                                    bookmarkDialogs.toEdit?.let { bookmark ->
+                                        actions.bookmarks.onUpdate(bookmark, bookmarkDialogs.editTitle)
+                                    }
+                                },
+                                onDismissBookmarkDialogs = { viewModel.dismissBookmarkDialogs() },
                                 metadata = metadata,
-                                controls = controls,
                                 settings = settings,
                                 actions = actions,
                                 fullUiState = fullUiState,
@@ -294,9 +357,31 @@ fun PlayerScreen(
                         }
                         isLandscape -> {
                             PlayerLandscapePhone(
-                                viewModel = viewModel,
+                                currentPosition = progressState.elapsedMs,
+                                totalDuration = progressState.durationMs,
+                                isChapterMode = progressState.isChapterProgressMode,
+                                currentChapter = currentChapter,
+                                isPlaying = controls.isPlaying,
+                                playbackSpeed = controls.playbackSpeed,
+                                isSpeedManualMode = controls.isSpeedManualMode,
+                                bookmarkToDelete = bookmarkDialogs.toDelete,
+                                bookmarkToEdit = bookmarkDialogs.toEdit,
+                                bookmarkEditTitle = bookmarkDialogs.editTitle,
+                                onRequestDeleteBookmark = { viewModel.requestDeleteBookmark(it) },
+                                onRequestEditBookmark = { viewModel.requestEditBookmark(it) },
+                                onBookmarkEditTitleChange = { viewModel.onBookmarkEditTitleChange(it) },
+                                onConfirmDeleteBookmark = {
+                                    bookmarkDialogs.toDelete?.let { bookmark ->
+                                        actions.bookmarks.onDelete(bookmark)
+                                    }
+                                },
+                                onConfirmUpdateBookmark = {
+                                    bookmarkDialogs.toEdit?.let { bookmark ->
+                                        actions.bookmarks.onUpdate(bookmark, bookmarkDialogs.editTitle)
+                                    }
+                                },
+                                onDismissBookmarkDialogs = { viewModel.dismissBookmarkDialogs() },
                                 metadata = metadata,
-                                controls = controls,
                                 settings = settings,
                                 actions = actions,
                                 fullUiState = fullUiState,
@@ -312,9 +397,31 @@ fun PlayerScreen(
                         }
                         else -> {
                             PlayerPortrait(
-                                viewModel = viewModel,
+                                currentPosition = progressState.elapsedMs,
+                                totalDuration = progressState.durationMs,
+                                isChapterMode = progressState.isChapterProgressMode,
+                                currentChapter = currentChapter,
+                                isPlaying = controls.isPlaying,
+                                playbackSpeed = controls.playbackSpeed,
+                                isSpeedManualMode = controls.isSpeedManualMode,
+                                bookmarkToDelete = bookmarkDialogs.toDelete,
+                                bookmarkToEdit = bookmarkDialogs.toEdit,
+                                bookmarkEditTitle = bookmarkDialogs.editTitle,
+                                onRequestDeleteBookmark = { viewModel.requestDeleteBookmark(it) },
+                                onRequestEditBookmark = { viewModel.requestEditBookmark(it) },
+                                onBookmarkEditTitleChange = { viewModel.onBookmarkEditTitleChange(it) },
+                                onConfirmDeleteBookmark = {
+                                    bookmarkDialogs.toDelete?.let { bookmark ->
+                                        actions.bookmarks.onDelete(bookmark)
+                                    }
+                                },
+                                onConfirmUpdateBookmark = {
+                                    bookmarkDialogs.toEdit?.let { bookmark ->
+                                        actions.bookmarks.onUpdate(bookmark, bookmarkDialogs.editTitle)
+                                    }
+                                },
+                                onDismissBookmarkDialogs = { viewModel.dismissBookmarkDialogs() },
                                 metadata = metadata,
-                                controls = controls,
                                 settings = settings,
                                 actions = actions,
                                 fullUiState = fullUiState,
@@ -379,9 +486,11 @@ fun PlayerScreen(
             }
         }
 
-        // 采用 Stateful 局部隔间包裹章节列表弹窗，在弹窗不可见时完全停摆以防高频重组
+        // 采用 Stateful 局部隔间包裹章节列表弹窗，在弹窗不可见时完全停摆以防高频重组。
+        // 已完成去 ViewModel 重构，改由外部传入已在 L2 统一收集的 progressState 数据流进行渲染。
         ChapterListSheetStateful(
-            viewModel = viewModel,
+            currentPosition = progressState.elapsedMs,
+            totalDuration = progressState.durationMs,
             metadata = metadata,
             settings = settings,
             actions = actions,

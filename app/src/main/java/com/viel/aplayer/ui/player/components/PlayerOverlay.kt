@@ -11,15 +11,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
-import com.viel.aplayer.ui.player.PlayerScreen
 import com.viel.aplayer.ui.player.PlayerActions
+import com.viel.aplayer.ui.player.PlayerScreen
 import com.viel.aplayer.ui.player.PlayerViewModel
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
  * 播放器悬浮层组件 (PlayerOverlay)。

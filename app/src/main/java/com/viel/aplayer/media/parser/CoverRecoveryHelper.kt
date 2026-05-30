@@ -11,12 +11,12 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.manifest.ManifestSidecarSupport
-import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import java.io.File
 
 /**
  * 负责有声书封面缓存丢失后的异步自愈。

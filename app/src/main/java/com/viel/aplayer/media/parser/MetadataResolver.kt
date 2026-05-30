@@ -5,11 +5,11 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.AudiobookMetadata
-import java.nio.charset.Charset
-import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 
 // 导入链路需要把“元数据 + 内嵌封面”一起向后传递，
 // 这里把封面类型抽象成通用的 EmbeddedCoverBytes，不再绑定到 MP4 专属实现。

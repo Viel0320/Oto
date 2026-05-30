@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.PlayerViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -38,7 +37,6 @@ fun MiniPlayerOverlay(
     miniPlayerActions: MiniPlayerActions,
     currentRoute: String?,
     glassEffectMode: GlassEffectMode,
-    modifier: Modifier = Modifier,
     backdrop: LayerBackdrop? = null
 ) {
     // 仅监听播放器可见性（低频信号）

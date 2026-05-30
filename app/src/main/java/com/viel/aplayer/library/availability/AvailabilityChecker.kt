@@ -6,11 +6,11 @@ import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.library.vfs.VfsPath
+import com.viel.aplayer.library.vfs.VirtualFileSystem
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProviderFactory
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavException
-import com.viel.aplayer.library.vfs.VfsPath
-import com.viel.aplayer.library.vfs.VirtualFileSystem
 
 // 可用性状态使用独立模型承载，避免调用层继续把 SAF 授权、远程认证和网络失败混成 Boolean。
 data class AvailabilityResult(
