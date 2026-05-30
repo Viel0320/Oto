@@ -364,9 +364,9 @@ fun APlayerApp(
                     )
                 }
 
-                // 物理分轨不可用时的二次确认跳轨弹窗，保证弹窗能随时覆盖最顶层页面
+                // 物理分轨不可用时的二次确认跳轨弹窗，限定在全屏播放器展开时（isFullPlayerVisible）才弹窗展示
                 val trackUnavailableState by playerViewModel.trackUnavailableDialogState.collectAsStateWithLifecycle()
-                if (trackUnavailableState.show) {
+                if (trackUnavailableState.show && playerUiState.isFullPlayerVisible) {
                     AlertDialog(
                         onDismissRequest = { playerViewModel.dismissTrackUnavailableDialog() },
                         title = { Text("分轨文件不可用") },
