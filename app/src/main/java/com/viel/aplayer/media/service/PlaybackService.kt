@@ -119,7 +119,8 @@ class PlaybackService : MediaSessionService() {
                     Log.e("PlaybackService", "播放器内核物理轨道加载故障: ${error.message}", error)
                     // 委托给灾备处理器进行 HTTP 安全流量审计与音轨缺失自愈跳轨
                     if (failureHandler.isUnavailableMediaError(error)) {
-                        this@PlaybackService.player?.let { failureHandler.handleUnavailableMediaItem(it) }
+                        // 详尽的中文注释：在此处将当前服务的 mediaSession 传入，以便灾备处理器向连接的前台控制器广播 EVENT_TRACK_UNAVAILABLE 指令，拉起二次确认跳轨弹窗
+                        this@PlaybackService.player?.let { failureHandler.handleUnavailableMediaItem(it, mediaSession) }
                     }
                     if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED) {
                         val cause = error.cause

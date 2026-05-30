@@ -11,4 +11,11 @@ sealed interface UiEvent {
      * @param message 需要展示的文本消息内容。
      */
     data class ShowToast(val message: String) : UiEvent
+
+    /**
+     * 当检测到正在播放的物理音频分轨文件损坏或缺失时，触发弹窗确认跳轨事件。
+     * @param bookId 当前音频书籍的唯一标识 ID。
+     * @param queueIndex 发生故障的音频分轨在播放队列中的索引。
+     */
+    data class ShowTrackUnavailableDialog(val bookId: String, val queueIndex: Int) : UiEvent
 }

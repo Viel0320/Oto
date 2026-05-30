@@ -110,6 +110,31 @@ class PlayerViewModel : ViewModel() {
         _bookmarkDialogs.value = BookmarkDialogsState()
     }
 
+    // =====================================================================
+    // 物理分轨物理不可用二次确认弹窗状态管理
+    // =====================================================================
+
+    /** 物理分轨失效对话框的状态结构 */
+    data class TrackUnavailableDialogState(
+        val show: Boolean = false,
+        val bookId: String = "",
+        val queueIndex: Int = -1
+    )
+
+    private val _trackUnavailableDialog = MutableStateFlow(TrackUnavailableDialogState())
+    /** 供 UI 观察的分轨文件损坏/丢失二次确认弹窗状态 */
+    val trackUnavailableDialogState: StateFlow<TrackUnavailableDialogState> = _trackUnavailableDialog.asStateFlow()
+
+    /** 触发显示物理分轨不可用确认跳转对话框 */
+    fun showTrackUnavailableDialog(bookId: String, queueIndex: Int) {
+        _trackUnavailableDialog.value = TrackUnavailableDialogState(true, bookId, queueIndex)
+    }
+
+    /** 关闭物理分轨不可用确认跳转对话框 */
+    fun dismissTrackUnavailableDialog() {
+        _trackUnavailableDialog.value = TrackUnavailableDialogState()
+    }
+
     private var _lastDominantColor = ImageProcessor.DEFAULT_BACKGROUND_ARGB
 
     val settingsState: StateFlow<PlayerSettingsState> = settingsManager.settingsState
@@ -590,6 +615,16 @@ class PlayerViewModel : ViewModel() {
 
     fun skipToNextChapter() = playbackDelegate?.skipToNextChapter(metadataState.value.chapters.map { it.chapter }, playbackState.value.currentPosition)
     fun skipToPreviousChapter() = playbackDelegate?.skipToPreviousChapter(metadataState.value.chapters.map { it.chapter }, playbackState.value.currentPosition)
+
+    /**
+     * 用户在弹窗确认中同意跳轨时，调用底层播放管理器执行下一 READY 轨的灾备自愈跳转。
+     *
+     * @param bookId 当前音频书籍的 ID
+     * @param queueIndex 发生故障的分轨索引
+     */
+    fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
+        playbackManager?.skipToNextAvailableTrack(bookId, queueIndex)
+    }
 
     fun updateCoverPath(path: String?) {
         val id = _currentBookId.value ?: return

@@ -79,7 +79,8 @@ fun PlaybackControls(
     var lastSpeed by remember { mutableFloatStateOf(playbackSpeed) }
     LaunchedEffect(playbackSpeed) {
         if (playbackSpeed != lastSpeed) {
-            delay(500) // Wait for 0.5s of inactivity
+            // 详尽的中文注释：将倍速选择的防抖延迟时间调整为 1500 毫秒（1.5秒），以获得更加充足的防连击防爆刷体验
+            delay(1500) // Wait for 1.5s of inactivity
             val msg = if (playbackSpeed == 1.0f) "Playback speed reset" else "Playback speed: ${playbackSpeed}x"
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             lastSpeed = playbackSpeed
@@ -90,7 +91,8 @@ fun PlaybackControls(
     var lastTimer by remember { androidx.compose.runtime.mutableIntStateOf(selectedSleepTimer) }
     LaunchedEffect(selectedSleepTimer) {
         if (selectedSleepTimer != lastTimer) {
-            delay(500) // Wait for 0.5s of inactivity
+            // 详尽的中文注释：将睡眠定时器时长选择的防抖延迟时间同样调整为 1500 毫秒（1.5秒），避免连按时弹窗刷屏
+            delay(1500) // Wait for 1.5s of inactivity
             val msg = when (selectedSleepTimer) {
                 0 -> "Sleep timer off"
                 -1 -> "Sleep in 5 seconds"

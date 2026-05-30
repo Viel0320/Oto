@@ -134,6 +134,11 @@ class PlaybackManager private constructor(context: Context) {
                 ): ListenableFuture<androidx.media3.session.SessionResult> {
                     if (command.customAction == "EVENT_SKIP_SILENCE") {
                         _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast("已自动跳过空白静音片段"))
+                    } else if (command.customAction == "EVENT_TRACK_UNAVAILABLE") {
+                        // 详尽的中文注释：解析后台传来的书籍 ID 和出故障的队列序列索引，并发送 ShowTrackUnavailableDialog 一次性事件，通知 UI 弹窗
+                        val bookId = args.getString("bookId") ?: ""
+                        val queueIndex = args.getInt("queueIndex", -1)
+                        _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowTrackUnavailableDialog(bookId, queueIndex))
                     }
                     return com.google.common.util.concurrent.Futures.immediateFuture(
                         androidx.media3.session.SessionResult(androidx.media3.session.SessionResult.RESULT_SUCCESS)
@@ -486,6 +491,34 @@ class PlaybackManager private constructor(context: Context) {
             _duration.value = 0L
             _isPlaying.value = false
             _playbackState.value = Player.STATE_IDLE
+        }
+    }
+
+    /**
+     * 为发生物理加载故障的书籍，跳轨跳转至下一个 READY 音频轨进行自愈播放。
+     * 该方法由用户在 UI 弹窗中点击“确认跳转”后，通过 ViewModel 间接调度执行。
+     *
+     * @param bookId 当前发生错误的音频书籍 ID
+     * @param queueIndex 发生故障的分轨索引
+     */
+    fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
+        scope.launch {
+            // 通过 progressGateway 的 findNextAvailablePlaybackFile 检索下一首正常的音频分轨以自动自愈起播
+            val next = progressGateway.findNextAvailablePlaybackFile(bookId, queueIndex)
+            if (next != null) {
+                val (nextIndex, _) = next
+                com.viel.aplayer.logger.PlaybackFailureLogger.logSelfHealSuccess(nextIndex)
+                mediaController?.let { controller ->
+                    // 详尽的中文注释：控制控制器跳转到下一可用轨道，并重新 prepare 与 play 起播
+                    controller.seekTo(nextIndex, 0L)
+                    controller.prepare()
+                    controller.play()
+                }
+            } else {
+                android.util.Log.w("PlaybackManager", "未找到后续任何就绪可播音频分轨")
+                // 使用 Toast 提示用户已经没有后续分轨了
+                _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast("未找到后续任何可播音频分轨，已终止播放"))
+            }
         }
     }
 

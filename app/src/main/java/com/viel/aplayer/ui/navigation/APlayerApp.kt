@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -132,6 +135,7 @@ fun APlayerApp(
                         )
                         Toast.makeText(context, spannable, Toast.LENGTH_SHORT).show()
                     }
+                    else -> {}
                 }
             }
         }
@@ -144,6 +148,10 @@ fun APlayerApp(
                 when (event) {
                     is UiEvent.ShowToast -> {
                         Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                    }
+                    is UiEvent.ShowTrackUnavailableDialog -> {
+                        // 详尽的中文注释：收到分轨失效事件后，立即在 ViewModel 中触发状态更新，以便拉起 Compose 确认跳转弹窗
+                        playerViewModel.showTrackUnavailableDialog(event.bookId, event.queueIndex)
                     }
                 }
             }
@@ -353,6 +361,37 @@ fun APlayerApp(
                     ScanResultDialog(
                         session = session,
                         onDismiss = { libraryViewModel.dismissScanResultDialog() }
+                    )
+                }
+
+                // 物理分轨不可用时的二次确认跳轨弹窗，保证弹窗能随时覆盖最顶层页面
+                val trackUnavailableState by playerViewModel.trackUnavailableDialogState.collectAsStateWithLifecycle()
+                if (trackUnavailableState.show) {
+                    AlertDialog(
+                        onDismissRequest = { playerViewModel.dismissTrackUnavailableDialog() },
+                        title = { Text("分轨文件不可用") },
+                        text = { Text("当前收听的分轨物理文件不存在或损坏。是否跳过该分轨并播放下一首可用分轨？\n\n（注意：强制跳轨可能会打乱您原本预定的收听进度）") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    // 详尽的中文注释：用户在弹窗二次确认后决定执行跳轨，在此调用 ViewModel 的接口触发自愈
+                                    playerViewModel.skipToNextAvailableTrack(
+                                        trackUnavailableState.bookId,
+                                        trackUnavailableState.queueIndex
+                                    )
+                                    playerViewModel.dismissTrackUnavailableDialog()
+                                }
+                            ) {
+                                Text("确认跳过", color = MaterialTheme.colorScheme.error)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = { playerViewModel.dismissTrackUnavailableDialog() }
+                            ) {
+                                Text("取消")
+                            }
+                        }
                     )
                 }
             }
