@@ -131,8 +131,8 @@ class PlayerWidget : GlanceAppWidget() {
         author: String,
         coverBitmap: Bitmap?
     ) {
-        // 详尽的中文注释：点击卡片外层空白区域，将通过 SingleTop 的方式平滑打开 MainActivity 播放控制悬浮窗
-        val openAppIntent = MainActivity.createOpenPlayerOverlayIntent(context).apply {
+        // 详尽的中文注释：点击卡片外层空白区域，将通过 SingleTop 的方式平滑打开 MainActivity 回到应用主页面，不再自动拉起全屏播放器界面
+        val openAppIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
 
