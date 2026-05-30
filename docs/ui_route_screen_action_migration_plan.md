@@ -219,7 +219,8 @@ Get-ChildItem -Path $paths -Recurse -Filter *.kt | Select-String -Pattern '<patt
 - `app/src/main/java/com/viel/aplayer/ui/edit/EditBookRoute.kt`
 - `app/src/main/java/com/viel/aplayer/ui/edit/EditBookAction.kt`
 - `app/src/main/java/com/viel/aplayer/ui/edit/EditBookUiState.kt`
-- `app/src/main/java/com/viel/aplayer/ui/edit/EditBookViewModel.kt`
+<!-- 注释：当前代码中 EditBookViewModel 仍内嵌在 EditBookOverlay.kt，下面的 EditBookViewModel.kt 是本阶段拆分后的目标文件；迁移执行时必须先从真实源文件读取现状，再创建独立 ViewModel 文件。 -->
+- `app/src/main/java/com/viel/aplayer/ui/edit/EditBookViewModel.kt`（迁移后新增目标文件，当前仓库中尚不存在）
 - `app/src/main/java/com/viel/aplayer/ui/edit/EditBookScreen.kt`
 
 具体任务：
@@ -232,7 +233,9 @@ Get-ChildItem -Path $paths -Recurse -Filter *.kt | Select-String -Pattern '<patt
 2. 执行 `EditBookViewModel` 迁移任务：
    - 将当前定义在 `EditBookOverlay.kt` 内的 `EditBookViewModel` 移动到独立文件 `EditBookViewModel.kt`。
    - 新增 `EditBookViewModel 输出映射表` 注释，明确 `isVisible` 和 `bookState` 进入 `EditBookUiState`。
-   - 执行 `rg -n "fun |val .*StateFlow|val .*SharedFlow|MutableStateFlow|MutableSharedFlow" app/src/main/java/com/viel/aplayer/ui/edit/EditBookViewModel.kt`，把结果逐项对齐到输出映射表和方法映射表。
+   - <!-- 注释：这里分成迁移前和迁移后两次检查，是为了避免执行者在拆分文件之前误查不存在的 EditBookViewModel.kt，导致漏掉当前真实定义在 EditBookOverlay.kt 内的状态和方法。 -->
+   - 迁移前先执行 `rg -n "fun |val .*StateFlow|val .*SharedFlow|MutableStateFlow|MutableSharedFlow" app/src/main/java/com/viel/aplayer/ui/edit/EditBookOverlay.kt`，把当前内嵌 `EditBookViewModel` 的状态和方法完整列出来。
+   - 拆分到 `EditBookViewModel.kt` 后，再执行 `rg -n "fun |val .*StateFlow|val .*SharedFlow|MutableStateFlow|MutableSharedFlow" app/src/main/java/com/viel/aplayer/ui/edit/EditBookViewModel.kt`，把结果逐项对齐到输出映射表和方法映射表。
    - 新增 `EditBookViewModel 方法映射表` 注释，写明 `startEdit` 是详情页编辑入口，`setVisible(false)` 对应取消/返回关闭，`loadBook` 当前只由 `startEdit` 调用并改为 private，`saveBook` 对应 `EditBookAction.SaveClicked`。
    - 标题、作者、播音、年份、简介和封面临时路径固定保留在 `EditBookScreen`，不迁入 `EditBookViewModel`，不创建输入类 Action。
    - 保存方法改为 `suspend fun saveBook(...)` 或返回 `Result<Unit>` 的挂起方法，只调用 repository/facade 更新书籍元数据，不接收 `onComplete` 回调，不直接操作详情页、首页、Activity、Toast 或 overlay 显隐。
