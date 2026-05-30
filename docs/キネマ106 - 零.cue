@@ -1,0 +1,33 @@
+﻿REM DISCID 4A05CB07
+REM COMMENT "ExactAudioCopy v1.0b6"
+PERFORMER "キネマ106"
+TITLE "零"
+FILE "キネマ106 - 零.wav" WAVE
+  TRACK 01 AUDIO
+    TITLE "鴉"
+    PERFORMER "黒兎ウル"
+    INDEX 01 00:00:00
+  TRACK 02 AUDIO
+    TITLE "Remember me"
+    PERFORMER "黒兎ウル"
+    INDEX 01 03:18:14
+  TRACK 03 AUDIO
+    TITLE "ラヴィリン"
+    PERFORMER "黒兎ウル"
+    INDEX 01 06:35:01
+  TRACK 04 AUDIO
+    TITLE "進捗どうでしょう"
+    PERFORMER "黒兎ウル"
+    INDEX 01 10:41:07
+  TRACK 05 AUDIO
+    TITLE "アダバナ"
+    PERFORMER "黒兎ウル"
+    INDEX 01 14:23:37
+  TRACK 06 AUDIO
+    TITLE "IMPERIAL PARADE"
+    PERFORMER "黒兎ウル"
+    INDEX 01 17:03:34
+  TRACK 07 AUDIO
+    TITLE "Luna"
+    PERFORMER "黒兎ウル"
+    INDEX 01 20:15:53
