@@ -35,7 +35,7 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 fun MiniPlayerOverlay(
     playerViewModel: PlayerViewModel,
     miniPlayerActions: MiniPlayerActions,
-    currentRoute: String?,
+    isSearchActive: Boolean,
     glassEffectMode: GlassEffectMode,
     backdrop: LayerBackdrop? = null
 ) {
@@ -63,10 +63,10 @@ fun MiniPlayerOverlay(
     // 药丸播放器悬浮在右下角，条状播放器贴在底部中央
     val playerAlignment = if (usePillPlayer) Alignment.BottomEnd else Alignment.BottomCenter
 
-    // 迷你播放器 Popup 浮层挂载逻辑判断
-    val isPopupNeeded = hasActiveTrack &&
-            currentRoute != null &&
-            !currentRoute.startsWith("search")
+    // 迷你播放器挂载逻辑判断
+    // 详尽的中文注释：如果当前存在活跃音频音轨，且非独立全局搜索悬浮层未激活展示，则挂载迷你播放器布局容器；
+    // 这取代了原先在单路由 NavHost 下恒不命中的 startsWith("search") 路由守卫校验
+    val isPopupNeeded = hasActiveTrack && !isSearchActive
 
     if (isPopupNeeded) {
         // 

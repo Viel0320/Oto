@@ -137,8 +137,24 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
         // 获取响应体，此时 body 已被 IDE 推断为非空
         val body = response.body
+        val stream = body.byteStream()
 
-        // 记录 WebDAV GET/Range 流打开请求的完整耗时、HTTP 状态码与成功状态
+        // 少数服务器忽略 Range 并返回 200，此处保留本地 skip 兜底以维持播放器语义。
+        if (offset > 0L && response.code == HTTP_OK) {
+            // fallback skip 也会阻塞读取远程字节，必须放在 IO 线程执行，不能继承 UI 调用方线程。
+            withContext(Dispatchers.IO) { runCatching { skipFully(stream, offset) } }
+                .onFailure {
+                    stream.close()
+                    response.close()
+                    throw WebDavException(
+                        availabilityStatus = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
+                        message = "WebDAV fallback skip failed: ${file.metadata.sourcePath}",
+                        cause = it
+                    )
+                }
+        }
+
+        // 详尽的中文注释：在所有 offset 寻址（包括 skipFully 兜底）物理动作成功执行完后，才记录流打开成功日志
         com.viel.aplayer.logger.VfsLogger.logWebDavOpen(
             sourcePath = file.metadata.sourcePath,
             offset = offset,
@@ -147,21 +163,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             success = true
         )
 
-        return body.byteStream().also { stream ->
-            // 少数服务器忽略 Range 并返回 200，此处保留本地 skip 兜底以维持播放器语义。
-            if (offset > 0L && response.code == HTTP_OK) {
-                // fallback skip 也会阻塞读取远程字节，必须放在 IO 线程执行，不能继承 UI 调用方线程。
-                withContext(Dispatchers.IO) { runCatching { skipFully(stream, offset) } }
-                    .onFailure {
-                        stream.close()
-                        throw WebDavException(
-                            availabilityStatus = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                            message = "WebDAV fallback skip failed: ${file.metadata.sourcePath}",
-                            cause = it
-                        )
-                    }
-            }
-        }
+        // 详尽的中文注释：返回代理 InputStream，保证上层调用 close() 释放流时一并触发 response.close()，避免 OkHttp 物理连接泄漏
+        return ResponseClosingInputStream(stream, response)
     }
 
     override suspend fun readRange(file: SourceNode, offset: Long, length: Int): ByteArray? =
@@ -527,6 +530,32 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("GMT")
             }
+        }
+    }
+}
+
+/**
+ * 详尽的中文注释：代理包装底层的 InputStream，在关闭该流时同时安全关闭关联的 OkHttp Response，
+ * 彻底防止播放器频繁 Seek 重新握手换流时引起的 Socket 物理连接泄露和 OkHttp 连接池耗尽故障
+ */
+private class ResponseClosingInputStream(
+    private val delegate: InputStream,
+    private val response: Response
+) : InputStream() {
+    override fun read(): Int = delegate.read()
+    override fun read(b: ByteArray): Int = delegate.read(b)
+    override fun read(b: ByteArray, off: Int, len: Int): Int = delegate.read(b, off, len)
+    override fun skip(n: Long): Long = delegate.skip(n)
+    override fun available(): Int = delegate.available()
+    override fun mark(readlimit: Int) = delegate.mark(readlimit)
+    override fun reset() = delegate.reset()
+    override fun markSupported(): Boolean = delegate.markSupported()
+
+    override fun close() {
+        try {
+            delegate.close()
+        } finally {
+            response.close()
         }
     }
 }

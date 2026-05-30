@@ -85,12 +85,39 @@ interface AppContainer {
      * 供播放层使用的音频物理文件快速检索接口。
      */
     val playbackFileLookup: PlaybackFileLookup
+
+    /**
+     * 运行期唯一的媒体播放控制与状态管理器单例，作为容器属性收纳以提升全局可测试性与解耦架构。
+     */
+    val playbackManager: com.viel.aplayer.media.PlaybackManager
+
+    /**
+     * 运行期唯一的搜索历史记录 DataStore 存储单例，作为容器属性收纳以提升全局可测试性与解耦架构。
+     */
+    val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore
+
+    /**
+     * 运行期唯一的音频播放进度自愈与自动回退进度管理器单例，作为容器属性收纳以提升全局可测试性与解耦架构。
+     */
+    val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
 
     private val database: AppDatabase by lazy {
         AppDatabase.getInstance(context)
+    }
+
+    override val playbackManager: com.viel.aplayer.media.PlaybackManager by lazy {
+        com.viel.aplayer.media.PlaybackManager.getInstance(context)
+    }
+
+    override val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore by lazy {
+        com.viel.aplayer.data.store.SearchHistoryStore.getInstance(context)
+    }
+
+    override val autoRewindManager: com.viel.aplayer.media.AutoRewindManager by lazy {
+        com.viel.aplayer.media.AutoRewindManager.getInstance(context)
     }
 
     // 延迟实例化用于运行期音轨物理可读性检测与异常跳轨处理的就绪自愈管理器单例
@@ -114,7 +141,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
      */
     override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
         DeleteLibraryRootUseCase(
-            playbackManager = com.viel.aplayer.media.PlaybackManager.getInstance(context),
+            playbackManager = playbackManager,
             bookQueryGateway = bookQueryGateway,
             libraryRootGateway = libraryRootGateway
         )
@@ -228,7 +255,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
      */
     override val searchHistoryGateway: SearchHistoryGateway by lazy {
         SearchService(
-            searchHistoryStore = com.viel.aplayer.data.store.SearchHistoryStore.getInstance(context)
+            searchHistoryStore = searchHistoryStore
         )
     }
 
@@ -252,7 +279,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     override val vfsFileInterface: VfsFileInterface by lazy {
         VfsFileInterface(
             context.applicationContext,
-            libraryRootDao = AppDatabase.getInstance(context).libraryRootDao()
+            libraryRootDao = database.libraryRootDao()
         )
     }
 
@@ -261,7 +288,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
      */
     override val playbackFileLookup: PlaybackFileLookup by lazy {
         com.viel.aplayer.media.DefaultPlaybackFileLookup(
-            AppDatabase.getInstance(context).bookDao()
+            database.bookDao()
         )
     }
 }

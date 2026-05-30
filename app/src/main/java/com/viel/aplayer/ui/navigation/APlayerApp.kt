@@ -70,6 +70,9 @@ fun APlayerApp(
         // 用以在后续渲染迷你播放器 PlayerOverlay 时感知详情页是否处于可见状态，以进行 miuix-blur 模糊采样源的动态自动切换映射。
         val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
+        // 详尽的中文注释：响应式收集非独立搜索悬浮层 SearchOverlay 的可见状态流，用于动态判定与控制迷你播放器的显示与挂载，避免层级遮挡下的无效渲染与资源浪费
+        val isSearchVisible by searchViewModel.isVisible.collectAsStateWithLifecycle()
+
         val canStartNavigation = rememberNavigationThrottle()
 
         // 
@@ -303,7 +306,7 @@ fun APlayerApp(
                 MiniPlayerOverlay(
                     playerViewModel = playerViewModel,
                     miniPlayerActions = miniPlayerActions,
-                    currentRoute = currentRoute,
+                    isSearchActive = isSearchVisible,
                     glassEffectMode = libraryUiState.glassEffectMode,
                     // 使用延迟后的采样源，避免转场动画残影与闪烁，提升极致平滑感
                     backdrop = delayedBackdropState.value

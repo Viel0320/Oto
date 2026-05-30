@@ -99,6 +99,9 @@ fun PillCompactMediaPlayer(
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             while (true) {
+                // 在每次执行 360 度循环动画之前，使用 snapTo 将当前角度值重置回 [0, 360) 区间。
+                // 这能有效防止超长播放会话时浮点数数值无限累加造成的精度退化与视觉微小抖动，确保动画持续流畅。
+                rotation.snapTo(rotation.value % 360f)
                 rotation.animateTo(
                     targetValue = rotation.value + 360f,
                     animationSpec = tween(durationMillis = 15000, easing = LinearEasing)

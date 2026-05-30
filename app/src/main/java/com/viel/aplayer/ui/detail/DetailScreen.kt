@@ -7,8 +7,9 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
  * 详情页 L2 容器层组件 DetailScreen。
- * 纯粹作为状态解包与事件桥接的控制器，内部无任何直接的视觉渲染逻辑。
- * 它从传入的 DetailUiState 中拆解出基本类型与原始对象，传递给 L3 层的纯渲染组件 DetailContent。
+ * 纯粹作为状态透传与事件桥接的控制器，内部无任何直接的视觉渲染逻辑。
+ * 它将传入的 DetailUiState 原样透传给 L3 层的纯渲染组件 DetailContent（不再拆解为扁平参数，
+ * 因为 DetailContent 及其下层 Layout 子骨架本就以 DetailUiState 为状态契约）。
  * 这样达成了 Compose 官方三层架构分层规范（L1 Overlay -> L2 Screen -> L3 Layout/Content），
  * 并且解耦了界面渲染与领域状态逻辑。
  */
@@ -31,19 +32,10 @@ fun DetailScreen(
     // 编辑元数据悬浮层拉起的回调
     onEditClick: (String) -> Unit = {},
 ) {
-    val bookWithProgress = uiState.book
-    val book = bookWithProgress?.book
-
-    // 将解包后的扁平数据状态完全透传给纯渲染的 L3 无状态组件 DetailContent，保证展示与控制器解耦剥离。
+    // L-10 修复 — 直接透传完整的 DetailUiState 给 L3 渲染层，
+    // 取代此前“在此拆解为扁平参数、再在 DetailContent 内重新包装回 DetailUiState”的冗余往返。
     DetailContent(
-        isVisible = uiState.isVisible,
-        book = book,
-        bookWithProgress = bookWithProgress,
-        isAvailable = uiState.isAvailable,
-        progressPercent = uiState.progressPercent,
-        displayProgressPercent = uiState.displayProgressPercent,
-        backgroundColorArgb = uiState.backgroundColorArgb,
-        fullSourcePath = uiState.fullSourcePath,
+        uiState = uiState,
         onBackClick = onBackClick,
         modifier = modifier,
         onPlayPressed = onPlayPressed,

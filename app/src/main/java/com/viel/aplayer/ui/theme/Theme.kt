@@ -91,8 +91,13 @@ fun APlayerTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            // 详尽的中文注释：使用 findActivity 递归检索 Activity 宿主以获得状态栏 Window 控制权；
+            // 这避免了在 Compose Preview 预览、Glance 小组件或者次要嵌入式视图中 view.context 并非 Activity 导致强转崩溃的隐患
+            val activity = view.context.findActivity()
+            if (activity != null) {
+                val window = activity.window
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            }
         }
     }
 
@@ -101,4 +106,16 @@ fun APlayerTheme(
         typography = Typography,
         content = content
     )
+}
+
+/**
+ * 详尽的中文注释：沿 ContextWrapper 上下文包装器链条递归向上查找，直至发现真实的宿主 Activity 实例；找不到则安全返回 null
+ */
+private tailrec fun android.content.Context.findActivity(): Activity? {
+    if (this is Activity) return this
+    return if (this is android.content.ContextWrapper) {
+        baseContext.findActivity()
+    } else {
+        null
+    }
 }

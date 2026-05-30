@@ -23,8 +23,14 @@ class LibrarySyncWorker(
             
             scanScheduler.scheduleLibrarySync(trigger)
             Result.success()
+        } catch (e: java.io.IOException) {
+            // 详尽的中文注释：针对网络断开、WebDAV 握手超时、SQLite 数据库并发忙死等瞬时物理 I/O 异常，
+            // 调度 WorkManager 的 Result.retry() 重载退避重试，利用退避退避策略自愈后台更新
+            Log.w("LibrarySyncWorker", "Transient network/DB lock error during library sync, scheduling retry", e)
+            Result.retry()
         } catch (e: Exception) {
-            Log.e("LibrarySyncWorker", "Error during library sync", e)
+            // 详尽的中文注释：针对逻辑缺陷、未定义参数等非瞬时崩溃型故障，返回 Result.failure() 终止任务，规避死循环引起的异常耗电
+            Log.e("LibrarySyncWorker", "Permanent logic error during library sync", e)
             Result.failure()
         }
     }

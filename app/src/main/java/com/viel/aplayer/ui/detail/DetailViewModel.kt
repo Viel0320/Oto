@@ -44,7 +44,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
     /**
      * 当用户点击播放且当前进度为 0（未播放）时调用。
-     * 开启 0.3 秒保护期：期间内 displayProgressPercent 强制为 0，
+     * 开启 3 秒保护期：期间内 displayProgressPercent 强制为 0，
      * 防止按鈕图标/文案在“Start Listening”和“Continue at X%”之间高频闪烁。
      */
     fun onPlayPressed() {
@@ -53,7 +53,9 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             _playbackStartedAt.value = SystemClock.elapsedRealtime()
             _uiState.update { it.copy(displayProgressPercent = 0) }
             viewModelScope.launch {
-                delay(3_00L)
+                // M-18 修复 — 与 updatePlaybackProgress 的判定门控引用同一常量。
+                // 此前误写为 3_00L（300ms），与门控的 3000ms 不一致，导致保护期在 300ms 后即提前结束、按钮文案仍会闪烁。
+                delay(UNPLAYED_PROTECTION_WINDOW_MS)
                 _playbackStartedAt.value = null
                 // 保护期结束，恢复真实进度以驱动按钮文案正确渲染
                 _uiState.update { it.copy(displayProgressPercent = it.progressPercent) }
@@ -227,12 +229,19 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
         if (currentState.book?.book?.id == bookId) {
             _uiState.update { state ->
                 val startedAt = _playbackStartedAt.value
-                val isProtected = startedAt != null && (SystemClock.elapsedRealtime() - startedAt) < 3000L
+                val isProtected = startedAt != null && (SystemClock.elapsedRealtime() - startedAt) < UNPLAYED_PROTECTION_WINDOW_MS
                 state.copy(
                     progressPercent = progressPercent,
                     displayProgressPercent = if (isProtected) 0 else progressPercent
                 )
             }
         }
+    }
+
+    companion object {
+        // M-18 修复 — 未播放保护期时长的唯一来源常量。
+        // onPlayPressed 的 delay 与 updatePlaybackProgress 的保护期判定门控必须引用同一常量，
+        // 防止再次出现 delay(3_00L)=300ms 与门控 3000ms 漂移不一致的笔误。
+        private const val UNPLAYED_PROTECTION_WINDOW_MS = 3_000L
     }
 }

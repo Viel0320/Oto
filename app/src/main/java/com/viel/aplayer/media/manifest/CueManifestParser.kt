@@ -195,9 +195,12 @@ object CueManifestParser {
     private fun parseCueTime(timeStr: String): Long {
         val parts = timeStr.split(':')
         if (parts.size != 3) return 0L
-        val mins = parts[0].toLongOrNull() ?: 0L
-        val secs = parts[1].toLongOrNull() ?: 0L
-        val frames = parts[2].toLongOrNull() ?: 0L
+        val mins = (parts[0].toLongOrNull() ?: 0L).coerceAtLeast(0L)
+        val secs = (parts[1].toLongOrNull() ?: 0L).coerceAtLeast(0L)
+        val rawFrames = parts[2].toLongOrNull() ?: 0L
+        // 根据 CUE 规范，每一秒包含 75 个帧（0-74）。
+        // 此处强制限制帧数在 [0, 74] 区间内，避免因帧数超出合法范围导致计算出偏离的时间戳。
+        val frames = rawFrames.coerceIn(0L, 74L)
         return (mins * 60 + secs) * 1000 + (frames * 1000 / 75)
     }
 

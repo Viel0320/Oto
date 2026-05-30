@@ -20,9 +20,10 @@ class APlayerApplication : Application() {
         // 在应用启动时初始化容器
         container = DefaultAppContainer(this)
 
-        // 在主进程冷启动时，在后台 IO 协程中执行自动回退进度自愈，避免阻塞启动主线程
+        // 详尽的中文注释：在应用启动并完成依赖容器装挂后，在后台 IO 协程作用域内安全通过容器的 autoRewindManager 属性调度执行进度冷启动自愈逻辑；
+        // 这规避了以前在全局生命周期中越过 DI 容器强行直调外部静态单例的混乱设计，保证整个系统的一致性与可测试性
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-            AutoRewindManager.getInstance(this@APlayerApplication).performColdStartSelfHealing()
+            container.autoRewindManager.performColdStartSelfHealing()
         }
     }
 }

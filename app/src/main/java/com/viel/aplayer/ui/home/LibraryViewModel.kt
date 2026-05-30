@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as APlayerApplication).container
@@ -167,8 +168,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                             _scanResultDialogState.value = session
                         } else {
                             // 
-                            // 读取当前已缓冲的书籍列表，精准辨识媒体库此时是否空空如也。
-                            val isLibraryEmpty = uiState.value.audiobooks.isEmpty()
+                            // 详尽的中文注释：在扫描完成回调中，通过挂起函数 first() 直接获取底层书籍 Flow 的最新实体快照；
+                            // 这解决了当无 UI Composable 活跃订阅时，直接读取受 WhileSubscribed(5000) 门控的 uiState.value 只拿到底层初始空值 LibraryUiState() 从而误判空库并误报提示的严重并发 Bug
+                            val currentBooks = libraryFacade.audiobooks.first()
+                            val isLibraryEmpty = currentBooks.isEmpty()
 
                             // 
                             // 如果没有产生待处理的冲突/残缺动作（不需要弹出强制审核 Dialog），

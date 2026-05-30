@@ -365,10 +365,8 @@ class PlayerViewModel : ViewModel() {
             val lastProgress = libraryFacade?.getLastPlayedProgressSync() ?: return@launch
             if (_currentBookId.value == null) {
                 loadBook(lastProgress.bookId, playWhenReady = false)
-                // 为本次桌面 widget 改动添加注释：如果外部入口已经请求播放页 overlay，冷启动恢复最近播放书籍时不再强制收回到迷你播放器。
-                if (!settingsState.value.isFullPlayerVisible) {
-                    settingsManager.setFullPlayerVisible(false)
-                }
+                // 详尽的中文注释：冷启动恢复最近播放书籍时，如果外部入口已经请求了全屏播放页 overlay，则不再强制收回到迷你播放器；
+                // 此处彻底清除了先前无操作且极具误导性的 `if(!isFullPlayerVisible) { setFullPlayerVisible(false) }` 条件分支死代码，简化状态流转逻辑
                 settingsManager.setMiniPlayerHidden(false)
             }
         }

@@ -79,8 +79,9 @@ import kotlin.math.roundToInt
 
 /**
  * 纯 L3 级别的无状态详情页渲染骨架 DetailContent。
- * 遵循 Compose 三层分层架构规范，移除所有与外部 UI 状态或 ViewModel 级别的耦合引用，
- * 仅接收基础数据类型与纯粹的 Lambda 回调函数，为多端自适应布局提供更高效、可测试的渲染层。
+ * 遵循 Compose 三层分层架构规范，移除所有与 ViewModel 级别的耦合引用，
+ * 直接接收不可变的 DetailUiState 与纯粹的 Lambda 回调函数（与下层 Layout 子骨架保持同一状态契约，
+ * 避免“拆解扁平参数再重新包装回 DetailUiState”的往返），为多端自适应布局提供高效、可测试的渲染层。
  */
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -88,14 +89,7 @@ import kotlin.math.roundToInt
 )
 @Composable
 fun DetailContent(
-    isVisible: Boolean, // 是否当前可见，用以配置拦截预测性返回手势
-    book: BookEntity?, // 书籍的元数据实体
-    bookWithProgress: BookWithProgress?, // 携带播放进度的完整书籍状态
-    isAvailable: Boolean, // 本地文件乐观可用性状态
-    progressPercent: Int, // 媒体的历史播放进度百分比
-    displayProgressPercent: Int, // 经过保护期过滤后的前端显示播放百分比
-    backgroundColorArgb: Int, // 精确提取后的书籍背景 ARGB 色值
-    fullSourcePath: String, // 物理文件完整映射源路径
+    uiState: DetailUiState, // 详情页完整 UI 状态（端到端传递，避免“拆解扁平参数再重组”的往返开销）
     onBackClick: () -> Unit, // 点击返回键或下滑退场触发的回调
     modifier: Modifier = Modifier,
     onPlayPressed: () -> Unit = {}, // 物理点击播放键开始防抖状态前置监听
@@ -107,6 +101,10 @@ fun DetailContent(
     fullPageBackdrop: LayerBackdrop? = null, // 全屏无缝采样的模糊映射源
     onEditClick: (String) -> Unit = {}, // 点击编辑书籍元数据详情回调
 ) {
+    // L-10 修复 — 从完整 UI 状态派生 L3 渲染所需字段，取代此前“在本组件内把扁平参数重新包装回 DetailUiState”的冗余往返。
+    val book = uiState.book?.book
+    val isVisible = uiState.isVisible
+    val backgroundColorArgb = uiState.backgroundColorArgb
     // 状态定义：预测性返回拖拽过程中的物理缩放与动画位移进度
     var isPredictiveBackActive by remember { mutableStateOf(false) }
     var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
@@ -134,20 +132,6 @@ fun DetailContent(
         insets?.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_LEFT)?.radius ?: 0
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
-
-    // 将外部传入的零散扁平化参数，重新且安全地包装为 DetailUiState，
-    // 以实现对底层既有 Layout 子骨架（DetailPortrait/DetailLandscapePhone/DetailTablet）的历史无缝契合，规避级联修改成本。
-    val uiState = remember(bookWithProgress, isVisible, isAvailable, progressPercent, displayProgressPercent, backgroundColorArgb, fullSourcePath) {
-        DetailUiState(
-            book = bookWithProgress,
-            isVisible = isVisible,
-            isAvailable = isAvailable,
-            progressPercent = progressPercent,
-            displayProgressPercent = displayProgressPercent,
-            backgroundColorArgb = backgroundColorArgb,
-            fullSourcePath = fullSourcePath
-        )
-    }
 
     // 感知系统级拦截并实时绘制系统预测性返回过渡动画
     androidx.activity.compose.PredictiveBackHandler(enabled = isVisible) { progressFlow ->
@@ -419,37 +403,28 @@ fun DetailContent(
 fun DetailContentPreview() {
     APlayerTheme {
         DetailContent(
-            isVisible = true,
-            book = BookEntity(
-                id = "id",
-                rootId = "preview-root",
-                sourceType = "SINGLE_AUDIO",
-                title = "In the Megachurch",
-                author = "Ryo Asai",
-                narrator = "Narrator A",
-                totalDurationMs = 36000L,
-                year = "2023",
-                description = "A preview description."
-            ),
-            bookWithProgress = BookWithProgress(
-                book = BookEntity(
-                    id = "id",
-                    rootId = "preview-root",
-                    sourceType = "SINGLE_AUDIO",
-                    title = "In the Megachurch",
-                    author = "Ryo Asai",
-                    narrator = "Narrator A",
-                    totalDurationMs = 36000L,
-                    year = "2023",
-                    description = "A preview description."
+            uiState = DetailUiState(
+                book = BookWithProgress(
+                    book = BookEntity(
+                        id = "id",
+                        rootId = "preview-root",
+                        sourceType = "SINGLE_AUDIO",
+                        title = "In the Megachurch",
+                        author = "Ryo Asai",
+                        narrator = "Narrator A",
+                        totalDurationMs = 36000L,
+                        year = "2023",
+                        description = "A preview description."
+                    ),
+                    progress = null
                 ),
-                progress = null
+                isVisible = true,
+                isAvailable = true,
+                progressPercent = 45,
+                displayProgressPercent = 45,
+                backgroundColorArgb = AppSettings.DEFAULT_GLASS_EFFECT_MODE.ordinal,
+                fullSourcePath = ""
             ),
-            isAvailable = true,
-            progressPercent = 45,
-            displayProgressPercent = 45,
-            backgroundColorArgb = AppSettings.DEFAULT_GLASS_EFFECT_MODE.ordinal,
-            fullSourcePath = "",
             onBackClick = {},
             glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
         )
