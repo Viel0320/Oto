@@ -3,8 +3,10 @@ package com.viel.aplayer.data.service
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import androidx.room.withTransaction
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.ChapterDao
+import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.gateway.CoverGateway
 import com.viel.aplayer.library.availability.AvailabilityChecker
@@ -19,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancel
 import java.io.File
 
 /**
@@ -37,8 +40,10 @@ class CoverService(
     private val metadataResolver: MetadataResolver,
     private val subtitleResolver: SubtitleFileResolver,
     private val detailAvailabilityChecker: DetailAvailabilityChecker,
-    private val availabilityChecker: AvailabilityChecker
-) : CoverGateway {
+    private val availabilityChecker: AvailabilityChecker,
+    // 详尽的中文注释：注入全局的 AppDatabase 实例以执行多 DAO 连携 Room 数据库写事务，确保 ACID 数据原子性
+    private val database: AppDatabase
+) : CoverGateway, java.io.Closeable {
 
     // 异步写任务专属协程异常拦截器
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
@@ -97,29 +102,34 @@ class CoverService(
             // 2. 委托元数据解析工具深度提取音频的结构化标签信息
             val metadata = metadataResolver.extract(primaryFile)
 
-            // 3. 将物理重新扫出来的唱片集/年份/讲述人/持续时长等详细元数据属性覆盖写回 Room
-            bookDao.updateMetadata(
-                id = bookId,
-                title = metadata.album.trim().ifBlank { metadata.title.trim() }.ifBlank { book.title },
-                author = metadata.author,
-                narrator = metadata.narrator,
-                description = metadata.description,
-                duration = metadata.durationMs.takeIf { it > 0 } ?: book.totalDurationMs
-            )
-            bookDao.updateBookDetails(
-                id = bookId,
-                title = metadata.album.trim().ifBlank { metadata.title.trim() }.ifBlank { book.title },
-                author = metadata.author,
-                narrator = metadata.narrator,
-                description = metadata.description,
-                year = metadata.year
-            )
+            // 详尽的中文注释：使用 Room 核心的 withTransaction 扩展函数，将元数据属性更新、详细详情更新、
+            // 历史老章节清空以及重新扫描出新章节集批量持久化这四步写操作，强行收束在底层的同一个物理数据库原子写事务中。
+            // 这确保了在重扫中断、设备异常断电或插入抛出异常时，数据能瞬时回滚，消灭数据撕裂与空章节列表 UI 闪烁。
+            database.withTransaction {
+                // 3. 将物理重新扫出来的唱片集/年份/讲述人/持续时长等详细元数据属性覆盖写回 Room
+                bookDao.updateMetadata(
+                    id = bookId,
+                    title = metadata.album.trim().ifBlank { metadata.title.trim() }.ifBlank { book.title },
+                    author = metadata.author,
+                    narrator = metadata.narrator,
+                    description = metadata.description,
+                    duration = metadata.durationMs.takeIf { it > 0 } ?: book.totalDurationMs
+                )
+                bookDao.updateBookDetails(
+                    id = bookId,
+                    title = metadata.album.trim().ifBlank { metadata.title.trim() }.ifBlank { book.title },
+                    author = metadata.author,
+                    narrator = metadata.narrator,
+                    description = metadata.description,
+                    year = metadata.year
+                )
 
-            // 4. 清理旧物理分轨对应的所有老章节记录，并批量重新持久化写入重扫出来的新章节集
-            if (metadata.chapters.isNotEmpty()) {
-                chapterDao.deleteChaptersForBook(bookId)
-                val chaptersWithBookId = metadata.chapters.map { it.copy(bookId = bookId) }
-                chapterDao.insertChapters(chaptersWithBookId)
+                // 4. 清理旧物理分轨对应的所有老章节记录，并批量重新持久化写入重扫出来的新章节集
+                if (metadata.chapters.isNotEmpty()) {
+                    chapterDao.deleteChaptersForBook(bookId)
+                    val chaptersWithBookId = metadata.chapters.map { it.copy(bookId = bookId) }
+                    chapterDao.insertChapters(chaptersWithBookId)
+                }
             }
 
             // 5. 强刷底层磁盘中生成的封面物理缓存，强制封面加载系统感知最新自愈出的物理图片文件
@@ -151,5 +161,11 @@ class CoverService(
     override suspend fun loadSubtitlesForBookFile(bookFileId: String): List<com.viel.aplayer.ui.player.components.SubtitleLine> = withContext(Dispatchers.IO) {
         // 委托外置字幕文件解析门面在 VFS 中流式定位并加载解析该音轨关联的字幕数据
         subtitleResolver.loadSubtitlesForBookFile(bookFileId)
+    }
+
+    override fun close() {
+        // 详尽的中文注释：在封面网关服务卸载或重置时，安全且显式地取消专属于后台异步色调更新的私有协程作用域，
+        // 确保没有任何遗留的任务挂起悬空，防范内存碎片累积
+        scope.cancel()
     }
 }

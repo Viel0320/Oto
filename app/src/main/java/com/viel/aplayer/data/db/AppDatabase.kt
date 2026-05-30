@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import java.io.File
+import android.util.Log
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookmarkDao
 import com.viel.aplayer.data.dao.ChapterDao
@@ -58,6 +60,26 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 // 旧数据库结构不再维护迁移链，结构不匹配时直接重建为当前 VFS 标准件表结构。
                 .fallbackToDestructiveMigration(true)
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onDestructiveMigration(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        super.onDestructiveMigration(db)
+                        // 详尽的中文注释：在 Room 数据发生破坏性结构迁移清库时，级联物理清空缓存中的 covers 封面及缩略图目录；
+                        // 彻底防范旧有数据库记录被全量擦除重建后，存留在沙盒中的物理图片文件永久失去索引，形成永久无法回收的垃圾孤儿文件
+                        try {
+                            val coversDir = File(context.applicationContext.cacheDir, "covers")
+                            if (coversDir.exists() && coversDir.isDirectory) {
+                                coversDir.listFiles()?.forEach { file ->
+                                    if (file.isFile) {
+                                        val deleted = file.delete()
+                                        Log.d("AppDatabase", "Destructive migration: deleted orphan cover file ${file.name} (success=$deleted)")
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("AppDatabase", "Error clearing orphan cover cache during destructive migration", e)
+                        }
+                    }
+                })
                 .build()
                 INSTANCE = instance
                 instance

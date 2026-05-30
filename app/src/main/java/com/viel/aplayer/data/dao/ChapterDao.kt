@@ -35,4 +35,14 @@ interface ChapterDao {
 
     @Query("DELETE FROM chapters WHERE bookId = :bookId")
     suspend fun deleteChaptersForBook(bookId: String)
+
+    /**
+     * 详尽的中文注释：在同一个 Room 写事务中原子地清空特定有声书的旧章节关联并批量录入重扫得到的全新章节。
+     * 无论是在协程被取消还是物理插入发生异常时，都能确保该书不会出现章节“数据空虚”的尴尬，并根除 Flow 收集端闪烁空状态的严重问题。
+     */
+    @Transaction
+    suspend fun replaceChapters(bookId: String, chapters: List<ChapterEntity>) {
+        deleteChaptersForBook(bookId)
+        insertChapters(chapters)
+    }
 }

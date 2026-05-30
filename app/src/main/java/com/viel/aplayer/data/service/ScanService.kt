@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancel
 
 /**
  * 媒体库扫描调度应用服务（实现了 ScanScheduler 接口）。
@@ -34,7 +35,7 @@ class ScanService
     private val coverRecoveryHelper: CoverRecoveryHelper,
     // 由依赖注入容器提供运行期唯一的虚拟文件系统读取门面，避免底层组件自行初始化
     private val vfsFileInterface: VfsFileInterface
-) : ScanScheduler {
+) : ScanScheduler, java.io.Closeable {
 
     // 采用全局 applicationContext 隔离以彻底斩断潜在的内存泄漏风险
     private val appContext = context.applicationContext
@@ -88,5 +89,11 @@ class ScanService
         ).rescan(type)
 
         Log.i("ScanService", "书籍物理同步扫描已圆满完成. 新增: ${session.discoveredBookCount}, 待处理变动: ${session.pendingActionCount}")
+    }
+
+    override fun close() {
+        // 详详尽的中文注释：当扫描网关服务销毁或 DI 容器重置时，安全且显式地取消专属于后台异步扫描调度的协程作用域，
+        // 打断挂起的文件系统深度同步动作，避免无意义的后台资源空耗与泄漏
+        scope.cancel()
     }
 }

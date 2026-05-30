@@ -18,7 +18,9 @@ class LibrarySyncWorker(
             // 在 M4.5 重构中，为了解除后台定时同步任务对重量级旧仓库的硬编码依赖，
             // 切换为从 Application 的 container 中提取更小知识面的 ScanScheduler 网关组件，
             // 异步在物理后台调度触发书库文件增量扫描同步逻辑。
-            val container = (applicationContext as com.viel.aplayer.APlayerApplication).container
+            // 详尽的中文注释：在 WorkManager 触发的后台同步工作器中，使用伴生静态方法安全惰性解析依赖容器，
+            // 避免将 applicationContext 强转为 APlayerApplication，防止因多进程或辅助启动组件产生 ClassCastException 导致后台同步任务中断崩溃。
+            val container = com.viel.aplayer.APlayerApplication.getContainer(applicationContext)
             val scanScheduler = container.scanScheduler
             
             scanScheduler.scheduleLibrarySync(trigger)

@@ -6,6 +6,12 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+// 详尽的中文注释：导入 produceState 和 getValue 扩展，以便在 Compose 组合内声明并绑定异步加载的状态变量
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
+// 详尽的中文注释：导入 Dispatchers 和 withContext 协程分发器工具，以实现完全非阻塞的后台磁盘 I/O 线程调度
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,37 +79,39 @@ class PlayerWidget : GlanceAppWidget() {
             }
             val coverPath = prefs[PlayerWidgetStateHelper.KEY_COVER_PATH] ?: ""
 
-            // 2. 异步在 Glance 运行协程上下文中，对本地物理封面图片进行防 OOM 级别的轻量级采样率裁剪解码
-            val bitmap = remember(coverPath) {
-                if (coverPath.isNotEmpty()) {
-                    val file = File(coverPath)
-                    if (file.exists()) {
-                        try {
-                            val options = BitmapFactory.Options().apply {
-                                inJustDecodeBounds = true // 仅扫描边界，不分配像素内存
-                            }
-                            BitmapFactory.decodeFile(coverPath, options)
-                            
-                            // 详尽的中文注释：由于桌面组件跨进程传输存在 TransactionTooLargeException 风险，
-                            // 限制 Bitmap 最大目标物理分辨率为 120 像素（约 40dp 在 3x 分辨率下的对应值）
-                            val targetSize = 120
-                            var inSampleSize = 1
-                            if (options.outHeight > targetSize || options.outWidth > targetSize) {
-                                val halfHeight = options.outHeight / 2
-                                val halfWidth = options.outWidth / 2
-                                while (halfHeight / inSampleSize >= targetSize && halfWidth / inSampleSize >= targetSize) {
-                                    inSampleSize *= 2
+            // 2. 详尽的中文注释：使用 produceState 配合 withContext(Dispatchers.IO) 在后台协程中完成图片的解码和物理文件校验，
+            // 彻底杜绝在 Compose/Glance 组合（Composition）流程中同步进行 File.exists() 和 BitmapFactory 磁盘 I/O 阻塞。
+            // 同时保留 120 像素下采样阈值，从根源上控制加载的 Bitmap 体积，安全防范桌面小组件跨进程传输可能引发的 TransactionTooLargeException
+            val bitmap by produceState<Bitmap?>(initialValue = null, coverPath) {
+                value = withContext(Dispatchers.IO) {
+                    if (coverPath.isNotEmpty()) {
+                        val file = File(coverPath)
+                        if (file.exists()) {
+                            try {
+                                val options = BitmapFactory.Options().apply {
+                                    inJustDecodeBounds = true // 仅扫描边界，不分配像素内存
                                 }
+                                BitmapFactory.decodeFile(coverPath, options)
+                                
+                                val targetSize = 120
+                                var inSampleSize = 1
+                                if (options.outHeight > targetSize || options.outWidth > targetSize) {
+                                    val halfHeight = options.outHeight / 2
+                                    val halfWidth = options.outWidth / 2
+                                    while (halfHeight / inSampleSize >= targetSize && halfWidth / inSampleSize >= targetSize) {
+                                        inSampleSize *= 2
+                                    }
+                                }
+                                
+                                options.inSampleSize = inSampleSize
+                                options.inJustDecodeBounds = false
+                                BitmapFactory.decodeFile(coverPath, options)
+                            } catch (_: Exception) {
+                                null
                             }
-                            
-                            options.inSampleSize = inSampleSize
-                            options.inJustDecodeBounds = false
-                            BitmapFactory.decodeFile(coverPath, options)
-                        } catch (_: Exception) {
-                            null
-                        }
+                        } else null
                     } else null
-                } else null
+                }
             }
 
             // 3. 将 UI 包裹在 GlanceTheme 内以完美开启 Material 3 动态取色
@@ -207,9 +215,10 @@ class PlayerWidget : GlanceAppWidget() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 详尽的中文注释：快退 10 秒控制按钮，大小由 32dp 缩小至 24dp，匹配界面微缩化要求
-                    val rewindIntent = Intent(context, PlayerWidgetReceiver::class.java).apply {
-                        action = PlayerWidgetReceiver.ACTION_REWIND
+                    // 详尽的中文注释：快退 10 秒控制按钮，大小由 32dp 缩小至 24dp。
+                    // 路由目标类已由导出的接收器安全重构为非公开（exported=false）的 PlayerWidgetActionReceiver，规避越权拉起漏洞
+                    val rewindIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
+                        action = PlayerWidgetActionReceiver.ACTION_REWIND
                     }
                     Image(
                         provider = ImageProvider(R.drawable.ic_replay_10),
@@ -223,9 +232,10 @@ class PlayerWidget : GlanceAppWidget() {
                     // 详尽的中文注释：将操作按钮之间的间隔距离从 20dp 收缩至 16dp，避免布局过宽
                     Box(modifier = GlanceModifier.width(16.dp)) {}
 
-                    // 详尽的中文注释：核心播放/暂停按钮，容器大小微调至 34dp（带 17dp 完美圆角），内部图标大小增至 22dp，增强主按钮的视觉焦点与触控面积
-                    val playPauseIntent = Intent(context, PlayerWidgetReceiver::class.java).apply {
-                        action = PlayerWidgetReceiver.ACTION_PLAY_PAUSE
+                    // 详尽的中文注释：核心播放/暂停按钮，容器大小微调至 34dp，内部图标大小增至 22dp。
+                    // 路由目标类已由导出的接收器安全重构为非公开（exported=false）的 PlayerWidgetActionReceiver，杜绝前台服务被外部非法拉起
+                    val playPauseIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
+                        action = PlayerWidgetActionReceiver.ACTION_PLAY_PAUSE
                     }
                     val playPauseIconRes = if (isPlaying) R.drawable.ic_widget_pause else R.drawable.ic_widget_play
                     Box(
@@ -246,9 +256,10 @@ class PlayerWidget : GlanceAppWidget() {
 
                     Box(modifier = GlanceModifier.width(16.dp)) {}
 
-                    // 详尽的中文注释：快进 30 秒控制按钮，大小由 32dp 缩小至 24dp，匹配精美排版
-                    val forwardIntent = Intent(context, PlayerWidgetReceiver::class.java).apply {
-                        action = PlayerWidgetReceiver.ACTION_FORWARD
+                    // 详尽的中文注释：快进 30 秒控制按钮，大小由 32dp 缩小至 24dp。
+                    // 路由目标类已由导出的接收器安全重构为非公开（exported=false）的 PlayerWidgetActionReceiver，彻底防范虚假广播操控
+                    val forwardIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
+                        action = PlayerWidgetActionReceiver.ACTION_FORWARD
                     }
                     Image(
                         provider = ImageProvider(R.drawable.ic_forward_30),

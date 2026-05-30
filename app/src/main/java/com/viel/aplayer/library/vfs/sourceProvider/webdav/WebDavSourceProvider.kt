@@ -252,7 +252,31 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 if (response.code != HTTP_MULTI_STATUS && !response.isSuccessful) {
                     throw response.toWebDavException("PROPFIND")
                 }
-                val xml = response.body.string()
+                val body = response.body
+                val contentLength = body.contentLength()
+                // 详尽的中文注释：如果响应头明确返回的 Content-Length 超过了设定的最大安全阈值，
+                // 则立即主动中断读取，抛出 WebDavException 以防止大文件加载导致内存消耗殆尽
+                if (contentLength > MAX_PROPFIND_RESPONSE_SIZE) {
+                    throw WebDavException(
+                        availabilityStatus = AudiobookSchema.AvailabilityStatus.SERVER_ERROR,
+                        message = "WebDAV PROPFIND response content-length is too large: $contentLength bytes (limit: $MAX_PROPFIND_RESPONSE_SIZE)"
+                    )
+                }
+
+                val xml = try {
+                    // 详尽的中文注释：通过带有限额功能的 readStringWithLimit 函数读取响应流，
+                    // 确保即使服务器采用 chunked 传输导致 contentLength 为 -1 时，也能受到 8MB 限额的实时保卫
+                    body.byteStream().use { stream ->
+                        stream.readStringWithLimit(MAX_PROPFIND_RESPONSE_SIZE)
+                    }
+                } catch (e: IOException) {
+                    throw WebDavException(
+                        availabilityStatus = AudiobookSchema.AvailabilityStatus.SERVER_ERROR,
+                        message = "Exceeded WebDAV PROPFIND response secure reading limit of $MAX_PROPFIND_RESPONSE_SIZE bytes",
+                        cause = e
+                    )
+                }
+
                 if (xml.isBlank()) {
                     // 记录 PROPFIND 请求返回空 XML 的耗时
                     com.viel.aplayer.logger.VfsLogger.logWebDavPropfind(
@@ -524,6 +548,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         private const val HTTP_RANGE_NOT_SATISFIABLE = 416
         private const val HTTP_GATEWAY_TIMEOUT = 504
         private const val DEFAULT_RANGE_BUFFER_SIZE = 16 * 1024
+        // 详尽的中文注释：针对 PROPFIND 响应体设置 8MB 的最大安全阈值，防止读取不受限的庞大 XML 文件引起的内存溢出或 DoS 攻击
+        private const val MAX_PROPFIND_RESPONSE_SIZE = 8 * 1024 * 1024
 
         // SimpleDateFormat 非线程安全，用 ThreadLocal 支撑 OkHttp/扫描并发回调下的日期解析。
         private val WEB_DAV_DATE_FORMAT = ThreadLocal.withInitial {
@@ -558,4 +584,26 @@ private class ResponseClosingInputStream(
             response.close()
         }
     }
+}
+
+/**
+ * 详尽的中文注释：对 InputStream 进行带限额的安全读取并转换为 String，
+ * 每次读取最多分配 4KB 的缓冲区，并实时统计已接收的物理字节总数；
+ * 一旦超过设定的 maxBytes 限制，立即抛出 IOException 中断读取和底层网络传输，
+ * 强力规避服务器返回超大或者无限响应体导致的内存暴涨及 DoS 攻击风险。
+ */
+private fun InputStream.readStringWithLimit(maxBytes: Int): String {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(4096)
+    var totalRead = 0
+    while (true) {
+        val read = this.read(buffer)
+        if (read == -1) break
+        totalRead += read
+        if (totalRead > maxBytes) {
+            throw IOException("WebDAV PROPFIND response exceeded secure limit of $maxBytes bytes")
+        }
+        output.write(buffer, 0, read)
+    }
+    return output.toString("UTF-8")
 }

@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancel
 
 /**
  * 播放位置与进度记录应用服务（实现了 ProgressGateway 网关）。
@@ -25,7 +26,7 @@ import kotlinx.coroutines.withContext
 class ProgressService(
     private val bookDao: BookDao,
     private val reachabilityManager: PlaybackReachabilityManager
-) : ProgressGateway {
+) : ProgressGateway, java.io.Closeable {
 
     // 异步非阻塞进度更新的专属协程异常拦截器
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
@@ -38,47 +39,16 @@ class ProgressService(
     override fun updateProgress(bookId: String, position: Long) {
         // 采用后台非阻塞协程执行高频进度换算与 Room 落盘，防止播放器主循环卡顿
         scope.launch {
-            val progress = bookDao.getProgressForBookSync(bookId)
-            val files = bookDao.getFilesForBookList(bookId)
-            
-            if (files.isNotEmpty()) {
-                // 通过 PositionMapper 将播放器绝对毫秒位置换算为指定物理音频轨内的相对毫秒偏移
-                val (fileIndex, posInFile) = PositionMapper.globalToFilePosition(position, files)
-                val bookFileId = files.getOrNull(fileIndex)?.id
-
-                val updated = progress?.copy(
-                    globalPositionMs = position,
-                    bookFileId = bookFileId,
-                    currentFileIndex = fileIndex,
-                    positionInFileMs = posInFile,
-                    lastPlayedAt = System.currentTimeMillis()
-                ) ?: BookProgressEntity(
-                    bookId = bookId,
-                    globalPositionMs = position,
-                    bookFileId = bookFileId,
-                    currentFileIndex = fileIndex,
-                    positionInFileMs = posInFile,
-                    anchorStatus = AudiobookSchema.AnchorStatus.OK,
-                    lastPlayedAt = System.currentTimeMillis()
-                )
-                bookDao.insertProgress(updated)
-            } else if (progress != null) {
-                // 物理音频分轨缺失时的降级路径，仅保留全局绝对进度位置
-                bookDao.insertProgress(progress.copy(
-                    globalPositionMs = position,
-                    lastPlayedAt = System.currentTimeMillis()
-                ))
-            }
-
-            // 联动触发阅读状态变更判定与写入
-            updateReadStatusFromProgress(bookId, position)
+            // 详尽的中文注释：通过调用 BookDao 的统一进度更新事务方法，
+            // 在单次写事务内原子完成旧进度提取、音频轨道偏移换算、落盘及联动阅读状态修改，
+            // 有效规避高并发并发上报时不同协程交错写造成的数据脏写和进度回退隐患
+            bookDao.updateProgressWithReadStatus(bookId, position, System.currentTimeMillis())
         }
     }
 
     override suspend fun saveProgress(progress: BookProgressEntity) = withContext(Dispatchers.IO) {
-        // 强刷进度保存，采用 IO 线程有序落库并更新阅读状态状态机
-        bookDao.insertProgress(progress)
-        updateReadStatusFromProgress(progress.bookId, progress.globalPositionMs)
+        // 详尽的中文注释：强刷进度时同步采取统一写事务，防止留下撕裂的数据并联动更新阅读状态
+        bookDao.updateProgressWithReadStatus(progress.bookId, progress.globalPositionMs, progress.lastPlayedAt)
     }
 
     override suspend fun getLastPlayedProgressSync(): BookProgressEntity? = withContext(Dispatchers.IO) {
@@ -104,17 +74,9 @@ class ProgressService(
         reachabilityManager.findNextAvailablePlaybackFile(bookId, afterQueueIndex)
     }
 
-    /**根据当前播放进度百分比换算有声书的阅读状态（99% 阈值即判定为已读完FINISHED），避免脏写
-     */
-    private suspend fun updateReadStatusFromProgress(bookId: String, position: Long) {
-        val book = bookDao.getBookById(bookId) ?: return
-        val nextStatus = when {
-            book.totalDurationMs > 0L && position >= (book.totalDurationMs * 0.99).toLong() -> AudiobookSchema.ReadStatus.FINISHED
-            position > 0L -> AudiobookSchema.ReadStatus.IN_PROGRESS
-            else -> AudiobookSchema.ReadStatus.NOT_STARTED
-        }
-        if (book.readStatus != nextStatus) {
-            bookDao.updateBookReadStatus(bookId, nextStatus)
-        }
+    override fun close() {
+        // 详尽的中文注释：在进度服务销毁或 DI 容器关闭重置时，显式取消专属高频进度异步落库协程作用域，
+        // 确保挂起事务全量释放，不遗留任何长驻协程内存垃圾
+        scope.cancel()
     }
 }

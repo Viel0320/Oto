@@ -6,10 +6,12 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.media.PositionMapper
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -211,4 +213,56 @@ interface BookDao {
     // 根据书籍 ID 更新书籍的阅读状态（未开始/进行中/已完成）到 Room 数据库中，用于响应长按菜单状态修改和播放位置自动更新
     @Query("UPDATE books SET readStatus = :readStatus WHERE id = :id")
     suspend fun updateBookReadStatus(id: String, readStatus: String)
+
+    /**
+     * 详尽的中文注释：在同一个数据库写事务内，原子化执行进度读取、映射计算、进度落盘以及阅读状态联动更新。
+     * 本方法采用 Room 核心的 @Transaction 机制，将原本分散在应用服务层的多步读写动作聚合为原子事务，
+     * 从而在底层彻底规避高频进度上报时由于协程并发交错执行导致的“读-改-写”竞态数据覆盖（进度回退）缺陷，
+     * 并确保在进程强杀或异常抛出时数据绝对处于一致状态。
+     */
+    @Transaction
+    suspend fun updateProgressWithReadStatus(bookId: String, position: Long, currentTime: Long) {
+        val progress = getProgressForBookSync(bookId)
+        val files = getFilesForBookList(bookId)
+        
+        if (files.isNotEmpty()) {
+            val (fileIndex, posInFile) = PositionMapper.globalToFilePosition(position, files)
+            val bookFileId = files.getOrNull(fileIndex)?.id
+
+            val updated = progress?.copy(
+                globalPositionMs = position,
+                bookFileId = bookFileId,
+                currentFileIndex = fileIndex,
+                positionInFileMs = posInFile,
+                lastPlayedAt = currentTime
+            ) ?: BookProgressEntity(
+                bookId = bookId,
+                globalPositionMs = position,
+                bookFileId = bookFileId,
+                currentFileIndex = fileIndex,
+                positionInFileMs = posInFile,
+                anchorStatus = AudiobookSchema.AnchorStatus.OK,
+                lastPlayedAt = currentTime
+            )
+            insertProgress(updated)
+        } else if (progress != null) {
+            insertProgress(progress.copy(
+                globalPositionMs = position,
+                lastPlayedAt = currentTime
+            ))
+        }
+
+        // 联动更新阅读状态
+        val book = getBookById(bookId)
+        if (book != null) {
+            val nextStatus = when {
+                book.totalDurationMs > 0L && position >= (book.totalDurationMs * 0.99).toLong() -> AudiobookSchema.ReadStatus.FINISHED
+                position > 0L -> AudiobookSchema.ReadStatus.IN_PROGRESS
+                else -> AudiobookSchema.ReadStatus.NOT_STARTED
+            }
+            if (book.readStatus != nextStatus) {
+                updateBookReadStatus(bookId, nextStatus)
+            }
+        }
+    }
 }

@@ -928,8 +928,17 @@ object Mp4MetadataFrameReader {
         Log.d(TAG, "MP4 metadata parse purpose=${options.purpose} success=$success elapsedMs=${SystemClock.elapsedRealtime() - startedAt} $stats source=$sourceId")
     }
 
-    private fun durationToMs(duration: Long, timescale: Long): Long =
-        if (duration > 0L && timescale > 0L) (duration * 1000L) / timescale else 0L
+    // 详尽的中文注释：重构时长转毫秒的核心计算函数，防止 MP4 v1 标准下 64 位 duration 乘 1000L 发生 Long 型符号位回环溢出。
+    // 采用 (duration / timescale) * 1000 + ((duration % timescale) * 1000) / timescale 除余拆解，
+    // 并在最终结果上强制 coerceAtLeast(0L) 夹取非负值，从数学原理上彻底杜绝负时长对 seek 机制的物理破坏。
+    private fun durationToMs(duration: Long, timescale: Long): Long {
+        if (duration <= 0L || timescale <= 0L) return 0L
+        return runCatching {
+            val base = (duration / timescale) * 1000L
+            val remainder = ((duration % timescale) * 1000L) / timescale
+            (base + remainder).coerceAtLeast(0L)
+        }.getOrDefault(0L)
+    }
 
     private fun Map<String, String>.firstText(vararg keys: String): String =
         keys.firstNotNullOfOrNull { key -> get(key)?.takeIf { it.isNotBlank() } }.orEmpty()
@@ -945,7 +954,10 @@ object Mp4MetadataFrameReader {
     private const val FREEFORM_LABEL_HEADER_BYTES = 4
     private const val MAX_ATOM_SCAN_COUNT = 20_000
     private const val MAX_TEXT_DATA_BYTES = 256 * 1024
-    private const val MAX_COVER_BYTES = 16 * 1024 * 1024
+    // 详尽的中文注释：限制提取的单次内嵌封面最大字节数，从原来的 16MB 安全下调为 6MB。
+    // 这能在第一阶段的 Range 读取元数据流程中，直接拦截异常偏大或恶意高清封面的加载，
+    // 防止大体积字节数组强行常驻于堆内存中造成 OOM 风险。
+    private const val MAX_COVER_BYTES = 6 * 1024 * 1024
     private const val MAX_CHPL_BYTES = 1024 * 1024
     private const val MAX_TABLE_BYTES = 2 * 1024 * 1024
     private const val MAX_TABLE_ENTRIES = 10_000

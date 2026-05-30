@@ -26,6 +26,11 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.media.NotificationProgressPlayer
 import com.viel.aplayer.media.PositionMapper
 import com.viel.aplayer.widget.PlayerWidgetStateHelper
+// 详尽的中文注释：导入小组件状态更新所需的 GlanceAppWidgetManager 管理器以及 PlayerWidget 实例
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import com.viel.aplayer.widget.PlayerWidget
+// 详尽的中文注释：导入协程 withContext 工具，以便在 IO 协程中执行小组件数量查询及 Room 书籍信息加载
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -48,6 +53,9 @@ import kotlinx.coroutines.launch
  */
 @UnstableApi
 class PlaybackService : MediaSessionService() {
+    // 详尽的中文注释：持有去抖小组件刷新任务的 Job 引用，用于在频繁播放事件触发时取消之前的待执行任务
+    private var widgetUpdateJob: Job? = null
+
     private var mediaSession: MediaSession? = null
     // 通知栏使用独立的 Session，避免通知栏显示进度反向污染 App UI 控制器
     private var notificationSession: MediaSession? = null
@@ -388,50 +396,69 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    // 详尽的中文注释：安全地将当前的播放状态、有声书名字、作者在 Main 线程提取出来，避开 IO 协程交叉刺探 Player 导致 wrong thread 崩溃，然后再通过 LibraryFacade 在后台异步查询并推送状态
+    // 详尽的中文注释：对桌面小组件进行防抖更新，并且优化空小组件场景下的数据库查库开销
     private fun updateWidgetState() {
         val playerInstance = player ?: return
         
-        // 详尽的中文注释：所有与物理 ExoPlayer 实例属性的通信握手（如 isPlaying、currentMediaItem）必须强制在 Main 主线程执行以确保线程安全
-        val isPlaying = playerInstance.isPlaying
-        val mediaItem = playerInstance.currentMediaItem
-        val mediaId = mediaItem?.mediaId
-        val fallbackTitle = mediaItem?.mediaMetadata?.title?.toString()
-        val fallbackArtist = mediaItem?.mediaMetadata?.artist?.toString()
+        // 详尽的中文注释：取消上一次尚未执行的去抖更新任务，以防止状态频繁波动时产生多余开销
+        widgetUpdateJob?.cancel()
+        widgetUpdateJob = serviceScope.launch(Dispatchers.Main) {
+            // 详尽的中文注释：设置 250ms 的更新去抖延迟，过滤因连续状态改变或网络缓冲抖动引起的密集重绘
+            delay(250)
 
-        if (mediaId != null && mediaId.contains(":")) {
-            val bookId = mediaId.substringBefore(":")
-            serviceScope.launch(Dispatchers.IO) {
-                // 详尽的中文注释：通过 LibraryFacade 高层业务门面在 IO 协程中异步提取当前书籍记录
-                val book = libraryFacade.getBookById(bookId)
-                val title = book?.title ?: fallbackTitle
-                val author = book?.author ?: fallbackArtist
-                val coverPath = book?.thumbnailPath ?: book?.coverPath
-                
-                // 详尽的中文注释：借助小组件同步助手，更新并刷新桌面组件 UI
-                PlayerWidgetStateHelper.updateWidgetState(
-                    context = this@PlaybackService,
-                    isPlaying = isPlaying,
-                    title = title,
-                    author = author,
-                    coverPath = coverPath
-                )
-            }
-        } else {
-            // 详尽的中文注释：若未播放任何书籍，则向小组件推送默认的静置空数据状态以重置 UI 样式
-            serviceScope.launch {
-                PlayerWidgetStateHelper.updateWidgetState(
-                    context = this@PlaybackService,
-                    isPlaying = false,
-                    title = null,
-                    author = null,
-                    coverPath = null
-                )
+            // 详尽的中文注释：所有对物理播放器实例属性的读取必须在 Main 线程完成以符合多媒体框架的线程限制契约
+            val isPlaying = playerInstance.isPlaying
+            val mediaItem = playerInstance.currentMediaItem
+            val mediaId = mediaItem?.mediaId
+            val fallbackTitle = mediaItem?.mediaMetadata?.title?.toString()
+            val fallbackArtist = mediaItem?.mediaMetadata?.artist?.toString()
+
+            if (mediaId != null && mediaId.contains(":")) {
+                val bookId = mediaId.substringBefore(":")
+                withContext(Dispatchers.IO) {
+                    // 详尽的中文注释：在通过 LibraryFacade 执行任何 Room 数据库查询之前，首先运行 Glance 自身的 ID 数量预判。
+                    // 若桌面上完全没有添加该 Widget，则立刻早退，从物理层杜绝在此场景下进行昂贵且无意义的本地查库操作，完美保护磁盘 I/O 资源
+                    val glanceIds = GlanceAppWidgetManager(this@PlaybackService)
+                        .getGlanceIds(PlayerWidget::class.java)
+                    if (glanceIds.isEmpty()) return@withContext
+
+                    // 详尽的中文注释：此时已确认桌面上有小组件实例，通过门面接口加载书籍详细信息以同步 UI 封面和文字
+                    val book = libraryFacade.getBookById(bookId)
+                    val title = book?.title ?: fallbackTitle
+                    val author = book?.author ?: fallbackArtist
+                    val coverPath = book?.thumbnailPath ?: book?.coverPath
+                    
+                    PlayerWidgetStateHelper.updateWidgetState(
+                        context = this@PlaybackService,
+                        isPlaying = isPlaying,
+                        title = title,
+                        author = author,
+                        coverPath = coverPath
+                    )
+                }
+            } else {
+                withContext(Dispatchers.IO) {
+                    // 详尽的中文注释：若未播放任何书籍，同样首先检测是否有小组件被放置，以杜绝无意义的数据写入
+                    val glanceIds = GlanceAppWidgetManager(this@PlaybackService)
+                        .getGlanceIds(PlayerWidget::class.java)
+                    if (glanceIds.isEmpty()) return@withContext
+
+                    PlayerWidgetStateHelper.updateWidgetState(
+                        context = this@PlaybackService,
+                        isPlaying = false,
+                        title = null,
+                        author = null,
+                        coverPath = null
+                    )
+                }
             }
         }
     }
 
     override fun onDestroy() {
+        // 详尽的中文注释：服务销毁时取消所有未完成的去抖更新任务，防止内存泄漏和协程泄露
+        widgetUpdateJob?.cancel()
+
         // 详尽的中文注释：当前后台播放服务完全销毁生命周期退出时，强行重置并向小组件写入静置状态，保证桌面小组件状态不残留
         serviceScope.launch {
             PlayerWidgetStateHelper.updateWidgetState(

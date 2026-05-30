@@ -33,7 +33,7 @@ import kotlinx.coroutines.SupervisorJob
 /**
  * 简单的依赖注入容器，用于统一管理与初始化全局仓库与高层跨域用例。
  */
-interface AppContainer {
+interface AppContainer : java.io.Closeable {
     val settingsRepository: AppSettingsRepository
     
     /**
@@ -246,7 +246,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             metadataResolver = metadataResolver,
             subtitleResolver = subtitleFileResolver,
             detailAvailabilityChecker = detailAvailabilityChecker,
-            availabilityChecker = availabilityChecker
+            availabilityChecker = availabilityChecker,
+            // 详尽的中文注释：在此向 CoverService 传入容器内延迟初始化的 database 实例以支持跨 DAO 原子写事务控制，防范数据撕裂
+            database = database
         )
     }
 
@@ -290,5 +292,15 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         com.viel.aplayer.media.DefaultPlaybackFileLookup(
             database.bookDao()
         )
+    }
+
+    override fun close() {
+        // 详尽的中文注释：在容器关闭时，批量协同清理并取消内部所有存在私有后台协程作用域的网关服务，
+        // 物理打断后台 Room/VFS/扫描监听数据流，保证生命周期释放的完整度，消灭内存垃圾泄露
+        (bookQueryGateway as? java.io.Closeable)?.close()
+        (progressGateway as? java.io.Closeable)?.close()
+        (scanScheduler as? java.io.Closeable)?.close()
+        (libraryRootGateway as? java.io.Closeable)?.close()
+        (coverGateway as? java.io.Closeable)?.close()
     }
 }

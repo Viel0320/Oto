@@ -1,6 +1,7 @@
 package com.viel.aplayer
 
 import android.app.Application
+import android.content.Context
 import com.viel.aplayer.media.AutoRewindManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,18 +13,47 @@ import kotlinx.coroutines.launch
  */
 class APlayerApplication : Application() {
     
-    /** 全局依赖容器实例 */
-    lateinit var container: AppContainer
+    /** 
+     * 全局依赖容器实例计算属性。
+     * 详尽的中文注释：保留 container 属性接口以支持应用内大量旧代码的无缝向前兼容。
+     * 通过将 lateinit var 更改为只读计算属性并在底层代理至伴生对象中的 DCL (Double-Check Locking) 惰性初始化方法，
+     * 能够在所有组件强转访问 container 时，即使发生早于 onCreate 的极早期调用或高并发获取，
+     * 也能确保返回线程安全的 AppContainer 实例，从根源上扑灭 UninitializedPropertyAccessException 启动期崩溃。
+     */
+    val container: AppContainer
+        get() = getContainer(this)
 
     override fun onCreate() {
         super.onCreate()
-        // 在应用启动时初始化容器
-        container = DefaultAppContainer(this)
+        // 详尽的中文注释：在 Application.onCreate 周期中预先触发容器的主线程初始化，
+        // 保证在后续界面或其它组件开始连接前，容器及其各个依赖项都已处于就绪状态
+        getContainer(this)
 
-        // 详尽的中文注释：在应用启动并完成依赖容器装挂后，在后台 IO 协程作用域内安全通过容器的 autoRewindManager 属性调度执行进度冷启动自愈逻辑；
+        // 详尽的中文注释：在应用启动并完成依赖容器装挂后，在后台 IO 协程作用域内安全通过容器的 autoRewindManager 属性调度执行进度 cold start 自愈逻辑；
         // 这规避了以前在全局生命周期中越过 DI 容器强行直调外部静态单例的混乱设计，保证整个系统的一致性与可测试性
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             container.autoRewindManager.performColdStartSelfHealing()
+        }
+    }
+
+    companion object {
+        @Volatile
+        private var instance: AppContainer? = null
+
+        /**
+         * 详尽的中文注释：线程安全地惰性获取全局依赖容器 AppContainer 单例。
+         * 使用双重锁校验 (Double-Check Locking) 保证多线程并发安全。
+         * 如果当前 ApplicationContext 并非 APlayerApplication（例如某些测试沙箱、辅助进程等），
+         * 则直接依托其 applicationContext 上下文初始化并缓存 DefaultAppContainer 单例，
+         * 从而有效避免 ClassCastException 和 lateinit 未初始化等启动级隐患。
+         * 
+         * @param context 组件的 Context
+         * @return 全局唯一的 AppContainer 实例
+         */
+        fun getContainer(context: Context): AppContainer {
+            return instance ?: synchronized(this) {
+                instance ?: DefaultAppContainer(context.applicationContext).also { instance = it }
+            }
         }
     }
 }

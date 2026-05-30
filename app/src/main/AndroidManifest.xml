@@ -72,24 +72,31 @@
             android:label="设置"
             android:theme="@style/Theme.APlayer" />
 
-        <!-- 详尽的中文注释：因小组件重建，在此处重新注册专用的桌面小组件广播接收器 PlayerWidgetReceiver。
-             它继承自 GlanceAppWidgetReceiver，绑定 APPWIDGET_UPDATE 广播动作，
-             同时我们加入了自定义的媒体控制广播行为，用以在不需要启动前台 MainActivity 的情况下，
-             直接通过接收器拉起并绑定播放服务执行控制命令，完全实现组件间解耦。 -->
+        <!-- 详尽的中文注释：注册专用于桌面小组件更新的外部接收器 PlayerWidgetReceiver。
+             已安全剥离了所有媒体播控自定义 action，防止被恶意第三方通过外部广播越权控制或拉起服务。 -->
         <receiver
             android:name=".widget.PlayerWidgetReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <!-- 详尽的中文注释：自定义的媒体控制动作广播，分别对应快退、快进、播放/暂停 -->
-                <action android:name="com.viel.aplayer.widget.ACTION_REWIND" />
-                <action android:name="com.viel.aplayer.widget.ACTION_FORWARD" />
-                <action android:name="com.viel.aplayer.widget.ACTION_PLAY_PAUSE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/player_widget_info" />
+        </receiver>
+
+        <!-- 详尽的中文注释：注册专用于媒体播放控制动作的安全广播接收器 PlayerWidgetActionReceiver。
+             显式指定 android:exported="false"，确保此控制接口仅在应用同包内部可见，任何外部虚假广播将被系统自动物理抛弃。 -->
+        <receiver
+            android:name=".widget.PlayerWidgetActionReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.viel.aplayer.widget.ACTION_REWIND" />
+                <action android:name="com.viel.aplayer.widget.ACTION_FORWARD" />
+                <action android:name="com.viel.aplayer.widget.ACTION_PLAY_PAUSE" />
+            </intent-filter>
         </receiver>
 
         <service

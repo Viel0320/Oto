@@ -27,8 +27,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancel
 import java.io.File
 import java.util.UUID
 
@@ -46,7 +48,7 @@ class BookQueryService
     private val bookmarkDao: BookmarkDao,
     private val scanSessionDao: ScanSessionDao,
     private val coverRecoveryHelper: CoverRecoveryHelper
-) : BookQueryGateway {
+) : BookQueryGateway, java.io.Closeable {
 
     // 异步非阻塞元数据覆写的专属协程异常拦截器
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
@@ -57,10 +59,12 @@ class BookQueryService
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
     // 用于在流式加载书籍列表时自动触发封面缓存物理自愈的响应式 Flow 拦截器
+    // 详尽的中文注释：使用 flowOn 强制将 map 遍历及 checkAndTriggerCoverRegeneration 内的 File.exists() 磁盘 I/O 操作
+    // 分流至 Dispatchers.IO 线程池执行，彻底防止大书库扫描渲染时，在 UI 主线程收集端高频执行同步磁盘探测引发的 ANR 与严重掉帧
     @OptIn(UnstableApi::class)
     private fun Flow<List<BookWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
         list.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
-    }
+    }.flowOn(Dispatchers.IO)
 
     // 锚定计算时使用的辅助数据元组，用于承载文件ID、偏移、指纹及状态
     private data class Quad(
@@ -79,10 +83,10 @@ class BookQueryService
     }
 
     override fun observeBookById(id: String): Flow<BookEntity?> {
-        // 响应式订阅单本书籍的最新状态，并在发生变动时协同封面自愈助手执行非阻塞检查
+        // 详尽的中文注释：响应式观察单本书籍时，亦通过 flowOn 将封面探测动作强制约束在 IO 线程池内，规避对 UI 收集主线程产生同步磁盘阻塞
         return bookDao.observeBookById(id).map { book ->
             book?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
-        }
+        }.flowOn(Dispatchers.IO)
     }
 
     override fun searchAudiobooks(query: String): Flow<List<BookWithProgress>> {
@@ -254,8 +258,9 @@ class BookQueryService
         // 在专属后台协程域中执行物理分轨章节实体的清空与批量写入
         scope.launch {
             if (bookDao.getBookById(bookId) != null) {
-                chapterDao.deleteChaptersForBook(bookId)
-                chapterDao.insertChapters(chapters)
+                // 详尽的中文注释：改用 chapterDao 统一的 replaceChapters 事务方法，
+                // 将章节的清除与重新插入强行约束在同一个写事务中，排除异常下的零章节状态残留
+                chapterDao.replaceChapters(bookId, chapters)
             }
         }
     }
@@ -299,5 +304,11 @@ class BookQueryService
         bookmarkDao.delete(bookmark)
         // 显式返回 Unit
         Unit
+    }
+
+    override fun close() {
+        // 详尽的中文注释：在服务实例销毁或容器重置时，安全且显式地取消专属于后台异步标签写入及章节自愈覆写的私有协程作用域，
+        // 彻底释放全部挂起任务，杜绝常驻内存垃圾产生
+        scope.cancel()
     }
 }

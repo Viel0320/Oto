@@ -8,6 +8,8 @@ import com.viel.aplayer.data.entity.PendingScanActionEntity
 import com.viel.aplayer.library.FileIdentity
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.orchestrator.BookDraftFactory
+// 详尽的中文注释：导入包级可见的 String.escapeJson 扩展函数以实现 JSON 敏感字符的统一安全转义
+import com.viel.aplayer.library.orchestrator.escapeJson
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.ImportSourceRef
 import com.viel.aplayer.library.orchestrator.ReservationResult
@@ -283,7 +285,9 @@ internal class OwnershipClaimStep(
             actionKey = actionKey,
             type = AudiobookSchema.PendingActionType.CONFLICT,
             bookId = existingBookId,
-            payloadJson = "{\"sourceUri\":\"${source.sourceUri}\"}",
+            // 详尽的中文注释：对拼接 JSON 字符串的 source.sourceUri 进行基础安全转义（通过 escapeJson 扩展函数），
+            // 确保即使 URI 中带有反斜杠或双引号等敏感字符，也不会导致 JSON 解析撕裂以及运行期异常崩溃
+            payloadJson = "{\"sourceUri\":\"${source.sourceUri.escapeJson()}\"}",
             message = "Source \"${source.displayName}\" conflicts with an existing or earlier source.",
             lastSeenScanId = scanId
         ))
@@ -295,7 +299,9 @@ internal class OwnershipClaimStep(
             scanSessionId = scanId,
             actionKey = "PARTIAL:${source.sourceUri}:$missingCount",
             type = AudiobookSchema.PendingActionType.PARTIAL_NEW_BOOK,
-            payloadJson = "{\"sourceUri\":\"${source.sourceUri}\",\"missingCount\":$missingCount}",
+            // 详尽的中文注释：对拼接 JSON 字符串的 source.sourceUri 进行基础安全转义（通过 escapeJson 扩展函数），
+            // 确保即使 URI 中带有反斜杠或双引号等敏感字符，也不会导致 JSON 解析撕裂以及运行期异常崩溃
+            payloadJson = "{\"sourceUri\":\"${source.sourceUri.escapeJson()}\",\"missingCount\":$missingCount}",
             message = "Source \"${source.displayName}\" is missing $missingCount referenced file(s).",
             lastSeenScanId = scanId
         ))

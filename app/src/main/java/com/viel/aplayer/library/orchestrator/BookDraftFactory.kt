@@ -357,8 +357,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
     private fun BookFileEntity.vfsKey(): String =
         vfsFileKey(rootId, sourcePath)
 
-    private fun String.escapeJson(): String =
-        replace("\\", "\\\\").replace("\"", "\\\"")
 
     private fun String.logValue(): String =
         ifBlank { "<blank>" }
@@ -384,3 +382,12 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         private const val TAG = "BookDraftFactory"
     }
 }
+
+/**
+ * 详尽的中文注释：对包含 JSON 敏感控制字符的字符串进行基础安全转义（主要针对反斜杠和双引号），
+ * 将其包装为合规的 JSON 转义字符形式。主要应用于使用 String 模版硬编码拼接 JSON 数据的场景，
+ * 彻底防范包含特殊字符的有声书 URI 导致生成的 JSON 字符串解析撕裂以及运行期异常崩溃。
+ */
+internal fun String.escapeJson(): String =
+    replace("\\", "\\\\").replace("\"", "\\\"")
+

@@ -59,48 +59,48 @@ APlayer 是一个架构相当完整、工程化程度高的有声书播放器：
 
 ## 2. 发现索引（Findings Index）
 
-| ID       | 级别       | 维度   | 标题                                                  | 位置                                                |
-| -------- | ---------- | ------ | ----------------------------------------------------- | --------------------------------------------------- |
-| C-01     | Critical   | D3     | 发布签名 keystore 入库且口令硬编码                    | `build.gradle.kts:38-45`                            |
-| C-02     | Critical   | D9     | 生产唯一初始化路径启用破坏性迁移                      | `AppDatabase.kt:60`                                 |
-| H-01     | High       | D3     | WebDAV 凭据 Base64 存储且被纳入云备份                 | `WebDavCredentialStore.kt:26,47`                    |
-| H-02     | High       | D3     | 全局明文 HTTP，凭据明文传输无应用层拦截               | `network_security_config.xml:5`                     |
-| H-03     | High       | D3/D4  | 导出 widget 接收器可被任意 App 控制播放               | `PlayerWidgetReceiver.kt:40`                        |
-| H-04     | High       | D11/D3 | PlaybackService 导出且 `permission="TODO"`            | `AndroidManifest.xml:97`                            |
-| H-05     | High       | D2/D4  | loader 线程 `runBlocking` 远程 I/O 不可中断           | `VfsPlaybackDataSource.kt:41,47`                    |
-| H-06     | High       | D9/D2  | 数据层零写事务，多写序列非原子                        | `BookQueryService.kt:253` 等                        |
-| H-07     | High       | D5/D4  | `container` lateinit 无初始化顺序/多进程守卫          | `APlayerApplication.kt:16`                          |
-| M-01     | Medium     | D6     | 元数据/封面解析持有完整字节数组致 OOM 风险            | `Mp4MetadataFrameReader`、`ImageProcessor`          |
-| M-02     | Medium     | D1/D6  | FLAC/Ogg 图片块长度字段未校验负值                     | `FlacMetadataRangeParser.kt:40`                     |
-| M-03     | Medium     | D1     | MP4 v1 64 位时长换算整型溢出                          | `Mp4MetadataFrameReader.kt:407`                     |
-| M-04     | Medium     | D2     | `uiEvents` SharedFlow 容量 1 可丢事件                 | `PlaybackManager.kt:78`                             |
-| M-05     | Medium     | D4     | PlaybackManager Listener 未在 release 前移除          | `PlaybackManager.kt:180,416`                        |
-| M-06     | Medium     | D6     | `checkCovers()` 在 Flow.map 中做磁盘 I/O              | `BookQueryService.kt:61`                            |
-| M-07     | Medium     | D4/D2  | Service 协程作用域永不取消                            | `LibraryRootService.kt:52` 等                       |
-| M-08     | Medium     | D9     | 软删除书籍的文件归属污染重扫去重                      | `BookDao.kt`, `BookQueryService.kt:125`             |
-| M-09     | Medium     | D9     | 破坏性迁移遗留磁盘封面文件                            | `AppDatabase.kt:60`                                 |
-| M-10     | Medium     | D3     | 未转义路径字符串拼接 JSON                             | `OwnershipClaimStep.kt:286`                         |
-| ~~M-11~~ | ~~Medium~~ | ~~D4~~ | ~~[已修复] WebDAV openInputStream 响应泄漏+提前记成功~~          | `WebDavSourceProvider.kt:139` |
-| M-12     | Medium     | D8     | PROPFIND 响应体无大小上限全量解析                     | `WebDavSourceProvider.kt:252`                       |
-| M-13     | Medium     | D6     | 无 widget 时仍每次播放事件查库+刷新                   | `PlaybackService.kt:392`                            |
-| M-14     | Medium     | D4/D6  | Glance 组合内同步解码 Bitmap                          | `PlayerWidget.kt:77`                                |
-| ~~M-15~~ | ~~Medium~~ | ~~D2~~ | ~~[已修复] 扫描回调读 WhileSubscribed 门控的 uiState~~ | `LibraryViewModel.kt:171`                           |
-| M-16     | Medium     | D7     | SearchOverlay 用非生命周期感知的 collectAsState       | `SearchOverlay.kt:37`                               |
-| M-17     | Medium     | D7     | 热路径误用 `remember`/`derivedStateOf`                | `SubtitlesView.kt:51`、`PlaybackProgress.kt:41`     |
-| ~~M-18~~ | ~~Medium~~ | ~~D1~~ | ~~[已修复] 未播放保护期 300ms vs 3000ms 不一致~~      | `DetailViewModel.kt:56`                             |
-| L-01     | Low        | D10    | 用户文案大面积硬编码（中英混杂）绕过 strings.xml      | 系统性                                              |
-| L-02     | Info       | D12    | 项目零自动化测试                                      | `app/src/test`、`androidTest` 空                    |
-| ~~L-03~~ | ~~Low~~    | ~~D3~~ | ~~[已修复] local.properties 被 git 跟踪~~                        | git index                                           |
-| ~~L-04~~ | ~~Low~~    | ~~D2~~ | ~~[已修复] RunClaimLedger 共享可变 Map 非线程安全~~              | `RunClaimLedger.kt:9`                               |
-| ~~L-05~~ | ~~Low~~    | ~~D5~~ | ~~[已修复] DI 容器混用注入与 ambient 单例、重复解析 DB~~ | `AppContainer.kt:252`                               |
-| ~~L-06~~ | ~~Low~~    | ~~D1~~ | ~~[已修复] 失效的路由守卫与无操作分支~~                            | `MiniPlayerOverlay.kt:69`、`PlayerViewModel.kt:369` |
-| ~~L-07~~ | ~~Low~~    | ~~D7~~ | ~~[已修复] context as Activity 非安全强转~~                      | `Theme.kt:94` |
-| ~~L-08~~ | ~~Low~~    | ~~D8~~ | ~~[已修复] LibrarySyncWorker 瞬时失败不重试~~                    | `LibrarySyncWorker.kt:26` |
-| L-09     | Low        | D11    | `compileSdk=37` 为非稳定/预览 SDK                     | `build.gradle.kts:17`                               |
-| ~~L-10~~ | ~~Low~~    | ~~D5~~ | ~~[已修复] `DetailContent` 重新包装已拆解的 UiState~~ | `DetailContent.kt:140`                              |
-| L-11     | Info       | D3     | 发布构建已剥离 Log.v/d/i（隐私缓解，正向）            | `proguard-rules.pro`                                |
-| ~~L-12~~ | ~~Low~~    | ~~D2~~ | ~~[已修复] CUE 帧→毫秒未校验 frames∈0..74~~           | `CueManifestParser.kt:201`                          |
-| ~~L-13~~ | ~~Low~~    | ~~D6~~ | ~~[已修复] PillCompactMediaPlayer 旋转角度无界增长~~  | `PillCompactMediaPlayer.kt:94`                      |
+| ID       | 级别       | 维度      | 标题                                                         | 位置                                                |
+| -------- | ---------- | --------- | ------------------------------------------------------------ | --------------------------------------------------- |
+| C-01     | Critical   | D3        | 发布签名 keystore 入库且口令硬编码                           | `build.gradle.kts:38-45`                            |
+| C-02     | Critical   | D9        | 生产唯一初始化路径启用破坏性迁移                             | `AppDatabase.kt:60`                                 |
+| H-01     | High       | D3        | WebDAV 凭据 Base64 存储且被纳入云备份                        | `WebDavCredentialStore.kt:26,47`                    |
+| H-02     | High       | D3        | 全局明文 HTTP，凭据明文传输无应用层拦截                      | `network_security_config.xml:5`                     |
+| ~~H-03~~ | ~~High~~   | ~~D3/D4~~ | ~~[已修复] 导出 widget 接收器可被任意 App 控制播放~~          | `PlayerWidgetReceiver.kt:40`                        |
+| H-04     | High       | D11/D3    | PlaybackService 导出且 `permission="TODO"`                   | `AndroidManifest.xml:97`                            |
+| ~~H-05~~ | ~~High~~   | ~~D2/D4~~ | ~~[已修复] loader 线程 runBlocking 远程 I/O 不可中断~~       | `VfsPlaybackDataSource.kt:41,47`                    |
+| ~~H-06~~ | ~~High~~   | ~~D9/D2~~ | ~~[已修复] 数据层零写事务，多写序列非原子~~                 | `BookQueryService.kt:253` 等                        |
+| ~~H-07~~ | ~~High~~   | ~~D5/D4~~ | ~~[已修复] container lateinit 无初始化顺序/多进程守卫~~     | `APlayerApplication.kt:16`                          |
+| ~~M-01~~ | ~~Medium~~ | ~~D6~~    | ~~[已修复] 元数据/封面解析持有完整字节数组致 OOM 风险~~       | `Mp4MetadataFrameReader`、`ImageProcessor`          |
+| ~~M-02~~ | ~~Medium~~ | ~~D1/D6~~ | ~~[已修复] FLAC/Ogg 图片块长度字段未校验负值~~               | `FlacMetadataRangeParser.kt:40`                     |
+| ~~M-03~~ | ~~Medium~~ | ~~D1~~    | ~~[已修复] MP4 v1 64 位时长换算整型溢出~~                     | `Mp4MetadataFrameReader.kt:407`                     |
+| M-04     | Medium     | D2        | `uiEvents` SharedFlow 容量 1 可丢事件                        | `PlaybackManager.kt:78`                             |
+| ~~M-05~~ | ~~Medium~~ | ~~D4~~    | ~~[已修复] PlaybackManager Listener 未在 release 前移除~~    | `PlaybackManager.kt:180,416`                        |
+| ~~M-06~~ | ~~Medium~~ | ~~D6~~    | ~~[已修复] checkCovers() 在 Flow.map 中做磁盘 I/O~~          | `BookQueryService.kt:61`                            |
+| ~~M-07~~ | ~~Medium~~ | ~~D4/D2~~ | ~~[已修复] Service 协程作用域永不取消~~                      | `LibraryRootService.kt:52` 等                       |
+| M-08     | Medium     | D9        | 软删除书籍的文件归属污染重扫去重                             | `BookDao.kt`, `BookQueryService.kt:125`             |
+| ~~M-09~~ | ~~Medium~~ | ~~D9~~    | ~~[已修复] 破坏性迁移遗留磁盘封面文件~~                      | `AppDatabase.kt:60`                                 |
+| ~~M-10~~ | ~~Medium~~ | ~~D3~~    | ~~[已修复] 未转义路径字符串拼接 JSON~~                       | `OwnershipClaimStep.kt:286`                         |
+| ~~M-11~~ | ~~Medium~~ | ~~D4~~    | ~~[已修复] WebDAV openInputStream 响应泄漏+提前记成功~~      | `WebDavSourceProvider.kt:139`                       |
+| ~~M-12~~ | ~~Medium~~ | ~~D8~~    | ~~[已修复] PROPFIND 响应体无大小上限全量解析~~               | `WebDavSourceProvider.kt:252`                       |
+| ~~M-13~~ | ~~Medium~~ | ~~D6~~    | ~~[已修复] 无 widget 时仍每次播放事件查库+刷新~~             | `PlaybackService.kt:392`                            |
+| ~~M-14~~ | ~~Medium~~ | ~~D4/D6~~ | ~~[已修复] Glance 组合内同步解码 Bitmap~~                    | `PlayerWidget.kt:77`                                |
+| ~~M-15~~ | ~~Medium~~ | ~~D2~~    | ~~[已修复] 扫描回调读 WhileSubscribed 门控的 uiState~~       | `LibraryViewModel.kt:171`                           |
+| ~~M-16~~ | ~~Medium~~ | ~~D7~~    | ~~[已修复] SearchOverlay 用非生命周期感知的 collectAsState~~ | `SearchOverlay.kt:37`                               |
+| M-17     | Medium     | D7        | 热路径误用 `remember`/`derivedStateOf`                       | `SubtitlesView.kt:51`、`PlaybackProgress.kt:41`     |
+| ~~M-18~~ | ~~Medium~~ | ~~D1~~    | ~~[已修复] 未播放保护期 300ms vs 3000ms 不一致~~             | `DetailViewModel.kt:56`                             |
+| L-01     | Low        | D10       | 用户文案大面积硬编码（中英混杂）绕过 strings.xml             | 系统性                                              |
+| L-02     | Info       | D12       | 项目零自动化测试                                             | `app/src/test`、`androidTest` 空                    |
+| ~~L-03~~ | ~~Low~~    | ~~D3~~    | ~~[已修复] local.properties 被 git 跟踪~~                    | git index                                           |
+| ~~L-04~~ | ~~Low~~    | ~~D2~~    | ~~[已修复] RunClaimLedger 共享可变 Map 非线程安全~~          | `RunClaimLedger.kt:9`                               |
+| ~~L-05~~ | ~~Low~~    | ~~D5~~    | ~~[已修复] DI 容器混用注入与 ambient 单例、重复解析 DB~~     | `AppContainer.kt:252`                               |
+| ~~L-06~~ | ~~Low~~    | ~~D1~~    | ~~[已修复] 失效的路由守卫与无操作分支~~                      | `MiniPlayerOverlay.kt:69`、`PlayerViewModel.kt:369` |
+| ~~L-07~~ | ~~Low~~    | ~~D7~~    | ~~[已修复] context as Activity 非安全强转~~                  | `Theme.kt:94`                                       |
+| ~~L-08~~ | ~~Low~~    | ~~D8~~    | ~~[已修复] LibrarySyncWorker 瞬时失败不重试~~                | `LibrarySyncWorker.kt:26`                           |
+| L-09     | Low        | D11       | `compileSdk=37` 为非稳定/预览 SDK                            | `build.gradle.kts:17`                               |
+| ~~L-10~~ | ~~Low~~    | ~~D5~~    | ~~[已修复] `DetailContent` 重新包装已拆解的 UiState~~        | `DetailContent.kt:140`                              |
+| L-11     | Info       | D3        | 发布构建已剥离 Log.v/d/i（隐私缓解，正向）                   | `proguard-rules.pro`                                |
+| ~~L-12~~ | ~~Low~~    | ~~D2~~    | ~~[已修复] CUE 帧→毫秒未校验 frames∈0..74~~                  | `CueManifestParser.kt:201`                          |
+| ~~L-13~~ | ~~Low~~    | ~~D6~~    | ~~[已修复] PillCompactMediaPlayer 旋转角度无界增长~~         | `PillCompactMediaPlayer.kt:94`                      |
 
 ---
 
@@ -174,16 +174,10 @@ APlayer 是一个架构相当完整、工程化程度高的有声书播放器：
 - **影响**：用户添加 `http://` WebDAV 根时，其用户名/密码（Basic Auth）以明文经网络发送，可被链路上的中间人截获，且没有任何警告或显式 opt-in。注释承诺的"应用层防护"是不存在的。
 - **修复**：默认 `isCleartextTrafficAllowed=false`；用 `domain-config` 收紧明文范围；对 `http://` 根强制显式 opt-in，并在 Basic 凭据将经明文传输时警示用户。
 
-### H-03 — 导出的小组件接收器可被任意 App 广播驱动播放并强拉前台服务
+### ~~H-03 — 导出的小组件接收器可被任意 App 广播驱动播放并强拉前台服务~~
 
 - **维度**：D3 安全 / D4 生命周期 ｜ **位置**：`AndroidManifest.xml:79-89`；`widget/PlayerWidgetReceiver.kt:40-91`
-- **证据**：接收器 `exported="true"` 且 intent-filter 暴露自定义动作 `ACTION_REWIND/ACTION_FORWARD/ACTION_PLAY_PAUSE`，**无 `android:permission` 保护**。`onReceive` 不校验发送者，直接以本应用包名 `MediaController.Builder(...).buildAsync()` 连接（通过 `onConnect` 白名单，因为是同包），随后 `play()/pause()/seekBack()/seekForward()`。
-  ```
-  adb shell am broadcast -a com.viel.aplayer.widget.ACTION_PLAY_PAUSE \
-      -n com.viel.aplayer/.widget.PlayerWidgetReceiver
-  ```
-- **影响**：任何已安装 App（或 adb）均可切换/快进/快退播放；更严重的是 `MediaController` 连接会**自动启动/绑定 PlaybackService 前台服务**（代码注释正是依赖此行为），形成可被外部触发的前台服务拉起。`MediaSession.onConnect` 白名单**无法**防护，因为广播在本进程内以本包名连接。
-- **修复**：将自定义控制动作拆到**独立的非导出接收器**（或以 `signature` 级自定义权限保护），导出的 Glance 接收器仅保留 `APPWIDGET_UPDATE`。
+- **已修复**：引入了专用的、非公开的（`exported="false"`）播控广播接收器 `PlayerWidgetActionReceiver`。将快进、快退、播放/暂停等媒体控制指令全部剪切至此安全接收器中，导出的 Glance 接收器 `PlayerWidgetReceiver` 仅拦截基础数据更新 `APPWIDGET_UPDATE`。在 `PlayerWidget.kt` 中将 PendingIntent 的目的 Class 规范路由指向该非导出接收器。外部任何 App 发送虚假控制广播的行为将被 Android 操作系统自身直接物理拦截丢弃，完全化解了前台播放服务被恶意拉起与控制的重大漏洞。
 
 ### H-04 — PlaybackService 导出且 `android:permission="TODO"`（占位字符串）
 
@@ -200,9 +194,10 @@ APlayer 是一个架构相当完整、工程化程度高的有声书播放器：
   - 无论如何，这都不是预期的安全配置，是发布阻断项。
 - **修复**：移除 `android:permission` 占位，依赖已实现的 `onConnect` 包名白名单（`PlaybackService.kt:298-307`）；若确需权限则声明一个真实的 `signature` 级权限。验证 `exported=true` 是否为系统媒体控制所必需（通常是）。
 
-### H-05 — 播放数据源在 ExoPlayer 加载线程上 `runBlocking` 处理远程 I/O（不可中断）
+### ~~H-05 — 播放数据源在 ExoPlayer 加载线程上 `runBlocking` 处理远程 I/O（不可中断）~~
 
 - **维度**：D2 并发 / D4 生命周期 ｜ **位置**：`media/VfsPlaybackDataSource.kt:41,47`
+- **已修复**：重构了 `VfsPlaybackDataSource.open` 的查库及远程流打开流程。在两个 `runBlocking` 内部均引入了运行在 `Dispatchers.Default` 上的高频（50ms）线程打断守护协程（`interruptWatcher`）。一旦 loader 线程被 ExoPlayer 调用了 `Thread.interrupt()` 中断，守护协程会在毫秒级内感知并物理取消当前的协程 `Job`（强行抛出 `CancellationException` 打断底层的挂起流），随后将其中断原委以 `InterruptedIOException` 规范向上抛出，彻底根成了切换或暂停音频时 loader 线程僵死、系统 ANR 崩溃以及连接泄漏的隐患。
 - **证据**：
   ```kotlin
   val file = runBlocking { fileLookup.getBookFileById(bookFileId) }       // DB 查询
@@ -212,25 +207,19 @@ APlayer 是一个架构相当完整、工程化程度高的有声书播放器：
 - **影响**：`open()` 中对 WebDAV 的 `runBlocking` 会在 loader 线程上做网络握手且**不可被协程取消打断**；远程连接挂起时该线程无限阻塞，ExoPlayer `release()`/停止无法中断它，可能导致 loader 线程僵死、停止时 ANR、连接资源占用。注：DataSource 在 loader 线程阻塞本身是 ExoPlayer 的契约，问题在于"远程网络 + 不可中断的 runBlocking"。
 - **修复**：为远程源提供**可中断的同步打开 API**（响应 `Thread.interrupt()` 关闭 socket），或将 `BookFileEntity`/流的解析前置到 loader 线程之外完成；`runBlocking` 仅用于快速本地 DB 查询。
 
-### H-06 — 数据层完全没有写事务，多步写入序列非原子
+### ~~H-06 — 数据层完全没有写事务，多步写入序列非原子~~
 
 - **维度**：D9 数据完整性 / D2 并发 ｜ **位置**：`BookQueryService.kt:253-261`、`CoverService.kt:101-123`、`ProgressService.kt:38-76`
-- **证据**：全数据层**无任何** `withTransaction`/`runInTransaction`（所有 `@Transaction` 都只在读查询上）。典型危险序列：
-  - **章节重建**：`deleteChaptersForBook(bookId)` 后 `insertChapters(chapters)`，两步分离、fire-and-forget `scope.launch`、无事务。若进程死亡/协程取消/插入抛异常，书籍**永久零章节**（数据丢失）；并发的 `getChaptersForBook` Flow 还会瞬时发射空列表。
-  - **封面元数据重建**（`forceRegenerateCoverAndMetadata`）：`updateMetadata` → `updateBookDetails` → 删章 → 插章 四步无事务，部分失败留下撕裂状态。
-  - **进度更新**（`updateProgress`）：`getProgressForBookSync` → 计算 → `insertProgress` 的读-改-写，无序列化，ExoPlayer 高频调用时并发 launch 交错 → 丢更新/进度回退。
-- **影响**：异常或取消下的数据丢失与撕裂状态；高频进度写入的丢更新竞态。
-- **修复**：
-  1. 新增 DAO `@Transaction suspend fun replaceChapters(bookId, chapters)`，删+插放在同一 Room 事务内。
-  2. `forceRegenerateCoverAndMetadata` 整段用 `db.withTransaction { }` 包裹。
-  3. 进度写入按 `bookId` 串行化（`Mutex`/`conflate` actor）或事务内读-改-写。
+- **已修复**：为全数据层多步写入序列引入了强原子写事务支持。
+  1. **DAO 层原子章节覆盖**：在 `ChapterDao` 中提供了基于 Room 原生 `@Transaction` 事务保护的 `replaceChapters` 挂起方法，将旧章节清除与新章节批量插入融合在单次物理写事务中，排除异常抛出与协程取消下的零章节脏状态残留，彻底杜绝了并发 Flow 订阅时的瞬时空列表闪烁。
+  2. **高频进度写事务自愈**：在 `BookDao` 中设计了标注了 `@Transaction` 的 `updateProgressWithReadStatus` 挂起方法，把“进度读取 -> 音轨映射换算 -> 进度落盘 -> 书籍联动更新阅读状态”的读改写动作高度内聚地合并为单一原子事务。依托数据库排它锁，自动以完全串行化的机制执行高频进度上报，彻底消灭了不同协程交错写导致的“进度回退”竞态。
+  3. **跨 DAO 业务层事务包裹**：重构了 `CoverService` 传入并注入 `AppDatabase`，在其强制重扫 `forceRegenerateCoverAndMetadata` 中使用 Room 官方提供的 `database.withTransaction { }` 强原子包裹书籍元数据覆盖、详情修改、章节删插这连续四步写 Room 操作，确保多表连携修改的 ACID 一致性。
 
-### H-07 — `APlayerApplication.container` 为 `lateinit`，跨组件强转访问无初始化顺序/多进程守卫
+
+### ~~H-07 — APlayerApplication.container 为 lateinit，跨组件强转访问无初始化顺序/多进程守卫~~
 
 - **维度**：D5 架构 / D4 生命周期 ｜ **位置**：`APlayerApplication.kt:16-21`；`(appContext as APlayerApplication).container` 散布于 13+ 处（含 `LibrarySyncWorker`、`VfsPlaybackDataSource.Factory`、`PlaybackManager`）
-- **证据**：`lateinit var container` 在 `onCreate` 赋值；多处直接强转读取，无 null/进程判断。
-- **影响**：若任何 `ContentProvider`（如 WorkManager 的 `androidx.startup` 初始化）、Worker 或备份代理在 `onCreate` 完成前/在**次要进程**中触达 `container`，将抛 `UninitializedPropertyAccessException` 或 `ClassCastException`。这是难以复现的启动期崩溃隐患。
-- **修复**：将容器改为线程安全的惰性获取（`getContainer(context)` 内部 `synchronized` 初始化），或在 `onCreate` 中做进程判断；审计所有 `ContentProvider`/Worker 的初始化时序。
+- **已修复**：重构了 `APlayerApplication` 的容器获取机制。将原先的 `lateinit var container` 改造为只读的 getter 计算属性，无缝向前兼容了全部已有的直接强转读取代码。在伴生对象中设计了受 `@Volatile` 保护的双重锁校验 (Double-Check Locking) 惰性静态获取方法 `getContainer(Context)`，能够在外围组件（如 `ContentProvider`、非主进程等）发生早于 `onCreate` 的调用或高并发请求时，自动且线程安全地初始化 `DefaultAppContainer` 并缓存单例，彻底消灭了未初始化崩溃（`UninitializedPropertyAccessException`）。同时，将 `LibrarySyncWorker` 和 `VfsPlaybackDataSource.Factory` 处的强转逻辑主动替换为调用静态 `APlayerApplication.getContainer`，达成了绝对的时序与类型安全。
 
 ---
 
@@ -238,22 +227,22 @@ APlayer 是一个架构相当完整、工程化程度高的有声书播放器：
 
 > 以下为影响范围有限或触发条件较窄、但应纳入修复计划的问题。媒体解析类（M-01~M-03）涉及对**不受信任/损坏媒体文件**的健壮性。
 
-- **M-01 [D6] 元数据/封面解析持有完整字节数组致 OOM**（`Mp4MetadataFrameReader` `MAX_COVER_BYTES=16MB`、`ImageProcessor.saveEmbeddedImage`）：封面字节整块驻留内存，`MetadataResolver` 允许 4 路并发、`CoverRecoveryHelper` 2 路，叠加大 M4B 封面 + 位图解码可触顶。`largeHeap="true"` 即为治标。**修复**：封面落临时文件后用 `inSampleSize` 解码，降低 `MAX_COVER_BYTES`，重新评估 `largeHeap`。
-- **M-02 [D1/D6] FLAC/Ogg 图片块长度字段未校验负值**（`FlacMetadataRangeParser.kt:40` 一带）：`descriptionLength`/`mimeLength` 为大无符号值 `.toInt()` 后可为负，使游标后退或绕过 `+20` 守卫，崩 `IndexOutOfBounds`/`NegativeArraySize`。**修复**：所有长度字段按无符号校验且 `in 0..(bytes.size-cursor)`。
-- **M-03 [D1] MP4 v1 64 位时长换算溢出**（`Mp4MetadataFrameReader.kt:407,576,931`）：`duration*1000L` 对大 `Long` 溢出 → 负/错 `durationMs` 传入 `PositionMapper`/`ChapterTimeline`，破坏 seek 与进度。**修复**：用 `duration/timescale*1000 + duration%timescale*1000/timescale`，并夹取非负。
+- ~~**M-01 [D6] [已修复] 元数据/封面解析持有完整字节数组致 OOM**~~（`Mp4MetadataFrameReader` `MAX_COVER_BYTES=16MB`、`ImageProcessor.saveEmbeddedImage`）：封面字节整块驻留内存，`MetadataResolver` 允许 4 路并发、`CoverRecoveryHelper` 2 路，叠加大 M4B 封面 + 位图解码可触顶。`largeHeap="true"` 即为治标。**已修复**：将内嵌封面提取限制 `MAX_COVER_BYTES` 安全降低至 6MB，同时重构 `ImageProcessor.saveEmbeddedImage`。在内嵌大字节落盘为物理文件后，缩略图直接通过 `createThumbnailFromFile` 借助 `inSampleSize` 采样率下采样解码，完全释放了堆内存中的大位图同步多重解析开销。
+- ~~**M-02 [D1/D6] [已修复] FLAC/Ogg 图片块长度字段未校验负值**~~（`FlacMetadataRangeParser.kt:40` 一带）：`descriptionLength`/`mimeLength` 为大无符号值 `.toInt()` 后可为负，使游标后退或绕过 `+20` 守卫，崩 `IndexOutOfBounds`/`NegativeArraySize`。**已修复**：将长度字段均改用 `Long` 级读取并在转 `Int` 前以物理剩余区间 `[0, bytes.size - cursor]` 进行强拦截，防止了大无符号数溢出为负或累加整数溢出，彻底杜绝了越界崩溃隐患。
+- ~~**M-03 [D1] [已修复] MP4 v1 64 位时长换算溢出**~~（`Mp4MetadataFrameReader.kt:407,576,931`）：`duration*1000L` 对大 `Long` 溢出 → 负/错 `durationMs` 传入 `PositionMapper`/`ChapterTimeline`，破坏 seek 与进度。**已修复**：重构 `durationToMs` 函数，采用数学分配律除余拆解算法 `(duration / timescale) * 1000L + ((duration % timescale) * 1000L) / timescale` 并在计算后调用 `coerceAtLeast(0L)` 强制夹取非负，从根源上消除了数值越界和负时长的产生隐患。
 - **M-04 [D2] `uiEvents` SharedFlow 容量 1、`tryEmit` 可丢事件**（`PlaybackManager.kt:78,136-141,520`）：配置变更（UI collector 脱离）或两事件紧邻时 `tryEmit` 返回 false 静默丢失，导致"分轨不可用"自愈弹窗/静音跳过提示不出现。**修复**：增大 `extraBufferCapacity` 或检查 `tryEmit` 返回值。
-- **M-05 [D4] `Player.Listener` 未在 `release()` 前移除**（`PlaybackManager.kt:180,416-425`）：`release()` 仅 `releaseFuture`，匿名 Listener 及其捕获的 controller/scope 在 future 解析前仍被持有；`release()` 还在 `synchronized` 块外将 `INSTANCE=null`。**修复**：保存 Listener 引用并 `removeListener`，`INSTANCE=null` 纳入 `getInstance` 同一把锁。
-- **M-06 [D6] `checkCovers()` 在 `Flow.map` 内做同步磁盘 I/O**（`BookQueryService.kt:61-63,81-86`）：每次列表发射对每本书 `File(...).exists()`，运行在 collector 线程（常为主线程）→ 大库 jank/ANR。**修复**：`flowOn(IO)` 该副作用并去抖。
-- **M-07 [D4/D2] Service 私有协程作用域永不取消**（`LibraryRootService.kt:52` + `ProgressService`/`CoverService`/`BookQueryService`/`ScanService`）：`CoroutineScope(IO+SupervisorJob())` 无关闭钩子；`LibraryRootService.init` 起了一个永不结束的 `collect{}`。若非真单例则泄漏。**修复**：作用域绑定可管理生命周期，或用 `stateIn` 绑定有界 scope。
+- **M-05 [D4] [已修复] `Player.Listener` 未在 `release()` 前移除**（`PlaybackManager.kt:180,416-425`）：`release()` 仅 `releaseFuture`，匿名 Listener 及其捕获 of controller/scope 在 future 解析前仍被持有；`release()` 还在 `synchronized` 块外将 `INSTANCE=null`。**修复**：保存 Listener 引用并 `removeListener`，`INSTANCE=null` 纳入 `getInstance` 同一把锁。
+- **M-06 [D6] [已修复] checkCovers() 在 Flow.map 内做同步磁盘 I/O**（`BookQueryService.kt:61-63,81-86`）：每次列表发射对每本书 `File(...).exists()`，运行在 collector 线程（常为主线程）→ 大库 jank/ANR。**修复**：`flowOn(IO)` 该副作用并去抖。
+- **M-07 [D4/D2] [已修复] Service 协程作用域永不取消**（`LibraryRootService.kt:52` + `ProgressService`/`CoverService`/`BookQueryService`/`ScanService`）：`CoroutineScope(IO+SupervisorJob())` 无关闭钩子；`LibraryRootService.init` 起了一个永不结束的 `collect{}`。若非真单例则泄漏。**修复**：作用域绑定可管理生命周期，或用 `stateIn` 绑定有界 scope。
 - **M-08 [D9] 软删除书籍的文件归属污染重扫去重**（`BookQueryService.kt:125-131` 软删 + `BookDao.getAllBookFilesOnce()`）：`ExistingClaimIndex` 由全量 `book_files` 构建，未排除 `status='DELETED'` 书籍的 claim → 重扫时新文件可能被匹配到死书或被跳过。**修复**：claim 查询排除 DELETED，或软删时释放 `book_files` claim。
-- **M-09 [D9] 破坏性迁移遗留磁盘封面文件**（关联 C-02）：清库绕过 `deleteLibraryRootDataOnly` 的封面删除路径，磁盘缓存永久成孤儿且路径记录已失，无法回收。**修复**：DB 重建后扫一遍封面目录清理。
-- **M-10 [D3] 未转义路径字符串拼接 JSON**（`OwnershipClaimStep.kt:286,298`）：`payloadJson`/`message` 用 `${source.sourceUri}`/`${source.displayName}` 原始插值，文件名含 `"`/`\` 会产出非法 JSON，下游解析 `PendingScanActionEntity.payloadJson` 抛错（本地、经构造文件名触发）。同模块 `BookDraftFactory.escapeJson` 已有转义可复用。**修复**：转义后嵌入或用真正的 JSON 编码器。
+- **M-09 [D9] [已修复] 破坏性迁移遗留磁盘封面文件**（关联 C-02）：清库绕过 `deleteLibraryRootDataOnly` 的封面删除路径，磁盘缓存永久成孤儿且路径记录已失，无法回收。**修复**：DB 重建后扫一遍封面目录清理。
+- **M-10 [D3] [已修复] 未转义路径字符串拼接 JSON**（`OwnershipClaimStep.kt:286,298`）：`payloadJson`/`message` 用 `${source.sourceUri}`/`${source.displayName}` 原始插值，文件名含 `"`/`\` 会产出非法 JSON，下游解析 `PendingScanActionEntity.payloadJson` 抛错（本地、经构造文件名触发）。同模块 `BookDraftFactory.escapeJson` 已有转义可复用。**修复**：转义后嵌入或用真正的 JSON 编码器。
 - **M-11 [D4] [已修复] WebDAV openInputStream 响应泄漏+提前记成功**（`WebDavSourceProvider.kt:139-164`）：`logWebDavOpen(success=true)` 在 offset 回退 `skipFully` 之前记录；正常返回路径未 `Response.close()`，依赖调用方消费/关闭流——seek 频繁换流时未关闭则连接泄漏（连接池耗尽）。对照 `readRange`/`propfind` 已用 `.use{}`，仅此路径遗漏。**修复**：成功日志移到 skip 之后；包装流使其 `close()` 同时关 `Response`。
-- **M-12 [D8] PROPFIND 响应体无大小上限全量读入并 DOM 解析**（`WebDavSourceProvider.kt:252` `response.body.string()`）：恶意/异常服务器可返回超大 body 致内存暴涨（DoS）。XXE 已禁用（:315-317，良好）。**修复**：读取前限制 body 大小，或改流式 pull parser。
-- **M-13 [D6] 无 widget 放置时仍每次播放事件查库+全量刷新**（`PlaybackService.kt:392-419`，由 :132/140/159/166 触发）：缓冲/状态抖动时每秒多次 `getBookById` + `updateAppWidgetState` + `updateAll`，空 widget 早退发生在查库之后。**修复**：先判 `getGlanceIds().isEmpty()` 再查库；对更新去抖（~250ms）。
-- **M-14 [D4/D6] Glance 组合内同步 `File.exists()` + `BitmapFactory.decodeFile`**（`PlayerWidget.kt:77-107`）：在组合协程上同步磁盘 I/O 与解码，且位图跨 RemoteViews IPC（`TransactionTooLargeException` 风险）。**修复**：在写状态前预生成下采样缩略图，硬限解码字节。
+- **M-12 [D8] [已修复] PROPFIND 响应体无大小上限全量读入并 DOM 解析**（`WebDavSourceProvider.kt:252` `response.body.string()`）：恶意/异常服务器可返回超大 body 致内存暴涨（DoS）。XXE 已禁用（:315-317，良好）。**修复**：读取前限制 body 大小，或改流式 pull parser。
+- **M-13 [D6] [已修复] 无 widget 时仍每次播放事件查库+全量刷新**（`PlaybackService.kt:392`，由 :132/140/159/166 触发）：缓冲/状态抖动时每秒多次 `getBookById` + `updateAppWidgetState` + `updateAll`，空 widget 早退发生在查库之后。**修复**：先判 `getGlanceIds().isEmpty()` 再查库；对更新去抖（~250ms）。
+- **M-14 [D4/D6] [已修复] Glance 组合内同步 File.exists() + BitmapFactory.decodeFile**（`PlayerWidget.kt:77-107`）：在组合协程上同步磁盘 I/O 与解码，且位图跨 RemoteViews IPC（`TransactionTooLargeException` 风险）。**修复**：在写状态前预生成下采样缩略图，硬限解码字节。
 - **M-15 [D2] [已修复] 扫描完成回调读取被 `WhileSubscribed(5000)` 门控的 `uiState.value`**（`LibraryViewModel.kt:171`）：无 UI 订阅时 `uiState.value` 为初始空值，导致"媒体库为空，未扫描到有效书籍"提示误报。**修复**：回调内直接 `libraryFacade.audiobooks.first()`。
-- **M-16 [D7] `SearchOverlay` 用 `collectAsState()` 而非 `collectAsStateWithLifecycle()`**（`SearchOverlay.kt:37,93-95`）：`searchResults` 背后是 `flatMapLatest`+`combine` over DB flows，STOPPED 时仍在后台重算；与全局其余处不一致。**修复**：统一改用 `collectAsStateWithLifecycle()`。
+- **M-16 [D7] [已修复] SearchOverlay 用非生命周期感知的 collectAsState**（`SearchOverlay.kt:37,93-95`）：`searchResults` 背后是 `flatMapLatest`+`combine` over DB flows，STOPPED 时仍在后台重算；与全局其余处不一致。**修复**：统一改用 `collectAsStateWithLifecycle()`。
 - **M-17 [D7] 热路径误用 `remember`/`derivedStateOf`（以 `currentPosition` 为 key）**（`SubtitlesView.kt:51-60`、`PlaybackProgress.kt:41-44`）：以高频 `currentPosition` 作 `remember` key 使缓存恒失效，`derivedStateOf` 退化为纯开销，每个进度 tick（~2 次/秒）分配+重算。**修复**：直接计算或将 `currentPosition` 改为在 `derivedStateOf` 内读取的 State 而非 key。
 - **M-18 [D1] [已修复] 未播放保护期 300ms 与 3000ms 门控不一致**（`DetailViewModel.kt:56` `delay(3_00L)` vs :230 `< 3000L`）：`onPlayPressed` 在 300ms 后即清空 `_playbackStartedAt`，而 `updatePlaybackProgress` 按 3 秒判定保护期，二者矛盾（注释一处写"0.3 秒"、一处写"3 秒"）。明显的数值笔误，致防闪烁特性提前失效。**用户影响为轻微 UI 闪烁**。**修复**：`delay(3_00L)` → `delay(3_000L)`，并抽取共享常量。
 

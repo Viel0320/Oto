@@ -11,7 +11,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+// 详尽的中文注释：导入生命周期感知的 collectAsStateWithLifecycle 扩展函数以替代原有的 collectAsState，
+// 从而确保在 Activity 处于后台 STOPPED 状态时能自动阻断数据监听，防范数据库被无端重复计算
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,7 +36,9 @@ fun SearchOverlay(
     onNavigateToPlayer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isVisible by searchViewModel.isVisible.collectAsState()
+    // 详尽的中文注释：使用具备生命周期感知特性的 collectAsStateWithLifecycle() 收集悬浮层的可见性状态，
+    // 保证在应用推入后台（进入 STOPPED 状态）时能自动切断多余的数据监听以保存电量
+    val isVisible by searchViewModel.isVisible.collectAsStateWithLifecycle()
 
     // 详尽的中文注释：当全局设置开启了 miuix-blur 模式时，我们将搜索悬浮层的展开与隐藏动画限制为“纯淡入淡出 (fadeIn/fadeOut)”。
     // 这能有效规避高斯模糊采样图层在高速滑入/滑出时可能产生的边缘裁剪或渲染闪烁，令磨砂玻璃的显隐动画更加极致、 premium 和平滑；
@@ -90,9 +94,12 @@ fun SearchScreen(
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier
 ) {
-    val query by viewModel.query.collectAsState()
-    val searchResults by viewModel.searchResults.collectAsState()
-    val searchHistory by viewModel.searchHistory.collectAsState()
+    // 详尽的中文注释：统一改用生命周期感知的 collectAsStateWithLifecycle() 从 ViewModel 收集 query、searchResults 与 searchHistory。
+    // 这能让应用被 STOPPED（置于后台）时立刻暂停对数据库的 flatMapLatest 和 combine 多路流的高频重算运算，
+    // 从而大幅度优化后台情况下的能耗和内存，达到与全局其余流收集组件的架构一致性
+    val query by viewModel.query.collectAsStateWithLifecycle()
+    val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    val searchHistory by viewModel.searchHistory.collectAsStateWithLifecycle()
 
     // 详尽中文注释：将收集的各个业务数据和回调函数，完全无状态地透传给从物理文件解耦出去的无状态 UI 页面。
     SearchContent(

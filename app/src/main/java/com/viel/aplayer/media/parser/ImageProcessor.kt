@@ -92,7 +92,11 @@ object ImageProcessor {
             FileOutputStream(originalFile).use { output -> output.write(artBytes) }
             val originalPath = originalFile.absolutePath
 
-            val thumbnailPath = createThumbnailFromBytes(context, artBytes, sourceId)
+            // 详尽的中文注释：此处的 artBytes 字节数组在直接物理落盘保存到原图 originalFile 后，其在内存中的主要生命周期即应宣告结束。
+            // 我们绝对不再将其重新作为大字节数组传入 createThumbnailFromBytes 去做内存级别的重复解码；
+            // 而是统一复用基于物理文件的、具备 inSampleSize 下采样功能的 createThumbnailFromFile 提取缩略图，
+            // 从而瞬间清空大位图同步解析时的堆内存瞬时暴涨开销，从源头彻底防御了 OOM 溢出风险。
+            val thumbnailPath = createThumbnailFromFile(originalFile, sourceId)
             val color = getDominantColor(thumbnailPath ?: originalPath)
             CoverExtractor.CoverResult(originalPath, thumbnailPath, color)
         } catch (e: Exception) {
@@ -224,48 +228,9 @@ object ImageProcessor {
     // 四、缩略图内部实现
     // -------------------------------------------------------------------------
 
-    /**
-     * 从内存字节生成缩略图。
-     *
-     * 
-     * 适用于已经由 parser 解出的内嵌封面字节。
-     */
-    private fun createThumbnailFromBytes(
-        context: Context,
-        bytes: ByteArray,
-        sourceId: String
-    ): String? {
-        return try {
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-
-            options.inSampleSize = calculateInSampleSize(
-                options = options,
-                reqWidth = DEFAULT_THUMBNAIL_MAX_SIZE,
-                reqHeight = DEFAULT_THUMBNAIL_MAX_SIZE
-            )
-            options.inJustDecodeBounds = false
-
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
-            val scaledBitmap = if (bitmap.width > DEFAULT_THUMBNAIL_MAX_SIZE || bitmap.height > DEFAULT_THUMBNAIL_MAX_SIZE) {
-                scaleBitmap(bitmap, DEFAULT_THUMBNAIL_MAX_SIZE)
-            } else {
-                bitmap
-            }
-
-            val thumbFile = File(coverCacheDir(context), "${sourceId.hashCode()}_thumb.jpg")
-            thumbFile.parentFile?.mkdirs()
-            saveBitmapToFile(scaledBitmap, thumbFile)
-
-            if (scaledBitmap != bitmap) scaledBitmap.recycle()
-            bitmap.recycle()
-
-            thumbFile.absolutePath
-        } catch (e: Exception) {
-            Log.e(TAG, "从字节生成缩略图失败", e)
-            null
-        }
-    }
+    // 详尽的中文注释：废弃并移除已不再被调用的私有内存字节缩略图提取函数 createThumbnailFromBytes，
+    // 所有内嵌封面与自定义、Sidecar 图片的处理现在均统一收归至 createThumbnailFromFile 物理文件下采样链路，
+    // 贯彻了高解耦、高聚合的整洁架构原则，并进一步防范死代码或冗余逻辑带来的维护负担。
 
     /**
      * 从已有文件生成缩略图。

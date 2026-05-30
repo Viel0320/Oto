@@ -101,6 +101,67 @@ class PlaybackManager private constructor(context: Context) {
     val currentPlayingBookId: String?
         get() = currentPlan?.bookId
 
+    // 详尽的中文注释：定义 Player.Listener 成员变量，以代替 setupController 中的局部匿名内部类；
+    // 这样可以彻底支持在 release() 销毁时，从 mediaController 中安全 removeListener 注销，
+    // 防范由于 Listener 存活而将外部的协程 scope 以及控制器实例永久强引用泄漏的问题
+    private val playerListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            val controller = mediaController ?: return
+            val wasPlaying = lastIsPlaying
+            lastIsPlaying = isPlaying
+            _isPlaying.value = isPlaying
+            progressSyncTracker.saveProgress()
+
+            scope.launch {
+                try {
+                    settingsRepository.updateLastPlaybackInterrupted(isPlaying)
+                } catch (e: Exception) {
+                    android.util.Log.e("PlaybackManager", "更新中断持久化标志失败", e)
+                }
+            }
+
+            if (wasPlaying && !isPlaying) {
+                autoRewindManager.handlePause(
+                    controller = controller,
+                    currentPlan = currentPlan,
+                    scope = scope,
+                    onProgressUpdated = { conn -> progressSyncTracker.updateProgress(conn) },
+                    onSaveProgress = { progressSyncTracker.saveProgress() }
+                )
+            }
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            _playbackState.value = playbackState
+            val controller = mediaController
+            if (playbackState == Player.STATE_READY && controller != null) {
+                progressSyncTracker.updateProgress(controller)
+            }
+            progressSyncTracker.saveProgress()
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            _currentMediaItem.value = mediaItem
+            _currentSubtitles.value = emptyList()
+            val controller = mediaController
+            if (controller != null) {
+                progressSyncTracker.updateProgress(controller)
+            }
+            progressSyncTracker.saveProgress()
+        }
+
+        override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+            val controller = mediaController
+            if (controller != null) {
+                progressSyncTracker.updateProgress(controller)
+            }
+        }
+
+        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+            _playbackSpeed.value = playbackParameters.speed
+        }
+    }
+
     init {
         // 构建进度同步追踪器，并通过 lambda 回调无缝对接 Flow 值的更新，实现管道式状态上报。
         progressSyncTracker = ProgressSyncTracker(
@@ -177,66 +238,9 @@ class PlaybackManager private constructor(context: Context) {
         progressSyncTracker.updateProgress(controller)
         _playbackSpeed.value = controller.playbackParameters.speed
 
-        controller.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                val wasPlaying = lastIsPlaying
-                lastIsPlaying = isPlaying
-                _isPlaying.value = isPlaying
-                // 详尽的中文注释：随着桌面小组件功能的移除，此处不再需要在播放/暂停状态改变时刷新小组件，已移除 PlayerWidgetProvider.updateAll 逻辑
-                progressSyncTracker.saveProgress()
-
-                // 在后台协程中，实时将当前的物理播放状态（是否在播）同步写入 isLastPlaybackInterrupted，
-                // 用于冷启动时精准甄别上一次是否为非正常中断（强杀/闪退）以触发进度自愈机制。
-                scope.launch {
-                    try {
-                        settingsRepository.updateLastPlaybackInterrupted(isPlaying)
-                    } catch (e: Exception) {
-                        android.util.Log.e("PlaybackManager", "更新中断持久化标志失败", e)
-                    }
-                }
-
-                // 
-                // 如果先前处于正在播放状态（wasPlaying 为 true），当前变化为了暂停或停止播放状态（isPlaying 为 false），
-                // 且用户在设置里开启了大于 0 秒的自动回退时间，则自动执行位置定位回退。
-                // 委托给 AutoRewindManager 进行暂停逻辑判断与回退处理。
-                if (wasPlaying && !isPlaying) {
-                    autoRewindManager.handlePause(
-                        controller = controller,
-                        currentPlan = currentPlan,
-                        scope = scope,
-                        onProgressUpdated = { conn -> progressSyncTracker.updateProgress(conn) },
-                        onSaveProgress = { progressSyncTracker.saveProgress() }
-                    )
-                }
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                _playbackState.value = playbackState
-                if (playbackState == Player.STATE_READY) {
-                    progressSyncTracker.updateProgress(controller)
-                }
-                // 详尽的中文注释：由于桌面小组件功能已废弃，此处在播放队列准备或结束状态变更时不再需要同步更新小组件状态
-                progressSyncTracker.saveProgress()
-            }
-
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                _currentMediaItem.value = mediaItem
-                // 字幕文本由 PlayerViewModel 按当前文件懒加载，这里只清掉上一文件的缓存。
-                _currentSubtitles.value = emptyList()
-                progressSyncTracker.updateProgress(controller)
-                
-                // 详尽的中文注释：小组件已移除，切换分轨时不再执行小组件后台状态刷新逻辑
-                progressSyncTracker.saveProgress()
-            }
-
-            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-                progressSyncTracker.updateProgress(controller)
-            }
-
-            override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
-                _playbackSpeed.value = playbackParameters.speed
-            }
-        })
+        // 详尽的中文注释：改用统一声明为类私有成员变量的 playerListener，
+        // 确保当 release() 销毁时能干净彻底地移出此 Listener，规避原本局部匿名对象带来的内存泄漏隐患
+        controller.addListener(playerListener)
     }
 
     /**
@@ -416,12 +420,18 @@ class PlaybackManager private constructor(context: Context) {
     fun release() {
         progressSyncTracker.stopPolling()
         scope.cancel()
+        // 详尽的中文注释：在销毁时主动从控制器中注销 Player.Listener 成员变量，彻底释放捕获的强引用，防止内存泄漏
+        mediaController?.removeListener(playerListener)
         controllerFuture?.let {
             MediaController.releaseFuture(it)
             controllerFuture = null
         }
         mediaController = null
-        INSTANCE = null
+        // 详尽的中文注释：将单例 INSTANCE 置空操作纳入 synchronized(PlaybackManager.Companion) 锁内，
+        // 与 getInstance() 保持物理一致的互斥锁以达到完全的线程安全，避免多线程竞态下产生脑裂异常
+        synchronized(PlaybackManager.Companion) {
+            INSTANCE = null
+        }
     }
 
     /**

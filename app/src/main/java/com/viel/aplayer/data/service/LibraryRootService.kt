@@ -20,6 +20,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancel
 import java.io.File
 
 /**
@@ -34,7 +35,7 @@ class LibraryRootService(
     private val libraryRootDao: LibraryRootDao,
     private val bookDao: BookDao,
     private val scanScheduler: ScanScheduler
-) : LibraryRootGateway {
+) : LibraryRootGateway, java.io.Closeable {
 
     // 采用全局 applicationContext 阻断潜在的生命周期泄露
     private val appContext = context.applicationContext
@@ -176,5 +177,11 @@ class LibraryRootService(
 
         // 3. 在 Room 库执行根注销（外键配置了 ON DELETE CASCADE 级联删除，书籍与音轨子记录会在同个事务里被全量自动擦除）
         libraryRootDao.deleteRoot(root)
+    }
+
+    override fun close() {
+        // 详尽的中文注释：当服务被销毁或依赖容器卸载时，显式取消私有后台协程专属作用域，
+        // 打断 init 中永不结束的 observeLibraryRoots Flow 监听收集，彻底消灭内存泄漏风险
+        scope.cancel()
     }
 }
