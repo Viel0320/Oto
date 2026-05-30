@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -47,6 +48,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -118,6 +120,37 @@ fun HomeScreen(
 ) {
     // 使用 remember 级联监听当前被长按的有声书状态，决定一级Dialog的渲染
     var activeBookForMenu by remember { mutableStateOf<BookWithProgress?>(null) }
+
+    // 详尽中文注释：为主页“最近”横向滚动列表维护独立的滚动状态，放在最外层，
+    // 防止在网格（LazyVerticalGrid）上下滚动时，该横向列表的状态由于离开屏幕而被销毁重置。
+    val recentListState = rememberLazyListState()
+
+    // 详尽中文注释：利用 state 变量记录上一次渲染时的首轨书籍 ID 以及是否需要重置滚动的标记。
+    // 在 composition 阶段，列表的实际 layout 尚未运行，因此此时的 `firstVisibleItemIndex` 和 `firstVisibleItemScrollOffset`
+    // 依旧保留着上一帧的真实滚动位置。这能让我们在多本书籍批量插入导致 layout 发生物理移位前，精准捕获到“变更前是否处于起点”的状态，
+    // 彻底规避多项目批量导入时由于 Compose 默认锚定导致的状态判断失效与竞态问题。
+    var prevFirstBookId by remember { mutableStateOf<String?>(null) }
+    var shouldScrollToStart by remember { mutableStateOf(false) }
+
+    val firstBookId = recentBooks.firstOrNull()?.book?.id
+    if (firstBookId != prevFirstBookId) {
+        // 数据源首项发生变更（有新书导入或切换了过滤器）
+        val wasAtStart = recentListState.firstVisibleItemIndex == 0 && recentListState.firstVisibleItemScrollOffset == 0
+        if (wasAtStart) {
+            shouldScrollToStart = true
+        }
+        prevFirstBookId = firstBookId
+    }
+
+    LaunchedEffect(shouldScrollToStart) {
+        if (shouldScrollToStart) {
+            // 详尽中文注释：在 layout 运行且视口由于锚定发生偏移后，由 LaunchedEffect 异步安全地重置视口到最左侧第 0 项。
+            // 这样无论一次性导入多少本书，只要用户之前在起点，视口就会始终锁定在最左侧的最新书籍上，将旧书籍顺延推到右侧。
+            recentListState.scrollToItem(0)
+            shouldScrollToStart = false
+        }
+    }
+
     // 为长按操作 Dialog 创建 LayerBackdrop 状态机；Scaffold 作为采样源，Dialog 面板作为模糊渲染面。
     val actionDialogBackdrop = rememberLayerBackdrop()
     // Filter Chip 的标签映射，这是纯 UI 文本，保留在 Composable 中
@@ -330,6 +363,7 @@ fun HomeScreen(
                     // 横向滚动的 Recently Items 同样跨列占满整宽，并动态计算左边缘的缩进。
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         LazyRow(
+                            state = recentListState,
                             modifier = Modifier.fillMaxWidth(),
                             // 
                             // RecentlyItem 内部自带 8dp padding 用于卡片间距。
