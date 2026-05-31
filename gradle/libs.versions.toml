@@ -56,12 +56,9 @@ androidx-documentfile = { group = "androidx.documentfile", name = "documentfile"
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
-# 详尽的中文注释：废弃桌面小组件相关功能，已移除原有的 androidx-glance 库声明
-# 详尽的中文注释：因小组件重建需要，重新声明稳定的 Jetpack Glance 依赖库以提供声明式桌面 Widget 构建支持
 androidx-glance = { group = "androidx.glance", name = "glance", version.ref = "glance" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
-# WebDAV Provider 通过 OkHttp 发起 PROPFIND/GET/Range，避免手写底层 HTTP 兼容逻辑。
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur", version.ref = "miuix" }
 

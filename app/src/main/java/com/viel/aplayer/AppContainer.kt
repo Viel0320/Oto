@@ -1,6 +1,7 @@
 package com.viel.aplayer
 
 import android.content.Context
+import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.db.AppDatabase
@@ -102,6 +103,7 @@ interface AppContainer : java.io.Closeable {
     val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
 }
 
+@UnstableApi
 class DefaultAppContainer(private val context: Context) : AppContainer {
 
     private val database: AppDatabase by lazy {
