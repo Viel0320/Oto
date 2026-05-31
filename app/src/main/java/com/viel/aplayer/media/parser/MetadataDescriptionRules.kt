@@ -8,13 +8,13 @@ internal object MetadataDescriptionRules {
     // 这些字段名按“用户维护的简介字段优先、通用备注字段兜底”的顺序排列。
     // 不同写入工具会使用 Description、Long Description、Summary、Comment 等变体，比较前会统一规范化。
     private val preferredDescriptionKeys = listOf(
+        "comment",
+        "comments",
         "description",
         "desc",
         "longdescription",
         "synopsis",
-        "summary",
-        "comment",
-        "comments"
+        "summary"
     )
 
     fun normalizeDescriptionText(value: String): String =

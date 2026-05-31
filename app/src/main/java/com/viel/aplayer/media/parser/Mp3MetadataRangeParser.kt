@@ -277,10 +277,10 @@ internal object Mp3MetadataRangeParser : RangeAudioFormatParser {
             author = author,
             narrator = narrator,
             album = album,
-            // ID3 自定义文本帧更可能承载用户维护的书籍简介，优先于泛用 COMM 备注帧。
-            description = MetadataDescriptionRules.firstDescriptionFromFields(customDescriptionFields)
-                .takeIf { it.isNotBlank() }
-                ?: description,
+            // 调整 MP3 描述的提取优先级：优先选择普通备注帧（COMM 帧，即这里的 description 变量）作为简介入库；
+            // 如果不存在 COMM 普通备注帧，则降级回退到 TXXX 自定义文本帧（如自定义的 description、synopsis 等）中进行匹配。
+            description = description?.takeIf { it.isNotBlank() }
+                ?: MetadataDescriptionRules.firstDescriptionFromFields(customDescriptionFields),
             year = year,
             trackIndex = trackIndex,
             durationMs = durationMs,

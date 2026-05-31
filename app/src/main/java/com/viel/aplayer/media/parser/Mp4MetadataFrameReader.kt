@@ -236,18 +236,20 @@ object Mp4MetadataFrameReader {
         val author = ilstData.textValues.firstText("\u00A9ART", "aART")
         val narrator = ilstData.textValues.firstText("\u00A9nrt", "\u00A9wrt", "\u00A9com")
         // MP4/M4B 的简介来源在不同工具里并不统一。
-        // 这里优先采用人工维护倾向更强的 freeform 自定义字段，再回退到标准 desc/ldes 和通用 comment，
-        // 避免导入时被自动写入的普通备注覆盖更完整的书籍简介。
+        // 这里优先采用人工维护倾向更强的 freeform 自定义字段。
+        // 若没有自定义字段，则回退到 fallbackKeys 中的普通备注与标准简介。
+        // 此处调整了 fallbackKeys 的匹配顺序，将 cmt 系列（©cmt, cmt, cmmt）置于 des 系列（desc, ldes, ©des）之前，
+        // 以实现 cmt 字段的提取优先级高于 des 字段。
         val description = MetadataDescriptionRules.firstDescriptionFromCustomAndFallback(
             values = ilstData.textValues,
             customPrefix = "----",
             fallbackKeys = listOf(
-                "desc",
-                "ldes",
-                "\u00A9des",
-                "\u00A9cmt",
-                "cmt",
-                "cmmt"
+                "\u00A9cmt", // 标准 MP4 comment 字段 (©cmt)
+                "cmt",       // 简写 cmt 备注字段
+                "cmmt",      // cmmt 备注字段
+                "desc",      // 简写 desc 简介字段
+                "ldes",      // ldes 长简介字段
+                "\u00A9des"  // 标准 MP4 description 字段 (©des)
             )
         )
         val rawYear = ilstData.textValues.firstText("\u00A9day")
