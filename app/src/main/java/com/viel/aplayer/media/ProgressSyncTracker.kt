@@ -2,6 +2,7 @@ package com.viel.aplayer.media
 
 import android.content.Context
 import androidx.media3.session.MediaController
+import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
@@ -24,6 +25,7 @@ class ProgressSyncTracker(
     private val context: Context,
     private val bookQueryGateway: BookQueryGateway,
     private val progressGateway: ProgressGateway,
+    private val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer,
     private val scope: CoroutineScope,
     private val getController: () -> MediaController?,
     private val getCurrentPlan: () -> BookPlaybackPlan?,
@@ -110,10 +112,8 @@ class ProgressSyncTracker(
      * @param controller 当前的 MediaController 物理控制器实例
      */
     private fun saveProgressDirectly(controller: MediaController) {
-        val mediaId = controller.currentMediaItem?.mediaId ?: return
-        if (!mediaId.contains(":")) return
-
-        val bookId = mediaId.substringBefore(":")
+        val mediaParts = PlaybackMediaId.parse(controller.currentMediaItem?.mediaId) ?: return
+        val bookId = mediaParts.bookId
         val fileIndex = controller.currentMediaItemIndex.coerceAtLeast(0)
         val positionInFile = controller.currentPosition.coerceAtLeast(0L)
 
@@ -135,6 +135,21 @@ class ProgressSyncTracker(
                         lastPlayedAt = System.currentTimeMillis()
                     )
                 )
+                val book = bookQueryGateway.getBookById(bookId)
+                if (book != null) {
+                    absPlaybackSessionSyncer.syncProgress(
+                        book = book,
+                        progress = BookProgressEntity(
+                            bookId = bookId,
+                            globalPositionMs = globalPos,
+                            bookFileId = bookFileId,
+                            currentFileIndex = fileIndex,
+                            positionInFileMs = positionInFile,
+                            lastPlayedAt = System.currentTimeMillis()
+                        ),
+                        durationMs = files.sumOf { it.durationMs }
+                    )
+                }
             }
         }
     }
@@ -170,6 +185,21 @@ class ProgressSyncTracker(
                         lastPlayedAt = System.currentTimeMillis()
                     )
                 )
+                val book = bookQueryGateway.getBookById(bookId)
+                if (book != null) {
+                    absPlaybackSessionSyncer.syncProgress(
+                        book = book,
+                        progress = BookProgressEntity(
+                            bookId = bookId,
+                            globalPositionMs = globalPos,
+                            bookFileId = bookFileId,
+                            currentFileIndex = safeFileIndex,
+                            positionInFileMs = safePositionInFile,
+                            lastPlayedAt = System.currentTimeMillis()
+                        ),
+                        durationMs = files.sumOf { it.durationMs }
+                    )
+                }
             }
         }
     }

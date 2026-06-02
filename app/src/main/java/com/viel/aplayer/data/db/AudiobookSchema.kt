@@ -8,6 +8,8 @@ object AudiobookSchema {
         const val CUE = "CUE"
         const val M3U8 = "M3U8"
         const val GENERATED_M3U8 = "GENERATED_M3U8"
+        // ABS_REMOTE 单独标记远端音轨来源，避免和本地导入产生的 SOURCE 类型混在一起。
+        const val ABS_REMOTE = "ABS_REMOTE"
     }
 
     object FileRole {
@@ -21,6 +23,8 @@ object AudiobookSchema {
         const val M3U8 = "M3U8"
         const val GENERATED = "GENERATED"
         const val MANUAL = "MANUAL"
+        // ABS 章节来自服务端 catalog，不属于本地嵌入章节或清单文件派生章节。
+        const val ABS = "ABS"
     }
 
     object BookStatus {
@@ -72,6 +76,17 @@ object AudiobookSchema {
     object LibrarySourceType {
         const val SAF = "SAF"
         const val WEBDAV = "WEBDAV"
+        // ABS 表示书库根来自 Audiobookshelf server，而不是本地文件树。
+        const val ABS = "ABS"
+    }
+
+    object AbsMirrorState {
+        // ACTIVE 表示本轮完整同步仍能在远端清单里看到该条目。
+        const val ACTIVE = "ACTIVE"
+        // STALE 表示当前轮未再次看到，但尚未进入最终删除确认。
+        const val STALE = "STALE"
+        // REMOTE_DELETED 表示远端已确认删除，后续阶段再决定本地收敛动作。
+        const val REMOTE_DELETED = "REMOTE_DELETED"
     }
 
     // 为统一可用性检测标准件预留状态常量；SAF 先映射授权状态，远程源后续复用网络和认证状态。

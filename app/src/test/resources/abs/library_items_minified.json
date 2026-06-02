@@ -1,0 +1,32 @@
+{
+  "results": [
+    {
+      "id": "item-1",
+      "libraryId": "library-book",
+      "mediaType": "book",
+      "numFiles": 1,
+      "media": {
+        "id": "media-1",
+        "metadata": {
+          "title": "First Fifty Digits of Pi",
+          "authorName": "Scott Hemphill"
+        },
+        "numTracks": 1,
+        "numAudioFiles": 1,
+        "numChapters": 56,
+        "duration": 3227.245714,
+        "size": 77458087
+      },
+      "size": 77458087
+    }
+  ],
+  "total": 16,
+  "limit": 0,
+  "page": 0,
+  "sortDesc": false,
+  "mediaType": "book",
+  "minified": true,
+  "collapseseries": false,
+  "include": "",
+  "offset": 0
+}

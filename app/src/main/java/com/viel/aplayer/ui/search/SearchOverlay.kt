@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.search
 
+// 详尽的中文注释：导入生命周期感知的 collectAsStateWithLifecycle 扩展函数以替代原有的 collectAsState，
+// 从而确保在 Activity 处于后台 STOPPED 状态时能自动阻断数据监听，防范数据库被无端重复计算
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -11,12 +13,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-// 详尽的中文注释：导入生命周期感知的 collectAsStateWithLifecycle 扩展函数以替代原有的 collectAsState，
-// 从而确保在 Activity 处于后台 STOPPED 状态时能自动阻断数据监听，防范数据库被无端重复计算
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 

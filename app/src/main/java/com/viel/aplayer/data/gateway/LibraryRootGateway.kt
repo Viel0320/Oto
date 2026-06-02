@@ -50,6 +50,20 @@ interface LibraryRootGateway {
     ): LibraryRootEntity
 
     /**
+     * 注册并持久化一个 ABS 远端书库根。
+     *
+     * @param credentialId ABS 凭据存储中的稳定引用 ID
+     * @param libraryId Audiobookshelf book library 的远端 ID
+     * @param displayName 设置页展示名称，通常使用 library 名称
+     * @return 新创建或更新后的 ABS 书库根实体记录
+     */
+    suspend fun addAbsLibraryRoot(
+        credentialId: String,
+        libraryId: String,
+        displayName: String
+    ): LibraryRootEntity
+
+    /**
      * 注册本地 SAF 授权的书库根目录并即刻发起物理文件增量同步。
      */
     fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String = "USER")

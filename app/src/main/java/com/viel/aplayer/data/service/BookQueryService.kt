@@ -1,9 +1,9 @@
 package com.viel.aplayer.data.service
 
-import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.core.content.FileProvider
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookmarkDao
@@ -25,13 +25,15 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.cancel
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 /**
@@ -42,8 +44,9 @@ import java.util.UUID
  * 2. 完整保留运行语义：精心平移并保留书签锚定计算、播放计划构建的耗时性能日志、观察书籍时的封面自愈触发算子等核心运行期行为。
  */
 @OptIn(UnstableApi::class)
-class BookQueryService
-    (private val bookDao: BookDao,
+class BookQueryService(
+    private val context: android.content.Context,
+    private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val bookmarkDao: BookmarkDao,
     private val scanSessionDao: ScanSessionDao,
@@ -192,12 +195,15 @@ class BookQueryService
         }
         
         val artworkPath = book.coverPath
-        // 强力防御物理文件丢失导致的 java.io.FileNotFoundException: ENOENT 异常。
-        val artworkUri = if (artworkPath != null && File(artworkPath).exists()) {
-            Uri.fromFile(File(artworkPath))
-        } else {
-            null
-        }
+        // 详尽的中文注释：强力防御物理文件丢失导致的 java.io.FileNotFoundException: ENOENT 异常。
+        // 在此不再生成 file:// 协议的物理裸路径，而是通过我们注册在 Manifest 中的 FileProvider，将路径封装转换为安全受控且具有临时读取特权的 content:// 协议 URI。
+        // 从而完美解决 SystemUI 等外部跨进程应用因 Android 的沙盒存储访问隔离规则无法直接读取 App 内部 covers 缓存物理文件抛出的 ENOENT 崩溃故障。
+        val artworkUri = if (!artworkPath.isNullOrBlank()) {
+            val file = File(artworkPath)
+            if (file.exists()) {
+                FileProvider.getUriForFile(context, "com.viel.aplayer.fileprovider", file)
+            } else null
+        } else null
 
         val plan = BookPlaybackPlan(
             bookId = bookId,
@@ -247,11 +253,25 @@ class BookQueryService
     }
 
     override fun getChapters(bookId: String): Flow<List<ChapterWithBookFile>> {
-        return chapterDao.getChaptersForBook(bookId)
+        // 详尽的中文注释：章节兜底语义已经从导入期迁移到查询投影层。
+        // 这里统一组合“真实章节 + 书籍快照 + 音频文件快照”，仅在单音频书且真实章节为空时合成一条只读虚拟章节，
+        // 从而让播放器、通知、睡眠定时器和章节列表共享同一份章节视图，同时避免把展示层默认值落库成脏数据。
+        return combine(
+            chapterDao.getChaptersForBook(bookId),
+            bookDao.observeBookById(bookId),
+            bookDao.getFilesForBook(bookId)
+        ) { chapters, book, files ->
+            projectChaptersWithTrackFallback(book, files, chapters)
+        }.flowOn(Dispatchers.IO)
     }
 
     override suspend fun getChaptersForBookSync(bookId: String): List<ChapterWithBookFile> = withContext(Dispatchers.IO) {
-        chapterDao.getChaptersForBookList(bookId)
+        // 详尽的中文注释：同步读取路径必须和 Flow 路径复用相同的投影规则，
+        // 否则前台播放器、通知会话和后台任务将分别看到不同的章节语义，导致章节模式表现不一致。
+        val chapters = chapterDao.getChaptersForBookList(bookId)
+        val book = bookDao.getBookById(bookId)
+        val files = bookDao.getFilesForBookList(bookId)
+        projectChaptersWithTrackFallback(book, files, chapters)
     }
 
     override fun saveChapters(bookId: String, chapters: List<ChapterEntity>) {
@@ -310,5 +330,90 @@ class BookQueryService
         // 详尽的中文注释：在服务实例销毁或容器重置时，安全且显式地取消专属于后台异步标签写入及章节自愈覆写的私有协程作用域，
         // 彻底释放全部挂起任务，杜绝常驻内存垃圾产生
         scope.cancel()
+    }
+}
+
+/**
+ * 详尽的中文注释：统一的章节查询投影规则。
+ *
+ * 规则说明：
+ * 1. 若数据库中已有真实章节，则原样返回，绝不覆盖真实解析结果。
+ * 2. 若数据库中没有章节，且书籍确认为单音频书，则基于真实 BookFile 合成一条只读虚拟章节。
+ * 3. 该虚拟章节只存在于查询结果中，不会写回章节表，因此不会污染持久化数据，也不会影响进度落库锚点。
+ */
+internal fun projectChaptersWithTrackFallback(
+    book: BookEntity?,
+    files: List<BookFileEntity>,
+    chapters: List<ChapterWithBookFile>
+): List<ChapterWithBookFile> {
+    // 详尽的中文注释：只要已经存在真实章节，就直接返回真实章节，确保查询投影不会篡改真实章节事实。
+    if (chapters.isNotEmpty()) {
+        return chapters
+    }
+    // 详尽的中文注释：投影章节仍然要求存在真实书籍快照；若书本身都不存在，就不凭空构造章节。
+    if (book == null) {
+        return chapters
+    }
+    // 详尽的中文注释：查询投影只对真实音频文件生效；若连音频文件都没有，则保持空章节结果。
+    val sortedFiles = files.sortedBy { file -> file.index }
+    if (sortedFiles.isEmpty()) {
+        return chapters
+    }
+    var runningStartMs = 0L
+    return sortedFiles.mapIndexed { trackIndex, file ->
+        val safeDurationMs = when {
+            file.durationMs > 0L -> file.durationMs
+            // 详尽的中文注释：当唯一音频文件本身未携带时长时，回退到书级总时长，尽量保持单 track 书的投影章节可用。
+            sortedFiles.size == 1 && book.totalDurationMs > 0L -> book.totalDurationMs
+            else -> 0L
+        }.coerceAtLeast(0L)
+        val chapter = ChapterEntity(
+            // 详尽的中文注释：使用基于 bookId + fileId 的 name-based UUID 保持每个 track 投影章节 ID 稳定，
+            // 这样 Compose 列表 key、章节高亮和通知章节窗口不会因为每次查询重新生成随机 ID 而抖动。
+            id = syntheticTrackProjectionChapterId(book.id, file.id),
+            bookId = book.id,
+            // 详尽的中文注释：投影章节显式绑定真实 BookFileEntity.id，确保章节点击、章节结束和章节模式 seek 都回落到真实音频锚点。
+            bookFileId = file.id,
+            index = trackIndex,
+            title = projectedTrackChapterTitle(book, file, trackIndex, sortedFiles.size),
+            startPositionMs = runningStartMs,
+            durationMs = safeDurationMs,
+            fileOffsetMs = 0L,
+            source = AudiobookSchema.ChapterSource.GENERATED
+        )
+        // 详尽的中文注释：逐 track 投影时，后一章的全局起点始终累加前一条音频文件时长，
+        // 这样 ABS 多 track 无章节与 VFS 单/多 track 无章节都能共享同样的全书时间轴语义。
+        runningStartMs += safeDurationMs
+        ChapterWithBookFile(
+            chapter = chapter,
+            bookFile = file
+        )
+    }
+}
+
+/**
+ * 详尽的中文注释：为查询投影层生成稳定的单音频虚拟章节 ID。
+ * 该 ID 只用于内存态章节视图，不参与任何数据库写入，因此既能保持稳定，又不会引入持久化主键污染。
+ */
+internal fun syntheticTrackProjectionChapterId(bookId: String, fileId: String): String =
+    UUID.nameUUIDFromBytes("track-projection:$bookId:$fileId".toByteArray(StandardCharsets.UTF_8)).toString()
+
+/**
+ * 详尽的中文注释：统一生成逐 track 投影章节标题。
+ * 单 track 时优先保留书名，避免本地单文件书回退成难读的裸文件名；多 track 时优先使用文件显示名，
+ * 让 ABS 与本地多文件书都能自然呈现“按 track 分章”的用户心智。
+ */
+internal fun projectedTrackChapterTitle(
+    book: BookEntity,
+    file: BookFileEntity,
+    trackIndex: Int,
+    totalTracks: Int
+): String {
+    val displayName = file.displayName.substringBeforeLast('.', file.displayName).ifBlank { file.displayName }
+    return when {
+        totalTracks == 1 && book.title.isNotBlank() -> book.title
+        displayName.isNotBlank() -> displayName
+        book.title.isNotBlank() -> "${book.title} ${trackIndex + 1}"
+        else -> "Track ${trackIndex + 1}"
     }
 }

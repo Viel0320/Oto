@@ -1,0 +1,39 @@
+{
+  "user": {
+    "id": "user-id",
+    "username": "demo-user",
+    "email": null,
+    "type": "user",
+    "token": "redacted-token",
+    "isOldToken": true,
+    "mediaProgress": [],
+    "seriesHideFromContinueListening": [],
+    "bookmarks": [],
+    "isActive": true,
+    "isLocked": false,
+    "lastSeen": null,
+    "createdAt": 1780328362734,
+    "permissions": {
+      "download": true,
+      "update": false,
+      "delete": false,
+      "upload": false,
+      "createEreader": false,
+      "accessAllLibraries": true,
+      "accessAllTags": true,
+      "accessExplicitContent": false,
+      "selectedTagsNotAccessible": false
+    },
+    "librariesAccessible": [],
+    "itemTagsSelected": [],
+    "hasOpenIDLink": false
+  },
+  "userDefaultLibraryId": "default-library-id",
+  "serverSettings": {
+    "id": "server-settings",
+    "version": "2.35.1",
+    "language": "en-us"
+  },
+  "ereaderDevices": [],
+  "Source": "docker"
+}

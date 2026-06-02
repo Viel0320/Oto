@@ -1,20 +1,18 @@
 package com.viel.aplayer.data.service
 
-import android.util.Log
 import com.viel.aplayer.data.dao.BookDao
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.library.availability.PlaybackReachabilityManager
-import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.cancel
 
 /**
  * 播放位置与进度记录应用服务（实现了 ProgressGateway 网关）。
@@ -30,7 +28,7 @@ class ProgressService(
 
     // 异步非阻塞进度更新的专属协程异常拦截器
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        Log.e("ProgressService", "协程在 ProgressService 运行中捕获到未处理异常", exception)
+        PlaybackWorkflowLogger.error("progressService coroutine failure", exception)
     }
 
     // 进度落盘专属的后台异步处理协程作用域，运行在 IO 线程池中以规避主线程阻塞

@@ -19,7 +19,7 @@ android {
     defaultConfig {
         applicationId = "com.viel.aplayer"
         // 根据用户要求，将 minSdk 从 31 提升至 33 (Android 13)，以适配 miuix-blur 模糊库所需的硬件级高阶模糊渲染。
-        minSdk = 33
+        minSdk = 32
         //noinspection OldTargetApi
         targetSdk = 36
         versionCode = 1
@@ -113,8 +113,15 @@ dependencies {
     implementation(libs.androidx.documentfile)
     // WebDAV 标准件使用 OkHttp 统一执行 PROPFIND、GET 和 Range 流式读取。
     implementation(libs.okhttp)
+    // ABS REST 客户端统一使用 Moshi 做结构化 JSON 解析，避免把协议字段名散落在字符串解析代码里。
+    implementation(libs.moshi)
+    implementation(libs.moshi.kotlin)
+    // Moshi DTO 使用代码生成适配器，减少反射成本并保证阶段 1 样本解析稳定。
+    ksp(libs.moshi.kotlin.codegen)
 
     testImplementation(libs.junit)
+    // ABS API 客户端阶段 1 需要用 MockWebServer 固化 method、path 和鉴权头行为。
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

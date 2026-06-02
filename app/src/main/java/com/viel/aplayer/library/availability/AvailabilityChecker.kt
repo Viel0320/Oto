@@ -2,6 +2,8 @@ package com.viel.aplayer.library.availability
 
 import android.content.Context
 import androidx.core.net.toUri
+import com.viel.aplayer.abs.net.AbsApiError
+import com.viel.aplayer.abs.vfs.AbsSourceProvider
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
@@ -33,6 +35,12 @@ class AvailabilityChecker(private val context: Context) {
             LibrarySourceKind.SAF -> checkSafRoot(root)
             // WebDAV 根可用性直接走 VFS/Provider，HTTP 认证和网络错误由 Provider 映射为统一状态。
             LibrarySourceKind.WEBDAV -> checkVfsRoot(root)
+            // 阶段 1 先把 ABS 根的可用性探测入口接到 provider，占位实现统一返回 UNSUPPORTED。
+            LibrarySourceKind.ABS -> checkVfsRoot(root)
+            null -> AvailabilityResult(
+                status = AudiobookSchema.AvailabilityStatus.UNSUPPORTED,
+                errorCode = "UNSUPPORTED_SOURCE_TYPE"
+            )
         }
 
     suspend fun checkBookFile(file: BookFileEntity): AvailabilityResult =
@@ -42,6 +50,17 @@ class AvailabilityChecker(private val context: Context) {
                     status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
                     errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
                 )
+            if (LibrarySourceKind.from(root.sourceType) == LibrarySourceKind.ABS) {
+                val provider = LibrarySourceProviderFactory(context.applicationContext).providerFor(root) as AbsSourceProvider
+                return@runCatching if (provider.checkReadable(root, file.sourcePath)) {
+                    AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
+                } else {
+                    AvailabilityResult(
+                        status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
+                        errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
+                    )
+                }
+            }
             // 已入库文件可用性检测通过 VFS sourcePath resolve/exists，不再回到 content Uri 或来源原生文件对象。
             val node = vfs.resolve(root, VfsPath(file.sourcePath))
             if (node != null && vfs.exists(node)) {
@@ -66,7 +85,14 @@ class AvailabilityChecker(private val context: Context) {
                 when (LibrarySourceKind.from(root.sourceType)) {
                     // 批量文件可用性检测只依赖 VFS 同目录枚举，SAF/WebDAV 共享同一套性能优化路径。
                     LibrarySourceKind.SAF,
-                    LibrarySourceKind.WEBDAV -> checkVfsBookFiles(root, rootFiles, results)
+                    LibrarySourceKind.WEBDAV,
+                    LibrarySourceKind.ABS -> checkAbsBookFiles(rootFiles, results)
+                    null -> rootFiles.forEach { file ->
+                        results[file.id] = AvailabilityResult(
+                            status = AudiobookSchema.AvailabilityStatus.UNSUPPORTED,
+                            errorCode = "UNSUPPORTED_SOURCE_TYPE"
+                        )
+                    }
                 }
             }
         }
@@ -103,6 +129,18 @@ class AvailabilityChecker(private val context: Context) {
         }.getOrElse { throwable ->
             val failure = throwable.toAvailabilityResult()
             files.forEach { file -> results[file.id] = failure }
+        }
+    }
+
+    private suspend fun checkAbsBookFiles(
+        files: List<BookFileEntity>,
+        results: MutableMap<String, AvailabilityResult>
+    ) {
+        // 详尽中文注释：ABS provider 本身不支持目录枚举，`listChildren()` 固定返回空列表，
+        // 所以批量可用性检查必须逐文件回落到 `checkBookFile()`，走 ABS 专属的 HEAD/readable 语义。
+        // 否则详情页会把整本 ABS 书错误标记成不可用。
+        files.forEach { file ->
+            results[file.id] = checkBookFile(file)
         }
     }
 
@@ -147,11 +185,14 @@ class AvailabilityChecker(private val context: Context) {
 
     private fun Throwable.toAvailabilityResult(): AvailabilityResult {
         val webDavError = this as? WebDavException
-        val status = webDavError?.availabilityStatus ?: AudiobookSchema.AvailabilityStatus.UNKNOWN
-        // 统一异常出口保留 Provider 映射出的 WebDAV 失败码，未知异常才降级为 UNKNOWN。
+        val absError = this as? AbsApiError
+        val status = webDavError?.availabilityStatus
+            ?: absError?.availabilityStatus
+            ?: AudiobookSchema.AvailabilityStatus.UNKNOWN
+        // 统一异常出口保留 Provider 映射出的远端失败码，未知异常才降级为 UNKNOWN。
         return AvailabilityResult(
             status = status,
-            errorCode = webDavError?.availabilityStatus ?: this::class.java.simpleName,
+            errorCode = webDavError?.availabilityStatus ?: absError?.code ?: this::class.java.simpleName,
             message = localizedMessage ?: message
         )
     }

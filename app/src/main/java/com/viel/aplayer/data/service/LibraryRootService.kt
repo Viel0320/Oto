@@ -3,8 +3,8 @@ package com.viel.aplayer.data.service
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.core.net.toUri
+import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -13,14 +13,15 @@ import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
+import com.viel.aplayer.logger.ScanWorkflowLogger
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.cancel
 import java.io.File
 
 /**
@@ -34,19 +35,24 @@ class LibraryRootService(
     context: Context,
     private val libraryRootDao: LibraryRootDao,
     private val bookDao: BookDao,
-    private val scanScheduler: ScanScheduler
+    private val scanScheduler: ScanScheduler,
+    private val rootStoreOverride: LibraryRootStore? = null,
+    private val webDavCredentialStoreOverride: WebDavCredentialStore? = null,
+    private val absCredentialStoreOverride: AbsCredentialStore? = null
 ) : LibraryRootGateway, java.io.Closeable {
 
     // 采用全局 applicationContext 阻断潜在的生命周期泄露
     private val appContext = context.applicationContext
 
     // 物理目录与 WebDAV 凭据底层管理组件
-    private val rootStore = LibraryRootStore(appContext)
-    private val webDavCredentialStore = WebDavCredentialStore(appContext)
+    private val rootStore = rootStoreOverride ?: LibraryRootStore(appContext)
+    private val webDavCredentialStore = webDavCredentialStoreOverride ?: WebDavCredentialStore(appContext)
+    private val absCredentialStore = absCredentialStoreOverride ?: AbsCredentialStore.getInstance(appContext)
+    private val database by lazy { com.viel.aplayer.data.db.AppDatabase.getInstance(appContext) }
 
     // 后台热缓存更新专属协程异常拦截器
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        Log.e("LibraryRootService", "协程在 LibraryRootService 运行中捕获到未处理异常", exception)
+        ScanWorkflowLogger.error("libraryRootService coroutine failure", exception)
     }
 
     // 服务专属异步写与缓存操作协程上下文
@@ -93,6 +99,19 @@ class LibraryRootService(
         )
     }
 
+    override suspend fun addAbsLibraryRoot(
+        credentialId: String,
+        libraryId: String,
+        displayName: String
+    ): LibraryRootEntity = withContext(Dispatchers.IO) {
+        // ABS root 只写入 root 与凭据引用，不触发本地文件扫描；catalog mirror 会在后续阶段独立执行。
+        rootStore.addAbsRoot(
+            credentialId = credentialId,
+            libraryId = libraryId,
+            displayName = displayName
+        )
+    }
+
     override fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String) {
         scope.launch {
             runCatching {
@@ -105,7 +124,7 @@ class LibraryRootService(
                 // 通过注入的扫描网关，非阻塞触发本次新入库物理路径的文件深度同步
                 scanScheduler.syncLibrary(trigger)
             }.onFailure { error ->
-                Log.e("LibraryRootService", "添加本地 SAF 根目录并调度扫描时发生异常", error)
+                ScanWorkflowLogger.error("libraryRootService add SAF root failed", error)
             }
         }
     }
@@ -124,7 +143,7 @@ class LibraryRootService(
                 // 通过注入的扫描网关，非阻塞触发本次新入库网络路径的文件深度同步
                 scanScheduler.syncLibrary(trigger)
             }.onFailure { error ->
-                Log.e("LibraryRootService", "添加 WebDAV 远端根目录并调度扫描时发生异常", error)
+                ScanWorkflowLogger.error("libraryRootService add WebDAV root failed", error)
             }
         }
     }
@@ -154,7 +173,7 @@ class LibraryRootService(
                 }
             }
         } catch (e: Exception) {
-            Log.e("LibraryRootService", "注销根目录清理封面物理缓存时发生异常", e)
+            ScanWorkflowLogger.error("libraryRootService clear cover cache failed: rootId=${root.id}", e)
         }
 
         // 2. 根据数据源类型，撤销系统级 SAF 持久访问权限或安全抹除网络 WebDAV 凭据
@@ -167,11 +186,27 @@ class LibraryRootService(
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
                 } catch (e: Exception) {
-                    Log.e("LibraryRootService", "注销 SAF 目录的持久权限失败", e)
+                    ScanWorkflowLogger.error("libraryRootService release SAF permission failed: rootId=${root.id}", e)
                 }
             }
             LibrarySourceKind.WEBDAV -> {
                 webDavCredentialStore.delete(root.credentialId)
+            }
+            LibrarySourceKind.ABS -> {
+                // 一个 ABS server 可以绑定多个 library root，因此只有当没有其他 ABS root 继续引用同一 credentialId 时，才真正删除凭据。
+                if (shouldDeleteAbsCredential(root, libraryRootDao.getAllRootsOnce())) {
+                    absCredentialStore.delete(root.credentialId)
+                }
+                val bookIds = bookDao.getBooksByRootId(root.id).map { book -> book.id }
+                database.absSyncStateDao().deleteByRootId(root.id)
+                database.absItemMirrorDao().deleteByRootId(root.id)
+                if (bookIds.isNotEmpty()) {
+                    database.absPlaybackSessionDao().deleteByBookIds(bookIds)
+                    database.absPendingProgressSyncDao().deleteByBookIds(bookIds)
+                }
+            }
+            null -> {
+                ScanWorkflowLogger.warn("libraryRootService unknown sourceType during delete: sourceType=${root.sourceType}")
             }
         }
 
@@ -183,5 +218,17 @@ class LibraryRootService(
         // 详尽的中文注释：当服务被销毁或依赖容器卸载时，显式取消私有后台协程专属作用域，
         // 打断 init 中永不结束的 observeLibraryRoots Flow 监听收集，彻底消灭内存泄漏风险
         scope.cancel()
+    }
+}
+
+internal fun shouldDeleteAbsCredential(
+    root: LibraryRootEntity,
+    allRoots: List<LibraryRootEntity>
+): Boolean {
+    if (root.sourceType != com.viel.aplayer.data.db.AudiobookSchema.LibrarySourceType.ABS) return false
+    return allRoots.none { otherRoot ->
+        otherRoot.id != root.id &&
+            otherRoot.sourceType == com.viel.aplayer.data.db.AudiobookSchema.LibrarySourceType.ABS &&
+            otherRoot.credentialId == root.credentialId
     }
 }

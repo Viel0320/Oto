@@ -1,7 +1,6 @@
 package com.viel.aplayer.media.parser
 
 import android.content.Context
-import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
@@ -10,6 +9,7 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.vfs.VfsFileInterface
+import com.viel.aplayer.logger.ScanWorkflowLogger
 import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +46,8 @@ class CoverRecoveryHelper(
     private val alreadyAttempted = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     fun checkAndTriggerCoverRegeneration(book: BookEntity) {
+        // ABS 远端书籍的封面只允许由 ABS cover cache 负责，不能在列表流里反向读取远端音频做内嵌封面自愈。
+        if (shouldSkipAutoRegeneration(book)) return
         val bookId = book.id
         if (alreadyAttempted.contains(bookId)) return
 
@@ -61,7 +63,7 @@ class CoverRecoveryHelper(
                         rebuiltCover = regenerateCoverForBook(bookId)
                     }
                 } catch (error: Exception) {
-                    Log.e("CoverRecoveryHelper", "后台重建有声书 $bookId 封面异常", error)
+                    ScanWorkflowLogger.error("coverRecovery background regenerate failed: bookId=$bookId", error)
                 } finally {
                     pendingRegenerations.remove(bookId)
                     if (rebuiltCover) {
@@ -82,7 +84,7 @@ class CoverRecoveryHelper(
                     regenerateCoverForBook(bookId)
                 }
             } catch (error: Exception) {
-                Log.e("CoverRecoveryHelper", "强制重建有声书 $bookId 封面异常", error)
+                ScanWorkflowLogger.error("coverRecovery force regenerate failed: bookId=$bookId", error)
                 false
             }
         }
@@ -139,7 +141,7 @@ class CoverRecoveryHelper(
                 )
             }
         } catch (error: Exception) {
-            Log.e("CoverRecoveryHelper", "解析有声书 $bookId 内嵌封面异常", error)
+            ScanWorkflowLogger.error("coverRecovery embedded cover parse failed: bookId=$bookId", error)
             CoverExtractor.CoverResult(null, null)
         }
 
@@ -150,7 +152,7 @@ class CoverRecoveryHelper(
                 fileReader.open(sidecar)
             }
         } catch (error: Exception) {
-            Log.e("CoverRecoveryHelper", "解析 sidecar 封面异常", error)
+            ScanWorkflowLogger.error("coverRecovery sidecar parse failed: sourcePath=${primaryFile.sourcePath}", error)
             CoverExtractor.CoverResult(null, null)
         }
 
@@ -191,3 +193,6 @@ class CoverRecoveryHelper(
         private const val MAX_CONCURRENT_COVER_REGENERATIONS = 2
     }
 }
+
+internal fun shouldSkipAutoRegeneration(book: BookEntity): Boolean =
+    book.sourceType == AudiobookSchema.SourceType.ABS_REMOTE

@@ -2,6 +2,13 @@ package com.viel.aplayer
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.abs.net.RealAbsApiClient
+import com.viel.aplayer.abs.playback.AbsPlaybackCredentialResolver
+import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
+import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
+import com.viel.aplayer.abs.sync.AbsCoverCache
+import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.db.AppDatabase
@@ -101,6 +108,24 @@ interface AppContainer : java.io.Closeable {
      * 运行期唯一的音频播放进度自愈与自动回退进度管理器单例，作为容器属性收纳以提升全局可测试性与解耦架构。
      */
     val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
+
+    /**
+     * ABS catalog mirror 专用同步器。
+     * 不进入 LibraryFacade，避免把远端 REST 细节扩散到现有聚合门面。
+     */
+    val absCatalogSynchronizer: AbsCatalogSynchronizer
+
+    /**
+     * ABS 远端播放会话同步器。
+     * 只处理 play/sync/close，会话外的本地进度真相仍在现有进度链。
+     */
+    val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer
+
+    /**
+     * ABS 同步应用级协调器。
+     * 手动同步与“添加服务器后自动同步”都通过它在应用级作用域中执行，避免因为设置页销毁而中断。
+     */
+    val absSyncTaskCoordinator: AbsSyncTaskCoordinator
 }
 
 @UnstableApi
@@ -120,6 +145,25 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
 
     override val autoRewindManager: com.viel.aplayer.media.AutoRewindManager by lazy {
         com.viel.aplayer.media.AutoRewindManager.getInstance(context)
+    }
+
+    private val absCredentialStore by lazy {
+        AbsCredentialStore.getInstance(context.applicationContext)
+    }
+
+    private val absApiClient by lazy {
+        RealAbsApiClient()
+    }
+
+    private val absCoverCache by lazy {
+        AbsCoverCache(context.applicationContext)
+    }
+
+    private val absPlaybackCredentialResolver by lazy {
+        AbsPlaybackCredentialResolver(
+            libraryRootDao = database.libraryRootDao(),
+            credentialStore = absCredentialStore
+        )
     }
 
     // 延迟实例化用于运行期音轨物理可读性检测与异常跳轨处理的就绪自愈管理器单例
@@ -195,7 +239,10 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
      * 直接向其注入所需的数据库各个精细 DAO 接口与全局封面丢失自愈助手单例，解耦对旧有上帝类仓库与物理文件解析器的依赖。
      */
     override val bookQueryGateway: BookQueryGateway by lazy {
+        // 详尽的中文注释：在此向 BookQueryService 构造参数中注入全局 ApplicationContext 实例，
+        // 供其内部在构建 PlaybackPlan 时，能够通过 FileProvider 对封面图片物理路径进行安全解析与 content:// 协议 URI 转换。
         BookQueryService(
+            context = context.applicationContext,
             bookDao = database.bookDao(),
             chapterDao = database.chapterDao(),
             bookmarkDao = database.bookmarkDao(),
@@ -293,6 +340,32 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     override val playbackFileLookup: PlaybackFileLookup by lazy {
         com.viel.aplayer.media.DefaultPlaybackFileLookup(
             database.bookDao()
+        )
+    }
+
+    override val absCatalogSynchronizer: AbsCatalogSynchronizer by lazy {
+        AbsCatalogSynchronizer(
+            apiClient = absApiClient,
+            credentialStore = absCredentialStore,
+            catalogStore = database.absCatalogDao(),
+            coverCache = absCoverCache
+        )
+    }
+
+    override val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer by lazy {
+        AbsPlaybackSessionSyncer(
+            apiClient = absApiClient,
+            absPlaybackSessionDao = database.absPlaybackSessionDao(),
+            absPendingProgressSyncDao = database.absPendingProgressSyncDao(),
+            catalogStore = database.absCatalogDao(),
+            credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) }
+        )
+    }
+
+    override val absSyncTaskCoordinator: AbsSyncTaskCoordinator by lazy {
+        AbsSyncTaskCoordinator(
+            libraryRootDao = database.libraryRootDao(),
+            synchronizer = absCatalogSynchronizer
         )
     }
 

@@ -5,6 +5,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -101,7 +102,7 @@ class AutoRewindManager private constructor(context: Context) {
                     onSaveProgress()
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AutoRewindManager", "执行暂停自动回退失败", e)
+                PlaybackWorkflowLogger.error("autoRewind pause rewind failed", e)
             }
         }
     }
@@ -162,7 +163,7 @@ class AutoRewindManager private constructor(context: Context) {
                 settingsRepository.updateLastPlaybackInterrupted(false)
             }
         } catch (e: Exception) {
-            android.util.Log.e("AutoRewindManager", "冷启动进度自愈失败", e)
+            PlaybackWorkflowLogger.error("autoRewind cold start self-heal failed", e)
         }
     }
 

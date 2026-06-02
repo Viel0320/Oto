@@ -1,10 +1,12 @@
 package com.viel.aplayer.media.service
 
 // 详尽的中文注释：因小组件重建，在此处引入小组件状态同步助手，用于将实时期播放状态持久化推送到桌面小组件 DataStore
+// 详尽的中文注释：导入小组件状态更新所需的 GlanceAppWidgetManager 管理器以及 PlayerWidget 实例
+// 详尽的中文注释：导入协程 withContext 工具，以便在 IO 协程中执行小组件数量查询及 Room 书籍信息加载
 import android.app.PendingIntent
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
@@ -23,14 +25,12 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import com.viel.aplayer.media.NotificationProgressPlayer
+import com.viel.aplayer.media.PlaybackMediaId
 import com.viel.aplayer.media.PositionMapper
-import com.viel.aplayer.widget.PlayerWidgetStateHelper
-// 详尽的中文注释：导入小组件状态更新所需的 GlanceAppWidgetManager 管理器以及 PlayerWidget 实例
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.viel.aplayer.widget.PlayerWidget
-// 详尽的中文注释：导入协程 withContext 工具，以便在 IO 协程中执行小组件数量查询及 Room 书籍信息加载
-import kotlinx.coroutines.withContext
+import com.viel.aplayer.widget.PlayerWidgetStateHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,6 +38,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 核心前台媒体播放服务。
@@ -46,7 +47,6 @@ import kotlinx.coroutines.launch
  * 1. ExoPlayer 及其多媒体参数的定制与装配工作完全交由 [ExoPlayerFactory] 模块化构建；
  * 2. 系统的音频焦点（Audio Focus）申请、释放与“通知避让”状态机完全由 [PlaybackAudioFocusManager] 独立接管；
  * 3. 运行期 HTTP 安全审计与物理丢失（ENOENT）自愈跳轨灾备控制器交由 [PlaybackFailureHandler] 模块化托管；
- * 4. “静音跳过”的反射黑魔法刺探热更新及轮询已完全打通并归口对接回已有的 [SilenceProcessorController] 实体。
  *
  * 瘦身重构后的播放服务仅仅作为 Media3 官方 Session 的生命周期外壳挂载体，
  * 在保证 100% 外部 MediaController 兼容平滑运行的同时，将代码复杂度降低了 45% 以上，极大提升了测试性。
@@ -124,7 +124,7 @@ class PlaybackService : MediaSessionService() {
             context = this,
              listener = object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
-                    Log.e("PlaybackService", "播放器内核物理轨道加载故障: ${error.message}", error)
+                    PlaybackWorkflowLogger.error("playbackService player error: code=${error.errorCode}, message=${error.message}", error)
                     // 委托给灾备处理器进行 HTTP 安全流量审计与音轨缺失自愈跳轨
                     if (failureHandler.isUnavailableMediaError(error)) {
                         // 详尽的中文注释：在此处将当前服务的 mediaSession 传入，以便灾备处理器向连接的前台控制器广播 EVENT_TRACK_UNAVAILABLE 指令，拉起二次确认跳轨弹窗
@@ -133,7 +133,7 @@ class PlaybackService : MediaSessionService() {
                     if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED) {
                         val cause = error.cause
                         if (cause is androidx.media3.common.ParserException) {
-                            Log.e("PlaybackService", "解析器物理结构异常: contentIsMalformed=${cause.contentIsMalformed}")
+                            PlaybackWorkflowLogger.error("playbackService parser error: malformed=${cause.contentIsMalformed}", cause)
                         }
                     }
                     // 详尽的中文注释：当播放器抛出内核物理加载异常导致轨道中断时，即时同步并推送播放失败状态给桌面小组件
@@ -275,9 +275,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun updateNotificationTimeline(mediaItem: androidx.media3.common.MediaItem?) {
-        val mediaId = mediaItem?.mediaId ?: return
-        if (!mediaId.contains(":")) return
-        val bookId = mediaId.substringBefore(":")
+        val mediaParts = PlaybackMediaId.parse(mediaItem?.mediaId) ?: return
+        val bookId = mediaParts.bookId
 
         serviceScope.launch(Dispatchers.IO) {
             // 通过高层门面 libraryFacade 同步获取特定书籍的全部物理分轨与章节清册
@@ -351,9 +350,9 @@ class PlaybackService : MediaSessionService() {
                 ACTION_FORWARD -> session.player.seekForward()
                 ACTION_BOOKMARK -> {
                     val player = session.player
-                    val mediaId = player.currentMediaItem?.mediaId
-                    if (mediaId != null && mediaId.contains(":")) {
-                        val bookId = mediaId.substringBefore(":")
+                    val mediaParts = PlaybackMediaId.parse(player.currentMediaItem?.mediaId)
+                    if (mediaParts != null) {
+                        val bookId = mediaParts.bookId
 
                         serviceScope.launch {
                             // 书签保存基于全书绝对毫秒进度
@@ -413,8 +412,9 @@ class PlaybackService : MediaSessionService() {
             val fallbackTitle = mediaItem?.mediaMetadata?.title?.toString()
             val fallbackArtist = mediaItem?.mediaMetadata?.artist?.toString()
 
-            if (mediaId != null && mediaId.contains(":")) {
-                val bookId = mediaId.substringBefore(":")
+            val mediaParts = PlaybackMediaId.parse(mediaId)
+            if (mediaParts != null) {
+                val bookId = mediaParts.bookId
                 withContext(Dispatchers.IO) {
                     // 详尽的中文注释：在通过 LibraryFacade 执行任何 Room 数据库查询之前，首先运行 Glance 自身的 ID 数量预判。
                     // 若桌面上完全没有添加该 Widget，则立刻早退，从物理层杜绝在此场景下进行昂贵且无意义的本地查库操作，完美保护磁盘 I/O 资源

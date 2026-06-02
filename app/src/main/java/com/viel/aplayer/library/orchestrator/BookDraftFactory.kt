@@ -74,7 +74,10 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
                 )
             }
         } else {
-            listOf(defaultChapter(bookId, fileId, 0, title, audio.metadata.durationMs, AudiobookSchema.ChapterSource.GENERATED))
+            // 详尽的中文注释：单音频且无内嵌章节时，不再在导入阶段把“整本书唯一章节”写入数据库。
+            // 章节兜底语义现在统一迁移到查询投影层按需合成，避免把展示层默认值持久化成真实章节事实，
+            // 从而保证数据库里的章节表只保存“真实解析得到的章节”，进度锚点仍继续只依赖文件与全局位置。
+            emptyList()
         }
         return BookDraft(book, listOf(file), chapters)
     }
@@ -313,19 +316,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             fileSize = fileSize,
             lastModified = lastModified,
             status = status
-        )
-
-    private fun defaultChapter(bookId: String, fileId: String, index: Int, title: String, duration: Long, source: String): ChapterEntity =
-        ChapterEntity(
-            id = UUID.randomUUID().toString(),
-            bookId = bookId,
-            bookFileId = fileId,
-            index = index,
-            title = title.ifBlank { "Chapter ${index + 1}" },
-            startPositionMs = 0L,
-            durationMs = duration,
-            fileOffsetMs = 0L,
-            source = source
         )
 
     private suspend fun readDuration(file: FileRef): Long =

@@ -1,17 +1,14 @@
 package com.viel.aplayer.widget
 
+// 详尽的中文注释：导入 produceState 和 getValue 扩展，以便在 Compose 组合内声明并绑定异步加载的状态变量
+// 详尽的中文注释：导入 Dispatchers 和 withContext 协程分发器工具，以实现完全非阻塞的后台磁盘 I/O 线程调度
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-// 详尽的中文注释：导入 produceState 和 getValue 扩展，以便在 Compose 组合内声明并绑定异步加载的状态变量
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
-// 详尽的中文注释：导入 Dispatchers 和 withContext 协程分发器工具，以实现完全非阻塞的后台磁盘 I/O 线程调度
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +44,8 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**

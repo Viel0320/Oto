@@ -1,7 +1,6 @@
 package com.viel.aplayer.data.service
 
 import android.content.Context
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -10,16 +9,17 @@ import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.orchestrator.RescanType
 import com.viel.aplayer.library.orchestrator.ScanSessionRunner
 import com.viel.aplayer.library.vfs.VfsFileInterface
+import com.viel.aplayer.logger.ScanWorkflowLogger
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.cancel
 
 /**
  * 媒体库扫描调度应用服务（实现了 ScanScheduler 接口）。
@@ -45,7 +45,7 @@ class ScanService
 
     // 串行扫描专属后台协程异常拦截器
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        Log.e("ScanService", "协程在 ScanService 运行中捕获到未处理异常", exception)
+        ScanWorkflowLogger.error("scanService coroutine failure", exception)
     }
 
     // 专门维护在 IO 线程池中的扫描异步同步后台作用域
@@ -88,7 +88,7 @@ class ScanService
             triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
         ).rescan(type)
 
-        Log.i("ScanService", "书籍物理同步扫描已圆满完成. 新增: ${session.discoveredBookCount}, 待处理变动: ${session.pendingActionCount}")
+        ScanWorkflowLogger.info("scanService success: trigger=$trigger, discovered=${session.discoveredBookCount}, pending=${session.pendingActionCount}")
     }
 
     override fun close() {

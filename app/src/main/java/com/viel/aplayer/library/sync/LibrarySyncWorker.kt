@@ -1,9 +1,9 @@
 package com.viel.aplayer.library.sync
 
 import android.content.Context
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.viel.aplayer.logger.ScanWorkflowLogger
 
 class LibrarySyncWorker(
     context: Context,
@@ -28,11 +28,11 @@ class LibrarySyncWorker(
         } catch (e: java.io.IOException) {
             // 详尽的中文注释：针对网络断开、WebDAV 握手超时、SQLite 数据库并发忙死等瞬时物理 I/O 异常，
             // 调度 WorkManager 的 Result.retry() 重载退避重试，利用退避退避策略自愈后台更新
-            Log.w("LibrarySyncWorker", "Transient network/DB lock error during library sync, scheduling retry", e)
+            ScanWorkflowLogger.warn("librarySyncWorker retry: scheduling retry after transient sync failure", e)
             Result.retry()
         } catch (e: Exception) {
             // 详尽的中文注释：针对逻辑缺陷、未定义参数等非瞬时崩溃型故障，返回 Result.failure() 终止任务，规避死循环引起的异常耗电
-            Log.e("LibrarySyncWorker", "Permanent logic error during library sync", e)
+            ScanWorkflowLogger.error("librarySyncWorker failure: permanent logic error during library sync", e)
             Result.failure()
         }
     }

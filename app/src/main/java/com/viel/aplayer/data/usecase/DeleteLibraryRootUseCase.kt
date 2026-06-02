@@ -1,7 +1,7 @@
 package com.viel.aplayer.data.usecase
 
-import android.util.Log
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.logger.LibraryWorkflowLogger
 import com.viel.aplayer.media.PlaybackManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,11 +42,13 @@ class DeleteLibraryRootUseCase(
                     // 3. 如果属于被删书库，立即下发紧急停播指令，并锁定返回状态
                     playbackManager.stopPlayback()
                     playbackStopped = true
-                    Log.i("DeleteLibraryRootUseCase", "待删除的书库根目录 [${root.id}] 正在播放，已成功触发紧急停播")
+                    // 详尽中文注释：删除库根前触发的紧急停播是公共业务流程，不属于某个来源协议，因此记录到公共流程 logger。
+                    LibraryWorkflowLogger.debug("deleteRoot stopPlayback: rootId=${root.id}, currentBookId=$currentBookId")
+                    LibraryWorkflowLogger.info("deleteRoot stopPlayback success: rootId=${root.id}")
                 }
             }
         } catch (e: Exception) {
-            Log.e("DeleteLibraryRootUseCase", "检测或暂停被删除根目录的有声书播放时发生异常", e)
+            LibraryWorkflowLogger.warn("deleteRoot stopPlayback failed: rootId=${root.id}", e)
         }
 
         // 4. 使用书库根网关的 deleteLibraryRootDataOnly 接口完成本地缓存、SAF授权及Room记录的彻底级联清理

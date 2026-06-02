@@ -3,6 +3,7 @@ package com.viel.aplayer.library
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
+import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -16,12 +17,20 @@ import java.util.UUID
 /**
  * 负责管理媒体库授权目录的持久化存储。
  */
-class LibraryRootStore(private val context: Context) {
-    private val rootDao = AppDatabase.getInstance(context).libraryRootDao()
+class LibraryRootStore(
+    private val context: Context,
+    private val rootDaoOverride: com.viel.aplayer.data.dao.LibraryRootDao? = null,
+    private val availabilityCheckerOverride: AvailabilityChecker? = null,
+    private val webDavCredentialStoreOverride: WebDavCredentialStore? = null,
+    private val absCredentialStoreOverride: AbsCredentialStore? = null
+) {
+    private val rootDao by lazy { rootDaoOverride ?: AppDatabase.getInstance(context).libraryRootDao() }
     // 统一根目录可用性探测入口；SAF 阶段仍复刻旧授权检查，WebDAV 后续复用同一状态模型。
-    private val availabilityChecker = AvailabilityChecker(context.applicationContext)
+    private val availabilityChecker by lazy { availabilityCheckerOverride ?: AvailabilityChecker(context.applicationContext) }
     // WebDAV 凭据由根目录仓库统一写入/更新，Room 只保存 credentialId 引用。
-    private val webDavCredentialStore = WebDavCredentialStore(context.applicationContext)
+    private val webDavCredentialStore by lazy { webDavCredentialStoreOverride ?: WebDavCredentialStore(context.applicationContext) }
+    // ABS 凭据同样由独立仓库承载，root 只保留 credentialId 引用，避免把 token 写进 Room 普通字段。
+    private val absCredentialStore by lazy { absCredentialStoreOverride ?: AbsCredentialStore.getInstance(context.applicationContext) }
 
     /**
      * 添加新的授权目录。
@@ -111,6 +120,29 @@ class LibraryRootStore(private val context: Context) {
         root
     }
 
+    suspend fun addAbsRoot(
+        credentialId: String,
+        libraryId: String,
+        displayName: String
+    ): LibraryRootEntity = withContext(Dispatchers.IO) {
+        val credential = requireNotNull(absCredentialStore.get(credentialId)) {
+            "ABS 凭据不存在: $credentialId"
+        }
+        val normalizedBaseUrl = credential.baseUrl
+        val resolvedDisplayName = displayName.ifBlank { libraryId }
+        val now = System.currentTimeMillis()
+        val root = mergeAbsRoot(
+            existingRoots = rootDao.getAllRootsOnce(),
+            normalizedBaseUrl = normalizedBaseUrl,
+            credentialId = credentialId,
+            libraryId = libraryId,
+            displayName = resolvedDisplayName,
+            now = now
+        )
+        rootDao.insertRoot(root)
+        root
+    }
+
     suspend fun refreshPermissionStatuses() = withContext(Dispatchers.IO) {
         // Startup and settings entry both reconcile persisted SAF grants with stored root status.
         rootDao.getAllRootsOnce().forEach { root ->
@@ -168,4 +200,40 @@ class LibraryRootStore(private val context: Context) {
 
     private fun treeDocumentId(sourceUri: String): String =
         Uri.decode(sourceUri).substringAfter("/tree/", missingDelimiterValue = sourceUri)
+}
+
+internal fun mergeAbsRoot(
+    existingRoots: List<LibraryRootEntity>,
+    normalizedBaseUrl: String,
+    credentialId: String,
+    libraryId: String,
+    displayName: String,
+    now: Long,
+    newRootId: String = UUID.randomUUID().toString()
+): LibraryRootEntity {
+    val existing = existingRoots.firstOrNull { root ->
+        root.sourceType == AudiobookSchema.LibrarySourceType.ABS &&
+            root.sourceUri == normalizedBaseUrl &&
+            root.basePath == libraryId
+    }
+    return existing?.copy(
+        displayName = displayName,
+        credentialId = credentialId,
+        grantedAt = now,
+        status = AudiobookSchema.LibraryRootStatus.ACTIVE,
+        availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+        lastAvailabilityCheckedAt = 0L,
+        lastAvailabilityErrorCode = null
+    )
+        ?: LibraryRootEntity(
+            id = newRootId,
+            sourceType = AudiobookSchema.LibrarySourceType.ABS,
+            // ABS root 只记录规范化 baseUrl，libraryId 独立放入 basePath，便于后续一台服务器挂多个库。
+            sourceUri = normalizedBaseUrl,
+            basePath = libraryId,
+            credentialId = credentialId,
+            displayName = displayName,
+            grantedAt = now,
+            status = AudiobookSchema.LibraryRootStatus.ACTIVE
+        )
 }

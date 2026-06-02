@@ -30,7 +30,7 @@ object PlaybackPlanBuilder {
 
             // 将 mediaId 构造成 "bookId:fileId" 的复合结构，以便字幕与进度持久化能够稳定地反查到具体的数据库记录
             MediaItem.Builder()
-                .setMediaId("${plan.bookId}:${file.id}")
+                .setMediaId(PlaybackMediaId.compose(plan.bookId, file.id))
                 .setUri(VfsPlaybackUri.fromBookFile(file))
                 .setMediaMetadata(metadata)
                 .build()

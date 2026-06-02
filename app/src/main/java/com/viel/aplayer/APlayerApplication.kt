@@ -2,7 +2,8 @@ package com.viel.aplayer
 
 import android.app.Application
 import android.content.Context
-import com.viel.aplayer.media.AutoRewindManager
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -50,6 +51,7 @@ class APlayerApplication : Application() {
          * @param context 组件的 Context
          * @return 全局唯一的 AppContainer 实例
          */
+        @OptIn(UnstableApi::class)
         fun getContainer(context: Context): AppContainer {
             return instance ?: synchronized(this) {
                 instance ?: DefaultAppContainer(context.applicationContext).also { instance = it }

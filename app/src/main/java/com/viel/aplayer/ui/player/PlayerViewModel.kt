@@ -10,6 +10,7 @@ import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.media.AutoRewindManager
 import com.viel.aplayer.media.PlaybackManager
+import com.viel.aplayer.media.PlaybackMediaId
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
 import com.viel.aplayer.ui.player.components.relatedsection.GetRelatedBooksUseCase
@@ -405,11 +406,12 @@ class PlayerViewModel : ViewModel() {
         viewModelScope.launch {
             manager.currentMediaItem.collectLatest { mediaItem ->
                 if (mediaItem != null) {
-                    val mediaId = mediaItem.mediaId
-                    if (mediaId.contains(":")) {
-                        val bookId = mediaId.substringBefore(":")
-                        // 冒号后半段现在是稳定的 BookFileEntity.id，用于字幕 VFS 定位，不再依赖播放器的真实播放 URI。
-                        val bookFileId = mediaId.substringAfter(":")
+                    val mediaParts = PlaybackMediaId.parse(mediaItem.mediaId)
+                    if (mediaParts != null) {
+                        val bookId = mediaParts.bookId
+                        // 详尽中文注释：统一通过 PlaybackMediaId 从最后一个冒号切分 `bookId:fileId`。
+                        // 这样 ABS 的 `bookId` 即使自身包含多个 `:`，也不会把文件 ID 解析错位，字幕与章节链路才能命中正确书籍。
+                        val bookFileId = mediaParts.fileId
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
 

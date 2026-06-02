@@ -1,0 +1,44 @@
+{
+  "id": "item-1",
+  "title": "First Fifty Digits of Pi",
+  "authors": [],
+  "progress": null,
+  "media": {
+    "tracks": [
+      {
+        "index": 1,
+        "ino": "856465",
+        "duration": 3227.245714,
+        "mimeType": "audio/mpeg",
+        "startOffset": 0,
+        "title": "First Fifty Digits of Pi",
+        "contentUrl": "/api/items/item-1/file/856465",
+        "metadata": {
+          "filename": "FirstFiftyDigitsOfPi_librivox.mp3",
+          "ext": ".mp3",
+          "size": 77458087
+        }
+      }
+    ],
+    "audioFiles": [
+      {
+        "index": 1,
+        "ino": "856465",
+        "duration": 3227.245714,
+        "metadata": {
+          "filename": "FirstFiftyDigitsOfPi_librivox.mp3",
+          "ext": ".mp3",
+          "size": 77458087
+        }
+      }
+    ],
+    "chapters": [
+      {
+        "start": 0,
+        "end": 42.008,
+        "title": "Previously on 24",
+        "id": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 详尽的中文注释：声明对外开放的缓存封面目录，通过 FileProvider 映射外部访问，完美杜绝 SystemUI 的 ENOENT 文件未找到崩溃 -->
+    <cache-path name="covers" path="covers/" />
+</paths>

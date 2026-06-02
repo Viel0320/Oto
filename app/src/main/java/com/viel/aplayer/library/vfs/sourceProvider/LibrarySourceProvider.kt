@@ -2,6 +2,7 @@ package com.viel.aplayer.library.vfs.sourceProvider
 
 import android.content.Context
 import android.os.ParcelFileDescriptor
+import com.viel.aplayer.abs.vfs.AbsSourceProvider
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.vfs.sourceProvider.saf.SafSourceProvider
@@ -10,11 +11,13 @@ import java.io.InputStream
 
 enum class LibrarySourceKind(val schemaValue: String) {
     SAF(AudiobookSchema.LibrarySourceType.SAF),
-    WEBDAV(AudiobookSchema.LibrarySourceType.WEBDAV);
+    WEBDAV(AudiobookSchema.LibrarySourceType.WEBDAV),
+    ABS(AudiobookSchema.LibrarySourceType.ABS);
 
     companion object {
-        fun from(value: String): LibrarySourceKind =
-            entries.firstOrNull { it.schemaValue == value } ?: SAF
+        // sourceType 分发必须显式识别所有来源，不能再把未知值静默吞成 SAF。
+        fun from(value: String): LibrarySourceKind? =
+            entries.firstOrNull { it.schemaValue == value }
     }
 }
 
@@ -72,10 +75,14 @@ interface LibrarySourceProvider {
 class LibrarySourceProviderFactory(private val context: Context) {
     private val safProvider = SafSourceProvider(context)
     private val webDavProvider = WebDavSourceProvider(context.applicationContext)
+    // 阶段 1 先注册 ABS provider 占位，确保 ABS root 不会误走 SAF 或 WebDAV provider。
+    private val absProvider = AbsSourceProvider(context.applicationContext)
 
     fun providerFor(root: LibraryRootEntity): LibrarySourceProvider =
         when (LibrarySourceKind.from(root.sourceType)) {
             LibrarySourceKind.SAF -> safProvider
             LibrarySourceKind.WEBDAV -> webDavProvider
+            LibrarySourceKind.ABS -> absProvider
+            null -> throw UnsupportedOperationException("Unsupported library source type: ${root.sourceType}")
         }
 }

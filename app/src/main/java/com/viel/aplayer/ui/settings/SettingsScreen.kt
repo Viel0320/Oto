@@ -33,7 +33,9 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LinearScale
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -86,8 +88,16 @@ fun SettingsScreen(
     onLibraryRootSelected: (Uri) -> Unit,
     // WebDAV 表单提交回调只传标准连接字段，UI 不直接写数据库或凭据存储。
     onWebDavRootSubmitted: (url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
+    onAbsConnectionTest: (baseUrl: String, username: String, password: String) -> Unit,
+    onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String) -> Unit,
+    onAbsSync: (rootId: String) -> Unit,
+    onAbsBackgroundSync: (rootId: String) -> Unit,
+    absSyncConfirmationState: AbsSyncConfirmationState?,
+    onDismissLargeAbsSync: () -> Unit,
     onRescan: () -> Unit,
     libraryRoots: List<LibraryRootEntity>,
+    absServers: List<AbsServerSettingsState>,
+    absConnectionState: AbsConnectionUiState,
     isChapterProgressMode: Boolean,
     onChapterProgressModeChange: (Boolean) -> Unit,
     // 是否允许明文 HTTP 流量标志及对应的触发方法。
@@ -142,6 +152,12 @@ fun SettingsScreen(
     var webDavPassword by remember { mutableStateOf("") }
     var webDavDisplayName by remember { mutableStateOf("") }
     var webDavBasePath by remember { mutableStateOf("") }
+    var showAbsDialog by remember { mutableStateOf(false) }
+    var absBaseUrl by remember { mutableStateOf("") }
+    var absUsername by remember { mutableStateOf("") }
+    var absPassword by remember { mutableStateOf("") }
+    var absLibraryId by remember { mutableStateOf("") }
+    var absLibraryName by remember { mutableStateOf("") }
 
     // 获取设备当前的屏幕配置信息，用于自适应判定
     val configuration = LocalConfiguration.current
@@ -184,6 +200,37 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showAbsDialog) {
+        AbsServerDialog(
+            baseUrl = absBaseUrl,
+            username = absUsername,
+            password = absPassword,
+            connectionState = absConnectionState,
+            selectedLibraryId = absLibraryId,
+            selectedLibraryName = absLibraryName,
+            onBaseUrlChange = { absBaseUrl = it },
+            onUsernameChange = { absUsername = it },
+            onPasswordChange = { absPassword = it },
+            onLibrarySelected = { id, name ->
+                absLibraryId = id
+                absLibraryName = name
+            },
+            onTestConnection = { onAbsConnectionTest(absBaseUrl.trim(), absUsername.trim(), absPassword) },
+            onDismiss = {
+                showAbsDialog = false
+                absLibraryId = ""
+                absLibraryName = ""
+            },
+            onConfirm = {
+                onAbsRootSubmitted(absBaseUrl.trim(), absUsername.trim(), absPassword, absLibraryId.trim(), absLibraryName.trim())
+                showAbsDialog = false
+                absLibraryId = ""
+                absLibraryName = ""
+            }
+        )
+    }
+
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -248,14 +295,25 @@ fun SettingsScreen(
                             onClick = { showWebDavDialog = true }
                         )
                     }
+                    item {
+                        SettingsItem(
+                            title = "添加 ABS Server",
+                            subtitle = "添加 Audiobookshelf 服务器并选择一个 book library",
+                            icon = Icons.Rounded.Sync,
+                            onClick = { showAbsDialog = true }
+                        )
+                    }
 
                     // 添加模式 key，使用通用 sourceUri 作为唯一标识，避免 UI 继续依赖旧库根字段。
                     // 防止列表刷新时 item 状态错位复用导致 UI 错乱。
                     items(libraryRoots.size, key = { libraryRoots[it].sourceUri }) { index ->
                         val root = libraryRoots[index]
                         val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
+                        val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
                         val rootTitle = if (isWebDavRoot) {
                             root.displayName.ifBlank { "${root.sourceUri}${root.basePath}" }
+                        } else if (isAbsRoot) {
+                            root.displayName.ifBlank { "ABS ${root.basePath}" }
                         } else {
                             // 本地 SAF root 继续显示用户可理解的末级目录名，不暴露完整 tree URI。
                             try {
@@ -267,6 +325,9 @@ fun SettingsScreen(
                         val rootSubtitle = if (isWebDavRoot) {
                             // WebDAV root 显示远程端点与可用性状态，避免用户把网络失败误认为 SAF 授权撤销。
                             "WebDAV: ${root.sourceUri}${root.basePath} · 可用性: ${root.availabilityStatus}"
+                        } else if (isAbsRoot) {
+                            val sync = absServers.firstOrNull { it.rootId == root.id }
+                            "ABS: ${root.sourceUri} · Library=${root.displayName} · 状态=${sync?.syncStatus ?: "IDLE"}"
                         } else {
                             "状态: ${root.status}"
                         }
@@ -280,7 +341,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = if (isWebDavRoot) Icons.Rounded.Cloud else Icons.Rounded.FolderOpen,
+                                imageVector = if (isWebDavRoot || isAbsRoot) Icons.Rounded.Cloud else Icons.Rounded.FolderOpen,
                                 contentDescription = null,
                                 modifier = Modifier.size(24.dp),
                                 tint = MaterialTheme.colorScheme.primary
@@ -293,6 +354,28 @@ fun SettingsScreen(
                                     style = MaterialTheme.typography.bodySmall, 
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                if (isAbsRoot) {
+                                    val sync = absServers.firstOrNull { it.rootId == root.id }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Button(onClick = { onAbsSync(root.id) }) {
+                                            Text("手动同步")
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Button(onClick = { onAbsBackgroundSync(root.id) }) {
+                                            Text("后台同步")
+                                        }
+                                    }
+                                    if (sync != null) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "最近同步: ${sync.lastFullSyncAt ?: 0} · 版本: ${sync.serverVersion ?: "-"}" +
+                                                (sync.lastError?.takeIf { it.isNotBlank() }?.let { " · 错误: $it" } ?: ""),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
                             IconButton(onClick = { rootToDelete = root }) {
                                 Icon(
@@ -472,6 +555,130 @@ fun SettingsScreen(
             }
         )
     }
+}
+
+@Composable
+private fun AbsServerDialog(
+    baseUrl: String,
+    username: String,
+    password: String,
+    connectionState: AbsConnectionUiState,
+    selectedLibraryId: String,
+    selectedLibraryName: String,
+    onBaseUrlChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onLibrarySelected: (String, String) -> Unit,
+    onTestConnection: () -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("添加 ABS Server") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = baseUrl,
+                    onValueChange = onBaseUrlChange,
+                    label = { Text("Base URL") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = onUsernameChange,
+                    label = { Text("用户名") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    label = { Text("密码") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onTestConnection,
+                    enabled = baseUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+                ) {
+                    Text(if (connectionState.isTesting) "连接中..." else "测试连接")
+                }
+                if (connectionState.loginSucceeded) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "登录成功，请选择一个 book library 再点击添加",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                if (connectionState.serverVersion != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Server Version: ${connectionState.serverVersion}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (selectedLibraryName.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "已选 Library: $selectedLibraryName",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                connectionState.lastError?.takeIf { it.isNotBlank() }?.let { error ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                if (connectionState.libraries.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("选择 Book Library", style = MaterialTheme.typography.titleSmall)
+                    connectionState.libraries.forEach { library ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onLibrarySelected(library.id, library.name) }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.RadioButton(
+                                selected = selectedLibraryId == library.id,
+                                onClick = { onLibrarySelected(library.id, library.name) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("${library.name} (${library.id})")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = baseUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank() &&
+                    selectedLibraryId.isNotBlank() && selectedLibraryName.isNotBlank()
+            ) {
+                Text("添加")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
 }
 
 /**
@@ -824,8 +1031,16 @@ fun SettingsScreenPreview() {
             onBack = {},
             onLibraryRootSelected = {},
             onWebDavRootSubmitted = { _, _, _, _, _ -> },
+            onAbsConnectionTest = { _, _, _ -> },
+            onAbsRootSubmitted = { _, _, _, _, _ -> },
+            onAbsSync = {},
+            onAbsBackgroundSync = {},
+            absSyncConfirmationState = null,
+            onDismissLargeAbsSync = {},
             onRescan = {},
             libraryRoots = emptyList(),
+            absServers = emptyList(),
+            absConnectionState = AbsConnectionUiState(),
             isChapterProgressMode = false,
             onChapterProgressModeChange = {},
             isCleartextTrafficAllowed = false,

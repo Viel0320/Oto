@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.settings
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -16,13 +17,16 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
 import com.viel.aplayer.ui.theme.APlayerTheme
 
@@ -49,6 +53,19 @@ class SettingsActivity : ComponentActivity() {
                     val settingsViewModel: SettingsViewModel = viewModel()
                     val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
                     val libraryRoots by settingsViewModel.libraryRoots.collectAsStateWithLifecycle()
+                    val absServers by settingsViewModel.absServers.collectAsStateWithLifecycle()
+                    val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
+                    val absSyncConfirmationState by settingsViewModel.absSyncConfirmationState.collectAsStateWithLifecycle()
+                    val context = LocalContext.current
+
+                    LaunchedEffect(Unit) {
+                        settingsViewModel.uiEvents.collect { event ->
+                            when (event) {
+                                is UiEvent.ShowToast -> Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                                else -> {}
+                            }
+                        }
+                    }
 
                     // 维护一个 Boolean 状态，用于驱动设置主页 (SettingsScreen) 和开源许可面板 (AboutLibrariesScreen) 之间的显示和切换。
                     var showAboutLibraries by remember { mutableStateOf(false) }
@@ -87,8 +104,26 @@ class SettingsActivity : ComponentActivity() {
                                 onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
                                     settingsViewModel.onWebDavRootSubmitted(url, username, password, displayName, basePath)
                                 },
+                                onAbsConnectionTest = { baseUrl, username, password ->
+                                    settingsViewModel.testAbsConnection(baseUrl, username, password)
+                                },
+                                onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName ->
+                                    settingsViewModel.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName)
+                                },
+                                onAbsSync = { rootId ->
+                                    settingsViewModel.syncAbsRoot(rootId)
+                                },
+                                onAbsBackgroundSync = { rootId ->
+                                    settingsViewModel.scheduleAbsRootSync(rootId)
+                                },
+                                absSyncConfirmationState = absSyncConfirmationState,
+                                onDismissLargeAbsSync = {
+                                    settingsViewModel.dismissLargeAbsSyncConfirmation()
+                                },
                                 onRescan = { settingsViewModel.triggerRescan() },
                                 libraryRoots = libraryRoots,
+                                absServers = absServers,
+                                absConnectionState = absConnectionState,
                                 isChapterProgressMode = settingsState.isChapterProgressMode,
                                 onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },
                                 isCleartextTrafficAllowed = settingsState.isCleartextTrafficAllowed,

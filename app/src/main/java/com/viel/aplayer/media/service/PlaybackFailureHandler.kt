@@ -11,6 +11,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.media.PlaybackMediaId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -71,11 +72,8 @@ class PlaybackFailureHandler(
      */
     fun handleUnavailableMediaItem(player: Player, mediaSession: MediaSession?) {
         val mediaItem = player.currentMediaItem ?: return
-        val mediaId = mediaItem.mediaId
-        
-        // 校验是否为合规的 APlayer 播放实体标识 (包含 bookId:bookFileId)
-        if (!mediaId.contains(":")) return
-        val bookId = mediaId.substringBefore(":")
+        val mediaParts = PlaybackMediaId.parse(mediaItem.mediaId) ?: return
+        val bookId = mediaParts.bookId
         val queueIndex = player.currentMediaItemIndex.coerceAtLeast(0)
         
         // 防抖校验：同一首有声书分轨只执行一次跳轨重试，避免 ExoPlayer 频繁回调发生卡死

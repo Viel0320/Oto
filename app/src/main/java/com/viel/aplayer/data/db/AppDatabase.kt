@@ -1,11 +1,19 @@
 package com.viel.aplayer.data.db
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import java.io.File
-import android.util.Log
+import com.viel.aplayer.abs.playback.AbsPendingProgressSyncDao
+import com.viel.aplayer.abs.playback.AbsPendingProgressSyncEntity
+import com.viel.aplayer.abs.playback.AbsPlaybackSessionDao
+import com.viel.aplayer.abs.playback.AbsPlaybackSessionEntity
+import com.viel.aplayer.abs.sync.AbsCatalogDao
+import com.viel.aplayer.abs.sync.AbsItemMirrorDao
+import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
+import com.viel.aplayer.abs.sync.AbsSyncStateDao
+import com.viel.aplayer.abs.sync.AbsSyncStateEntity
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookmarkDao
 import com.viel.aplayer.data.dao.ChapterDao
@@ -21,6 +29,7 @@ import com.viel.aplayer.data.entity.DirectoryCacheEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.PendingScanActionEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
+import java.io.File
 
 @Database(
     entities = [
@@ -32,10 +41,14 @@ import com.viel.aplayer.data.entity.ScanSessionEntity
         LibraryRootEntity::class,
         ScanSessionEntity::class,
         PendingScanActionEntity::class,
-        DirectoryCacheEntity::class
+        DirectoryCacheEntity::class,
+        AbsSyncStateEntity::class,
+        AbsItemMirrorEntity::class,
+        AbsPlaybackSessionEntity::class,
+        AbsPendingProgressSyncEntity::class
     ],
     // book_files 删除旧 uri 列后直接进入 VFS-only 结构，不保留历史迁移兼容链。
-    version = 33,
+    version = 35,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,6 +59,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scanSessionDao(): ScanSessionDao
     // 对外暴露增量扫描目录缓存表的 DAO 查询接口
     abstract fun directoryCacheDao(): DirectoryCacheDao
+    abstract fun absSyncStateDao(): AbsSyncStateDao
+    abstract fun absItemMirrorDao(): AbsItemMirrorDao
+    abstract fun absCatalogDao(): AbsCatalogDao
+    abstract fun absPlaybackSessionDao(): AbsPlaybackSessionDao
+    abstract fun absPendingProgressSyncDao(): AbsPendingProgressSyncDao
 
     companion object {
         @Volatile

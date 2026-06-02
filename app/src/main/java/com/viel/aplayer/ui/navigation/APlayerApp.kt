@@ -25,13 +25,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.ScanResultDialog
 import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.detail.DetailOverlay
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.edit.EditBookOverlay
 import com.viel.aplayer.ui.edit.EditBookViewModel
 import com.viel.aplayer.ui.home.LibraryViewModel
-import com.viel.aplayer.ui.common.ScanResultDialog
 import com.viel.aplayer.ui.miniplayer.MiniPlayerActions
 import com.viel.aplayer.ui.miniplayer.MiniPlayerOverlay
 import com.viel.aplayer.ui.player.PlayerViewModel

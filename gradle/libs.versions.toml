@@ -22,6 +22,8 @@ datastore = "1.2.1"
 glance = "1.1.1"
 # WebDAV 传输层需要稳定支持 PROPFIND 与 Range 请求，因此新增 OkHttp 版本声明。
 okhttp = "5.3.2"
+# ABS REST DTO 需要结构化 JSON 解析，这里统一引入 Moshi，避免手写字符串解析造成协议细节散落。
+moshi = "1.15.2"
 # 引入 miuix 库版本声明，用于引入硬件级高阶模糊效果组件 miuix-blur。
 miuix = "0.9.1"
 
@@ -60,6 +62,9 @@ androidx-glance = { group = "androidx.glance", name = "glance", version.ref = "g
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+moshi = { group = "com.squareup.moshi", name = "moshi", version.ref = "moshi" }
+moshi-kotlin = { group = "com.squareup.moshi", name = "moshi-kotlin", version.ref = "moshi" }
+moshi-kotlin-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-codegen", version.ref = "moshi" }
 miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur", version.ref = "miuix" }
 
 

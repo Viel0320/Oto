@@ -12,10 +12,10 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
 import com.viel.aplayer.library.vfs.VfsFileInterface
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.io.InputStream
 import kotlin.math.min
@@ -23,7 +23,7 @@ import kotlin.math.min
 @OptIn(UnstableApi::class)
 class VfsPlaybackDataSource private constructor(
     private val fileLookup: PlaybackFileLookup,
-    private val fileReader: VfsFileInterface
+    private val fileReader: VfsFileInterface,
 ) : BaseDataSource(false) {
 
     private var inputStream: InputStream? = null
@@ -63,7 +63,7 @@ class VfsPlaybackDataSource private constructor(
                             )
                             break
                         }
-                        kotlinx.coroutines.delay(50)
+                        delay(50)
                     }
                 }
                 try {
@@ -72,7 +72,14 @@ class VfsPlaybackDataSource private constructor(
                     interruptWatcher.cancel() // 必须在执行完毕后立即销毁守护 Job，防止协程泄漏
                 }
             }
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (_: InterruptedException) {
+            // 详尽的中文注释：捕获 runBlocking 抛出的物理中断异常，并转换为 Media3 DataSource 能够识别的 InterruptedIOException。
+            // 解决 "Unexpected exception loading stream" 报错，确保异常符合 DataSource.open 签名要求。
+            throw DataSourceException(
+                java.io.InterruptedIOException("Database lookup was interrupted"),
+                PlaybackException.ERROR_CODE_IO_UNSPECIFIED
+            )
+        } catch (_: kotlinx.coroutines.CancellationException) {
             throw DataSourceException(
                 java.io.InterruptedIOException("Database lookup was canceled by thread interrupt"),
                 PlaybackException.ERROR_CODE_IO_UNSPECIFIED
@@ -104,7 +111,7 @@ class VfsPlaybackDataSource private constructor(
                             )
                           break
                         }
-                        kotlinx.coroutines.delay(50)
+                        delay(50)
                     }
                 }
                 try {
@@ -113,7 +120,13 @@ class VfsPlaybackDataSource private constructor(
                     interruptWatcher.cancel() // 彻底注销守护协程，防范内存泄露
                 }
             }
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (_: InterruptedException) {
+            // 详尽的中文注释：捕获 runBlocking 抛出的物理中断异常，转换后可被 ExoPlayer 正确识别为 IO 异常而非 Unexpected Exception。
+            throw DataSourceException(
+                java.io.InterruptedIOException("VFS open stream was interrupted"),
+                PlaybackException.ERROR_CODE_IO_UNSPECIFIED
+            )
+        } catch (_: kotlinx.coroutines.CancellationException) {
             throw DataSourceException(
                 java.io.InterruptedIOException("VFS open stream was physically canceled by thread interrupt"),
                 PlaybackException.ERROR_CODE_IO_UNSPECIFIED

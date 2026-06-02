@@ -13,6 +13,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import com.viel.aplayer.media.service.PlaybackService
 import com.viel.aplayer.ui.player.components.SubtitleLine
 
@@ -35,7 +36,7 @@ class PlaybackManager private constructor(context: Context) {
     private val appContext = context.applicationContext
     // 新增 CoroutineExceptionHandler 以捕获全局协程中由于未知原因（如文件损坏、网络请求失败等）抛出的异常，防止异常直接导致进程 Crash。
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        android.util.Log.e("PlaybackManager", "Unhandled coroutine exception in PlaybackManager", exception)
+        PlaybackWorkflowLogger.error("playbackManager coroutine failure", exception)
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
 
@@ -45,6 +46,7 @@ class PlaybackManager private constructor(context: Context) {
     private val container = (appContext as com.viel.aplayer.APlayerApplication).container
     private val bookQueryGateway = container.bookQueryGateway
     private val progressGateway = container.progressGateway
+    private val absPlaybackSessionSyncer = container.absPlaybackSessionSyncer
 
     // 实例化 AppSettingsRepository 以便动态获取和监控用户的 HTTP 明文流量配置权限。
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
@@ -116,7 +118,7 @@ class PlaybackManager private constructor(context: Context) {
                 try {
                     settingsRepository.updateLastPlaybackInterrupted(isPlaying)
                 } catch (e: Exception) {
-                    android.util.Log.e("PlaybackManager", "更新中断持久化标志失败", e)
+                    PlaybackWorkflowLogger.error("playbackManager updateLastPlaybackInterrupted failed", e)
                 }
             }
 
@@ -168,6 +170,7 @@ class PlaybackManager private constructor(context: Context) {
             context = appContext,
             bookQueryGateway = bookQueryGateway,
             progressGateway = progressGateway,
+            absPlaybackSessionSyncer = absPlaybackSessionSyncer,
             scope = scope,
             getController = { mediaController },
             getCurrentPlan = { currentPlan },
@@ -287,6 +290,7 @@ class PlaybackManager private constructor(context: Context) {
 
                 this@PlaybackManager.currentPlan = finalPlan
                 this@PlaybackManager.pendingPlayWhenReady = playWhenReady
+                openAbsSessionIfNeeded(finalPlan.bookId)
 
                 // 性能优化：立即将自愈后最终计划中的初始进度和总时长推送到 UI 流，避免闪烁
                 val totalDur = finalPlan.files.sumOf { it.durationMs }
@@ -369,7 +373,10 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     fun pause() {
-        executeOnMain { mediaController?.pause() }
+        scope.launch {
+            closeAbsSessionIfNeeded()
+            executeOnMain { mediaController?.pause() }
+        }
     }
 
 
@@ -389,9 +396,8 @@ class PlaybackManager private constructor(context: Context) {
         // 为本次桌面 widget 崩溃修复添加注释：MediaController 只能在创建它的 application thread 上访问；widget 会从后台广播线程触发 seek，因此这里先切回 PlaybackManager 的主线程 scope 再读取 currentMediaItem。
         scope.launch {
             val controller = mediaController ?: return@launch
-            val mediaId = controller.currentMediaItem?.mediaId ?: return@launch
-            if (!mediaId.contains(":")) return@launch
-            val bookId = mediaId.substringBefore(":")
+            val mediaParts = PlaybackMediaId.parse(controller.currentMediaItem?.mediaId) ?: return@launch
+            val bookId = mediaParts.bookId
             // 使用 bookQueryGateway 接口查询指定书籍的物理音频分轨，以执行高精度的 seek 定位跳转
             val files = bookQueryGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
@@ -458,7 +464,7 @@ class PlaybackManager private constructor(context: Context) {
                 future.get()
             }.also { mediaController = it }
         } catch (e: Exception) {
-            android.util.Log.e("PlaybackManager", "获取 MediaController 失败", e)
+            PlaybackWorkflowLogger.error("playbackManager getController failed", e)
             null
         }
     }
@@ -472,11 +478,7 @@ class PlaybackManager private constructor(context: Context) {
     fun getCurrentBookId(): String? {
         // 为本次桌面 widget 崩溃修复添加注释：该方法可能被 IO 协程调用，优先读取 StateFlow 快照，避免跨线程直接访问 MediaController.currentMediaItem。
         val mediaId = currentMediaItem.value?.mediaId ?: currentPlan?.bookId
-        return if (mediaId != null && mediaId.contains(":")) {
-            mediaId.substringBefore(":")
-        } else {
-            mediaId
-        }
+        return PlaybackMediaId.parse(mediaId)?.bookId ?: mediaId
     }
 
     /**
@@ -485,6 +487,7 @@ class PlaybackManager private constructor(context: Context) {
      * 确保即使在后台被动调用的时序下也能彻底切断底层音频播放流。
      */
     suspend fun stopPlayback() {
+        closeAbsSessionIfNeeded()
         val controller = getController()
         withContext(Dispatchers.Main) {
             // 在主动停止播放器前，强行将 ignoreNextAutoRewind 设为 true。
@@ -502,6 +505,24 @@ class PlaybackManager private constructor(context: Context) {
             _isPlaying.value = false
             _playbackState.value = Player.STATE_IDLE
         }
+    }
+
+    private fun openAbsSessionIfNeeded(bookId: String) {
+        scope.launch {
+            val book = bookQueryGateway.getBookById(bookId) ?: return@launch
+            if (book.sourceType != com.viel.aplayer.data.db.AudiobookSchema.SourceType.ABS_REMOTE) return@launch
+            val remoteItemId = book.id.substringAfter(":item:", missingDelimiterValue = "")
+            if (remoteItemId.isBlank()) return@launch
+            absPlaybackSessionSyncer.openSession(book, remoteItemId)
+        }
+    }
+
+    private suspend fun closeAbsSessionIfNeeded() {
+        val plan = currentPlan ?: return
+        val book = bookQueryGateway.getBookById(plan.bookId) ?: return
+        if (book.sourceType != com.viel.aplayer.data.db.AudiobookSchema.SourceType.ABS_REMOTE) return
+        val progress = progressGateway.getLastPlayedProgressSync()?.takeIf { it.bookId == plan.bookId }
+        absPlaybackSessionSyncer.closeSession(book, progress, plan.files.sumOf { it.durationMs })
     }
 
     /**
@@ -525,7 +546,7 @@ class PlaybackManager private constructor(context: Context) {
                     controller.play()
                 }
             } else {
-                android.util.Log.w("PlaybackManager", "未找到后续任何就绪可播音频分轨")
+                PlaybackWorkflowLogger.warn("playbackManager no next available track: bookId=$bookId, queueIndex=$queueIndex")
                 // 使用 Toast 提示用户已经没有后续分轨了
                 _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast("未找到后续任何可播音频分轨，已终止播放"))
             }

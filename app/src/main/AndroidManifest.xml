@@ -99,6 +99,21 @@
             </intent-filter>
         </receiver>
 
+        <!-- 
+             详尽的中文注释：声明共享文件的 FileProvider 实体。
+             用于向外部进程（特别是 SystemUI 的 MediaDataManager）安全且临时地共享应用内部 covers 缓存目录下的封面图片。
+             通过 content:// 协议格式进行跨进程访问，以符合 Android 严格的私有沙盒与存储权限访问规则，彻底避免物理路径下的 ENOENT 文件未找到错误。
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.viel.aplayer.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <service
             android:name=".media.service.PlaybackService"
             android:exported="true"
