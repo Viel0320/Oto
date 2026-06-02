@@ -69,7 +69,6 @@ fun PlaybackControls(
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     backdrop: LayerBackdrop? = null
 ) {
-    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
     // Speed Toast logic (Debounced)
@@ -79,7 +78,8 @@ fun PlaybackControls(
             // 详尽的中文注释：将倍速选择的防抖延迟时间调整为 1500 毫秒（1.5秒），以获得更加充足的防连击防爆刷体验
             delay(1500) // Wait for 1.5s of inactivity
             val msg = if (playbackSpeed == 1.0f) "Playback speed reset" else "Playback speed: ${playbackSpeed}x"
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            // 详尽的中文注释：根据统一一次性 UiEvent 事件流流转原则，将倍速重置与切换提示移出本地物理 Toast 调用，改为 actions.onShowToast 发射至全局总线。
+            actions.onShowToast(msg)
             lastSpeed = playbackSpeed
         }
     }
@@ -96,7 +96,8 @@ fun PlaybackControls(
                 -2 -> "Stop at end of chapter"
                 else -> "Sleep in $selectedSleepTimer minutes"
             }
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            // 详尽的中文注释：根据统一一次性 UiEvent 事件流流转原则，将定时时长改变的反馈改由 actions.onShowToast 发射，以解耦 UI 与 Context 实例。
+            actions.onShowToast(msg)
             lastTimer = selectedSleepTimer
         }
     }

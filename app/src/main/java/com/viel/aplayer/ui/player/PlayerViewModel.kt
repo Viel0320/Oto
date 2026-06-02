@@ -586,6 +586,13 @@ class PlayerViewModel : ViewModel() {
     fun setSleepTimer(minutes: Int) = settingsManager.setSleepTimer(minutes, { playbackState.value }, { metadataState.value })
     fun adjustVolume(delta: Float) = settingsManager.adjustVolume(delta)
     
+    // 详尽的中文注释：公开事件发射接口，支持 Composable Actions 动作或其它层回调向当前 ViewModel 拥有的 uiEvents 共享流发射一次性事件，实现高解耦与主线程集中分发。
+    fun sendUiEvent(event: com.viel.aplayer.ui.common.UiEvent) {
+        viewModelScope.launch {
+            _uiEvents.emit(event)
+        }
+    }
+
     fun showChapterList() = settingsManager.showChapterList()
     fun dismissChapterList() = settingsManager.dismissChapterList()
     fun showBookmarkDialog() = settingsManager.showBookmarkDialog()
@@ -594,6 +601,8 @@ class PlayerViewModel : ViewModel() {
     fun saveBookmarkFromDialog() {
         addBookmark(settingsState.value.bookmarkTitle.ifBlank { "Bookmark" })
         dismissBookmarkDialog()
+        // 详尽的中文注释：书签保存成功后，向全局 uiEvents 管道中发射 ShowToast 事件，将 Toast 6 的触发源归拢入业务控制器中，由宿主 UI 统一在主线程弹出。
+        sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("Bookmark added"))
     }
     fun setSelectedContentTab(tab: Int) = settingsManager.setSelectedContentTab(tab)
     fun setFullPlayerVisible(visible: Boolean) {

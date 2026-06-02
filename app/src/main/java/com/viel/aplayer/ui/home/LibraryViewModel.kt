@@ -166,27 +166,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                     if (completedAt > viewModelStartTime) {
                         if (session.pendingActionCount > 0) {
                             _scanResultDialogState.value = session
-                        } else {
-                            // 
-                            // 详尽的中文注释：在扫描完成回调中，通过挂起函数 first() 直接获取底层书籍 Flow 的最新实体快照；
-                            // 这解决了当无 UI Composable 活跃订阅时，直接读取受 WhileSubscribed(5000) 门控的 uiState.value 只拿到底层初始空值 LibraryUiState() 从而误判空库并误报提示的严重并发 Bug
-                            val currentBooks = libraryFacade.audiobooks.first()
-                            val isLibraryEmpty = currentBooks.isEmpty()
-
-                            // 
-                            // 如果没有产生待处理的冲突/残缺动作（不需要弹出强制审核 Dialog），
-                            // 我们提供一个极具交互感和友好温度的 Toast 提醒，将扫描已同步的结果（新书数量）明确告知用户，根治“无弹出无反馈”的痛点。
-                            val message = if (session.discoveredBookCount > 0) {
-                                "媒体库同步已完成，新增了 ${session.discoveredBookCount} 本书籍"
-                            } else if (isLibraryEmpty) {
-                                // 如果经过扫描后库中依然没有任何有效书籍，提供极其温和与指引性的提示，消灭“空库却提示最新”的尴尬体验。
-                                "媒体库为空，未扫描到有效书籍"
-                            } else {
-                                "媒体库已是最新状态"
-                            }
-                            
-                            // 使用通用的 UiEvent.ShowToast 发射一次性 Toast 事件，交由主 Composable 容器层消费展示。
-                            _uiEvents.tryEmit(UiEvent.ShowToast(message))
                         }
                     }
                     // Remember the completed session so the same result does not reopen the dialog.

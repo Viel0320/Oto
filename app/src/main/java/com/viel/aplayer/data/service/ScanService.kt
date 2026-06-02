@@ -29,12 +29,12 @@ import kotlinx.coroutines.withContext
  * 2. 完美平移串行同步锁：在类内部独立维护 Mutex 串行锁，并保留 COLD_START_LIGHT 与 USER_GLOBAL 扫描类型的智能研判逻辑，确保扫描安全。
  */
 @OptIn(UnstableApi::class)
-class ScanService
-    (
+class ScanService(
     context: Context,
     private val coverRecoveryHelper: CoverRecoveryHelper,
     // 由依赖注入容器提供运行期唯一的虚拟文件系统读取门面，避免底层组件自行初始化
-    private val vfsFileInterface: VfsFileInterface
+    private val vfsFileInterface: VfsFileInterface,
+    private val playbackManager: com.viel.aplayer.media.PlaybackManager
 ) : ScanScheduler, java.io.Closeable {
 
     // 采用全局 applicationContext 隔离以彻底斩断潜在的内存泄漏风险
@@ -89,6 +89,20 @@ class ScanService
         ).rescan(type)
 
         ScanWorkflowLogger.info("scanService success: trigger=$trigger, discovered=${session.discoveredBookCount}, pending=${session.pendingActionCount}")
+
+        // 详尽的中文注释：将本地扫描同步完成后的提示事件，发射至全局 PlaybackManager 总线上作为一次性 UiEvent 广播。
+        // 这种设计完美替代了原先对 Handler/Toast 物理弹框的硬编码依赖，保持了服务层纯净的业务属性，也方便后续全局集中管理所有的弹出动作。
+        if (session.pendingActionCount == 0) {
+            val isLibraryEmpty = com.viel.aplayer.data.db.AppDatabase.getInstance(appContext).bookDao().getAllBooksOnce().isEmpty()
+            val message = if (session.discoveredBookCount > 0) {
+                "媒体库同步已完成，新增了 ${session.discoveredBookCount} 本书籍"
+            } else if (isLibraryEmpty) {
+                "媒体库为空，未扫描到有效书籍"
+            } else {
+                "媒体库已是最新状态"
+            }
+            playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(message))
+        }
     }
 
     override fun close() {

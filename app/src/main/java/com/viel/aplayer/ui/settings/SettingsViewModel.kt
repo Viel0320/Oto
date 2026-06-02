@@ -124,20 +124,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             // 使用 libraryRootGateway 的 refreshLibraryRootStatuses 校验书库目录可达性。
             libraryRootGateway.refreshLibraryRootStatuses()
         }
-        viewModelScope.launch {
-            // 详尽的中文注释：设置页只负责订阅应用级同步任务结果，
-            // 同步本身已经脱离 ViewModel 生命周期，因此切换界面不会中断真正的 ABS 同步过程。
-            absSyncTaskCoordinator.events.collect { event ->
-                val message = when {
-                    event.summary != null -> "ABS 后台同步完成：成功添加 ${event.summary.addedBooks} 本，失败 ${event.summary.failedItems} 本"
-                    event.errorMessage != null -> "ABS 后台同步失败：${event.errorMessage.redactAbsError()}"
-                    else -> null
-                }
-                if (message != null) {
-                    _uiEvents.tryEmit(UiEvent.ShowToast(message))
-                }
-            }
-        }
     }
 
     fun refreshLibraryRootStatuses() {

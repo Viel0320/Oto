@@ -20,6 +20,10 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title ASC")
     fun getAllBooks(): Flow<List<BookEntity>>
 
+    // 详尽的中文注释：新增一次性获取全部未逻辑删除的书籍实体的挂起查询，用于后台同步任务直接获取数据快照判定空库状态，解耦对 Flow 流的物理消费。
+    @Query("SELECT * FROM books WHERE status != 'DELETED'")
+    suspend fun getAllBooksOnce(): List<BookEntity>
+
     // UI lists hide soft-deleted books while their BookFile claims stay reserved.
     @Transaction
     @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title ASC")

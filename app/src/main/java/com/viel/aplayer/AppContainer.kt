@@ -180,9 +180,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     /**
-     * 延迟实例化注销书库根目录用例，通过构造注入同时关联媒体播放与底层数据源仓储。
-     */
-    /**延迟实例化注销书库根目录用例。
+     * 延迟实例化注销书库根目录用例。
      * 向其直接注入播放管理器、书籍查询网关和书库根管理网关，彻底消除了对旧仓库的直接依赖。
      */
     override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
@@ -262,13 +260,14 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     /**延迟初始化前后台物理重扫与扫描调度网关服务。
-     * 直接向其注入 applicationContext 与全局封面丢失自愈助手，消除对旧有 BookLibraryRepository 的直接依赖。
+     * 直接向其注入 applicationContext、全局封面丢失自愈助手与全局 PlaybackManager 事件总线，消除对旧有 BookLibraryRepository 的直接依赖。
      */
     override val scanScheduler: ScanScheduler by lazy {
         ScanService(
             context = context,
             coverRecoveryHelper = coverRecoveryHelper,
-            vfsFileInterface = vfsFileInterface
+            vfsFileInterface = vfsFileInterface,
+            playbackManager = playbackManager
         )
     }
 
@@ -296,7 +295,6 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             subtitleResolver = subtitleFileResolver,
             detailAvailabilityChecker = detailAvailabilityChecker,
             availabilityChecker = availabilityChecker,
-            // 详尽的中文注释：在此向 CoverService 传入容器内延迟初始化的 database 实例以支持跨 DAO 原子写事务控制，防范数据撕裂
             database = database
         )
     }
@@ -311,7 +309,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     /**聚合新高层媒体库业务门面组件。
-     * 直接向其组合式注入六大精细化分域 Gateway 网关，无需再传递任何 legacy 废弃仓库依赖，达成终极物理重构。
+     * 直接向其组合式注入六大精细化分域 Gateway 网关，无需再传递 any legacy 废弃仓库依赖，达成终极物理重构。
      */
     override val libraryFacade: LibraryFacade by lazy {
         LibraryFacade(
@@ -363,9 +361,11 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val absSyncTaskCoordinator: AbsSyncTaskCoordinator by lazy {
+        // 详尽的中文注释：在此向 AbsSyncTaskCoordinator 注入 playbackManager 实例以允许后台同步任务成功或失败时通过 PlaybackManager 全局总线发射 UiEvent.ShowToast，彻底解除对 Context 的硬编码依赖，保持架构纯净。
         AbsSyncTaskCoordinator(
             libraryRootDao = database.libraryRootDao(),
-            synchronizer = absCatalogSynchronizer
+            synchronizer = absCatalogSynchronizer,
+            playbackManager = playbackManager
         )
     }
 

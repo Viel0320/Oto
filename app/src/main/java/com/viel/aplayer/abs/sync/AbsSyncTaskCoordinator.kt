@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 class AbsSyncTaskCoordinator(
     private val libraryRootDao: LibraryRootDao,
     private val synchronizer: AbsCatalogSynchronizer,
+    private val playbackManager: com.viel.aplayer.media.PlaybackManager,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 ) {
     private val lock = Any()
@@ -42,15 +43,17 @@ class AbsSyncTaskCoordinator(
             try {
                 val root = libraryRootDao.getRootById(rootId)
                 if (root == null) {
+                    val errMsg = "找不到对应的 ABS 书库根"
                     _events.emit(
                         AbsSyncTaskResult(
                             rootId = rootId,
                             displayName = rootId,
                             origin = origin,
                             summary = null,
-                            errorMessage = "找不到对应的 ABS 书库根"
+                            errorMessage = errMsg
                         )
                     )
+                    playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("ABS 后台同步失败：$errMsg"))
                     return@launch
                 }
                 val summary = synchronizer.syncRootWithSummary(root)
@@ -63,7 +66,10 @@ class AbsSyncTaskCoordinator(
                         errorMessage = null
                     )
                 )
+                val toastMsg = "ABS 后台同步完成：成功添加 ${summary.addedBooks} 本，失败 ${summary.failedItems} 本"
+                playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(toastMsg))
             } catch (error: Exception) {
+                val errMsg = error.message ?: "ABS 后台同步失败"
                 _events.emit(
                     AbsSyncTaskResult(
                         rootId = rootId,
@@ -73,6 +79,8 @@ class AbsSyncTaskCoordinator(
                         errorMessage = error.message
                     )
                 )
+                val toastMsg = "ABS 后台同步失败：${errMsg.redactAbsError()}"
+                playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(toastMsg))
             } finally {
                 synchronized(lock) {
                     runningRootIds -= rootId
@@ -81,6 +89,9 @@ class AbsSyncTaskCoordinator(
         }
         return true
     }
+
+    private fun String.redactAbsError(): String =
+        replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
 }
 
 /**

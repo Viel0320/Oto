@@ -197,7 +197,6 @@ class PlaybackManager private constructor(context: Context) {
                     args: android.os.Bundle
                 ): ListenableFuture<androidx.media3.session.SessionResult> {
                     if (command.customAction == "EVENT_SKIP_SILENCE") {
-                        _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast("已自动跳过空白静音片段"))
                     } else if (command.customAction == "EVENT_TRACK_UNAVAILABLE") {
                         // 详尽的中文注释：解析后台传来的书籍 ID 和出故障的队列序列索引，并发送 ShowTrackUnavailableDialog 一次性事件，通知 UI 弹窗
                         val bookId = args.getString("bookId") ?: ""

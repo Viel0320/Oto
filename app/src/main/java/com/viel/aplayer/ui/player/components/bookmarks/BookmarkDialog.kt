@@ -44,11 +44,9 @@ fun BookmarkDialog(
                 )
             },
             confirmButton = {
-                val context = LocalContext.current
                 TextButton(
                     onClick = {
                         onSave(localTitle)
-                        Toast.makeText(context, "Bookmark added", Toast.LENGTH_SHORT).show()
                     }
                 ) {
                     Text("Save")

@@ -38,7 +38,9 @@ fun PlayerViewModel.rememberActions(onDeleteBook: (String) -> Unit = {}): Player
                 onCancelSleepTimer = { viewModel.setSleepTimer(0) },
                 onAdjustVolume = { delta -> viewModel.adjustVolume(delta) },
                 onNextChapter = { viewModel.skipToNextChapter() },
-                onPreviousChapter = { viewModel.skipToPreviousChapter() }
+                onPreviousChapter = { viewModel.skipToPreviousChapter() },
+                // 详尽的中文注释：路由桥接。将 Composable 层防抖后触发的轻量 Toast 反馈映射为 ViewModel 的 sendUiEvent，从而在底层统一流入 MVI UiEvent 处理环中。
+                onShowToast = { msg -> viewModel.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(msg)) }
             ),
             bookmarks = BookmarkActions(
                 onDelete = { bookmark -> viewModel.deleteBookmark(bookmark) },

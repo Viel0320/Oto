@@ -14,4 +14,6 @@ data class PlaybackControlActions(
     val onAdjustVolume: (delta: Float) -> Unit = {},
     val onNextChapter: () -> Unit = {},
     val onPreviousChapter: () -> Unit = {},
+    /** 详尽的中文注释：支持 Composable 子组件向 ViewModel 分发 Toast 一次性消息的桥接动作回调。 */
+    val onShowToast: (String) -> Unit = {},
 )

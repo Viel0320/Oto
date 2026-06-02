@@ -183,11 +183,11 @@ class SleepTimerManager(
         }
     }
 
-    // 在 UI 线程弹出轻量化 Toast 温馨告知听众。
+    // 详尽的中文注释：通过全局 PlaybackManager 总线向 Composable UI 容器分发一次性 ShowToast UI 事件。
+    // 这解耦了底层的睡眠引擎对 Context 物理 Toast 弹窗的直接依赖，满足全局 UI 事件统一由主线程集中消费的规范。
     private fun showToast(message: String) {
-        val ctx = contextProvider() ?: return
         scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-            android.widget.Toast.makeText(ctx, message, android.widget.Toast.LENGTH_SHORT).show()
+            playbackManager()?.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(message))
         }
     }
 
