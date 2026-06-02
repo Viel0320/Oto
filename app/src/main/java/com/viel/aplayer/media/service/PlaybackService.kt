@@ -4,6 +4,8 @@ package com.viel.aplayer.media.service
 // 详尽的中文注释：导入小组件状态更新所需的 GlanceAppWidgetManager 管理器以及 PlayerWidget 实例
 // 详尽的中文注释：导入协程 withContext 工具，以便在 IO 协程中执行小组件数量查询及 Room 书籍信息加载
 import android.app.PendingIntent
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -141,6 +143,10 @@ class PlaybackService : MediaSessionService() {
                 }
  
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                    // 详尽的中文注释：向系统 UI 与潜在的外部控制器（如 Android Auto）授予封面 URI 的临时读取权限。
+                    // 这一步至关重要，能彻底修复由于 FileProvider 隐私隔离导致的 SecurityException: Permission Denial 崩溃。
+                    grantArtworkPermission(mediaItem?.mediaMetadata?.artworkUri)
+
                     // 音轨成功过渡，重置跳轨重试防抖锁
                     failureHandler.clearSkipGuard()
                     updateNotificationTimeline(mediaItem)
@@ -274,6 +280,33 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    /**
+     * 详尽的中文注释：针对 FileProvider 生成的 content:// 协议封面 URI，向系统关键进程及已连接的控制器主动授予临时读取权限。
+     *
+     * 为什么要这样做？
+     * 在 Android 11+ 中，由于存储沙盒化，外部进程（如 com.android.systemui）无法直接访问本应用私有目录下的文件。
+     * 即便我们通过 FileProvider 转换了 URI，如果不显式调用 grantUriPermission，
+     * 系统服务在尝试解析 MediaMetadata 以展示通知栏大图时，仍会因权限不足抛出 SecurityException 并导致 Binder 传输异常。
+     */
+    private fun grantArtworkPermission(uri: Uri?) {
+        if (uri == null || uri.scheme != "content") return
+
+        // 核心目标包名：系统 UI（通知栏）以及 Android 核心系统框架
+        val targetPackages = mutableSetOf("com.android.systemui", "android")
+
+        // 动态扩展：向所有当前已通过 MediaSession 握手成功的外部控制器（如 Android Auto, 蓝牙耳机等）同步授权
+        mediaSession?.connectedControllers?.forEach { targetPackages.add(it.packageName) }
+        notificationSession?.connectedControllers?.forEach { targetPackages.add(it.packageName) }
+
+        for (pkg in targetPackages) {
+            try {
+                grantUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: Exception) {
+                // 若包名无效或环境差异，静默略过，不干扰核心播放流程
+            }
+        }
+    }
+
     private fun updateNotificationTimeline(mediaItem: androidx.media3.common.MediaItem?) {
         val mediaParts = PlaybackMediaId.parse(mediaItem?.mediaId) ?: return
         val bookId = mediaParts.bookId
@@ -337,6 +370,17 @@ class PlaybackService : MediaSessionService() {
                 .setAvailablePlayerCommands(playerCommands)
                 .setCustomLayout(customLayout)
                 .build()
+                .also {
+                    // 详尽的中文注释：在新控制器建立连接的瞬间，若当前已有正在播放的封面，立即为其授予读取权限。
+                    // 确保像 Android Auto 这种后连入的设备能立刻加载出第一张封面。
+                    session.player.currentMediaItem?.mediaMetadata?.artworkUri?.let { uri ->
+                        try {
+                            grantUriPermission(controller.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        } catch (_: Exception) {
+                            // 忽略异常
+                        }
+                    }
+                }
         }
 
         override fun onCustomCommand(
