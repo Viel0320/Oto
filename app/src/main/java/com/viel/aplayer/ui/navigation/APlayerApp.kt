@@ -17,9 +17,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -27,6 +29,7 @@ import androidx.navigation.compose.rememberNavController
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.ScanResultDialog
 import com.viel.aplayer.ui.common.UiEvent
+import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.detail.DetailOverlay
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.edit.EditBookOverlay
@@ -37,7 +40,9 @@ import com.viel.aplayer.ui.miniplayer.MiniPlayerOverlay
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.PlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
-import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.search.SearchOverlay
+import com.viel.aplayer.ui.search.SearchViewModel
+import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
@@ -61,7 +66,7 @@ fun APlayerApp(
         
         // 
         // 实例化非独立的 SearchViewModel，由当前 Activity 统一承载与销毁。
-        val searchViewModel: com.viel.aplayer.ui.search.SearchViewModel = viewModel()
+        val searchViewModel: SearchViewModel = viewModel()
 
         val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
         val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
@@ -267,7 +272,7 @@ fun APlayerApp(
                     },
                     onNavigateToSearch = { query ->
                         searchViewModel.setVisible(true)
-                        searchViewModel.onQueryChange(androidx.compose.ui.text.input.TextFieldValue(query))
+                        searchViewModel.onQueryChange(TextFieldValue(query))
                     },
                     // 接收来自详情页的修改书籍信息点击事件，并在内存中零延迟地直接拉起 EditBookOverlay 悬浮层
                     onEditClick = { bookId ->
@@ -294,12 +299,12 @@ fun APlayerApp(
                 // - 当详情页隐藏时，则安全地切回 appBackdrop 采样底层的 HomeScreen 界面。
                 // 针对详情页的可见性变化，采用自适应延迟切换采样源策略以平滑转场动画：
                 val targetBackdrop = if (detailUiState.isVisible) detailBackdrop else appBackdrop
-                val delayedBackdropState = remember(appBackdrop, detailBackdrop) { 
-                    androidx.compose.runtime.mutableStateOf(targetBackdrop) 
+                val delayedBackdropState = remember(appBackdrop, detailBackdrop) {
+                    mutableStateOf(targetBackdrop)
                 }
                 LaunchedEffect(targetBackdrop) {
                     val delayMs = 401L
-                    kotlinx.coroutines.delay(delayMs)
+                    delay(delayMs)
                     delayedBackdropState.value = targetBackdrop
                 }
 
@@ -340,7 +345,7 @@ fun APlayerApp(
                 // 6. 非独立搜索悬浮层 (SearchOverlay)。
                 // 【核心层级变动】：为了确保搜索功能作为全局最顶层容器运行，可覆盖全屏播放器及一切内容，
                 // 我们在 Z 轴物理声明上将其摆在 PlayerOverlay 之后，拥有除扫码结果之外的最高物理渲染层级。
-                com.viel.aplayer.ui.search.SearchOverlay(
+                SearchOverlay(
                     searchViewModel = searchViewModel,
                     backdrop = appBackdrop,
                     glassEffectMode = libraryUiState.glassEffectMode,

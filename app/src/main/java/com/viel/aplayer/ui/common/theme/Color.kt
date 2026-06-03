@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.theme
+package com.viel.aplayer.ui.common.theme
 
 import androidx.compose.ui.graphics.Color
 

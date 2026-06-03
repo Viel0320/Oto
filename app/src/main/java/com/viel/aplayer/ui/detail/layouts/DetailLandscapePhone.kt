@@ -17,20 +17,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
 import com.viel.aplayer.ui.detail.components.DetailHeader
 import com.viel.aplayer.ui.detail.components.DetailSummary
-import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
@@ -52,9 +54,10 @@ fun DetailLandscapePhone(
     onShowInfo: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val configuration = LocalConfiguration.current
+    // 详尽的中文注释：使用全局窗口属性 LocalWindowClass 获取屏幕宽度，去除对 LocalConfiguration.current 的直接读取，增加代码内聚性。
+    val windowClass = LocalWindowClass.current
     val layoutDirection = LocalLayoutDirection.current
-    val screenWidthDp = configuration.screenWidthDp.dp
+    val screenWidthDp = windowClass.screenWidthDp
     
     // 手机横屏下的边距策略
     val sidePadding = screenWidthDp * 0.04f
@@ -155,19 +158,24 @@ fun DetailLandscapePhone(
 @Composable
 fun DetailLandscapePhonePreview() {
     APlayerTheme {
-        Surface {
-            DetailLandscapePhone(
-                book = BookEntity(id = "1", rootId = "root", sourceType = "LOCAL", title = "三体", author = "刘慈欣", narrator = "王明", description = "这是一部科幻巨著。"),
-                uiState = DetailUiState(),
-                padding = PaddingValues(16.dp),
-                safeDrawingPadding = PaddingValues(0.dp),
-                glassEffectMode = GlassEffectMode.Material,
-                detailBackdrop = rememberLayerBackdrop(),
-                onPlayPressed = {},
-                onPlayClick = {},
-                onSearchClick = {},
-                onShowInfo = { _, _ -> }
-            )
+        // 详尽的中文注释：在预览中显式注入横屏手机预设以展示正确的横屏自适应样式。
+        CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.LandscapePhone
+        ) {
+            Surface {
+                DetailLandscapePhone(
+                    book = BookEntity(id = "1", rootId = "root", sourceType = "LOCAL", title = "三体", author = "刘慈欣", narrator = "王明", description = "这是一部科幻巨著。"),
+                    uiState = DetailUiState(),
+                    padding = PaddingValues(16.dp),
+                    safeDrawingPadding = PaddingValues(0.dp),
+                    glassEffectMode = GlassEffectMode.Material,
+                    detailBackdrop = rememberLayerBackdrop(),
+                    onPlayPressed = {},
+                    onPlayClick = {},
+                    onSearchClick = {},
+                    onShowInfo = { _, _ -> }
+                )
+            }
         }
     }
 }

@@ -42,7 +42,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.viel.aplayer.ui.common.formatCompactDuration
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
-import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.APlayerTheme
 import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)

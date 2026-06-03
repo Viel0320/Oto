@@ -31,7 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.APlayerTheme
 import java.io.File
 import kotlin.math.abs
 

@@ -30,13 +30,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
 import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
@@ -82,12 +82,13 @@ fun PlayerTabletLandscape(
     chapterSheetBackdrop: LayerBackdrop,
     modifier: Modifier = Modifier
 ) {
-    val configuration = LocalConfiguration.current
+    // 详尽的中文注释：使用全局窗口属性 LocalWindowClass 获取屏幕逻辑像素尺寸，去掉了在此对 LocalConfiguration 对象的物理读取，增加了布局逻辑的内聚性与可移植性。
+    val windowClass = LocalWindowClass.current
     val density = LocalDensity.current
 
     // 平板大屏幕下使用更宽裕的大边距
-    val screenWidthDp = configuration.screenWidthDp.dp
-    val screenHeightDp = configuration.screenHeightDp.dp
+    val screenWidthDp = windowClass.screenWidthDp
+    val screenHeightDp = windowClass.screenHeightDp
     val sidePadding = screenWidthDp * 0.04f
     val middleSpacing = screenWidthDp * 0.06f
 

@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.viel.aplayer.R
-import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.APlayerTheme
 
 /**
  * 书籍详情页的头部组件，包含标题、作者和朗读者信息。

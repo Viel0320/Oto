@@ -1,6 +1,8 @@
-package com.viel.aplayer.ui.theme
+package com.viel.aplayer.ui.common.theme
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -8,6 +10,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -101,19 +104,28 @@ fun APlayerTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    // 详尽的中文注释：
+    // 感知当前窗口/物理屏幕的配置与像素尺寸变化，自适应推导并产生相应的 WindowClass 实例。
+    // 使用 CompositionLocalProvider 将该实例作为全局 LocalWindowClass 提供，
+    // 使得整棵界面树下的所有子 Composable 界面与各个 Compose Previews 均能零阻碍地共享自适应逻辑。
+    val windowClass = rememberWindowClass()
+    CompositionLocalProvider(
+        LocalWindowClass provides windowClass
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }
 
 /**
  * 详尽的中文注释：沿 ContextWrapper 上下文包装器链条递归向上查找，直至发现真实的宿主 Activity 实例；找不到则安全返回 null
  */
-private tailrec fun android.content.Context.findActivity(): Activity? {
+private tailrec fun Context.findActivity(): Activity? {
     if (this is Activity) return this
-    return if (this is android.content.ContextWrapper) {
+    return if (this is ContextWrapper) {
         baseContext.findActivity()
     } else {
         null

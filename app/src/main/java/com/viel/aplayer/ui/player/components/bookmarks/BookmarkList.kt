@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.ui.common.formatDate
 import com.viel.aplayer.ui.common.formatTime
-import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.APlayerTheme
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

@@ -45,7 +45,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
-import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop

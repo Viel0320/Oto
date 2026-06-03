@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,8 +38,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.player.PlayerScreenMode
-import com.viel.aplayer.ui.theme.APlayerTheme
 
 // 
 // 独立出来的播放器底部 Tab 导航组件。
@@ -213,9 +216,9 @@ fun BottomNavTabs(
             
         }
         
-        // 获取设备配置以识别屏幕方向
-        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-        val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        // 详尽的中文注释：使用统一的 WindowClass 接口获取当前方向，隔离了 LocalConfiguration，增加了布局一致性。
+        val windowClass = LocalWindowClass.current
+        val isLandscape = windowClass.isLandscape
 
         // 在 Tab 点击内容区 Box 的正下方放置防误触隔离 Spacer。
         // 横屏状态下垂直空间极其宝贵，且系统手势小白条通常移至侧边，故将占位缩减为 0.dp；竖屏时则保持 16.dp 保护手势防误触。
@@ -238,12 +241,17 @@ fun BottomNavTabs(
 @Composable
 fun BottomNavTabsPreview_Active() {
     APlayerTheme {
-        Surface(color = MaterialTheme.colorScheme.background) {
-            var selectedTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
-            BottomNavTabs(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it }
-            )
+        // 详尽的中文注释：显式注入竖屏预设以供底栏预览。
+        CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.PortraitPhone
+        ) {
+            Surface(color = MaterialTheme.colorScheme.background) {
+                var selectedTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
+                BottomNavTabs(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
+                )
+            }
         }
     }
 }
@@ -255,12 +263,17 @@ fun BottomNavTabsPreview_Active() {
 @Composable
 fun BottomNavTabsPreview_Inactive() {
     APlayerTheme {
-        Surface(color = MaterialTheme.colorScheme.background) {
-            var selectedTab by remember { mutableStateOf(PlayerScreenMode.PLAYER) }
-            BottomNavTabs(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it }
-            )
+        // 详尽的中文注释：显式注入竖屏预设以供底栏未激活指示器状态预览。
+        CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.PortraitPhone
+        ) {
+            Surface(color = MaterialTheme.colorScheme.background) {
+                var selectedTab by remember { mutableStateOf(PlayerScreenMode.PLAYER) }
+                BottomNavTabs(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
+                )
+            }
         }
     }
 }

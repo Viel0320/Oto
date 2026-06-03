@@ -15,9 +15,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.player.components.relatedsection.RelatedSection
-import com.viel.aplayer.ui.theme.APlayerTheme
 
 @Composable
 fun RelatedBooksView(

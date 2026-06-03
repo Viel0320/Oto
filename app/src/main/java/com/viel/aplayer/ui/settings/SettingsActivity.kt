@@ -27,8 +27,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.ui.common.UiEvent
+import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
-import com.viel.aplayer.ui.theme.APlayerTheme
 
 /**
  * 设置功能的独立 Activity（Stateful 容器外壳）。

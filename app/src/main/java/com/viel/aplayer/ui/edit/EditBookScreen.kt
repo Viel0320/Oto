@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.edit
 
 // 详尽的中文注释：显式导入 ime Insets 依赖，以支持在布局与组件中排除软键盘高度，完美避免多重避让冲突
-import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -46,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,7 +57,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -71,7 +70,9 @@ import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.library.vfs.VfsExternalInputReader
 import com.viel.aplayer.ui.common.PlayerCover
-import com.viel.aplayer.ui.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.theme.WindowClass
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.BlurColors
@@ -336,11 +337,9 @@ fun EditBookScreen(
                         OutlinedTextFieldDefaults.colors()
                     }
 
-                    // 使用 LocalConfiguration 判断当前是否处于横屏或者平板大屏状态以流转响应式双栏排版
-                    val configuration = LocalConfiguration.current
-                    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                    val isTablet = configuration.smallestScreenWidthDp >= 600
-                    val useLandscapeLayout = isLandscape || isTablet
+                    // 详尽的中文注释：使用统一的 WindowClass 接口获取当前自适应布局形态，取代 LocalConfiguration 判断，在横屏/平板下应用双栏表单。
+                    val windowClass = LocalWindowClass.current
+                    val useLandscapeLayout = windowClass.isWideScreen
 
                     // 声明局部 Composable 闭包函数对输入框进行高内聚解耦，避免在横竖屏双栏布局中编写重复代码
                     val titleField = @Composable {
@@ -718,12 +717,66 @@ private fun cropToSquareAndSave(
  * 3. Tablet Landscape: 平板/大屏大宽度双栏最佳排版。
  */
 @Preview(name = "Phone Portrait", showBackground = true, apiLevel = 36)
+@Composable
+fun EditBookScreenPortraitPreview() {
+    APlayerTheme {
+        // 详尽的中文注释：显式提供 PortraitPhone（竖屏手机）预设，测试编辑页常规垂直表单排版。
+        CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.PortraitPhone
+        ) {
+            EditBookScreen(
+                book = BookEntity(
+                    id = "preview-id",
+                    rootId = "preview-root",
+                    sourceType = "SINGLE_AUDIO",
+                    title = "In the Megachurch",
+                    author = "Ryo Asai",
+                    narrator = "Narrator A",
+                    totalDurationMs = 36000L,
+                    year = "2023",
+                    description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata."
+                ),
+                onNavigationBack = {},
+                onSave = { _, _, _, _, _, _ -> },
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+            )
+        }
+    }
+}
+
 @Preview(
     name = "Phone Landscape",
     showBackground = true,
     device = "spec:width=720dp,height=360dp,orientation=landscape,dpi=440",
     apiLevel = 36
 )
+@Composable
+fun EditBookScreenLandscapePreview() {
+    APlayerTheme {
+        // 详尽的中文注释：显式提供 LandscapePhone（横屏手机）预设，验证横屏下的左右双栏表单排版。
+        CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.LandscapePhone
+        ) {
+            EditBookScreen(
+                book = BookEntity(
+                    id = "preview-id",
+                    rootId = "preview-root",
+                    sourceType = "SINGLE_AUDIO",
+                    title = "In the Megachurch",
+                    author = "Ryo Asai",
+                    narrator = "Narrator A",
+                    totalDurationMs = 36000L,
+                    year = "2023",
+                    description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata."
+                ),
+                onNavigationBack = {},
+                onSave = { _, _, _, _, _, _ -> },
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+            )
+        }
+    }
+}
+
 @Preview(
     name = "Tablet Landscape",
     showBackground = true,
@@ -731,23 +784,28 @@ private fun cropToSquareAndSave(
     apiLevel = 36
 )
 @Composable
-fun EditBookScreenPreview() {
+fun EditBookScreenTabletLandscapePreview() {
     APlayerTheme {
-        EditBookScreen(
-            book = BookEntity(
-                id = "preview-id",
-                rootId = "preview-root",
-                sourceType = "SINGLE_AUDIO",
-                title = "In the Megachurch",
-                author = "Ryo Asai",
-                narrator = "Narrator A",
-                totalDurationMs = 36000L,
-                year = "2023",
-                description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata."
-            ),
-            onNavigationBack = {},
-            onSave = { _, _, _, _, _, _ -> },
-            glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
-        )
+        // 详尽的中文注释：显式提供 TabletLandscape（横屏平板）预设，验证大尺寸设备下的极致排版体验。
+        CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.TabletLandscape
+        ) {
+            EditBookScreen(
+                book = BookEntity(
+                    id = "preview-id",
+                    rootId = "preview-root",
+                    sourceType = "SINGLE_AUDIO",
+                    title = "In the Megachurch",
+                    author = "Ryo Asai",
+                    narrator = "Narrator A",
+                    totalDurationMs = 36000L,
+                    year = "2023",
+                    description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata."
+                ),
+                onNavigationBack = {},
+                onSave = { _, _, _, _, _, _ -> },
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+            )
+        }
     }
 }

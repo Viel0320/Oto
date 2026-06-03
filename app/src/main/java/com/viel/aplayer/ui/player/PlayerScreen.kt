@@ -3,8 +3,9 @@ package com.viel.aplayer.ui.player
 // 导入 WindowInsets 及自适应配置检测相关的 Compose API
 
 // 导入自适应分发子 layouts 模块
-import android.content.res.Configuration
 import android.view.RoundedCorner
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -37,8 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
@@ -50,15 +52,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
+import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterListSheetStateful
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
 import com.viel.aplayer.ui.player.layouts.PlayerPortrait
 import com.viel.aplayer.ui.player.layouts.PlayerTabletLandscape
-import com.viel.aplayer.ui.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
 
 enum class PlayerScreenMode(val index: Int) {
@@ -207,9 +212,9 @@ fun PlayerScreen(
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    // 使用 LocalConfiguration 检测屏幕方向，动态分流横竖屏自适应布局与圆角设计
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // 详尽的中文注释：使用统一的 WindowClass 接口获取当前窗口的方向，去除了在此对 LocalConfiguration 物理方向的依赖，支持多设备无阻碍适配。
+    val windowClass = LocalWindowClass.current
+    val isLandscape = windowClass.isLandscape
 
     LaunchedEffect(targetMode) {
         currentMode = targetMode
@@ -226,17 +231,17 @@ fun PlayerScreen(
         val coverBackdrop = rememberLayerBackdrop()
 
         // 当处于书签/歌词/推荐等面板时，使用 PredictiveBackHandler 平滑返回主播放页面
-        androidx.activity.compose.PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
+        PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
             try {
                 progressFlow.collect { }
                 currentMode = PlayerScreenMode.PLAYER
-            } catch (_: kotlin.coroutines.cancellation.CancellationException) {
+            } catch (_: CancellationException) {
                 // 用户中途滑回取消，不做状态改变
             }
         }
 
         // 当处于主播放页面且全屏播放器可见时，使用 PredictiveBackHandler 拦截并支持手势平滑最小化
-        androidx.activity.compose.PredictiveBackHandler(
+        PredictiveBackHandler(
             enabled = currentMode == PlayerScreenMode.PLAYER && settings.isFullPlayerVisible
         ) { progressFlow ->
             try {
@@ -247,7 +252,7 @@ fun PlayerScreen(
                 }
                 actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
                 navigationActions.onMinimize()
-            } catch (_: kotlin.coroutines.cancellation.CancellationException) {
+            } catch (_: CancellationException) {
                 // 用户在手势拖拽时滑回以取消最小化返回，恢复原状态
             } finally {
                 // 手势执行完成或取消时，及时清空手势激活状态和进度值为 0f
@@ -270,7 +275,7 @@ fun PlayerScreen(
         // 在横屏模式下，全屏播放器通常是左右双栏平铺排版，外层不需要竖屏抽屉的顶部大圆角，
         // 设为直角（RectangleShape）既符合大屏沉浸式视觉，也能在物理上彻底杜绝左上角和右上角内容被外层圆角裁切的隐患。
         val playerSurfaceShape = if (isLandscape) {
-            androidx.compose.ui.graphics.RectangleShape
+            RectangleShape
         } else {
             RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp)
         }
@@ -311,9 +316,8 @@ fun PlayerScreen(
                 Box(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // 仅当设备的最小宽度 dp 大于等于 600 (即平板设备) 且当前为横屏状态时，才启用平板横屏双栏自适应布局
-                    val isTablet = configuration.smallestScreenWidthDp >= 600
-                    val isTabletLandscape = isTablet && isLandscape
+                    // 详尽的中文注释：使用全局窗口属性自适应判定平板横屏状态，去掉了对 LocalConfiguration 和 smallestScreenWidthDp 的直接引用。
+                    val isTabletLandscape = windowClass.isTabletLandscape
                     when {
                         isTabletLandscape -> {
                             PlayerTabletLandscape(
@@ -445,7 +449,7 @@ fun PlayerScreen(
 
                 // 可切换 miuix-blur 模糊的 Snackbar，作为兄弟节点直接放置在最外层 Box 的底部层叠位置。
                 // 采用 150ms 上滑淡入/下滑淡出，显示时长控制仍由 ViewModel 管理。
-                androidx.compose.animation.AnimatedVisibility(
+                AnimatedVisibility(
                     visible = settings.showUndoSeek,
                     enter = slideInVertically(
                         animationSpec = tween(150),
@@ -519,17 +523,22 @@ fun PlayerScreen(
 @Composable
 fun PlayerScreenPreview() {
     APlayerTheme {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+        // 详尽的中文注释：在预览中显式提供竖屏手机的窗口尺寸预设，以确保主播放页能够准确展示出标准的竖屏手势抽屉排版。
+        CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.PortraitPhone
         ) {
-            PlayerScreen(
-                viewModel = PlayerViewModel(),
-                actions = PlayerActions(),
-                navigationActions = PlayerNavigationActions(),
-                glassEffectMode = GlassEffectMode.Material
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                PlayerScreen(
+                    viewModel = PlayerViewModel(),
+                    actions = PlayerActions(),
+                    navigationActions = PlayerNavigationActions(),
+                    glassEffectMode = GlassEffectMode.Material
+                )
+            }
         }
     }
 }
@@ -540,17 +549,22 @@ fun PlayerScreenPreview() {
 @Composable
 fun PlayerScreenLandscapePreview() {
     APlayerTheme {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+        // 详尽的中文注释：在预览中显式提供横屏手机的窗口尺寸预设，以验证在大宽度横屏下左右分流的双栏播放器排版渲染是否准确。
+        CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.LandscapePhone
         ) {
-            PlayerScreen(
-                viewModel = PlayerViewModel(),
-                actions = PlayerActions(),
-                navigationActions = PlayerNavigationActions(),
-                glassEffectMode = GlassEffectMode.MiuixBlur
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                PlayerScreen(
+                    viewModel = PlayerViewModel(),
+                    actions = PlayerActions(),
+                    navigationActions = PlayerNavigationActions(),
+                    glassEffectMode = GlassEffectMode.MiuixBlur
+                )
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.home
 
-import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,7 +53,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -65,10 +64,12 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerFilterChip
+import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.home.components.AudiobookActionDialogs
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.home.components.RecentlyAddedSection
-import com.viel.aplayer.ui.theme.APlayerTheme
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -126,24 +127,12 @@ fun HomeScreenContent(
         uri?.let(onLibraryRootSelected)
     }
 
-    // 获取屏幕当前物理与逻辑配置，提取方向和最小逻辑宽度以决定自适应排版
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val isTablet = configuration.smallestScreenWidthDp >= 600
-    val isWideScreen = isTablet || isLandscape
-
-    // 根据屏幕逻辑宽度（dp）与设备类型动态确定网格列数：
-    // - 只有在平板设备（sw >= 600dp）且宽度充足（>= 840dp）时，才开启 3 列网格，确保大屏展示效率。
-    // - 对于普通手机横屏或较窄的平板，统一使用 2 列网格，避免手机横屏下 3 列布局过于拥挤、封面过小导致的信息堆叠感。
-    // - 手机竖屏保持 1 列经典列表。
-    val columnsCount = when {
-        isTablet && configuration.screenWidthDp >= 840 -> 3
-        isWideScreen -> 2
-        else -> 1
-    }
-
-    // 大屏与横屏下自动增大边距为 24.dp 以带来强烈的呼吸感与统一对齐，小屏保持原有的 16.dp 满格排列。
-    val screenHorizontalPadding = if (isWideScreen) 24.dp else 16.dp
+    // 详尽的中文注释：
+    // 使用统一封装的 WindowClass 接口获取当前窗口大小分级、列数和水平边距，
+    // 避免了在此直接通过 LocalConfiguration 读取配置带来的硬编码布局判断，提高了多设备适配的高内聚与扩展性。
+    val windowClass = LocalWindowClass.current
+    val columnsCount = windowClass.columnsCount
+    val screenHorizontalPadding = windowClass.screenHorizontalPadding
 
     // 计算 TopAppBar 图标的补偿边距。
     // M3 顶栏图标默认起始位是 16dp（4dp 容器间距 + 12dp 按钮居中偏移）。
@@ -405,17 +394,22 @@ fun HomeScreenNotStartedPreview() {
 
     APlayerTheme {
         val mockListState = rememberLazyListState()
-        HomeScreenContent(
-            // Preview 中模拟 ViewModel 预计算后的数据结构
-            selectedFilter = HomeFilter.NotStarted,
-            groupedByAuthor = mockBooks.groupBy { it.book.author },
-            recentBooks = mockBooks,
-            shouldShowRecentBooks = true,
-            recentTitleRes = R.string.recently_added_title,
-            isMiniPlayerVisible = false,
-            recentListState = mockListState,
-            // Preview 显式引用设置模型里的默认玻璃效果，避免 HomeScreenContent 参数重新拥有局部默认值。
-            glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
-        )
+        // 详尽的中文注释：使用 CompositionLocalProvider 显式为 Previews 注入 PortraitPhone（竖屏手机）窗口预设，保证预览能够以百分之百高保真度准确呈现列表单列布局。
+        CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.PortraitPhone
+        ) {
+            HomeScreenContent(
+                // Preview 中模拟 ViewModel 预计算后的数据结构
+                selectedFilter = HomeFilter.NotStarted,
+                groupedByAuthor = mockBooks.groupBy { it.book.author },
+                recentBooks = mockBooks,
+                shouldShowRecentBooks = true,
+                recentTitleRes = R.string.recently_added_title,
+                isMiniPlayerVisible = false,
+                recentListState = mockListState,
+                // Preview 显式引用设置模型里的默认玻璃效果，避免 HomeScreenContent 参数重新拥有局部默认值。
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+            )
+        }
     }
 }
