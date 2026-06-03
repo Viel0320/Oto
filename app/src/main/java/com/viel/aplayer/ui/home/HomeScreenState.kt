@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.home
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +34,7 @@ enum class HomeFilter {
  * 专门从 ViewModel 的 StateFlow 中收集 UI 数据状态，并在内部托管最近列表横向滚动状态 `recentListState`，
  * 从而完全屏蔽了网格因上下滚动被销毁导致的状态丢失隐患，净化了系统的导航与路由架构。
  */
+@SuppressLint("FrequentlyChangingValue")
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,

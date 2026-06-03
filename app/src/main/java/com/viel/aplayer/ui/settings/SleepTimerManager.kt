@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.ln
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * 睡眠定时器执行管理器。
@@ -307,7 +308,7 @@ class SleepTimerManager(
                                     }
 
                                     // 100ms 高频更新内部音量
-                                    delay(100)
+                                    delay(100.milliseconds)
                                     val updatedState = currentPlayback()
                                     if (updatedState.isPlaying) {
                                         // 如果在章节倒数渐隐期内检测到设备处于运动跟踪且在移动、或睡眠未入睡状态，则立即复原满格音量并拦截章节结束逻辑
@@ -347,7 +348,7 @@ class SleepTimerManager(
                                 if (state.duration > 0 && state.currentPosition >= state.duration - 1000) break
                             }
                         }
-                        delay(1000)
+                        delay(1000.milliseconds)
                     }
                     playbackManager()?.pause()
                 } finally {
@@ -390,7 +391,7 @@ class SleepTimerManager(
                         val steps = 10
                         for (i in 0 until steps) {
                             if (_sleepTimerMillis.value <= 0) break
-                            delay(100)
+                            delay(100.milliseconds)
                             if (currentPlayback().isPlaying) {
                                 // 如果处于运动跟踪模式且正在运动，则跳过倒计时扣减，并将音量恢复至原音量，实现绝对精准的动作暂停计时。
                                 if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking && isDeviceMoving) {
@@ -420,7 +421,7 @@ class SleepTimerManager(
                         }
                     } else {
                         // 常规扣减阶段，每秒循环监测一次
-                        delay(1000)
+                        delay(1000.milliseconds)
                         if (currentPlayback().isPlaying) {
                             // 根据不同的睡眠模式执行不同的扣减或拦截算法
                             when (sleepMode()) {

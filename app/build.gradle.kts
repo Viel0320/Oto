@@ -121,7 +121,7 @@ dependencies {
 
     testImplementation(libs.junit)
     // ABS API 客户端阶段 1 需要用 MockWebServer 固化 method、path 和鉴权头行为。
-    testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
+    testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

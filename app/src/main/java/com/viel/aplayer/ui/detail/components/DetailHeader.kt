@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.detail.components
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.text.SpannableStringBuilder
 import android.text.style.LeadingMarginSpan
 import android.view.ActionMode
@@ -10,6 +11,7 @@ import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -223,6 +225,7 @@ private class ProcessTextMenuCallback(
     override fun onCreateActionMode(mode: ActionMode, menu: Menu) = true
     override fun onDestroyActionMode(mode: ActionMode) = Unit
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
         val pm = textView.context.packageManager
         val baseIntent = Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain")

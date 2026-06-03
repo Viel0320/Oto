@@ -41,6 +41,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * 核心前台媒体播放服务。
@@ -160,7 +161,7 @@ class PlaybackService : MediaSessionService() {
                         exitJob?.cancel()
                         exitJob = serviceScope.launch {
                             Toast.makeText(this@PlaybackService, "播放结束，5秒后将自动关闭", Toast.LENGTH_SHORT).show()
-                            delay(5000)
+                            delay(5000.milliseconds)
                             this@PlaybackService.player?.clearMediaItems()
                             stopSelf()
                         }
@@ -447,7 +448,7 @@ class PlaybackService : MediaSessionService() {
         widgetUpdateJob?.cancel()
         widgetUpdateJob = serviceScope.launch(Dispatchers.Main) {
             // 详尽的中文注释：设置 250ms 的更新去抖延迟，过滤因连续状态改变或网络缓冲抖动引起的密集重绘
-            delay(250)
+            delay(250.milliseconds)
 
             // 详尽的中文注释：所有对物理播放器实例属性的读取必须在 Main 线程完成以符合多媒体框架的线程限制契约
             val isPlaying = playerInstance.isPlaying
