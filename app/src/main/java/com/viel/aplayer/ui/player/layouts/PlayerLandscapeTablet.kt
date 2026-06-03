@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
+// 详尽的中文注释：在此移除了冗余的旧 LocalWindowClass 导入，统一使用 theme 包下的最新 WindowClass 统一自适应代理。
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.player.BookMetadataState
