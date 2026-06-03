@@ -9,6 +9,5 @@
 /.skill/
 /.kotlin/
 /.kiro/
-
-# 详尽的中文注释：排除本地私有的 local.properties 配置文件，避免本地 SDK 路径等物理信息被误推送到共享版本库
 /local.properties
+/.claude/
