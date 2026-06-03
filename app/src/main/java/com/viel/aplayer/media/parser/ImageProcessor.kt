@@ -29,7 +29,9 @@ import java.io.InputStream
  */
 object ImageProcessor {
     private const val TAG = "ImageProcessor"
-    private const val DEFAULT_THUMBNAIL_MAX_SIZE = 300
+    // 详尽注释：缩略图最大边提升到 360px，与 RecentlyItem / 中等封面卡片的 ThumbnailMedium 规格对齐。
+    // 这样中等卡片可以优先从本地缩略图和同规格 Coil 缓存读取，减少从原图二次解码的概率。
+    private const val DEFAULT_THUMBNAIL_MAX_SIZE = 360
 
     // 主色提取代价较高，这里保留路径级 LRU 缓存，避免同一张封面重复跑 Palette。
     private val colorCache = LruCache<String, Int>(100)

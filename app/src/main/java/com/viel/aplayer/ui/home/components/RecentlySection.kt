@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 
 /**
  * 首页“最近播放/最近添加”有声书的横向滚动列表解耦组件。
@@ -70,7 +71,12 @@ fun RecentlyAddedSection(
                     narrator = book.book.narrator,
                     // 详尽的中文注释：如果当前有声书有具体的阅读进度，则在其标签上回填显示进度百分比，否则回填 "NEW" 表示最新导入
                     progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
-                    coverPath = book.book.thumbnailPath ?: book.book.coverPath,
+                    // 详尽注释：最近播放卡片使用中等封面规格，路径仍优先选择本地缩略图；
+                    // 这样 360px 请求可直接命中缩略图产物，避免卡片区域回源解码主封面原图。
+                    coverPath = CoverImageSourceSelector.medium(
+                        thumbnailPath = book.book.thumbnailPath,
+                        coverPath = book.book.coverPath
+                    ),
                     // 详尽的中文注释：将最后扫描更新时间戳传递给卡片的 Coil，使其在缓存重新提取后可声明式直接强刷重绘，不经历磁盘 IO
                     coverLastUpdated = book.book.lastScannedAt,
                     onClick = { onNavigateToDetail(book.book.id) },

@@ -3,7 +3,6 @@ package com.viel.aplayer.ui.home.components
 // 新增 combinedClickable 导入以响应列表项目长按的高阶手势监听
 // 新增 ExperimentalFoundationApi 导入，由于 combinedClickable 在旧版中是实验性 API，这里作为安全屏障防御编译期缺陷
 // 补充导入 getValue 和 setValue 的扩展方法以支持 Composable 属性代理委托机制 (H-13)
-import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,11 +38,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import com.viel.aplayer.ui.common.CoverImageRequestFactory
+import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatCompactDuration
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -124,28 +123,26 @@ fun ListItem(
                 // 定义本地图片加载错误状态，利用 Coil 的异步加载与 onError 回调实现零主线程磁盘同步 I/O 探测 (H-13)
                 var isImageError by remember(coverPath) { mutableStateOf(false) }
                 if (!isPreview && (coverPath != null) && !isImageError) {
-                    // 使用 LocalContext 构建附带 lastScannedAt 作为更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
                     val context = LocalContext.current
+                    // 列表项固定使用 ThumbnailSmall 规格，列表、搜索小图和迷你播放器可以共享 180px 缓存；
+                    // 这里不做同步 File.exists()，让 Coil 异步处理文件缺失或损坏并统一记录结果。
                     val request = remember(coverPath, coverLastUpdated) {
-                        ImageRequest.Builder(context)
-                            .data(File(coverPath))
-                            .memoryCacheKey("$coverPath?t=$coverLastUpdated")
-                            .diskCacheKey("$coverPath?t=$coverLastUpdated")
-                            .crossfade(true)
-                            .build()
+                        CoverImageRequestFactory.build(
+                            context = context,
+                            sourcePath = coverPath,
+                            lastUpdated = coverLastUpdated,
+                            variant = CoverImageVariant.ThumbnailSmall,
+                            scene = "home-list-cover"
+                        )
                     }
                     AsyncImage(
                         model = request,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        onError = { state ->
+                        onError = {
+                            // 详尽的中文注释：UI 层只负责把失败状态切换为占位图，日志指标统一交给
+                            // CoverImageRequestFactory 里的 request listener 输出，避免同一次请求出现两套口径。
                             isImageError = true
-                            // 当封面物理文件损坏或系统读取失败时，在控制台打印可供调试的具体物理路径和错误原委
-                            Log.e(
-                                "ListItem",
-                                "ListItem 封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
-                                state.result.throwable
-                            )
                         }
                     )
                 } else {

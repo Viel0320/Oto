@@ -56,6 +56,7 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SearchHistoryEntry
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
@@ -411,7 +412,12 @@ fun SearchContent(
                                     author = result.book.author,
                                     narrator = result.book.narrator,
                                     duration = result.book.totalDurationMs,
-                                    coverPath = result.book.thumbnailPath ?: result.book.coverPath,
+                                    // 详尽的中文注释：搜索结果属于小图展示场景，统一复用 CoverImageSourceSelector.small。
+                                    // 这样缩略图优先的规则集中表达在同一个选择器里，后续调整小图策略时不需要回到搜索页单独同步。
+                                    coverPath = CoverImageSourceSelector.small(
+                                        thumbnailPath = result.book.thumbnailPath,
+                                        coverPath = result.book.coverPath
+                                    ),
                                     coverLastUpdated = result.book.lastScannedAt, 
                                     progressPercent = result.progressPercent,
                                     onClick = { 

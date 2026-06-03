@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.home.components
 
 // 补充导入 getValue 和 setValue 扩展函数以完美适配 Composable 的 by 属性代理逻辑 (H-15)
 // 引入 miuix-blur 模糊视效相关的依赖，绘制极致性能的毛玻璃效果
-import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -42,15 +41,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.CoverImageRequestFactory
+import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -112,29 +111,27 @@ fun RecentlyItem(
                 // 利用 Coil 的 onError 物理防抖回调，完全剥离 Composable 重组中主线程同步调用 File.exists() 的性能隐患 (H-15)
                 var isImageError by remember(coverPath) { mutableStateOf(false) }
                 if ((coverPath != null) && !isImageError) {
-                    // 使用 LocalContext 构建附带 lastScannedAt 作为更新戳的 ImageRequest，在底层打破 Coil 对于相同物理文件的本地与内存缓存
                     val context = LocalContext.current
+                    // 最近播放卡片固定使用 ThumbnailMedium 规格，并与 360px 缩略图产物对齐；
+                    // 这样中等卡片优先命中本地缩略图和同规格 Coil 缓存，不再把主封面大图带进列表区域。
                     val request = remember(coverPath, coverLastUpdated) {
-                        ImageRequest.Builder(context)
-                            .data(File(coverPath))
-                            .memoryCacheKey("$coverPath?t=$coverLastUpdated")
-                            .diskCacheKey("$coverPath?t=$coverLastUpdated")
-                            .crossfade(true)
-                            .build()
+                        CoverImageRequestFactory.build(
+                            context = context,
+                            sourcePath = coverPath,
+                            lastUpdated = coverLastUpdated,
+                            variant = CoverImageVariant.ThumbnailMedium,
+                            scene = "recently-cover"
+                        )
                     }
                     AsyncImage(
                         model = request,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
-                        onError = { state ->
+                        onError = {
+                            // 详尽的中文注释：卡片组件只处理显示降级，成功/失败/取消及命中率指标
+                            // 都由统一 ImageRequest listener 负责，避免 UI 文件继续散落第二套图片日志。
                             isImageError = true
-                            // 当封面物理文件损坏、Scoped Storage 权限临时受阻等加载失败时，在控制台打印高清晰的可调试路径和根本原因
-                            Log.e(
-                                "RecentlyItem",
-                                "RecentlyItem 封面加载失败！物理路径: $coverPath, 原因: ${state.result.throwable.message}",
-                                state.result.throwable
-                            )
                         }
                     )
                 } else {

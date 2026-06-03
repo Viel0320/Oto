@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
 // 详尽的中文注释：在此移除了冗余的旧 LocalWindowClass 导入，统一使用 theme 包下的最新 WindowClass 统一自适应代理。
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.player.BookMetadataState
@@ -246,9 +247,15 @@ fun PlayerLandscapePhone(
                                     else -> {
                                         // 独立手势声音/左右切歌大封面，在横大屏下高度自适应顶满
                                         PlayerCover(
-                                            coverPath = metadata.coverPath,
+                                            // 详尽注释：横屏手机的左侧大封面同样使用 Main1200 输入规则；
+                                            // 保持与竖屏播放器一致，避免同一播放页因布局不同产生路径优先级差异。
+                                            coverPath = CoverImageSourceSelector.main(
+                                                coverPath = metadata.coverPath,
+                                                thumbnailPath = metadata.thumbnailPath
+                                            ),
                                             isPlaying = isPlaying,
                                             coverLastUpdated = metadata.coverLastUpdated,
+                                            coverScene = "player-main-cover",
                                             onAdjustVolume = { actions.playback.onAdjustVolume(it) },
                                             onNextChapter = { actions.playback.onNextChapter() },
                                             onPreviousChapter = { actions.playback.onPreviousChapter() }

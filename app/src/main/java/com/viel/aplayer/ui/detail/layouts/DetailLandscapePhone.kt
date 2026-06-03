@@ -25,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
@@ -87,9 +88,15 @@ fun DetailLandscapePhone(
                 contentAlignment = Alignment.Center
             ) {
             PlayerCover(
-                coverPath = book?.coverPath,
+                // 详尽注释：横屏详情左侧大封面与竖屏详情保持同一 Main1200 输入规则，
+                // 优先使用原始封面，防止横向大尺寸展示误用缩略图导致清晰度下降。
+                coverPath = CoverImageSourceSelector.main(
+                    coverPath = book?.coverPath,
+                    thumbnailPath = book?.thumbnailPath
+                ),
                 isPlaying = false,
                 coverLastUpdated = book?.lastScannedAt ?: 0L,
+                coverScene = "detail-main-cover",
                 onAdjustVolume = {},
                 onNextChapter = {},
                 onPreviousChapter = {},

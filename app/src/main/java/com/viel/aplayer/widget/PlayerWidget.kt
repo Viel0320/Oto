@@ -1,11 +1,9 @@
 package com.viel.aplayer.widget
 
 // 详尽的中文注释：导入 produceState 和 getValue 扩展，以便在 Compose 组合内声明并绑定异步加载的状态变量
-// 详尽的中文注释：导入 Dispatchers 和 withContext 协程分发器工具，以实现完全非阻塞的后台磁盘 I/O 线程调度
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -41,12 +39,10 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
+// 详尽的中文注释：旧版本的 unit.ColorProvider 已经废弃，在 Glance 1.1.0+ 架构中已重构并移至 color.ColorProvider，此处修改为新包路径以规避 Deprecation 警告
+import androidx.glance.color.ColorProvider
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
  * 详尽的中文注释：
@@ -78,39 +74,10 @@ class PlayerWidget : GlanceAppWidget() {
             }
             val coverPath = prefs[PlayerWidgetStateHelper.KEY_COVER_PATH] ?: ""
 
-            // 2. 详尽的中文注释：使用 produceState 配合 withContext(Dispatchers.IO) 在后台协程中完成图片的解码和物理文件校验，
-            // 彻底杜绝在 Compose/Glance 组合（Composition）流程中同步进行 File.exists() 和 BitmapFactory 磁盘 I/O 阻塞。
-            // 同时保留 120 像素下采样阈值，从根源上控制加载的 Bitmap 体积，安全防范桌面小组件跨进程传输可能引发的 TransactionTooLargeException
+            // 2. 详尽的中文注释：组合层只负责把 Glance 状态桥接成可展示的 Bitmap 状态，真实的文件存在性检查、边界探测、下采样和异常降级全部交给 WidgetCoverArtRenderer。
+            // 这样可以避免在 Widget UI 代码中散落磁盘 I/O 和 BitmapFactory 细节，也能确保小组件始终拿到接近实际展示尺寸的安全位图，而不是误用主界面的大图缓存规格。
             val bitmap by produceState<Bitmap?>(initialValue = null, coverPath) {
-                value = withContext(Dispatchers.IO) {
-                    if (coverPath.isNotEmpty()) {
-                        val file = File(coverPath)
-                        if (file.exists()) {
-                            try {
-                                val options = BitmapFactory.Options().apply {
-                                    inJustDecodeBounds = true // 仅扫描边界，不分配像素内存
-                                }
-                                BitmapFactory.decodeFile(coverPath, options)
-                                
-                                val targetSize = 120
-                                var inSampleSize = 1
-                                if (options.outHeight > targetSize || options.outWidth > targetSize) {
-                                    val halfHeight = options.outHeight / 2
-                                    val halfWidth = options.outWidth / 2
-                                    while (halfHeight / inSampleSize >= targetSize && halfWidth / inSampleSize >= targetSize) {
-                                        inSampleSize *= 2
-                                    }
-                                }
-                                
-                                options.inSampleSize = inSampleSize
-                                options.inJustDecodeBounds = false
-                                BitmapFactory.decodeFile(coverPath, options)
-                            } catch (_: Exception) {
-                                null
-                            }
-                        } else null
-                    } else null
-                }
+                value = WidgetCoverArtRenderer.loadCoverBitmap(coverPath)
             }
 
             // 3. 将 UI 包裹在 GlanceTheme 内以完美开启 Material 3 动态取色
@@ -167,11 +134,11 @@ class PlayerWidget : GlanceAppWidget() {
                 )
             }
 
-            // 详尽的中文注释：2. 叠加一层精心调配的半透明黑色蒙层（不透明度55%），并且使用 ColorProvider 适配 Glance 的底层要求以保证兼容性与可读性
+            // 详尽的中文注释：2. 叠加一层精心调配的半透明黑色蒙层（不透明度55%），新版 ColorProvider 需显式指定亮色和暗色以表示同一固定色
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .background(ColorProvider(Color.Black.copy(alpha = 0.55f)))
+                    .background(ColorProvider(day = Color.Black.copy(alpha = 0.55f), night = Color.Black.copy(alpha = 0.55f)))
             ) {}
 
             // 详尽的中文注释：3. 容器整体垂直与水平居中，并适当缩减上下内边距，保持极其精致的微缩版面比例
@@ -191,7 +158,8 @@ class PlayerWidget : GlanceAppWidget() {
                     Text(
                         text = title,
                         style = TextStyle(
-                            color = ColorProvider(Color.White),
+                            // 详尽的中文注释：此处将文字颜色设为白色，由于新版 ColorProvider 不提供单参重载，需显式传入相同的 day 和 night 颜色值
+                            color = ColorProvider(day = Color.White, night = Color.White),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         ),
@@ -200,7 +168,8 @@ class PlayerWidget : GlanceAppWidget() {
                     Text(
                         text = author,
                         style = TextStyle(
-                            color = ColorProvider(Color.White.copy(alpha = 0.7f)),
+                            // 详尽的中文注释：此处将副标题文字设为半透明白色，由于新版 ColorProvider 无单参数构造器，故同时传入相同的 day 和 night 颜色以避免编译错误
+                            color = ColorProvider(day = Color.White.copy(alpha = 0.7f), night = Color.White.copy(alpha = 0.7f)),
                             fontSize = 11.sp
                         ),
                         maxLines = 1,
@@ -225,7 +194,8 @@ class PlayerWidget : GlanceAppWidget() {
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(rewindIntent)),
-                        colorFilter = ColorFilter.tint(ColorProvider(Color.White))
+                        // 详尽的中文注释：快退按钮图标着色过滤，使用 ColorProvider.day/night 双参传递以支持新版 API 规范
+                        colorFilter = ColorFilter.tint(ColorProvider(day = Color.White, night = Color.White))
                     )
 
                     // 详尽的中文注释：将操作按钮之间的间隔距离从 20dp 收缩至 16dp，避免布局过宽
@@ -266,7 +236,8 @@ class PlayerWidget : GlanceAppWidget() {
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(forwardIntent)),
-                        colorFilter = ColorFilter.tint(ColorProvider(Color.White))
+                        // 详尽的中文注释：快进按钮图标着色过滤，使用 ColorProvider.day/night 双参传递以符合新包路径下 ColorProvider 构造规则
+                        colorFilter = ColorFilter.tint(ColorProvider(day = Color.White, night = Color.White))
                     )
                 }
             }

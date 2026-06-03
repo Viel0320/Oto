@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
 // 详尽的中文注释：在此移除了冗余的旧 LocalWindowClass 导入，统一使用 theme 包下的最新 WindowClass 统一自适应代理。
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.player.BookMetadataState
@@ -223,9 +224,15 @@ fun PlayerTabletLandscape(
                                     }
                                     else -> {
                                         PlayerCover(
-                                            coverPath = metadata.coverPath,
+                                            // 详尽注释：平板播放页的大封面显示面积最大，复用 Main1200 的原图优先策略；
+                                            // 缩略图只作为兜底，避免高密度或大窗口下出现低清封面。
+                                            coverPath = CoverImageSourceSelector.main(
+                                                coverPath = metadata.coverPath,
+                                                thumbnailPath = metadata.thumbnailPath
+                                            ),
                                             isPlaying = isPlaying,
                                             coverLastUpdated = metadata.coverLastUpdated,
+                                            coverScene = "player-main-cover",
                                             onAdjustVolume = { actions.playback.onAdjustVolume(it) },
                                             onNextChapter = { actions.playback.onNextChapter() },
                                             onPreviousChapter = { actions.playback.onPreviousChapter() }

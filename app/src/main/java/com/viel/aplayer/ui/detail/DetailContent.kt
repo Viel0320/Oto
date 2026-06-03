@@ -66,6 +66,7 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDialog
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.CoverBackground
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
@@ -118,6 +119,12 @@ fun DetailContent(
     // 背景通铺渲染专用的 layerBackdrop 采样源，避免子浮层毛玻璃递归穿帮段错误闪退
     val coverBackdrop = rememberLayerBackdrop()
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
+    // 详尽注释：详情页背景只作为 128px 模糊采样源，路径优先使用缩略图；
+    // 主封面清晰度由各布局里的 PlayerCover 单独决定，避免背景层误持有主封面大图。
+    val backdropCoverPath = CoverImageSourceSelector.backdrop(
+        thumbnailPath = book?.thumbnailPath,
+        coverPath = book?.coverPath
+    )
 
     // 动态捕获最精确的系统状态栏与物理安全区大小
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
@@ -171,7 +178,7 @@ fun DetailContent(
         Box(modifier = Modifier.fillMaxSize()) {
             // 背景毛玻璃流光动画与大图采样渲染
             CoverBackground(
-                coverPath = book?.coverPath,
+                coverPath = backdropCoverPath,
                 lastUpdated = book?.lastScannedAt ?: 0L,
                 backgroundColorArgb = backgroundColorArgb,
                 glassEffectMode = glassEffectMode,

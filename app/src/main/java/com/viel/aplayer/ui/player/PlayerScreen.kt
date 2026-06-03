@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
@@ -155,6 +156,12 @@ fun PlayerScreen(
     } else {
         viewModel.metadataState.collectAsStateWithLifecycle().value
     }
+    // 详尽注释：播放器全屏背景只需要低分辨率模糊采样图，统一走 Backdrop 路径策略；
+    // 这样背景层不会因为和主封面共享 metadata 而误解码或持有 Main1200 大图。
+    val playerBackdropCoverPath = CoverImageSourceSelector.backdrop(
+        thumbnailPath = metadata.thumbnailPath,
+        coverPath = metadata.coverPath
+    )
 
     val settings = if (isPreview) {
         com.viel.aplayer.ui.settings.PlayerSettingsState(
@@ -305,7 +312,7 @@ fun PlayerScreen(
 
                 // 1. 纯净背景图层 (同级兄弟节点)
                 CoverBackground(
-                    coverPath = metadata.coverPath ?: metadata.thumbnailPath,
+                    coverPath = playerBackdropCoverPath,
                     lastUpdated = metadata.coverLastUpdated,
                     backgroundColorArgb = metadata.backgroundColorArgb,
                     glassEffectMode = glassEffectMode,

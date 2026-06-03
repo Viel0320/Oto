@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
@@ -223,9 +224,15 @@ fun PlayerPortrait(
                                     else -> {
                                         // 使用封装良好的手势声音及双击切歌封面组件
                                         PlayerCover(
-                                            coverPath = metadata.coverPath,
+                                            // 详尽注释：播放器主封面是 Main1200 场景，必须优先使用原始封面；
+                                            // 缩略图只在原图不可用时兜底，避免播放页误用小图造成清晰度损失。
+                                            coverPath = CoverImageSourceSelector.main(
+                                                coverPath = metadata.coverPath,
+                                                thumbnailPath = metadata.thumbnailPath
+                                            ),
                                             isPlaying = isPlaying,
                                             coverLastUpdated = metadata.coverLastUpdated,
+                                            coverScene = "player-main-cover",
                                             onAdjustVolume = { actions.playback.onAdjustVolume(it) },
                                             onNextChapter = { actions.playback.onNextChapter() },
                                             onPreviousChapter = { actions.playback.onPreviousChapter() }

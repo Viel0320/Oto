@@ -20,11 +20,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.viel.aplayer.data.store.GlassEffectMode
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import java.io.File
 
 /**
  * 全局通用的背景封面强模糊氛围组件，适用于播放页与详情页。
@@ -91,12 +89,16 @@ fun CoverBackground(
         if (isBlur && coverPath != null) {
             val context = LocalContext.current
             val bgRequest = remember(coverPath, lastUpdated) {
-                ImageRequest.Builder(context)
-                    .data(File(coverPath))
-                    .memoryCacheKey("${coverPath}_bg_blur_$lastUpdated")
-                    .diskCacheKey("${coverPath}_bg_blur_$lastUpdated")
-                    .crossfade(true)
-                    .build()
+                // 背景图只作为模糊采样源，固定使用 Backdrop 规格并禁用 hardware bitmap；
+                // 这样既能减少 Bitmap 体积，也避免软件模糊链路后续读取硬件位图时出现兼容风险。
+                CoverImageRequestFactory.build(
+                    context = context,
+                    sourcePath = coverPath,
+                    lastUpdated = lastUpdated,
+                    variant = CoverImageVariant.Backdrop,
+                    scene = "cover-backdrop",
+                    allowHardware = false
+                )
             }
 
             AsyncImage(

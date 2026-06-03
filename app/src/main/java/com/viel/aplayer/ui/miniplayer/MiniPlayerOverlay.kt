@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.player.PlayerViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -125,12 +126,18 @@ private fun MiniPlayerContent(
     val isLandscape = windowClass.isLandscape
     val isLargeScreen = windowClass.isTablet
     val usePillPlayer = windowClass.isWideScreen
+    // 详尽注释：迷你播放器是常驻小封面入口，统一在容器层选出 ThumbnailSmall 的输入路径；
+    // 子组件只负责按传入路径渲染，不再知道“缩略图优先、原图兜底”的业务规则。
+    val miniPlayerCoverPath = CoverImageSourceSelector.small(
+        thumbnailPath = metadata.thumbnailPath,
+        coverPath = metadata.coverPath
+    )
 
     Box {
         if (usePillPlayer) {
             PillCompactMediaPlayer(
                 isPlaying = playback.isPlaying,
-                coverPath = metadata.thumbnailPath,
+                coverPath = miniPlayerCoverPath,
                 coverLastUpdated = metadata.coverLastUpdated,
                 isMediaAvailable = isMediaAvailable,
                 actions = actions,
@@ -144,7 +151,7 @@ private fun MiniPlayerContent(
                 title = metadata.title,
                 author = metadata.author,
                 narrator = metadata.narrator,
-                coverPath = metadata.thumbnailPath,
+                coverPath = miniPlayerCoverPath,
                 coverLastUpdated = metadata.coverLastUpdated,
                 progress = { displayProgress },
                 isMediaAvailable = isMediaAvailable,

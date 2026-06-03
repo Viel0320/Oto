@@ -21,6 +21,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.detail.DetailUiState
@@ -56,9 +57,15 @@ fun DetailPortrait(
     ) {
         // 封面：占据较大比例
         PlayerCover(
-            coverPath = book?.coverPath,
+            // 详尽注释：详情页主封面属于 Main1200 场景，优先使用原始封面以保留清晰度；
+            // 只有原图缺失时才回退缩略图，路径规则集中由 selector 表达。
+            coverPath = CoverImageSourceSelector.main(
+                coverPath = book?.coverPath,
+                thumbnailPath = book?.thumbnailPath
+            ),
             isPlaying = false,
             coverLastUpdated = book?.lastScannedAt ?: 0L,
+            coverScene = "detail-main-cover",
             onAdjustVolume = {},
             onNextChapter = {},
             onPreviousChapter = {},

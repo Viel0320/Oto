@@ -64,6 +64,7 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerFilterChip
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
@@ -343,7 +344,12 @@ fun HomeScreenContent(
                             author = book.book.author,
                             narrator = book.book.narrator,
                             duration = book.book.totalDurationMs,
-                            coverPath = book.book.thumbnailPath ?: book.book.coverPath,
+                            // 详尽注释：主页普通列表属于小图场景，统一交给 CoverImageSourceSelector.small 决定
+                            // “缩略图优先、原图兜底”的路径顺序，避免页面层继续散落手写 Elvis 规则。
+                            coverPath = CoverImageSourceSelector.small(
+                                thumbnailPath = book.book.thumbnailPath,
+                                coverPath = book.book.coverPath
+                            ),
                             coverLastUpdated = book.book.lastScannedAt, // 桥接 Room 层中的扫描/自愈重建毫秒时间戳，使用声明式设计促成图片同步强绘刷新
                             progressPercent = book.progressPercent,
                             onClick = { onNavigateToDetail(book.book.id) },

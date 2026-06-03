@@ -7,6 +7,7 @@ import com.viel.aplayer.abs.mapping.AbsRemoteIdMapper
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.dto.AbsLibraryItemDto
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.logger.AbsSyncLogger
 import java.util.UUID
@@ -291,14 +292,26 @@ class AbsCatalogSynchronizer(
         val cachedCover = runCatching {
             coverCache?.downloadCover(root, requireNotNull(item.id))
         }.getOrNull()
+        // 详尽的中文注释：先把“本轮最终会落库的封面路径”提前算出来，
+        // 这样既能继续复用旧封面，也能在新封面下载成功时准确比较路径是否发生变化，
+        // 从而只在真实换图时刷新 lastScannedAt，避免每轮 ABS 同步都把 UI 缓存全部打穿。
+        val resolvedCoverPath = cachedCover?.originalPath ?: existingBookEntity?.coverPath
+        val resolvedThumbnailPath = cachedCover?.thumbnailPath ?: existingBookEntity?.thumbnailPath
+        val resolvedLastScannedAt = resolveAbsCoverLastScannedAt(
+            existing = existingBookEntity,
+            nextCoverPath = resolvedCoverPath,
+            nextThumbnailPath = resolvedThumbnailPath,
+            syncedAt = now
+        )
         val book = catalogMapper.toBook(
             root = root,
             serverKey = serverKey,
             item = item,
             existing = existingBookEntity,
             syncedAt = now,
-            coverPath = cachedCover?.originalPath ?: existingBookEntity?.coverPath,
-            thumbnailPath = cachedCover?.thumbnailPath ?: existingBookEntity?.thumbnailPath,
+            lastScannedAt = resolvedLastScannedAt,
+            coverPath = resolvedCoverPath,
+            thumbnailPath = resolvedThumbnailPath,
             backgroundColorArgb = cachedCover?.backgroundColor ?: existingBookEntity?.backgroundColorArgb
         )
         val files = catalogMapper.toFiles(root, serverKey, item)
@@ -476,6 +489,27 @@ class AbsCatalogSynchronizer(
     companion object {
         private const val MAX_DETAIL_RETRY_ATTEMPTS = 3
     }
+}
+
+/**
+ * 详尽的中文注释：ABS 封面失效时间戳的判定必须同时满足“新封面能及时刷新”和“未换图时缓存稳定”。
+ * 因此这里只在两种情况下返回新的 `syncedAt`：
+ * 1. 新书首次同步就已经拿到了本地封面缓存路径；
+ * 2. 旧书本轮同步后 coverPath 或 thumbnailPath 与上次持久化值不同。
+ * 除此之外都保留旧的 lastScannedAt，避免把没有变化的封面请求 key 全部打穿。
+ */
+internal fun resolveAbsCoverLastScannedAt(
+    existing: BookEntity?,
+    nextCoverPath: String?,
+    nextThumbnailPath: String?,
+    syncedAt: Long
+): Long {
+    if (existing == null) {
+        return if (nextCoverPath != null || nextThumbnailPath != null) syncedAt else 0L
+    }
+    val coverPathChanged = existing.coverPath != nextCoverPath
+    val thumbnailPathChanged = existing.thumbnailPath != nextThumbnailPath
+    return if (coverPathChanged || thumbnailPathChanged) syncedAt else existing.lastScannedAt
 }
 
 /**

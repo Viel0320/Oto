@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
@@ -86,9 +87,15 @@ fun DetailTabletLandscape(
                 contentAlignment = Alignment.Center
             ) {
                 PlayerCover(
-                    coverPath = book?.coverPath,
+                    // 详尽注释：平板详情页左栏封面显示面积最大，必须复用 Main1200 的原图优先规则；
+                    // 缩略图只作为缺少原始封面时的安全兜底，不参与常规高清展示。
+                    coverPath = CoverImageSourceSelector.main(
+                        coverPath = book?.coverPath,
+                        thumbnailPath = book?.thumbnailPath
+                    ),
                     isPlaying = false,
                     coverLastUpdated = book?.lastScannedAt ?: 0L,
+                    coverScene = "detail-main-cover",
                     onAdjustVolume = {},
                     onNextChapter = {},
                     onPreviousChapter = {},

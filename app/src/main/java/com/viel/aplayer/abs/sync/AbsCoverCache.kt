@@ -4,12 +4,13 @@ import android.content.Context
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.logger.AbsAuthLogger
 import com.viel.aplayer.logger.AbsCoverLogger
+import com.viel.aplayer.logger.CoverImageCacheLogger
 import com.viel.aplayer.media.parser.CoverExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.io.ByteArrayInputStream
+import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
@@ -67,20 +68,34 @@ class AbsCoverCache(
                     )
                     throw IOException("ABS cover request failed with HTTP ${httpResponse.code}")
                 }
-                val bytes = httpResponse.body.bytes()
+                val contentLength = httpResponse.body.contentLength()
+                CoverImageCacheLogger.logAbsCoverStreamStart(
+                    rootId = root.id,
+                    remoteItemId = remoteItemId,
+                    contentLength = contentLength.takeIf { it >= 0L }
+                )
                 AbsCoverLogger.logDownloadSuccess(
                     rootId = root.id,
                     remoteItemId = remoteItemId,
                     contentType = httpResponse.header("Content-Type"),
-                    byteCount = bytes.size,
+                    // 详尽注释：这里不再为了日志调用 body.bytes()，否则会把完整远端封面先读入堆内存。
+                    // Content-Length 不存在时记录 -1，实际落盘大小在本地处理成功后由文件长度再次补充记录。
+                    byteCount = contentLength.takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1,
                     costMs = AbsCoverLogger.elapsedMs(start)
                 )
                 val sourceId = "abs-cover:${root.id}:$remoteItemId"
                 return@withContext runCatching {
+                    // 详尽注释：直接把 OkHttp 响应体流交给 ImageProcessor 的落盘链路，避免“远端封面 ByteArray”
+                    // 与后续缩略图解码 Bitmap 同时存在于内存中，降低 ABS 批量同步时的峰值 heap 压力。
                     coverExtractor.processExternalImage(sourceId) {
-                        ByteArrayInputStream(bytes)
+                        httpResponse.body.byteStream()
                     }
                 }.onSuccess { result ->
+                    CoverImageCacheLogger.logAbsCoverStreamReady(
+                        rootId = root.id,
+                        remoteItemId = remoteItemId,
+                        fileSize = result.originalPath?.let { path -> File(path).takeIf { it.exists() }?.length() }
+                    )
                     AbsCoverLogger.logProcessSuccess(
                         rootId = root.id,
                         remoteItemId = remoteItemId,

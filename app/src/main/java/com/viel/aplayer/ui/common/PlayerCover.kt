@@ -28,11 +28,11 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import java.io.File
 import kotlin.math.abs
 
 /**
@@ -60,7 +60,8 @@ fun PlayerCover(
     onPreviousChapter: () -> Unit,
     modifier: Modifier = Modifier,
     sizeRatio: Float = 0.8f,
-    gesturesEnabled: Boolean = true
+    gesturesEnabled: Boolean = true,
+    coverScene: String = "main-cover"
 ) {
     // 使用 BoxWithConstraints 动态捕获父容器的最大可用宽高，保证在横竖屏或分屏模式下完美自适应
     BoxWithConstraints(
@@ -120,6 +121,7 @@ fun PlayerCover(
             coverPath = coverPath,
             isPlaying = isPlaying,
             coverLastUpdated = coverLastUpdated,
+            coverScene = coverScene,
             modifier = Modifier
                 .size(coverSize)
                 .then(gestureModifier)
@@ -141,7 +143,8 @@ fun MainCoverView(
     modifier: Modifier = Modifier,
     coverPath: String?,
     isPlaying: Boolean,
-    coverLastUpdated: Long = 0L
+    coverLastUpdated: Long = 0L,
+    coverScene: String = "main-cover"
 ) {
     // 播放时封面等比缩放至 1.0，暂停时缩至 0.95，配合 300ms 动画营造呼吸感
     val coverScale by animateFloatAsState(
@@ -175,22 +178,29 @@ fun MainCoverView(
             var isImageError by remember(coverPath) { mutableStateOf(false) }
 
             if (coverPath != null && !isImageError) {
-                // 使用 ImageRequest.Builder 重新构建 data model，
-                // 并利用具有更新时间戳后缀的 memoryCacheKey 和 diskCacheKey 来打破 Coil 对该图片的加载失败或已有缓存，
-                // 确保在封面文件被自愈重建后，Coil 能够丢弃原有失败记忆、即刻从物理文件中拉取并渲染最新的封面。
+                val context = LocalContext.current
+                // 主封面统一走 Main1200 规格，详情页和播放页就能共享同一尺寸与同一缓存 key；
+                // 后续如果需要提高或降低主封面规格，只改请求工厂和枚举，不再追着多个 UI 文件逐个改。
+                val request = remember(coverPath, coverLastUpdated) {
+                    // coverScene 由调用方传入，用于区分播放器、详情页、编辑页等主封面来源；
+                    // 这样 profiler 里同时存在多张 Main1200 Bitmap 时，可以通过日志反查真实持有场景。
+                    CoverImageRequestFactory.build(
+                        context = context,
+                        sourcePath = coverPath,
+                        lastUpdated = coverLastUpdated,
+                        variant = CoverImageVariant.Main1200,
+                        scene = coverScene
+                    )
+                }
                 AsyncImage(
-                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                        .data(File(coverPath))
-                        .memoryCacheKey("${coverPath}_$coverLastUpdated")
-                        .diskCacheKey("${coverPath}_$coverLastUpdated")
-                        .crossfade(true)
-                        .build(),
+                    model = request,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    onError = { errorState ->
+                    onError = {
+                        // 详尽的中文注释：主封面组件只保留 UI 降级职责；加载失败的异常类型、
+                        // decodeCostMs 和 cacheHitRatio 已由统一请求 listener 记录，避免日志重复且口径冲突。
                         isImageError = true
-                        android.util.Log.e("MainCoverView", "全屏播放器加载封面图片失败: $coverPath, 原因: ", errorState.result.throwable)
                     }
                 )
             } else {

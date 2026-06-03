@@ -571,9 +571,10 @@ fun EditBookScreen(
                                     verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     PlayerCover(
-                                        coverPath = tempCoverPath ?: book.coverPath,
+                                        coverPath = tempCoverPath ?: book.coverPath ?: book.thumbnailPath,
                                         isPlaying = false,
                                         coverLastUpdated = book.lastScannedAt,
+                                        coverScene = "edit-main-cover",
                                         onAdjustVolume = {},
                                         onNextChapter = {},
                                         onPreviousChapter = {},
@@ -605,9 +606,10 @@ fun EditBookScreen(
                         } else {
                             // 常规手机竖屏模式，自上而下纵向布局，使用 PlayerCover 渲染封面并限制纵横比
                             PlayerCover(
-                                coverPath = tempCoverPath ?: book.coverPath,
+                                coverPath = tempCoverPath ?: book.coverPath ?: book.thumbnailPath,
                                 isPlaying = false,
                                 coverLastUpdated = book.lastScannedAt,
+                                coverScene = "edit-main-cover",
                                 onAdjustVolume = {},
                                 onNextChapter = {},
                                 onPreviousChapter = {},

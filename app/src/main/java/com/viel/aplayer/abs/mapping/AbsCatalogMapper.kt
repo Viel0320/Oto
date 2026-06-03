@@ -19,6 +19,7 @@ class AbsCatalogMapper(
         item: AbsLibraryItemDto,
         existing: BookEntity?,
         syncedAt: Long,
+        lastScannedAt: Long = existing?.lastScannedAt ?: 0L,
         coverPath: String? = existing?.coverPath,
         thumbnailPath: String? = existing?.thumbnailPath,
         backgroundColorArgb: Int? = existing?.backgroundColorArgb
@@ -51,7 +52,10 @@ class AbsCatalogMapper(
             thumbnailPath = thumbnailPath,
             backgroundColorArgb = backgroundColorArgb,
             addedAt = existing?.addedAt ?: syncedAt,
-            lastScannedAt = existing?.lastScannedAt ?: 0L,
+            // 详尽的中文注释：ABS 远端封面同步现在允许由调用方显式传入新的失效时间戳，
+            // 这样当 coverPath 或 thumbnailPath 发生真实变化时，UI 请求工厂就会生成新 key；
+            // 若路径未变化，则继续保留旧时间戳，避免每轮同步都无意义打穿本地封面缓存。
+            lastScannedAt = lastScannedAt,
             status = AudiobookSchema.BookStatus.READY,
             readStatus = progressMapper.toReadStatus(item, existing)
         )

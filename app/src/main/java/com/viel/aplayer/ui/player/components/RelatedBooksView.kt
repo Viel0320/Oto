@@ -15,6 +15,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.player.components.relatedsection.RelatedSection
@@ -104,7 +105,15 @@ private fun RelatedAudiobookItem(
         author = book.book.author,
         narrator = book.book.narrator,
         duration = book.book.totalDurationMs,
-        coverPath = book.book.thumbnailPath ?: book.book.coverPath,
+        // 详尽注释：相关书籍列表与主页普通列表同属小图场景，统一走 small 选择规则；
+        // 这能让推荐区、主页列表和迷你播放器在相同封面上共享 ThumbnailSmall 缓存 key。
+        coverPath = CoverImageSourceSelector.small(
+            thumbnailPath = book.book.thumbnailPath,
+            coverPath = book.book.coverPath
+        ),
+        // 详尽注释：补上传递 lastScannedAt，封面自愈或手动重建后相关书籍列表会生成新 key，
+        // 不再因为默认 0 时间戳继续命中旧封面缓存。
+        coverLastUpdated = book.book.lastScannedAt,
         progressPercent = book.progressPercent,
         onClick = { onBookClick(book) },
         onPlayClick = { onBookClick(book) }

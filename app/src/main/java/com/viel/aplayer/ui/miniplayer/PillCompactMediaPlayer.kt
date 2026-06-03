@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.miniplayer
 
 // 引入 widthIn 修饰符，用于限制悬浮药丸播放器在宽屏/大屏下的最大宽度
 // 引入 wrapContentWidth 修饰符，用于支持药丸自适应宽度布局
-import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -43,14 +42,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.CoverImageRequestFactory
+import com.viel.aplayer.ui.common.CoverImageVariant
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
-import java.io.File
 
 /**
  * 药丸悬浮样式迷你播放器组件 (PillCompactMediaPlayer)
@@ -221,12 +220,7 @@ fun PillCompactMediaPlayer(
                     .align(Alignment.Center),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 将 coverLastUpdated 纳入 remember 的 keys 中。
-                // 保证当自愈时间戳变动后，能够引发此处的 File 引用和 UI 重组彻底更新
-                val coverFile = remember(coverPath, coverLastUpdated) {
-                    coverPath?.let(::File)
-                }
-
+                // coverLastUpdated 继续作为请求工厂的缓存失效戳，封面自愈重建后会生成新 key。
                 // 封面： — 12.dp 圆角，与卡片整体的圆润风格相得益彰
                 Box(
                     modifier = Modifier
@@ -273,25 +267,27 @@ fun PillCompactMediaPlayer(
                             onLongClick = actions.onHide
                         )
                 ) {
-                    if (coverFile != null && coverFile.exists()) {
-                        // 使用 ImageRequest.Builder 动态构建加载 model，
-                        // 并使用具有更新时间戳的 memoryCacheKey 和 diskCacheKey 来打破 Coil 的加载失败及缓存记录，
-                        // 迫使 Coil 在物理封面重建后，能够立刻重新读取新的物理文件内容。
+                    if (coverPath != null) {
+                        val context = LocalContext.current
+                        // 药丸播放器封面是常驻小图，复用 ThumbnailSmall 规格；
+                        // 旋转动画只作用于显示层，不让图片请求生成独立缓存规格。
+                        val request = remember(coverPath, coverLastUpdated) {
+                            CoverImageRequestFactory.build(
+                                context = context,
+                                sourcePath = coverPath,
+                                lastUpdated = coverLastUpdated,
+                                variant = CoverImageVariant.ThumbnailSmall,
+                                scene = "pill-player-cover"
+                            )
+                        }
+                        // ImageRequest 统一由 CoverImageRequestFactory 生成，避免药丸播放器形成独立的 key 与尺寸规则。
                         AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(coverFile)
-                                .memoryCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
-                                .diskCacheKey("${coverFile.absolutePath}_$coverLastUpdated")
-                                .build(),
+                            model = request,
                             contentDescription = "Cover",
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-                            contentScale = ContentScale.Crop,
-                            // 监听 Coil 加载封面图片失败的回调，打印具体的文件绝对路径及异常信息，便于排查 Scoped Storage 或是其它解码错误
-                            onError = { errorState ->
-                                Log.e("PillCompactMediaPlayer", "加载封面图片失败: ${coverFile.absolutePath}, 原因: ", errorState.result.throwable)
-                            }
+                            contentScale = ContentScale.Crop
                         )
                     } else {
                         Box(

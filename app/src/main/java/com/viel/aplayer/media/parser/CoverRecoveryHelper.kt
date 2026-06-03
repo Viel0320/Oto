@@ -1,6 +1,7 @@
 package com.viel.aplayer.media.parser
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
@@ -44,16 +45,24 @@ class CoverRecoveryHelper(
 
     private val pendingRegenerations = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val alreadyAttempted = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    // 详尽的中文注释：列表、搜索和最近播放这些 Flow 会在短时间内重复把同一本书送进 checkCovers()，
+    // 如果每次都同步执行 File.exists()，就会把本来已经存在的封面也反复打到磁盘层。
+    // 这里用“书籍 id + 当前封面路径 + 当前缩略图路径 + lastScannedAt”做一个秒级短窗口缓存，
+    // 只复用很短时间内刚探测过的结果，不引入新的持久化状态，也不会改变丢失封面的自愈语义。
+    private val coverPresenceCache = java.util.concurrent.ConcurrentHashMap<String, CoverPresenceSnapshot>()
 
     fun checkAndTriggerCoverRegeneration(book: BookEntity) {
         // ABS 远端书籍的封面只允许由 ABS cover cache 负责，不能在列表流里反向读取远端音频做内嵌封面自愈。
         if (shouldSkipAutoRegeneration(book)) return
         val bookId = book.id
         if (alreadyAttempted.contains(bookId)) return
+        if (pendingRegenerations.contains(bookId)) return
 
-        val isCoverLost = book.coverPath == null || !File(book.coverPath).exists()
-        val isThumbnailLost = book.thumbnailPath == null || !File(book.thumbnailPath).exists()
-        if (!isCoverLost && !isThumbnailLost) return
+        // 详尽的中文注释：封面存在性探测现在先走短窗口缓存。
+        // 这样同一本书在连续重组或多个列表投影里被重复检查时，绝大多数“封面本来就存在”的情况
+        // 都能直接复用最近一次判断结果，避免把 File.exists() 变成高频同步磁盘噪音。
+        val presence = resolveCoverPresence(book)
+        if (!presence.isCoverLost && !presence.isThumbnailLost) return
 
         if (pendingRegenerations.add(bookId)) {
             scope.launch(Dispatchers.IO) {
@@ -189,8 +198,81 @@ class CoverRecoveryHelper(
         return ext in setOf("jpg", "jpeg", "png", "webp")
     }
 
+    /**
+     * 详尽的中文注释：在秒级短窗口内复用最近一次封面存在性探测结果。
+     * key 中包含 lastScannedAt，因此一旦封面重建成功或手动更换封面，下一次检查会自然落到新 key，
+     * 不会因为旧缓存而继续误判“封面仍然缺失”。
+     */
+    private fun resolveCoverPresence(book: BookEntity): CoverPresenceState {
+        val cacheKey = buildCoverPresenceCacheKey(book)
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        val cachedSnapshot = coverPresenceCache[cacheKey]
+        if (cachedSnapshot != null && nowElapsedMs - cachedSnapshot.checkedAtElapsedMs <= COVER_PRESENCE_CACHE_TTL_MS) {
+            return CoverPresenceState(
+                isCoverLost = cachedSnapshot.isCoverLost,
+                isThumbnailLost = cachedSnapshot.isThumbnailLost
+            )
+        }
+
+        val presence = CoverPresenceState(
+            isCoverLost = book.coverPath == null || !File(book.coverPath).exists(),
+            isThumbnailLost = book.thumbnailPath == null || !File(book.thumbnailPath).exists()
+        )
+        coverPresenceCache[cacheKey] = CoverPresenceSnapshot(
+            checkedAtElapsedMs = nowElapsedMs,
+            isCoverLost = presence.isCoverLost,
+            isThumbnailLost = presence.isThumbnailLost
+        )
+        pruneExpiredCoverPresenceSnapshots(nowElapsedMs)
+        return presence
+    }
+
+    /**
+     * 详尽的中文注释：缓存 key 直接绑定到“当前这份封面状态快照”。
+     * 只要路径或 lastScannedAt 任何一项变化，就说明 UI 后续看到的是另一轮封面事实，
+     * 这时必须重新做一次物理存在性探测，而不是沿用上一轮缓存判断。
+     */
+    private fun buildCoverPresenceCacheKey(book: BookEntity): String =
+        "${book.id}|${book.coverPath.orEmpty()}|${book.thumbnailPath.orEmpty()}|${book.lastScannedAt}"
+
+    /**
+     * 详尽的中文注释：短窗口缓存只为压掉瞬时重复 I/O，不应该无限增长。
+     * 因此当缓存项超过上限时，只清理已经过期的旧条目，保留最近仍可能被多次复用的判断结果。
+     */
+    private fun pruneExpiredCoverPresenceSnapshots(nowElapsedMs: Long) {
+        if (coverPresenceCache.size <= MAX_COVER_PRESENCE_CACHE_SIZE) return
+        val iterator = coverPresenceCache.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (nowElapsedMs - entry.value.checkedAtElapsedMs > COVER_PRESENCE_CACHE_TTL_MS) {
+                iterator.remove()
+            }
+        }
+    }
+
+    /**
+     * 详尽的中文注释：把最近一次封面存在性判断压缩成一个极小的内存态结果对象，
+     * 既能表达“原图是否丢失”和“缩略图是否丢失”，又不会把 File 对象或更多运行期状态带进缓存里。
+     */
+    private data class CoverPresenceState(
+        val isCoverLost: Boolean,
+        val isThumbnailLost: Boolean
+    )
+
+    /**
+     * 详尽的中文注释：缓存快照只保存结果和检测时刻。
+     * 使用 elapsed realtime 记录检测时间可以避开系统时间被用户修改后导致 TTL 判断跳变的问题。
+     */
+    private data class CoverPresenceSnapshot(
+        val checkedAtElapsedMs: Long,
+        val isCoverLost: Boolean,
+        val isThumbnailLost: Boolean
+    )
+
     private companion object {
         private const val MAX_CONCURRENT_COVER_REGENERATIONS = 2
+        private const val COVER_PRESENCE_CACHE_TTL_MS = 3_000L
+        private const val MAX_COVER_PRESENCE_CACHE_SIZE = 512
     }
 }
 

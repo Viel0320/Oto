@@ -4,6 +4,11 @@ import android.app.Application
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
+import com.viel.aplayer.logger.CoverImageCoilEventListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,7 +17,7 @@ import kotlinx.coroutines.launch
 /**
  * 自定义 Application 类，负责全局依赖容器初始化。
  */
-class APlayerApplication : Application() {
+class APlayerApplication : Application(), ImageLoaderFactory {
     
     /** 
      * 全局依赖容器实例计算属性。
@@ -35,6 +40,30 @@ class APlayerApplication : Application() {
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             container.autoRewindManager.performColdStartSelfHealing()
         }
+    }
+
+    override fun newImageLoader(): ImageLoader {
+        // 详尽注释：全应用只提供一个 Coil ImageLoader，让封面请求工厂生成的统一 key 能进入同一个
+        // memory/disk cache 池；如果各页面隐式创建不同 ImageLoader，即使 key 一致也无法稳定复用缓存。
+        return ImageLoader.Builder(this)
+            .memoryCache {
+                MemoryCache.Builder(this)
+                    .maxSizePercent(0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("coil_image_cache"))
+                    .maxSizePercent(0.02)
+                    .build()
+            }
+            .eventListenerFactory(
+                // 详尽注释：把封面专用的 Coil 事件桥接统一挂到全局 ImageLoader 上，
+                // 这样无论封面请求来自首页、详情页、播放器还是迷你播放器，只要共用这一个 loader，
+                // 就能在同一缓存池口径下持续记录成功、失败、取消以及 dataSource 命中事实。
+                CoverImageCoilEventListener.Factory()
+            )
+            .build()
     }
 
     companion object {
