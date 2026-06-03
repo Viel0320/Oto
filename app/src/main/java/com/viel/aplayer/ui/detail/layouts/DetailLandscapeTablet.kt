@@ -18,13 +18,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.LocalWindowClass
 import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.common.WindowClass
 import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
 import com.viel.aplayer.ui.detail.components.DetailHeader
@@ -52,9 +53,10 @@ fun DetailTabletLandscape(
     onShowInfo: (String, String) -> Unit, // 弹窗详情展示回调
     modifier: Modifier = Modifier
 ) {
-    val configuration = LocalConfiguration.current
+    // 详尽的中文注释：使用全局窗口属性 LocalWindowClass 获取屏幕宽度，避免直接依赖 LocalConfiguration，增强组件封装。
+    val windowClass = LocalWindowClass.current
     val layoutDirection = LocalLayoutDirection.current
-    val screenWidthDp = configuration.screenWidthDp.dp
+    val screenWidthDp = windowClass.screenWidthDp
     
     val sidePadding = screenWidthDp * 0.04f
     val startPadding = sidePadding + safeDrawingPadding.calculateStartPadding(layoutDirection)
@@ -155,21 +157,26 @@ fun DetailTabletLandscape(
 
 @Preview(showBackground = true, apiLevel = 36, widthDp = 1280, heightDp = 800)
 @Composable
-fun DetailTabletLandscapePreview() {
+fun DetailLandscapeTabletPreview() {
     APlayerTheme {
-        Surface {
-            DetailTabletLandscape(
-                book = BookEntity(id = "1", rootId = "root", sourceType = "LOCAL", title = "三体", author = "刘慈欣", narrator = "王明", description = "这是一部科幻巨著。"),
-                uiState = DetailUiState(),
-                padding = PaddingValues(24.dp),
-                safeDrawingPadding = PaddingValues(0.dp),
-                glassEffectMode = GlassEffectMode.Material,
-                detailBackdrop = rememberLayerBackdrop(),
-                onPlayPressed = {},
-                onPlayClick = {},
-                onSearchClick = {},
-                onShowInfo = { _, _ -> }
-            )
+        // 详尽的中文注释：在预览中显式提供横屏平板设备窗口预设，验证详情页平板双栏排版展示效果。
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.TabletLandscape
+        ) {
+            Surface {
+                DetailTabletLandscape(
+                    book = BookEntity(id = "1", rootId = "root", sourceType = "LOCAL", title = "三体", author = "刘慈欣", narrator = "王明", description = "这是一部科幻巨著。"),
+                    uiState = DetailUiState(),
+                    padding = PaddingValues(24.dp),
+                    safeDrawingPadding = PaddingValues(0.dp),
+                    glassEffectMode = GlassEffectMode.Material,
+                    detailBackdrop = rememberLayerBackdrop(),
+                    onPlayPressed = {},
+                    onPlayClick = {},
+                    onSearchClick = {},
+                    onShowInfo = { _, _ -> }
+                )
+            }
         }
     }
 }

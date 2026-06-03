@@ -101,11 +101,20 @@ fun APlayerTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    // 详尽的中文注释：
+    // 感知当前窗口/物理屏幕的配置与像素尺寸变化，自适应推导并产生相应的 WindowClass 实例。
+    // 使用 CompositionLocalProvider 将该实例作为全局 LocalWindowClass 提供，
+    // 使得整棵界面树下的所有子 Composable 界面与各个 Compose Previews 均能零阻碍地共享自适应逻辑。
+    val windowClass = com.viel.aplayer.ui.common.rememberWindowClass()
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.viel.aplayer.ui.common.LocalWindowClass provides windowClass
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }
 
 /**

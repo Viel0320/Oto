@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.settings.about
 
 import android.content.Intent
-import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -60,7 +59,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontFamily
@@ -72,6 +70,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import com.viel.aplayer.ui.common.LocalWindowClass
+import com.viel.aplayer.ui.common.WindowClass
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 /**
@@ -176,13 +176,13 @@ fun AboutLibrariesScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
     val layoutDirection = LocalLayoutDirection.current
 
-    // 判定大屏或横屏以适配优雅的中轴窄布局，使排版更具呼吸感
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val isWideScreen = configuration.screenWidthDp >= 600
-    val useWideLayout = isLandscape || isWideScreen
+    // 详尽的中文注释：使用统一封装的 WindowClass 替代 LocalConfiguration 进行大屏/横屏的优雅自适应，支持中轴窄卡片布局。
+    val windowClass = LocalWindowClass.current
+    val isLandscape = windowClass.isLandscape
+    val isWideScreen = windowClass.isTablet
+    val useWideLayout = windowClass.isWideScreen
 
     // 提取当前系统的物理避让 safe insets，用于精准控制内容安全边距
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
@@ -527,6 +527,11 @@ private fun borderStroke(width: Dp, color: Color) =
 @Composable
 fun AboutLibrariesScreenPreview() {
     APlayerTheme {
-        AboutLibrariesScreen(onBack = {})
+        // 详尽的中文注释：显式提供 PortraitPhone（竖屏手机）预设以展示开源许可页面的竖屏单列填充。
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.PortraitPhone
+        ) {
+            AboutLibrariesScreen(onBack = {})
+        }
     }
 }

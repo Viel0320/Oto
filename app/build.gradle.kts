@@ -79,6 +79,10 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    // 详尽的中文注释：
+    // 引入官方的 material3-window-size-class 依赖项，
+    // 用以实现基于官方规范的 WindowWidthSizeClass 与 WindowHeightSizeClass 自适应尺寸代理计算。
+    implementation(libs.androidx.compose.material3.windowsize)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

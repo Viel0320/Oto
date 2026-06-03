@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.miniplayer
 
-import android.content.res.Configuration
+// 导入 fillMaxSize 以支持全屏 Box 容器的排版，修复编译报错，保证迷你播放器悬浮位置的精确控制
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -8,16 +8,15 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
-// 导入 fillMaxSize 以支持全屏 Box 容器的排版，修复编译报错，保证迷你播放器悬浮位置的精确控制
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.LocalWindowClass
 import com.viel.aplayer.ui.player.PlayerViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -54,11 +53,11 @@ fun MiniPlayerOverlay(
         playerViewModel.settingsState.map { it.isMiniPlayerHidden }.distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
 
-    // 获取设备配置，决策自适应对齐位置
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val isLargeScreen = configuration.screenWidthDp >= 600 || configuration.smallestScreenWidthDp >= 600
-    val usePillPlayer = isLandscape || isLargeScreen
+    // 详尽的中文注释：使用全局 LocalWindowClass 获取自适应配置信息，决定对齐位置和是否使用药丸状播放器，提升了组件响应性与模块内聚。
+    val windowClass = LocalWindowClass.current
+    val isLandscape = windowClass.isLandscape
+    val isLargeScreen = windowClass.isTablet
+    val usePillPlayer = windowClass.isWideScreen
 
     // 药丸播放器悬浮在右下角，条状播放器贴在底部中央
     val playerAlignment = if (usePillPlayer) Alignment.BottomEnd else Alignment.BottomCenter
@@ -121,10 +120,11 @@ private fun MiniPlayerContent(
         viewModel.currentBookAvailability(metadata.id)
     }.collectAsStateWithLifecycle(initialValue = true)
 
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val isLargeScreen = configuration.screenWidthDp >= 600 || configuration.smallestScreenWidthDp >= 600
-    val usePillPlayer = isLandscape || isLargeScreen
+    // 详尽的中文注释：同级内容卡片中使用 LocalWindowClass 获取大小，从而判定呈现紧凑药丸播放器还是底部宽条播放器。
+    val windowClass = LocalWindowClass.current
+    val isLandscape = windowClass.isLandscape
+    val isLargeScreen = windowClass.isTablet
+    val usePillPlayer = windowClass.isWideScreen
 
     Box {
         if (usePillPlayer) {

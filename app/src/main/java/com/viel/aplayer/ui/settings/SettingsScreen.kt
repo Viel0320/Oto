@@ -59,7 +59,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -72,6 +71,8 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
+import com.viel.aplayer.ui.common.LocalWindowClass
+import com.viel.aplayer.ui.common.WindowClass
 import com.viel.aplayer.ui.theme.APlayerTheme
 
 /**
@@ -159,14 +160,13 @@ fun SettingsScreen(
     var absLibraryId by remember { mutableStateOf("") }
     var absLibraryName by remember { mutableStateOf("") }
 
-    // 获取设备当前的屏幕配置信息，用于自适应判定
-    val configuration = LocalConfiguration.current
-    // 判定当前设备是否为横屏方向
-    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    // 判定当前设备是否为大屏平板或大折叠屏（宽度 >= 600dp）
-    val isWideScreen = configuration.screenWidthDp >= 600
-    // 如果处于横屏或者大屏状态，则启用尊贵的容器化集中布局，使内容左右两侧各自空出 10% 的宽度（总计填充 80% 宽度，即 0.8f 比例）
-    val useWideLayout = isLandscape || isWideScreen
+    // 详尽的中文注释：
+    // 使用统一的 WindowClass 接口获取当前窗口的方向和屏幕分类状态，
+    // 替代了在此对 LocalConfiguration 对象的直接物理属性读取，使设置页面能够平滑地根据平板/横屏状态自适应中轴窄布局比例。
+    val windowClass = LocalWindowClass.current
+    val isLandscape = windowClass.isLandscape
+    val isWideScreen = windowClass.isTablet
+    val useWideLayout = windowClass.isWideScreen
 
     // 利用 WindowInsets.safeDrawing 动态获取当前横屏侧边物理刘海及导航栏宽度，完全零硬编码
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
@@ -1027,40 +1027,45 @@ private fun SettingsSectionHeader(title: String) {
 @Composable
 fun SettingsScreenPreview() {
     APlayerTheme {
-        SettingsScreen(
-            onBack = {},
-            onLibraryRootSelected = {},
-            onWebDavRootSubmitted = { _, _, _, _, _ -> },
-            onAbsConnectionTest = { _, _, _ -> },
-            onAbsRootSubmitted = { _, _, _, _, _ -> },
-            onAbsSync = {},
-            onAbsBackgroundSync = {},
-            absSyncConfirmationState = null,
-            onDismissLargeAbsSync = {},
-            onRescan = {},
-            libraryRoots = emptyList(),
-            absServers = emptyList(),
-            absConnectionState = AbsConnectionUiState(),
-            isChapterProgressMode = false,
-            onChapterProgressModeChange = {},
-            isCleartextTrafficAllowed = false,
-            onCleartextTrafficAllowedChange = {},
-            onDeleteLibraryRoot = {},
-            isSkipSilenceEnabled = false,
-            onSkipSilenceEnabledChange = {},
-            isSleepFadeOutEnabled = true,
-            onSleepFadeOutEnabledChange = {},
-            isShakeToResetEnabled = true,
-            onShakeToResetEnabledChange = {},
-            sleepMode = SleepMode.Regular,
-            onSleepModeChange = {},
-            glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
-            onGlassEffectModeChange = {},
-            autoRewindSeconds = 0,
-            onAutoRewindSecondsChange = {},
-            isNotificationAvoidanceEnabled = false,
-            onNotificationAvoidanceEnabledChange = {},
-            onAboutLibrariesClick = {}
-        )
+        // 详尽的中文注释：在预览中显式提供 PortraitPhone（竖屏手机）预设，验证设置页面的竖屏单列填充表现。
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.PortraitPhone
+        ) {
+            SettingsScreen(
+                onBack = {},
+                onLibraryRootSelected = {},
+                onWebDavRootSubmitted = { _, _, _, _, _ -> },
+                onAbsConnectionTest = { _, _, _ -> },
+                onAbsRootSubmitted = { _, _, _, _, _ -> },
+                onAbsSync = {},
+                onAbsBackgroundSync = {},
+                absSyncConfirmationState = null,
+                onDismissLargeAbsSync = {},
+                onRescan = {},
+                libraryRoots = emptyList(),
+                absServers = emptyList(),
+                absConnectionState = AbsConnectionUiState(),
+                isChapterProgressMode = false,
+                onChapterProgressModeChange = {},
+                isCleartextTrafficAllowed = false,
+                onCleartextTrafficAllowedChange = {},
+                onDeleteLibraryRoot = {},
+                isSkipSilenceEnabled = false,
+                onSkipSilenceEnabledChange = {},
+                isSleepFadeOutEnabled = true,
+                onSleepFadeOutEnabledChange = {},
+                isShakeToResetEnabled = true,
+                onShakeToResetEnabledChange = {},
+                sleepMode = SleepMode.Regular,
+                onSleepModeChange = {},
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
+                onGlassEffectModeChange = {},
+                autoRewindSeconds = 0,
+                onAutoRewindSecondsChange = {},
+                isNotificationAvoidanceEnabled = false,
+                onNotificationAvoidanceEnabledChange = {},
+                onAboutLibrariesClick = {}
+            )
+        }
     }
 }

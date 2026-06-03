@@ -30,12 +30,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
+import com.viel.aplayer.ui.common.LocalWindowClass
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
@@ -102,12 +102,13 @@ fun PlayerLandscapePhone(
     chapterSheetBackdrop: LayerBackdrop,
     modifier: Modifier = Modifier
 ) {
-    val configuration = LocalConfiguration.current
+    // 详尽的中文注释：使用全局窗口属性 LocalWindowClass 获取屏幕宽度和高度，完全隔离 LocalConfiguration 以提供更内聚的自适应布局体验。
+    val windowClass = LocalWindowClass.current
     val density = LocalDensity.current
 
     // 根据手机屏幕总宽度按比重划分呼吸间距
-    val screenWidthDp = configuration.screenWidthDp.dp
-    val screenHeightDp = configuration.screenHeightDp.dp
+    val screenWidthDp = windowClass.screenWidthDp
+    val screenHeightDp = windowClass.screenHeightDp
     val sidePadding = screenWidthDp * 0.04f
     val middleSpacing = screenWidthDp * 0.06f
 

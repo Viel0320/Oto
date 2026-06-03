@@ -42,6 +42,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
+import com.viel.aplayer.ui.common.LocalWindowClass
+import com.viel.aplayer.ui.common.WindowClass
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -207,9 +209,9 @@ fun PlayerScreen(
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    // 使用 LocalConfiguration 检测屏幕方向，动态分流横竖屏自适应布局与圆角设计
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // 详尽的中文注释：使用统一的 WindowClass 接口获取当前窗口的方向，去除了在此对 LocalConfiguration 物理方向的依赖，支持多设备无阻碍适配。
+    val windowClass = LocalWindowClass.current
+    val isLandscape = windowClass.isLandscape
 
     LaunchedEffect(targetMode) {
         currentMode = targetMode
@@ -311,9 +313,8 @@ fun PlayerScreen(
                 Box(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // 仅当设备的最小宽度 dp 大于等于 600 (即平板设备) 且当前为横屏状态时，才启用平板横屏双栏自适应布局
-                    val isTablet = configuration.smallestScreenWidthDp >= 600
-                    val isTabletLandscape = isTablet && isLandscape
+                    // 详尽的中文注释：使用全局窗口属性自适应判定平板横屏状态，去掉了对 LocalConfiguration 和 smallestScreenWidthDp 的直接引用。
+                    val isTabletLandscape = windowClass.isTabletLandscape
                     when {
                         isTabletLandscape -> {
                             PlayerTabletLandscape(
@@ -519,17 +520,22 @@ fun PlayerScreen(
 @Composable
 fun PlayerScreenPreview() {
     APlayerTheme {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+        // 详尽的中文注释：在预览中显式提供竖屏手机的窗口尺寸预设，以确保主播放页能够准确展示出标准的竖屏手势抽屉排版。
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.PortraitPhone
         ) {
-            PlayerScreen(
-                viewModel = PlayerViewModel(),
-                actions = PlayerActions(),
-                navigationActions = PlayerNavigationActions(),
-                glassEffectMode = GlassEffectMode.Material
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                PlayerScreen(
+                    viewModel = PlayerViewModel(),
+                    actions = PlayerActions(),
+                    navigationActions = PlayerNavigationActions(),
+                    glassEffectMode = GlassEffectMode.Material
+                )
+            }
         }
     }
 }
@@ -540,17 +546,22 @@ fun PlayerScreenPreview() {
 @Composable
 fun PlayerScreenLandscapePreview() {
     APlayerTheme {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+        // 详尽的中文注释：在预览中显式提供横屏手机的窗口尺寸预设，以验证在大宽度横屏下左右分流的双栏播放器排版渲染是否准确。
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.LandscapePhone
         ) {
-            PlayerScreen(
-                viewModel = PlayerViewModel(),
-                actions = PlayerActions(),
-                navigationActions = PlayerNavigationActions(),
-                glassEffectMode = GlassEffectMode.MiuixBlur
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                PlayerScreen(
+                    viewModel = PlayerViewModel(),
+                    actions = PlayerActions(),
+                    navigationActions = PlayerNavigationActions(),
+                    glassEffectMode = GlassEffectMode.MiuixBlur
+                )
+            }
         }
     }
 }

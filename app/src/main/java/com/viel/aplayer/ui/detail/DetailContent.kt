@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.detail
 
 // 使用 miuix-blur 替换旧的模糊库依赖，以实现基于视口的高分辨率毛玻璃高斯模糊效果。
 // 引入 Compose 的各种组件与状态依赖以构造无状态的书籍详情页纯渲染组件 DetailContent。
-import android.content.res.Configuration
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -51,7 +50,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -67,6 +65,8 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDialog
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.CoverBackground
+import com.viel.aplayer.ui.common.LocalWindowClass
+import com.viel.aplayer.ui.common.WindowClass
 import com.viel.aplayer.ui.detail.components.SelectableTextView
 import com.viel.aplayer.ui.detail.layouts.DetailLandscapePhone
 import com.viel.aplayer.ui.detail.layouts.DetailPortrait
@@ -141,7 +141,7 @@ fun DetailContent(
                 predictiveBackProgress = backEvent.progress
             }
             onBackClick()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+        } catch (_: kotlin.coroutines.cancellation.CancellationException) {
             // 中途滑回放弃返回手势
         } finally {
             isPredictiveBackActive = false
@@ -246,11 +246,10 @@ fun DetailContent(
                 },
                 containerColor = Color.Transparent,
             ) { padding ->
-                // 动态获取当前的配置与屏幕方向，用于设备自适应布局分流
-                val configuration = LocalConfiguration.current
-                val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                val isTablet = configuration.smallestScreenWidthDp >= 600
-                val isTabletLandscape = isTablet && isLandscape
+                // 详尽的中文注释：使用统一的 WindowClass 接口获取当前窗口的方向与平板横屏状态，去除了直接对 LocalConfiguration 的依赖。
+                val windowClass = LocalWindowClass.current
+                val isLandscape = windowClass.isLandscape
+                val isTabletLandscape = windowClass.isTabletLandscape
 
                 when {
                     isTabletLandscape -> {
@@ -387,12 +386,86 @@ fun DetailContent(
 }
 
 @Preview(name = "Phone Portrait", showBackground = true, apiLevel = 36)
+@Composable
+fun DetailContentPortraitPreview() {
+    APlayerTheme {
+        // 详尽的中文注释：显式提供 PortraitPhone（竖屏手机）窗口预设，确保详情页在竖屏下渲染出从上至下排列的垂直详情布局。
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.PortraitPhone
+        ) {
+            DetailContent(
+                uiState = DetailUiState(
+                    book = BookWithProgress(
+                        book = BookEntity(
+                            id = "id",
+                            rootId = "preview-root",
+                            sourceType = "SINGLE_AUDIO",
+                            title = "In the Megachurch",
+                            author = "Ryo Asai",
+                            narrator = "Narrator A",
+                            totalDurationMs = 36000L,
+                            year = "2023",
+                            description = "A preview description."
+                        ),
+                        progress = null
+                    ),
+                    isVisible = true,
+                    isAvailable = true,
+                    progressPercent = 45,
+                    displayProgressPercent = 45,
+                    backgroundColorArgb = AppSettings.DEFAULT_GLASS_EFFECT_MODE.ordinal,
+                    fullSourcePath = ""
+                ),
+                onBackClick = {},
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+            )
+        }
+    }
+}
+
 @Preview(
     name = "Phone Landscape",
     showBackground = true,
     device = "spec:width=720dp,height=360dp,orientation=landscape,dpi=440",
     apiLevel = 36
 )
+@Composable
+fun DetailContentLandscapePreview() {
+    APlayerTheme {
+        // 详尽的中文注释：显式提供 LandscapePhone（横屏手机）窗口预设，测试详情页在横屏下的左右双栏窄高自适应排版。
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.LandscapePhone
+        ) {
+            DetailContent(
+                uiState = DetailUiState(
+                    book = BookWithProgress(
+                        book = BookEntity(
+                            id = "id",
+                            rootId = "preview-root",
+                            sourceType = "SINGLE_AUDIO",
+                            title = "In the Megachurch",
+                            author = "Ryo Asai",
+                            narrator = "Narrator A",
+                            totalDurationMs = 36000L,
+                            year = "2023",
+                            description = "A preview description."
+                        ),
+                        progress = null
+                    ),
+                    isVisible = true,
+                    isAvailable = true,
+                    progressPercent = 45,
+                    displayProgressPercent = 45,
+                    backgroundColorArgb = AppSettings.DEFAULT_GLASS_EFFECT_MODE.ordinal,
+                    fullSourcePath = ""
+                ),
+                onBackClick = {},
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+            )
+        }
+    }
+}
+
 @Preview(
     name = "Tablet Landscape",
     showBackground = true,
@@ -400,33 +473,38 @@ fun DetailContent(
     apiLevel = 36
 )
 @Composable
-fun DetailContentPreview() {
+fun DetailContentTabletLandscapePreview() {
     APlayerTheme {
-        DetailContent(
-            uiState = DetailUiState(
-                book = BookWithProgress(
-                    book = BookEntity(
-                        id = "id",
-                        rootId = "preview-root",
-                        sourceType = "SINGLE_AUDIO",
-                        title = "In the Megachurch",
-                        author = "Ryo Asai",
-                        narrator = "Narrator A",
-                        totalDurationMs = 36000L,
-                        year = "2023",
-                        description = "A preview description."
+        // 详尽的中文注释：显式提供 TabletLandscape（横屏平板）窗口预设，确保宽屏幕下渲染出尊贵的平板自适应双栏排版。
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalWindowClass provides WindowClass.TabletLandscape
+        ) {
+            DetailContent(
+                uiState = DetailUiState(
+                    book = BookWithProgress(
+                        book = BookEntity(
+                            id = "id",
+                            rootId = "preview-root",
+                            sourceType = "SINGLE_AUDIO",
+                            title = "In the Megachurch",
+                            author = "Ryo Asai",
+                            narrator = "Narrator A",
+                            totalDurationMs = 36000L,
+                            year = "2023",
+                            description = "A preview description."
+                        ),
+                        progress = null
                     ),
-                    progress = null
+                    isVisible = true,
+                    isAvailable = true,
+                    progressPercent = 45,
+                    displayProgressPercent = 45,
+                    backgroundColorArgb = AppSettings.DEFAULT_GLASS_EFFECT_MODE.ordinal,
+                    fullSourcePath = ""
                 ),
-                isVisible = true,
-                isAvailable = true,
-                progressPercent = 45,
-                displayProgressPercent = 45,
-                backgroundColorArgb = AppSettings.DEFAULT_GLASS_EFFECT_MODE.ordinal,
-                fullSourcePath = ""
-            ),
-            onBackClick = {},
-            glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
-        )
+                onBackClick = {},
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+            )
+        }
     }
 }
