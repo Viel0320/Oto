@@ -17,10 +17,11 @@
    - `Backdrop`：180 x 180，直接复用 `small180` key。
    - `Main1200`：1200 x 1200。
 6. `Backdrop` 与小封面共用 `small180` cache key，这是刻意保留的 cache coalescing。
-7. `small180` 服务 backdrop / blurred ambience，也服务 Home list、recent、mini 等小封面 UI。
+7. `small180` 服务 backdrop / blurred ambience，也服务 Home list、mini 等小封面 UI。`medium360` 服务 HomeRecent 封面。
 8. 封面转场中的主封面目标只消费 `main1200`。
 9. shared element 转场过程中的 cover 视觉来自 `initialSourceMountSpec` 的同源内存挂载，而不是用 `small180` 替代转场封面。
-10. `CoverImageVariant.ThumbnailMedium`（360x360）不参与封面转场设计。当前无 UI 组件在转场涉及的封面场景中使用 `ThumbnailMedium`。若未来有新场景使用，需单独评估其 preload 和消费规则。
+10. `CoverImageVariant.ThumbnailMedium`（360x360）参与封面转场设计。`HomeRecent`（`RecentlyItem`，`ListCardItem.kt`）使用 `ThumbnailMedium` 渲染封面。`HomeRecent` 是保留动画流 `home <-> detail` 的明确参与者，其就绪门控和消费规则必须基于 `medium360` 而非 `small180`。
+11. `NavHost` 只有单一路由 `"home"`（`APlayerNavHost.kt`）。Detail、Player、Mini 都是 `AnimatedVisibility` 控制的 overlay，不是导航目的地。Home 封面的 `AnimatedVisibilityScope` 来自一个永不发生路由切换的 scope，转场实际只能由 target（overlay）侧的 `AnimatedVisibility` 驱动。
 
 ## 保留与移除的动画流
 
@@ -97,7 +98,7 @@ cover:<sessionId>
 1. `SharedTransitionScope` 统一来自 `APlayerApp` 根级 `SharedTransitionLayout`。
 2. `AnimatedVisibilityScope` 各参与者按上表从自己所在的 `AnimatedVisibility` 或 NavHost `composable` block 获取。
 3. 两个 scope 必须通过 `CoverTransitionSharedScopes` holder 组合传递给 `CoverTransitionSharedCover`。
-4. Home 封面的 `AnimatedVisibilityScope` 来自 NavHost 的 `composable` block，而非独立的 `AnimatedVisibility`，这意味着 Home 封面的 shared element 退场依赖 NavHost 的路由切换动画；如果 Home 页面不发生路由退出，Home cover 作为 source 不会有 outgoing transition，此时由 target 侧的 `AnimatedVisibilityScope` 驱动转场。
+4. Home 封面的 `AnimatedVisibilityScope` 来自 NavHost 的 `composable` block，而非独立的 `AnimatedVisibility`。由于 NavHost 只有 `"home"` 一个路由，Home 页面永不发生路由退出，Home 封面的 scope 是**常驻/静止**的。Home cover 作为 source 不会有 outgoing transition，转场完全由 target 侧的 `AnimatedVisibilityScope` 驱动。**这是待验证的设计前提**——source 侧 scope 永久 settled 时，shared element 能否正常触发 bounds 动画、以及静止的 Home 封面会不会在原位“留底”造成重影，需要在阶段 2 之前用最小原型验证。
 
 ## Shared 节点
 
@@ -156,14 +157,14 @@ container:<sessionId>
 规则：
 
 1. `sharedBounds` 和 `sharedElement` 使用不同的 key。封面用 `cover:<sessionId>`，容器用 `container:<sessionId>`。
-2. `sharedBounds` 挂载在容器最外层，`sharedElement` 挂载在容器内部的封面节点上。两者独立运行，互不干涉。
-3. mini → player 方向：mini 容器 bounds 变形为 player 全屏 bounds；mini 内容 fade out，player 内容 fade in。
-4. player → mini 方向：player 全屏 bounds 变形为 mini 容器 bounds；player 内容 fade out，mini 内容 fade in。
+2. `sharedBounds` 挂载在容器最外层，`sharedElement` 挂载在容器内部的封面节点上。**设计意图是两者独立运行，但需要验证**：容器使用 `ScaleToBounds` 会缩放内容，封面作为子节点又有自己的 `sharedElement`，是否产生双重变换（一次被容器缩放、一次被 overlay 提升）需实测确认。
+3. mini → player 方向：mini 容器 bounds 变形为 player 全屏 bounds；mini 内容 fade out，player 内容 fade in。fade 效果由 `sharedBounds` 的 `enter`/`exit` 参数提供（因为 `AnimatedVisibility` 的 enter/exit 在 session 匹配时为 `None`，不提供 fade）。
+4. player → mini 方向：player 全屏 bounds 变形为 mini 容器 bounds；player 内容 fade out，mini 内容 fade in。fade 来源同上。
 5. `sharedBounds` 的 resizeMode 使用 `ScaleToBounds`，避免 content remeasure 导致内容布局抖动。
 6. sharedBounds 转场期间的 overlay clip 必须使用动画圆角（source shape → target shape 插值），不允许出现直角帧。
 7. 只有 mini ↔ player 方向使用容器 sharedBounds。Home ↔ Detail、Detail → Player 不使用容器 sharedBounds。
 8. session context 中的 `sourceRole` 为 `Mini` 且 `targetRole` 为 `Player`（或反向）时，controller 才生成 `container:<sessionId>` key。
-9. `sharedBounds` 替代 MiniPlayerOverlay 和 PlayerOverlay 中现有的 `slideInVertically` / `slideOutVertically` enter/exit 动画。session active 且匹配时，`AnimatedVisibility` 的 enter/exit spec 改为 `EnterTransition.None` / `ExitTransition.None`，由 sharedBounds 接管视觉过渡。
+9. `sharedBounds` 替代 MiniPlayerOverlay 和 PlayerOverlay 中现有的 `slideInVertically` / `slideOutVertically` enter/exit 动画。session active 且 bookId 匹配时，`AnimatedVisibility` 的 enter/exit spec 改为 `EnterTransition.None` / `ExitTransition.None`，由 sharedBounds 接管视觉过渡。**待验证**：enter/exit 为 `None` 时，可见性切换可能在一帧内完成，`isTransitionActive` 瞬间 true→false，bounds 动画能否撑住整个 `boundsTransform` 时长需要原型确认。
 10. session 不匹配或不存在时，保留原有的 `slideInVertically` / `slideOutVertically`。
 11. Compact 和 Pill 两种 mini 变体共用同一个 `container:<sessionId>` key，因为同一时刻只有一种变体在组合树中。
 12. `sharedBounds` 的 `AnimatedVisibilityScope` 来源与各自的封面 sharedElement 相同（见 AnimatedVisibilityScope 来源映射表）。
@@ -237,6 +238,16 @@ Session 与 preload 等待规则：
     若条件 a 先满足但条件 b 未满足，session 保持 `SharedTransitionActive` phase 并等待动画结束后再清理。
 11. controller 清理 session 时只取消未完成 preload job；已 ready 且已被消费的结果不回滚。
 12. controller 监听 `SharedTransitionScope.isTransitionActive` 状态。当 `isTransitionActive` 从 true 变为 false 且消费结果已确定时，执行 session 清理。若 shared element / sharedBounds 未实际发生转场（source / target 未同时参与），`isTransitionActive` 不会变为 true，此时消费结果确定后直接清理。
+13. `isTransitionActive` 是 `SharedTransitionScope` 的全局信号，不按 key 区分。清理逻辑的正确性依赖“全局唯一 active session”这个不变量——因此 `isTransitionActive == false` 等价于“本 session 的转场已结束”。若未来放宽并发 session，必须改用按 key 追踪的机制。
+14. `isTransitionActive` 桥接规则：controller 本身不持有 `SharedTransitionScope`，因此需要在持有 scope 的 Composable 中建立桥接。具体做法：在 `APlayerApp` 的 `SharedTransitionLayout` 内部，使用 `LaunchedEffect { snapshotFlow { isTransitionActive }.collect(CoverTransitionController::onTransitionStateChanged) }` 将 scope 信号桥接到 controller。此桥接属于阶段 2（Shared Scope 注入）的执行范围。
+
+## 组件归属与生命周期
+
+1. `CoverTransitionController` 为 process 级 `object` 单例，内部持有永生的 `controllerScope`（`Dispatchers.Main.immediate + SupervisorJob`）。
+2. `activeSession` 为 Compose `mutableStateOf`，配置变更（屏幕旋转）时 Activity 重建但 process 不死，单例保持。残留 session 在新 Activity 重建后仍可被新的 `SharedTransitionLayout` scope 读取，但转场动画本身会被中断。旋转后应主动清理悬挂 session。
+3. Coil `ImageLoader` 来自 Application 级单例（Coil 默认行为），controller 不自建 ImageLoader。
+4. `sessionId` 生成策略：使用 `UUID.randomUUID().toString()` 或递增计数器，保证全局唯一即可。
+5. 配置变更时 `controllerScope` 不重建、不取消。旋转导致的 Activity 重建不影响单例存活，但活跃 preload job 可能在新 scope 下变得无意义。
 
 ## Initial Source Mount Spec
 
@@ -267,8 +278,11 @@ Variant 的挂载目标不能混用：
 main1200:
   - Detail / Player 主封面。
 
+medium360:
+  - HomeRecent 封面 UI。
+
 small180:
-  - Home list / recent / mini 等小封面 UI。
+  - Home list / mini 等小封面 UI。
   - Backdrop / blurred ambience。
   - 与 Backdrop 共用 180px cache key。
 
@@ -279,15 +293,18 @@ initialSourceMountSpec:
 
 规则：
 
-1. 小封面 UI 可以消费 `small180`。
-2. 主封面目标只消费 `main1200`。
-3. Backdrop 消费 `small180`。
-4. shared element 转场内容不用 `small180` 替代封面，而是使用 `initialSourceMountSpec`。
-5. `small180` ready 后优先通知 Home / Mini 小封面目标和 Backdrop。
-6. `main1200` ready 后通知 Detail / Player 主封面目标。
-7. 任一 variant 在自己的 1s preload 等待窗口内未 ready 时，该 variant 本轮降级失败。
-8. 目标所需 variant 未 ready 时，目标 shared cover 继续挂 `initialSourceMountSpec`。
-9. 目标所需 variant ready 时，目标 shared cover 在同一个 shared element 内容内替换为 ready 内容，并触发本目标消费完成。
+1. Home list / mini 等小封面 UI 消费 `small180`。
+2. HomeRecent 封面 UI 消费 `medium360`。
+3. 主封面目标只消费 `main1200`。
+4. Backdrop 消费 `small180`。
+5. shared element 转场内容不用 `small180` 替代封面，而是使用 `initialSourceMountSpec`。
+6. `small180` ready 后优先通知 Home list / Mini 小封面目标和 Backdrop。
+7. `medium360` ready 后通知 HomeRecent 封面目标。
+8. `main1200` ready 后通知 Detail / Player 主封面目标。
+9. HomeRecent 目标的就绪门控必须基于 `medium360`，不能用 `small180` 门控替代。
+10. 任一 variant 在自己的 1s preload 等待窗口内未 ready 时，该 variant 本轮降级失败。
+11. 目标所需 variant 未 ready 时，目标 shared cover 继续挂 `initialSourceMountSpec`。
+12. 目标所需 variant ready 时，目标 shared cover 在同一个 shared element 内容内替换为 ready 内容，并触发本目标消费完成。
 
 ## Preloader
 
@@ -299,9 +316,12 @@ initialSourceMountSpec:
 main1200:
   - Detail / Player 主封面。
 
+medium360:
+  - HomeRecent 封面 UI。
+
 small180:
   - Backdrop / blurred ambience。
-  - Home list / recent / mini 等小封面 UI。
+  - Home list / mini 等小封面 UI。
 ```
 
 策略：
@@ -455,6 +475,27 @@ flowchart TD
 
 6. 1200 解码造成内存压力。
    - 处理：main1200 全局限流为 2，并为单个 preload job 设置 1s timeout。
+7. 被完全遮挡的 overlay 参与转场计算。
+   - 当前 overlay 层级：`APlayerNavHost → DetailOverlay → MiniPlayerOverlay → EditBookOverlay → PlayerOverlay → SearchOverlay`。PlayerOverlay 全屏展开时完全遮住下方 Detail/Mini/Home，但这些被遮住的 overlay 仍参与 composition/layout。
+   - 处理：被完全遮挡且不参与当前动画的 overlay 应跳过转场相关计算（shared cover 匹配、ready 消费等）。具体策略：session context 中记录 source/target role，不匹配的 overlay 中的 shared cover 不应启用 sharedElement。
+
+## 与 layerBackdrop 毛玻璃系统的交互
+
+`APlayerApp` 大量使用 `Modifier.layerBackdrop(...)` 做视口级毛玻璃采样，层级关系围绕“谁采样谁、避免 Vulkan feedback loop”精心摆放。`SharedTransitionLayout` 包在根部罩住整棵树时，会引入以下交互风险：
+
+1. **overlay 层采样问题**：转场中“飞行”的封面渲染在 shared overlay 层，可能被 `appBackdrop`/`detailBackdrop` 采样到。采到可能造成毛玻璃重影，采不到可能造成毛玻璃闪烁。
+2. **lookahead pass 干扰**：在 `layerBackdrop` 节点外再套一层 lookahead 的 `SharedTransitionLayout`，可能改变采样源捕获的布局。
+3. **验证要求**：阶段 2 的最小原型必须在开启毛玻璃的状态下测试，确认转场动画不会破坏现有毛玻璃效果。
+
+## 待验证的 Compose 行为
+
+以下三个设计假设基于未验证的 Compose 行为，必须在阶段 2 之前用最小原型确认。任一不成立，后续阶段的验收口径都要变。
+
+1. **Home source scope 永久 settled 时 shared element 能否动起来**：NavHost 只有 `"home"` 一个路由，source 侧 scope 永不退场。shared element 的典型用法是一侧 enter、另一侧 exit。source 侧永久 settled 时，bounds 动画能否触发、静止的 Home 封面会不会在原位“留底”造成重影，需实测确认。
+2. **`EnterTransition.None` / `ExitTransition.None` + sharedBounds 能否撑住动画时长**：enter/exit 为 None 时，可见性切换可能在一帧内完成，`isTransitionActive` 瞬间 true→false。需确认 sharedBounds 的 `boundsTransform` 能否独立维持动画时长。
+3. **sharedElement 嵌套在 sharedBounds(ScaleToBounds) 内部时是否双重变换**：容器 ScaleToBounds 缩放内容，封面子节点又有自己的 sharedElement overlay 提升。二者是否会对封面产生双重变换（一次被容器缩放、一次被 overlay 提升）需实测。
+
+原型验证建议在 `motion/covertransition/` 下建立最小可运行的 demo，只验证上述三个机制，不接入业务逻辑。
 
 ## 分阶段实施计划
 
@@ -474,7 +515,7 @@ flowchart TD
 6. `initialSourceMountSpec.memoryCacheKey` 命中后立即创建 session，并立即启动 `small180` / `main1200` preload job。
 7. 每个 preload job 自己记录 `timeoutAtElapsedMs = jobStartedAtElapsedMs + 1000ms`；该 timeout 只限制本 job，不限制 cover 动画。
 8. 不设置 shared match 帧等待；source / target shared node 未同时参与时，业务路径照常完成，preload job 按各自 1s timeout 退出。
-9. `small180` 同时服务 Home list、recent、mini 等小封面 UI 和 Backdrop；`small180` 不替代 shared element 转场内容。
+9. `small180` 同时服务 Home list、mini 等小封面 UI 和 Backdrop；`medium360` 服务 HomeRecent 封面；`small180` 不替代 shared element 转场内容。
 10. `small180` ready 后先于 `main1200` 被消费。
 11. shared element 转场内容使用 `initialSourceMountSpec`。
 12. `main1200` 只服务 Detail / Player 主封面。
@@ -488,7 +529,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 
 16. Player → Mini 方向只 preload `small180`，不 preload `main1200`。Target 为 Mini 时不需要 `main1200`。
 
-### 阶段 0：当前缓存规则固定
+### 阶段 0：当前缓存规则固定 【done】
 
 改动范围：
 
@@ -508,7 +549,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 3. `CoverBackground` 继续传入 `allowHardware = false`。
 4. `compileDebugKotlin` 通过。
 
-### 阶段 1：类型与 Session 模型
+### 阶段 1：类型与 Session 模型 【todo】
 
 新增文件：
 
@@ -519,7 +560,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 
 执行任务：
 
-1. 定义 `CoverTransitionParticipantRole`：`HomeList`、`HomeRecent`、`Detail`、`Mini`、`Player`。
+1. 定义 `CoverTransitionParticipantRole`：`HomeList`、`HomeRecent`、`CompactMini`、`PillMini`、`DetailMain`、`PlayerMain`。Mini 拆分为 Compact/Pill 两个角色，与圆角策略一一对应。
 2. 定义 `CoverTransitionContext`，字段固定包含 `sessionId`、`sharedContentKey`、`bookId`、`sourceRole`、`targetRole`、`direction`、`priority`、`startedAtElapsedMs`。
    - `bookId` 指本次转场涉及的有声书 ID。
    - 不包含 `coverPath`、`thumbnailPath`、`coverLastUpdated`。这些属于 book 实体自身的属性，由使用方通过 `bookId` 查询获取，不冗余存储在 context 中。
@@ -537,7 +578,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 3. session phase 与 sharedContentKey 可由纯 Kotlin 调用构造出来。
 4. `compileDebugKotlin` 通过。
 
-### 阶段 2：Shared Scope 注入
+### 阶段 2：Shared Scope 注入 【todo】
 
 新增文件：
 
@@ -564,7 +605,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 3. 所有页面打开、关闭、滚动、播放行为保持原样。
 4. `compileDebugKotlin` 通过。
 
-### 阶段 3：Preloader 与 Ready 状态
+### 阶段 3：Preloader 与 Ready 状态 【todo】
 
 新增文件：
 
@@ -595,7 +636,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 5. controller 清理 session 后未完成 job 不再写 ready。
 6. `compileDebugKotlin` 通过。
 
-### 阶段 4：Controller 与 Coordinator 生命周期
+### 阶段 4：Controller 与 Coordinator 生命周期 【todo】
 
 新增文件：
 
@@ -622,7 +663,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 
 1. `requestHomeToDetail(book, origin)` 只接受 `HomeList` 或 `HomeRecent` source。
 2. `requestDetailToHome(bookId)` 只返回原 origin target。
-3. `requestDetailToPlayer(book, miniVisibilitySnapshot)` 在 mini 真正可见且 `currentBookId == targetBookId` 时返回 `Mini -> Player` context。
+3. `requestDetailToPlayer(book, miniVisibilitySnapshot)` 接收调用方传入的 `miniVisibilitySnapshot` 布尔值。调用方负责计算 mini 是否真正可见且 `currentBookId == targetBookId`；controller 信任该布尔值，不重复判定。若为 true 则返回 `Mini -> Player` context。
 4. `requestDetailToPlayer(book, miniVisibilitySnapshot)` 在 mini 不可复用时返回 `Detail -> Player` context。
 5. `requestMiniToPlayer(book)` 必须在调用 `setFullPlayerVisible(true)` 前冻结 `Mini` source。
 6. `requestPlayerToMini(book)` 必须在调用 `setFullPlayerVisible(false)` 前冻结 `Player` source。
@@ -637,7 +678,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 5. `home -> player` 不创建 session。
 6. `compileDebugKotlin` 通过。
 
-### 阶段 5：Shared Cover 接入
+### 阶段 5：Shared Cover 接入 【todo】
 
 新增文件：
 
@@ -670,7 +711,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 4. shared transition 不改变页面、backdrop、控制区动画。
 5. `compileDebugKotlin` 通过。
 
-### 阶段 6：Ready 消费接入
+### 阶段 6：Ready 消费接入 【todo】
 
 修改文件：
 
@@ -703,7 +744,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 5. ready 替换发生在同一个 shared element 内容内。
 6. `compileDebugKotlin` 通过。
 
-### 阶段 7：Mini <-> Player
+### 阶段 7：Mini <-> Player 【todo】
 
 修改文件：
 
@@ -746,9 +787,9 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 7. player → mini 时，全屏 bounds 平滑收缩到 mini 容器，无 slide 动画。
 8. session 不匹配时，保留原有 slide 动画效果不变。
 9. sharedBounds 转场过程中不出现直角帧。
-10. 封面 sharedElement 和容器 sharedBounds 同时运行、互不干涉。
+10. 封面 sharedElement 和容器 sharedBounds 同时运行，验证不产生双重变换（见"待验证的 Compose 行为"第 3 项）。
 
-### 阶段 8：Home <-> Detail
+### 阶段 8：Home <-> Detail 【todo】
 
 修改文件：
 
@@ -781,7 +822,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 4. active session 存在时打开详情不创建新 session。
 5. `compileDebugKotlin` 通过。
 
-### 阶段 9：Detail -> Player
+### 阶段 9：Detail -> Player 【todo】
 
 修改文件：
 
@@ -807,7 +848,7 @@ $env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot'; .\gradlew.ba
 4. Player shared node 未参与时不等待，player 保持普通打开结果，preload job 按各自 1s timeout 退出。
 5. `compileDebugKotlin` 通过。
 
-### 阶段 10：最终回归
+### 阶段 10：最终回归 【todo】
 
 执行任务：
 
