@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Detail View Model: Coordinates UI state, availability checking, and asset details for the book details panel.
@@ -59,7 +60,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             viewModelScope.launch {
                 // Unified Delay Timing (Align VM delay with the duration gate)
                 // References the single constant `UNPLAYED_PROTECTION_WINDOW_MS` to prevent mismatch issues.
-                delay(UNPLAYED_PROTECTION_WINDOW_MS)
+                delay(UNPLAYED_PROTECTION_WINDOW_MS.milliseconds)
                 _playbackStartedAt.value = null
                 // Terminate Protection (Restore display progress to match actual progress values)
                 _uiState.update { it.copy(displayProgressPercent = it.progressPercent) }

@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 // Decouples gesture logic from main views declarations to clarify the layout.
 @Composable
 fun PlayerVerticalAppBar(
+    modifier: Modifier = Modifier,
     metadata: BookMetadataState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
@@ -40,8 +41,7 @@ fun PlayerVerticalAppBar(
     hazeState: HazeState? = null,
     offsetY: Animatable<Float, AnimationVector1D>,
     scope: CoroutineScope,
-    dismissThreshold: Float,
-    modifier: Modifier = Modifier
+    dismissThreshold: Float
 ) {
     PlayerAppBar(
         title = metadata.title,

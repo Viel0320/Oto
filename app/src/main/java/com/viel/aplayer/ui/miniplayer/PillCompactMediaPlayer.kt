@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.miniplayer
 
+// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and modifiers.
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -43,15 +44,15 @@ import coil.compose.AsyncImage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
-// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and modifiers.
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * Pill Compact Media Player: A floating stadium-shaped mini player that overlays at the bottom of the screen.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun PillCompactMediaPlayer(
     modifier: Modifier = Modifier,
@@ -101,12 +102,12 @@ fun PillCompactMediaPlayer(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .navigationBarsPadding()
             .let {
-                if (isBlurMode && hazeState != null) {
+                if (isBlurMode) {
                     it
                         // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
                         // Clip pill shape before applying hazeChild
                         .clip(pillShape)
-                        .hazeChild(
+                        .hazeEffect(
                             state = hazeState,
                             style = HazeMaterials.regular()
                         )

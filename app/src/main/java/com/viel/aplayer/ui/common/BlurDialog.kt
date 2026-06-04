@@ -50,8 +50,6 @@ fun BlurDialog(
     scrollable: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    // Dark Mode Auto-Adaptation (Inspects the active system theme to adjust the dialog's blended backdrop color)
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
     Dialog(
         onDismissRequest = onDismissRequest,

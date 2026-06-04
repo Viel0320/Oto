@@ -3,6 +3,8 @@ package com.viel.aplayer.widget
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -97,7 +99,7 @@ internal object WidgetCoverArtRenderer {
         val scale = TARGET_MAX_SIZE.toFloat() / maxEdge.toFloat()
         val targetWidth = (width * scale).roundToInt().coerceAtLeast(1)
         val targetHeight = (height * scale).roundToInt().coerceAtLeast(1)
-        val scaled = Bitmap.createScaledBitmap(this, targetWidth, targetHeight, true)
+        val scaled = this.scale(targetWidth, targetHeight)
         if (scaled !== this) {
             recycle()
         }
@@ -119,7 +121,7 @@ internal object WidgetCoverArtRenderer {
             blurredPixels = blurredPixels.boxBlur(width, height, BLUR_RADIUS)
         }
 
-        val mutableBlurred = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+        val mutableBlurred = createBitmap(width, height, Bitmap.Config.RGB_565)
         mutableBlurred.setPixels(blurredPixels, 0, width, 0, 0, width, height)
 
         // Immutability conversion. RemoteViews only needs the finalized background; copying to an immutable Bitmap protects it against subsequent pixel alterations.

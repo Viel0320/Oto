@@ -60,7 +60,8 @@ import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
 import com.viel.aplayer.ui.player.layouts.PlayerPortrait
 import com.viel.aplayer.ui.player.layouts.PlayerTabletLandscape
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
@@ -72,7 +73,9 @@ enum class PlayerScreenMode(val index: Int) {
     RELATED(2)
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
+    ExperimentalHazeMaterialsApi::class
+)
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
@@ -315,7 +318,9 @@ fun PlayerScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .hazeChild(state = coverHazeState, style = HazeMaterials.ultraThin())
+                            .hazeEffect(
+                                state = coverHazeState,
+                                style = HazeMaterials.ultraThin())
                     )
                 }
 

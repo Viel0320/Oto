@@ -34,9 +34,11 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun ChapterDisplay(
     currentChapterTitle: String?,
@@ -80,7 +82,7 @@ fun ChapterDisplay(
                     // Setup Suggestion Chip Haze (Apply hazeChild to the chip container Box)
                     // Clip Chip Shape (Apply clip to chip container) Pre-clip container shape before applying hazeChild to avoid rendering shape mismatch.
                     .clip(chipShape)
-                    .hazeChild(
+                    .hazeEffect(
                         state = hazeState,
                         style = HazeMaterials.regular()
                     )

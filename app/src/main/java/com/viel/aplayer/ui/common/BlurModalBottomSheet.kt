@@ -50,13 +50,13 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BlurModalBottomSheet(
+    modifier: Modifier = Modifier,
     onDismissRequest: () -> Unit,
     // Support Nullable HazeState (Provide fallback when hazeState is not ready)
     // Make hazeState optional and default to null so the sheet can degrade gracefully in previews or when parent has no blur context.
     hazeState: HazeState? = null,
     // Glass effect mode must be explicitly passed from the settings state by the caller to prevent BottomSheet from declaring default values privately.
     glassEffectMode: GlassEffectMode,
-    modifier: Modifier = Modifier,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
     shape: Shape = BottomSheetDefaults.ExpandedShape,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -67,8 +67,6 @@ fun BlurModalBottomSheet(
     contentWindowInsets: @Composable () -> WindowInsets = { BottomSheetDefaults.windowInsets },
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // Obtain the current dark/light mode state of the system for adaptive BottomSheet color blending.
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
     // Set the outer containerColor to transparent in Haze mode, letting the internal frosted glass Box render the background to avoid double backgrounds.
     // Determine Container Color (Use transparent only if Haze blur is active)

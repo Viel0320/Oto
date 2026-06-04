@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerViewModel : ViewModel() {
@@ -434,7 +435,7 @@ class PlayerViewModel : ViewModel() {
             // Delays for 5 seconds to synchronize UI dismissals with PlaybackService actions.
             manager.playbackState.collectLatest { state ->
                 if (state == androidx.media3.common.Player.STATE_ENDED) {
-                    delay(5000)
+                    delay(5000.milliseconds)
                     // Verify completion status (To ensure player is still idle before dismissing screen)
                     val currentState = manager.playbackState.value
                     if (currentState == androidx.media3.common.Player.STATE_ENDED || 
@@ -531,7 +532,7 @@ class PlayerViewModel : ViewModel() {
             settingsManager.setUndoSeekVisible(true)
             undoJob?.cancel()
             undoJob = viewModelScope.launch {
-                delay(3000)
+                delay(3000.milliseconds)
                 settingsManager.setUndoSeekVisible(false)
             }
         } else {

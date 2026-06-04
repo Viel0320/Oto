@@ -74,7 +74,8 @@ import com.viel.aplayer.ui.detail.layouts.DetailLandscapePhone
 import com.viel.aplayer.ui.detail.layouts.DetailPortrait
 import com.viel.aplayer.ui.detail.layouts.DetailTabletLandscape
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -86,7 +87,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(
     ExperimentalMaterial3Api::class,
-    ExperimentalFoundationApi::class
+    ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class
 )
 @Composable
 fun DetailContent(
@@ -99,7 +100,6 @@ fun DetailContent(
     onSearchClick: (String) -> Unit = {}, // Callback for clicking a specific tag to search for related books
     glassEffectMode: GlassEffectMode, // Precise control of dynamic switching between Material design and frosted glass Haze mode
     // Setup Haze State Arguments (Map backdrop parameters to HazeState) Changed LayerBackdrop to HazeState.
-    hazeState: HazeState? = null,
     fullPageHazeState: HazeState? = null,
     onEditClick: (String) -> Unit = {}, // Callback for clicking to edit book metadata details
 ) {
@@ -187,7 +187,9 @@ fun DetailContent(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .hazeChild(state = coverHazeState, style = HazeMaterials.ultraThin())
+                        .hazeEffect(
+                            state = coverHazeState,
+                            style = HazeMaterials.ultraThin())
                 )
             }
 

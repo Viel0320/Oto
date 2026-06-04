@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import kotlin.time.Duration.Companion.milliseconds
 
 data class SubtitleLine(
     val startTime: Long,
@@ -68,7 +69,7 @@ fun SubtitlesView(
 
     LaunchedEffect(isDragged, autoScrollEnabled) {
         if (!isDragged && !autoScrollEnabled) {
-            kotlinx.coroutines.delay(5000)
+            kotlinx.coroutines.delay(5000.milliseconds)
             autoScrollEnabled = true
         }
     }

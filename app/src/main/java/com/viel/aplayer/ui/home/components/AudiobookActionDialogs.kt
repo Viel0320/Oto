@@ -55,6 +55,7 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun AudiobookActionDialogs(
+    modifier: Modifier = Modifier,
     bookWithProgress: BookWithProgress?,
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
@@ -63,8 +64,7 @@ fun AudiobookActionDialogs(
     onDismissRequest: () -> Unit,
     onUpdateReadStatus: (String, String) -> Unit,
     onForceRegenerate: (String) -> Unit,
-    onDeleteBook: (String) -> Unit,
-    modifier: Modifier = Modifier
+    onDeleteBook: (String) -> Unit
 ) {
     if (bookWithProgress == null) return
 

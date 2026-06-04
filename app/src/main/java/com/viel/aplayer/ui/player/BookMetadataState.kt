@@ -48,5 +48,4 @@ data class BookMetadataState(
         }
     }
 
-    private fun <T> emptyInList(): List<T> = emptyList()
 }

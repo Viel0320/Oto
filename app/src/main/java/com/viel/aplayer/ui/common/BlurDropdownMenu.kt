@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
@@ -29,6 +29,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  */
 @Composable
 fun BlurDropdownMenu(
+    modifier: Modifier = Modifier,
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     // Support Nullable HazeState (Provide fallback when hazeState is not ready)
@@ -36,7 +37,6 @@ fun BlurDropdownMenu(
     hazeState: HazeState? = null,
     // Glass effect mode must be explicitly passed from the settings state by the caller to prevent the generic menu from declaring default values privately.
     glassEffectMode: GlassEffectMode,
-    modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(0.dp, 0.dp),
     scrollState: ScrollState = rememberScrollState(),
     properties: PopupProperties = PopupProperties(focusable = true),
@@ -51,15 +51,13 @@ fun BlurDropdownMenu(
     } else {
         MenuDefaults.containerColor
     }
-    // Obtain the current dark/light mode state of the system for adaptive drop-down menu base color blending.
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
     val menuModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
         Modifier
             // Clip menu shape before applying hazeChild
             .clip(menuShape)
-            .hazeChild(
+            .hazeEffect(
                 state = hazeState,
                 style = HazeMaterials.regular()
             )

@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Settings view model (Handler for configuration persistence interactions)
@@ -111,7 +112,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             // Postpone SAF status refresh (To avoid interfering with Activity transitions and initial frame draws)
             // Delays for 500ms before validating SAF storage permissions to ensure smooth UI animation rendering.
-            kotlinx.coroutines.delay(500)
+            kotlinx.coroutines.delay(500.milliseconds)
             // Verify folder accessibility (To update status indicators for library root cards)
             // Triggers directory verification flow through libraryRootGateway.
             libraryRootGateway.refreshLibraryRootStatuses()
@@ -122,7 +123,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             // Postpone SAF status refresh (To avoid interfering with Activity transitions and initial frame draws)
             // Delays for 500ms before validating SAF storage permissions to ensure smooth UI animation rendering.
-            kotlinx.coroutines.delay(500)
+            kotlinx.coroutines.delay(500.milliseconds)
             // Verify folder accessibility (To update status indicators for library root cards)
             // Triggers directory verification flow through libraryRootGateway.
             libraryRootGateway.refreshLibraryRootStatuses()

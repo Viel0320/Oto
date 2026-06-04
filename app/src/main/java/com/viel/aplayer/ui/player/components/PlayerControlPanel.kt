@@ -35,11 +35,11 @@ import dev.chrisbanes.haze.HazeState
  * @param actions Aggregated player actions callback.
  * @param buttonColor The dominant color of the control buttons (the transition-animated dominant color of the book cover).
  * @param glassEffectMode The current glass effect mode (Material/miuix-blur) for the player.
- * @param backdrop The LayerBackdrop sampling source.
  * @param modifier The layout modifier passed from outside to elastically control width and alignment layout.
  */
 @Composable
 fun PlayerControlPanel(
+    modifier: Modifier = Modifier,
     currentPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
@@ -53,8 +53,7 @@ fun PlayerControlPanel(
     buttonColor: Color,
     glassEffectMode: GlassEffectMode,
     // Setup Haze State (Transition backdrop reference to HazeState)
-    hazeState: HazeState? = null,
-    modifier: Modifier = Modifier
+    hazeState: HazeState? = null
 ) {
     Column(
         // Hardcoded padding(horizontal = 24.dp) has been stripped, moving control of layout padding to external callers to achieve full edge-to-edge layout or custom indentations.

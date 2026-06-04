@@ -21,7 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeSource
 
 /**
  * Globally shared background cover strong blur ambience component, applicable to both playback and details pages.
@@ -79,7 +79,7 @@ fun CoverBackground(
             .background(backgroundBrush)
             .then(
                 if (isBlur && hazeState != null) {
-                    Modifier.haze(hazeState)
+                    Modifier.hazeSource(hazeState)
                 } else {
                     Modifier
                 }

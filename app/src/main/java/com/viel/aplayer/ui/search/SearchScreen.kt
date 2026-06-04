@@ -59,7 +59,8 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
@@ -70,9 +71,10 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  * All complex logics like query input, search trigger, history deletion, and book click are converted into declarative parameters and Lambda callbacks,
  * greatly simplifying UI responsibilities, eliminating unnecessary recompositions, and providing barrier-free instant preview capabilities for Compose Previews.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun SearchContent(
+    modifier: Modifier = Modifier,
     query: TextFieldValue,
     searchResults: List<BookWithProgress>,
     searchHistory: List<SearchHistoryEntry>,
@@ -89,7 +91,6 @@ fun SearchContent(
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
-    modifier: Modifier = Modifier,
     autoFocus: Boolean = true,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -131,11 +132,11 @@ fun SearchContent(
         modifier = modifier
             .fillMaxSize()
             .then(
-                if (isBlur && hazeState != null) {
+                if (isBlur) {
                     Modifier
                         // Setup SearchContent Haze (Apply hazeChild to Scaffold to blur underlying home screen contents)
                         // Remove Search Haze Shape (Use default shape matching host) Haze 1.x hazeChild does not take shape parameter.
-                        .hazeChild(
+                        .hazeEffect(
                             state = hazeState,
                             style = HazeMaterials.regular()
                         )

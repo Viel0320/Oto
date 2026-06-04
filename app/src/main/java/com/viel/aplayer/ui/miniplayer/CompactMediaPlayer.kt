@@ -4,7 +4,6 @@ package com.viel.aplayer.ui.miniplayer
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,10 +42,11 @@ import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun CompactMediaPlayer(
     modifier: Modifier = Modifier,
@@ -73,16 +73,15 @@ fun CompactMediaPlayer(
 
     // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
-    val isDark = isSystemInDarkTheme()
 
     Surface(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .let {
-                if (isBlurMode && hazeState != null) {
+                if (isBlurMode) {
                     // Setup CompactPlayer Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to Surface container.
-                    it.hazeChild(
+                    it.hazeEffect(
                         state = hazeState,
                         style = HazeMaterials.regular()
                     )

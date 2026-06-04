@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeSource
 
 /**
  * DetailOverlay Floating Screen (Decoupled Detail Overlay Component)
@@ -50,7 +50,7 @@ fun DetailOverlay(
                 .fillMaxSize()
                 .then(
                     if (glassEffectMode == GlassEffectMode.Haze && detailHazeState != null) {
-                        Modifier.haze(detailHazeState)
+                        Modifier.hazeSource(detailHazeState)
                     } else {
                         Modifier
                     }

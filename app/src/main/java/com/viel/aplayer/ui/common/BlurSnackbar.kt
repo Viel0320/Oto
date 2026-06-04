@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
@@ -37,11 +37,11 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  */
 @Composable
 fun BlurSnackbar(
+    modifier: Modifier = Modifier,
     // Support Nullable HazeState (Provide fallback when hazeState is not ready)
     // Make hazeState optional and default to null so the snackbar can degrade gracefully in previews or when parent has no blur context.
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
-    modifier: Modifier = Modifier,
     action: @Composable (() -> Unit)? = null,
     dismissAction: @Composable (() -> Unit)? = null,
     actionOnNewLine: Boolean = false,
@@ -60,13 +60,11 @@ fun BlurSnackbar(
     // Align with the Haze mode, using hazeChild on the fly to render the frosted glass effect when hazeState is available.
     if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         // Obtain the current dark mode status of the system for dual-state frosted glass color adaptation.
-        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-        // Setup Glass Modifier (Apply Haze frosted glass effect) Use hazeChild instead of miuix textureBlur.
         val glassModifier = Modifier
             // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
             // Clip snackbar shape before applying hazeChild
             .clip(shape)
-            .hazeChild(
+            .hazeEffect(
                 state = hazeState,
                 style = HazeMaterials.regular()
             )

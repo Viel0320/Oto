@@ -30,14 +30,14 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun SearchOverlay(
+    modifier: Modifier = Modifier,
     searchViewModel: SearchViewModel,
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
-    onNavigateToPlayer: () -> Unit,
-    modifier: Modifier = Modifier
+    onNavigateToPlayer: () -> Unit
 ) {
     // Collect Visible State (Lifecycle-Aware Flow Collection)
     // Collect the visibility state of the overlay using collectAsStateWithLifecycle() to automatically cut off redundant data observation when app goes to background.
@@ -91,6 +91,7 @@ fun SearchOverlay(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
+    modifier: Modifier = Modifier,
     onBack: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
@@ -98,8 +99,7 @@ fun SearchScreen(
     viewModel: SearchViewModel,
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
-    glassEffectMode: GlassEffectMode,
-    modifier: Modifier = Modifier
+    glassEffectMode: GlassEffectMode
 ) {
     // Collect Query and Results (Optimize Resource Usage in Background)
     // Collect query, searchResults, and searchHistory from ViewModel using collectAsStateWithLifecycle().

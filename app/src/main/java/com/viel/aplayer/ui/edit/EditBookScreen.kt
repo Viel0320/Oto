@@ -73,7 +73,8 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import java.io.File
 
@@ -89,9 +90,8 @@ import java.io.File
  * @param onSave Action callback triggered on confirm save, distributing updated parameters and cover paths.
  * @param glassEffectMode Specifies the glassmorphic rendering style.
  * @param modifier The modifier layout chain.
- * @param detailBackdrop The backdrop sampling source used for glassmorphic layers.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun EditBookScreen(
     book: BookEntity?,
@@ -155,7 +155,7 @@ fun EditBookScreen(
                 predictiveBackProgress = backEvent.progress
             }
             handleCancel()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+        } catch (_: kotlin.coroutines.cancellation.CancellationException) {
             // Gesture cancelled mid-swipe
         } finally {
             isPredictiveBackActive = false
@@ -200,7 +200,6 @@ fun EditBookScreen(
         }
     }
 
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     val density = LocalDensity.current
     val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
@@ -226,10 +225,10 @@ fun EditBookScreen(
             }
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
             .then(
-                if (isBlur && detailHazeState != null) {
+                if (isBlur) {
                     // Setup EditBook Haze (Apply hazeChild to main sheet container Box)
                     // Remove EditBook Haze Shape (Use default shape matching host) Haze 1.x hazeChild does not take shape parameter.
-                    Modifier.hazeChild(
+                    Modifier.hazeEffect(
                         state = detailHazeState,
                         style = HazeMaterials.regular()
                     )
@@ -450,18 +449,12 @@ fun EditBookScreen(
                                     .height(56.dp)
                                     // Apply blur backdrop to save container for design continuity
                                     .then(
-                                        if (detailHazeState != null) {
-                                            // Setup Save Button Haze (Apply hazeChild to Save button background)
-                                            // Clip Save Button Shape (Apply clip to button container) Clip shape before calling hazeChild.
-                                            Modifier
-                                                .clip(RoundedCornerShape(16.dp))
-                                                .hazeChild(
-                                                    state = detailHazeState,
-                                                    style = HazeMaterials.regular()
-                                                )
-                                        } else {
-                                            Modifier
-                                        }
+                                        Modifier
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .hazeEffect(
+                                                state = detailHazeState,
+                                                style = HazeMaterials.regular()
+                                            )
                                     ),
                                 shape = RoundedCornerShape(16.dp),
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),

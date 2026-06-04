@@ -1,6 +1,7 @@
 package com.viel.aplayer.widget
 
 // Compose state imports. Imports produceState and getValue extensions to declare and bind asynchronously loaded state variables within compositions.
+// ColorProvider migration. The legacy unit.ColorProvider package is deprecated; refactored to color.ColorProvider in Glance 1.1.0+ structures to avoid compiler deprecation warnings.
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -24,6 +25,7 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
+import androidx.glance.color.ColorProvider
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -39,8 +41,6 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-// ColorProvider migration. The legacy unit.ColorProvider package is deprecated; refactored to color.ColorProvider in Glance 1.1.0+ structures to avoid compiler deprecation warnings.
-import androidx.glance.color.ColorProvider
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 

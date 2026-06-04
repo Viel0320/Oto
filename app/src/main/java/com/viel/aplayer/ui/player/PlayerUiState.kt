@@ -9,11 +9,11 @@ import com.viel.aplayer.ui.settings.PlayerSettingsState
  * Bundles metadata, playback status, and settings parameters as a single MVI state container.
  */
 data class PlayerUiState(
-    /** Metadata sub-state (To store book details) */
+    /** Metadata substate (To store book details) */
     val metadata: BookMetadataState = BookMetadataState(),
-    /** Playback sub-state (To store player states) */
+    /** Playback substate (To store player states) */
     val playback: PlaybackState = PlaybackState(),
-    /** Settings sub-state (To store visual parameters) */
+    /** Settings substate (To store visual parameters) */
     val settings: PlayerSettingsState = PlayerSettingsState(),
     /** Author sections (To display list of related author collections) */
     val relatedAuthorSections: List<RelatedSection> = emptyList(),

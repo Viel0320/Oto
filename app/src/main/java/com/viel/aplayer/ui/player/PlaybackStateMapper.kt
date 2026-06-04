@@ -7,8 +7,10 @@ import kotlin.math.ceil
 /**
  * PlaybackStateMapper - Dedicated state mapper for playback status and progress calculations.
  *
- * This component is designed to physically decouple high-frequency progress mapping, chapter conversions, and percentage mathematical logic that were originally concentrated in PlayerViewModel,
- * achieving logical "dehydration" and single-responsibility of the ViewModel, making the code structure more decoupled and easier to unit test independently.
+ * This component is designed to physically decouple high-frequency progress mapping,
+ * chapter conversions, and percentage mathematical logic that were originally concentrated in PlayerViewModel,
+ * achieving logical "dehydration" and single-responsibility of the ViewModel,
+ * making the code structure more decoupled and easier to unit test independently.
  */
 object PlaybackStateMapper {
 

@@ -38,7 +38,6 @@ fun DetailScreen(
         onMoreClick = onMoreClick,
         onSearchClick = onSearchClick,
         glassEffectMode = glassEffectMode,
-        hazeState = hazeState,
         fullPageHazeState = fullPageHazeState,
         onEditClick = onEditClick
     )

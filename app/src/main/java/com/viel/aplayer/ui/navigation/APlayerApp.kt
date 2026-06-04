@@ -41,7 +41,7 @@ import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.search.SearchOverlay
 import com.viel.aplayer.ui.search.SearchViewModel
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeSource
 
 @Composable
 fun APlayerApp(
@@ -227,7 +227,7 @@ fun APlayerApp(
                         .then(
                             // Align to Haze settings mode
                             if (libraryUiState.glassEffectMode == GlassEffectMode.Haze) {
-                                Modifier.haze(hazeState)
+                                Modifier.hazeSource(hazeState)
                             } else {
                                 Modifier
                             }

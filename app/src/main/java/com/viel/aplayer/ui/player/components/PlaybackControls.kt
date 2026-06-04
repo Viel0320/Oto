@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.player.components
 
 // Import fundamental background modifiers to resolve unresolved reference compilation errors on miuix-blur frosted glass big button background modifiers.
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,11 +45,13 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.PlaybackControlActions
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun PlaybackControls(
     isPlaying: Boolean,
@@ -73,7 +74,7 @@ fun PlaybackControls(
             // Debounce delay adjustment for speed selection.
             //
             // Adjusted to 1500 milliseconds (1.5 seconds) to provide a more sufficient buffer against accidental double clicks or spamming.
-            delay(1500) // Wait for 1.5s of inactivity
+            delay(1500.milliseconds) // Wait for 1.5s of inactivity
             val msg = if (playbackSpeed == 1.0f) "Playback speed reset" else "Playback speed: ${playbackSpeed}x"
             // Unified speed UI feedback events.
             //
@@ -90,7 +91,7 @@ fun PlaybackControls(
             // Debounce delay adjustment for sleep timer.
             //
             // Adjusted to 1500 milliseconds (1.5 seconds) to avoid spamming the screen with toast popups during rapid successive clicks.
-            delay(1500) // Wait for 1.5s of inactivity
+            delay(1500.milliseconds) // Wait for 1.5s of inactivity
             val msg = when (selectedSleepTimer) {
                 0 -> "Sleep timer off"
                 -1 -> "Sleep in 5 seconds"
@@ -163,7 +164,6 @@ fun PlaybackControls(
             // and combining it with an adaptive locally-declared 0.5.dp shimmering silver stroke on top of the player's built-in large-radius blur(64.dp) background.
             // This constructs an iOS-grade outline lighting breathing visual effect and completely eliminates Feedback Loop crashes on Qualcomm Vulkan drivers during translation animations.
             val playPauseShape = CircleShape
-            val isDark = androidx.compose.foundation.isSystemInDarkTheme()
             // Frosted glass play button transformation.
             //
             // 1. If the backdrop sampling source is present, use textureBlur to render physical Gaussian blur and add subtle frosted noise.
@@ -171,24 +171,11 @@ fun PlaybackControls(
             // 3. Chain-append a 1.dp ultra-fine adaptive refraction edge gradient border to reshape the 3D delicate outline.
             // 4. If null, elegantly and safely degrade back to a semi-transparent material background without strokes to maintain ultimate stability.
             val glassModifier = Modifier
-                .size(80.dp)
-                .let { modifier ->
-                    if (hazeState != null) {
-                        // Setup PlayPause Haze (Apply hazeChild modifier inside custom circular shape)
-                        // Clip PlayPause Shape (Apply clip to play/pause button container) Clip the button container shape to playPauseShape before applying hazeChild.
-                        // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
-                        modifier.clip(playPauseShape).hazeChild(
-                            state = hazeState,
-                            style = HazeMaterials.regular()
-                        )
-                    } else {
-                        modifier
-                            .clip(playPauseShape)
-                            .background(
-                                if (isDark) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.45f)
-                            )
-                    }
-                }
+                .size(80.dp).clip(playPauseShape)
+                .hazeEffect(
+                    state = hazeState,
+                    style = HazeMaterials.regular()
+                )
             Surface(
                 onClick = actions.onPlayPauseClick,
                 modifier = glassModifier,

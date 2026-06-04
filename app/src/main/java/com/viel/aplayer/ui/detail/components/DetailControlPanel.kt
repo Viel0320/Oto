@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.detail.components
 
 // Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
 // Setup Haze Integration (Import dev.chrisbanes.haze library) Import HazeState and Haze modifiers for panel.
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,7 +42,8 @@ import com.viel.aplayer.ui.common.formatFileSize
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.detail.DetailUiState
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
@@ -51,6 +51,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  *
  * Encapsulates the operations control panel of the details page (DetailControlPanel).
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun DetailControlPanel(
     book: BookEntity?,
@@ -65,7 +66,6 @@ fun DetailControlPanel(
 ) {
     // Setup Haze Effect Switch (Check configured visual style) Aligned to renamed Haze option.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
-    val isDark = isSystemInDarkTheme()
     val displayProgress = uiState.displayProgressPercent
 
     val buttonHeight = if (isLandscape) 48.dp else 56.dp
@@ -121,7 +121,7 @@ fun DetailControlPanel(
                             // Setup Play Button Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to button when in Haze mode.
                             it
                                 .clip(RoundedCornerShape(cornerRadius))
-                                .hazeChild(
+                                .hazeEffect(
                                     state = hazeState,
                                     style = HazeMaterials.regular()
                                 )
@@ -219,6 +219,7 @@ fun DetailControlPanel(
  *
  * Refactored details metadata card (DetailInfoChip).
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun DetailInfoChip(
     icon: ImageVector,
@@ -231,17 +232,16 @@ fun DetailInfoChip(
 ) {
     // Detect whether Haze glass effect mode is enabled and sampling source is not null
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
-    val isDark = isSystemInDarkTheme()
 
     // Using a custom Surface instead of SuggestionChip for tighter spacing and no extra transparent clickable area
     Surface(
         modifier = modifier
             .let {
-                if (isBlur && hazeState != null) {
+                if (isBlur) {
                     // Setup Chip Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to metadata chip.
                     it
                         .clip(RoundedCornerShape(12.dp))
-                        .hazeChild(
+                        .hazeEffect(
                             state = hazeState,
                             style = HazeMaterials.regular()
                         )

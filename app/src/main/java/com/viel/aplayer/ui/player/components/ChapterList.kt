@@ -65,7 +65,6 @@ import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -142,9 +141,7 @@ fun ChapterListSheet(
     var canCalculateOffset by remember(isVisible) { mutableStateOf(false) }
     LaunchedEffect(isVisible) {
         if (isVisible) {
-            snapshotFlow { sheetState.currentValue == sheetState.targetValue }
-                .filter { it }
-                .first()
+            snapshotFlow { sheetState.currentValue == sheetState.targetValue }.first { it }
             canCalculateOffset = true
         } else {
             canCalculateOffset = false

@@ -1,6 +1,5 @@
 package com.viel.aplayer.logger
 
-import android.os.SystemClock
 import coil.EventListener
 import coil.fetch.Fetcher
 import coil.request.ErrorResult

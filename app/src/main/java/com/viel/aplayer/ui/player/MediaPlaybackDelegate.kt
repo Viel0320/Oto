@@ -8,6 +8,7 @@ import com.viel.aplayer.media.PlaybackManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Media playback delegate (Controller routing requests to playback service)
@@ -42,7 +43,7 @@ class MediaPlaybackDelegate(
                     onCoverUpdate(book.thumbnailPath ?: book.coverPath)
                     return@launch
                 }
-                delay(1000)
+                delay(1000.milliseconds)
             }
         }
     }
