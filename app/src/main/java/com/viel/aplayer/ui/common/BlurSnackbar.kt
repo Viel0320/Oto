@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
@@ -35,6 +36,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  *    - Haze mode: Sets the Surface container color to fully transparent, relying on hazeChild to render the blurred background.
  *    - Material mode: Uses standard native colors and container corner radiuses to guarantee the peak performance and pure experience of native styling.
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurSnackbar(
     modifier: Modifier = Modifier,
@@ -66,7 +68,7 @@ fun BlurSnackbar(
             .clip(shape)
             .hazeEffect(
                 state = hazeState,
-                style = HazeMaterials.regular()
+                style = HazeMaterials.ultraThick()
             )
 
         // Custom shadowless Surface.

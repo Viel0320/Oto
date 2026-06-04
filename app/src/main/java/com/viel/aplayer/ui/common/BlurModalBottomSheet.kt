@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
@@ -47,7 +49,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  * @param modifier Modifier.
  * @param content BottomSheet body content (ColumnScope).
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurModalBottomSheet(
     modifier: Modifier = Modifier,
@@ -97,9 +99,9 @@ fun BlurModalBottomSheet(
             Modifier
                 // Clip bottom sheet shape before applying hazeChild
                 .clip(shape)
-                .hazeChild(
+                .hazeEffect(
                     state = hazeState,
-                    style = HazeMaterials.regular()
+                    style = HazeMaterials.ultraThick()
                 )
         } else {
             Modifier
