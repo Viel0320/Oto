@@ -38,10 +38,11 @@ fun DetailOverlay(
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
+    // Align transition durations: Set DetailOverlay slide and fade enter/exit transition animations to 300ms for visual uniformity.
     AnimatedVisibility(
         visible = detailUiState.isVisible,
-        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) + fadeOut(),
+        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)),
         modifier = modifier
     ) {
         // Setup Box Modifier (Mount Haze state modifier on details container Box) Apply Haze modifier conditionally on the container Box.

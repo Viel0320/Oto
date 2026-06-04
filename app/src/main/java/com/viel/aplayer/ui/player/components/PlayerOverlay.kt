@@ -7,19 +7,19 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreen
 import com.viel.aplayer.ui.player.PlayerViewModel
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
-import androidx.compose.runtime.CompositionLocalProvider
-import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -51,10 +51,11 @@ fun PlayerOverlay(
         // and pass it through to PlayerScreen to allow the internal chapter list sheet component (ChapterListSheet) to achieve a truly clear blur effect.
         // Setup Haze State (Manage overlay-wide blur capturing state)
         val playerHazeState = remember { HazeState() }
+        // Align transition durations: Set PlayerOverlay slide enter and exit transition animations to 300ms for uniform UX speed.
         AnimatedVisibility(
             visible = isFullPlayerVisible,
-            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)),
-            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
+            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)),
+            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300))
         ) {
             /*
              * Propagate Full Visibility Scope (Local visibility tracking)
@@ -70,7 +71,7 @@ fun PlayerOverlay(
                         .then(
                             if (glassEffectMode == GlassEffectMode.Haze) {
                                 // Setup PlayerOverlay Haze (Apply haze modifier to container to make it a blur source)
-                                Modifier.haze(playerHazeState)
+                                Modifier.hazeSource(playerHazeState)
                             } else {
                                 Modifier
                             }

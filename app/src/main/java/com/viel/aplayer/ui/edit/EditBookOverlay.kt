@@ -128,10 +128,11 @@ fun EditBookOverlay(
     val isVisible by editViewModel.isVisible.collectAsStateWithLifecycle()
     val book by editViewModel.bookState.collectAsStateWithLifecycle()
 
+    // Align transition durations: Specify 300ms tween duration for EditBookOverlay slide-in/slide-out and fade transitions.
     AnimatedVisibility(
         visible = isVisible,
-        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) + fadeOut(),
+        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)),
         modifier = modifier
     ) {
         // Call the completely decoupled stateless EditBookScreen UI component

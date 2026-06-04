@@ -70,16 +70,17 @@ fun MiniPlayerOverlay(
             contentAlignment = playerAlignment
         ) {
             // Place AnimatedVisibility transition inside main window to precisely capture slide-in/slide-out animations when mini player visibility switches
+            // Align transition durations: Set mini player overlay enter/exit slide and fade animation specifications to 300ms.
             AnimatedVisibility(
                 visible = !isFullPlayerVisible && !isMiniPlayerHidden,
                 enter = slideInVertically(
                     initialOffsetY = { it },
-                    animationSpec = tween(400)
-                ) + fadeIn(animationSpec = tween(400)),
+                    animationSpec = tween(300)
+                ) + fadeIn(animationSpec = tween(300)),
                 exit = slideOutVertically(
                     targetOffsetY = { it },
-                    animationSpec = tween(400)
-                ) + fadeOut(animationSpec = tween(400))
+                    animationSpec = tween(300)
+                ) + fadeOut(animationSpec = tween(300))
             ) {
                 /*
                  * Propagate Visibility Scope (Local animation scope binding)

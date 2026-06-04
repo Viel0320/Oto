@@ -87,10 +87,11 @@ fun CompactMediaPlayer(
      * Transition the outer card corner radius from the compact bar's 0.dp to the full screen's 28.dp.
      * Use target state checking to apply rounded corners when fully morphed, preventing straight corner overflow.
      */
+    // Align transition durations: Set compact outer bounds corner radius transition to 300ms.
     val animatedCornerRadius by if (animatedVisibilityScope != null) {
         animatedVisibilityScope.transition.animateDp(
             label = "compact_bounds_corner_radius",
-            transitionSpec = { tween(400) }
+            transitionSpec = { tween(300) }
         ) { enterExitState ->
             if (enterExitState == EnterExitState.Visible) 0.dp else 28.dp
         }
@@ -103,10 +104,11 @@ fun CompactMediaPlayer(
      * Interpolate the artwork cover corner radius between the compact card's 8.dp and
      * the full screen player's 24.dp, ensuring no visual pixel steps occur.
      */
+    // Align transition durations: Set compact artwork cover corner radius transition to 300ms.
     val animatedCoverCornerRadius by if (animatedVisibilityScope != null) {
         animatedVisibilityScope.transition.animateDp(
             label = "compact_cover_corner_radius",
-            transitionSpec = { tween(400) }
+            transitionSpec = { tween(300) }
         ) { enterExitState ->
             if (enterExitState == EnterExitState.Visible) 8.dp else 24.dp
         }

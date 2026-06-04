@@ -59,6 +59,7 @@ import kotlin.math.abs
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PlayerCover(
+    modifier: Modifier = Modifier,
     bookId: String = "",
     isWideScreen: Boolean = false,
     coverPath: String?,
@@ -67,7 +68,6 @@ fun PlayerCover(
     onAdjustVolume: (Float) -> Unit,
     onNextChapter: () -> Unit,
     onPreviousChapter: () -> Unit,
-    modifier: Modifier = Modifier,
     sizeRatio: Float = 0.8f,
     gesturesEnabled: Boolean = true,
     coverScene: String = "main-cover"
@@ -153,9 +153,9 @@ fun PlayerCover(
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MainCoverView(
+    modifier: Modifier = Modifier,
     bookId: String = "",
     isWideScreen: Boolean = false,
-    modifier: Modifier = Modifier,
     coverPath: String?,
     isPlaying: Boolean,
     coverLastUpdated: Long = 0L,
@@ -172,16 +172,14 @@ fun MainCoverView(
      * Interpolate the artwork cover corner radius between the compact card (Bar: 8.dp / Pill: 100.dp)
      * and the full screen player's target corner radius (24.dp).
      */
-    val animatedCoverCornerRadius by if (animatedVisibilityScope != null) {
-        animatedVisibilityScope.transition.animateDp(
-            label = "full_cover_corner_radius",
-            transitionSpec = { tween(400) }
-        ) { enterExitState ->
-            if (enterExitState == EnterExitState.Visible) 24.dp else startCoverCorner
-        }
-    } else {
-        remember { androidx.compose.runtime.mutableStateOf(24.dp) }
+    // Align transition durations: Set artwork cover corner radius transition spec to 300ms to align with other page transitions.
+    val animatedCoverCornerRadius by animatedVisibilityScope?.transition?.animateDp(
+        label = "full_cover_corner_radius",
+        transitionSpec = { tween(300) }
+    ) { enterExitState ->
+        if (enterExitState == EnterExitState.Visible) 24.dp else startCoverCorner
     }
+        ?: remember { mutableStateOf(24.dp) }
 
     val sharedElementModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
         with(sharedTransitionScope) {

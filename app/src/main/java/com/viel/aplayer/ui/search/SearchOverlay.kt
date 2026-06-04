@@ -49,17 +49,18 @@ fun SearchOverlay(
     // In regular non-miuix-blur mode, continue using original slide-in/slide-out animations.
     // Determine Glass Blur Status (Enable blur only if in Haze mode and state is provided)
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    // Align transition durations: Set all SearchOverlay slide and fade enter/exit animations to 300ms for UI consistency.
     AnimatedVisibility(
         visible = isVisible,
         enter = if (isBlur) {
-            fadeIn(animationSpec = tween(400))
+            fadeIn(animationSpec = tween(300))
         } else {
-            slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400))
+            slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300))
         },
         exit = if (isBlur) {
-            fadeOut(animationSpec = tween(400))
+            fadeOut(animationSpec = tween(300))
         } else {
-            slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400))
+            slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
         },
         modifier = modifier
     ) {

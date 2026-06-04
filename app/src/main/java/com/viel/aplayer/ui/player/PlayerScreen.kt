@@ -3,18 +3,16 @@ package com.viel.aplayer.ui.player
 import android.view.RoundedCorner
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.EnterExitState
-import androidx.compose.animation.core.animateDp
-import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
-import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -58,6 +56,8 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
+import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterListSheetStateful
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkDialog
@@ -296,15 +296,16 @@ fun PlayerScreen(
          * Transition the outer card corner radius from the compact layout (Pill: 100.dp / Bar: 0.dp)
          * up to the target full screen's corner radius, preventing straight corner overflow.
          */
+        // Align transition durations: Set full bounds corner radius transition spec to 300ms to align with other page transitions.
         val animatedCornerRadius by if (animatedVisibilityScope != null) {
             animatedVisibilityScope.transition.animateDp(
                 label = "full_bounds_corner_radius",
-                transitionSpec = { tween(400) }
+                transitionSpec = { tween(300) }
             ) { enterExitState ->
                 if (enterExitState == EnterExitState.Visible) endCornerRadius else startCornerRadius
             }
         } else {
-            remember(endCornerRadius) { androidx.compose.runtime.mutableStateOf(endCornerRadius) }
+            remember(endCornerRadius) { mutableStateOf(endCornerRadius) }
         }
 
         val boundsModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {

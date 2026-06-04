@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -79,17 +80,16 @@ class SettingsActivity : ComponentActivity() {
                         showAboutLibraries = false
                     }
 
-                    // Apply navigation transitions (To provide visual feedback during transition)
-                    // Uses AnimatedContent to animate sliding right for AboutLibrariesScreen and sliding left for SettingsScreen.
+                    // Apply navigation transitions: Use 300ms horizontal sliding transitions for settings panel navigation.
                     AnimatedContent(
                         targetState = showAboutLibraries,
                         transitionSpec = {
                             if (targetState) {
-                                (slideInHorizontally { width -> width } + fadeIn())
-                                    .togetherWith(slideOutHorizontally { width -> -width } + fadeOut())
+                                (slideInHorizontally(animationSpec = tween(300)) { width -> width } + fadeIn(animationSpec = tween(300)))
+                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { width -> -width } + fadeOut(animationSpec = tween(300)))
                             } else {
-                                (slideInHorizontally { width -> -width } + fadeIn())
-                                    .togetherWith(slideOutHorizontally { width -> width } + fadeOut())
+                                (slideInHorizontally(animationSpec = tween(300)) { width -> -width } + fadeIn(animationSpec = tween(300)))
+                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { width -> width } + fadeOut(animationSpec = tween(300)))
                             }
                         },
                         label = "AboutLibrariesTransition"

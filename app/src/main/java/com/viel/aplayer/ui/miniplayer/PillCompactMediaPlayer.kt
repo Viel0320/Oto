@@ -87,10 +87,11 @@ fun PillCompactMediaPlayer(
      * Transition the outer card shape from stadium (100.dp) down to the target full screen's 28.dp.
      * Prevents flat shapes or straight corners during intermediate animation frames.
      */
+    // Align transition durations: Set pill outer stadium bounds corner radius transition to 300ms.
     val animatedCornerRadius by if (animatedVisibilityScope != null) {
         animatedVisibilityScope.transition.animateDp(
             label = "pill_bounds_corner_radius",
-            transitionSpec = { tween(400) }
+            transitionSpec = { tween(300) }
         ) { enterExitState ->
             if (enterExitState == EnterExitState.Visible) 100.dp else 28.dp
         }
@@ -103,10 +104,11 @@ fun PillCompactMediaPlayer(
      * Morph the compact rotating disk artwork corner radius (100.dp for circle)
      * down to the full screen's rounded square artwork corner radius (24.dp).
      */
+    // Align transition durations: Set rotating disk cover corner radius transition to 300ms.
     val animatedCoverCornerRadius by if (animatedVisibilityScope != null) {
         animatedVisibilityScope.transition.animateDp(
             label = "pill_cover_corner_radius",
-            transitionSpec = { tween(400) }
+            transitionSpec = { tween(300) }
         ) { enterExitState ->
             if (enterExitState == EnterExitState.Visible) 100.dp else 24.dp
         }
