@@ -19,6 +19,8 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.player.PlayerViewModel
+import androidx.compose.runtime.CompositionLocalProvider
+import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -79,15 +81,24 @@ fun MiniPlayerOverlay(
                     animationSpec = tween(400)
                 ) + fadeOut(animationSpec = tween(400))
             ) {
-                // Component Isolation (Scope Down Recomposition)
-                // Widen progress and playback state updates inside MiniPlayerContent to scope down recomposition.
-                // Pass down blur background state and glass mode to isolate refresh source.
-                MiniPlayerContent(
-                    viewModel = playerViewModel,
-                    actions = miniPlayerActions,
-                    hazeState = hazeState,
-                    glassEffectMode = glassEffectMode
-                )
+                /*
+                 * Propagate Visibility Scope (Local animation scope binding)
+                 * Expose the local AnimatedVisibilityScope using LocalAnimatedVisibilityScope CompositionLocal
+                 * so that nested CompactMediaPlayer layouts can apply shared element transformations.
+                 */
+                CompositionLocalProvider(
+                    LocalAnimatedVisibilityScope provides this@AnimatedVisibility
+                ) {
+                    // Component Isolation (Scope Down Recomposition)
+                    // Widen progress and playback state updates inside MiniPlayerContent to scope down recomposition.
+                    // Pass down blur background state and glass mode to isolate refresh source.
+                    MiniPlayerContent(
+                        viewModel = playerViewModel,
+                        actions = miniPlayerActions,
+                        hazeState = hazeState,
+                        glassEffectMode = glassEffectMode
+                    )
+                }
             }
         }
     }
@@ -127,6 +138,7 @@ private fun MiniPlayerContent(
         // Setup Haze State Parameters (Pass hazeState down to child player views) Map backdrop to hazeState.
         if (usePillPlayer) {
             PillCompactMediaPlayer(
+                bookId = metadata.id,
                 isPlaying = playback.isPlaying,
                 coverPath = miniPlayerCoverPath,
                 coverLastUpdated = metadata.coverLastUpdated,
@@ -138,6 +150,7 @@ private fun MiniPlayerContent(
             )
         } else {
             CompactMediaPlayer(
+                bookId = metadata.id,
                 isPlaying = playback.isPlaying,
                 title = metadata.title,
                 author = metadata.author,

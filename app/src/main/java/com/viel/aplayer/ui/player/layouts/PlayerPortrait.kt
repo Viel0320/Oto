@@ -243,6 +243,8 @@ fun PlayerPortrait(
                                         // Interactive cover component (To render dual-tap track skip actions)
                                         // Prefers high-resolution original images over thumbnail drafts.
                                         PlayerCover(
+                                            bookId = metadata.id,
+                                            isWideScreen = false,
                                             coverPath = CoverImageSourceSelector.main(
                                                 coverPath = metadata.coverPath,
                                                 thumbnailPath = metadata.thumbnailPath

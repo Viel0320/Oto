@@ -245,6 +245,8 @@ fun PlayerTabletLandscape(
                                     else -> {
                                         // Tablet main cover (To render original high-definition cover artwork in left column)
                                         PlayerCover(
+                                            bookId = metadata.id,
+                                            isWideScreen = windowClass.isWideScreen,
                                             coverPath = CoverImageSourceSelector.main(
                                                 coverPath = metadata.coverPath,
                                                 thumbnailPath = metadata.thumbnailPath

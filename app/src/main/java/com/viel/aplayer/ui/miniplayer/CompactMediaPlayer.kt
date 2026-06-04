@@ -27,6 +27,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,10 +47,16 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.animateDp
+import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
+import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun CompactMediaPlayer(
+    bookId: String,
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
     title: String = "Audiobook Title",
@@ -71,12 +79,60 @@ fun CompactMediaPlayer(
         }
     }
 
+    val sharedTransitionScope = LocalSharedTransitionScope.current
+    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+
+    /*
+     * Outer Card Corner Radius Transition (Dynamic bounds shape interpolation)
+     * Transition the outer card corner radius from the compact bar's 0.dp to the full screen's 28.dp.
+     * Use target state checking to apply rounded corners when fully morphed, preventing straight corner overflow.
+     */
+    val animatedCornerRadius by if (animatedVisibilityScope != null) {
+        animatedVisibilityScope.transition.animateDp(
+            label = "compact_bounds_corner_radius",
+            transitionSpec = { tween(400) }
+        ) { enterExitState ->
+            if (enterExitState == EnterExitState.Visible) 0.dp else 28.dp
+        }
+    } else {
+        remember { androidx.compose.runtime.mutableStateOf(0.dp) }
+    }
+
+    /*
+     * Thumbnail Cover Corner Radius Transition (Smooth inner artwork morphing)
+     * Interpolate the artwork cover corner radius between the compact card's 8.dp and
+     * the full screen player's 24.dp, ensuring no visual pixel steps occur.
+     */
+    val animatedCoverCornerRadius by if (animatedVisibilityScope != null) {
+        animatedVisibilityScope.transition.animateDp(
+            label = "compact_cover_corner_radius",
+            transitionSpec = { tween(400) }
+        ) { enterExitState ->
+            if (enterExitState == EnterExitState.Visible) 8.dp else 24.dp
+        }
+    } else {
+        remember { androidx.compose.runtime.mutableStateOf(8.dp) }
+    }
+
+    val boundsModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedBounds(
+                sharedContentState = rememberSharedContentState(key = "bounds_${bookId}"),
+                animatedVisibilityScope = animatedVisibilityScope,
+                clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
+            )
+        }
+    } else {
+        Modifier
+    }
+
     // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
     Surface(
         onClick = onClick,
         modifier = modifier
+            .then(boundsModifier)
             .fillMaxWidth()
             .let {
                 if (isBlurMode) {
@@ -90,7 +146,7 @@ fun CompactMediaPlayer(
                 }
             },
         color = if (isBlurMode) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(0.dp)
+        shape = RoundedCornerShape(animatedCornerRadius)
     ) {
         Column(modifier = Modifier.navigationBarsPadding()) {
             if (showProgressBar) {
@@ -110,10 +166,22 @@ fun CompactMediaPlayer(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val coverModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+                    with(sharedTransitionScope) {
+                        Modifier.sharedElement(
+                            rememberSharedContentState(key = "cover_${bookId}"),
+                            animatedVisibilityScope = animatedVisibilityScope
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .then(coverModifier)
+                        .clip(RoundedCornerShape(animatedCoverCornerRadius))
                         .combinedClickable(
                             onClick = {},
                             onLongClick = actions.onHide

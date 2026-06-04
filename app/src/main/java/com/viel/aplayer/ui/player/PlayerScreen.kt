@@ -10,6 +10,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.animateDp
+import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
+import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -75,7 +80,7 @@ enum class PlayerScreenMode(val index: Int) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class,
-    ExperimentalHazeMaterialsApi::class
+    ExperimentalHazeMaterialsApi::class, ExperimentalSharedTransitionApi::class
 )
 @Composable
 fun PlayerScreen(
@@ -279,6 +284,41 @@ fun PlayerScreen(
         )
         val bgColor = MaterialTheme.colorScheme.background
 
+        val sharedTransitionScope = LocalSharedTransitionScope.current
+        val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+
+        // Determine starting corner radius depending on widescreen pill style versus standard bottom bar style
+        val startCornerRadius = if (windowClass.isWideScreen) 100.dp else 0.dp
+        val endCornerRadius = if (isLandscape) 0.dp else cornerRadiusDp
+
+        /*
+         * Outer Card Corner Radius Transition (Dynamic bounds shape interpolation)
+         * Transition the outer card corner radius from the compact layout (Pill: 100.dp / Bar: 0.dp)
+         * up to the target full screen's corner radius, preventing straight corner overflow.
+         */
+        val animatedCornerRadius by if (animatedVisibilityScope != null) {
+            animatedVisibilityScope.transition.animateDp(
+                label = "full_bounds_corner_radius",
+                transitionSpec = { tween(400) }
+            ) { enterExitState ->
+                if (enterExitState == EnterExitState.Visible) endCornerRadius else startCornerRadius
+            }
+        } else {
+            remember(endCornerRadius) { androidx.compose.runtime.mutableStateOf(endCornerRadius) }
+        }
+
+        val boundsModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+            with(sharedTransitionScope) {
+                Modifier.sharedBounds(
+                    sharedContentState = rememberSharedContentState(key = "bounds_${metadata.id}"),
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
+                )
+            }
+        } else {
+            Modifier
+        }
+
         // Exit translation range (To map drag offset parameters into downward exit bounds)
         val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
@@ -286,11 +326,12 @@ fun PlayerScreen(
         val playerSurfaceShape = if (isLandscape) {
             RectangleShape
         } else {
-            RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp)
+            RoundedCornerShape(topStart = animatedCornerRadius, topEnd = animatedCornerRadius)
         }
 
         Surface(
             modifier = modifier
+                .then(boundsModifier)
                 .fillMaxSize()
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
                 .graphicsLayer {

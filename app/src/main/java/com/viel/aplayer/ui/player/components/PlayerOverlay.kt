@@ -18,6 +18,8 @@ import com.viel.aplayer.ui.player.PlayerScreen
 import com.viel.aplayer.ui.player.PlayerViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
+import androidx.compose.runtime.CompositionLocalProvider
+import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -54,27 +56,36 @@ fun PlayerOverlay(
             enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)),
             exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (glassEffectMode == GlassEffectMode.Haze) {
-                            // Setup PlayerOverlay Haze (Apply haze modifier to container to make it a blur source)
-                            Modifier.haze(playerHazeState)
-                        } else {
-                            Modifier
-                        }
-                    )
+            /*
+             * Propagate Full Visibility Scope (Local visibility tracking)
+             * Bind this AnimatedVisibilityScope to LocalAnimatedVisibilityScope CompositionLocal
+             * to let PlayerScreen match shared elements and perform dynamic corner radius morphing.
+             */
+            CompositionLocalProvider(
+                LocalAnimatedVisibilityScope provides this@AnimatedVisibility
             ) {
-                PlayerScreen(
-                    viewModel = playerViewModel,
-                    actions = playerActions,
-                    navigationActions = playerNavigationActions,
-                    // The full screen player internally manages creating the miuix-blur effect for the chapter list, so only the mode is passed through here.
-                    glassEffectMode = glassEffectMode,
-                    // Setup dropdown menu blur (Pass HazeState to the drop-down menu to render glassmorphism)
-                    hazeState = playerHazeState
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (glassEffectMode == GlassEffectMode.Haze) {
+                                // Setup PlayerOverlay Haze (Apply haze modifier to container to make it a blur source)
+                                Modifier.haze(playerHazeState)
+                            } else {
+                                Modifier
+                            }
+                        )
+                ) {
+                    PlayerScreen(
+                        viewModel = playerViewModel,
+                        actions = playerActions,
+                        navigationActions = playerNavigationActions,
+                        // The full screen player internally manages creating the miuix-blur effect for the chapter list, so only the mode is passed through here.
+                        glassEffectMode = glassEffectMode,
+                        // Setup dropdown menu blur (Pass HazeState to the drop-down menu to render glassmorphism)
+                        hazeState = playerHazeState
+                    )
+                }
             }
         }
     }

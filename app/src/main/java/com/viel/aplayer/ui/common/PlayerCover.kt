@@ -1,5 +1,8 @@
 package com.viel.aplayer.ui.common
 
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -33,6 +36,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import kotlin.math.abs
 
 /**
@@ -51,8 +56,11 @@ import kotlin.math.abs
  * @param sizeRatio The ratio of the cover size relative to the minimum dimension of the container, defaulting to 0.8f (80%).
  * @param gesturesEnabled Whether gesture operations on the cover (volume adjustment and chapter skipping) are enabled, defaulting to true.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PlayerCover(
+    bookId: String = "",
+    isWideScreen: Boolean = false,
     coverPath: String?,
     isPlaying: Boolean,
     coverLastUpdated: Long,
@@ -119,6 +127,8 @@ fun PlayerCover(
         }
 
         MainCoverView(
+            bookId = bookId,
+            isWideScreen = isWideScreen,
             coverPath = coverPath,
             isPlaying = isPlaying,
             coverLastUpdated = coverLastUpdated,
@@ -140,18 +150,55 @@ fun PlayerCover(
  * @param isPlaying Whether the player is currently playing (affects the scale animation).
  * @param coverLastUpdated The timestamp when the cover file was last updated, used to invalidate Coil cache to trigger an immediate refresh after cover self-healing reconstruction.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MainCoverView(
+    bookId: String = "",
+    isWideScreen: Boolean = false,
     modifier: Modifier = Modifier,
     coverPath: String?,
     isPlaying: Boolean,
     coverLastUpdated: Long = 0L,
     coverScene: String = "main-cover"
 ) {
+    val sharedTransitionScope = LocalSharedTransitionScope.current
+    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+
+    // Determine starting cover corner radius depending on widescreen pill style versus standard bottom bar style
+    val startCoverCorner = if (isWideScreen) 100.dp else 8.dp
+
+    /*
+     * Artwork Cover Corner Radius Transition (Dynamic round corner interpolation)
+     * Interpolate the artwork cover corner radius between the compact card (Bar: 8.dp / Pill: 100.dp)
+     * and the full screen player's target corner radius (24.dp).
+     */
+    val animatedCoverCornerRadius by if (animatedVisibilityScope != null) {
+        animatedVisibilityScope.transition.animateDp(
+            label = "full_cover_corner_radius",
+            transitionSpec = { tween(400) }
+        ) { enterExitState ->
+            if (enterExitState == EnterExitState.Visible) 24.dp else startCoverCorner
+        }
+    } else {
+        remember { androidx.compose.runtime.mutableStateOf(24.dp) }
+    }
+
+    val sharedElementModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedElement(
+                rememberSharedContentState(key = "cover_player"),
+                animatedVisibilityScope = animatedVisibilityScope
+            )
+        }
+    } else {
+        Modifier
+    }
+
     // Scale the cover to 1.0 when playing, and shrink to 0.95 when paused, cooperating with a 300ms animation to create a breathing sensation.
     val coverScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.95f,
-        animationSpec = tween(300)
+        animationSpec = tween(300),
+        label = "cover_breathing_scale"
     )
 
     Box(
@@ -167,12 +214,13 @@ fun MainCoverView(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
+                .then(sharedElementModifier)
                 .graphicsLayer {
                     scaleX = coverScale
                     scaleY = coverScale
                     transformOrigin = TransformOrigin(0.5f, 0.0f)
                 }
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(animatedCoverCornerRadius))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             // Define local state to track whether asynchronous cover loading failed.
@@ -234,6 +282,8 @@ fun PlayerCoverPreview() {
         // Simulate PlayerCover in Preview. Since the preview cannot simulate real gesture interactions,
         // it is primarily used here to verify the adaptive scaling effect of the cover under different screen aspect ratios (portrait vs landscape).
         PlayerCover(
+            bookId = "preview",
+            isWideScreen = false,
             coverPath = null, // Default Cover Placeholder (Pass null to display the default cover art placeholder)
             isPlaying = true,
             coverLastUpdated = 0L,

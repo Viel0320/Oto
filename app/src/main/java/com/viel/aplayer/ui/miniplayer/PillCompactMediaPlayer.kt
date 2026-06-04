@@ -1,8 +1,11 @@
 package com.viel.aplayer.ui.miniplayer
 
 // Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and modifiers.
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -30,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +48,8 @@ import coil.compose.AsyncImage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
+import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -52,9 +58,10 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 /**
  * Pill Compact Media Player: A floating stadium-shaped mini player that overlays at the bottom of the screen.
  */
-@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun PillCompactMediaPlayer(
+    bookId: String,
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
     coverPath: String? = null,
@@ -72,9 +79,56 @@ fun PillCompactMediaPlayer(
         }
     }
 
+    val sharedTransitionScope = LocalSharedTransitionScope.current
+    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+
+    /*
+     * Pill Bounds Corner Radius Transition (Dynamic stadium shape morphing)
+     * Transition the outer card shape from stadium (100.dp) down to the target full screen's 28.dp.
+     * Prevents flat shapes or straight corners during intermediate animation frames.
+     */
+    val animatedCornerRadius by if (animatedVisibilityScope != null) {
+        animatedVisibilityScope.transition.animateDp(
+            label = "pill_bounds_corner_radius",
+            transitionSpec = { tween(400) }
+        ) { enterExitState ->
+            if (enterExitState == EnterExitState.Visible) 100.dp else 28.dp
+        }
+    } else {
+        remember { androidx.compose.runtime.mutableStateOf(100.dp) }
+    }
+
+    /*
+     * Pill Cover Corner Radius Transition (Stretches disk shapes into squares)
+     * Morph the compact rotating disk artwork corner radius (100.dp for circle)
+     * down to the full screen's rounded square artwork corner radius (24.dp).
+     */
+    val animatedCoverCornerRadius by if (animatedVisibilityScope != null) {
+        animatedVisibilityScope.transition.animateDp(
+            label = "pill_cover_corner_radius",
+            transitionSpec = { tween(400) }
+        ) { enterExitState ->
+            if (enterExitState == EnterExitState.Visible) 100.dp else 24.dp
+        }
+    } else {
+        remember { androidx.compose.runtime.mutableStateOf(100.dp) }
+    }
+
+    val boundsModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedBounds(
+                sharedContentState = rememberSharedContentState(key = "bounds_player"),
+                animatedVisibilityScope = animatedVisibilityScope,
+                clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
+            )
+        }
+    } else {
+        Modifier
+    }
+
     // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
-    val pillShape = RoundedCornerShape(100.dp)
+    val pillShape = RoundedCornerShape(animatedCornerRadius)
 
     val rotation = remember { Animatable(0f) }
 
@@ -96,6 +150,7 @@ fun PillCompactMediaPlayer(
     Surface(
         onClick = onClick,
         modifier = modifier
+            .then(boundsModifier)
             .fillMaxWidth()
             .wrapContentWidth(Alignment.End)
             .widthIn(max = 400.dp)
@@ -134,11 +189,23 @@ fun PillCompactMediaPlayer(
                     .align(Alignment.Center),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val coverModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+                    with(sharedTransitionScope) {
+                        Modifier.sharedElement(
+                            rememberSharedContentState(key = "cover_player"),
+                            animatedVisibilityScope = animatedVisibilityScope
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+
                 Box(
                     modifier = Modifier
                         .size(48.dp)
+                        .then(coverModifier)
                         .graphicsLayer { rotationZ = currentRotation }
-                        .clip(RoundedCornerShape(100.dp))
+                        .clip(RoundedCornerShape(animatedCoverCornerRadius))
                         .let {
                             if (isBlurMode) {
                                 it.border(
@@ -160,7 +227,7 @@ fun PillCompactMediaPlayer(
                                             )
                                         }
                                     ),
-                                    shape = RoundedCornerShape(100.dp)
+                                    shape = RoundedCornerShape(animatedCoverCornerRadius)
                                 )
                             } else {
                                 it

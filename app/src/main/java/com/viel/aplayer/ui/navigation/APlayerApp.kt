@@ -42,7 +42,12 @@ import com.viel.aplayer.ui.search.SearchOverlay
 import com.viel.aplayer.ui.search.SearchViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
+import androidx.compose.runtime.CompositionLocalProvider
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun APlayerApp(
     openPlayerOverlayRequest: Boolean = false,
@@ -215,11 +220,22 @@ fun APlayerApp(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,
         ) {
-            // Box Layer Decoupling (Prevent Recursive Deadlock Rendering)
-            // Use a full-screen top-level Box container at the outermost layer without mounting layerBackdrop, solely as a coordinate alignment and sibling node layout container for all overlays. This completely isolates the layerBackdrop sampling source layer, avoiding infinite recursion deadlock rendering failure due to overlays using textureBlur to sample their own parent containers internally.
-            Box(
+            /*
+             * Establish Shared Element Layout Context (Shared element boundary setup)
+             * Encapsulate overlay views within a SharedTransitionLayout and provide the transition scope
+             * via LocalSharedTransitionScope to enable smooth bounds morphing and cover transformations.
+             */
+            SharedTransitionLayout(
                 modifier = Modifier.fillMaxSize()
             ) {
+                CompositionLocalProvider(
+                    LocalSharedTransitionScope provides this@SharedTransitionLayout
+                ) {
+                    // Box Layer Decoupling (Prevent Recursive Deadlock Rendering)
+                    // Use a full-screen top-level Box container at the outermost layer without mounting layerBackdrop, solely as a coordinate alignment and sibling node layout container for all overlays. This completely isolates the layerBackdrop sampling source layer, avoiding infinite recursion deadlock rendering failure due to overlays using textureBlur to sample their own parent containers internally.
+                    Box(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
                 // Mount Haze Backdrop (Isolate overlay blur source) Replace miuix-blur backdrop with native Haze modifier on bottom navigation Box.
                 Box(
                     modifier = Modifier
@@ -368,4 +384,6 @@ fun APlayerApp(
             }
         }
     }
+}
+}
 }
