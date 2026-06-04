@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.player.components
 
+// Align Top Bar Layout (Align title contents to left edge)
+// Import standard TopAppBar instead of CenterAlignedTopAppBar to support left-aligned title layout natively.
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -9,7 +11,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -18,6 +19,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,23 +63,26 @@ fun PlayerAppBar(
     val navIcon = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
 
-    CenterAlignedTopAppBar(
+    // Left-Align Player Top Bar Title (Shift layout structure to left alignment)
+    // Replace CenterAlignedTopAppBar with TopAppBar and adjust Column alignment to Start,
+    // positioning title and subtitle text on the left edge as requested.
+    TopAppBar(
         // Remove statusBarsPadding() from the modifier, using more professional windowInsets for direct adaptive management to completely eliminate double padding.
         modifier = modifier,
         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
         title = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.Start) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
                     color = contentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = formatPeopleSubtitle(author, narrator),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = if (contentColor == Color.White) {
                         Color.White.copy(alpha = 0.7f)
                     } else {
