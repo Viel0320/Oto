@@ -491,15 +491,16 @@ fun SettingsScreen(
                         SettingsSectionHeader(title = "界面效果")
                     }
                     item {
-                        // Backdrop style selector (To toggle container between Material and miuix-blur styles)
-                        SettingsSegmentedItem(
-                            title = "悬浮层玻璃效果",
-                            subtitle = "控制章节列表 and 书籍操作弹窗的背景效果",
+                        // Visual effect settings: Change layout controller from segment choice to switch button for experimental blur effect.
+                        SettingsToggleItem(
+                            title = "实验性模糊效果",
+                            subtitle = "控制章节列表和书籍操作弹窗的背景效果",
                             icon = Icons.Rounded.LinearScale,
-                            // Parameter Alignment (Aligns arguments to match redefined parameters of SettingsSegmentedItem)
-                            // Renamed selectedMode and onModeSelected to glassEffectMode and onGlassEffectModeChange.
-                            glassEffectMode = glassEffectMode,
-                            onGlassEffectModeChange = onGlassEffectModeChange
+                            checked = glassEffectMode == GlassEffectMode.Haze,
+                            onCheckedChange = { isChecked ->
+                                val newMode = if (isChecked) GlassEffectMode.Haze else GlassEffectMode.Material
+                                onGlassEffectModeChange(newMode)
+                            }
                         )
                     }
 
@@ -965,56 +966,7 @@ private fun AbsServerDialog(
     )
 }
 
-/**
- * Segmented selection setting item for overlay glass effect.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SettingsSegmentedItem(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    glassEffectMode: GlassEffectMode,
-    onGlassEffectModeChange: (GlassEffectMode) -> Unit
-) {
-    // Define Glass Effect Options (Configure Haze and Material modes) Declare modes list using renamed Haze option.
-    val modes = listOf(GlassEffectMode.Material, GlassEffectMode.Haze)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                modes.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = glassEffectMode == mode,
-                        onClick = { onGlassEffectModeChange(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
-                    ) {
-                        // Render Segment Option (Display descriptive label for selected mode) Display Haze instead of old MiuixBlur text.
-                        Text(text = if (mode == GlassEffectMode.Material) "Material" else "Haze")
-                    }
-                }
-            }
-        }
-    }
-}
+// Refactor: Remove unused SettingsSegmentedItem component after changing layout controller to Toggle switch.
 
 /**
  * Segmented selection setting item for sleep mode.
