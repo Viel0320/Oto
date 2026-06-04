@@ -61,6 +61,7 @@ import com.viel.aplayer.ui.player.layouts.PlayerPortrait
 import com.viel.aplayer.ui.player.layouts.PlayerTabletLandscape
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.coroutines.cancellation.CancellationException
@@ -234,6 +235,10 @@ fun PlayerScreen(
         // Setup Haze State (Initialize local state for player backdrop blur)
         // Splits blurred cover backgrounds into a separate visual sibling layer.
         val coverHazeState = remember { HazeState() }
+        
+        // Sync Player Haze State: Initialize a separate HazeState to sample the entire player (including foreground controls).
+        // This avoids recursive rendering loops and lets the snackbar blur everything behind it.
+        val playerHazeState = remember { HazeState() }
 
         // Panel sheet back handler (To slide back to player main view using system back gesture)
         PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
@@ -300,6 +305,19 @@ fun PlayerScreen(
             color = bgColor
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
+                // Main Content Container: Wraps all background and foreground elements to sample them as a single sibling node.
+                // This prevents recursive rendering loops (feedback loops) when the snackbar applies hazeEffect.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (glassEffectMode == GlassEffectMode.Haze) {
+                                Modifier.hazeSource(playerHazeState)
+                            } else {
+                                Modifier
+                            }
+                        )
+                ) {
                 // Mitigate render-thread crash (To resolve background sampling loop errors on specific OPLUS devices)
                 // Separates blurred backdrop sampling layers and forefront components as siblings.
 
@@ -464,6 +482,7 @@ fun PlayerScreen(
                         }
                     }
                 }
+            }
 
                 // Blur-supported seek undo banner (To alert users about coordinate rewind options)
                 AnimatedVisibility(
@@ -483,7 +502,7 @@ fun PlayerScreen(
                 ) {
                     // Render blur snackbar (To support blur sampling overlays under miuix-blur styles)
                     BlurSnackbar(
-                        hazeState = coverHazeState,
+                        hazeState = playerHazeState,
                         glassEffectMode = glassEffectMode,
                         action = {
                             TextButton(onClick = actions.playback.onUndoSeek) {
