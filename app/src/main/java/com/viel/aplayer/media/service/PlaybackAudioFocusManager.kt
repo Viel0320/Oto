@@ -10,6 +10,8 @@ import com.viel.aplayer.media.AutoRewindManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+// Import alignment: Add delay utility to support timer offsets for notification avoidance.
+import kotlinx.coroutines.delay
 
 /**
  * Audio Focus & Notification Ducking Coordinator (Manages system-level audio focus states and handles ducking dynamics)
@@ -29,6 +31,8 @@ class PlaybackAudioFocusManager(
     // Interruption State Flag (Indicates if playback was paused passively due to transient audio focus loss)
     // Directs the system to restore the previous state silently when focus is regained.
     private var isPausedByLossOfFocus = false
+    // Avoidance delay Job cache: Retains the active 3s timer job for notification avoidance.
+    private var avoidanceJob: kotlinx.coroutines.Job? = null
 
     // AudioFocusRequest Cache (Caches request parameters for API 26+ to coordinate dynamic binding)
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -42,26 +46,41 @@ class PlaybackAudioFocusManager(
             if (settings.isNotificationAvoidanceEnabled) {
                 when (focusChange) {
                     AudioManager.AUDIOFOCUS_LOSS -> {
-                        // Permanent loss: reset states and pause player.
+                        // Permanent loss: reset states, cancel timer, and pause player.
+                        avoidanceJob?.cancel()
+                        avoidanceJob = null
                         isPausedByLossOfFocus = false
                         player.pause()
                         com.viel.aplayer.logger.AudioFocusLogger.logPermanentLoss()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                        // Transient loss: pause and flag recovery.
-                        if (player.isPlaying) {
-                            isPausedByLossOfFocus = true
-                            // Critical Interaction: Instruct AutoRewindManager to bypass the upcoming automatic rewind trigger.
-                            // Ensures smooth continuity without repeating audio segments after small notifications.
-                            AutoRewindManager.getInstance(appContext).ignoreNextAutoRewind = true
-                            player.pause()
-                            com.viel.aplayer.logger.AudioFocusLogger.logTransientLoss()
+                        // Transient loss: cancel previous timer to reset the 3s avoidance window on repeating signals.
+                        avoidanceJob?.cancel()
+                        if (player.isPlaying || isPausedByLossOfFocus) {
+                            if (player.isPlaying) {
+                                isPausedByLossOfFocus = true
+                                // Critical Interaction: Instruct AutoRewindManager to bypass the upcoming automatic rewind trigger.
+                                // Ensures smooth continuity without repeating audio segments after small notifications.
+                                AutoRewindManager.getInstance(appContext).ignoreNextAutoRewind = true
+                                player.pause()
+                                com.viel.aplayer.logger.AudioFocusLogger.logTransientLoss()
+                            }
+                            // Start a fixed 3s delay job before executing automatic recovery.
+                            avoidanceJob = serviceScope.launch {
+                                delay(3000)
+                                if (isPausedByLossOfFocus) {
+                                    isPausedByLossOfFocus = false
+                                    playerProvider()?.play()
+                                    com.viel.aplayer.logger.AudioFocusLogger.logFocusRegained()
+                                }
+                                avoidanceJob = null
+                            }
                         }
                     }
                     AudioManager.AUDIOFOCUS_GAIN -> {
-                        // Focus Regained: Auto-resume if paused passively.
-                        if (isPausedByLossOfFocus) {
+                        // Focus Regained: Resume immediately if paused passively and no timer is running.
+                        if (isPausedByLossOfFocus && avoidanceJob == null) {
                             isPausedByLossOfFocus = false
                             player.play()
                             com.viel.aplayer.logger.AudioFocusLogger.logFocusRegained()
@@ -84,8 +103,10 @@ class PlaybackAudioFocusManager(
                     isPausedByLossOfFocus = false
                     requestMyAudioFocus()
                 } else {
-                    // Playback paused: abandon focus if not passively interrupted.
+                    // Playback paused: abandon focus and cancel active timers if not passively interrupted.
                     if (!isPausedByLossOfFocus) {
+                        avoidanceJob?.cancel()
+                        avoidanceJob = null
                         abandonMyAudioFocus()
                     }
                 }
@@ -97,6 +118,8 @@ class PlaybackAudioFocusManager(
      * Focus Manager Reset (Clears local flags and abandons system audio focus request)
      */
     fun reset() {
+        avoidanceJob?.cancel()
+        avoidanceJob = null
         isPausedByLossOfFocus = false
         abandonMyAudioFocus()
     }
