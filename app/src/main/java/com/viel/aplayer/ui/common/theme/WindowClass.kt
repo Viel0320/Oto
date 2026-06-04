@@ -86,10 +86,15 @@ data class WindowClass(
     /**
      * Tablet Landscape Flag (Verify if dual-pane layouts are active)
      *
-     * Evaluates to true only on tablet devices in landscape orientation, allowing side-by-side control views.
+     * Evaluates to true only on tablet devices in landscape orientation with sufficient vertical height,
+     * allowing side-by-side control views without vertical overlap.
      */
+    // Fix Tablet Landscape Layout Classification (Exclude compact vertical screen size class)
+    // Exclude devices with Compact height size class (height < 480dp) from tablet landscape category.
+    // This ensures standard landscape phones with high width resolution do not wrongly fall into tablet layouts
+    // where left-column stacking causes severe overlap.
     val isTabletLandscape: Boolean
-        get() = isTablet && isLandscape
+        get() = isTablet && isLandscape && heightSizeClass != WindowHeightSizeClass.Compact
 
     companion object {
         /**
