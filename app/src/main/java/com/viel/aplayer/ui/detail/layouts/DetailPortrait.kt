@@ -66,7 +66,7 @@ fun DetailPortrait(
             onAdjustVolume = {},
             onNextChapter = {},
             onPreviousChapter = {},
-            sizeRatio = 0.9f,
+            sizeRatio = 0.9f,  //todo too big
             gesturesEnabled = false,
             modifier = Modifier.fillMaxWidth().aspectRatio(1f)
         )

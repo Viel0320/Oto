@@ -55,6 +55,8 @@ class SettingsActivity : ComponentActivity() {
                     val libraryRoots by settingsViewModel.libraryRoots.collectAsStateWithLifecycle()
                     val absServers by settingsViewModel.absServers.collectAsStateWithLifecycle()
                     val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
+                    // Settings screen mapping logic: Observe WebDAV connection state using lifecycle-aware state collectors.
+                    val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
                     val absSyncConfirmationState by settingsViewModel.absSyncConfirmationState.collectAsStateWithLifecycle()
                     val context = LocalContext.current
 
@@ -104,16 +106,39 @@ class SettingsActivity : ComponentActivity() {
                                 // Dispatch SAF authorization callbacks (To update directory registry under isolated scope)
                                 // Delegates SAF folder selection to SettingsViewModel directly, bypassing LibraryViewModel initialization.
                                 onLibraryRootSelected = { uri -> settingsViewModel.onLibraryRootSelected(uri) },
+                                // Settings screen mapping logic: Bind newly created settings actions and data source getters to SettingsViewModel.
+                                onSafRootRelocated = { id, uri -> settingsViewModel.onSafRootRelocated(id, uri) },
                                 // Dispatch WebDAV root submission (To register remote WebDAV folders under settings ViewModel)
                                 // Forwards url, username, password, display name, and base path to SettingsViewModel.
                                 onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
                                     settingsViewModel.onWebDavRootSubmitted(url, username, password, displayName, basePath)
                                 },
-                                onAbsConnectionTest = { baseUrl, username, password ->
-                                    settingsViewModel.testAbsConnection(baseUrl, username, password)
+                                onWebDavRootUpdated = { id, url, username, password, displayName, basePath ->
+                                    settingsViewModel.updateWebDavRoot(id, url, username, password, displayName, basePath)
                                 },
-                                onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName ->
-                                    settingsViewModel.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName)
+                                // Settings screen mapping logic: Forward WebDAV verification states and reset hooks to SettingsViewModel.
+                                webDavConnectionState = webDavConnectionState,
+                                onWebDavConnectionTest = { url, username, password, basePath, editingRootId ->
+                                    settingsViewModel.testWebDavConnection(url, username, password, basePath, editingRootId)
+                                },
+                                onResetWebDavConnectionState = {
+                                    settingsViewModel.resetWebDavConnectionState()
+                                },
+                                // Settings screen mapping logic: Forward ABS verification reset hooks to SettingsViewModel.
+                                onResetAbsConnectionState = {
+                                    settingsViewModel.resetAbsConnectionState()
+                                },
+                                onAbsConnectionTest = { baseUrl, username, password, editingRootId ->
+                                    settingsViewModel.testAbsConnection(baseUrl, username, password, editingRootId)
+                                },
+                                onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName, editingRootId ->
+                                    settingsViewModel.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
+                                },
+                                getWebDavCredentials = { credentialId ->
+                                    settingsViewModel.getWebDavCredentials(credentialId)
+                                },
+                                getAbsCredential = { credentialId ->
+                                    settingsViewModel.getAbsCredential(credentialId)
                                 },
                                 onAbsSync = { rootId ->
                                     settingsViewModel.syncAbsRoot(rootId)

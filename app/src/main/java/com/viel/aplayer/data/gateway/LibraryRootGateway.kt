@@ -107,4 +107,52 @@ interface LibraryRootGateway {
      * Dedicated to pure data layers, keeping playback operations decoupled.
      */
     suspend fun deleteLibraryRootDataOnly(root: LibraryRootEntity)
+
+    /**
+     * Update SAF Library Root (Update local storage directory path)
+     * Replaces old persistable URI authority with new folder permission settings.
+     *
+     * @param id The target root identifier to update
+     * @param newUri The new tree Uri selected by user via SAF
+     * @return Updated library root record
+     */
+    suspend fun updateSafLibraryRoot(id: String, newUri: Uri): LibraryRootEntity
+
+    /**
+     * Update WebDAV Library Root (Modify endpoint or login configurations)
+     * Updates URL endpoints, user parameters, and re-serializes target server credential mappings.
+     *
+     * @param id The target root identifier to update
+     * @param url Server endpoint address URL
+     * @param username Login username
+     * @param password Login password
+     * @param displayName Custom display label
+     * @param basePath Remote directory sub-path
+     * @return Updated library root record
+     */
+    suspend fun updateWebDavLibraryRoot(
+        id: String,
+        url: String,
+        username: String,
+        password: String,
+        displayName: String,
+        basePath: String
+    ): LibraryRootEntity
+
+    /**
+     * Update ABS Library Root (Modify mirrored server references)
+     * Points the existing target root record to new libraries or servers.
+     *
+     * @param id The target root identifier to update
+     * @param credentialId Referenced security credential identifier
+     * @param libraryId Targeted mirror book library ID
+     * @param displayName Custom display label
+     * @return Updated library root record
+     */
+    suspend fun updateAbsLibraryRoot(
+        id: String,
+        credentialId: String,
+        libraryId: String,
+        displayName: String
+    ): LibraryRootEntity
 }

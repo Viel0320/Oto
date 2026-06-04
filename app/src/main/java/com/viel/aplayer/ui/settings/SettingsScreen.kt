@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+// Import alignment: Add IME insets mapping extension to perform exclude filter during keyboard state changes.
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,7 +57,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.viel.aplayer.abs.auth.AbsCredential
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -67,6 +72,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+// Import alignment: Add coroutines launch import for async credential loading
+import kotlinx.coroutines.launch
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
@@ -87,11 +94,22 @@ import com.viel.aplayer.ui.common.theme.WindowClass
 fun SettingsScreen(
     onBack: () -> Unit,
     onLibraryRootSelected: (Uri) -> Unit,
+    onSafRootRelocated: (String, Uri) -> Unit,
     // WebDAV submission callback (To delegate credential routing to state container)
     // Passes connection attributes up instead of performing DB transactions locally.
     onWebDavRootSubmitted: (url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
-    onAbsConnectionTest: (baseUrl: String, username: String, password: String) -> Unit,
-    onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String) -> Unit,
+    onWebDavRootUpdated: (id: String, url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
+    // WebDAV connection interface: Add callback endpoints to support verification before persisting credentials.
+    webDavConnectionState: WebDavConnectionUiState,
+    onWebDavConnectionTest: (url: String, username: String, password: String, basePath: String, editingRootId: String?) -> Unit,
+    onResetWebDavConnectionState: () -> Unit,
+    // ABS connection status callback: Link status resetting hooks to track input changes.
+    onResetAbsConnectionState: () -> Unit,
+    // ABS connection testing enhancement: Support forwarding editingRootId to prevent validation errors when password is empty.
+    onAbsConnectionTest: (baseUrl: String, username: String, password: String, editingRootId: String?) -> Unit,
+    onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String, editingRootId: String?) -> Unit,
+    getWebDavCredentials: (credentialId: String) -> WebDavCredential?,
+    getAbsCredential: suspend (credentialId: String) -> AbsCredential?,
     onAbsSync: (rootId: String) -> Unit,
     onAbsBackgroundSync: (rootId: String) -> Unit,
     absSyncConfirmationState: AbsSyncConfirmationState?,
@@ -140,10 +158,19 @@ fun SettingsScreen(
     // Licenses trigger (To route navigation events to AboutLibrariesScreen)
     onAboutLibrariesClick: () -> Unit
 ) {
+    var editingSafRootId by remember { mutableStateOf<String?>(null) }
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
-        uri?.let(onLibraryRootSelected)
+        uri?.let {
+            if (editingSafRootId != null) {
+                onSafRootRelocated(editingSafRootId!!, it)
+                editingSafRootId = null
+            } else {
+                onLibraryRootSelected(it)
+            }
+        }
     }
 
     // Delete dialog selection state (To hold current library root scheduled for deletion check)
@@ -163,6 +190,11 @@ fun SettingsScreen(
     var absPassword by remember { mutableStateOf("") }
     var absLibraryId by remember { mutableStateOf("") }
     var absLibraryName by remember { mutableStateOf("") }
+    var absDisplayName by remember { mutableStateOf("") }
+
+    var showAddLibraryTypeDialog by remember { mutableStateOf(false) }
+    var rootForAction by remember { mutableStateOf<LibraryRootEntity?>(null) }
+    var editingRootId by remember { mutableStateOf<String?>(null) }
 
     // Load window parameters (To adapt layout proportions for wide displays)
     // Avoids reading LocalConfiguration attributes directly by subscribing to WindowClass values.
@@ -173,7 +205,8 @@ fun SettingsScreen(
 
     // Safe drawing insets (To avoid hardcoded display margin constants on notched displays)
     // Reads WindowInsets.safeDrawing boundaries to offset items.
-    val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+    // Window insets performance tuning: Exclude IME insets from safe drawing values to prevent redundant background recomposition when keyboard opens.
+    val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     val settingsStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val settingsEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
@@ -187,21 +220,75 @@ fun SettingsScreen(
             password = webDavPassword,
             displayName = webDavDisplayName,
             basePath = webDavBasePath,
-            onUrlChange = { webDavUrl = it },
-            onUsernameChange = { webDavUsername = it },
-            onPasswordChange = { webDavPassword = it },
+            editingRootId = editingRootId,
+            connectionState = webDavConnectionState,
+            // WebDAV connection tester: Reset connection verification status immediately if any core connection details change.
+            onUrlChange = { 
+                webDavUrl = it
+                onResetWebDavConnectionState()
+            },
+            onUsernameChange = { 
+                webDavUsername = it
+                onResetWebDavConnectionState()
+            },
+            onPasswordChange = { 
+                webDavPassword = it
+                onResetWebDavConnectionState()
+            },
             onDisplayNameChange = { webDavDisplayName = it },
-            onBasePathChange = { webDavBasePath = it },
-            onDismiss = { showWebDavDialog = false },
-            onConfirm = {
-                onWebDavRootSubmitted(
+            onBasePathChange = { 
+                webDavBasePath = it
+                onResetWebDavConnectionState()
+            },
+            // WebDAV connection test integration: Link UI interactions to test callbacks and reset states.
+            onTestConnection = {
+                onWebDavConnectionTest(
                     webDavUrl.trim(),
                     webDavUsername.trim(),
                     webDavPassword,
-                    webDavDisplayName.trim(),
-                    webDavBasePath.trim()
+                    webDavBasePath.trim(),
+                    editingRootId
                 )
+            },
+            onDismiss = {
                 showWebDavDialog = false
+                // WebDAV dialog reset: Clear WebDAV fields on confirm or dismiss.
+                webDavUrl = ""
+                webDavUsername = ""
+                webDavPassword = ""
+                webDavDisplayName = ""
+                webDavBasePath = ""
+                editingRootId = null
+                onResetWebDavConnectionState()
+            },
+            onConfirm = {
+                if (editingRootId != null) {
+                    onWebDavRootUpdated(
+                        editingRootId!!,
+                        webDavUrl.trim(),
+                        webDavUsername.trim(),
+                        webDavPassword,
+                        webDavDisplayName.trim(),
+                        webDavBasePath.trim()
+                    )
+                } else {
+                    onWebDavRootSubmitted(
+                        webDavUrl.trim(),
+                        webDavUsername.trim(),
+                        webDavPassword,
+                        webDavDisplayName.trim(),
+                        webDavBasePath.trim()
+                    )
+                }
+                showWebDavDialog = false
+                // WebDAV dialog reset: Clear WebDAV fields on confirm or dismiss.
+                webDavUrl = ""
+                webDavUsername = ""
+                webDavPassword = ""
+                webDavDisplayName = ""
+                webDavBasePath = ""
+                editingRootId = null
+                onResetWebDavConnectionState()
             }
         )
     }
@@ -211,27 +298,62 @@ fun SettingsScreen(
             baseUrl = absBaseUrl,
             username = absUsername,
             password = absPassword,
+            displayName = absDisplayName,
+            editingRootId = editingRootId,
             connectionState = absConnectionState,
             selectedLibraryId = absLibraryId,
             selectedLibraryName = absLibraryName,
-            onBaseUrlChange = { absBaseUrl = it },
-            onUsernameChange = { absUsername = it },
-            onPasswordChange = { absPassword = it },
+            // ABS connection tester: Reset testing states when dialog closes or fields modify.
+            onBaseUrlChange = { 
+                absBaseUrl = it
+                onResetAbsConnectionState()
+            },
+            onUsernameChange = { 
+                absUsername = it
+                onResetAbsConnectionState()
+            },
+            onPasswordChange = { 
+                absPassword = it
+                onResetAbsConnectionState()
+            },
+            onDisplayNameChange = { absDisplayName = it },
             onLibrarySelected = { id, name ->
                 absLibraryId = id
                 absLibraryName = name
             },
-            onTestConnection = { onAbsConnectionTest(absBaseUrl.trim(), absUsername.trim(), absPassword) },
+            // ABS testing integration: Forward current editingRootId in test connections inside dialog.
+            onTestConnection = { onAbsConnectionTest(absBaseUrl.trim(), absUsername.trim(), absPassword, editingRootId) },
             onDismiss = {
                 showAbsDialog = false
+                // ABS dialog reset: Clear ABS fields on confirm or dismiss.
+                absBaseUrl = ""
+                absUsername = ""
+                absPassword = ""
                 absLibraryId = ""
                 absLibraryName = ""
+                absDisplayName = ""
+                editingRootId = null
+                onResetAbsConnectionState()
             },
             onConfirm = {
-                onAbsRootSubmitted(absBaseUrl.trim(), absUsername.trim(), absPassword, absLibraryId.trim(), absLibraryName.trim())
+                onAbsRootSubmitted(
+                    absBaseUrl.trim(),
+                    absUsername.trim(),
+                    absPassword,
+                    absLibraryId.trim(),
+                    absLibraryName.trim(),
+                    editingRootId
+                )
                 showAbsDialog = false
+                // ABS dialog reset: Clear ABS fields on confirm or dismiss.
+                absBaseUrl = ""
+                absUsername = ""
+                absPassword = ""
                 absLibraryId = ""
                 absLibraryName = ""
+                absDisplayName = ""
+                editingRootId = null
+                onResetAbsConnectionState()
             }
         )
     }
@@ -254,7 +376,8 @@ fun SettingsScreen(
                         modifier = Modifier,
                         // Calculate top bar margins (To exclude system navigation bars on rotated layouts)
                         // Uses exclude calculations rather than manual padding values.
-                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
+                        // Window insets performance tuning: Exclude both navigationBars and IME insets from topBar safe drawing values.
+                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                         title = { Text(stringResource(R.string.settings_title)) },
                         navigationIcon = {
                             IconButton(
@@ -287,27 +410,10 @@ fun SettingsScreen(
                     }
                     item {
                         SettingsItem(
-                            title = stringResource(R.string.library_folder_title),
-                            subtitle = stringResource(R.string.library_folder_subtitle),
+                            title = "添加媒体库",
+                            subtitle = "支持本地 (SAF)、WebDAV、Audiobookshelf 服务器",
                             icon = Icons.Rounded.FolderOpen,
-                            onClick = { launcher.launch(null) }
-                        )
-                    }
-                    item {
-                        // WebDAV entry point (To support remote storage endpoints alongside local ones)
-                        SettingsItem(
-                            title = "添加 WebDAV 媒体库",
-                            subtitle = "连接远程 WebDAV 目录",
-                            icon = Icons.Rounded.Cloud,
-                            onClick = { showWebDavDialog = true }
-                        )
-                    }
-                    item {
-                        SettingsItem(
-                            title = "添加 ABS Server",
-                            subtitle = "添加 Audiobookshelf 服务器并选择一个 book library",
-                            icon = Icons.Rounded.Sync,
-                            onClick = { showAbsDialog = true }
+                            onClick = { showAddLibraryTypeDialog = true }
                         )
                     }
 
@@ -336,16 +442,18 @@ fun SettingsScreen(
                             "WebDAV: ${root.sourceUri}${root.basePath} · 可用性: ${root.availabilityStatus}"
                         } else if (isAbsRoot) {
                             val sync = absServers.firstOrNull { it.rootId == root.id }
-                            "ABS: ${root.sourceUri} · Library=${root.displayName} · 状态=${sync?.syncStatus ?: "IDLE"}"
+                            val lastSyncText = sync?.lastFullSyncAt?.let { " · 最近同步: $it" } ?: ""
+                            "ABS: ${root.sourceUri} · Library=${root.displayName} · 状态=${sync?.syncStatus ?: "IDLE"}$lastSyncText"
                         } else {
                             "状态: ${root.status}"
                         }
                         
-                        // Render directory layout card (To combine detail metadata labels with deletion actions)
-                        // Captures user clicks on trashcan button and prompts verification dialog.
+                        // Render directory layout card (To combine detail metadata labels with click actions)
+                        // Captures user clicks on row item to open action popup.
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clickable { rootForAction = root }
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -365,44 +473,17 @@ fun SettingsScreen(
                                 )
                                 if (isAbsRoot) {
                                     val sync = absServers.firstOrNull { it.rootId == root.id }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Button(onClick = { onAbsSync(root.id) }) {
-                                            Text("手动同步")
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Button(onClick = { onAbsBackgroundSync(root.id) }) {
-                                            Text("后台同步")
-                                        }
-                                    }
-                                    if (sync != null) {
+                                    if (sync != null && sync.lastError?.isNotBlank() == true) {
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = "最近同步: ${sync.lastFullSyncAt ?: 0} · 版本: ${sync.serverVersion ?: "-"}" +
-                                                (sync.lastError?.takeIf { it.isNotBlank() }?.let { " · 错误: $it" } ?: ""),
+                                            text = "错误: ${sync.lastError}",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = MaterialTheme.colorScheme.error
                                         )
                                     }
                                 }
                             }
-                            IconButton(onClick = { rootToDelete = root }) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Delete,
-                                    contentDescription = "移除媒体库根目录",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
                         }
-                    }
-
-                    item {
-                        SettingsItem(
-                            title = stringResource(R.string.rescan_library_title),
-                            subtitle = stringResource(R.string.rescan_library_subtitle),
-                            icon = Icons.Rounded.Refresh,
-                            onClick = onRescan
-                        )
                     }
 
                     // === Section 2: Interface Settings ===
@@ -567,6 +648,189 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showAddLibraryTypeDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddLibraryTypeDialog = false },
+            title = { Text("选择媒体库类别") },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showAddLibraryTypeDialog = false
+                                editingSafRootId = null
+                                launcher.launch(null)
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("本地（SAF）", style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showAddLibraryTypeDialog = false
+                                webDavUrl = ""
+                                webDavDisplayName = ""
+                                webDavBasePath = ""
+                                webDavUsername = ""
+                                webDavPassword = ""
+                                editingRootId = null
+                                showWebDavDialog = true
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.Cloud, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("WebDAV 媒体库", style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showAddLibraryTypeDialog = false
+                                absBaseUrl = ""
+                                absUsername = ""
+                                absPassword = ""
+                                absLibraryId = ""
+                                absLibraryName = ""
+                                absDisplayName = ""
+                                editingRootId = null
+                                showAbsDialog = true
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Audiobookshelf 服务器 (absserver)", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showAddLibraryTypeDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    if (rootForAction != null) {
+        val root = rootForAction!!
+        val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
+        val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
+        val scope = rememberCoroutineScope()
+        AlertDialog(
+            onDismissRequest = { rootForAction = null },
+            title = { Text(root.displayName.ifBlank { "媒体库操作" }) },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (root.sourceType == AudiobookSchema.LibrarySourceType.SAF) {
+                                    editingSafRootId = root.id
+                                    launcher.launch(null)
+                                } else if (isWebDavRoot) {
+                                    val creds = getWebDavCredentials(root.credentialId ?: "")
+                                    webDavUrl = root.sourceUri
+                                    webDavDisplayName = root.displayName
+                                    webDavBasePath = root.basePath
+                                    webDavUsername = creds?.username ?: ""
+                                    webDavPassword = creds?.password ?: ""
+                                    editingRootId = root.id
+                                    showWebDavDialog = true
+                                } else if (isAbsRoot) {
+                                    scope.launch {
+                                        val creds = getAbsCredential(root.credentialId ?: "")
+                                        absBaseUrl = root.sourceUri
+                                        absUsername = creds?.username ?: ""
+                                        absPassword = ""
+                                        absLibraryId = root.basePath
+                                        absLibraryName = root.displayName
+                                        absDisplayName = root.displayName
+                                        editingRootId = root.id
+                                        showAbsDialog = true
+                                    }
+                                }
+                                rootForAction = null
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(if (root.sourceType == AudiobookSchema.LibrarySourceType.SAF) "重新定位书库位置" else "编辑媒体库配置", style = MaterialTheme.typography.bodyLarge)
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (isAbsRoot) {
+                                    onAbsSync(root.id)
+                                } else {
+                                    onRescan()
+                                }
+                                rootForAction = null
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(if (isAbsRoot) "手动同步" else "重新扫描", style = MaterialTheme.typography.bodyLarge)
+                    }
+
+                    if (isAbsRoot) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onAbsBackgroundSync(root.id)
+                                    rootForAction = null
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Rounded.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("后台同步", style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                rootToDelete = root
+                                rootForAction = null
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("移除媒体库", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { rootForAction = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -574,12 +838,15 @@ private fun AbsServerDialog(
     baseUrl: String,
     username: String,
     password: String,
+    displayName: String,
+    editingRootId: String?,
     connectionState: AbsConnectionUiState,
     selectedLibraryId: String,
     selectedLibraryName: String,
     onBaseUrlChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
+    onDisplayNameChange: (String) -> Unit,
     onLibrarySelected: (String, String) -> Unit,
     onTestConnection: () -> Unit,
     onDismiss: () -> Unit,
@@ -587,7 +854,10 @@ private fun AbsServerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("添加 ABS Server") },
+        // ABS dialog properties: Force clicking explicit confirm/cancel buttons to dismiss instead of clicking outside.
+        properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
+        // ABS dialog adjustments: Update title dynamically depending on whether it is in editing mode.
+        title = { Text(if (editingRootId != null) "编辑 ABS Server" else "添加 ABS Server") },
         text = {
             Column {
                 OutlinedTextField(
@@ -610,7 +880,7 @@ private fun AbsServerDialog(
                 OutlinedTextField(
                     value = password,
                     onValueChange = onPasswordChange,
-                    label = { Text("密码") },
+                    label = { Text(if (editingRootId != null) "密码（留空则不修改）" else "密码") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
@@ -618,14 +888,15 @@ private fun AbsServerDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = onTestConnection,
-                    enabled = baseUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+                    // ABS dialog adjustments: Allow testing without re-entering password if we are editing an existing server.
+                    enabled = baseUrl.isNotBlank() && username.isNotBlank() && (password.isNotBlank() || editingRootId != null)
                 ) {
                     Text(if (connectionState.isTesting) "连接中..." else "测试连接")
                 }
                 if (connectionState.loginSucceeded) {
                      Spacer(modifier = Modifier.height(8.dp))
                      Text(
-                        text = "登录成功，请选择一个 book library 再点击添加",
+                        text = "登录成功，请选择一个 book library 再点击确认",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                      )
@@ -679,10 +950,11 @@ private fun AbsServerDialog(
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
-                enabled = baseUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank() &&
+                // ABS dialog adjustments: Require password only when creating a new server configuration.
+                enabled = baseUrl.isNotBlank() && username.isNotBlank() && (password.isNotBlank() || editingRootId != null) &&
                     selectedLibraryId.isNotBlank() && selectedLibraryName.isNotBlank()
             ) {
-                Text("添加")
+                Text(if (editingRootId != null) "保存" else "添加")
             }
         },
         dismissButton = {
@@ -900,17 +1172,23 @@ private fun WebDavRootDialog(
     password: String,
     displayName: String,
     basePath: String,
+    editingRootId: String? = null,
+    connectionState: WebDavConnectionUiState,
     onUrlChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onDisplayNameChange: (String) -> Unit,
     onBasePathChange: (String) -> Unit,
+    onTestConnection: () -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("添加 WebDAV 媒体库") },
+        // WebDAV dialog properties: Force clicking explicit confirm/cancel buttons to dismiss instead of clicking outside.
+        properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
+        // WebDAV dialog adjustments: Support dynamically displaying editing titles and placeholder fields.
+        title = { Text(if (editingRootId != null) "编辑 WebDAV 媒体库" else "添加 WebDAV 媒体库") },
         text = {
             Column {
                 OutlinedTextField(
@@ -949,20 +1227,45 @@ private fun WebDavRootDialog(
                 OutlinedTextField(
                     value = password,
                     onValueChange = onPasswordChange,
-                    label = { Text("密码") },
+                    label = { Text(if (editingRootId != null) "密码（留空则不修改）" else "密码") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                // WebDAV connection tester UI: Add a test connection button and restrict confirmation availability until the test completes successfully.
+                Button(
+                    onClick = onTestConnection,
+                    enabled = url.isNotBlank() && !connectionState.isTesting
+                ) {
+                    Text(if (connectionState.isTesting) "测试连接中..." else "测试连接")
+                }
+                if (connectionState.testSucceeded) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "连接测试成功，可以保存媒体库",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                connectionState.lastError?.takeIf { it.isNotBlank() }?.let { error ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
-                enabled = url.isNotBlank()
+                // WebDAV dialog adjustments: Require connectivity test to pass before adding or updating.
+                enabled = url.isNotBlank() && connectionState.testSucceeded
             ) {
-                Text("添加")
+                Text(if (editingRootId != null) "保存" else "添加")
             }
         },
         dismissButton = {
@@ -1049,9 +1352,19 @@ fun SettingsScreenPreview() {
             SettingsScreen(
                 onBack = {},
                 onLibraryRootSelected = {},
+                // Preview layout alignment: Align preview invocation parameters with new WebDAV connectivity test settings.
+                onSafRootRelocated = { _, _ -> },
                 onWebDavRootSubmitted = { _, _, _, _, _ -> },
-                onAbsConnectionTest = { _, _, _ -> },
-                onAbsRootSubmitted = { _, _, _, _, _ -> },
+                onWebDavRootUpdated = { _, _, _, _, _, _ -> },
+                webDavConnectionState = WebDavConnectionUiState(),
+                onWebDavConnectionTest = { _, _, _, _, _ -> },
+                onResetWebDavConnectionState = {},
+                // Preview layout alignment: Inject resetting callbacks to fit SettingsScreen parameter layout.
+                onResetAbsConnectionState = {},
+                onAbsConnectionTest = { _, _, _, _ -> },
+                onAbsRootSubmitted = { _, _, _, _, _, _ -> },
+                getWebDavCredentials = { _ -> null },
+                getAbsCredential = { _ -> null },
                 onAbsSync = {},
                 onAbsBackgroundSync = {},
                 absSyncConfirmationState = null,

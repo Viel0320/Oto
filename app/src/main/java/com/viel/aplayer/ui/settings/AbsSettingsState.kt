@@ -30,3 +30,10 @@ data class AbsSyncConfirmationState(
     val rootId: String,
     val totalItems: Int
 )
+
+// WebDAV connection state model: Add UI state class to hold connection test status of WebDAV libraries.
+data class WebDavConnectionUiState(
+    val isTesting: Boolean = false,
+    val testSucceeded: Boolean = false,
+    val lastError: String? = null
+)

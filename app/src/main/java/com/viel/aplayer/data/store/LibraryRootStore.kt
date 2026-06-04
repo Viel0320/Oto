@@ -212,6 +212,132 @@ class LibraryRootStore(
 
     private fun treeDocumentId(sourceUri: String): String =
         Uri.decode(sourceUri).substringAfter("/tree/", missingDelimiterValue = sourceUri)
+
+    /**
+     * Update SAF root configuration (Relocate local directory)
+     * Replaces permission trees and updates source URI for existing SAF root records.
+     *
+     * @param id Target root record ID
+     * @param newUri The new folder tree URI
+     * @return Updated library root record
+     */
+    suspend fun updateSafRoot(id: String, newUri: Uri): LibraryRootEntity = withContext(Dispatchers.IO) {
+        val existing = rootDao.getRootById(id) ?: throw IllegalArgumentException("Root not found: $id")
+        try {
+            val oldUri = Uri.parse(existing.sourceUri)
+            context.contentResolver.releasePersistableUriPermission(
+                oldUri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("LibraryRootStore", "Failed to release old SAF permission for root $id", e)
+        }
+        context.contentResolver.takePersistableUriPermission(
+            newUri,
+            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+        val normalizedUri = newUri.normalizeScheme().toString()
+        val displayName = try {
+            Uri.decode(normalizedUri).substringAfterLast(":")
+        } catch (_: Exception) {
+            existing.displayName
+        }
+        val updated = existing.copy(
+            sourceUri = normalizedUri,
+            displayName = if (displayName.isNotBlank()) displayName else existing.displayName,
+            status = AudiobookSchema.LibraryRootStatus.ACTIVE,
+            availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+            lastAvailabilityCheckedAt = 0L,
+            lastAvailabilityErrorCode = null
+        )
+        rootDao.insertRoot(updated)
+        updated
+    }
+
+    /**
+     * Update WebDAV root configuration (Modify connection settings)
+     * Modifies endpoints and updates encrypted password credentials for WebDAV connections.
+     *
+     * @param id Target root record ID
+     * @param url Endpoint URL of the server
+     * @param username Login username
+     * @param password Login password
+     * @param displayName Custom display label
+     * @param basePath Remote mount sub-path
+     * @return Updated library root record
+     */
+    suspend fun updateWebDavRoot(
+        id: String,
+        url: String,
+        username: String,
+        password: String,
+        displayName: String,
+        basePath: String
+    ): LibraryRootEntity = withContext(Dispatchers.IO) {
+        val existing = rootDao.getRootById(id) ?: throw IllegalArgumentException("Root not found: $id")
+        val parsed = url.trim().toUri()
+        val normalizedEndpoint = normalizeWebDavEndpoint(parsed)
+        val normalizedBasePath = normalizeWebDavBasePath(basePath.ifBlank { parsed.path.orEmpty() })
+        val resolvedDisplayName = displayName.ifBlank {
+            buildString {
+                append(parsed.host ?: normalizedEndpoint)
+                if (normalizedBasePath.isNotBlank()) append(normalizedBasePath)
+            }
+        }
+        val credentialId = existing.credentialId ?: UUID.randomUUID().toString()
+        webDavCredentialStore.save(
+            username = username,
+            password = password,
+            credentialId = credentialId
+        )
+        val updated = existing.copy(
+            displayName = resolvedDisplayName,
+            sourceUri = normalizedEndpoint,
+            basePath = normalizedBasePath,
+            credentialId = credentialId,
+            status = AudiobookSchema.LibraryRootStatus.ACTIVE,
+            availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+            lastAvailabilityCheckedAt = 0L,
+            lastAvailabilityErrorCode = null
+        )
+        rootDao.insertRoot(updated)
+        updated
+    }
+
+    /**
+     * Update ABS root configuration (Modify reference bindings)
+     * Updates matching display names and references to the chosen Audiobookshelf library.
+     *
+     * @param id Target root record ID
+     * @param credentialId Server credential lookup key
+     * @param libraryId Targeted mirror book library ID
+     * @param displayName Custom display label
+     * @return Updated library root record
+     */
+    suspend fun updateAbsRoot(
+        id: String,
+        credentialId: String,
+        libraryId: String,
+        displayName: String
+    ): LibraryRootEntity = withContext(Dispatchers.IO) {
+        val existing = rootDao.getRootById(id) ?: throw IllegalArgumentException("Root not found: $id")
+        val credential = requireNotNull(absCredentialStore.get(credentialId)) {
+            "ABS 凭据不存在: $credentialId"
+        }
+        val resolvedDisplayName = displayName.ifBlank { libraryId }
+        val updated = existing.copy(
+            sourceUri = credential.baseUrl,
+            basePath = libraryId,
+            credentialId = credentialId,
+            displayName = resolvedDisplayName,
+            status = AudiobookSchema.LibraryRootStatus.ACTIVE,
+            availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+            lastAvailabilityCheckedAt = 0L,
+            lastAvailabilityErrorCode = null
+        )
+        rootDao.insertRoot(updated)
+        updated
+    }
 }
 
 internal fun mergeAbsRoot(

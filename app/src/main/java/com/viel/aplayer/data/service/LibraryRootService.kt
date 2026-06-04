@@ -230,6 +230,30 @@ class LibraryRootService(
         // Cancels the private coroutine scope to close active Flow collection loops upon service teardown.
         scope.cancel()
     }
+
+    override suspend fun updateSafLibraryRoot(id: String, newUri: Uri): LibraryRootEntity = withContext(Dispatchers.IO) {
+        rootStore.updateSafRoot(id, newUri)
+    }
+
+    override suspend fun updateWebDavLibraryRoot(
+        id: String,
+        url: String,
+        username: String,
+        password: String,
+        displayName: String,
+        basePath: String
+    ): LibraryRootEntity = withContext(Dispatchers.IO) {
+        rootStore.updateWebDavRoot(id, url, username, password, displayName, basePath)
+    }
+
+    override suspend fun updateAbsLibraryRoot(
+        id: String,
+        credentialId: String,
+        libraryId: String,
+        displayName: String
+    ): LibraryRootEntity = withContext(Dispatchers.IO) {
+        rootStore.updateAbsRoot(id, credentialId, libraryId, displayName)
+    }
 }
 
 internal fun shouldDeleteAbsCredential(
