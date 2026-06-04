@@ -370,7 +370,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                                                 chapterSheetHazeState = coverHazeState
+                                chapterSheetHazeState = coverHazeState
                             )
                         }
                         isLandscape -> {
@@ -412,7 +412,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                                                 chapterSheetHazeState = coverHazeState
+                                chapterSheetHazeState = coverHazeState
                             )
                         }
                         else -> {

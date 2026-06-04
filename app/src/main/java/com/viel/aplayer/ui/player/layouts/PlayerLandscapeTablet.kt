@@ -25,7 +25,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -87,6 +91,13 @@ fun PlayerTabletLandscape(
     // Resolve window dimensions (To query device width coordinates without reading LocalConfiguration parameters directly)
     val windowClass = LocalWindowClass.current
     val density = LocalDensity.current
+    
+    // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic (e.g. crossfading to PLAYER mode).
+    // Updates synchronously inside LaunchedEffect when currentMode changes.
+    var prevMode by remember { mutableStateOf(currentMode) }
+    LaunchedEffect(currentMode) {
+        prevMode = currentMode
+    }
 
     // Tablet layout configuration (To set wide margins for spacious screen widths)
     val screenWidthDp = windowClass.screenWidthDp
@@ -184,25 +195,34 @@ fun PlayerTabletLandscape(
                     targetState = contentShell,
                     modifier = Modifier.fillMaxSize(),
                     transitionSpec = {
-                        if (targetState.index > initialState.index) {
-                            (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300)))
-                                .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
+                        // Decide Transition Spec: Applies fade-in/fade-out for PLAYER (-1) transitions, and horizontal sliding for others.
+                        val isPlayerTransition = (currentMode == PlayerScreenMode.PLAYER || prevMode == PlayerScreenMode.PLAYER)
+                        if (isPlayerTransition) {
+                            (fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300)))
+                                .using(SizeTransform(clip = false))
                         } else {
-                            (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300)))
-                                .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
-                        }.using(SizeTransform(clip = false))
+                            if (targetState.index > initialState.index) {
+                                (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300)))
+                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
+                            } else {
+                                (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300)))
+                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
+                            }.using(SizeTransform(clip = false))
+                        }
                     },
                     label = "player_mode_transition"
                 ) { shell ->
                     when (shell) {
                         PlayerContentShell.PlaybackShell -> {
-                            val playbackTopMode = if (currentMode == PlayerScreenMode.SUBTITLES) {
-                                PlayerScreenMode.SUBTITLES
-                            } else {
-                                PlayerScreenMode.PLAYER
+                            // Sync Playback Mode State: Tracks and locks the active playback sub-view (subtitles or player artwork cover).
+                            // This state only updates when currentMode is SUBTITLES or PLAYER, freezing the view during exit transitions to other content shells.
+                            var lastPlaybackMode by remember { mutableStateOf(currentMode) }
+                            if (currentMode == PlayerScreenMode.PLAYER || currentMode == PlayerScreenMode.SUBTITLES) {
+                                lastPlaybackMode = currentMode
                             }
+                            
                             AnimatedContent(
-                                targetState = playbackTopMode,
+                                targetState = lastPlaybackMode,
                                 modifier = Modifier.fillMaxSize(),
                                 transitionSpec = {
                                     (fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300)))
