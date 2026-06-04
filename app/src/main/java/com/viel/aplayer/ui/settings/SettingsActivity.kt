@@ -31,17 +31,17 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
 
 /**
- * 设置功能的独立 Activity（Stateful 容器外壳）。
- *
- * 经过物理拆分重构，具体的配置绘制逻辑已被完整剥离到独立的 [SettingsScreen.kt] 中，
- * 本 Activity 仅作为纯粹的有状态生命周期载体，专注于 SettingsViewModel 状态流订阅与中转回调。
- * 物理职责聚焦，完美规避了上帝类架构隐患。
+ * Settings activity host (Lifecycle and state flow carrier)
+ * This independent Activity acts as a stateful container shell for the settings page.
+ * The detailed UI rendering logic has been decoupled into [SettingsScreen.kt].
+ * This class focuses purely on SettingsViewModel state subscriptions and routing callbacks.
  */
 class SettingsActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 启用全面屏，保持与 MainActivity 一致的边到边体验
+        // Enable edge-to-edge (To maintain visual consistency with MainActivity)
+        // Invokes enableEdgeToEdge to provide an immersive full-screen experience.
         enableEdgeToEdge()
 
         setContent {
@@ -67,15 +67,18 @@ class SettingsActivity : ComponentActivity() {
                         }
                     }
 
-                    // 维护一个 Boolean 状态，用于驱动设置主页 (SettingsScreen) 和开源许可面板 (AboutLibrariesScreen) 之间的显示和切换。
+                    // Track UI navigation state (To toggle between settings main page and licenses page)
+                    // Maintains a boolean state to drive display switching between SettingsScreen and AboutLibrariesScreen.
                     var showAboutLibraries by remember { mutableStateOf(false) }
 
-                    // 运用 BackHandler 物理拦截手势：当处于开源许可面板时，物理返回按键或系统侧滑返回仅会重置 showAboutLibraries = false 返回设置主页，从而避免直接关闭整个设置页面。
+                    // Handle system back navigation (To prevent closing settings screen when leaving licenses page)
+                    // Intercepts the back gesture using BackHandler; resets showAboutLibraries to false instead of finishing activity.
                     BackHandler(enabled = showAboutLibraries) {
                         showAboutLibraries = false
                     }
 
-                    // 采用 AnimatedContent 高阶转场，当用户点击开源许可时，AboutLibrariesScreen 将优雅地从右滑入，SettingsScreen 从左滑出；点击返回时相反，给用户极致轻盈的操作反馈。
+                    // Apply navigation transitions (To provide visual feedback during transition)
+                    // Uses AnimatedContent to animate sliding right for AboutLibrariesScreen and sliding left for SettingsScreen.
                     AnimatedContent(
                         targetState = showAboutLibraries,
                         transitionSpec = {
@@ -95,12 +98,14 @@ class SettingsActivity : ComponentActivity() {
                             )
                         } else {
                             SettingsScreen(
-                                // 返回按钮关闭当前 Activity，系统自动播放退出动画。
+                                // Terminate settings activity (To return to previous screen with transition)
+                                // Calls finish() to close the Activity, triggering system-defined exit animations.
                                 onBack = { finish() },
-                                // 直接通过 SettingsViewModel 添加媒体库根目录，与其共享同一套 SAF 授权流程。
-                                // 彻底剥离对 LibraryViewModel 的依赖，防止进入设置页时重新创建该 ViewModel 而导致重复触发其 init 块中的 COLD_START 冷启动同步。
+                                // Dispatch SAF authorization callbacks (To update directory registry under isolated scope)
+                                // Delegates SAF folder selection to SettingsViewModel directly, bypassing LibraryViewModel initialization.
                                 onLibraryRootSelected = { uri -> settingsViewModel.onLibraryRootSelected(uri) },
-                                // WebDAV 入口同样委托给 SettingsViewModel，保持设置页独立管理媒体库来源。
+                                // Dispatch WebDAV root submission (To register remote WebDAV folders under settings ViewModel)
+                                // Forwards url, username, password, display name, and base path to SettingsViewModel.
                                 onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
                                     settingsViewModel.onWebDavRootSubmitted(url, username, password, displayName, basePath)
                                 },
@@ -135,19 +140,24 @@ class SettingsActivity : ComponentActivity() {
                                 onSleepFadeOutEnabledChange = { settingsViewModel.toggleSleepFadeOutEnabled(it) },
                                 isShakeToResetEnabled = settingsState.isShakeToResetEnabled,
                                 onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) },
-                                // 将 DataStore 中的睡眠模式传入设置页，并把用户选择回写到 SettingsViewModel。
+                                // Pass sleep mode configuration (To bind local DataStore state to UI component)
+                                // Binds current sleepMode from settingsState and updates it via SettingsViewModel callbacks.
                                 sleepMode = settingsState.sleepMode,
                                 onSleepModeChange = { settingsViewModel.updateSleepMode(it) },
-                                // 将 DataStore 中的玻璃效果模式传入设置页，并把用户选择回写到 SettingsViewModel。
+                                // Pass glass effect configuration (To bind local DataStore state to UI component)
+                                // Binds current glassEffectMode from settingsState and updates it via SettingsViewModel callbacks.
                                 glassEffectMode = settingsState.glassEffectMode,
                                 onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },
-                                // 将 DataStore 中的自动回退时长传入设置页，并把用户选择回写到 SettingsViewModel。
+                                // Pass auto-rewind configuration (To bind local DataStore state to UI component)
+                                // Binds autoRewindSeconds and writes user updates back to DataStore via SettingsViewModel.
                                 autoRewindSeconds = settingsState.autoRewindSeconds,
                                 onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) },
-                                // 将 DataStore 中的通知避让状态传入设置页，并把用户开关选择回写到 SettingsViewModel 进行持久化。
+                                // Pass notification avoidance configuration (To bind local DataStore state to UI component)
+                                // Binds isNotificationAvoidanceEnabled and writes updates back to DataStore via SettingsViewModel.
                                 isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
                                 onNotificationAvoidanceEnabledChange = { settingsViewModel.toggleNotificationAvoidanceEnabled(it) },
-                                // 将“开源许可页面”点击项的触发回调透传，用户点击时修改 showAboutLibraries = true 以触发梦幻滑入转场。
+                                // Toggle license viewer (To navigate to open source libraries panel)
+                                // Sets showAboutLibraries to true to trigger the horizontal sliding animation.
                                 onAboutLibrariesClick = { showAboutLibraries = true }
                             )
                         }
@@ -159,7 +169,8 @@ class SettingsActivity : ComponentActivity() {
 
     companion object {
         /**
-         * 构建用于启动 SettingsActivity 的 Intent 的工厂方法。
+         * Create intent factory (To provide a standardized entry point for SettingsActivity)
+         * Constructs a launch Intent bound to SettingsActivity.
          */
         fun createIntent(context: Context): Intent =
             Intent(context, SettingsActivity::class.java)

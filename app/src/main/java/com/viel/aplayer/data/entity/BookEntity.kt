@@ -10,7 +10,8 @@ import com.viel.aplayer.data.db.AudiobookSchema
     tableName = "books",
     indices = [Index("rootId"), Index("status")],
     foreignKeys = [
-        // 建立针对 LibraryRootEntity 的级联外键，保证在 SAF 根目录删除释放后，级联物理清除相关书籍 entity (H-06)
+        // Library Root Cascade Foreign Key (Establish a cascade delete relationship with LibraryRootEntity)
+        // Ensures that when a root directory is removed/revoked, all associated books are wiped from the DB automatically.
         androidx.room.ForeignKey(
             entity = LibraryRootEntity::class,
             parentColumns = ["id"],
@@ -24,7 +25,7 @@ data class BookEntity(
     val id: String,
     val rootId: String,
     val sourceType: String,
-    // 新增 sourceRoot 字段，排在 sourceType 后面，记录当前有声书所有物理资产所属的物理直接父目录 Uri，默认值设为空字符串以确保最佳的兼容性
+    // Asset Parent Directory Property (Tracks the direct parent directory URI for all associated assets, defaulting to empty)
     val sourceRoot: String = "",
     // GENERATED_M3U8 has no external manifest file, so its virtual playlist is stored here.
     val generatedManifestJson: String? = null,
@@ -43,6 +44,6 @@ data class BookEntity(
     val addedAt: Long = System.currentTimeMillis(),
     val lastScannedAt: Long = 0L,
     val status: String = AudiobookSchema.BookStatus.READY,
-    // 新增 readStatus 字段用于持久化有声书的阅读状态（未开始/进行中/已完成），默认值设为 NOT_STARTED 以保证最佳平滑兼容性
+    // Playback Progress State Property (Tracks the user read/playback state (NOT_STARTED, IN_PROGRESS, FINISHED), defaulting to NOT_STARTED)
     val readStatus: String = AudiobookSchema.ReadStatus.NOT_STARTED
 )

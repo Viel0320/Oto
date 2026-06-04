@@ -5,18 +5,19 @@ import com.viel.aplayer.media.ChapterTimeline
 import kotlin.math.ceil
 
 /**
- * 专门用于播放状态与进度计算的状态映射器（PlaybackStateMapper）。
- * 本组件旨在将原本高度集中在 PlayerViewModel 中的高频进度映射、章节折算及百分比数学逻辑进行物理剥离，
- * 实现 ViewModel 的逻辑“脱水”与单一职责化，使代码结构更加解耦且便于单独进行单元测试。
+ * PlaybackStateMapper - Dedicated state mapper for playback status and progress calculations.
+ *
+ * This component is designed to physically decouple high-frequency progress mapping, chapter conversions, and percentage mathematical logic that were originally concentrated in PlayerViewModel,
+ * achieving logical "dehydration" and single-responsibility of the ViewModel, making the code structure more decoupled and easier to unit test independently.
  */
 object PlaybackStateMapper {
 
     /**
-     * 根据当前播放的绝对位置与总时长，计算全局进度的整型百分比比例（范围：0 - 100）。
+     * Calculate the integer percentage of global progress (range: 0 - 100) based on the current absolute playback position and total duration.
      *
-     * @param currentPosition 当前已播放时长（毫秒）
-     * @param duration 书籍总时长（毫秒）
-     * @return 返回计算并向上取整后的百分比进度
+     * @param currentPosition The currently played duration (in milliseconds).
+     * @param duration The total duration of the book (in milliseconds).
+     * @return The calculated and rounded-up percentage progress.
      */
     fun calculateProgressPercent(currentPosition: Long, duration: Long): Int {
         return if (duration > 0) {
@@ -29,15 +30,15 @@ object PlaybackStateMapper {
     }
 
     /**
-     * 计算供迷你播放器渲染的进度比例（范围：0.0f - 1.0f）。
-     * 内部能自主根据是否开启章节进度模式（isChapterMode）自动决定返回章节内相对进度或全局物理进度。
+     * Calculate the progress ratio (range: 0.0f - 1.0f) for mini-player rendering.
+     * It internally decides whether to return relative progress within a chapter or global physical progress automatically based on whether chapter progress mode (isChapterMode) is active.
      *
-     * @param currentPosition 当前播放器的绝对位置（毫秒）
-     * @param duration 书籍的总时长（毫秒）
-     * @param chapters 书籍包含的物理章节列表
-     * @param isChapterMode 是否处于“按章节进度显示”的模式
-     * @param fallbackProgress 兜底的全局相对进度
-     * @return 返回折算后的高精度浮点进度比例
+     * @param currentPosition The absolute position of the current player (in milliseconds).
+     * @param duration The total duration of the book (in milliseconds).
+     * @param chapters The list of physical chapters contained in the book.
+     * @param isChapterMode Whether the display is in "chapter progress" mode.
+     * @param fallbackProgress The fallback global relative progress.
+     * @return The converted high-precision floating-point progress ratio.
      */
     fun calculateMiniPlayerProgress(
         currentPosition: Long,
@@ -65,11 +66,11 @@ object PlaybackStateMapper {
     }
 
     /**
-     * 根据当前全局绝对播放位置，计算并检索当前正在播放的章节实体。
+     * Calculate and retrieve the chapter entity currently playing based on the global absolute playback position.
      *
-     * @param chapters 章节信息列表
-     * @param position 当前播放器的绝对位置（毫秒）
-     * @return 返回匹配的章节实体，若无匹配则返回 null
+     * @param chapters The list of chapter information.
+     * @param position The absolute position of the current player (in milliseconds).
+     * @return The matched chapter entity, or null if no match is found.
      */
     fun currentChapter(chapters: List<ChapterEntity>, position: Long): ChapterEntity? {
         return ChapterTimeline.currentChapter(chapters, position)

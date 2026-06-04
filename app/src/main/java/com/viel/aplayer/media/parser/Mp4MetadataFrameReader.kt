@@ -12,7 +12,7 @@ import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
-// MP4/M4B 元数据帧读取器只通过 VFS Range 小片段读取 moov/ilst/covr atom，不下载远程整文件。
+// MP4/M4B metadata frame reader only reads moov/ilst/covr atoms via VFS range small snippets, avoiding full remote file downloads.
 object Mp4MetadataFrameReader {
     data class EmbeddedCover(
         val bytes: ByteArray,
@@ -83,7 +83,7 @@ object Mp4MetadataFrameReader {
     )
 
     fun supports(displayName: String): Boolean {
-        // 向元数据入口公开 MP4 家族判断，保证本地与远程 m4b/m4a/mp4 都强制走 atom 帧解析。
+        // Exposes MP4 family file extensions to make both local and remote m4b/m4a/mp4 formats use atom frame parsing.
         return displayName.isMp4FamilyName()
     }
 
@@ -111,7 +111,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractMetadata(file: FileRef, fileReader: VfsFileInterface): AudiobookMetadata? {
         if (!supports(file.displayName)) return null
-        // 保留纯元数据入口给非导入场景使用，避免只需要标题/章节时也把 covr 图片字节带进内存。
+        // Retains a metadata-only entry point for non-import scenarios to avoid pulling covr image bytes into memory.
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = file.vfsKey,
@@ -123,7 +123,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractMetadata(file: BookFileEntity, fileReader: VfsFileInterface): AudiobookMetadata? {
         if (!supports(file.displayName)) return null
-        // 已入库文件的元数据重建仍默认只读轻量标签和章节，封面缓存继续交给恢复流程兜底。
+        // Rebuilding metadata for imported files defaults to reading lightweight tags/chapters; cover caching is handled by the recovery flow.
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = "${file.rootId}:${file.sourcePath}",
@@ -135,7 +135,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractMetadataResult(file: FileRef, fileReader: VfsFileInterface): Result? {
         if (!supports(file.displayName)) return null
-        // 评估阶段在元数据流程中同步读取 covr，但暂不接管封面恢复落库路径，只用 Mp4Meta 日志比较耗时与字节量。
+        // Synchronously reads covr during metadata flow for evaluation, without taking over the cover recovery path, logging execution metrics.
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = file.vfsKey,
@@ -147,7 +147,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractMetadataResult(file: BookFileEntity, fileReader: VfsFileInterface): Result? {
         if (!supports(file.displayName)) return null
-        // 入库后元数据重建也临时同步读取 covr 评估性能，但不写封面缓存，原封面恢复路径保持不变。
+        // Rebuilding metadata for imported files temporarily reads covr synchronously for performance evaluation without writing cache.
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = "${file.rootId}:${file.sourcePath}",
@@ -159,7 +159,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractCover(file: FileRef, fileReader: VfsFileInterface): EmbeddedCover? {
         if (!supports(file.displayName)) return null
-        // 封面恢复只读取 ilst/covr，不再解析章节表，避免后台封面自愈和导入元数据争抢大 M4B I/O。
+        // Cover recovery only reads ilst/covr and skips parsing the chapter table, avoiding I/O contention between cover self-healing and metadata import.
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = file.vfsKey,
@@ -171,7 +171,7 @@ object Mp4MetadataFrameReader {
 
     suspend fun extractCover(file: BookFileEntity, fileReader: VfsFileInterface): EmbeddedCover? {
         if (!supports(file.displayName)) return null
-        // 已入库文件的封面重建也走 cover-only atom 读取，不重复解析章节和文字元数据。
+        // Cover rebuilding for imported files also reads cover-only atoms, avoiding duplicate parsing of chapters and text metadata.
         return extractWithRangeReader(
             displayName = file.displayName,
             sourceId = "${file.rootId}:${file.sourcePath}",
@@ -188,7 +188,7 @@ object Mp4MetadataFrameReader {
         readRange: suspend (offset: Long, length: Int) -> ByteArray?,
         options: ReadOptions
     ): Result? {
-        // MP4 元数据和封面解析彻底废除本地直读快路径，本地 SAF 与 WebDAV 都统一走 VFS readRange。
+        // MP4 metadata and cover parsing completely deprecate the local direct read fast-path; both SAF and WebDAV route through VFS readRange.
         val stats = RangeReadStats(mode = "vfs-range")
         val rangeReader = CoalescingRangeReader(fileSize, stats, readRange)
         val startedAt = SystemClock.elapsedRealtime()
@@ -224,7 +224,7 @@ object Mp4MetadataFrameReader {
                 ?.let { parseChpl(it, sourceId, readRange) }
                 .orEmpty()
             neroChapters.ifEmpty {
-                // 没有 Nero chpl 时继续按 QuickTime chapter track 的 stbl 元数据表解析章节，仍然只读取 atom 小片段。
+                // Fall back to parsing chapters via QuickTime chapter track's stbl metadata table if Nero chpl is absent.
                 parseQuickTimeChapters(moov, fileSize, sourceId, readRange)
             }.normalizedChapterDurations(durationMs)
         } else {
@@ -235,11 +235,10 @@ object Mp4MetadataFrameReader {
         val album = ilstData.textValues.firstText("\u00A9alb")
         val author = ilstData.textValues.firstText("\u00A9ART", "aART")
         val narrator = ilstData.textValues.firstText("\u00A9nrt", "\u00A9wrt", "\u00A9com")
-        // MP4/M4B 的简介来源在不同工具里并不统一。
-        // 这里优先采用人工维护倾向更强的 freeform 自定义字段。
-        // 若没有自定义字段，则回退到 fallbackKeys 中的普通备注与标准简介。
-        // 此处调整了 fallbackKeys 的匹配顺序，将 cmt 系列（©cmt, cmt, cmmt）置于 des 系列（desc, ldes, ©des）之前，
-        // 以实现 cmt 字段的提取优先级高于 des 字段。
+        // MP4/M4B synopsis sources are inconsistent across tagging tools.
+        // Prefers freeform custom fields which tend to be manually curated.
+        // If absent, falls back to common comments and standard descriptions in fallbackKeys.
+        // Adjusted match order in fallbackKeys, placing cmt series before des series to prioritize cmt fields over des.
         val description = MetadataDescriptionRules.firstDescriptionFromCustomAndFallback(
             values = ilstData.textValues,
             customPrefix = "----",
@@ -255,7 +254,7 @@ object Mp4MetadataFrameReader {
         val rawYear = ilstData.textValues.firstText("\u00A9day")
         val year = Regex("\\d{4}").find(rawYear)?.value ?: rawYear
 
-        // 即使只有 mvhd duration，也说明 Range atom 解析成功，可用于远程导入的轻量元数据兜底。
+        // Even if only mvhd duration is extracted, it indicates successful range atom parsing, providing lightweight fallback metadata.
         return Result(
             metadata = AudiobookMetadata(
                 title = title,
@@ -283,8 +282,8 @@ object Mp4MetadataFrameReader {
         var pos = ilst.contentOffset
         while (pos + ATOM_HEADER_SIZE <= ilst.endOffset) {
             val item = readAtom(pos, ilst.endOffset, readRange) ?: break
-            // iTunes freeform 元数据用顶层 "----" atom 承载，字段名分散在 mean/name/data 子 atom 中。
-            // 这些值必须在遍历同一个 item 的所有子 atom 后再写入 textValues，否则无法知道 data 对应的真实字段名。
+            // iTunes freeform metadata uses top-level "----" atoms; field names are split into mean/name/data sub-atoms.
+            // Values must be written to textValues after scanning all sub-atoms of the item to resolve the correct field name.
             var freeformMean: String? = null
             var freeformName: String? = null
             var freeformText: String? = null
@@ -303,19 +302,19 @@ object Mp4MetadataFrameReader {
                     when (item.type) {
                         "covr" -> if (options.includeCover && cover == null) {
                             val dataLength = (child.size - child.headerSize).coerceAtMost(MAX_COVER_BYTES.toLong()).toInt()
-                            // 只有封面专用路径才读取 covr 大 payload，普通元数据扫描必须跳过它。
+                            // Only the cover-specific path reads the large covr payload; standard metadata scanning must bypass it.
                             val payload = readRange(child.contentOffset, dataLength) ?: ByteArray(0)
                             cover = parseCoverData(payload)
                         }
                         "trkn" -> if (options.includeMetadataFields && trackIndex == null) {
                             val dataLength = (child.size - child.headerSize).coerceAtMost(MAX_TEXT_DATA_BYTES.toLong()).toInt()
-                            // 曲目号属于轻量元数据字段，按小上限读取 data payload。
+                            // Track number is a lightweight metadata field; reads data payload with a small upper limit.
                             val payload = readRange(child.contentOffset, dataLength) ?: ByteArray(0)
                             trackIndex = parseTrackIndex(payload)
                         }
                         else -> if (options.includeMetadataFields) {
                             val dataLength = (child.size - child.headerSize).coerceAtMost(MAX_TEXT_DATA_BYTES.toLong()).toInt()
-                            // 文字元数据路径只读取短 data payload，不触碰 covr 图片字节。
+                            // Text metadata path only reads short data payloads, avoiding cover image bytes.
                             val payload = readRange(child.contentOffset, dataLength) ?: ByteArray(0)
                             parseTextData(payload)?.let { value -> textValues[item.type] = value }
                         }
@@ -339,8 +338,8 @@ object Mp4MetadataFrameReader {
 
     private fun parseFreeformLabel(payload: ByteArray): String? {
         if (payload.isEmpty()) return null
-        // mean/name 子 atom 通常以 4 字节 version/flags 开头；少数非标准写入器可能省略该头。
-        // 两种偏移都尝试，保证自定义 DESCRIPTION/COMMENT 字段不会因为头部差异被漏掉。
+        // The mean/name sub-atoms usually start with a 4-byte version/flags header; some non-standard writers may omit it.
+        // Tries both offset variations to ensure custom DESCRIPTION/COMMENT fields are not missed due to header discrepancies.
         return listOf(FREEFORM_LABEL_HEADER_BYTES, 0)
             .asSequence()
             .filter { start -> start < payload.size }
@@ -361,7 +360,7 @@ object Mp4MetadataFrameReader {
         val normalizedValue = value?.trim().orEmpty()
         if (normalizedName.isBlank() || normalizedValue.isBlank()) return
 
-        // description 读取只依赖字段名，mean 仍作为附加键保留，便于后续需要区分写入来源时复用。
+        // Description retrieval depends only on the field name; mean is retained as an auxiliary key for future source differentiation.
         textValues.putIfAbsent("----:$normalizedName", normalizedValue)
         mean?.let(MetadataDescriptionRules::normalizedFieldKey)
             ?.takeIf { it.isNotBlank() }
@@ -461,7 +460,7 @@ object Mp4MetadataFrameReader {
         sourceId: String,
         readRange: suspend (offset: Long, length: Int) -> ByteArray?
     ): List<ChapterEntity> {
-        // QuickTime 章节由普通音轨 tref/chap 指向文本章节 track，这里只解析 track 元数据表和小文本 sample。
+        // QuickTime chapters map to a text track via tref/chap; parses only track metadata tables and small text samples.
         val tracks = findChildAtoms(moov, fileSize, "trak", readRange).mapNotNull { trak ->
             val tkhd = findChildAtom(trak, fileSize, "tkhd", readRange) ?: return@mapNotNull null
             val trackId = parseTkhdTrackId(tkhd, readRange) ?: return@mapNotNull null
@@ -687,7 +686,7 @@ object Mp4MetadataFrameReader {
         sampleSizes: List<Int>,
         sampleToChunk: List<StscEntry>
     ): List<Long> {
-        // 根据 stsc/stco/stsz 组合计算文本 sample 的真实偏移，避免旧逻辑把 chunk 误当成 sample。
+        // Computes real offsets of text samples using stsc/stco/stsz combinations, avoiding treating chunks as samples.
         if (sampleToChunk.isEmpty()) {
             return chunkOffsets.take(sampleSizes.size)
         }
@@ -777,7 +776,7 @@ object Mp4MetadataFrameReader {
         readRange: suspend (offset: Long, length: Int) -> ByteArray?,
         extraHeaderBytes: Int = 0
     ): List<Atom> {
-        // QuickTime 章节需要枚举所有 trak，不能只找第一个同名子 atom。
+        // QuickTime chapters require scanning all trak elements instead of just matching the first child atom.
         val atoms = mutableListOf<Atom>()
         var pos = parent.contentOffset + extraHeaderBytes
         var guard = 0
@@ -896,7 +895,7 @@ object Mp4MetadataFrameReader {
         }
 
         suspend fun read(offset: Long, length: Int): ByteArray? {
-            // Range 合并层只缓存小片段读取，封面等大 payload 仍直接发单次有界请求，避免把远程大文件误缓存进内存。
+            // The coalescing layer only caches small snippet reads; large payloads like covers bypass cache to avoid memory bloat.
             if (offset < 0L) return null
             if (length <= 0) return ByteArray(0)
             if (length > MAX_COALESCED_REQUEST_BYTES) {
@@ -918,7 +917,7 @@ object Mp4MetadataFrameReader {
         }
 
         private fun coalescedLength(offset: Long, requestedLength: Int): Int {
-            // 小 atom/header 读取扩展成固定窗口，远程 WebDAV 仍由 provider 按 fileSize 裁剪为 bytes=start-end 闭区间。
+            // Header/atom reads are expanded into fixed windows; remote WebDAV ranges are trimmed to valid bounds based on fileSize.
             val desired = maxOf(requestedLength, COALESCED_RANGE_WINDOW_BYTES)
             if (fileSize <= 0L || offset >= fileSize) return requestedLength
             return (fileSize - offset).coerceAtMost(desired.toLong()).toInt().coerceAtLeast(requestedLength)
@@ -926,13 +925,13 @@ object Mp4MetadataFrameReader {
     }
 
     private fun logRangeStats(sourceId: String, stats: RangeReadStats, startedAt: Long, success: Boolean, options: ReadOptions) {
-        // 保留 MP4 解析读次数与字节量日志；本地和远程都会以 vfs-range 统计。
+        // Preserves log entries for MP4 parse counts and bytes consumed; both local and remote operations use vfs-range statistics.
         Log.d(TAG, "MP4 metadata parse purpose=${options.purpose} success=$success elapsedMs=${SystemClock.elapsedRealtime() - startedAt} $stats source=$sourceId")
     }
 
-    // 详尽的中文注释：重构时长转毫秒的核心计算函数，防止 MP4 v1 标准下 64 位 duration 乘 1000L 发生 Long 型符号位回环溢出。
-    // 采用 (duration / timescale) * 1000 + ((duration % timescale) * 1000) / timescale 除余拆解，
-    // 并在最终结果上强制 coerceAtLeast(0L) 夹取非负值，从数学原理上彻底杜绝负时长对 seek 机制的物理破坏。
+    // Time conversion (Refactored duration-to-ms calculation to prevent 64-bit overflow during duration * 1000L in MP4 v1 format)
+    // Uses (duration / timescale) * 1000 + ((duration % timescale) * 1000) / timescale to avoid large multiplications,
+    // and enforces coerceAtLeast(0L) to guarantee non-negative duration outcomes, protecting player seek logic.
     private fun durationToMs(duration: Long, timescale: Long): Long {
         if (duration <= 0L || timescale <= 0L) return 0L
         return runCatching {
@@ -956,9 +955,9 @@ object Mp4MetadataFrameReader {
     private const val FREEFORM_LABEL_HEADER_BYTES = 4
     private const val MAX_ATOM_SCAN_COUNT = 20_000
     private const val MAX_TEXT_DATA_BYTES = 256 * 1024
-    // 详尽的中文注释：限制提取的单次内嵌封面最大字节数，从原来的 16MB 安全下调为 6MB。
-    // 这能在第一阶段的 Range 读取元数据流程中，直接拦截异常偏大或恶意高清封面的加载，
-    // 防止大体积字节数组强行常驻于堆内存中造成 OOM 风险。
+    // Safety limit (Caps single embedded cover extraction size to 6MB, down from 16MB)
+    // Intercepts excessively large or malformed high-resolution covers during tag parsing,
+    // avoiding large byte arrays from saturating heap memory and triggering OutOfMemoryError.
     private const val MAX_COVER_BYTES = 6 * 1024 * 1024
     private const val MAX_CHPL_BYTES = 1024 * 1024
     private const val MAX_TABLE_BYTES = 2 * 1024 * 1024
@@ -989,7 +988,7 @@ object Mp4MetadataFrameReader {
         includeCover = true,
         includeChapters = true,
         includeDuration = true,
-        // 评估通过后将日志目的从 eval 固化为正式的“元数据带封面”路径，方便后续 Logcat 对比。
+        // Standardized metadata purpose after evaluation to establish the formal metadata-cover path for diagnostics comparison.
         purpose = "metadata-cover"
     )
     private val COVER_ONLY_OPTIONS = ReadOptions(

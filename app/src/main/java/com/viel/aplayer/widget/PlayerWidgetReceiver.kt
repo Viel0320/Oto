@@ -4,13 +4,12 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 
 /**
- * 详尽的中文注释：
- * 桌面小组件生命周期桥接接收器（PlayerWidgetReceiver）。
- * 
- * 核心职责：
- * 1. 继承自 GlanceAppWidgetReceiver，仅绑定并管理桌面组件 PlayerWidget 视图生命周期的渲染及 APPWIDGET_UPDATE 广播更新。
- * 2. 贯彻组件隔离原则，原本由本接收器处理的自定义播控指令已全部物理安全剥离至非公开的 PlayerWidgetActionReceiver 中运行。
- *    本接收器只暴露系统级 widget 更新行为，任何外部恶意虚假广播均无法触达播控链路，系统级安全性极大提升。
+ * Desktop widget lifecycle bridge receiver.
+ *
+ * Core Responsibilities:
+ * 1. Extends GlanceAppWidgetReceiver to bind and manage the rendering lifecycle and APPWIDGET_UPDATE broadcasts for the PlayerWidget view.
+ * 2. Enforces component isolation: custom playback command logic has been decoupled from this receiver and moved into the non-exported PlayerWidgetActionReceiver.
+ *    This receiver only handles standard system widget update behaviors, protecting the playback control pipeline from malicious or fake external broadcasts.
  */
 class PlayerWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget

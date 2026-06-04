@@ -35,14 +35,14 @@ import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 import javax.xml.parsers.DocumentBuilderFactory
 
-// WebDavException 将 HTTP/网络错误先映射成统一可用性状态，避免上层解析 OkHttp 异常细节。
+// WebDavException (Maps HTTP and network errors to standardized availability statuses to avoid exposing OkHttp details upstream)
 class WebDavException(
     val availabilityStatus: String,
     message: String,
     cause: Throwable? = null
 ) : IOException(message, cause)
 
-// WebDavResource 是 Provider 内部资源模型，只在转换成 SourceNode 前承载 HTTP href/etag 等协议细节。
+// WebDavResource (Internal provider model representing HTTP resources with href, etag, and protocol-specific details)
 private data class WebDavResource(
     val sourcePath: String,
     val href: String,
@@ -55,7 +55,7 @@ private data class WebDavResource(
     val mimeType: String?
 )
 
-// WebDAV Provider 使用 OkHttp 实现 PROPFIND、GET 与 Range 读取，是远程标准件的第一条真实接入路径。
+// WebDavSourceProvider (OkHttp-powered provider implementing PROPFIND, GET, and Range reads as the primary remote source path)
 class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     override val kind: LibrarySourceKind = LibrarySourceKind.WEBDAV
     override val capabilities: SourceCapabilities = SourceCapabilities(
@@ -65,7 +65,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         supportsRangeRead = true
     )
 
-    // OkHttpClient 在 Provider 生命周期内复用连接池，减少 WebDAV 多目录扫描时的 TCP 握手开销。
+    // OkHttpClient instance shared across the provider lifetime to reuse connection pools, reducing TCP handshake overhead.
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(45, TimeUnit.SECONDS)
@@ -116,11 +116,11 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             .get()
             .applyAuth(file.root)
             .apply {
-                // 播放器 seek 会传入 offset，WebDAV 通过 Range 直接从远端目标字节开始读。
+                // Player seek requests include offsets; maps them to HTTP Range headers to stream directly from desired offsets.
                 if (offset > 0L) header("Range", "bytes=$offset-")
             }
             .build()
-        // 记录 WebDAV GET/Range 流打开请求的起始时间，用于计算整体网络耗时
+        // Records the start timestamp of the GET/Range stream requests to calculate overall network latency.
         val openStart = com.viel.aplayer.logger.VfsLogger.mark()
         val response = executeRequest(request)
         if (offset > 0L && response.code == HTTP_RANGE_NOT_SATISFIABLE) {
@@ -135,13 +135,13 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             throw response.toWebDavException("GET")
         }
 
-        // 获取响应体，此时 body 已被 IDE 推断为非空
+        // Obtains the response payload body, verified as non-null.
         val body = response.body
         val stream = body.byteStream()
 
-        // 少数服务器忽略 Range 并返回 200，此处保留本地 skip 兜底以维持播放器语义。
+        // Falls back to skipping bytes locally if servers ignore Range headers and return HTTP 200, preserving seek semantics.
         if (offset > 0L && response.code == HTTP_OK) {
-            // fallback skip 也会阻塞读取远程字节，必须放在 IO 线程执行，不能继承 UI 调用方线程。
+            // Fallback skip actions block on network reads; must execute on Dispatchers.IO instead of inheriting caller thread.
             withContext(Dispatchers.IO) { runCatching { skipFully(stream, offset) } }
                 .onFailure {
                     stream.close()
@@ -154,7 +154,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 }
         }
 
-        // 详尽的中文注释：在所有 offset 寻址（包括 skipFully 兜底）物理动作成功执行完后，才记录流打开成功日志
+        // Success Logger (Records connection details after the offset seek and fallback skip complete successfully)
         com.viel.aplayer.logger.VfsLogger.logWebDavOpen(
             sourcePath = file.metadata.sourcePath,
             offset = offset,
@@ -163,16 +163,16 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             success = true
         )
 
-        // 详尽的中文注释：返回代理 InputStream，保证上层调用 close() 释放流时一并触发 response.close()，避免 OkHttp 物理连接泄漏
+        // Proxy Stream (Wraps native input stream to trigger response.close() on close, avoiding OkHttp socket leaks)
         return ResponseClosingInputStream(stream, response)
     }
 
     override suspend fun readRange(file: SourceNode, offset: Long, length: Int): ByteArray? =
         withContext(Dispatchers.IO) {
-            // 元数据帧读取必须发送闭区间 Range，严禁复用播放器的 bytes=offset- 开口请求。
+            // Bounded Reads (Metadata range readers require closed intervals; open-ended bytes=offset- requests are prohibited)
             if (file.metadata.isDirectory || offset < 0L || length <= 0) return@withContext ByteArray(0)
             val rangeEnd = boundedRangeEnd(file, offset, length) ?: return@withContext null
-            // 记录 WebDAV Range 片段读取的起始时间
+            // Records the start timestamp of range segment queries.
             val rangeStart = com.viel.aplayer.logger.VfsLogger.mark()
             val request = Request.Builder()
                 .url(urlFor(file.root, file.metadata.sourcePath, directory = false))
@@ -183,7 +183,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             executeRequestBlocking(request).use { response ->
                 when {
                     response.code == HTTP_RANGE_NOT_SATISFIABLE -> {
-                        // 记录 Range 请求超出文件边界的失败结果
+                        // Logs out-of-bounds requests returning HTTP 416.
                         com.viel.aplayer.logger.VfsLogger.logWebDavRange(
                             sourcePath = file.metadata.sourcePath,
                             offset = offset,
@@ -194,7 +194,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                         return@withContext null
                     }
                     response.code == HTTP_OK -> {
-                        // 服务器忽略闭区间 Range 时会返回完整文件，元数据解析必须立即拒绝并关闭响应。
+                        // Closes response immediately if servers return the whole file (HTTP 200) instead of the range.
                         com.viel.aplayer.logger.VfsLogger.logWebDavRange(
                             sourcePath = file.metadata.sourcePath,
                             offset = offset,
@@ -208,7 +208,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 }
                 val body = response.body
                 val result = body.byteStream().use { stream -> stream.readAtMost(length) }
-                // 记录 Range 片段读取成功后的耗时与实际字节数
+                // Logs successful range query metrics with read byte counts.
                 com.viel.aplayer.logger.VfsLogger.logWebDavRange(
                     sourcePath = file.metadata.sourcePath,
                     offset = offset,
@@ -221,7 +221,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         }
 
     override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? {
-        // WebDAV 远程来源不再提供整文件 FD；元数据、封面和播放都必须经由 VFS stream/path 与 Range 能力。
+        // File Descriptor Prevention (Remote resource limitation)
+        // WebDAV remote source does not support file descriptor mapping; metadata, cover extraction, and streaming must utilize stream reading and Range capabilities.
         return null
     }
 
@@ -234,8 +235,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
     private suspend fun propfind(root: LibraryRootEntity, sourcePath: String, depth: String): List<WebDavResource> =
         withContext(Dispatchers.IO) {
-            // PROPFIND 包含同步网络请求和 XML body 读取，必须整体固定在 IO 线程，避免播放器/字幕回退从 Main 调用时崩溃。
-            // 记录 PROPFIND 请求的起始时间，用于计算网络 + XML 解析的整体耗时
+            // Enforces Dispatchers.IO scope for PROPFIND network I/O and XML body parsing to protect the Main thread.
+            // Tracks start timestamp to profile aggregate connection and parse times.
             val propfindStart = com.viel.aplayer.logger.VfsLogger.mark()
             val url = urlFor(root, sourcePath, directory = true)
             val request = Request.Builder()
@@ -254,8 +255,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 }
                 val body = response.body
                 val contentLength = body.contentLength()
-                // 详尽的中文注释：如果响应头明确返回的 Content-Length 超过了设定的最大安全阈值，
-                // 则立即主动中断读取，抛出 WebDavException 以防止大文件加载导致内存消耗殆尽
+                // Size Check (Rejects response payload immediately if Content-Length exceeds security thresholds to prevent memory exhaustion)
                 if (contentLength > MAX_PROPFIND_RESPONSE_SIZE) {
                     throw WebDavException(
                         availabilityStatus = AudiobookSchema.AvailabilityStatus.SERVER_ERROR,
@@ -264,8 +264,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 }
 
                 val xml = try {
-                    // 详尽的中文注释：通过带有限额功能的 readStringWithLimit 函数读取响应流，
-                    // 确保即使服务器采用 chunked 传输导致 contentLength 为 -1 时，也能受到 8MB 限额的实时保卫
+                    // Safe Read (Reads stream with real-time limits to protect against chunked responses ignoring content length headers)
                     body.byteStream().use { stream ->
                         stream.readStringWithLimit(MAX_PROPFIND_RESPONSE_SIZE)
                     }
@@ -278,7 +277,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 }
 
                 if (xml.isBlank()) {
-                    // 记录 PROPFIND 请求返回空 XML 的耗时
+                    // Profile empty response latencies.
                     com.viel.aplayer.logger.VfsLogger.logWebDavPropfind(
                         sourcePath = sourcePath, depth = depth,
                         costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(propfindStart),
@@ -287,7 +286,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                     return@withContext listOf(rootFallbackResource(root))
                 }
                 val resources = parsePropfindResponse(root, xml)
-                // 记录 PROPFIND 请求完成的耗时与返回的资源数量
+                // Profile complete request latencies with returned items.
                 com.viel.aplayer.logger.VfsLogger.logWebDavPropfind(
                     sourcePath = sourcePath, depth = depth,
                     costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(propfindStart),
@@ -299,7 +298,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
     private suspend fun executeRequest(request: Request): Response =
         withContext(Dispatchers.IO) {
-            // GET/Range 连接建立是 OkHttp 阻塞调用，统一转入 IO 线程后再把响应流交给上层读取。
+            // GET and Range requests block on connection handshakes; switches context to IO threads to isolate blocks.
             executeRequestBlocking(request)
         }
 
@@ -309,7 +308,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         } catch (error: WebDavException) {
             throw error
         } catch (error: SocketTimeoutException) {
-            // 记录 WebDAV 请求超时异常
+            // Logs socket timeout details.
             com.viel.aplayer.logger.VfsLogger.logWebDavError(
                 url = request.url.toString(),
                 status = AudiobookSchema.AvailabilityStatus.TIMEOUT,
@@ -321,7 +320,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 cause = error
             )
         } catch (error: IOException) {
-            // 记录 WebDAV 网络不可用异常
+            // Logs basic connection failures.
             com.viel.aplayer.logger.VfsLogger.logWebDavError(
                 url = request.url.toString(),
                 status = AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE,
@@ -338,7 +337,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         try {
             val factory = DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = true
-                // 禁用外部实体，避免解析 WebDAV XML 时触发不必要的本地/网络实体加载。
+                // Disables external entity resolution to protect parsing routines from local/remote exploit vectors.
                 runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
                 runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }
                 runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
@@ -377,7 +376,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     private fun Request.Builder.applyAuth(root: LibraryRootEntity): Request.Builder = apply {
         val credential = credentialStore.get(root.credentialId)
         if (credential != null && (credential.username.isNotBlank() || credential.password.isNotBlank())) {
-            // 认证头只在请求发起前临时拼装，数据库仍只保存 credentialId。
+            // Authorization headers are compiled dynamically before dispatching, avoiding plain credentials storage in DB.
             header("Authorization", Credentials.basic(credential.username, credential.password, Charsets.UTF_8))
         }
     }
@@ -478,7 +477,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     private fun parseWebDavDate(value: String?): Long {
         if (value.isNullOrBlank()) return 0L
         return runCatching {
-            // ThreadLocal 初始化器保证日期格式器非空，这里显式断言以消除 Kotlin 平台类型告警。
+            // ThreadLocal initializer guarantees non-null formatters; asserts explicitly to eliminate platform warning.
             WEB_DAV_DATE_FORMAT.get()!!.parse(value)?.time ?: 0L
         }.getOrDefault(0L)
     }
@@ -548,10 +547,10 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         private const val HTTP_RANGE_NOT_SATISFIABLE = 416
         private const val HTTP_GATEWAY_TIMEOUT = 504
         private const val DEFAULT_RANGE_BUFFER_SIZE = 16 * 1024
-        // 详尽的中文注释：针对 PROPFIND 响应体设置 8MB 的最大安全阈值，防止读取不受限的庞大 XML 文件引起的内存溢出或 DoS 攻击
+        // Safety Limit (Defines 8MB upper bound for PROPFIND responses to prevent out-of-memory states from large XML inputs)
         private const val MAX_PROPFIND_RESPONSE_SIZE = 8 * 1024 * 1024
 
-        // SimpleDateFormat 非线程安全，用 ThreadLocal 支撑 OkHttp/扫描并发回调下的日期解析。
+        // SimpleDateFormat is thread-unsafe; uses ThreadLocal to support concurrent callback resolutions during scans.
         private val WEB_DAV_DATE_FORMAT = ThreadLocal.withInitial {
             SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("GMT")
@@ -561,8 +560,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 }
 
 /**
- * 详尽的中文注释：代理包装底层的 InputStream，在关闭该流时同时安全关闭关联的 OkHttp Response，
- * 彻底防止播放器频繁 Seek 重新握手换流时引起的 Socket 物理连接泄露和 OkHttp 连接池耗尽故障
+ * Stream Wrap Proxy (Binds Response lifetime to InputStream close requests)
+ * Releases underlying response connections to protect sockets from leaks during seek/track transition.
  */
 private class ResponseClosingInputStream(
     private val delegate: InputStream,
@@ -587,10 +586,8 @@ private class ResponseClosingInputStream(
 }
 
 /**
- * 详尽的中文注释：对 InputStream 进行带限额的安全读取并转换为 String，
- * 每次读取最多分配 4KB 的缓冲区，并实时统计已接收的物理字节总数；
- * 一旦超过设定的 maxBytes 限制，立即抛出 IOException 中断读取和底层网络传输，
- * 强力规避服务器返回超大或者无限响应体导致的内存暴涨及 DoS 攻击风险。
+ * Bounded Read Utility (Converts stream bytes to String up to a fixed limit)
+ * Enforces size checks using 4KB chunks, aborting connection when limit is breached.
  */
 private fun InputStream.readStringWithLimit(maxBytes: Int): String {
     val output = ByteArrayOutputStream()

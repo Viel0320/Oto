@@ -3,12 +3,12 @@ package com.viel.aplayer.logger
 import android.util.Log
 
 /**
- * 公共业务流程 logger。
+ * Shared Library Workflow Logger (Record domain-agnostic library operations)
  *
- * 责任边界：
- * 1. 记录不属于单一来源协议、但又跨越多个领域组件的公共业务动作。
- * 2. 例如删除库根触发停播、后台扫描 worker 重试、公共工作流失败。
- * 3. 不吸收来源协议细节；ABS/SAF/WebDAV 各自的专属链路仍然记到各自 logger。
+ * Responsibility boundary:
+ * 1. Logs actions that span multiple domain components and are not specific to a single protocol.
+ * 2. Examples include emergency playback suspension when deleting a library root, WorkManager retries, and overall flow failures.
+ * 3. Does not capture details specific to protocol providers (such as ABS, SAF, or WebDAV), which are handled by their own dedicated loggers.
  */
 internal object LibraryWorkflowLogger {
     private const val TAG = "LibraryFlow"

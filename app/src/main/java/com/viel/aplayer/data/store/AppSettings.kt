@@ -2,19 +2,19 @@ package com.viel.aplayer.data.store
 
 
 /**
- * 应用全局持久化设置数据类。
+ * Application Global Settings (Persistent configuration model DTO)
  */
-// 定义悬浮层视觉效果模式，Material 表示停用模糊采样并回到 Material 3 原生容器层次，MiuixBlur 表示启用 miuix-blur 硬件磨砂玻璃效果。
+// Glass Effect Visual Mode (UI decoration options)
+// Material represents standard native containers, while MiuixBlur enables miuix-blur hardware frosted glass visuals.
 enum class GlassEffectMode {
     Material,
     MiuixBlur
 }
 
-// 
-// 定义睡眠模式枚举。
-// Regular：常规模式，设定睡眠时间后开始倒计时。
-// MotionTracking：运动跟踪模式，检测到设备静止才计时，检测到运动则暂停/停止计时。
-// SleepTracking：睡眠跟踪模式，请求活动识别权限，检测到用户进入睡眠状态才开始计时。
+// Sleep Inactivity Modes (Timer termination policies)
+// Regular: Counts down directly after a predefined duration.
+// MotionTracking: Pauses countdown when movement is detected, resuming only when the device is still.
+// SleepTracking: Requests activity recognition and starts counting down only when user sleep states are detected.
 enum class SleepMode {
     Regular,
     MotionTracking,
@@ -22,38 +22,47 @@ enum class SleepMode {
 }
 
 data class AppSettings(
-    /** 首页过滤状态 */
+    /** Filter state on the home screen */
     val homeFilter: String = "NotStarted",
-    /** 播放倍速是否为全局记忆 */
+    /** Determines if the playback speed configuration is stored globally */
     val isGlobalSpeedEnabled: Boolean = false,
-    /** 全局播放倍速值 */
+    /** Global speed scale value */
     val globalPlaybackSpeed: Float = 1.0f,
-    /** 是否开启章节进度模式（进度条仅显示当前章节） */
+    /** If true, the progress bar bounds represent individual chapter durations rather than total length */
     val isChapterProgressMode: Boolean = false,
-    /** 新增是否允许明文 HTTP 流量持久化配置属性，默认值为 true 以提供更便捷的初次 WebDAV 配置体验。 */
+    // Cleartext Network Permission (Insecure server compatibility flag)
+    // Permits unencrypted HTTP network connections; enabled by default for easier initial WebDAV setups.
     val isCleartextTrafficAllowed: Boolean = true,
     /**
-     * 自动跳过静音期 (Skip Silence) 全局控制开关，默认关闭以提供安全非打扰的默认播放体验。
-     * 经过重构，移除了自定义判定时长和通知开关，直接使用 Media3 官方默认行为。
+     * Skip Silence Controller (Playback audio filter switch)
+     * Automatically skips silent periods in audio streams; utilizes standard Media3 behaviours.
      */
     val isSkipSilenceEnabled: Boolean = false,
-    // 新增睡眠定时器音量渐隐机制的全局控制开关，默认开启以提供无缝且温和的睡眠暂停体验。
+    // Volume Fade-Out Switch (Smooth pause animation)
+    // Gradually fades out audio volume before pausing to avoid abrupt sound terminations.
     val isSleepFadeOutEnabled: Boolean = true,
-    // 新增摇晃手机重置睡眠定时器的全局控制开关，默认开启以提供夜间无需亮屏的极致贴心盲操交互。
+    // Shake Reset Switch (No-look physical interaction helper)
+    // Allows shaking the device to reset the active sleep timer without turning on the screen.
     val isShakeToResetEnabled: Boolean = true,
-    // 新增睡眠模式属性，支持常规模式、运动跟踪模式和睡眠跟踪模式，默认为常规模式。
+    // Active Sleep Routine (Countdown strategy selection)
+    // Configures countdown strategies (Regular, MotionTracking, or SleepTracking).
     val sleepMode: SleepMode = SleepMode.Regular,
-    // 新增悬浮层玻璃效果模式持久化属性，默认值只由设置模型统一声明，UI 页面和组件不再各自声明默认值。
+    // Glass Morphism Config (Visual schema definition)
+    // Persistent visual scheme type for dialogs and control panels.
     val glassEffectMode: GlassEffectMode = DEFAULT_GLASS_EFFECT_MODE,
-    // 新增自动回退播放进度时长属性（秒），默认值为 0 秒，表示处于关闭状态。
+    // Auto-Rewind Seconds (Playback offset backing size)
+    // Configuration in seconds to rewind the playback offset upon resuming; 0 means disabled.
     val autoRewindSeconds: Int = 0,
-    // 新增上一次播放是否为异常非正常中断的标志，默认为 false。当播放器正在播放时为 true，正常暂停时重置为 false。
+    // Playback Interruption Flag (Crash recovery marker)
+    // Sets to true during active playback, and resets to false upon explicit pauses. Used for crash resumption.
     val isLastPlaybackInterrupted: Boolean = false,
-    // 新增通知避让的全局控制开关，默认值为 false。开启时在被迫失去音频焦点时自动暂停，重获焦点时恢复，且不应用任何自动回放（回退）。
+    // Notification Focus Ducking (System interruption bypass)
+    // When enabled, automatically pauses playback on audio focus loss and resumes without triggering auto-rewinds.
     val isNotificationAvoidanceEnabled: Boolean = false
 ) {
     companion object {
-        // 集中定义玻璃效果设置默认值，所有设置流缺省值与预览示例都应引用这里，避免默认值散落到页面组件。
+        // Shared Accent Default (Decoration fallback values)
+        // Unified fallback visuals definition to avoid splitting UI constants across Compose widgets.
         val DEFAULT_GLASS_EFFECT_MODE: GlassEffectMode = GlassEffectMode.Material
     }
 }

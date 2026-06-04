@@ -8,20 +8,21 @@ class ExistingClaimIndex private constructor(
     private val byKey: Map<String, BookFileEntity>
 ) {
     /**
-         * 根据物理资产身份在已入库索引中检索是否存在冲突所有权。
-     * 当传入可选的 currentParentSourcePath 时，检索将自动被限缩在同一个 VFS 文件夹（同级目录）下，
-     * 只有当已占用的物理文件的父目录与当前被认领文件的父目录完全相同时，才判定为已被抢占，
-     * 跨物理文件夹的同名音频不视为抢占冲突，完美实现局域化抢占。
+     * Resolves Conflicting Ownership in Existing Claims (Localized conflict check)
+     * When an optional currentParentSourcePath is provided, the query is scoped within the same VFS folder.
+     * Ownership conflict is only registered if the occupied file shares the exact parent directory as the target file.
+     * Identical files in different physical directories do not trigger conflicts, ensuring localized claim behavior.
      * 
-     * @param identity 被认领文件的物理身份
-     * @param currentParentSourcePath 当前正在被认领的文件所属的 VFS 父目录路径
-     * @return 产生抢占冲突的已有 BookFileEntity，无冲突则返回 null
+     * @param identity Physical identity of the target file being claimed
+     * @param currentParentSourcePath The VFS parent directory path of the target file
+     * @return Conflicting BookFileEntity if found, or null if no conflict exists
      */
     fun find(identity: FileIdentity, currentParentSourcePath: String? = null): BookFileEntity? {
         val found = identity.keys().firstNotNullOfOrNull { byKey[it] } ?: return null
         if (currentParentSourcePath == null) return found
         
-        // 从已入库 sourcePath 计算父目录，claim 冲突只在同一个 VFS 父路径内成立。
+        // Localized Parent Folder Resolution (Scoping path resolution)
+        // Computes parent folder from the claimed file's path; conflicts are evaluated solely within the same VFS directory.
         val foundParent = found.sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
         
         return if (foundParent.equals(currentParentSourcePath, ignoreCase = true)) {
@@ -56,7 +57,8 @@ class ExistingClaimIndex private constructor(
         fun from(files: List<BookFileEntity>): ExistingClaimIndex {
             val map = mutableMapOf<String, BookFileEntity>()
             files.forEach { file ->
-                // 已入库文件索引只使用 rootId/sourcePath 与 sourceIdentity，不再从旧 uri 列回填 claim key。
+                // Identity-Based Mapping (Migration backward compatibility)
+                // Populates key mappings using only rootId/sourcePath and sourceIdentity, discarding legacy URI matching.
                 val identity = FileIdentity(file.rootId, file.sourcePath, file.sourceIdentity)
                 identity.keys().forEach { key -> map.putIfAbsent(key, file) }
             }

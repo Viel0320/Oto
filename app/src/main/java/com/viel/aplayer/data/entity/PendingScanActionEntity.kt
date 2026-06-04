@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * 待处理扫描操作实体，记录重扫后需要用户决策的事项。
+ * Pending Scan Action Entity (Database model representing deferred decisions requiring user confirmation)
  */
 @Entity(
     tableName = "pending_scan_actions",
@@ -31,7 +31,9 @@ data class PendingScanActionEntity(
     @PrimaryKey
     val id: String,
     val scanSessionId: String,
-    val actionKey: String, // 稳定去重键
+    // Stable Deduplication Key (Queue message identifier)
+    // Unique action key to deduplicate pending items during multiple scan iterations.
+    val actionKey: String,
     val type: String, // CONFLICT / UPDATE_EXISTING
     val bookId: String? = null,
     val payloadJson: String,

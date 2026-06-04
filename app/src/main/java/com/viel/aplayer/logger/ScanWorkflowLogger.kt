@@ -3,12 +3,12 @@ package com.viel.aplayer.logger
 import android.util.Log
 
 /**
- * 公共扫描与书库维护工作流 logger。
+ * Shared Library Maintenance and Scan Workflow Logger (Trace broad repository operations and scan execution)
  *
- * 责任边界：
- * 1. 记录库根管理、扫描调度、后台 worker、封面恢复这类公共维护链路的直接异常。
- * 2. 不吸收 ABS / SAF / WebDAV 协议细节；来源细节仍然由各自专用 logger 负责。
- * 3. 专注回答“哪条维护流程失败了、是在调度、扫描、清理还是恢复阶段失败”。
+ * Responsibility boundary:
+ * 1. Logs broad anomalies in administrative tasks (such as folder root config, task scheduling, WorkManager sync, and cover recovery).
+ * 2. Bypasses file-system protocol details (ABS, SAF, WebDAV), which are routed to their respective dedicated loggers instead.
+ * 3. Focuses on diagnosing which phase of the lifecycle failed (e.g., dispatching, directory walk, DB cleanup, or data restoration).
  */
 internal object ScanWorkflowLogger {
     private const val TAG = "ScanFlow"

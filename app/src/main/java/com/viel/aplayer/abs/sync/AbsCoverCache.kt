@@ -32,7 +32,9 @@ class AbsCoverCache(
     override suspend fun downloadCover(root: com.viel.aplayer.data.entity.LibraryRootEntity, remoteItemId: String): CoverExtractor.CoverResult =
         withContext(Dispatchers.IO) {
             val start = AbsCoverLogger.mark()
-            // 详尽中文注释：封面下载和封面处理分成两段日志，便于区分“网络没拿到封面”和“拿到了但本地处理失败”。
+            // Segregated Cover Log Stages (Differentiate download vs processing issues)
+            // Cover download and cover processing are logged as two distinct phases.
+            // This aids in diagnosing whether an error stems from network retrieval failure or local processing/saving failure.
             AbsCoverLogger.logDownloadStart(rootId = root.id, remoteItemId = remoteItemId)
             val credential = requireNotNull(credentialStore.get(root.credentialId)) {
                 "Missing ABS credential for root ${root.id}"
@@ -78,15 +80,18 @@ class AbsCoverCache(
                     rootId = root.id,
                     remoteItemId = remoteItemId,
                     contentType = httpResponse.header("Content-Type"),
-                    // 详尽注释：这里不再为了日志调用 body.bytes()，否则会把完整远端封面先读入堆内存。
-                    // Content-Length 不存在时记录 -1，实际落盘大小在本地处理成功后由文件长度再次补充记录。
+                    // Heap Memory Protection (Avoid reading full body into memory for logging)
+                    // Do not call `body.bytes()` solely for logging purposes, as it reads the entire remote cover image into the JVM heap.
+                    // Instead, use Content-Length or default to -1 if missing; the final file size on disk is recorded after processing.
                     byteCount = contentLength.takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1,
                     costMs = AbsCoverLogger.elapsedMs(start)
                 )
                 val sourceId = "abs-cover:${root.id}:$remoteItemId"
                 return@withContext runCatching {
-                    // 详尽注释：直接把 OkHttp 响应体流交给 ImageProcessor 的落盘链路，避免“远端封面 ByteArray”
-                    // 与后续缩略图解码 Bitmap 同时存在于内存中，降低 ABS 批量同步时的峰值 heap 压力。
+                    // Stream-based Image Processing (Mitigate peak heap allocation during batch synchronization)
+                    // The OkHttp response body byte stream is passed directly to the local image processor.
+                    // This prevents holding both the full raw cover ByteArray and the decoded thumbnail Bitmap in memory simultaneously,
+                    // significantly reducing peak heap memory usage during batch catalog synchronization.
                     coverExtractor.processExternalImage(sourceId) {
                         httpResponse.body.byteStream()
                     }

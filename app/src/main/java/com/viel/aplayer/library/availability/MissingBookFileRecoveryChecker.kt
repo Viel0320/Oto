@@ -11,7 +11,8 @@ import kotlinx.coroutines.withContext
 class MissingBookFileRecoveryChecker(private val context: Context) {
     private val database = AppDatabase.getInstance(context)
     private val bookDao = database.bookDao()
-    // 冷启动缺失文件恢复复用统一可用性检查，避免 SAF/file 判断继续散落在各组件里。
+    // Reuse Availability Check on Cold-Start (Infrastructure Decoupling)
+    // Cold-start recovery leverages the unified AvailabilityChecker instead of embedding protocol-specific logic.
     private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     suspend fun recoverMissingAudioFiles(): MissingBookFileRecoveryResult = withContext(Dispatchers.IO) {
@@ -24,7 +25,8 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
         val restoredFileIds = mutableListOf<String>()
         missingFiles.forEach { file ->
             if (availabilityByFileId[file.id]?.isAvailable == true) {
-                // 冷启动恢复也复用批量可用性结果，避免同一父目录下多个 missing 分轨逐个 resolve。
+                // Batch Availability Checks in Recovery (Performance Optimization)
+                // Minimizes overhead by checking availability for all missing files in the same parent directory at once.
                 restoredFileIds.add(file.id)
                 restoredBookIds.add(file.bookId)
             }

@@ -6,20 +6,20 @@ import com.viel.aplayer.ui.home.ContentActions
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkActions
 
 /**
- * 播放器操作聚合类。
- * 将不同领域的 Action（播放、书签、内容交互）组合在一起，方便在组件间传递。
+ * Player actions aggregator (Aggregator for playback, bookmark, and content operations)
+ * Groups area-specific Action payloads to facilitate routing parameter pass-throughs.
  */
 data class PlayerActions(
-    /** 核心播放控制（播放/暂停、快进/快退、进度跳转、章节切换等） */
+    /** Core playback controls (To trigger play, pause, skip, seek, and chapter navigation) */
     val playback: PlaybackControlActions = PlaybackControlActions(),
-    /** 书签相关操作（添加、删除、重命名及对话框控制） */
+    /** Bookmark operations (To dispatch bookmark addition, deletion, and rename updates) */
     val bookmarks: BookmarkActions = BookmarkActions(),
-    /** 界面内容操作（标签切换、章节列表控制、加载推荐书籍等） */
+    /** Content layout actions (To handle tab navigation and chapter list toggles) */
     val content: ContentActions = ContentActions(),
 )
 
 /**
- * [PlayerActions] 的工厂扩展函数。
+ * PlayerActions factory extension (Composable wrapper to remember actions instance)
  */
 @Composable
 fun PlayerViewModel.rememberActions(onDeleteBook: (String) -> Unit = {}): PlayerActions {
@@ -39,7 +39,8 @@ fun PlayerViewModel.rememberActions(onDeleteBook: (String) -> Unit = {}): Player
                 onAdjustVolume = { delta -> viewModel.adjustVolume(delta) },
                 onNextChapter = { viewModel.skipToNextChapter() },
                 onPreviousChapter = { viewModel.skipToPreviousChapter() },
-                // 详尽的中文注释：路由桥接。将 Composable 层防抖后触发的轻量 Toast 反馈映射为 ViewModel 的 sendUiEvent，从而在底层统一流入 MVI UiEvent 处理环中。
+                // Map local visual toast actions (To route toast notifications into ViewModel scope)
+                // Dispatches string messages into standard UI event flow.
                 onShowToast = { msg -> viewModel.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(msg)) }
             ),
             bookmarks = BookmarkActions(

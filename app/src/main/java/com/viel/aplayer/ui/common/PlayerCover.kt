@@ -36,19 +36,20 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
 import kotlin.math.abs
 
 /**
- * 自适应手势播放器封面组件。
- * 从 PlayerScreen.kt 中将 BoxWithConstraints 及其嵌套的手势监听与尺寸计算逻辑独立出来，
- * 封装为统一且高度重用的 PlayerCover 组件，实现布局层级解耦与性能优化。
+ * Adaptive gesture player cover component (PlayerCover).
  *
- * @param coverPath 封面图的本地物理文件路径
- * @param isPlaying 当前是否正在播放（影响缩放动画）
- * @param coverLastUpdated 封面文件最后更新的时间戳，用于打破 Coil 缓存
- * @param onAdjustVolume 触发音量调节的回调函数
- * @param onNextChapter 触发下一章的回调函数
- * @param onPreviousChapter 触发上一章的回调函数
- * @param modifier 外部修饰符
- * @param sizeRatio 封面相对于容器最小维度的尺寸比例，默认为 0.8f (80%)
- * @param gesturesEnabled 是否启用封面上的手势操作（音量调节与切章），默认为 true
+ * Extracted BoxWithConstraints and its nested gesture listening and size calculation logic from PlayerScreen.kt,
+ * encapsulating them into a unified and highly reusable PlayerCover component to achieve layout hierarchy decoupling and performance optimization.
+ *
+ * @param coverPath The local physical file path of the cover image.
+ * @param isPlaying Whether the player is currently playing (affects the scale animation).
+ * @param coverLastUpdated The timestamp when the cover file was last updated, used to invalidate Coil cache.
+ * @param onAdjustVolume Callback triggered when adjusting the volume.
+ * @param onNextChapter Callback triggered when skipping to the next chapter.
+ * @param onPreviousChapter Callback triggered when skipping to the previous chapter.
+ * @param modifier The layout modifier.
+ * @param sizeRatio The ratio of the cover size relative to the minimum dimension of the container, defaulting to 0.8f (80%).
+ * @param gesturesEnabled Whether gesture operations on the cover (volume adjustment and chapter skipping) are enabled, defaulting to true.
  */
 @Composable
 fun PlayerCover(
@@ -63,23 +64,23 @@ fun PlayerCover(
     gesturesEnabled: Boolean = true,
     coverScene: String = "main-cover"
 ) {
-    // 使用 BoxWithConstraints 动态捕获父容器的最大可用宽高，保证在横竖屏或分屏模式下完美自适应
+    // Use BoxWithConstraints to dynamically capture the maximum available width and height of the parent container, ensuring perfect adaptivity in portrait, landscape, or split-screen modes.
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // 比较可用宽度 and 高度，选取较小维度的 sizeRatio 作为封面大小，规避尺寸溢出并保留视觉呼吸感
+        // Compare available width and height, selecting the sizeRatio of the smaller dimension as the cover size to prevent size overflow and maintain visual breathing room.
         val minDimension = minOf(maxWidth, maxHeight)
         val coverSize = minDimension * sizeRatio
 
-        // 用于记录水平拖拽累积量的状态变量，以触发切章手势
+        // State variables to record cumulative horizontal drag to trigger chapter-skipping gestures.
         var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
         var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
 
-        // 构建手势识别修饰符。仅当 gesturesEnabled 为 true 时才附加 pointerInput 逻辑。
+        // Construct the gesture recognition modifier. The pointerInput logic is appended only when gesturesEnabled is true.
         val gestureModifier = if (gesturesEnabled) {
             Modifier.pointerInput(Unit) {
-                // 侦测手势，上下滑动调节音量，左右滑动切换章节
+                // Detect gestures: drag up/down to adjust volume, drag left/right to skip chapters.
                 detectDragGestures(
                     onDragStart = {
                         totalHorizontalDrag = 0f
@@ -96,12 +97,12 @@ fun PlayerCover(
                     onDrag = { change, dragAmount ->
                         change.consume()
                         if (abs(dragAmount.y) > abs(dragAmount.x)) {
-                            // 上下滑动时，触发音量调节回调
+                            // Trigger the volume adjustment callback on vertical dragging
                             onAdjustVolume(-dragAmount.y * 0.002f)
                         } else if (!hasTriggeredHorizontalDrag) {
                             totalHorizontalDrag += dragAmount.x
                             if (abs(totalHorizontalDrag) > 300f) {
-                                // 水平滑动超过阈值（300px）时，触发切章回调
+                                // Trigger the chapter skipping callback when horizontal drag exceeds the threshold (300px)
                                 if (totalHorizontalDrag > 0) {
                                     onNextChapter()
                                 } else {
@@ -130,13 +131,14 @@ fun PlayerCover(
 }
 
 /**
- * 全屏播放器的主封面视图。
- * 从 PlayerScreen.kt 提取为独立组件，负责展示有声书封面图片，
- * 并在播放/暂停状态切换时实现轻微缩放动画效果。
+ * Main cover view of the full screen player.
  *
- * @param coverPath 封面图的本地物理文件路径
- * @param isPlaying 当前是否正在播放（影响缩放动画）
- * @param coverLastUpdated 封面文件最后更新的时间戳，用于打破 Coil 缓存以实现封面自愈重建后即时刷新
+ * Extracted from PlayerScreen.kt as an independent component, responsible for displaying the audiobook cover image
+ * and implementing a subtle scaling animation when switching between play and pause states.
+ *
+ * @param coverPath The local physical file path of the cover image.
+ * @param isPlaying Whether the player is currently playing (affects the scale animation).
+ * @param coverLastUpdated The timestamp when the cover file was last updated, used to invalidate Coil cache to trigger an immediate refresh after cover self-healing reconstruction.
  */
 @Composable
 fun MainCoverView(
@@ -146,7 +148,7 @@ fun MainCoverView(
     coverLastUpdated: Long = 0L,
     coverScene: String = "main-cover"
 ) {
-    // 播放时封面等比缩放至 1.0，暂停时缩至 0.95，配合 300ms 动画营造呼吸感
+    // Scale the cover to 1.0 when playing, and shrink to 0.95 when paused, cooperating with a 300ms animation to create a breathing sensation.
     val coverScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.95f,
         animationSpec = tween(300)
@@ -154,9 +156,10 @@ fun MainCoverView(
 
     Box(
         modifier = modifier
+            // Adjust full width layout.
             //
-            // 按用户最新要求，为了将播放页左栏封面“宽度顶满”且不留边缘横向多余空余，并且在其下方支持 weight(1f) 自适应拉伸占位，
-            // 我们在此处将外层 Box 的占满尺寸由 .fillMaxSize() 改为 .fillMaxWidth()，且移除了原先阻碍顶满的 horizontal / vertical padding。
+            // According to the latest requirements to "fully stretch the width" of the cover in the left column of the play page without leaving excess horizontal empty edges, and to support weight(1f) adaptive stretch placeholder below it,
+            // we change the outermost Box dimensions from .fillMaxSize() to .fillMaxWidth() and remove the horizontal / vertical padding that hindered stretching.
             .fillMaxWidth(),
         contentAlignment = Alignment.TopCenter
     ) {
@@ -172,18 +175,18 @@ fun MainCoverView(
                 .clip(RoundedCornerShape(24.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            // 定义用于追踪封面异步加载是否失败的局部状态。
-            // 结合 Coil 的 onError 回调，可以彻底消除主线程同步调用 File.exists() 的磁盘 I/O 阻塞隐患，
-            // 同时也能够处理文件物理存在但格式损坏无法解码的情况，自动平滑切换至占位图。
+            // Define local state to track whether asynchronous cover loading failed.
+            // Combined with Coil's onError callback, this completely eliminates the risk of disk I/O blocking from synchronous File.exists() calls on the main thread,
+            // and handles cases where files physically exist but are corrupt and cannot be decoded, automatically transitioning smoothly to a placeholder.
             var isImageError by remember(coverPath) { mutableStateOf(false) }
 
             if (coverPath != null && !isImageError) {
                 val context = LocalContext.current
-                // 主封面统一走 Main1200 规格，详情页和播放页就能共享同一尺寸与同一缓存 key；
-                // 后续如果需要提高或降低主封面规格，只改请求工厂和枚举，不再追着多个 UI 文件逐个改。
+                // The main cover uniformly uses the Main1200 specification, allowing the details page and playback page to share the same dimensions and cache key.
+                // If the main cover specification needs to be increased or decreased in the future, only the request factory and enum need to be modified, instead of editing multiple UI files individually.
                 val request = remember(coverPath, coverLastUpdated) {
-                    // coverScene 由调用方传入，用于区分播放器、详情页、编辑页等主封面来源；
-                    // 这样 profiler 里同时存在多张 Main1200 Bitmap 时，可以通过日志反查真实持有场景。
+                    // coverScene is passed by the caller to differentiate main cover sources like the player, details page, or edit page.
+                    // When multiple Main1200 Bitmaps exist concurrently in the profiler, the actual holding scene can be traced back through logs.
                     CoverImageRequestFactory.build(
                         context = context,
                         sourcePath = coverPath,
@@ -198,13 +201,15 @@ fun MainCoverView(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                     onError = {
-                        // 详尽的中文注释：主封面组件只保留 UI 降级职责；加载失败的异常类型、
-                        // decodeCostMs 和 cacheHitRatio 已由统一请求 listener 记录，避免日志重复且口径冲突。
+                        // Main cover component degradation.
+                        //
+                        // The main cover component only retains UI degradation responsibilities; loading failure exception types,
+                        // decodeCostMs, and cacheHitRatio are already logged by the unified request listener to avoid duplicate logs and conflicting metrics.
                         isImageError = true
                     }
                 )
             } else {
-                // 当封面路径为空或加载发生异常时，展示统一的占位背景 + 播放图标，视觉对齐详情页规范
+                // Present a unified placeholder background + play icon when the cover path is empty or loading errors occur, aligning visually with the details page specifications.
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -226,10 +231,10 @@ fun MainCoverView(
 @Composable
 fun PlayerCoverPreview() {
     APlayerTheme {
-        // 在预览中模拟 PlayerCover。由于预览无法模拟真实手势交互，
-        // 这里主要用于验证封面在不同屏幕比例（竖屏 vs 横屏）下的自适应缩放效果。
+        // Simulate PlayerCover in Preview. Since the preview cannot simulate real gesture interactions,
+        // it is primarily used here to verify the adaptive scaling effect of the cover under different screen aspect ratios (portrait vs landscape).
         PlayerCover(
-            coverPath = null, // 传入 null 以展示缺省占位图
+            coverPath = null, // Default Cover Placeholder (Pass null to display the default cover art placeholder)
             isPlaying = true,
             coverLastUpdated = 0L,
             onAdjustVolume = {},

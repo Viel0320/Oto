@@ -19,15 +19,18 @@ data class BookWithProgress(
             0
         }
 
-    // 重构 isFinished 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
+    // Refactor isFinished Flag (Directly bind completion checks to the readStatus field inside BookEntity)
+    // This eliminates flag synchronization splits and guarantees state consistency across UI models.
     val isFinished: Boolean
         get() = book.readStatus == AudiobookSchema.ReadStatus.FINISHED
 
-    // 重构 isInProgress 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
+    // Refactor isInProgress Flag (Directly bind reading progress checks to the readStatus field inside BookEntity)
+    // This ensures that the active/in-progress status aligns with the persistent database values.
     val isInProgress: Boolean
         get() = book.readStatus == AudiobookSchema.ReadStatus.IN_PROGRESS
 
-    // 重构 isNotStarted 判断，直接与 BookEntity 的物理 readStatus 字段绑定，消除状态判定分叉并保持状态一致性
+    // Refactor isNotStarted Flag (Directly bind unstarted state checks to the readStatus field inside BookEntity)
+    // This avoids status checks branching away from database states.
     val isNotStarted: Boolean
         get() = book.readStatus == AudiobookSchema.ReadStatus.NOT_STARTED
 }

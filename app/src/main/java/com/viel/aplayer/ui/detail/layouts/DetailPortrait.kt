@@ -32,8 +32,9 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
- * 竖屏自适应布局 (Compact)
- * 采用经典的垂直滚动流式布局。
+ * Portrait Layout Specification (Responsive vertical stack for compact viewports)
+ *
+ * Implements a standard vertically scrolling list layout.
  */
 @Composable
 fun DetailPortrait(
@@ -55,10 +56,11 @@ fun DetailPortrait(
             .padding(padding),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 封面：占据较大比例
+        // Primary Cover (Renders the album cover with dominant ratio)
         PlayerCover(
-            // 详尽注释：详情页主封面属于 Main1200 场景，优先使用原始封面以保留清晰度；
-            // 只有原图缺失时才回退缩略图，路径规则集中由 selector 表达。
+            // Cover Selection Priority (Prioritize high-definition raw images for primary detail viewport)
+            // Utilizes the original high-resolution cover image in "Main1200" scenarios to maintain detail clarity.
+            // Falls back to the thumbnail only when the raw image is missing, managed centrally by the selector logic.
             coverPath = CoverImageSourceSelector.main(
                 coverPath = book?.coverPath,
                 thumbnailPath = book?.thumbnailPath
@@ -74,7 +76,7 @@ fun DetailPortrait(
             modifier = Modifier.fillMaxWidth().aspectRatio(1f)
         )
 
-        // 标题与作者
+        // Metadata Area (Displays title, author, and narrator details)
         DetailHeader(
             title = book?.title ?: "",
             author = book?.author ?: "",
@@ -99,7 +101,7 @@ fun DetailPortrait(
             isLandscape = false
         )
 
-        // 控制面板
+        // Playback Panel (Renders the primary play, progress, and settings controls)
         DetailControlPanel(
             book = book,
             uiState = uiState,
@@ -115,7 +117,7 @@ fun DetailPortrait(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // 简介内容
+        // Synopsis Segment (Renders the text description of the audiobook)
         DetailSummary(
             description = book?.description ?: "",
             modifier = Modifier.padding(horizontal = 24.dp)

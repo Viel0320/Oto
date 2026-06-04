@@ -21,11 +21,12 @@ import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 
 /**
- * 播放进度条组件。
- * 内部封装了“全书进度”与“当前章节进度”的切换逻辑。
+ * Playback progress bar component (PlaybackProgress).
+ *
+ * It internally encapsulates the switching logic between "entire book progress" and "current chapter progress".
  */
 @Composable
-// 已取消封面取色动态着色功能，此处的 color 参数已被移除，进度条直接回退至系统默认的 Material 3 主色调以提升性能和UI一致性
+// The dynamic coloring functionality from cover palette extraction has been removed; the color parameter has been removed here, and the progress bar directly falls back to the system default Material 3 primary color to improve performance and UI consistency.
 fun PlaybackProgress(
     currentPosition: Long,
     totalDuration: Long,
@@ -34,20 +35,20 @@ fun PlaybackProgress(
     markers: List<Float>,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    // 新增自适应玻璃视效模式参数。
+    // Adaptive glass effect mode parameter has been added.
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
-    // 1. 实时查找当前位置所在的章节
+    // 1. Find the chapter corresponding to the current position in real-time
     val currentChapter = remember(currentPosition, chapters) {
-        // 统一章节定位，避免 UI 和通知栏各自按不同顺序查找章节。
+        // Unify chapter positioning to avoid UI and the notification bar searching for chapters using different ordering.
         ChapterTimeline.currentChapter(chapters, currentPosition)
     }
 
-    // 2. 根据模式计算显示参数
+    // 2. Calculate display parameters according to the mode
     val chapterStart = ChapterTimeline.start(currentChapter)
 
-    // 确保时长计算有效，防止除以零
-    // 单文件内嵌章节的 durationMs 可能不可靠，章节模式统一按相邻 start/总时长计算。
+    // Ensure duration calculations are valid to prevent division by zero.
+    // The durationMs of embedded chapters in single files might be unreliable, so the chapter mode uniformly calculates based on adjacent start times and total duration.
     val displayDur = if (isChapterMode) {
         ChapterTimeline.duration(chapters, currentChapter, totalDuration)
     } else {
@@ -60,7 +61,7 @@ fun PlaybackProgress(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // 已在此处取消了进度条的封面取色绑定，不再传入自定义 color 属性，使 AudioProgressBar 自动回归为 Material 3 主色调
+        // The cover color extraction binding of the progress bar has been removed here, and the custom color attribute is no longer passed, causing AudioProgressBar to automatically return to the Material 3 primary color.
         AudioProgressBar(
             progress = { displayPos.toFloat() / displayDur.toFloat() },
             onProgressChange = { newProgress ->
@@ -71,7 +72,7 @@ fun PlaybackProgress(
                 }
                 onSeek(targetPos)
             },
-            // 在章节模式下隐藏全书的章节标记点
+            // Hide the entire book's chapter markers when in chapter mode
             markers = if (isChapterMode) emptyList() else markers,
             modifier = Modifier.fillMaxWidth(),
             glassEffectMode = glassEffectMode
@@ -89,7 +90,7 @@ fun PlaybackProgress(
             )
             
             if (chapters.isNotEmpty()) {
-                // 序号使用同一排序结果，保证显示顺序和进度边界一致。
+                // The serial numbers use the same sorting result to guarantee that the display order matches the progress boundaries.
                 val currentIndex = ChapterTimeline.currentIndex(chapters, currentChapter).coerceAtLeast(0)
                 Text(
                     text = "${currentIndex + 1} / ${chapters.size}",

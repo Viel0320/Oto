@@ -34,10 +34,10 @@ import com.viel.aplayer.ui.settings.PlayerSettingsState
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
-// 
-// 抽离横屏播放器头部组件到独立文件。
-// 负责展示书籍标题、作者信息以及包含“进度模式切换”、“删除书籍”等操作的更多菜单。
-// 在横屏模式下，为了最大化沉浸感，该头部直接悬浮在背景渐变之上，不使用额外的背景卡片。
+// Landscape player header component.
+//
+// Decoupled to an independent file to display the book title, author information, and a "more options" menu (containing "toggle progress mode", "delete book", etc.).
+// In landscape mode, to maximize immersion, this header floats directly on top of the background gradient without utilizing any extra background cards.
 @Composable
 fun PlayerLandscapeHeader(
     metadata: BookMetadataState,

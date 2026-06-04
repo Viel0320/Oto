@@ -2,11 +2,11 @@ package com.viel.aplayer.media.parser
 
 import java.util.Locale
 
-// description 的字段选择和换行修复属于导入语义规则，不属于底层范围读取工具。
-// 单独维护在这里，避免 MP3/MP4/FLAC/Opus 等 parser 各自复制规则，也避免把业务判断塞进 RangeAudioParserSupport。
+// Description selection and line break sanitization belong to import semantic rules, not low-level range reading tools.
+// Isolated here to prevent duplication across MP3/MP4/FLAC/Opus parsers and to keep RangeAudioParserSupport business-free.
 internal object MetadataDescriptionRules {
-    // 这些字段名按“用户维护的简介字段优先、通用备注字段兜底”的顺序排列。
-    // 不同写入工具会使用 Description、Long Description、Summary、Comment 等变体，比较前会统一规范化。
+    // Field names ordered by "user-maintained description fields first, generic comment fields as fallback".
+    // Different tagging tools use variations like Description, Long Description, Summary, Comment; normalized before comparison.
     private val preferredDescriptionKeys = listOf(
         "comment",
         "comments",
@@ -18,8 +18,8 @@ internal object MetadataDescriptionRules {
     )
 
     fun normalizeDescriptionText(value: String): String =
-        // 导入层统一处理两类换行：真实 CRLF/CR，以及部分标签工具写入的字面量 "\n" / "\r\n"。
-        // UI 只负责展示和 HTML 解析，不再猜测各音频格式的换行保存方式。
+        // Normalizes both real line breaks (CRLF/CR) and literal "\n" / "\r\n" strings written by tag editors.
+        // The UI handles rendering and HTML parsing; tag parsers should not guess raw line ending formats.
         value
             .replace("\\r\\n", "\n")
             .replace("\\n", "\n")
@@ -29,12 +29,12 @@ internal object MetadataDescriptionRules {
             .trim()
 
     fun normalizedFieldKey(value: String): String =
-        // 自定义元数据字段名常见写法包括 Long Description、LONG_DESCRIPTION、desc 等。
-        // 统一压成小写字母数字键后再比较，避免大小写和分隔符差异影响优先级。
+        // Custom metadata fields vary widely (e.g., Long Description, LONG_DESCRIPTION, desc).
+        // Normalized to lowercase alphanumeric strings to avoid mismatches from case or separator differences.
         value.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), "")
 
     fun isDescriptionFieldName(value: String?): Boolean =
-        // ID3 TXXX 等自定义字段需要先验证字段名，再把字段值当作 description 使用。
+        // ID3 TXXX and custom fields require name validation before using their values as the description.
         normalizedFieldKey(value.orEmpty()) in preferredDescriptionKeys
 
     fun firstDescriptionFromCustomAndFallback(
@@ -42,16 +42,16 @@ internal object MetadataDescriptionRules {
         customPrefix: String,
         fallbackKeys: List<String>
     ): String =
-        // MP4 freeform 字段会先被保存成 "$prefix:字段名" 形式；
-        // 这里统一先扫自定义字段，再扫格式标准字段，避免调用方各自拼接优先级。
+        // MP4 freeform fields are pre-saved as "$prefix:fieldName".
+        // Scans custom fields before standard formats to centralize priority logic instead of delegating to callers.
         firstDescriptionFromOrderedKeys(
             values = values,
             keys = preferredDescriptionKeys.map { key -> "$customPrefix:$key" } + fallbackKeys
         )
 
     fun firstDescriptionFromFields(values: Map<String, String>): String {
-        // Vorbis/FLAC/Opus 的 comment map 本身就是开放字段集合；
-        // ID3 TXXX 自定义文本帧也可以复用同一套字段名优先级，最后才会落到 COMMENT/COMMENTS 这类泛用备注。
+        // Vorbis/FLAC/Opus comment maps are open-ended collections of tag pairs.
+        // ID3 TXXX custom text frames reuse this priority order, only falling back to generic COMMENT/COMMENTS last.
         return preferredDescriptionKeys.firstNotNullOfOrNull { preferredKey ->
             values.entries.firstOrNull { (key, value) ->
                 normalizedFieldKey(key) == preferredKey && value.isNotBlank()
@@ -60,7 +60,7 @@ internal object MetadataDescriptionRules {
     }
 
     private fun firstDescriptionFromOrderedKeys(values: Map<String, String>, keys: List<String>): String =
-        // MP4 标准 atom 名称需要精确匹配，例如 ©des / ©cmt 不能经过字母数字压缩后再查表。
+        // Standard MP4 atom names require exact matches (e.g., ©des / ©cmt cannot be alphanumeric-compressed).
         keys.firstNotNullOfOrNull { key ->
             values[key]
                 ?.let(::normalizeDescriptionText)

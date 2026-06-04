@@ -7,35 +7,36 @@ import androidx.room.Query
 import com.viel.aplayer.data.entity.DirectoryCacheEntity
 
 /**
- * 专用于增量目录扫描修改时间戳缓存表（directory_cache）的数据访问对象接口 (DAO)。
- * 承载了增量扫描秒级拦截、单目录状态覆盖缓存以及清空操作。
+ * Directory Modification Cache DAO (Data Access Object managing directory_cache records for incremental scanning)
+ * Handles sub-second intercepts, single-directory state overlays, and flushing operations.
  */
 @Dao
 interface DirectoryCacheDao {
 
     /**
-     * 根据库根和 VFS 目录路径读取目录缓存，不再通过来源原生目录地址命中缓存。
+     * Query Directory Cache (Resolves directory caches by matching rootId and relative VFS sourcePath)
+     * Replaces direct SAF tree URI resolution checks.
      */
     @Query("SELECT * FROM directory_cache WHERE rootId = :rootId AND sourcePath = :sourcePath")
     suspend fun getBySourcePath(rootId: String, sourcePath: String): DirectoryCacheEntity?
 
     /**
-     * 写入或更新某个文件夹的 lastModified 缓存状态。
-     * 当文件夹物理信息发生变动或初次导入完毕时，将最新状态持久化落库。
+     * Save Directory State (Upserts directory modified timestamps into database caches)
+     * Invoked when folders are updated during scan phases.
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(cache: DirectoryCacheEntity)
 
     /**
-     * 根据库根和 VFS 目录路径删除缓存，使目录缓存层保持跨来源可复用。
+     * Evict Directory Cache (Deletes directory cache indices matching rootId and relative VFS paths)
      */
     @Query("DELETE FROM directory_cache WHERE rootId = :rootId AND sourcePath = :sourcePath")
     suspend fun deleteBySourcePath(rootId: String, sourcePath: String)
 
     /**
-     * 根据媒体库根 ID 物理清空对应的所有文件夹缓存。
-     * 注：在外键配置了 ON DELETE CASCADE 的级联关系下，
-     * 级联删除库根记录时 SQLite 会自动触发底层删除，本方法作为数据手动操作的后备 API。
+     * Wipe Library Cache (Force deletes cached directory records belonging to a specific rootId)
+     * Note: While SQLite automatically triggers cascades under foreignKey constraints,
+     * this serves as a fallback API for manual domain evictions.
      */
     @Query("DELETE FROM directory_cache WHERE rootId = :rootId")
     suspend fun deleteByRootId(rootId: String)

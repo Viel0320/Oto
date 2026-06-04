@@ -6,10 +6,12 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
-// scope 内 I/O 并发默认限制为 4，避免大量元数据探测或图片解码任务同时启动导致内存和温度压力过高。
+// Default Scope Concurrency Limit (Memory and thermal guard)
+// Limit concurrent I/O operations to 4 in a scope to prevent excessive memory and thermal pressure from concurrent tag or image parsing.
 internal const val DEFAULT_SCOPE_IO_CONCURRENCY: Int = 4
 
-// 按输入顺序返回并发结果，让元数据、封面、时长读取可以并发执行，同时不改变后续启发式聚合和 claim 的稳定顺序。
+// Ordered Concurrency Mapping (Stable output sequence)
+// Maps items concurrently (e.g., metadata and covers) while preserving original input order for stable grouping and claim steps.
 internal suspend fun <T, R> Iterable<T>.mapWithBoundedConcurrency(
     maxConcurrent: Int = DEFAULT_SCOPE_IO_CONCURRENCY,
     transform: suspend (T) -> R
@@ -17,7 +19,8 @@ internal suspend fun <T, R> Iterable<T>.mapWithBoundedConcurrency(
     val items = toList()
     if (items.isEmpty()) return emptyList()
 
-    // 将异常并发度兜底为 1，保证调用方即使传入 0 或负数也会退化为稳定串行执行。
+    // Safe Semaphore Initialization (Fallback boundary check)
+    // Ensures concurrency factor is at least 1, falling back to sequential execution if a zero or negative limit is supplied.
     val semaphore = Semaphore(maxConcurrent.coerceAtLeast(1))
     return coroutineScope {
         items.map { item ->

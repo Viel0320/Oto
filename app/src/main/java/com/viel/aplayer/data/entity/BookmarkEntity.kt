@@ -6,7 +6,8 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * 书签实体，支持全球位置和稳定锚点双重保存。
+ * Bookmark Data Asset (Entity representing user-defined bookmarks for audiobooks)
+ * Supports dual-saving mechanisms via global book timelines and stable file anchors.
  */
 @Entity(
     tableName = "bookmarks",
@@ -31,9 +32,9 @@ data class BookmarkEntity(
     @PrimaryKey
     val id: String,
     val bookId: String,
-    val globalPositionMs: Long, // 当前结构下的全局显示位置
-    val bookFileId: String? = null, // 稳定锚点：文件 ID
-    val fileOffsetMs: Long = 0L, // 稳定锚点：文件内偏移
+    val globalPositionMs: Long, // Global progress offset in milliseconds for UI display
+    val bookFileId: String? = null, // Stable anchor: target book file ID
+    val fileOffsetMs: Long = 0L, // Stable anchor: relative millisecond offset inside the target file
     val fileFingerprint: String? = null,
     val anchorStatus: String = "OK", // OK / REMAPPED / UNRESOLVED
     val title: String,

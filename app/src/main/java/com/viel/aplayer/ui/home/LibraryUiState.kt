@@ -6,37 +6,40 @@ import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 
 /**
- * 图书馆主页的 UI 状态聚合类。
+ * LibraryUiState Model (Library Main Screen UI State)
  *
- * 所有数据变换（过滤、分组、排序截取）均在 ViewModel 的 Flow 管道中完成，
- * Composable 层直接消费预计算好的字段，不再承担任何业务运算。
+ * Aggregation class for library home screen UI state.
+ * All data transformations (filtering, grouping, sorting, slicing) are completed in ViewModel's Flow pipeline.
+ * Composable layer consumes pre-calculated fields directly, undertaking no business computation.
  */
 data class LibraryUiState(
-    /** 书架上的所有书籍列表（原始未过滤） */
+    /** List of all books on the bookshelf (unfiltered raw) */
     val audiobooks: List<BookWithProgress> = emptyList(),
 
-    /** 当前激活的过滤类型。null 表示 combine 管道尚未产出首个最终决策，UI 应暂不渲染 FilterChip 行 */
+    /** Current active filter type. null means combine pipeline has not produced first decision, UI should temporarily skip rendering FilterChip row */
     val selectedFilter: HomeFilter? = null,
 
-    /** 根据当前 filter 过滤后的书籍列表 */
+    /** List of filtered books according to current filter */
     val filteredAudiobooks: List<BookWithProgress> = emptyList(),
 
-    /** 过滤后的书籍按作者分组，用于 LazyColumn 按作者展示 */
+    /** Filtered books grouped by author, used for author-based display in LazyColumn */
     val groupedByAuthor: Map<String, List<BookWithProgress>> = emptyMap(),
 
-    /** "最近"区域的书籍列表（NotStarted → 最近添加；InProgress → 最近播放） */
+    /** Book list for "recent" section (NotStarted -> recently added; InProgress -> recently played) */
     val recentBooks: List<BookWithProgress> = emptyList(),
 
     /**
-     * "最近"区域的标题字符串资源 ID。
-     * 为 0 时表示当前 filter 不展示最近区域。
+     * Recent Title Resource ID (Recent Section Header Text)
+     *
+     * Title string resource ID for the "recent" section.
+     * 0 means recent section is not displayed under current filter.
      */
     @param:StringRes val recentTitleRes: Int = 0,
 
-    /** 是否应当展示"最近"横向滚动区域 */
+    /** Whether to show "recent" horizontal scrolling section */
     val shouldShowRecentBooks: Boolean = false,
 
-    /** 当前悬浮层玻璃效果模式，供主页 Dialog 与播放器 BottomSheet 共用同一全局设置。 */
-    // UiState 首帧缺省值引用设置模型的默认值，避免 UI 状态层另行硬编码 Material。
+    /** Current floating layer glass effect mode, shared by homepage Dialog and player BottomSheet */
+    // Default value of UiState first frame references settings model default value, avoiding hardcoded Material in UI state layer.
     val glassEffectMode: GlassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
 )

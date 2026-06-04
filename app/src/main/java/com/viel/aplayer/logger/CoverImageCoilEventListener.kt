@@ -9,17 +9,17 @@ import coil.request.Options
 import coil.request.SuccessResult
 
 /**
- * 全局封面请求的 Coil 事件桥接器。
+ * Coil Event Listener Bridge (Global Coil event listener bridge for cover image requests)
  *
- * 这个类只负责把 ImageLoader 层面的开始、成功、失败、取消事实转成统一日志，
- * 不参与缓存 key 生成、路径选择或 UI 场景判断。这样可以在不打破现有请求工厂职责边界的前提下，
- * 补齐“同一个全局缓存池里，封面请求最终是 memory hit、disk hit 还是重新 decode”的观测信息。
+ * This class translates ImageLoader success, error, cancellation, and start events into unified logs.
+ * It does not participate in cache key generation, path selection, or UI scene choices. It complements cache-related
+ * metrics (e.g. memory hit, disk hit, or file decode) without modifying existing request factories.
  */
 class CoverImageCoilEventListener private constructor(
     private val requestContext: CoverImageCacheLogger.RequestContext
 ) : EventListener {
-    // 详尽的中文注释：fetcher 类型是区分“disk cache 命中”与“本地文件重新 decode”的关键线索之一。
-    // 因此在 fetchStart 时把实现类名记录下来，稍后在成功回调里和 DataSource 一起归一化为文档里的 decodeSource 口径。
+    // Fetcher Type Extraction (The fetcher type is a critical clue to differentiate between disk cache hits and raw file decodes)
+    // We record the fetcher class name during fetchStart, which is later normalized along with the DataSource inside the success callback.
 
     override fun fetchStart(request: ImageRequest, fetcher: Fetcher, options: Options) {
         CoverImageCacheLogger.rememberFetcherClass(
@@ -29,9 +29,9 @@ class CoverImageCoilEventListener private constructor(
     }
 
     override fun onSuccess(request: ImageRequest, result: SuccessResult) {
-        // 详尽的中文注释：成功路径不在 EventListener 里清理 fetcher 线索。
-        // 终态指标由 ImageRequest.Listener 输出，它会通过 takeFetcherClass() 读取并移除这条线索；
-        // 如果这里提前删除，request listener 就无法再尽量区分 disk hit 与 file decode。
+        // Keep Fetcher Class Hint (Do not clear the fetcher class name in EventListener success callbacks)
+        // The final success metrics are emitted by the ImageRequest.Listener using takeFetcherClass() to distinguish disk hits from file decodes.
+        // Cleaning it up here prematurely would prevent the request listener from identifying the decode source.
     }
 
     override fun onError(request: ImageRequest, result: ErrorResult) {
@@ -43,9 +43,9 @@ class CoverImageCoilEventListener private constructor(
     }
 
     /**
-     * 详尽的中文注释：统一的全局工厂入口。
-     * ImageLoader 只需要绑定这一个 Factory，就能让所有封面请求自动拥有同一套 loader 层日志桥接，
-     * 同时不会影响非封面资源请求，因为真正写日志前还会再按 `cover:` key 前缀做一次过滤。
+     * Listener Factory (Unified global factory entry point)
+     * ImageLoader only needs to bind to this Factory to automatically attach listener logs to all cover requests,
+     * without affecting non-cover image requests as they are filtered out by the "cover:" cache key check.
      */
     class Factory : EventListener.Factory {
         override fun create(request: ImageRequest): EventListener {

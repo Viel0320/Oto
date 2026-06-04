@@ -1,12 +1,12 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS 认证与服务端探测链路日志。
+ * ABS Authentication Logger (Authentication and server connection detection logs)
  *
- * 责任边界：
- * 1. 只记录 login / status / authorize / libraries / credential store 相关事件。
- * 2. 不记录设置页交互，不记录 catalog mirror，不记录播放会话。
- * 3. 所有字段统一经过 ABS 脱敏器处理，避免 token、password、签名 URL 泄漏。
+ * Boundaries of responsibility:
+ * 1. Only logs events related to login, status, authorize, libraries, and credential store.
+ * 2. Does not log settings interactions, catalog mirroring, or playback sessions.
+ * 3. All log values must be sanitized via AbsLogSanitizer to avoid leaking sensitive information like tokens, passwords, or signed URLs.
  */
 internal object AbsAuthLogger {
     private const val TAG = "AbsAuth"

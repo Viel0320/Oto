@@ -16,15 +16,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * 书籍详情页的 ViewModel。
- * 负责管理详情页的 UI 状态，包括选中书籍展示、文件可用性检查、封面主色提取等。
- * 从 LibraryViewModel 中独立出来，使各 ViewModel 职责单一、边界清晰。
+ * Detail View Model: Coordinates UI state, availability checking, and asset details for the book details panel.
+ *
+ * Manages active book selections, checks file accessibility in VFS, extracts dominant cover colors,
+ * and maintains reactive UI state updates.
+ * Separated from `LibraryViewModel` to respect single-responsibility principles and establish clean domains.
  */
 class DetailViewModel(application: Application) : AndroidViewModel(application) {
-    // 通过 Application 容器获取解耦后的高层业务门面
+    // Business Facade (Decoupled high-level aggregate gateway)
     private val libraryFacade = (application as APlayerApplication).container.libraryFacade
 
-    // 订阅观察书籍元数据变更的协程 Job，用于响应式实时刷新详情页展示的数据
+    // Relational Observer Job (Tracks database updates for the selected book)
     private var bookObserveJob: kotlinx.coroutines.Job? = null
 
 
@@ -32,95 +34,100 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
 
     // =====================================================================
-    // M-19 修复 — 3 秒未播放保护期逻辑下沉到 ViewModel
-    // 原先 isUnplayedProtectionActive 和 delay(3000L) 散落在 DetailScreen（叶子 Composable）内部，
-    // 配置变更（屏幕旋转、深色模式切换）后状态就会被重置丢失。
-    // 现在由 ViewModel 持有保护期的开始时刻（playbackStartedAt），
-    // 并在 uiState 中提供经过保护期过滤后的 displayProgressPercent 供 UI 直接渲染。
+    // Unplayed Protection Configuration (VM-level state persistence across configurations)
+    // Previously, `isUnplayedProtectionActive` and the 3000ms delay resided inside `DetailScreen`.
+    // That allowed configuration shifts (e.g., rotation, dark theme toggles) to erase the protection state.
+    // Downshifting this to the ViewModel ensures that `playbackStartedAt` is retained across config changes,
+    // exposing a debounced `displayProgressPercent` property inside `uiState` for UI rendering.
     // =====================================================================
 
-    /** 记录点击播放的时刻（以 SystemClock.elapsedRealtime() 为单位），null 表示保护期未激活 */
+    /** Playback Click Timestamp (Elapse clock offset; null indicates inactive protection) */
     private val _playbackStartedAt = MutableStateFlow<Long?>(null)
 
     /**
-     * 当用户点击播放且当前进度为 0（未播放）时调用。
-     * 开启 3 秒保护期：期间内 displayProgressPercent 强制为 0，
-     * 防止按鈕图标/文案在“Start Listening”和“Continue at X%”之间高频闪烁。
+     * Start Playback Protection (Hold display progress during initial playback kick-off)
+     *
+     * Initiated when playing a book with 0% progress.
+     * Starts a 3-second protection window where `displayProgressPercent` is forced to 0.
+     * This avoids flickering transitions between "Start Listening" and "Continue at X%" buttons on slow startup streams.
      */
     fun onPlayPressed() {
         if (_uiState.value.progressPercent == 0) {
-            // M-19 — 开始保护期，强制将展示进度置 0，阻止按钮文案闪烁
+            // Lock Display progress (Force display progress to 0 during startup protection)
             _playbackStartedAt.value = SystemClock.elapsedRealtime()
             _uiState.update { it.copy(displayProgressPercent = 0) }
             viewModelScope.launch {
-                // M-18 修复 — 与 updatePlaybackProgress 的判定门控引用同一常量。
-                // 此前误写为 3_00L（300ms），与门控的 3000ms 不一致，导致保护期在 300ms 后即提前结束、按钮文案仍会闪烁。
+                // Unified Delay Timing (Align VM delay with the duration gate)
+                // References the single constant `UNPLAYED_PROTECTION_WINDOW_MS` to prevent mismatch issues.
                 delay(UNPLAYED_PROTECTION_WINDOW_MS)
                 _playbackStartedAt.value = null
-                // 保护期结束，恢复真实进度以驱动按钮文案正确渲染
+                // Terminate Protection (Restore display progress to match actual progress values)
                 _uiState.update { it.copy(displayProgressPercent = it.progressPercent) }
             }
         }
     }
 
     /**
-     * 选中一本书并展示详情页。
-     * 立即设置基础信息和可见性，然后异步检查文件可用性和提取封面主色。
+     * Select Audiobook: Configures the details screen to focus on the selected book entity.
      *
-     * @param book 选中的书籍实体，传入 null 表示关闭详情页。
+     * Populates primary metadata fields immediately, then triggers asynchronous tasks to check
+     * physical track availability via VFS and retrieve dominant cover colors.
+     *
+     * @param book The target audiobook with progress. Pass `null` to close the details pane.
      */
     fun selectBook(book: BookWithProgress?) {
-        // 每次选中新书或关闭详情时，务必先取消前一次的数据库 Flow 监听，防止跨书数据串扰和内存泄漏
+        // Resource Cleanup (Cancel active database flow subscription to avoid leakage and crosstalk)
         bookObserveJob?.cancel()
         bookObserveJob = null
         val current = _uiState.value
 
-        // 只要选中有效书籍，就显示详情页；同一本书重复选择也刷新详情状态。
+        // Display Details (Render details pane for non-null target selection)
         if (book != null) {
-            // M-19 修复 — 切换或重新选中书籍时，必须彻底清空保护期起始时间戳，防止跨书保护期状态串扰
+            // Reset Protection State (Wipe timestamps to prevent crosstalk during selection changes)
             _playbackStartedAt.value = null
             _uiState.value = current.copy(
                 book = book,
                 isVisible = true,
-                // 详情页先按可播放处理，等后台 VFS 可用性检测确认缺失后再降级，避免多文件书籍检测期间误拦截播放入口。
+                // Optimistic Accessibility (Assume available initially to prevent blocking play during VFS evaluation)
                 isAvailable = true,
                 progressPercent = book.progressPercent,
-                // M-19 — 选中新书时同步初始化 displayProgressPercent
+                // Synchronize Display progress (Align starting display values with selection progress)
                 displayProgressPercent = book.progressPercent,
-                // 选中新书时，立即把 fullSourcePath 重置为空，防止上一次选中的路径数据残留引起界面闪烁
+                // Clear Previous Path (Flush physical path reference to prevent transient UI flashing)
                 fullSourcePath = ""
             )
 
-            // 启动协程异步加载该有声书底层的物理文件，并根据不同的有声书源类型提取对应的源文件名，
-            // 并在 ViewModel 侧直接进行 SAF URL 解码和物理路径中 "primary:" 前缀的截取与路径拼接，从而将干净的 fullSourcePath 供给 UI 渲染
+            // Resolve Physical Path (Map and format VFS identifiers to a display path)
+            // Launches an asynchronous scope to fetch book tracks, decode SAF references,
+            // strip virtual directory prefixes, and map the clean path to UI display variables.
             viewModelScope.launch {
-                // 改用业务门面提供的 getAllFilesForBookSync 接口，确保拉取到完整的物理文件列表
+                // Retrieve Track list (Query complete book tracks via aggregate gateway)
                 val files = libraryFacade.getAllFilesForBookSync(book.book.id)
                 val fileName = when (book.book.sourceType) {
                     com.viel.aplayer.data.db.AudiobookSchema.SourceType.SINGLE_AUDIO -> {
-                        // 单音频文件，文件名（带拓展名）直接取首个关联文件的 displayName
+                        // Single File Source (Default to first track display name)
                         files.firstOrNull()?.displayName.orEmpty()
                     }
                     com.viel.aplayer.data.db.AudiobookSchema.SourceType.CUE,
                     com.viel.aplayer.data.db.AudiobookSchema.SourceType.M3U8 -> {
-                        // 清单有声书优先筛选角色为 SOURCE_MANIFEST 的文件（清单本身），不存在则用首轨文件名做兜底
+                        // Manifest Book source (Prioritize the source manifest track, falling back to track index 0)
                         files.firstOrNull { it.fileRole == com.viel.aplayer.data.db.AudiobookSchema.FileRole.SOURCE_MANIFEST }?.displayName
                             ?: files.firstOrNull()?.displayName.orEmpty()
                     }
                     com.viel.aplayer.data.db.AudiobookSchema.SourceType.GENERATED_M3U8 -> {
-                        // 启发式聚合书籍，按照 index 升序排序后，获取第一章（首轨）的音频文件名作为源文件名
+                        // Aggregated Book source (Sort tracks and default to the first sorted track name)
                         files.sortedBy { it.index }.firstOrNull()?.displayName.orEmpty()
                     }
                     else -> ""
                 }
 
-                // 对有声书的 sourceRoot 进行 URL 解码，还原 %3A 与 %2F
+                // URL Decoding (Resolve percent encoding symbols inside SAF roots)
                 val root = book.book.sourceRoot
                 val decodedRoot = android.net.Uri.decode(root)
 
-                // 使用 lastIndexOf("primary:") 寻找最后一个 "primary:" 关键字并截取其后的真实物理目录段。
-                // 因为在 SAF 授权树模式下，物理 Uri 可能同时包含授权树与具体文件前缀（从而出现两个 primary: 关键字，例如 "Audiobooks/document/primary:Audiobooks"），
-                // 采用 lastIndexOf 能够极其智能、彻底地将 "Audiobooks/document/primary:" 这样无关的多重冗余协议前缀全部剥除，只保留真实的 "Audiobooks" 物理目录，完美满足用户的精炼路径诉求
+                // Prefix Stripping (Isolate local physical directories from virtual authority prefixes)
+                // In SAF scopes, physical URLs can carry duplicate authority fragments (e.g., "primary:Audiobooks/document/primary:Audiobooks").
+                // Locating the last instance of "primary:" cleans up virtual prefixes, leaving only the physical subpath.
                 val primaryKey = "primary:"
                 val startIndex = decodedRoot.lastIndexOf(primaryKey, ignoreCase = true)
                 val cleanRoot = if (startIndex != -1) {
@@ -129,7 +136,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                     decodedRoot
                 }
 
-                // 将干净的物理根目录与匹配识别出的文件名进行高可靠性路径拼接
+                // Path Assembly (Concatenate cleaned root directory and resolved filename)
                 val finalPath = if (cleanRoot.endsWith("/")) {
                     "$cleanRoot$fileName"
                 } else if (cleanRoot.isNotEmpty() && fileName.isNotEmpty()) {
@@ -144,12 +151,12 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             viewModelScope.launch {
-                // 记录本次检测对应的书籍 ID，防止切换详情页后旧检测结果覆盖新书的乐观状态。
+                // Request Tracking (Tag checker action with selected bookId to avoid crosstalk on screen shifts)
                 val checkedBookId = book.book.id
-                // 异步检查当前选中书籍的物理文件可用性（使用新门面）
+                // Asynchronous Availability check (Verify VFS readability status of the selected book)
                 val isAvailable = libraryFacade.checkDetailAvailability(checkedBookId)
                 _uiState.update { state ->
-                    // 只有当前仍显示同一本书时才应用检测结果，避免异步检测完成顺序导致详情页状态串扰。
+                    // Atomic State Resolution (Apply availability results only if selected target is unchanged)
                     if (state.book?.book?.id == checkedBookId) {
                         state.copy(isAvailable = isAvailable)
                     } else {
@@ -158,8 +165,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
 
-            // 异步订阅观察该图书底层的数据库记录 Flow。
-            // 当 EditBookActivity 在外部编辑并写入数据库后，此处自动感知并刷新 _uiState.book，实现 UI 响应式无缝更新
+            // Live Metadata Binding (Observe database flow for live details updating)
+            // Binds database streams to UI values. Allows manual edits (e.g. from EditBookActivity) to show up instantly.
             bookObserveJob = viewModelScope.launch {
                 libraryFacade.observeBookById(book.book.id).collect { updatedBook ->
                     if (updatedBook != null) {
@@ -174,15 +181,14 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         } else {
-            // 当关闭详情页时，将 isVisible 置为 false、清空 fullSourcePath 且重置保护期状态
+            // Reset Layout variables (Clear screen attributes and disable visibility state)
             _playbackStartedAt.value = null
             _uiState.update { state ->
                 state.copy(isVisible = false, fullSourcePath = "")
             }
         }
 
-        // 封面主色提取逻辑，只在封面路径变化或尚未缓存颜色时执行。
-        // 优先使用数据库中已缓存的主色调，避免重复解析封面图片。
+        // Dominant Color Optimization (Fetch cached values or run bitmap extractor asynchronously)
         if (book != null && (book.book.coverPath != current.book?.book?.coverPath
                     || current.backgroundColorArgb == ImageProcessor.DEFAULT_BACKGROUND_ARGB)) {
             viewModelScope.launch(Dispatchers.Default) {
@@ -190,7 +196,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 val backgroundColor = cachedColor ?: ImageProcessor.getDominantColor(book.book.coverPath)
                 _uiState.value = _uiState.value.copy(backgroundColorArgb = backgroundColor)
 
-                // 如果本次新提取了主色调，则写回数据库供下次复用
+                // Cache Dominant Color (Save computed colors back to database for future lookups)
                 if (cachedColor == null) {
                     libraryFacade.updateBackgroundColor(book.book.id, backgroundColor)
                 }
@@ -199,16 +205,18 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * 设置详情页的可见性。
-     * 传入 false 关闭详情页（不清空书籍数据，以支持退场动画）。
+     * Adjust Pane Visibility: Sets the visibility status of the details view.
+     *
+     * @param visible Pass `false` to close the details pane (leaves selection intact for exit animations).
      */
     fun setVisible(visible: Boolean) {
         _uiState.update { it.copy(isVisible = visible) }
     }
 
     /**
-     * 当指定书籍被删除时，若详情页正在展示该书则自动关闭并清空数据。
-     * 供外层协调器（如 APlayerApp 的 onDeleteBook 回调）在删除书籍时统一调用。
+     * Dismiss Selection on Delete: Closes the details panel immediately if the currently viewed book is deleted.
+     *
+     * @param bookId The unique identifier of the deleted audiobook.
      */
     fun dismissIfShowing(bookId: String) {
         if (_uiState.value.book?.book?.id == bookId) {
@@ -217,12 +225,12 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * M-19 修复 — 高频更新实时播放进度。
-     * 当宿主（APlayerApp）通过单向数据同步管道监测到当前播放书籍的进度变化时，调用此 API 进行同步。
-     * 核心融合算法：
-     * 1. 实时计算 3 秒未播放保护期是否仍处于激活状态（从点击播放时刻起 3000 毫秒内）。
-     * 2. 若保护期激活，则底层更新真实进度（progressPercent），但强制渲染展示进度（displayProgressPercent）为 0，防止状态闪烁。
-     * 3. 若保护期未激活，则同时高频同步真实进度和展示进度，确保界面无缝平滑。
+     * Synchronize Playback Progress: Receives progress updates from the service sync channel.
+     *
+     * Implementation details:
+     * 1. Evaluates whether the 3-second unplayed protection window remains active.
+     * 2. If protected, maps the underlying `progressPercent` but forces `displayProgressPercent` to 0 to prevent UI flickering.
+     * 3. If unprotected, updates both parameters concurrently to keep progress states aligned.
      */
     fun updatePlaybackProgress(bookId: String, progressPercent: Int) {
         val currentState = _uiState.value
@@ -239,9 +247,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     companion object {
-        // M-18 修复 — 未播放保护期时长的唯一来源常量。
-        // onPlayPressed 的 delay 与 updatePlaybackProgress 的保护期判定门控必须引用同一常量，
-        // 防止再次出现 delay(3_00L)=300ms 与门控 3000ms 漂移不一致的笔误。
+        // Protection Time Constant (Central source of truth for debouncing initial playback transitions)
+        // Keeps VM delay windows and service sync controls synchronized to prevent timing drifts.
         private const val UNPLAYED_PROTECTION_WINDOW_MS = 3_000L
     }
 }

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 为本次桌面 widget 布局修正添加注释：外层改用 RelativeLayout，方便封面铺满背景，同时把底部内容稳定贴到父容器底部。 -->
+<!-- Widget Root Layout (Use RelativeLayout as the outer shell to allow cover art to stretch fully while positioning content at the bottom) -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_click_area"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#111111">
 
-    <!-- 为本次桌面 widget 布局修正添加注释：封面继续作为完整背景铺满父布局，不参与内容测量，避免挤压按钮或标题。 -->
+    <!-- Widget Cover Image (Cover art is loaded as full background, isolated from text measurements to prevent control layouts from squeezing) -->
     <ImageView
         android:id="@+id/widget_cover"
         android:layout_width="match_parent"
@@ -15,20 +15,20 @@
         android:contentDescription="@string/player_widget_cover_description"
         android:scaleType="centerCrop" />
 
-    <!-- 为本次桌面 widget 可读性改动添加注释：在完整封面上覆盖一层全局暗色遮罩，避免浅色封面区域把标题、副标题和按钮图标冲淡。 -->
+    <!-- Widget Cover Overlay (Semi-transparent dark layer on top of cover image to preserve text readability when bright covers are loaded) -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#66000000" />
 
-    <!-- 为本次桌面 widget 布局修正添加注释：底部蒙层用 RelativeLayout 贴底，覆盖标题和按钮所在区域，保证封面较亮时仍可读。 -->
+    <!-- Bottom Scrim Overlay (Align bottom scrim helper to parent bottom to guarantee legible title and buttons overlay) -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="108dp"
         android:layout_alignParentBottom="true"
         android:background="@drawable/widget_bottom_scrim" />
 
-    <!-- 为本次桌面 widget 布局修正添加注释：内层改用垂直 LinearLayout 统一承载标题和控制区，让标题自然上移到按钮上方。 -->
+    <!-- Content Container (LinearLayout grouping title and controls vertically to guarantee title sits above buttons) -->
     <LinearLayout
         android:id="@+id/widget_content"
         android:layout_width="match_parent"
@@ -40,7 +40,7 @@
         android:gravity="center"
         android:orientation="vertical">
 
-        <!-- 为本次桌面 widget 布局修正添加注释：标题组放在控制区上方，并缩小左右边距，避免长标题在 2x2 小宽度下被过早裁切。 -->
+        <!-- Text Details Group (Group title and author text with tight side margins to prevent premature truncation in 2x2 layout constraints) -->
         <LinearLayout
             android:id="@+id/widget_text_group"
             android:layout_width="match_parent"
@@ -86,7 +86,7 @@
                 android:textSize="11sp" />
         </LinearLayout>
 
-        <!-- 为本次桌面 widget 布局修正添加注释：控制区改成三等分线性槽位，左右图标不再因为固定总宽超过 2x2 实际宽度而被截断。 -->
+        <!-- Button Control Area (Split control area into three equal-weight columns to prevent horizontal truncation under narrow widget bounds) -->
         <LinearLayout
             android:id="@+id/widget_controls"
             android:layout_width="match_parent"

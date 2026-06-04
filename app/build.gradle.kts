@@ -18,7 +18,8 @@ android {
 
     defaultConfig {
         applicationId = "com.viel.aplayer"
-        // 根据用户要求，将 minSdk 从 31 提升至 33 (Android 13)，以适配 miuix-blur 模糊库所需的硬件级高阶模糊渲染。
+        // SDK Level Bump (Raise minSdk to 33 to support hardware-level blur effects)
+        // This targets Android 13 (API 33) to allow hardware-accelerated window blur rendering using miuix-blur.
         minSdk = 32
         //noinspection OldTargetApi
         targetSdk = 36
@@ -79,9 +80,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    // 详尽的中文注释：
-    // 引入官方的 material3-window-size-class 依赖项，
-    // 用以实现基于官方规范的 WindowWidthSizeClass 与 WindowHeightSizeClass 自适应尺寸代理计算。
+    // Window Size Class Integration (Introduce the official material3-window-size-class dependency)
+    // This implements adaptive layout scaling using WindowWidthSizeClass and WindowHeightSizeClass.
     implementation(libs.androidx.compose.material3.windowsize)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
@@ -99,10 +99,12 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.datastore.preferences)
 
-    // 引入新依赖 miuix-blur 模糊库，实现 Android 13 原生硬件级视窗高阶磨砂模糊渲染。
+    // Miuix-blur Dependency (Integrate miuix-blur library to enable glassmorphic window effects)
+    // This achieves hardware-level high-fidelity frosted window blur rendering on Android 13+.
     implementation(libs.miuix.blur)
 
-    // 详尽的中文注释：重新声明并引入 Jetpack Glance 相关依赖，包括核心声明式包、桌面 AppWidget 小组件包，以及 Material 3 配色自适应支持包
+    // Jetpack Glance Integration (Re-declare and introduce Jetpack Glance dependencies)
+    // Includes core declarative API, AppWidget support, and Material 3 adaptive color mapping.
     implementation(libs.androidx.glance)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
@@ -115,16 +117,20 @@ dependencies {
     // WorkManager & DocumentFile
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.documentfile)
-    // WebDAV 标准件使用 OkHttp 统一执行 PROPFIND、GET 和 Range 流式读取。
+    // WebDAV Network Support (Utilize OkHttp client for handling network requests)
+    // Standardizes WebDAV file listings (PROPFIND), stream downloads, and range-based media reading.
     implementation(libs.okhttp)
-    // ABS REST 客户端统一使用 Moshi 做结构化 JSON 解析，避免把协议字段名散落在字符串解析代码里。
+    // JSON Deserialization Strategy (Standardize on Moshi for structured API responses)
+    // Decouples JSON structure mapping and prevents scattering raw protocol fields in business logic.
     implementation(libs.moshi)
     implementation(libs.moshi.kotlin)
-    // Moshi DTO 使用代码生成适配器，减少反射成本并保证阶段 1 样本解析稳定。
+    // Moshi Code Generation (Configure ksp code generator for Moshi adapters)
+    // Reduces runtime reflection overhead and stabilizes DTO parsing for API client modules.
     ksp(libs.moshi.kotlin.codegen)
 
     testImplementation(libs.junit)
-    // ABS API 客户端阶段 1 需要用 MockWebServer 固化 method、path 和鉴权头行为。
+    // API Testing Support (Utilize MockWebServer for local integration testing)
+    // Solidifies API behaviors including HTTP methods, path routing, and authentication headers.
     testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -134,7 +140,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 }
 
-// 配置 KSP 插件传入 Room Schema 物理导出相对路径，激活编译时 Schema 文件自动落盘，保证数据库版本可留痕追溯 (H-16, H-17)
+// Room Schema Exporting (Configure KSP processor arguments to specify schema export path)
+// Enables compile-time database schema dumps for version control tracking and migration audits.
 ksp {
     arg("room.schemaLocation", "${projectDir}/schemas")
 }

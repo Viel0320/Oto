@@ -18,8 +18,8 @@ import java.io.InputStream
 import java.util.Locale
 
 /**
- * 专门负责外部挂载字幕（如 .srt, .ass, .ssa, .vtt, .lrc 等）的遍历、同名定位与解析的辅助组件。
- * 本组件从原 LibraryRepository 彻底解耦出来，使得字幕搜索的复杂 I/O 操作与有声书的核心数据流存取进行物理隔离。
+ * External Subtitle Resolver (Handles discovery, matching, and parsing of external subtitle files such as .srt, .ass, etc.)
+ * Decouples subtitle discovery from the core library repository, isolating complex I/O from core database access.
  */
 @UnstableApi
 class SubtitleFileResolver(
@@ -27,25 +27,25 @@ class SubtitleFileResolver(
     private val bookDao: BookDao,
     private val fileReader: VfsFileInterface
 ) {
-    // 字幕文件的受支持后缀后缀集合。
+    // Supported Subtitle Formats (The set of file extensions recognized by this resolver)
     private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "lrc")
 
     /**
-     * 加载并解析指定入库音频文件所对应的字幕文件。
-     * 调用方传入 BookFileEntity.id 后，本组件只通过数据库文件行与 VFS 同目录枚举查找字幕。
+     * Subtitle Loading Entrypoint (Queries, locates, and parses subtitles for a specific database book file)
+     * Performs DB lookup using the BookFileEntity.id and searches the parent folder via Virtual File System (VFS).
      */
     suspend fun loadSubtitlesForBookFile(bookFileId: String): List<SubtitleLine> =
         withContext(Dispatchers.IO) {
-            // 播放器 ViewModel 默认从 Main 协程触发字幕回退，外部字幕的数据库查询、WebDAV 枚举与流解析必须整体切到 IO。
-            // 字幕入口改为 BookFileEntity.id，避免播放器切换到 VFS 虚拟 URI 后无法再通过原始 URI 反查文件。
+            // Thread-Safe Subtitle Query (Switches context to Dispatchers.IO to prevent blocking the UI thread on db and network requests)
+            // Utilizes BookFileEntity.id to avoid reference breaks when the playback engine switches to virtual VFS URIs.
             val scannedFile = bookDao.getBookFileById(bookFileId) ?: return@withContext emptyList()
             val attachment = loadSubtitleAttachment(scannedFile)
             attachment?.lines ?: emptyList()
         }
 
     /**
-     * 根据已导入的书籍文件实体，查找其所在同级目录下的同名/同 base 名的字幕文件并解析。
-     * 优先使用 rootId/sourcePath 通过 VFS 定位同级字幕。
+     * Sibling Directory Scanner (Locates matching subtitle files in the same directory as the target audio file)
+     * Queries the sibling VFS tree by resolving parent paths and locating subtitle candidates with identical base names.
      */
     private suspend fun loadSubtitleAttachment(file: BookFileEntity): PlaybackSubtitle? {
         val subtitle = findSubtitleFile(file) ?: return null
@@ -55,8 +55,8 @@ class SubtitleFileResolver(
     }
 
     /**
-     * 核心字幕解析逻辑。
-     * 字幕字节流由 VFS 打开，解析器不再直接访问 content/file URI。
+     * Stream-Based Parse Subroutine (Opens streams via VFS and delegates token extraction to the subtitle format parser)
+     * Shielding parsing algorithms from content/file providers by routing all accesses through abstract stream factory.
      */
     private suspend fun parseSubtitleSuspend(
         sourceId: String,
@@ -65,10 +65,10 @@ class SubtitleFileResolver(
         openStream: suspend () -> InputStream?
     ): PlaybackSubtitle? =
         try {
-            // VFS 字幕读取是 suspend 流工厂，避免在同步 lambda 内调用挂起函数。
+            // Suspending Stream Factory Integration (Executes the parser under safe scope boundaries without blocking callbacks)
+            // Maps external subtitles to application-internal VFS Uri tokens rather than leaky content provider URIs.
             val lines = openStream()?.use { SubtitleParser.parse(it, extension) }.orEmpty()
             PlaybackSubtitle(
-                // 字幕附件对 Media3 暴露应用内部 VFS 标识，不再把 provider URI 作为字幕身份。
                 uri = Uri.Builder()
                     .scheme(VfsPlaybackUri.SCHEME)
                     .authority("subtitle")
@@ -79,13 +79,13 @@ class SubtitleFileResolver(
                 lines = lines
             )
         } catch (e: Exception) {
-            Log.e("SubtitleFileResolver", "解析 VFS 字幕文件失败: $sourceId", e)
+            Log.e("SubtitleFileResolver", "Failed to parse VFS subtitle file: $sourceId", e)
             null
         }
 
     /**
-     * 基于书籍物理文件定位外部字幕文件的物理查找算法。
-     * 已入库文件只通过 VFS sourcePath 定位同级目录，再按同 base 名匹配字幕。
+     * Base Name Matching Algorithm (Queries sibling VFS nodes and filters files by filename case-insensitively)
+     * Reconciles difference in extensions while matching names exactly to pair subtitles with audio files.
      */
     private suspend fun findSubtitleFile(file: BookFileEntity): SubtitleFileRef? {
         val parentPath = file.sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
@@ -111,7 +111,7 @@ class SubtitleFileResolver(
     }
 
     /**
-     * 根据后缀将支持的字幕后缀名翻译为 ExoPlayer/Media3 认识的标准 Subtitle MimeTypes。
+     * MimeType Standardization Mapping (Maps recognized file extensions to standard ExoPlayer/Media3 Subtitle MimeTypes)
      */
     private fun subtitleMimeType(extension: String): String? =
         when (extension.lowercase(Locale.ROOT)) {
@@ -121,7 +121,7 @@ class SubtitleFileResolver(
             else -> null
         }
 
-    // 内部使用的字幕实体临时载体。
+    // Internal subtitle reference (Temporary entity used to buffer scanned subtitle file details before full stream parsing)
     private data class SubtitleFileRef(
         val sourceId: String,
         val extension: String,

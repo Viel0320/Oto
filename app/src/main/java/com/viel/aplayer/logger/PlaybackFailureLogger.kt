@@ -3,28 +3,33 @@ package com.viel.aplayer.logger
 import android.util.Log
 
 /**
- * 播放故障与灾备自愈 Logger。
- * 统一收纳 PlaybackFailureHandler 中与分轨文件损坏/缺失标记、
- * 灾备跳轨自愈成功等相关的所有日志输出。
- * 使用统一 TAG "PlaybackFailure"，方便在 Logcat 中追踪播放异常容灾链路。
+ * Playback Failure and Self-Healing Logger (Diagnose playback failures and failover transitions)
+ *
+ * Collects logs from PlaybackFailureHandler regarding broken/missing track flags
+ * and successful failover redirects to alternative tracks.
+ * Uses a unified tag "PlaybackFailure" to simplify tracing in Logcat.
  */
 internal object PlaybackFailureLogger {
 
     private const val TAG = "PlaybackFailure"
 
     /**
-     * 记录检测到分轨文件损坏或缺失，已标记失效。
+     * Log Damaged or Missing Track (Record when a track is flagged as unavailable)
      *
-     * @param skipKey 被标记失效的分轨键值 (格式: bookId:queueIndex)
+     * Marks the specific track as failed to trigger subsequent self-healing.
+     *
+     * @param skipKey The key identifying the failed track (format: bookId:queueIndex).
      */
     fun logTrackMarkedUnavailable(skipKey: String) {
         Log.d(TAG, "检测到分轨文件损坏或缺失，标记失效：$skipKey")
     }
 
     /**
-     * 记录灾备自愈成功，正在跳转到下一可用分轨。
+     * Log Successful Failover (Record transition to the next playable track)
      *
-     * @param nextIndex 跳转到的下一可用分轨索引
+     * Signals that self-healing succeeded and the player is navigating to a valid fallback track.
+     *
+     * @param nextIndex The index of the next available track to play.
      */
     fun logSelfHealSuccess(nextIndex: Int) {
         Log.d(TAG, "灾备自愈成功，正在跳转到下一可用分轨：$nextIndex")

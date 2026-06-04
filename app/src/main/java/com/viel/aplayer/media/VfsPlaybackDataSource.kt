@@ -32,15 +32,16 @@ class VfsPlaybackDataSource private constructor(
     private var opened = false
 
     override fun open(dataSpec: DataSpec): Long {
-        // 把 DataSource.open 拆成“查 BookFileEntity”和“通过 VFS 打开流”两段，
-        // 便于确认首包读流前的固定成本到底落在数据库还是存储层。
+        // Open Pipeline Separation (Split DataSource.open into database query and VFS stream acquisition phases)
+        // This distinguishes first-byte network overheads from local SQL search costs during profiling.
         val openStart = SystemClock.elapsedRealtime()
         val bookFileId = VfsPlaybackUri.bookFileId(dataSpec.uri)
             ?: throw DataSourceException("Only VFS playback URIs are supported", PlaybackException.ERROR_CODE_INVALID_STATE)
 
         transferInitializing(dataSpec)
 
-        // 详尽的中文注释：如果在进入查库阶段前，线程已经被中断，则直接抛出 InterruptedIOException 快速拦截，防止后续多余的操作
+        // Interrupted Thread Check (Fast-fail if the loading thread was interrupted prior to database lookup)
+        // Short-circuits execution immediately to avoid executing unnecessary operations.
         if (Thread.currentThread().isInterrupted) {
             throw DataSourceException(
                 java.io.InterruptedIOException("Loader thread was interrupted before database lookup"),
@@ -49,11 +50,11 @@ class VfsPlaybackDataSource private constructor(
         }
 
         val dbLookupStart = SystemClock.elapsedRealtime()
-        // 依托解耦后的快速物理文件检索服务进行音频文件的库表查找
+        // Fast File Resolution (Resolves the target audiobook track using the decoupled playback lookup service)
         val file = try {
             runBlocking {
-                // 详尽的中文注释：启动运行于 Default 线程池的线程中断守护协程，高频轮询检测当前 loader 线程的 interrupt 状态。
-                // 一旦被外部物理打断，立即取消当前的协程 Scope Job，迫使底层挂起操作立刻抛出 CancellationException 中断释放
+                // Interrupt Watcher (Run active guard coroutine on the Default dispatcher to poll current thread interrupt status)
+                // Instantly cancels the coroutine context when interrupted, forcing underlying blocks to throw CancellationException.
                 val interruptWatcher = launch(kotlinx.coroutines.Dispatchers.Default) {
                     val currentThread = Thread.currentThread()
                     while (isActive) {
@@ -69,12 +70,12 @@ class VfsPlaybackDataSource private constructor(
                 try {
                     fileLookup.getBookFileById(bookFileId)
                 } finally {
-                    interruptWatcher.cancel() // 必须在执行完毕后立即销毁守护 Job，防止协程泄漏
+                    interruptWatcher.cancel() // Resource Clean Guard (Clean up active watcher coroutines to prevent Job leaks)
                 }
             }
         } catch (_: InterruptedException) {
-            // 详尽的中文注释：捕获 runBlocking 抛出的物理中断异常，并转换为 Media3 DataSource 能够识别的 InterruptedIOException。
-            // 解决 "Unexpected exception loading stream" 报错，确保异常符合 DataSource.open 签名要求。
+            // Interrupt Conversion (Map thread cancellations to Media3-compatible InterruptedIOException)
+            // Standardizes exceptions to prevent ExoPlayer throwing "Unexpected exception loading stream" messages.
             throw DataSourceException(
                 java.io.InterruptedIOException("Database lookup was interrupted"),
                 PlaybackException.ERROR_CODE_IO_UNSPECIFIED
@@ -88,7 +89,8 @@ class VfsPlaybackDataSource private constructor(
 
         val dbLookupCost = SystemClock.elapsedRealtime() - dbLookupStart
 
-        // 详尽的中文注释：查库结束后二次校准线程打断状态，如果已被打断则立刻退出，杜绝耗时的远程 VFS 连接握手
+        // Post-Query Interrupt Check (Inspects thread interrupt status again after database lookup compiles)
+        // Avoids launching slow and expensive remote network handshakes if the playback load task is already obsolete.
         if (Thread.currentThread().isInterrupted) {
             throw DataSourceException(
                 java.io.InterruptedIOException("Loader thread was interrupted after database lookup"),
@@ -96,12 +98,12 @@ class VfsPlaybackDataSource private constructor(
             )
         }
 
-        // 播放层只传 offset 给 VFS，SAF 由默认 skip 处理，WebDAV 由 Provider 转成 Range 请求。
+        // Offset Delegation (Delegates seek offsets to VFS, allowing SAF to skip bytes and WebDAV to use Range HTTP headers)
         val vfsOpenStart = SystemClock.elapsedRealtime()
         val stream = try {
             runBlocking {
-                // 详尽的中文注释：为最危险的网络流打开配置线程中断守护协程。在握手或建立 Socket 连接挂起时，
-                // 一旦 loader 线程被 ExoPlayer 中断，立即物理取消协程 Job，迫使底层的网络挂起操作瞬间崩裂抛出 CancellationException
+                // Network Interrupt Guard (Spawns a guardian coroutine monitoring the loader thread during WebDAV socket handshakes)
+                // Forces network connection calls to throw CancellationException immediately if the player cancels the load.
                 val interruptWatcher = launch(kotlinx.coroutines.Dispatchers.Default) {
                     val currentThread = Thread.currentThread()
                     while (isActive) {
@@ -117,11 +119,11 @@ class VfsPlaybackDataSource private constructor(
                 try {
                     fileReader.open(file, dataSpec.position)
                 } finally {
-                    interruptWatcher.cancel() // 彻底注销守护协程，防范内存泄露
+                    interruptWatcher.cancel() // Thread Guard Clean (Ensure background coroutines are cancelled to prevent leaks)
                 }
             }
         } catch (_: InterruptedException) {
-            // 详尽的中文注释：捕获 runBlocking 抛出的物理中断异常，转换后可被 ExoPlayer 正确识别为 IO 异常而非 Unexpected Exception。
+            // Exception Normalization (Map thread cancellations during connection setup to standard IOExceptions for ExoPlayer compatibility)
             throw DataSourceException(
                 java.io.InterruptedIOException("VFS open stream was interrupted"),
                 PlaybackException.ERROR_CODE_IO_UNSPECIFIED
@@ -132,7 +134,7 @@ class VfsPlaybackDataSource private constructor(
                 PlaybackException.ERROR_CODE_IO_UNSPECIFIED
             )
         } catch (e: IOException) {
-            // Provider offset 打开失败统一映射成 Media3 可理解的读位置错误，避免远程异常穿透播放器。
+            // Error Mapping Strategy (Map VFS stream open failures to standard out-of-range position errors to shield inner exceptions)
             throw DataSourceException(e, PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
         } ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
         val vfsOpenCost = SystemClock.elapsedRealtime() - vfsOpenStart
@@ -204,14 +206,14 @@ class VfsPlaybackDataSource private constructor(
         try {
             close()
         } catch (_: IOException) {
-            // 关闭 VFS 播放流失败不应覆盖前面已抛出的真实播放错误。
+            // Suppressed Exception Policy (Silences stream closing exceptions to protect previous runtime errors during teardown)
         }
     }
 
     class Factory(context: Context) : DataSource.Factory {
         private val appContext = context.applicationContext
-        // 详尽的中文注释：使用伴生对象中的 getContainer 安全方法惰性解析依赖容器，
-        // 解除对 APlayerApplication 强制转换的硬编码，确保在 loader 线程中或播放源恢复的极其脆弱的生命周期内绝对时序安全
+        // Decoupled Container Access (Use getContainer to resolve dependencies from application contexts lazily)
+        // Removes hardcoded application class casting to ensure thread-safe component resolutions during player recovery.
         private val container = com.viel.aplayer.APlayerApplication.getContainer(appContext)
 
         override fun createDataSource(): DataSource =

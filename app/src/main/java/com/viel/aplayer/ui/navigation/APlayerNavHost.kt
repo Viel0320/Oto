@@ -11,11 +11,12 @@ import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.player.PlayerViewModel
 
 /**
- * 系统导航管理容器，承载应用核心页面。
+ * Navigation Host (Manage Core Screens)
  *
- * 移除了 settings 的独立 compose 路由，改成通过启动对应的独立 Activity。
- * 其中，为了实现 100% 完美的防穿帮毛玻璃效果，搜索页重构为在同一个 Activity 内部的 SearchOverlay 悬浮层，
- * 因此我们移除了 searchLauncher 字段，引入了非独立的 searchViewModel。
+ * System navigation management container, hosting core application pages.
+ * Removed the independent compose route for settings, changing to launch the corresponding independent Activity.
+ * To achieve a 100% perfect, leak-free frosted glass effect, the search page was refactored as the SearchOverlay floating layer inside the same Activity,
+ * so we removed the searchLauncher field and introduced the non-independent searchViewModel.
  */
 @Composable
 fun APlayerNavHost(
@@ -23,11 +24,13 @@ fun APlayerNavHost(
     navController: NavHostController,
     libraryViewModel: LibraryViewModel,
     playerViewModel: PlayerViewModel,
-    // 接收独立的 DetailViewModel，用于详情页书籍选中操作
+    // Inject DetailViewModel (Select Audiobook in DetailViewModel)
+    // Receive the independent DetailViewModel, used for detail page book selection operation.
     detailViewModel: DetailViewModel,
     canStartNavigation: () -> Boolean,
     navigateBack: () -> Unit,
-    // 详尽的中文注释：引入非独立的 SearchViewModel，用于长按或点击搜索时无延迟展开同一个 Activity 内的搜索悬浮层
+    // Inject SearchViewModel (Seamless Search Overlay Launching)
+    // Introduce the non-independent SearchViewModel to seamlessly open the search overlay inside the same Activity when long-pressed or clicked without delay.
     searchViewModel: com.viel.aplayer.ui.search.SearchViewModel
 ) {
     NavHost(
@@ -36,8 +39,9 @@ fun APlayerNavHost(
         modifier = modifier
     ) {
         composable("home") {
-            // 详尽的中文注释：调用重构后的 Stateful HomeScreen，直接将导航宿主持有的各 ViewModel 注入。
-            // 遵循单一职责，NavHost 不再承担为 HomeScreen 收集 UI State 并进行长参下发的职责。
+            // Inject Stateful HomeScreen (ViewModel Injection & Decoupling)
+            // Call the refactored Stateful HomeScreen, directly injecting the ViewModels held by the navigation host.
+            // Following single responsibility, NavHost no longer bears the responsibility of collecting UI State for HomeScreen and passing long parameters down.
             HomeScreen(
                 libraryViewModel = libraryViewModel,
                 playerViewModel = playerViewModel,

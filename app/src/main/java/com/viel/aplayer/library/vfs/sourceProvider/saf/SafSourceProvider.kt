@@ -19,16 +19,16 @@ import java.io.FilterInputStream
 import java.io.InputStream
 
 /**
- * SAF provider。
+ * SafSourceProvider (Storage Access Framework source provider implementation)
  *
  * 
- * 这里现在只保留一种直读策略：
+ * Consolidates to a single path reconstruction strategy:
  * `root.sourceUri + sourcePath -> buildDocumentUriUsingTree(...) -> ContentResolver.open*`
  *
- * 也就是说：
- * 1. 扫描/枚举阶段仍然可以复用 `DocumentFile`
- * 2. 真正的 open/readRange 不再依赖扫描期节点里保存的真实 `content://` uri
- * 3. 对 directRangeNode 和 resolve() 产出的节点统一走“重建真实路径”这一种方式
+ * Details:
+ * 1. The scanning/enumeration phase continues to leverage `DocumentFile`.
+ * 2. Active open and range reading requests do not rely on raw `content://` URIs cached during scans.
+ * 3. Both directRangeNode and resolved nodes share path reconstruction flows.
  */
 class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     override val kind: LibrarySourceKind = LibrarySourceKind.SAF
@@ -75,8 +75,8 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     }
 
     override suspend fun openInputStream(file: SourceNode): InputStream? {
-        // 记录顺序读流时“重建 DocumentUri + openInputStream”的整体耗时，
-        // 便于判断 SAF 普通打开是否已经占了明显比例。
+        // Records elapsed time for path reconstruction and input stream opening.
+        // Provides diagnostics to track SAF overhead in regular reading sequences.
         val openStart = SystemClock.elapsedRealtime()
         val stream = runCatching {
             context.contentResolver.openInputStream(buildDocumentUriFromPath(file.root, file.metadata.sourcePath))
@@ -93,8 +93,8 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
 
     override suspend fun openInputStream(file: SourceNode, offset: Long): InputStream? {
         if (offset <= 0L) return openInputStream(file)
-        // offset 打开是 seek / resume / 容器探测时最关键的一条随机读路径；
-        // 这里单独记录 openFileDescriptor + channel.position 的总耗时，便于确认 SAF 随机定位成本。
+        // Offsets trigger critical random-access queries during seeks, resume playbacks, and container parsing.
+        // Profiles aggregate openFileDescriptor and channel positioning costs.
         val openStart = SystemClock.elapsedRealtime()
         val pfd = runCatching {
             context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
@@ -157,7 +157,7 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     }
 
     override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? {
-        // 单独记录 openFileDescriptor 的耗时，帮助区分“FD 打开慢”还是“后续随机定位慢”。
+        // Profile openFileDescriptor overhead to isolate connection setup from random seeking costs.
         val openStart = SystemClock.elapsedRealtime()
         val descriptor = runCatching {
             context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
@@ -203,8 +203,8 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
         return SourceNode(
             root = root,
             metadata = SourceFileMetadata(
-                // 虽然这里仍然能拿到真实 `content://` uri，
-                // 但它只用于本地 identity 推导，不再写入公共元数据对象，避免上层绕过 VFS/Provider。
+                // Keeps content:// URI references local to identity calculations;
+                // Excludes raw URIs from public metadata objects to enforce VFS encapsulation rules.
                 sourcePath = sourcePath,
                 identity = identity,
                 parentSourcePath = parentSourcePath,

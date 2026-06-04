@@ -1,6 +1,6 @@
 package com.viel.aplayer.library.orchestrator.steps
 
-// 详尽的中文注释：导入包级可见的 String.escapeJson 扩展函数以实现 JSON 敏感字符的统一安全转义
+// Safety Escape Import (Imports the package-level String.escapeJson extension to ensure secure escaping of JSON reserved characters)
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
@@ -19,32 +19,32 @@ import com.viel.aplayer.library.orchestrator.draftmodels.ImportRunResult
 import com.viel.aplayer.library.orchestrator.escapeJson
 import java.util.UUID
 
-// 修复 ChapterCandidate 与 MetadataSuggestion 的包名导入错误，以正确找到在 com.viel.aplayer.library 下定义的类型
+// Import Correction (Ensures package names for ChapterCandidate and MetadataSuggestion align with definitions in com.viel.aplayer.library)
 
 /**
- * 冲突所有权认领决策工位
- * 
- * 本工位不修改任何真实的数据库数据。它只负责判定内存认领账本（ClaimLedger）。
- * 决定当前导入的有声书是能够一路绿灯通过认领直接落库，还是默默刷新所有权，
- * 抑或是进入 PendingAction 冲突挂起队列由用户后续决定。
- * 此外，本步骤也完成了 BookDraft/BookEntity/BookFileEntity/ChapterEntity 的全部映射构建，
- * 并打包返回底盘所需的 ImportRunResult 实例，无缝适配 BookImporter 和 ScanSessionRunner。
+ * Ownership Claim Decision Step
+ *
+ * This step does not modify database states directly. Instead, it evaluates the in-memory ClaimLedger.
+ * Decides whether the importing audiobook is cleared for immediate insertion, silently updates existing ownership records,
+ * or transitions to the PendingAction conflict queue for user decision.
+ * Additionally, it handles entity mapping for BookDraft, BookEntity, BookFileEntity, and ChapterEntity,
+ * returning the compiled ImportRunResult to align with BookImporter and ScanSessionRunner.
  */
-// 将类可见性声明为 internal，收紧其在本模块内的使用范围，防止由于引用其他 internal 类型而报 public 泄漏错误
+// Visibility Restriction (Declares the class as internal to prevent public type exposure issues from referenced internal dependencies)
 @OptIn(UnstableApi::class)
 /**
- * 冲突所有权认领决策工位。
- * 本类已被重构，去除了原有的泛型接口 ImportStep<I, O> 和 StepResult 密封类包装。
- * 现在 execute 方法直接返回具体的 ImportRunResult 结果，当遇到异常时将自然向上抛出。
+ * Ownership Claim Decision Step.
+ * Refactored to discard legacy generic ImportStep<I, O> and StepResult wrapper bounds.
+ * The execute method yields a direct ImportRunResult, propagating runtime exceptions directly.
  */
 internal class OwnershipClaimStep(
     private val context: Context,
-    // 注入 BookDraftFactory 工厂以委托实体映射与 Draft 构建逻辑
+    // Inject the factory to delegate draft construction and entity mapping details.
     private val draftFactory: BookDraftFactory
 ) {
 
     /**
-     * 执行所有权认领决策。直接接收 CoverExtractedResult 并返回 ImportRunResult，不再包装在 StepResult 中。
+     * Resolves ownership claims. Directly processes CoverExtractedResult and returns ImportRunResult.
      */
     suspend fun execute(
         input: CoverExtractedResult,
@@ -57,7 +57,7 @@ internal class OwnershipClaimStep(
 
 
         // ==========================================
-        // 1. 处理 CUE 类型的有声书草稿冲突认领决策
+        // 1. Process CUE draft ownership and conflict resolution
         // ==========================================
         input.cueBooks.forEach { cueBook ->
             val cue = cueBook.draft.sourceFile
@@ -70,7 +70,7 @@ internal class OwnershipClaimStep(
 
             val source = ImportSourceRef(AudiobookSchema.SourceType.CUE, cue.vfsDisplayId(), cue.displayName)
             val claimedIdentities = cueBook.audioRefs.map { it.identity } + cue.identity
-            // 对 CUE 书籍进行所有权抢占检测时，透传其 VFS 父目录路径以限制在同目录下进行冲突判定。
+            // Ownership validation passes current parent VFS path to restrict conflict scoping to the same folder.
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = claimedIdentities,
@@ -79,7 +79,7 @@ internal class OwnershipClaimStep(
             )
             
             if (!reservation.reserved) {
-                // 如果发现是已扫描的完整 CUE 并且未发生其他批次内冲突，静默更新所有权
+                // Silently updates ownership details if the CUE is fully scanned and has no current run-time conflicts.
                 if (missingCount == 0 && maybeRefreshExistingBook(claimedIdentities, reservation, context, refreshedBooks)) return@forEach
                 pendingActions.add(createConflict(scanId = context.scanId, source = source, reservation = reservation))
                 return@forEach
@@ -89,14 +89,14 @@ internal class OwnershipClaimStep(
                 return@forEach
             }
 
-            // 合并元数据
+            // Merge metadata suggestions
             val firstAudioMeta = draftFactory.firstManifestAudioMetadata(cueBook.audioRefs)
             val mergedMeta = draftFactory.resolveManifestBookMetadata(
                 manifestMetadata = cueBook.draft.result.metadata,
                 firstAudio = firstAudioMeta,
                 sourceFile = cue,
-                // manifest 书籍的 txt 简介已经在 parser 内部通过目录快照选出，
-                // 这里直接消费 parser 结果，不再重新 listChildren。
+                // The manifest description was already fetched via folder snapshot inside the parser;
+                // Reuses the parsed results instead of calling listChildren sequentially.
                 sidecarDescription = cueBook.draft.result.sidecarDescription
             )
 
@@ -118,14 +118,14 @@ internal class OwnershipClaimStep(
                 narrator = mergedMeta.narrator,
                 year = mergedMeta.year,
                 description = mergedMeta.description,
-                // 修复形参名字拼写错误，由 coverResult 修正为函数声明的 cover
+                // Parameter Correction (Fixes parameter name misalignment from coverResult to cover)
                 cover = cueBook.coverResult
             )
             readyImports.add(ImportCommand.CreateReadyBook(draft))
         }
 
         // ==========================================
-        // 2. 处理 M3U8 类型的有声书草稿冲突认领决策
+        // 2. Process M3U8 draft ownership and conflict resolution
         // ==========================================
         input.m3u8Books.forEach { m3u8Book ->
             val m3u8 = m3u8Book.draft.sourceFile
@@ -138,7 +138,7 @@ internal class OwnershipClaimStep(
 
             val source = ImportSourceRef(AudiobookSchema.SourceType.M3U8, m3u8.vfsDisplayId(), m3u8.displayName)
             val claimedIdentities = m3u8Book.audioRefs.map { it.identity } + m3u8.identity
-            // 对 M3U8 书籍进行所有权抢占检测时，透传其 VFS 父目录路径以限制在同目录下进行冲突判定。
+            // Ownership validation passes current parent VFS path to restrict conflict scoping to the same folder.
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = claimedIdentities,
@@ -183,14 +183,14 @@ internal class OwnershipClaimStep(
                 narrator = mergedMeta.narrator,
                 year = mergedMeta.year,
                 description = mergedMeta.description,
-                // 修复形参名字拼写错误，由 coverResult 修正为函数声明的 cover
+                // Parameter Correction (Fixes parameter name misalignment from coverResult to cover)
                 cover = m3u8Book.coverResult
             )
             readyImports.add(ImportCommand.CreateReadyBook(draft))
         }
 
         // ==========================================
-        // 3. 处理 Heuristic 启发式合并有声书冲突认领决策
+        // 3. Process Heuristic aggregated audiobook ownership and conflict resolution
         // ==========================================
         input.aggregatedBooks.forEach { aggBook ->
             val orderedFiles = aggBook.plan.chapters.map { it.audio }
@@ -201,7 +201,7 @@ internal class OwnershipClaimStep(
                 displayName = aggBook.plan.title
             )
             
-            // 对启发式聚合书籍进行所有权抢占检测时，透传首轨音频所在的 VFS 父目录路径。
+            // Ownership validation passes the first audio track's VFS folder path.
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = orderedFiles.map { it.file.identity },
@@ -209,8 +209,8 @@ internal class OwnershipClaimStep(
                 currentParentSourcePath = firstChapter.file.parentSourcePath
             )
             if (reservation.reserved) {
-                // 启发式聚合书籍的 sidecar 描述现在由 HeuristicAudioAggregator 在 parser 内部统一产出，
-                // 冲突认领阶段只做“已有音频 metadata -> parser sidecar”的最终合并，不再自己回头读 txt。
+                // Sidecar synopsis for heuristic audio aggregations is compiled in parser stages;
+                // Merges existing audio tags with parsed sidecars directly without querying physical files again.
                 val firstAudioMeta = firstChapter.metadata
                 val description = firstAudioMeta.description.ifBlank {
                     aggBook.plan.sidecarDescription.orEmpty()
@@ -224,12 +224,12 @@ internal class OwnershipClaimStep(
         }
 
         // ==========================================
-        // 4. 处理 Single Audio 独立单音频有声书冲突认领决策
+        // 4. Process Single Audio draft ownership and conflict resolution
         // ==========================================
         input.singleBooks.forEach { singleBook ->
             val audio = singleBook.audioRef
             val source = ImportSourceRef(AudiobookSchema.SourceType.SINGLE_AUDIO, audio.file.vfsDisplayId(), audio.file.displayName)
-            // 对单音频书籍进行所有权抢占检测时，透传其所在的 VFS 父目录路径。
+            // Ownership validation passes parent VFS folder path.
             val reservation = context.runClaimLedger.reserve(
                 source = source,
                 files = listOf(audio.file.identity),
@@ -242,8 +242,8 @@ internal class OwnershipClaimStep(
                 return@forEach
             }
 
-            // 单音频模式现在显式禁止 sidecar 描述兜底，
-            // 最终 description 只来自音频自身 metadata，不再读取任何同目录 txt 文件。
+            // Single audio track ignores sidecar fallbacks;
+            // The final description comes strictly from internal media metadata.
             val description = audio.metadata.description
 
             val draft = draftFactory.buildSingleAudioDraft(singleBook.bookId, audio, description, singleBook.coverResult)
@@ -261,7 +261,7 @@ internal class OwnershipClaimStep(
     }
 
     // =========================================================================
-    // 5. 以下为与原 ImportOrchestrator 严格等价的所有权与 Draft 拼装底层逻辑
+    // 5. Subroutines for draft assembly and claim checking mirroring legacy ImportOrchestrator behavior
     // =========================================================================
 
     private fun maybeRefreshExistingBook(
@@ -285,8 +285,8 @@ internal class OwnershipClaimStep(
             actionKey = actionKey,
             type = AudiobookSchema.PendingActionType.CONFLICT,
             bookId = existingBookId,
-            // 详尽的中文注释：对拼接 JSON 字符串的 source.sourceUri 进行基础安全转义（通过 escapeJson 扩展函数），
-            // 确保即使 URI 中带有反斜杠或双引号等敏感字符，也不会导致 JSON 解析撕裂以及运行期异常崩溃
+            // JSON Safety Escape (Escapes sourceUri using escapeJson extension before composing JSON blocks)
+            // Ensures backslashes or quotation marks inside URIs do not break structural JSON boundaries or crash parsers.
             payloadJson = "{\"sourceUri\":\"${source.sourceUri.escapeJson()}\"}",
             message = "Source \"${source.displayName}\" conflicts with an existing or earlier source.",
             lastSeenScanId = scanId
@@ -299,15 +299,15 @@ internal class OwnershipClaimStep(
             scanSessionId = scanId,
             actionKey = "PARTIAL:${source.sourceUri}:$missingCount",
             type = AudiobookSchema.PendingActionType.PARTIAL_NEW_BOOK,
-            // 详尽的中文注释：对拼接 JSON 字符串的 source.sourceUri 进行基础安全转义（通过 escapeJson 扩展函数），
-            // 确保即使 URI 中带有反斜杠或双引号等敏感字符，也不会导致 JSON 解析撕裂以及运行期异常崩溃
+            // JSON Safety Escape (Escapes sourceUri using escapeJson extension before composing JSON blocks)
+            // Ensures backslashes or quotation marks inside URIs do not break structural JSON boundaries or crash parsers.
             payloadJson = "{\"sourceUri\":\"${source.sourceUri.escapeJson()}\",\"missingCount\":$missingCount}",
             message = "Source \"${source.displayName}\" is missing $missingCount referenced file(s).",
             lastSeenScanId = scanId
         ))
 
     private fun FileRef.vfsDisplayId(): String =
-        // 用户可见/日志来源标识使用 rootId/sourcePath，避免继续输出 provider URI。
+        // Uses rootId/sourcePath as log identifiers to avoid outputting provider URIs.
         "vfs://$rootId/$sourcePath"
 
     companion object {

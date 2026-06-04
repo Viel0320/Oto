@@ -44,17 +44,19 @@ import com.viel.aplayer.R
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 
 /**
- * 书籍详情页的头部组件，包含标题、作者和朗读者信息。
- * 内部集成了支持系统文本选择菜单的 SelectableTextView。
+ * DetailHeader Setup (Detail Page Header Component)
  *
- * @param title 书籍标题
- * @param author 作者姓名
- * @param narrator 朗读者姓名
- * @param onAuthorClick 点击作者触发
- * @param onAuthorLongClick 长按作者触发
- * @param onNarratorClick 点击朗读者触发
- * @param onNarratorLongClick 长按朗读者触发
- * @param isLandscape 是否处于横屏模式，用于动态调整字号和间距
+ * Header component of the book details page, including title, author, and narrator information.
+ * Integrates SelectableTextView that supports the system text selection menu internally.
+ *
+ * @param title Book title
+ * @param author Author name
+ * @param narrator Narrator name
+ * @param onAuthorClick Triggered on clicking author
+ * @param onAuthorLongClick Triggered on long-pressing author
+ * @param onNarratorClick Triggered on clicking narrator
+ * @param onNarratorLongClick Triggered on long-pressing narrator
+ * @param isLandscape Whether in landscape mode, used to dynamically adjust font size and spacing
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -73,7 +75,7 @@ fun DetailHeader(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 使用内部 SelectableTextView 展示书籍标题。
+        // Use internal SelectableTextView to display the book title.
         SelectableTextView(
             text = title.takeIf { it.isNotBlank() } ?: "Unknown",
             modifier = Modifier.fillMaxWidth(),
@@ -158,7 +160,9 @@ fun DetailHeader(
 }
 
 /**
- * 内部使用的可选择文本组件。
+ * SelectableTextView Setup (Selectable Text Component)
+ *
+ * Custom selectable text component used internally.
  */
 @Composable
 fun SelectableTextView(

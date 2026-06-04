@@ -3,50 +3,50 @@ package com.viel.aplayer.logger
 import android.util.Log
 
 /**
- * 音频焦点状态变化 Logger。
- * 统一收纳 PlaybackAudioFocusManager 中与系统音频焦点申请、释放、
- * 临时丢失避让暂停、重获焦点自动续播等相关的所有日志输出。
- * 使用统一 TAG "AudioFocus"，方便在 Logcat 中过滤音频焦点相关的状态跃迁。
+ * Audio Focus Logger (Logging helper for audio focus state transitions)
+ * Consolidates all logs from PlaybackAudioFocusManager regarding focus requests, focus releases,
+ * transient focus losses requiring pause avoidance, and automatic playback resumption when focus is regained.
+ * Uses the tag "AudioFocus" to easily filter focus-related states in Logcat.
  */
 internal object AudioFocusLogger {
 
     private const val TAG = "AudioFocus"
 
     /**
-     * 记录永久失去音频焦点并执行暂停。
+     * Log Permanent Loss (Record permanent audio focus loss requiring playback pause)
      */
     fun logPermanentLoss() {
         Log.d(TAG, "永久失去焦点，执行暂停")
     }
 
     /**
-     * 记录临时失去音频焦点，执行避让暂停并拦截自动回退。
+     * Log Transient Loss (Record transient audio focus loss, triggering pause avoidance and blocking auto-rewind)
      */
     fun logTransientLoss() {
         Log.d(TAG, "临时失去焦点，执行避让暂停并拦截回退")
     }
 
     /**
-     * 记录重新获得音频焦点，执行自动续播自愈。
+     * Log Focus Regained (Record audio focus recovery, attempting automatic playback recovery)
      */
     fun logFocusRegained() {
         Log.d(TAG, "重获焦点，执行自动续播自愈")
     }
 
     /**
-     * 记录向系统申请音频焦点的结果。
+     * Log Focus Request (Record audio focus request results from system audio manager)
      *
-     * @param success 是否申请成功
-     * @param resultCode 系统返回的结果码
+     * @param success Whether the focus request succeeded
+     * @param resultCode The raw result code returned by the system
      */
     fun logFocusRequested(success: Boolean, resultCode: Int) {
         Log.d(TAG, "向系统申请音频焦点结果: $success (code: $resultCode)")
     }
 
     /**
-     * 记录向系统释放音频焦点的结果。
+     * Log Focus Abandon (Record audio focus abandon results from system audio manager)
      *
-     * @param resultCode 系统返回的结果码
+     * @param resultCode The raw result code returned by the system
      */
     fun logFocusAbandoned(resultCode: Int) {
         Log.d(TAG, "向系统释放音频焦点结果: $resultCode")

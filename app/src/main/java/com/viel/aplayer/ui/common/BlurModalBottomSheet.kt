@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.common
 
-// 使用 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
+// Completely replace legacy blur library dependencies with miuix-blur's Backdrop API to achieve high-fidelity textureBlur noisy frosted glass colored high-density blur.
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -30,40 +30,39 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 
 /**
- * 
- * BlurModalBottomSheet —— 使用 miuix-blur 重写后的毛玻璃 BottomSheet。
+ * BlurModalBottomSheet — Frosted glass BottomSheet refactored using miuix-blur.
  *
- * 实现原理：
- * Material3 的 [ModalBottomSheet] 内部使用独立 Dialog Window 托管内容，我们需要
- * 将最外层 Activity 的 [LayerBackdrop] 传给此处的 backdrop 参数以采样背景，再由 drawBackdrop 绘制模糊。
+ * Implementation Principles:
+ * Material3's [ModalBottomSheet] uses an independent Dialog Window internally to host content. We need
+ * to pass the outermost Activity's [LayerBackdrop] to the backdrop parameter here to sample the background, drawing blur via drawBackdrop.
  *
- * 与 [ModalBottomSheet] 的关系：
- * 此组件是对 Material3 [ModalBottomSheet] 的薄封装，所有原始参数均透传，
- * 仅把拖拽把手与正文统一包进 miuix-blur 稳定毛玻璃层，调用方无需改写内容结构。
+ * Relation with [ModalBottomSheet]:
+ * This component is a thin wrapper around Material3 [ModalBottomSheet]. All original parameters are passed through,
+ * enclosing only the drag handle and the main content within the stable miuix-blur frosted glass layer. Callers do not need to modify their content structure.
  *
- * 容器颜色策略：
- * 默认使用 surfaceContainerLow + 0.78f alpha，更适合 BottomSheet 大面积覆盖时的玻璃拟态视觉平衡。
+ * Container Color Strategy:
+ * Uses surfaceContainerLow + 0.78f alpha by default, which is better suited for glass mimetic visual balance when the BottomSheet covers a large area.
  *
- * @param onDismissRequest 点击 scrim 或下滑关闭时的回调
- * @param backdrop 与主渲染背景关联的模糊描述符状态机
- * @param glassEffectMode 当前玻璃效果模式，Material 模式不挂载模糊修饰符
- * @param sheetState BottomSheet 状态，控制展开/收起/半展开
- * @param shape BottomSheet 面板顶部圆角形状，默认使用 Material3 规范的 BottomSheetDefaults.ExpandedShape
- * @param containerColor 面板背景颜色，默认 surfaceContainerLow + 0.78f alpha
- * @param contentColor 内容默认前景色
- * @param tonalElevation 色调高程
- * @param scrimColor scrim 遮罩颜色（建议保持默认透明/半透明，模糊效果即为视觉遮罩）
- * @param dragHandle 顶部拖拽把手 Composable，默认 Material3 标准把手
- * @param contentWindowInsets BottomSheet 内容区的窗口内边距，默认不消费系统栏
- * @param modifier 修饰符
- * @param content BottomSheet 正文内容（ColumnScope）
+ * @param onDismissRequest Callback invoked when clicking on the scrim or sliding down to close.
+ * @param backdrop The blur descriptor state machine associated with the main rendering background.
+ * @param glassEffectMode Current glass effect mode. Material mode does not attach the blur modifier.
+ * @param sheetState BottomSheet state, controlling expanded/collapsed/partially expanded states.
+ * @param shape The shape of the BottomSheet panel's top corners, defaulting to BottomSheetDefaults.ExpandedShape from the Material3 specification.
+ * @param containerColor Panel background color, defaulting to surfaceContainerLow + 0.78f alpha.
+ * @param contentColor Default foreground color of the content.
+ * @param tonalElevation Tonal elevation.
+ * @param scrimColor Scrim mask color (keeping default transparent/semi-transparent is recommended, since the blur effect serves as the visual mask).
+ * @param dragHandle Top drag handle Composable, defaulting to the Material3 standard handle.
+ * @param contentWindowInsets Window insets for the BottomSheet content area, defaulting to not consuming system bars.
+ * @param modifier Modifier.
+ * @param content BottomSheet body content (ColumnScope).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BlurModalBottomSheet(
     onDismissRequest: () -> Unit,
     backdrop: LayerBackdrop,
-    // 玻璃效果模式必须由调用方从设置状态显式传入，避免 BottomSheet 内部私自声明默认值。
+    // Glass effect mode must be explicitly passed from the settings state by the caller to prevent BottomSheet from declaring default values privately.
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
@@ -76,10 +75,10 @@ fun BlurModalBottomSheet(
     contentWindowInsets: @Composable () -> WindowInsets = { BottomSheetDefaults.windowInsets },
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // 获取当前系统的亮暗色主题状态，以实现 BottomSheet 自适应着色混合
+    // Obtain the current dark/light mode state of the system for adaptive BottomSheet color blending.
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
-    // MiuixBlur 模式下将外层 containerColor 设为透明，由内部毛玻璃 Box 统一渲染背景，避免渲染双重底色。修改引用至 MiuixBlur。
+    // Set the outer containerColor to transparent in MiuixBlur mode, letting the internal frosted glass Box render the background to avoid double backgrounds. Reference modified to MiuixBlur.
     val sheetContainerColor = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
         Color.Transparent
     } else {
@@ -93,31 +92,30 @@ fun BlurModalBottomSheet(
         shape = shape,
         containerColor = sheetContainerColor,
         contentColor = contentColor,
-        // MiuixBlur 模式下自适应将高程设为 0.dp，彻底杜绝系统 RenderNode 在透明圆角边缘产生的重叠灰色阴影阴霾。修改引用至 MiuixBlur
+        // Set elevation to 0.dp adaptively in MiuixBlur mode to completely prevent overlapping gray shadows produced by the system RenderNode on transparent rounded corners. Reference modified to MiuixBlur.
         tonalElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else tonalElevation,
         scrimColor = scrimColor,
-        // 将原本由 ModalBottomSheet 单独绘制的 dragHandle 移入模糊内容层，保证把手区域也拥有同一块毛玻璃背景。
+        // Move dragHandle (previously drawn by ModalBottomSheet alone) into the blurred content layer to ensure the handle area shares the same frosted glass background.
         dragHandle = null,
         contentWindowInsets = contentWindowInsets,
     ) {
-        // 仅在 MiuixBlur 模式挂载 drawBackdrop 与半透明蒙版底色和液态高光折光；Material 模式完全跳过毛玻璃修饰。将引用修改为新更名的 MiuixBlur
+        // Mount drawBackdrop, semi-transparent mask base color, and liquid specular refraction in MiuixBlur mode only; Material mode skips frosted glass decoration completely. Reference modified to the newly renamed MiuixBlur.
         val glassModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
             Modifier.textureBlur(
                 backdrop = backdrop,
                 shape = shape,
-                blurRadius = 60f, // thick -> 大范围深度模糊
-                noiseCoefficient = 0.05f, // texture -> 高拟真漫反磨砂噪点
+                blurRadius = 60f, // thick -> large-range deep blur
+                noiseCoefficient = 0.05f, // texture -> high-fidelity diffuse frosted noise
                 colors = BlurColors(
                     blendColors = listOf(
                         BlendColorEntry(
-                            color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 微调蒙版深度，以供底层氛围折光与高光显示
+                            color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // Fine-tune mask depth to support ambient refraction and specular display from the underlying layers.
                             mode = BlurBlendMode.SrcOver
                         )
                     )
                 )
             )
-            // 
-            // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，模拟真实水晶玻璃表面对光源的物理折射反光。
+            // 3. Chain-append a specular glare layer (diagonal white reflection) to simulate physical refraction reflections of light source on actual crystal glass surfaces.
             .background(
                 brush = Brush.linearGradient(
                     colors = listOf(
@@ -129,8 +127,7 @@ fun BlurModalBottomSheet(
                 ),
                 shape = shape
             )
-            // 
-            // 4. 链式追加 1.dp 极细自适应渐变微光折射边框 (Refraction Edge)，使得底部抽屉呈现极为突出的三维浮雕立体感。
+            // 4. Chain-append a 1.dp extremely fine adaptive gradient shimmering refraction edge border (Refraction Edge) to give the bottom drawer a prominent three-dimensional relief look.
             .border(
                 width = 1.dp,
                 brush = Brush.linearGradient(
@@ -161,16 +158,16 @@ fun BlurModalBottomSheet(
                 .then(glassModifier)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Material3 原 dragHandle slot 默认居中；移入模糊内容层后需要手动恢复 fillMaxWidth + Center 对齐。
+                // The original dragHandle slot of Material3 centers by default; it requires restoring fillMaxWidth + Center alignment manually after being moved into the blurred content layer.
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    // 在同一个模糊面板内绘制拖拽把手，避免顶部把手区域和正文区域玻璃质感断层。
+                    // Draw the drag handle inside the same blurred panel to avoid texture fragmentation between the top handle area and the body text.
                     dragHandle?.invoke()
                 }
 
-                // 透传调用方提供的正文内容，业务层无需感知模糊内部包装。
+                // Pass through body content provided by the caller; the business layer does not need to perceive the internal blur wrapper.
                 content()
             }
         }

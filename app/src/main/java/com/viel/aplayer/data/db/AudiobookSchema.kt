@@ -1,14 +1,14 @@
 package com.viel.aplayer.data.db
 
 
-// 新架构统一常量：集中管理 source、role、status，避免导入、播放和 UI 层继续写散落字符串。
+// Unified Constants Registry (Aggregates source, role, and status values to prevent string literal drift across layers)
 object AudiobookSchema {
     object SourceType {
         const val SINGLE_AUDIO = "SINGLE_AUDIO"
         const val CUE = "CUE"
         const val M3U8 = "M3U8"
         const val GENERATED_M3U8 = "GENERATED_M3U8"
-        // ABS_REMOTE 单独标记远端音轨来源，避免和本地导入产生的 SOURCE 类型混在一起。
+        // Remote Audio Source Identifier (Flags remote tracks to prevent collisions with locally imported files)
         const val ABS_REMOTE = "ABS_REMOTE"
     }
 
@@ -23,7 +23,7 @@ object AudiobookSchema {
         const val M3U8 = "M3U8"
         const val GENERATED = "GENERATED"
         const val MANUAL = "MANUAL"
-        // ABS 章节来自服务端 catalog，不属于本地嵌入章节或清单文件派生章节。
+        // Server-side Chapter Registry (Identifies chapters parsed from external servers rather than local resources)
         const val ABS = "ABS"
     }
 
@@ -71,25 +71,25 @@ object AudiobookSchema {
         const val ERROR = "ERROR"
     }
 
-    // 新增 ReadStatus 常量对象，统一管理有声书的阅读状态，包含“未开始”、“进行中”和“已完成”三种状态，规避拼写错误
-    // 为远程连接标准件预留来源类型；第一阶段仍只启用 SAF，WebDAV 后续作为新的 Provider 接入。
+    // Read Status Registry (Declare ReadStatus state flags to prevent spelling errors when managing progress states)
+    // Prepares domain constants for remote storage providers (SAF enabled, WebDAV configured as a future addition).
     object LibrarySourceType {
         const val SAF = "SAF"
         const val WEBDAV = "WEBDAV"
-        // ABS 表示书库根来自 Audiobookshelf server，而不是本地文件树。
+        // Server Library Root (Specifies that the library root represents a remote Audiobookshelf directory tree)
         const val ABS = "ABS"
     }
 
     object AbsMirrorState {
-        // ACTIVE 表示本轮完整同步仍能在远端清单里看到该条目。
+        // Active Mirror Flag (Specifies that the catalog item exists on the remote server list during the current sync cycle)
         const val ACTIVE = "ACTIVE"
-        // STALE 表示当前轮未再次看到，但尚未进入最终删除确认。
+        // Stale Mirror Flag (Indicates that the item was missing during sync but is pending deletion auditing)
         const val STALE = "STALE"
-        // REMOTE_DELETED 表示远端已确认删除，后续阶段再决定本地收敛动作。
+        // Remote Deletion Flag (Indicates that the item is deleted on the server, pending local cleanup decisions)
         const val REMOTE_DELETED = "REMOTE_DELETED"
     }
 
-    // 为统一可用性检测标准件预留状态常量；SAF 先映射授权状态，远程源后续复用网络和认证状态。
+    // Availability Status Codes (Reserved codes mapping local storage permissions and remote connectivity statuses)
     object AvailabilityStatus {
         const val AVAILABLE = "AVAILABLE"
         const val UNKNOWN = "UNKNOWN"

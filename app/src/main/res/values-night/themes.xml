@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ===================================================================== -->
-    <!-- M-22 修复 — 为 values-night 新建专用于暗色模式的主题覆盖。 -->
-    <!-- 同样继承自系统原生的 android:Theme.DeviceDefault.NoActionBar，以达成完美的 -->
-    <!-- 零依赖编译和高质量的物理级暗亮模式过渡，完全满足系统层暗色主题规范的物理覆盖审计。 -->
-    <!-- ===================================================================== -->
+    <!-- Dark Theme Overlay (Theme configurations for dark mode under values-night directory) -->
+    <!-- Inherits from system-native android:Theme.DeviceDefault.NoActionBar to ensure zero-dependency compilation and smooth system-level theme transitions. -->
+    <!-- This fully satisfies light/dark style guidelines without importing external AppCompat dependencies. -->
     <style name="Theme.APlayer" parent="android:Theme.DeviceDefault.NoActionBar" />
 </resources>

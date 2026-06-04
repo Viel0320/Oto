@@ -10,7 +10,8 @@ import kotlinx.coroutines.withContext
 class DetailAvailabilityChecker(private val context: Context) {
     private val database = AppDatabase.getInstance(context)
     private val bookDao = database.bookDao()
-    // 详情页可用性检查通过统一标准件执行，保持 SAF 行为不变，同时给远程源接入预留状态模型。
+    // Perform Page-Level Availability Verification (Storage Decoupling)
+    // Runs the check through a unified helper, maintaining SAF behaviors while leaving a placeholder model for remote sources.
     private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     suspend fun check(bookId: String): DetailAvailabilityResult = withContext(Dispatchers.IO) {
@@ -26,7 +27,8 @@ class DetailAvailabilityChecker(private val context: Context) {
             )
         }
 
-        // 详情页可用性检查按目录批量执行，多文件书籍只枚举各父目录一次，并将状态按 READY/MISSING 两批写库。
+        // Batch Availability Check by Directories (Performance Optimization)
+        // Group files by parent directories to inspect each directory once, and batch write status updates (READY/MISSING) to database.
         val availabilityByFileId = availabilityChecker.checkBookFiles(files)
         val readyFileIds = mutableListOf<String>()
         val missingFileIds = mutableListOf<String>()

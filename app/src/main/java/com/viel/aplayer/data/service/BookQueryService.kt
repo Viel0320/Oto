@@ -37,11 +37,11 @@ import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 /**
- * 有声书查询与维护应用服务（实现了 BookQueryGateway 网关）。
+ * Audiobook Query and Maintenance Service (Implements BookQueryGateway)
  * 
- * 核心设计目标：
- * 1. 领域解耦与消灭上帝类：在 M6 阶段彻底脱离对 BookLibraryRepository 的依赖，直接直连注入各个精细化 Room DAO 与物理文件解析器。
- * 2. 完整保留运行语义：精心平移并保留书签锚定计算、播放计划构建的耗时性能日志、观察书籍时的封面自愈触发算子等核心运行期行为。
+ * Core Design Goals:
+ * 1. Domain Decoupling: Fully disconnects from BookLibraryRepository in the M6 phase, injecting fine-grained Room DAOs and file resolvers directly.
+ * 2. Preserved Execution Semantics: Safely retains timing logs, bookmark calculations, and cover self-healing triggers during reactive queries.
  */
 @OptIn(UnstableApi::class)
 class BookQueryService(
@@ -53,23 +53,26 @@ class BookQueryService(
     private val coverRecoveryHelper: CoverRecoveryHelper
 ) : BookQueryGateway, java.io.Closeable {
 
-    // 异步非阻塞元数据覆写的专属协程异常拦截器
+    // Private Coroutine Exception Handler (Asynchronous tracking fault barrier)
+    // Captures failures during async metadata updates to prevent uncaught scope terminations.
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         Log.e("BookQueryService", "协程在 BookQueryService 运行中捕获到未处理异常", exception)
     }
 
-    // 该服务独享的后台协程作用域，用于执行诸如异步更新书籍元数据章节等非阻塞写操作
+    // Private Service Coroutine Scope (Background operations thread pool)
+    // Dedicated scope on Dispatchers.IO for offloading async metadata updates and non-blocking write tasks.
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
-    // 用于在流式加载书籍列表时自动触发封面缓存物理自愈的响应式 Flow 拦截器
-    // 详尽的中文注释：使用 flowOn 强制将 map 遍历及 checkAndTriggerCoverRegeneration 内的 File.exists() 磁盘 I/O 操作
-    // 分流至 Dispatchers.IO 线程池执行，彻底防止大书库扫描渲染时，在 UI 主线程收集端高频执行同步磁盘探测引发的 ANR 与严重掉帧
+    // Reactive Cover Self-Healing Interceptor (Flow thread redirection guard)
+    // Dispatches file existence checks to Dispatchers.IO to prevent blocking the UI main thread.
+    // Shields active render pipelines from ANR and frame drop exceptions during high-frequency scans.
     @OptIn(UnstableApi::class)
     private fun Flow<List<BookWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
         list.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
     }.flowOn(Dispatchers.IO)
 
-    // 锚定计算时使用的辅助数据元组，用于承载文件ID、偏移、指纹及状态
+    // Position Anchor Data Container (Bookmark mapping tuple)
+    // Temporarily stores file identifier, absolute milliseconds offset, file fingerprint, and resolve status.
     private data class Quad(
         val bookFileId: String?,
         val fileOffsetMs: Long,
@@ -81,12 +84,13 @@ class BookQueryService(
         get() = bookDao.getAllBooksWithProgress().checkCovers()
 
     override suspend fun getBookById(id: String): BookEntity? = withContext(Dispatchers.IO) {
-        // 获取书籍详情时，若书籍封面物理丢失，则非阻塞地触发封面的自动提取与自愈
+        // Non-blocking cover repair check: Evaluates cover paths upon detail fetch and triggers extraction asynchronously.
         bookDao.getBookById(id)?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
     }
 
     override fun observeBookById(id: String): Flow<BookEntity?> {
-        // 详尽的中文注释：响应式观察单本书籍时，亦通过 flowOn 将封面探测动作强制约束在 IO 线程池内，规避对 UI 收集主线程产生同步磁盘阻塞
+        // Redundant IO Thread Isolation (Sanity read constraint)
+        // Binds details observe flows to Dispatchers.IO to insulate the UI collector thread from blocking filesystem probes.
         return bookDao.observeBookById(id).map { book ->
             book?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
         }.flowOn(Dispatchers.IO)
@@ -132,7 +136,8 @@ class BookQueryService(
     override suspend fun deleteBook(bookId: String) = withContext(Dispatchers.IO) {
         val book = bookDao.getBookById(bookId)
         if (book != null) {
-            // 执行软删除标识更新，保留数据以支持历史排重，而不是物理抹除
+            // Logical Soft Delete (Identity preservation)
+            // Overwrites status flags to DELETED rather than erasing records to prevent duplication during rescans.
             bookDao.updateBookStatus(bookId, AudiobookSchema.BookStatus.DELETED)
         }
     }
@@ -161,7 +166,7 @@ class BookQueryService(
     }
 
     override fun observeLatestScanSession(): Flow<ScanSessionEntity?> {
-        // 响应式订阅观察最后一次物理文件扫描会话的记录状态
+        // Observe scan session: Streams completion attributes of the last rescan session block.
         return scanSessionDao.observeLatestCompletedSession()
     }
 
@@ -171,7 +176,7 @@ class BookQueryService(
         val book = bookDao.getBookById(bookId) ?: return@withContext null
         val bookQueryCost = SystemClock.elapsedRealtime() - bookQueryStart
         
-        // 在构建起播计划时，协同触发物理封面的自愈与物理提取自愈操作
+        // Cover self-healing trigger: Starts image self-healing checks asynchronously alongside play plan builds.
         coverRecoveryHelper.checkAndTriggerCoverRegeneration(book)
         
         val filesQueryStart = SystemClock.elapsedRealtime()
@@ -195,9 +200,9 @@ class BookQueryService(
         }
         
         val artworkPath = book.coverPath
-        // 详尽的中文注释：强力防御物理文件丢失导致的 java.io.FileNotFoundException: ENOENT 异常。
-        // 在此不再生成 file:// 协议的物理裸路径，而是通过我们注册在 Manifest 中的 FileProvider，将路径封装转换为安全受控且具有临时读取特权的 content:// 协议 URI。
-        // 从而完美解决 SystemUI 等外部跨进程应用因 Android 的沙盒存储访问隔离规则无法直接读取 App 内部 covers 缓存物理文件抛出的 ENOENT 崩溃故障。
+        // FileProvider URI Encapsulation (Sandboxed storage security guard)
+        // Wraps absolute file paths into content:// URIs with transient read privileges via FileProvider.
+        // Prevents ENOENT crashes when external processes (like SystemUI) attempt to read files under sandbox storage restrictions.
         val artworkUri = if (!artworkPath.isNullOrBlank()) {
             val file = File(artworkPath)
             if (file.exists()) {
@@ -235,7 +240,7 @@ class BookQueryService(
         description: String?,
         duration: Long
     ) {
-        // 在后台协程域中非阻塞地写回扫描覆盖获取的物理多媒体元数据标签信息
+        // Background tag updates: Persists metadata updates in the private IO coroutine scope.
         scope.launch {
             val existing = bookDao.getBookById(bookId) ?: return@launch
             val newTitle = if (!title.isNullOrBlank()) title else existing.title
@@ -253,9 +258,9 @@ class BookQueryService(
     }
 
     override fun getChapters(bookId: String): Flow<List<ChapterWithBookFile>> {
-        // 详尽的中文注释：章节兜底语义已经从导入期迁移到查询投影层。
-        // 这里统一组合“真实章节 + 书籍快照 + 音频文件快照”，仅在单音频书且真实章节为空时合成一条只读虚拟章节，
-        // 从而让播放器、通知、睡眠定时器和章节列表共享同一份章节视图，同时避免把展示层默认值落库成脏数据。
+        // Query-Time Virtual Chapters Projection (Database data sanity protection)
+        // Synthesizes a virtual single-track chapter dynamically when database chapter schemas are empty.
+        // Shares identical chapter layouts across notification sessions and UI screens without persisting dummy data.
         return combine(
             chapterDao.getChaptersForBook(bookId),
             bookDao.observeBookById(bookId),
@@ -266,8 +271,8 @@ class BookQueryService(
     }
 
     override suspend fun getChaptersForBookSync(bookId: String): List<ChapterWithBookFile> = withContext(Dispatchers.IO) {
-        // 详尽的中文注释：同步读取路径必须和 Flow 路径复用相同的投影规则，
-        // 否则前台播放器、通知会话和后台任务将分别看到不同的章节语义，导致章节模式表现不一致。
+        // Unified Projection Rule Enforcement (Behavioral synchronization rule)
+        // Shares identical projection mappings with synchronous queries to keep notifications and players aligned.
         val chapters = chapterDao.getChaptersForBookList(bookId)
         val book = bookDao.getBookById(bookId)
         val files = bookDao.getFilesForBookList(bookId)
@@ -275,11 +280,11 @@ class BookQueryService(
     }
 
     override fun saveChapters(bookId: String, chapters: List<ChapterEntity>) {
-        // 在专属后台协程域中执行物理分轨章节实体的清空与批量写入
+        // Database transaction block: Schedules chapter overrides asynchronously inside the private scope.
         scope.launch {
             if (bookDao.getBookById(bookId) != null) {
-                // 详尽的中文注释：改用 chapterDao 统一的 replaceChapters 事务方法，
-                // 将章节的清除与重新插入强行约束在同一个写事务中，排除异常下的零章节状态残留
+                // Chapter Insertion Transaction (ACID transaction enforcement)
+                // Combines deletes and bulk inserts inside a single database transaction to prevent corrupt states.
                 chapterDao.replaceChapters(bookId, chapters)
             }
         }
@@ -291,7 +296,8 @@ class BookQueryService(
 
     override suspend fun addBookmark(bookId: String, position: Long, title: String) = withContext(Dispatchers.IO) {
         val files = bookDao.getFilesForBookList(bookId)
-        // 在添加书签时精确计算当前绝对毫秒位置在多音频物理分轨中的实际映射偏移、指纹及锚定状态
+        // Map Bookmark Coordinates (Sequence position mapping)
+        // Computes relative track index and millisecond offset from global coordinates to write bookmark records accurately.
         val (bookFileId, fileOffsetMs, fingerprint, anchorStatus) = if (files.isNotEmpty()) {
             val (fileIndex, offset) = PositionMapper.globalToFilePosition(position, files)
             val file = files.getOrNull(fileIndex)
@@ -310,51 +316,51 @@ class BookQueryService(
             anchorStatus = anchorStatus,
             title = title
         ))
-        // 显式返回 Unit 以强行匹配网关接口的方法签名定义
+        // Explicit return void: Forces matching with the gateway method signature.
         Unit
     }
 
     override suspend fun updateBookmark(bookmark: BookmarkEntity) = withContext(Dispatchers.IO) {
         bookmarkDao.insert(bookmark)
-        // 显式返回 Unit 避免 Long 类型隐式返回
+        // Explicit return void: Prevents returning Room insert IDs to the caller.
         Unit
     }
 
     override suspend fun deleteBookmark(bookmark: BookmarkEntity) = withContext(Dispatchers.IO) {
         bookmarkDao.delete(bookmark)
-        // 显式返回 Unit
+        // Explicit return void: Discards return signatures from Room delete calls.
         Unit
     }
 
     override fun close() {
-        // 详尽的中文注释：在服务实例销毁或容器重置时，安全且显式地取消专属于后台异步标签写入及章节自愈覆写的私有协程作用域，
-        // 彻底释放全部挂起任务，杜绝常驻内存垃圾产生
+        // Private Scope Teardown (Memory leak prevention)
+        // Cancels the private scope upon service close to release background jobs and prevent memory leaks.
         scope.cancel()
     }
 }
 
 /**
- * 详尽的中文注释：统一的章节查询投影规则。
- *
- * 规则说明：
- * 1. 若数据库中已有真实章节，则原样返回，绝不覆盖真实解析结果。
- * 2. 若数据库中没有章节，且书籍确认为单音频书，则基于真实 BookFile 合成一条只读虚拟章节。
- * 3. 该虚拟章节只存在于查询结果中，不会写回章节表，因此不会污染持久化数据，也不会影响进度落库锚点。
+ * Unified Query-Time Chapters Projection Rules (Dynamic fallback mapping logic)
+ * 
+ * Rules:
+ * 1. Preserves existing parsed database chapters; does not override authentic tags.
+ * 2. Dynamically builds a single track fallback chapter if database chapter schemas are empty.
+ * 3. Retains projection models strictly in-memory, avoiding persisting dummy entries to database tables.
  */
 internal fun projectChaptersWithTrackFallback(
     book: BookEntity?,
     files: List<BookFileEntity>,
     chapters: List<ChapterWithBookFile>
 ): List<ChapterWithBookFile> {
-    // 详尽的中文注释：只要已经存在真实章节，就直接返回真实章节，确保查询投影不会篡改真实章节事实。
+    // Skip override: Returns database chapters directly to prevent altering real parsed content.
     if (chapters.isNotEmpty()) {
         return chapters
     }
-    // 详尽的中文注释：投影章节仍然要求存在真实书籍快照；若书本身都不存在，就不凭空构造章节。
+    // Sanity reference checks: Avoids synthesizing chapters if the target book does not exist in cache records.
     if (book == null) {
         return chapters
     }
-    // 详尽的中文注释：查询投影只对真实音频文件生效；若连音频文件都没有，则保持空章节结果。
+    // Files existence check: Requires valid audio track mappings to execute projection loops.
     val sortedFiles = files.sortedBy { file -> file.index }
     if (sortedFiles.isEmpty()) {
         return chapters
@@ -363,16 +369,17 @@ internal fun projectChaptersWithTrackFallback(
     return sortedFiles.mapIndexed { trackIndex, file ->
         val safeDurationMs = when {
             file.durationMs > 0L -> file.durationMs
-            // 详尽的中文注释：当唯一音频文件本身未携带时长时，回退到书级总时长，尽量保持单 track 书的投影章节可用。
+            // Duration Fallback: Recovers duration from global book records if individual track duration is missing.
             sortedFiles.size == 1 && book.totalDurationMs > 0L -> book.totalDurationMs
             else -> 0L
         }.coerceAtLeast(0L)
         val chapter = ChapterEntity(
-            // 详尽的中文注释：使用基于 bookId + fileId 的 name-based UUID 保持每个 track 投影章节 ID 稳定，
-            // 这样 Compose 列表 key、章节高亮和通知章节窗口不会因为每次查询重新生成随机 ID 而抖动。
+            // Stable Synthetic ID: Computes a name-based UUID using bookId and fileId parameters.
+            // Prevents Compose UI list flickers and notification track updates from unstable random values.
             id = syntheticTrackProjectionChapterId(book.id, file.id),
             bookId = book.id,
-            // 详尽的中文注释：投影章节显式绑定真实 BookFileEntity.id，确保章节点击、章节结束和章节模式 seek 都回落到真实音频锚点。
+            // Primary Key Bindings: Associates the dynamic chapter with the real BookFileEntity ID.
+            // Ensures seek commands and chapters completion checks map correctly onto physical file entities.
             bookFileId = file.id,
             index = trackIndex,
             title = projectedTrackChapterTitle(book, file, trackIndex, sortedFiles.size),
@@ -381,8 +388,8 @@ internal fun projectChaptersWithTrackFallback(
             fileOffsetMs = 0L,
             source = AudiobookSchema.ChapterSource.GENERATED
         )
-        // 详尽的中文注释：逐 track 投影时，后一章的全局起点始终累加前一条音频文件时长，
-        // 这样 ABS 多 track 无章节与 VFS 单/多 track 无章节都能共享同样的全书时间轴语义。
+        // Accumulative Timelines: Increases relative start offsets with accumulated durations.
+        // Maps multi-file tracks onto unified timeline structures across local and remote sources.
         runningStartMs += safeDurationMs
         ChapterWithBookFile(
             chapter = chapter,
@@ -392,16 +399,16 @@ internal fun projectChaptersWithTrackFallback(
 }
 
 /**
- * 详尽的中文注释：为查询投影层生成稳定的单音频虚拟章节 ID。
- * 该 ID 只用于内存态章节视图，不参与任何数据库写入，因此既能保持稳定，又不会引入持久化主键污染。
+ * Stable Synthetic ID Generation (In-memory UUID builder)
+ * Generates a stable name-based UUID for virtual track-chapter projection schemas.
+ * Isolates in-memory structures to prevent primary key pollution in persistent tables.
  */
 internal fun syntheticTrackProjectionChapterId(bookId: String, fileId: String): String =
     UUID.nameUUIDFromBytes("track-projection:$bookId:$fileId".toByteArray(StandardCharsets.UTF_8)).toString()
 
 /**
- * 详尽的中文注释：统一生成逐 track 投影章节标题。
- * 单 track 时优先保留书名，避免本地单文件书回退成难读的裸文件名；多 track 时优先使用文件显示名，
- * 让 ABS 与本地多文件书都能自然呈现“按 track 分章”的用户心智。
+ * Resolve Dynamic Chapter Title (Label generation priorities)
+ * Prioritizes the book's title for single-file track representations, and individual track display names for multi-file systems.
  */
 internal fun projectedTrackChapterTitle(
     book: BookEntity,

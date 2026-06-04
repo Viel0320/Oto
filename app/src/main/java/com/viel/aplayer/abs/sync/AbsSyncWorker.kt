@@ -13,7 +13,10 @@ class AbsSyncWorker(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val rootId = inputData.getString(KEY_ROOT_ID) ?: return Result.failure()
-        // 详尽中文注释：worker 生命周期日志单独归档到同步路径，便于区分“已入队未启动”和“已启动但执行失败”。
+        // Worker Execution Logging (Distinguish worker lifecycle states)
+        // Log the worker startup event independently in the sync logger.
+        // This helps verify if a scheduled task was actually picked up by WorkManager and executed,
+        // distinguishing between "queued but not run" and "run but failed" states.
         AbsSyncLogger.logWorkerStart(rootId)
         val container = APlayerApplication.getContainer(applicationContext)
         val root = AppDatabase.getInstance(applicationContext).libraryRootDao().getRootById(rootId)

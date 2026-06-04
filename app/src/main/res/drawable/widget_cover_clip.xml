@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 为本次桌面 widget 改动添加注释：作为 ImageView outline 背景，帮助真实封面按 widget 卡片圆角裁切。 -->
+<!-- Widget Cover Mask (Acts as ImageView outline provider to clip the cover art image to match the widget container corner radius) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <corners android:radius="18dp" />
     <solid android:color="#00000000" />

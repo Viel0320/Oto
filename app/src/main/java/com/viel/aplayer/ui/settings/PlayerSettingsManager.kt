@@ -12,16 +12,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * 播放器设置与 UI 交互管理器。
- * 经过抽取重构，将睡眠定时器直接相关的倒计时控制、物理传感器防抖检测、渐隐衰减以及震动反馈等逻辑
- * 抽取到了专职的 SleepTimerManager 中，以遵循单一职责原则。
- * 本管理器作为外层控制器，继续保留设定、音量逻辑、界面显隐控制及 Tab 切换等逻辑，保持接口一致。
+ * UI and playback settings manager (Controller for UI options and sleep scheduling delegation)
+ * Organizes view-level parameters, system volume adjustment, and sleep countdowns.
+ * Direct countdown logic, shake detection, fade-out behavior, and tactile feedback
+ * are delegated to [SleepTimerManager] to enforce the single responsibility principle.
  */
 class PlayerSettingsManager(
     private val scope: CoroutineScope,
     private val playbackManager: () -> PlaybackManager?,
     private val audioManager: () -> AudioManager?,
-    // 动态 Context 提供者 lambda，用以避免直接持有 Activity/Fragment 等 Context 造成的内存泄漏隐患。
+    // Dynamic Context provider (To prevent memory leaks from capturing Activity/Fragment contexts)
+    // Invokes a lambda context provider rather than caching a strong context reference.
     private val contextProvider: () -> Context?
 ) {
     private val _settingsState = MutableStateFlow(PlayerSettingsState())
@@ -29,16 +30,20 @@ class PlayerSettingsManager(
 
     private var volumeAccumulator = 0f
 
-    // 睡眠定时器音量渐隐机制的全局开关，由外部 ViewModel 实时同步持久化配置。
+    // Sleep fade-out toggle (To cache persistence state for volume decay behavior)
+    // Synchronized with DataStore by external ViewModels.
     var isSleepFadeOutEnabled: Boolean = true
 
-    // 摇晃手机重置睡眠定时器的全局控制开关，由外部 ViewModel 实时同步持久化配置。
+    // Shake-to-reset toggle (To enable/disable motion-triggered sleep resets)
+    // Synchronized with DataStore by external ViewModels.
     var isShakeToResetEnabled: Boolean = true
 
-    // 睡眠模式状态变量，由外部 ViewModel 实时同步 DataStore。
+    // Sleep mode state (To differentiate timer target modes like regular or end-of-chapter)
+    // Synchronized with DataStore by external ViewModels.
     var sleepMode: com.viel.aplayer.data.store.SleepMode = com.viel.aplayer.data.store.SleepMode.Regular
 
-    // 实例化底层的睡眠定时器引擎 SleepTimerManager，将其作为独立业务模块引入，实现单一职责。
+    // Sleep timer engine (To execute core sleep timer scheduling and sensor tracking)
+    // Instantiates SleepTimerManager as a separate cohesive service layer.
     private val sleepTimerManager = SleepTimerManager(
         scope = scope,
         playbackManager = playbackManager,
@@ -48,20 +53,24 @@ class PlayerSettingsManager(
         sleepMode = { sleepMode },
         selectedSleepTimer = { _settingsState.value.selectedSleepTimer },
         onTimerReset = {
-            // 当定时器结束或被重置时，更新外层的 UI 状态 selectedSleepTimer 为 0
+            // Reset selection state (To reset the selected timer value to zero when timer stops)
+            // Updates selectedSleepTimer in the outer state flow.
             _settingsState.update { it.copy(selectedSleepTimer = 0) }
         },
         onTimerSelectedMinutesChanged = { minutes ->
-            // 当定时器触发摇晃重置等状态变更时，更新外层的设定分钟数
+            // Synchronize selection state (To align outer selection state with active timer value during reset)
+            // Updates the outer selected sleep timer minutes.
             _settingsState.update { it.copy(selectedSleepTimer = minutes) }
         }
     )
 
-    // 睡眠倒计时剩余时间 StateFlow 流，直接委托给底层执行引擎。
+    // Delegate remaining duration (To expose sleep timer progress to observing UI layers)
+    // Delegates the sleep countdown Flow directly to SleepTimerManager.
     val sleepTimerMillis: StateFlow<Long> = sleepTimerManager.sleepTimerMillis
 
     /**
-     * 设置睡眠定时器，委托给专职定时引擎 SleepTimerManager 执行。
+     * Start sleep timer (To schedule sleep timer duration)
+     * Forwards settings parameters to the dedicated SleepTimerManager engine.
      */
     fun setSleepTimer(
         minutes: Int,
@@ -74,7 +83,8 @@ class PlayerSettingsManager(
     }
 
     /**
-     * 滑动调节系统音量。
+     * Adjust system volume (To alter STREAM_MUSIC stream volume based on drag gesture delta)
+     * Accumulates delta and increases/decreases volume when threshold is crossed.
      */
     fun adjustVolume(delta: Float) {
         val am = audioManager() ?: return
@@ -87,7 +97,7 @@ class PlayerSettingsManager(
         }
     }
 
-    // --- UI 显隐与 Tab 控制 ---
+    // --- UI visibility and Tab controls ---
 
     fun showChapterList() = _settingsState.update { it.copy(isChapterListVisible = true) }
     fun dismissChapterList() = _settingsState.update { it.copy(isChapterListVisible = false) }

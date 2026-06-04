@@ -4,33 +4,36 @@ import android.os.SystemClock
 import android.util.Log
 
 /**
- * VFS 文件 I/O 操作耗时 Logger。
- * 统一覆盖 SAF (SafSourceProvider) 和 WebDAV (WebDavSourceProvider) 两条存储路径中
- * 与文件打开、定位、Range 读取、PROPFIND 目录枚举以及网络异常相关的所有日志输出。
- * 使用统一 TAG "VfsIO"，方便在 Logcat 中过滤整个虚拟文件系统 I/O 层的性能与异常诊断信息。
+ * VFS File I/O Performance Logger (Track latency and outcomes of VFS operations)
+ *
+ * Provides coverage for both SAF (SafSourceProvider) and WebDav (WebDavSourceProvider) layers,
+ * logging file opens, seek operations, range queries, PROPFIND folder walking, and network errors.
+ * Uses a unified tag "VfsIO" to streamline VFS diagnosing in Logcat.
  */
 internal object VfsLogger {
 
     private const val TAG = "VfsIO"
-    // 长路径/URL 的最大显示长度，超出部分截断以保持 Logcat 可读性
+    // Path Length Constraint (Maximum characters displayed to prevent Logcat flooding)
     private const val MAX_PATH_LENGTH = 120
 
-    // 用于标记计时起始点，使用 elapsedRealtime 以排除系统休眠和时间调整的影响
+    // Timing Inception Marker (Log elapsed durations safely independent of system clock drifts)
     fun mark(): Long = SystemClock.elapsedRealtime()
 
-    // 将起始时间戳转换为已耗费的毫秒数
+    // Calculate Elapsed Milliseconds (Determine time delta from a starting timestamp)
     fun elapsedMs(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
 
     // ========== SAF ==========
 
     /**
-     * 记录 SAF openInputStream 操作的耗时和结果。
+     * Log SAF Input Stream Open (Record execution duration and status for opening SAF streams)
      *
-     * @param path 文件的 sourcePath
-     * @param offset 读取偏移量（0 表示顺序读流）
-     * @param costMs 操作耗时（毫秒）
-     * @param success 是否成功打开
-     * @param error 失败时的异常类名（可选）
+     * Tracks raw input stream opening events under SAF.
+     *
+     * @param path The virtual file sourcePath.
+     * @param offset The seek offset (0 represents sequential reading).
+     * @param costMs Time spent in milliseconds.
+     * @param success True if the stream opened successfully, false otherwise.
+     * @param error The simple name of the exception if failed (optional).
      */
     fun logSafOpen(path: String, offset: Long, costMs: Long, success: Boolean, error: String? = null) {
         val errorSuffix = error?.let { ", error=$it" }.orEmpty()
@@ -42,11 +45,13 @@ internal object VfsLogger {
     }
 
     /**
-     * 记录 SAF openFileDescriptor 操作的耗时和结果。
+     * Log SAF File Descriptor Access (Record execution duration and status for opening FD)
      *
-     * @param path 文件的 sourcePath
-     * @param costMs 操作耗时（毫秒）
-     * @param success 是否成功打开
+     * Tracks the file descriptor open latency for random-access playback optimization.
+     *
+     * @param path The virtual file sourcePath.
+     * @param costMs Time spent in milliseconds.
+     * @param success True if the FD was accessed successfully, false otherwise.
      */
     fun logSafOpenFd(path: String, costMs: Long, success: Boolean) {
         Log.d(
@@ -58,12 +63,14 @@ internal object VfsLogger {
     // ========== WebDAV ==========
 
     /**
-     * 记录 WebDAV PROPFIND 目录枚举请求的耗时和结果。
+     * Log WebDAV PROPFIND Request (Record latency and size of remote folder enum queries)
      *
-     * @param sourcePath 请求的目录 sourcePath
-     * @param depth PROPFIND 深度 ("0" 或 "1")
-     * @param costMs 操作耗时（毫秒）
-     * @param resourceCount 返回的资源数量
+     * Monitors PROPFIND network and XML parsing latency.
+     *
+     * @param sourcePath The target remote folder sourcePath.
+     * @param depth The PROPFIND request depth header ("0" or "1").
+     * @param costMs Time spent in milliseconds.
+     * @param resourceCount The number of files/subfolders returned.
      */
     fun logWebDavPropfind(sourcePath: String, depth: String, costMs: Long, resourceCount: Int) {
         Log.d(
@@ -74,13 +81,15 @@ internal object VfsLogger {
     }
 
     /**
-     * 记录 WebDAV GET/Range 流打开请求的耗时和结果。
+     * Log WebDAV Stream Request (Record latency and HTTP code for stream requests)
      *
-     * @param sourcePath 文件的 sourcePath
-     * @param offset 读取偏移量
-     * @param costMs 操作耗时（毫秒）
-     * @param httpCode HTTP 响应状态码
-     * @param success 是否成功打开
+     * Monitors remote network stream opening events.
+     *
+     * @param sourcePath The virtual file sourcePath.
+     * @param offset The seek offset mapping to Range request headers.
+     * @param costMs Time spent in milliseconds.
+     * @param httpCode The server response code.
+     * @param success True if the connection successfully established, false otherwise.
      */
     fun logWebDavOpen(sourcePath: String, offset: Long, costMs: Long, httpCode: Int, success: Boolean) {
         Log.d(
@@ -91,13 +100,15 @@ internal object VfsLogger {
     }
 
     /**
-     * 记录 WebDAV Range 片段读取请求的耗时和字节数。
+     * Log WebDAV Range Read (Record performance of small segment block reads)
      *
-     * @param sourcePath 文件的 sourcePath
-     * @param offset 读取偏移量
-     * @param requestedLength 请求的字节数
-     * @param costMs 操作耗时（毫秒）
-     * @param actualBytes 实际读取的字节数（null 表示失败）
+     * Useful for diagnostics on metadata parsing requests.
+     *
+     * @param sourcePath The virtual file sourcePath.
+     * @param offset The seek offset.
+     * @param requestedLength The requested byte count.
+     * @param costMs Time spent in milliseconds.
+     * @param actualBytes The actual bytes read (null indicates failure).
      */
     fun logWebDavRange(sourcePath: String, offset: Long, requestedLength: Int, costMs: Long, actualBytes: Int?) {
         Log.d(
@@ -108,11 +119,13 @@ internal object VfsLogger {
     }
 
     /**
-     * 记录 WebDAV 请求因超时或网络不可用而失败的异常。
+     * Log WebDAV Network Failures (Record remote network request exceptions)
      *
-     * @param url 请求的 URL
-     * @param status 映射后的可用性状态
-     * @param errorClass 异常类名
+     * Traces timeouts, socket errors, and maps them to a unified availability status.
+     *
+     * @param url The request target URL.
+     * @param status The mapped availability code.
+     * @param errorClass The name of the thrown exception class.
      */
     fun logWebDavError(url: String, status: String, errorClass: String) {
         Log.d(
@@ -122,7 +135,9 @@ internal object VfsLogger {
     }
 
     /**
-     * 将长路径或 URL 截断为可读长度，避免 Logcat 过长导致难以阅读。
+     * Shorten Log Identifiers (Truncate overly long path and URL logs for readability)
+     *
+     * Limits text length to ensure clean Logcat formats.
      */
     private fun compact(value: String): String {
         return if (value.length <= MAX_PATH_LENGTH) {

@@ -3,7 +3,7 @@ package com.viel.aplayer.media
 import android.net.Uri
 import com.viel.aplayer.data.entity.BookFileEntity
 
-// VfsPlaybackUri 是播放器内部专用地址格式，避免 Media3 队列继续暴露或依赖持久化的原始 SAF/远程 URI。
+// VFS Playback URI Protocol (Defines the player-internal VFS URI scheme to prevent exposing raw persistent SAF or remote URLs)
 object VfsPlaybackUri {
     const val SCHEME: String = "aplayer-vfs"
     private const val BOOK_FILE_AUTHORITY = "book-file"

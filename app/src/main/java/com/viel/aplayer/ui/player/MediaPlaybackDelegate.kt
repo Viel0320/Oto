@@ -10,8 +10,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * 媒体播放逻辑委托类。
- * 封装与 Media3 PlaybackManager 的交互逻辑。
+ * Media playback delegate (Controller routing requests to playback service)
+ * Encapsulates interaction workflows with ExoPlayer-backed PlaybackManager.
  */
 class MediaPlaybackDelegate(
     private val playbackManager: () -> PlaybackManager?,
@@ -24,7 +24,7 @@ class MediaPlaybackDelegate(
     fun setPlaybackSpeed(speed: Float) = playbackManager()?.setPlaybackSpeed(speed)
 
     /**
-     * 加载书籍。
+     * Load audiobook (To pass playback plan coordinates to the media engine)
      */
     fun loadBook(
         plan: BookPlaybackPlan,
@@ -33,7 +33,7 @@ class MediaPlaybackDelegate(
     ) {
         playbackManager()?.setBookPlaybackPlan(plan, playWhenReady)
 
-        // 轮询封面路径
+        // Poll cover path (To query updated thumbnail and cover paths sequentially)
         scope.launch {
             repeat(5) {
                 val book = repository.getBookById(plan.bookId)
@@ -48,7 +48,7 @@ class MediaPlaybackDelegate(
     }
 
     /**
-     * 跳转到下一章节。
+     * Skip forward chapter (To advance seek coordinates to start position of next chapter)
      */
     fun skipToNextChapter(chapters: List<ChapterEntity>, currentPosition: Long) {
         if (chapters.isEmpty()) return
@@ -61,7 +61,7 @@ class MediaPlaybackDelegate(
     }
 
     /**
-     * 跳转到上一章节。
+     * Skip backward chapter (To rewind seek coordinates to start position of current/previous chapter)
      */
     fun skipToPreviousChapter(chapters: List<ChapterEntity>, currentPosition: Long) {
         if (chapters.isEmpty()) return

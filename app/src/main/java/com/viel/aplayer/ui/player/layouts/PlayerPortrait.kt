@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.player.layouts
 
-// 导入 Jetpack Compose 动画、手势和布局 API
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
@@ -40,28 +39,26 @@ import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
- * 竖屏自适应播放器布局组件 (PlayerPortrait)。
- * 完美移植原 PlayerScreen 中的竖屏单列 Column 组件编排，将复杂的具体渲染分流至本模块，保证视觉的完美还原。
+ * Portrait adaptive player layout (Component rendering main player details in vertical orientation)
+ * Layout features single column design routing events through stateless lambdas.
+ * Decouples ViewModel bindings and enforces clean stateless UI architecture contracts.
  *
- * 已经过重构彻底消除了对 PlayerViewModel 及其内部 State 类型的任何依赖，
- * 达成了 100% 纯无状态 L3 布局组件的高标准，符合 Compose 架构分层设计。
- *
- * @param currentPosition 播放器当前物理播放进度（毫秒）
- * @param totalDuration 播放器当前物理总时长（毫秒）
- * @param isChapterMode 当前进度条是否处于章节进度视图模式
- * @param currentChapter 当前正处于播放状态的章节实体
- * @param isPlaying 当前是否处于播放中状态
- * @param playbackSpeed 当前的播放速率
- * @param isSpeedManualMode 播放速率是否被手动调节锁定
- * @param bookmarkToDelete 待删除书签实体
- * @param bookmarkToEdit 待编辑书签实体
- * @param bookmarkEditTitle 编辑书签时输入框中的草稿标题
- * @param onRequestDeleteBookmark 触发删除书签确认弹窗的回调
- * @param onRequestEditBookmark 触发编辑书签弹窗的回调
- * @param onBookmarkEditTitleChange 书签编辑标题输入变更的回调
- * @param onConfirmDeleteBookmark 确认删除书签的回调
- * @param onConfirmUpdateBookmark 确认更新书签标题的回调
- * @param onDismissBookmarkDialogs 取消/关闭书签对话框的回调
+ * @param currentPosition The current physical playback progress of the player (in milliseconds).
+ * @param totalDuration The current physical total duration of the player (in milliseconds).
+ * @param isChapterMode Whether the progress bar is currently in chapter progress view mode.
+ * @param currentChapter The chapter entity currently in the playing state.
+ * @param isPlaying Whether the player is currently playing.
+ * @param playbackSpeed The current playback speed.
+ * @param isSpeedManualMode Whether the playback speed is locked by manual adjustment.
+ * @param bookmarkToDelete The bookmark entity pending deletion.
+ * @param bookmarkToEdit The bookmark entity pending editing.
+ * @param bookmarkEditTitle The draft title in the input box when editing a bookmark.
+ * @param onRequestDeleteBookmark Callback to trigger the delete bookmark confirmation dialog.
+ * @param onRequestEditBookmark Callback to trigger the edit bookmark dialog.
+ * @param onBookmarkEditTitleChange Callback when the bookmark editing title input changes.
+ * @param onConfirmDeleteBookmark Callback to confirm bookmark deletion.
+ * @param onConfirmUpdateBookmark Callback to confirm updating the bookmark title.
+ * @param onDismissBookmarkDialogs Callback to cancel/close the bookmark dialogs.
  */
 @Composable
 fun PlayerPortrait(
@@ -90,11 +87,11 @@ fun PlayerPortrait(
     animatedBgColor: androidx.compose.ui.graphics.Color,
     glassEffectMode: GlassEffectMode,
     chapterSheetBackdrop: LayerBackdrop,
-    // 显式约束动画参数的泛型类型为 AnimationVector1D，修复参数类型擦除引起的匹配失败 (H-11)
+    // Generic layout parameters (To specify Animatable type constraints to avoid runtime matching errors)
     offsetY: Animatable<Float, AnimationVector1D>,
     scope: kotlinx.coroutines.CoroutineScope,
     dismissThreshold: Float,
-    // 修正 FocusManager 为正确的 focus 包级类型，去除 platform 包残留引起未解析符号
+    // Clean FocusManager import (To bypass platform package compilation symbols drift)
     focusManager: FocusManager,
     navigationActions: com.viel.aplayer.ui.navigation.PlayerNavigationActions,
     modifier: Modifier = Modifier
@@ -104,7 +101,7 @@ fun PlayerPortrait(
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        // 使用新抽离的 PlayerVerticalAppBar 组件，封装顶部标题栏、下拉返回手势以及睡眠定时等物理交互
+        // AppBar widget delegation (To wrap header information, gestures, and timer triggers)
         PlayerVerticalAppBar(
             metadata = metadata,
             settings = settings,
@@ -118,13 +115,13 @@ fun PlayerPortrait(
             dismissThreshold = dismissThreshold
         )
 
-        // 计算水平滑动手势换页的阈值，默认为 80.dp 对应的像素值
+        // Horizontal swipe thresholds (To map horizontal swipe gesture boundaries to 80.dp pixel measurements)
         val swipeThresholdPx = with(density) { 80.dp.toPx() }
         val tabModes = remember {
             listOf(PlayerScreenMode.BOOKMARKS, PlayerScreenMode.SUBTITLES, PlayerScreenMode.RELATED)
         }
         
-        // 根据当前激活的 Tab 映射到最外层的共享动画过渡外壳
+        // Map tab modes (To match selected screen tab to active animation container)
         val contentShell = remember(currentMode) {
             when (currentMode) {
                 PlayerScreenMode.BOOKMARKS -> PlayerContentShell.Bookmarks
@@ -138,7 +135,7 @@ fun PlayerPortrait(
             modifier = Modifier
                 .weight(1f)
                 .pointerInput(currentMode) {
-                    // 仅在非主播放页面（如书签、歌词、推荐面板）才拦截水平拖拽手势用于页签快速流转
+                    // Intercept horizontal gestures (To block swipes under core playback modes)
                     if (currentMode == PlayerScreenMode.PLAYER) return@pointerInput
                     var accumulatedX = 0f
                     var hasSwipeTriggered = false
@@ -170,13 +167,13 @@ fun PlayerPortrait(
                                     onModeChange(nextMode)
                                     hasSwipeTriggered = true
                                 }
-                            }
-                            change.consume()
+                             }
+                             change.consume()
                         }
                     )
                 }
         ) {
-            // 外层横向滑入滑出切换动画，管理主控制/书签/推荐大面板的顺畅流转
+            // Horizontal sliding transitions (To animate card displacements smoothly across modes)
             AnimatedContent(
                 targetState = contentShell,
                 modifier = Modifier.fillMaxSize(),
@@ -199,7 +196,7 @@ fun PlayerPortrait(
                             } else {
                                 PlayerScreenMode.PLAYER
                             }
-                            // 内层淡入淡出动画，顺畅切换封面层与歌词字幕渲染面板
+                            // Crossfade transitions (To animate artwork cover and subtitles card displays)
                             AnimatedContent(
                                 targetState = playbackTopMode,
                                 modifier = Modifier.weight(1f),
@@ -212,7 +209,7 @@ fun PlayerPortrait(
                                 when (topMode) {
                                     PlayerScreenMode.SUBTITLES -> {
                                         Box(modifier = Modifier.fillMaxSize()) {
-                                            // 直接调用无状态的 SubtitlesView 渲染字幕组件，实现极致的重绘隔离
+                                            // Subtitles list wrapper (To render stateless SubtitlesView)
                                             SubtitlesView(
                                                 subtitles = metadata.subtitles,
                                                 currentPosition = currentPosition,
@@ -222,10 +219,9 @@ fun PlayerPortrait(
                                         }
                                     }
                                     else -> {
-                                        // 使用封装良好的手势声音及双击切歌封面组件
+                                        // Interactive cover component (To render dual-tap track skip actions)
+                                        // Prefers high-resolution original images over thumbnail drafts.
                                         PlayerCover(
-                                            // 详尽注释：播放器主封面是 Main1200 场景，必须优先使用原始封面；
-                                            // 缩略图只在原图不可用时兜底，避免播放页误用小图造成清晰度损失。
                                             coverPath = CoverImageSourceSelector.main(
                                                 coverPath = metadata.coverPath,
                                                 thumbnailPath = metadata.thumbnailPath
@@ -240,8 +236,7 @@ fun PlayerPortrait(
                                     }
                                 }
                             }
-                            // 控制面板区，包含播放按钮、进度滑条、章节切换、速度调节，并完美避让 24.dp 舒适内缩边距。
-                            // 已完全去除对 ViewModel 的数据结构依赖，通过展平后的参数实现极致渲染性能。
+                            // Control panel layout (To render buttons, timelines, and speech multipliers)
                             PlayerControlPanel(
                                 currentPosition = currentPosition,
                                 totalDuration = totalDuration,
@@ -262,7 +257,7 @@ fun PlayerPortrait(
                             )
                         }
                         PlayerContentShell.Bookmarks -> {
-                            // 直接调用无状态的 BookmarkListView，彻底解耦桥接
+                            // Bookmark list container (To display saved bookmark elements)
                             Box(modifier = Modifier.fillMaxSize()) {
                                 BookmarkListView(
                                     bookmarks = metadata.bookmarks,
@@ -282,7 +277,7 @@ fun PlayerPortrait(
                             }
                         }
                         PlayerContentShell.Related -> {
-                            // 推荐书籍面板，展示作者及朗读者关联的书籍列表，无缝拉起加载
+                            // Related books collection (To query related author and narrator libraries)
                             Box(modifier = Modifier.weight(1f)) {
                                 RelatedBooksView(
                                     currentBookId = metadata.id,
@@ -299,7 +294,7 @@ fun PlayerPortrait(
             }
         }
 
-        // 底部页签导航栏，负责播放器四大基本维度的状态快速流转
+        // Bottom navigation layout (To toggle main tabs inside player screen)
         BottomNavTabs(
             selectedTab = currentMode,
             onTabSelected = {

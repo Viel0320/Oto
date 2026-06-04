@@ -6,15 +6,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * 书签业务逻辑管理器。
- * 负责书签的增、删、改操作。
+ * Bookmark business logic manager (BookmarkManager).
+ *
+ * Responsible for bookmark addition, deletion, and modification operations.
  */
 class BookmarkManager(
     private val repository: BookQueryGateway,
     private val scope: CoroutineScope
 ) {
     /**
-     * 添加书签。
+     * Add a bookmark.
      */
     fun addBookmark(bookId: String, position: Long, title: String) {
         scope.launch {
@@ -23,7 +24,7 @@ class BookmarkManager(
     }
 
     /**
-     * 删除书签。
+     * Delete a bookmark.
      */
     fun deleteBookmark(bookmark: BookmarkEntity) {
         scope.launch {
@@ -32,7 +33,7 @@ class BookmarkManager(
     }
 
     /**
-     * 更新书签标题。
+     * Update a bookmark title.
      */
     fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) {
         scope.launch {

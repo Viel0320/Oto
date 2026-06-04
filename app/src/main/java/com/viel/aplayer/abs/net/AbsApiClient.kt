@@ -28,10 +28,9 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 
 /**
- * 详尽的中文注释：首版 ABS 接入只支持大于等于 2.35.1 的服务端版本。
- * 这个下限来自当前文档与 demo 实测已经固化下来的 API 事实，
- * 例如 `POST /api/items/batch/get` 的响应形态、`media.tracks[].contentUrl` 的主链语义以及若干 DTO 字段假设都建立在该版本基线之上。
- * 因此连接阶段必须尽早拒绝更低版本，避免后续 catalog mirror、播放与进度同步在运行时出现半兼容状态。
+ * Server Version Constraints (First ABS integration only supports server versions greater than or equal to 2.35.1)
+ * This baseline is solid based on current API responses, method structures, and track parameters.
+ * Lower server versions are rejected immediately during connectivity handshake checks to prevent partial incompatibilities.
  */
 internal const val MIN_SUPPORTED_ABS_SERVER_VERSION: String = "2.35.1"
 
@@ -48,13 +47,7 @@ interface AbsApiClient {
 }
 
 /**
- * ABS HTTP 细节只允许集中在这里。
- *
- * 阶段 1 只实现连接测试所需的方法：
- * 1. `status()`
- * 2. `login()`
- * 3. `authorize()`，且只允许 POST
- * 4. `getLibraries()`
+ * ABS API Transport Boundary (OkHttp requests and Moshi parsing rules are consolidated within this class)
  */
 class RealAbsApiClient(
     private val client: OkHttpClient = defaultClient(),
@@ -79,8 +72,7 @@ class RealAbsApiClient(
         )
 
     override suspend fun login(baseUrl: String, username: String, password: String): AbsLoginResponseDto {
-        // 详尽的中文注释：登录请求现在直接归档到认证日志边界 `AbsAuthLogger`，
-        // 不再经过历史兼容层二次转发，避免日志路径继续维持一层无意义的中间抽象。
+        // Logging Auth Requests (Bypasses legacy logging wrappers to emit logs directly to the dedicated AbsAuthLogger)
         val start = AbsAuthLogger.mark()
         AbsAuthLogger.logLoginRequestStart(baseUrl, username)
         val body = """{"username":${username.toJsonString()},"password":${password.toJsonString()}}"""
@@ -115,7 +107,7 @@ class RealAbsApiClient(
         executeJson(
             request = Request.Builder()
                 .url(resolveApiUrl(baseUrl, "authorize"))
-                // 任务表要求 `authorize()` 固定走 POST，禁止 GET 兜底。
+                // Enforce POST Request (Requires POST method explicitly as defined in integration parameters)
                 .post(EMPTY_JSON_BODY)
                 .header("Authorization", bearer(token))
                 .build(),
@@ -220,8 +212,7 @@ class RealAbsApiClient(
     }
 
     /**
-     * 所有 JSON 接口都强制切到 IO 线程执行。
-     * 这样设置页即使从主线程触发连接测试，也不会因为 OkHttp 的同步 `execute()` 触发 `NetworkOnMainThreadException`。
+     * Thread Context Isolation (Delegates API execution to Dispatchers.IO to protect against NetworkOnMainThreadException)
      */
     private suspend fun <T> executeJson(request: Request, adapter: JsonAdapter<T>): T {
         return withContext(Dispatchers.IO) {
@@ -264,7 +255,7 @@ class RealAbsApiClient(
     }
 
     /**
-     * 纯文本 `OK` 接口与 JSON 接口保持同一线程策略，避免 `/sync`、`/close` 一类会话接口重新把阻塞网络带回调用线程。
+     * Async Void Execution (Switches text responses to Dispatchers.IO context to prevent blocking state collectors)
      */
     private suspend fun executeUnit(request: Request) {
         withContext(Dispatchers.IO) {
@@ -358,9 +349,8 @@ class RealAbsApiClient(
 }
 
 /**
- * 详尽的中文注释：在连接阶段统一校验服务端版本是否满足当前实现的最低兼容要求。
- * 这里故意抛出 `AbsApiError`，这样上层可以继续沿用现有的“连接失败 -> SettingsViewModel toast”链路，
- * 而不需要让 `AbsApiClient` 直接依赖任何 UI 组件。
+ * Server Version Validator (Verifies server capabilities prior to syncing and throws AbsApiError on mismatch)
+ * Keeps settings components unaware of presentation targets by routing errors through clean throw clauses.
  */
 internal fun ensureSupportedAbsServerVersion(serverVersion: String?) {
     val comparison = compareAbsServerVersion(serverVersion, MIN_SUPPORTED_ABS_SERVER_VERSION)
@@ -375,11 +365,11 @@ internal fun ensureSupportedAbsServerVersion(serverVersion: String?) {
 }
 
 /**
- * 详尽的中文注释：将形如 `2.35.1` 的 ABS 版本号做成可比较的整型列表，并以词典序比较。
- * 规则说明：
- * 1. 任一版本为空、空白或含有非数字片段时，都视为不满足最低版本要求，返回 -1。
- * 2. 允许长度不同的版本号参与比较，缺失的片段按 0 处理，例如 `2.35` 会按 `2.35.0` 参与比较。
- * 3. 返回值语义与 `Comparator` 一致：小于 0 表示左值更低，等于 0 表示相等，大于 0 表示左值更高。
+ * Version Lexicographical Comparison (Compares version string components recursively using numeric offsets)
+ * Rules:
+ * 1. If any input is blank or non-numeric, it is treated as incompatible and returns -1.
+ * 2. Sub-segments are filled with trailing zeros when comparing inputs of differing lengths (e.g. "2.35" maps to "2.35.0").
+ * 3. Returns standard Comparator integer values: < 0 if lower, 0 if equal, > 0 if higher.
  */
 internal fun compareAbsServerVersion(left: String?, right: String?): Int {
     val leftParts = parseAbsServerVersion(left) ?: return -1
@@ -396,9 +386,8 @@ internal fun compareAbsServerVersion(left: String?, right: String?): Int {
 }
 
 /**
- * 详尽的中文注释：把服务端版本号解析成纯数字片段列表。
- * 解析失败直接返回 `null`，交由上层统一按“不支持该版本”处理，
- * 这样可以避免把未知格式的 serverVersion 当成兼容版本放行。
+ * Version String Parser (Converts version blocks to numeric integer segments)
+ * Returns null on parsing failures to prevent bypassing unsupported formats silently.
  */
 private fun parseAbsServerVersion(version: String?): List<Int>? {
     val normalized = version?.trim()?.takeIf { value -> value.isNotEmpty() } ?: return null

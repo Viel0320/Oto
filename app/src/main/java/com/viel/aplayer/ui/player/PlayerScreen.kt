@@ -1,8 +1,5 @@
 package com.viel.aplayer.ui.player
 
-// 导入 WindowInsets 及自适应配置检测相关的 Compose API
-
-// 导入自适应分发子 layouts 模块
 import android.view.RoundedCorner
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -80,17 +77,17 @@ fun PlayerScreen(
     viewModel: PlayerViewModel,
     actions: PlayerActions,
     navigationActions: PlayerNavigationActions,
-    // 玻璃效果模式必须由播放器 Overlay 从设置状态显式传入，播放页内部不再声明 Material 默认值。
+    // Glass effect mode (To customize overlay blur styles)
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // 接收从外部 PlayerOverlay 传递进来的全屏播放器自身全量画面（含前景文字、进度条与按钮）采样源，用以消除子弹窗模糊的背景穿帮。
+    // Fullpage backdrop sampling (To avoid sub-dialog leakage when rendering blurs)
     fullPageBackdrop: LayerBackdrop? = null,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
     // =====================================================================
-    // 第二阶段重构：统一在 L2 容器级别收集所有高频和低频的状态。
-    // 这将实现 Layout 层的纯无状态化，极大方便 UI 多渠道适配、解耦与真机测试。
+    // L2 container state gathering (To ensure layout classes remain stateless)
+    // Facilitates UI channel adaptation, decoupling, and automated views testing.
     // =====================================================================
     val progressState = if (isPreview) {
         PlayerViewModel.PlaybackProgressViewState(
@@ -128,7 +125,7 @@ fun PlayerScreen(
         viewModel.bookmarkDialogs.collectAsStateWithLifecycle().value
     }
 
-    // 如果处于 IDE 预览环境，则注入精美的 Mock 数据，避免底层的 Flow 订阅和 ViewModel 的初始化依赖
+    // IDE preview data check (To supply mock parameters under layout previews)
     val metadata = if (isPreview) {
         BookMetadataState(
             id = "book_1",
@@ -138,10 +135,8 @@ fun PlayerScreen(
             coverPath = null,
             thumbnailPath = null,
             coverLastUpdated = 0L,
-            backgroundColorArgb = "#FF1E293B".toColorInt(), // 深色灰蓝色背景
-            // 由于 BookMetadataState 中的 chapters 已重构升级为 List<ChapterWithBookFile> 关系模型，
-            // 此处在预览 Mock 时，需要将 ChapterEntity 用 ChapterWithBookFile 进行原子包裹，物理文件 bookFile 直接 mock 传入 null，
-            // 确保预览渲染链路契约一致且完美通过 Kotlin 强类型编译检验。
+            backgroundColorArgb = "#FF1E293B".toColorInt(),
+            // Wrapped in ChapterWithBookFile relation model (To align chapter schemas with Room relation setups)
             chapters = listOf(
                 com.viel.aplayer.data.entity.ChapterWithBookFile(
                     chapter = com.viel.aplayer.data.entity.ChapterEntity("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, "EMBEDDED"),
@@ -156,8 +151,7 @@ fun PlayerScreen(
     } else {
         viewModel.metadataState.collectAsStateWithLifecycle().value
     }
-    // 详尽注释：播放器全屏背景只需要低分辨率模糊采样图，统一走 Backdrop 路径策略；
-    // 这样背景层不会因为和主封面共享 metadata 而误解码或持有 Main1200 大图。
+    // Lower resolution backdrop image (To decouple backdrop drawing parameters from high-res main artwork)
     val playerBackdropCoverPath = CoverImageSourceSelector.backdrop(
         thumbnailPath = metadata.thumbnailPath,
         coverPath = metadata.coverPath
@@ -166,7 +160,7 @@ fun PlayerScreen(
     val settings = if (isPreview) {
         com.viel.aplayer.ui.settings.PlayerSettingsState(
             isFullPlayerVisible = true,
-            selectedContentTab = -1, // PLAYER 模式
+            selectedContentTab = -1,
             isChapterProgressMode = false,
             showUndoSeek = false,
             selectedSleepTimer = 0
@@ -202,7 +196,7 @@ fun PlayerScreen(
 
     var currentMode by remember { mutableStateOf(targetMode) }
 
-    // 定义全屏播放器预测性返回手势的激活状态和手势百分比进度值（0f 到 1f 之间）
+    // Predict back gesture tracking (To store gesture activation status and percentage values)
     var isPlayerBackActive by remember { mutableStateOf(false) }
     var playerBackProgress by remember { mutableFloatStateOf(0f) }
 
@@ -219,7 +213,7 @@ fun PlayerScreen(
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    // 详尽的中文注释：使用统一的 WindowClass 接口获取当前窗口的方向，去除了在此对 LocalConfiguration 物理方向的依赖，支持多设备无阻碍适配。
+    // Determine screen orientations (To layout adaptive panels using window class attributes)
     val windowClass = LocalWindowClass.current
     val isLandscape = windowClass.isLandscape
 
@@ -227,32 +221,31 @@ fun PlayerScreen(
         currentMode = targetMode
     }
 
-    // 移除原先硬编码的 darkTheme = true，使全屏播放器跟随系统/应用主题设置
+    // System theme synchronization (To align player styling options with active dark/light parameters)
     APlayerTheme {
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         
-        // 
-        // 重新在 LocalComposables 环境下声明全局 coverBackdrop 背景专属采样源，修复未解析引用的编译错误。
-        // 用以作为背景层专属采样源，与前景组件隔离为同级兄弟，彻底规避 Vulkan feedback loop 死锁崩溃。
+        // Isolate backdrop sampling source (To avoid recursive drawing loops on specific vendor devices)
+        // Splits blurred cover backgrounds into a separate visual sibling layer.
         val coverBackdrop = rememberLayerBackdrop()
 
-        // 当处于书签/歌词/推荐等面板时，使用 PredictiveBackHandler 平滑返回主播放页面
+        // Panel sheet back handler (To slide back to player main view using system back gesture)
         PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
             try {
                 progressFlow.collect { }
                 currentMode = PlayerScreenMode.PLAYER
             } catch (_: CancellationException) {
-                // 用户中途滑回取消，不做状态改变
+                // Handle swipe cancel actions (To retain active tab modes when back gestures are aborted)
             }
         }
 
-        // 当处于主播放页面且全屏播放器可见时，使用 PredictiveBackHandler 拦截并支持手势平滑最小化
+        // Player minimalization back handler (To minimize full-screen layouts using system swipe gesture)
         PredictiveBackHandler(
             enabled = currentMode == PlayerScreenMode.PLAYER && settings.isFullPlayerVisible
         ) { progressFlow ->
             try {
-                // 收集预测性返回拖拽进度流，动态调节播放器向下滑动的过渡程度
+                // Accumulate drag events (To slide full-screen card down matching predictive gesture progress)
                 progressFlow.collect { backEvent ->
                     isPlayerBackActive = true
                     playerBackProgress = backEvent.progress
@@ -260,15 +253,15 @@ fun PlayerScreen(
                 actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
                 navigationActions.onMinimize()
             } catch (_: CancellationException) {
-                // 用户在手势拖拽时滑回以取消最小化返回，恢复原状态
+                // Drag abort handle (To restore original position when swipe gesture is cancelled)
             } finally {
-                // 手势执行完成或取消时，及时清空手势激活状态和进度值为 0f
+                // Reset gesture tracking (To wipe gesture progress state variables)
                 isPlayerBackActive = false
                 playerBackProgress = 0f
             }
         }
 
-        // 动态捕获背景色过渡状态，产生流光颜色变换的顺滑动画效果
+        // Animated color transitions (To blend cover dominant color gradients smoothly)
         val animatedBgColor by animateColorAsState(
             targetValue = Color(metadata.backgroundColorArgb),
             animationSpec = tween(300),
@@ -276,11 +269,10 @@ fun PlayerScreen(
         )
         val bgColor = MaterialTheme.colorScheme.background
 
-        // 计算最大的向下位移像素值，顺应全屏播放器“向下滑动收起”的最小化退出特征
+        // Exit translation range (To map drag offset parameters into downward exit bounds)
         val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
-        // 在横屏模式下，全屏播放器通常是左右双栏平铺排版，外层不需要竖屏抽屉的顶部大圆角，
-        // 设为直角（RectangleShape）既符合大屏沉浸式视觉，也能在物理上彻底杜绝左上角和右上角内容被外层圆角裁切的隐患。
+        // Define player surface shape (To prevent clipping contents inside rotated display bounds)
         val playerSurfaceShape = if (isLandscape) {
             RectangleShape
         } else {
@@ -292,25 +284,21 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
                 .graphicsLayer {
-                    // 当全屏播放器拖拽最小化预测性返回手势处于激活状态时，
-                    // 让卡片整体随手势的百分比进度向下平移（最多 120.dp）并伴随淡出（1.0f -> 0.7f），
-                    // 在力导向和视觉上与最终向下滑动收起为迷你播放器的退出动画无缝融合。根据用户最新指令，
-                    // 在此已彻底去除了原有的微小等比缩放效果（scaleX / scaleY 缩放形变），以提升手势物理退出的顺滑度与稳定性。
+                    // Translate cards vertically (To animate card position downwards matching predictive gestures)
                     if (isPlayerBackActive) {
                         translationY = playerBackProgress * maxPredictiveTranslationY
                         alpha = 1f - playerBackProgress * 0.3f
                     }
                 }
                 .clip(playerSurfaceShape),
-            // 将 bgColor 设置为 Surface 的 container color，充当最牢固的主题底层背景，杜绝任何透明漏光发生
+            // Ground background bounds (To avoid transparent layout leakage during transition)
             color = bgColor
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // 
-                // 彻底修复特定的 OPLUS (一加) 设备在启用 miuix-blur 模糊效果后，由于父子循环嵌套采样导致的 RenderThread SIGSEGV 段错误闪退。
-                // 我们在此重构了 PlayerScreen 的根布局层级，将挂载了 layerBackdrop 采样器的背景图层，与使用 drawBackdrop 绘制毛玻璃的前景内容组件完全剥离为同级的【兄弟节点】。
+                // Mitigate render-thread crash (To resolve background sampling loop errors on specific OPLUS devices)
+                // Separates blurred backdrop sampling layers and forefront components as siblings.
 
-                // 1. 纯净背景图层 (同级兄弟节点)
+                // 1. Pure backdrop layer (Sibling background node)
                 CoverBackground(
                     coverPath = playerBackdropCoverPath,
                     lastUpdated = metadata.coverLastUpdated,
@@ -319,11 +307,11 @@ fun PlayerScreen(
                     backdrop = coverBackdrop
                 )
 
-                // 2. 纯净前景操作图层 (同级兄弟节点，内部所有组件均可安全 drawBackdrop 进行背景采样折射，彻底拆分后的容器分发)
+                // 2. Forefront controls layer (Sibling forefront node)
                 Box(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // 详尽的中文注释：使用全局窗口属性自适应判定平板横屏状态，去掉了对 LocalConfiguration 和 smallestScreenWidthDp 的直接引用。
+                    // Layout resolution dispatch (To load different screen layout templates matching display shapes)
                     val isTabletLandscape = windowClass.isTabletLandscape
                     when {
                         isTabletLandscape -> {
@@ -332,6 +320,8 @@ fun PlayerScreen(
                                 totalDuration = progressState.durationMs,
                                 isChapterMode = progressState.isChapterProgressMode,
                                 currentChapter = currentChapter,
+                                // Parameter Alignment (Aligns parameter name with isPlaying of layout templates)
+                                // Renamed playing to isPlaying to match defined function arguments.
                                 isPlaying = controls.isPlaying,
                                 playbackSpeed = controls.playbackSpeed,
                                 isSpeedManualMode = controls.isSpeedManualMode,
@@ -372,6 +362,8 @@ fun PlayerScreen(
                                 totalDuration = progressState.durationMs,
                                 isChapterMode = progressState.isChapterProgressMode,
                                 currentChapter = currentChapter,
+                                // Parameter Alignment (Aligns parameter name with isPlaying of layout templates)
+                                // Renamed playing to isPlaying to match defined function arguments.
                                 isPlaying = controls.isPlaying,
                                 playbackSpeed = controls.playbackSpeed,
                                 isSpeedManualMode = controls.isSpeedManualMode,
@@ -412,6 +404,8 @@ fun PlayerScreen(
                                 totalDuration = progressState.durationMs,
                                 isChapterMode = progressState.isChapterProgressMode,
                                 currentChapter = currentChapter,
+                                // Parameter Alignment (Aligns parameter name with isPlaying of layout templates)
+                                // Renamed playing to isPlaying to match defined function arguments.
                                 isPlaying = controls.isPlaying,
                                 playbackSpeed = controls.playbackSpeed,
                                 isSpeedManualMode = controls.isSpeedManualMode,
@@ -454,8 +448,7 @@ fun PlayerScreen(
                     }
                 }
 
-                // 可切换 miuix-blur 模糊的 Snackbar，作为兄弟节点直接放置在最外层 Box 的底部层叠位置。
-                // 采用 150ms 上滑淡入/下滑淡出，显示时长控制仍由 ViewModel 管理。
+                // Blur-supported seek undo banner (To alert users about coordinate rewind options)
                 AnimatedVisibility(
                     visible = settings.showUndoSeek,
                     enter = slideInVertically(
@@ -468,10 +461,10 @@ fun PlayerScreen(
                     ) + fadeOut(animationSpec = tween(150)),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        // 由于 Snackbar 是悬浮在 BottomNavTabs 之上的独立层级，我们将底边距提升至 96.dp，以防它与下方的 BottomNavTabs 发生视觉重叠遮挡。
+                        // Offset snackbar margins (To avoid overlapping seek undo bar over bottom controls area)
                         .padding(horizontal = 16.dp, vertical = 96.dp)
                 ) {
-                    // 使用新创建的 BlurSnackbar，支持在 miuix-blur 模式下采样兄弟节点的背景模糊效果，Material 模式下展示原生样式。
+                    // Render blur snackbar (To support blur sampling overlays under miuix-blur styles)
                     BlurSnackbar(
                         backdrop = coverBackdrop,
                         glassEffectMode = glassEffectMode,
@@ -497,8 +490,7 @@ fun PlayerScreen(
             }
         }
 
-        // 采用 Stateful 局部隔间包裹章节列表弹窗，在弹窗不可见时完全停摆以防高频重组。
-        // 已完成去 ViewModel 重构，改由外部传入已在 L2 统一收集的 progressState 数据流进行渲染。
+        // Compact chapter list overlays (To present track index selections dynamically)
         ChapterListSheetStateful(
             currentPosition = progressState.elapsedMs,
             totalDuration = progressState.durationMs,
@@ -506,12 +498,12 @@ fun PlayerScreen(
             settings = settings,
             actions = actions,
             sheetState = sheetState,
-            // 升级章节列表抽屉的采样源为整页全量采样，在 null 时安全降级回 coverBackdrop，无缝实现全前景画面高真模糊。
+            // Full-screen backdrop resolution (To apply full-screen backdrop sampling parameters)
             backdrop = fullPageBackdrop ?: coverBackdrop,
             glassEffectMode = glassEffectMode
         )
 
-        // 桥接就近打字隔离后的 BookmarkDialog。通过回调 localTitle 执行 onTitleChange 和 onSave，无损向下兼容原契约
+        // Bookmark creation sheet (To display input fields for bookmark naming details)
         BookmarkDialog(
             isVisible = settings.isBookmarkDialogVisible,
             defaultTitle = settings.bookmarkTitle,
@@ -524,13 +516,13 @@ fun PlayerScreen(
     }
 }
 
-// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
+// Suppress VM forwarding checker (To allow instantiating empty ViewModel instances under preview components)
 @Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun PlayerScreenPreview() {
     APlayerTheme {
-        // 详尽的中文注释：在预览中显式提供竖屏手机的窗口尺寸预设，以确保主播放页能够准确展示出标准的竖屏手势抽屉排版。
+        // Portrait phone preview (To verify vertical scroll drawer positioning metrics)
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {
@@ -550,13 +542,13 @@ fun PlayerScreenPreview() {
     }
 }
 
-// 使用 @Suppress 抑制在 Composable 预览中直接构造 ViewModel 的 Lint 校验错误
+// Suppress VM forwarding checker (To allow instantiating empty ViewModel instances under preview components)
 @Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
 @Preview(showBackground = true, apiLevel = 36, widthDp = 800, heightDp = 480)
 @Composable
 fun PlayerScreenLandscapePreview() {
     APlayerTheme {
-        // 详尽的中文注释：在预览中显式提供横屏手机的窗口尺寸预设，以验证在大宽度横屏下左右分流的双栏播放器排版渲染是否准确。
+        // Landscape phone preview (To verify double-column layouts under wider screens)
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.LandscapePhone
         ) {

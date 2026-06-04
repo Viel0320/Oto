@@ -3,21 +3,21 @@ package com.viel.aplayer.logger
 import android.util.Log
 
 /**
- * 自动回退与冷启动进度自愈 Logger。
- * 统一收纳 AutoRewindManager 中与冷启动异常中断检测、
- * 自动回退进度自愈等相关的所有日志输出。
- * 使用统一 TAG "AutoRewind"，方便在 Logcat 中追踪自动回退机制的执行链路。
+ * Auto-Rewind and Cold-Start Recovery Logger
+ * Consolidates all logs from AutoRewindManager regarding cold-start abnormal shutdown detection
+ * and auto-rewind progress healing operations.
+ * Uses the tag "AutoRewind" to trace the auto-rewind execution flow in Logcat.
  */
 internal object AutoRewindLogger {
 
     private const val TAG = "AutoRewind"
 
     /**
-     * 记录冷启动检测到异常中断后自动回退进度自愈的结果。
+     * Log Cold-Start Self-Heal (Record the self-healing progress auto-rewind result after a cold-start abnormal shutdown check)
      *
-     * @param bookId 发生自愈的有声书 ID
-     * @param rewindMs 回退的毫秒数
-     * @param targetPositionMs 自愈后的最终起始进度（毫秒）
+     * @param bookId The ID of the audiobook being healed
+     * @param rewindMs The amount of rewind applied in milliseconds
+     * @param targetPositionMs The target playback position after self-healing in milliseconds
      */
     fun logColdStartSelfHeal(bookId: String, rewindMs: Long, targetPositionMs: Long) {
         Log.d(

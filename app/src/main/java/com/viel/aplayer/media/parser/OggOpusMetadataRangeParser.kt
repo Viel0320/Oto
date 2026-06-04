@@ -4,7 +4,7 @@ import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 
-// ogg/opus 的 packet、comment、granule 与图片块解析都内聚在本文件内。
+// Ogg/Opus packet, comment, granule, and picture block parsing logic is fully self-contained in this file.
 internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
         displayName.endsWith(".ogg", ignoreCase = true) ||
@@ -76,7 +76,7 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
             trackIndex = RangeAudioParserSupport.normalizeTrackIndex(
                 RangeAudioParserSupport.mergeFirstNonBlank(comments["TRACKNUMBER"], comments["TRACK"])
             ),
-            // Ogg/Opus/Vorbis comment 同样是开放字段集合，复用统一简介优先级，避免 COMMENT 抢在 SUMMARY 等字段前面。
+            // Ogg/Opus/Vorbis comment sets are open-ended; reuse the unified description priorities to prevent COMMENT taking precedence over SUMMARY.
             description = MetadataDescriptionRules.firstDescriptionFromFields(comments),
             year = RangeAudioParserSupport.mergeFirstNonBlank(comments["DATE"], comments["YEAR"]),
             durationMs = durationMs
@@ -86,8 +86,8 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
         var cursor = startOffset
         if (cursor + 8 > bytes.size) return emptyMap()
 
-        // 详尽的中文注释：对 vendorLength 长度字段进行无符号和防整数溢出的物理范围拦截，
-        // 确保读取的长度值绝对不超过当前 bytes 字节数组所能容纳的最大剩余边界
+        // Range Check (Validates vendorLength against unsigned bounds and integer overflow limits)
+        // Ensures the parsed length does not exceed the remaining capacity of the current byte buffer.
         val vendorLengthLong = RangeAudioParserSupport.run { bytes.readUInt32LE(cursor) }
         val maxRemainingVendor = bytes.size - cursor - 8 // 后续还有 commentCount 需要 4 字节
         if (vendorLengthLong < 0L || vendorLengthLong > maxRemainingVendor) {
@@ -109,8 +109,8 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
             if (cursor + 4 > bytes.size) return comments
             val lengthLong = RangeAudioParserSupport.run { bytes.readUInt32LE(cursor) }
             cursor += 4
-            // 详尽的中文注释：对每一个 comment entry 的长度进行无符号安全边界验证，
-            // length 必须完全位于 [0, bytes.size - cursor] 物理区间内，完美规避正数相加可能引起的溢出漏洞
+            // Entry Boundary Check (Performs unsigned safety checks on each comment entry length)
+            // Ensures the length falls entirely within [0, bytes.size - cursor] to prevent integer overflow vulnerabilities.
             if (lengthLong !in 0L..(bytes.size - cursor).toLong()) {
                 return comments
             }
@@ -139,8 +139,8 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
         RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
         cursor += 4
 
-        // 详尽的中文注释：对 MIME 长度字段进行防整数溢出及无符号的范围拦截限制，
-        // 保证计算后的游标物理指针不超过当前数组能容纳的最大剩余边界
+        // MIME Length Validation (Applies range constraints to the MIME length field to protect against integer overflows)
+        // Guarantees the adjusted cursor remains within the structural boundaries of the array.
         val mimeLengthLong = RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
         cursor += 4
         if (mimeLengthLong !in 0L..(bytes.size - cursor).toLong()) return null
@@ -148,8 +148,8 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
         val mimeType = bytes.copyOfRange(cursor, cursor + mimeLength).toString(StandardCharsets.UTF_8).ifBlank { null }
         cursor += mimeLength
 
-        // 详尽的中文注释：对 Description 长度字段进行无符号及防整数溢出的边界守卫校验，
-        // 防止由于异常大数或负数引起 copyOfRange 或下一级长度提取时游标位置的异常退回
+        // Description Guard (Performs boundary verification on the description length field against invalid inputs)
+        // Prevents abnormally large values or negative offsets from corrupting downstream parsing and offset indices.
         val descriptionLengthLong = RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
         cursor += 4
         if (descriptionLengthLong !in 0L..(bytes.size - cursor).toLong()) return null
@@ -159,8 +159,8 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
         if (cursor + 20 > bytes.size) return null
         cursor += 16
 
-        // 详尽的中文注释：对图片内容的 physical length 长度字段进行彻底校验，
-        // 确保其完全落在合法非空以及当前 bytes 数组的最大允许范围内，完美化解溢出逃逸漏洞
+        // Picture Data Check (Validates the picture payload size to prevent buffer overflow vulnerabilities)
+        // Verifies the payload length is positive and fits comfortably within the remaining buffer range.
         val pictureLengthLong = RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
         cursor += 4
         if (pictureLengthLong <= 0L || pictureLengthLong > (bytes.size - cursor).toLong()) return null

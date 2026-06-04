@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.player.components
 
-// 迁移至 BlurModalBottomSheet，启用原生 Window 背景模糊（API 31+）
+// Migrated to BlurModalBottomSheet, enabling native Window background blur (API 31+).
 
 import android.widget.Toast
 import androidx.compose.foundation.border
@@ -38,6 +38,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+// Import Resolution (Brings snapshotFlow into scope to observe Compose state changes in flows)
+// Added snapshotFlow import to fix unresolved reference snapshotFlow error.
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,26 +71,26 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import java.util.UUID
 
-// 
-// 5. 章节列表弹窗有状态局部隔间 ChapterListSheetStateful
-// 本隔间仅当弹窗真正可见（isVisible == true）时才渲染并计算当前章节，
-// 并完全消除对 PlayerViewModel 的依赖，改由外部传入扁平化的高频状态值以契合三层架构规范。
+// 5. Stateful local compartment for chapter list sheet (ChapterListSheetStateful).
+//
+// This compartment is only rendered and calculates the current chapter when the sheet is actually visible (isVisible == true).
+// It completely eliminates the dependency on PlayerViewModel, relying instead on flattened high-frequency state values passed from outside to align with the 3-layer architecture specifications.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChapterListSheetStateful(
-    currentPosition: Long, // 当前播放进度（毫秒），从上层无状态容器传入以解耦 ViewModel
-    totalDuration: Long, // 媒体总时长（毫秒）
+    currentPosition: Long, // The current physical playback progress (in milliseconds), passed from upper-level stateless container to decouple ViewModel.
+    totalDuration: Long, // Total media duration (in milliseconds).
     metadata: BookMetadataState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
     sheetState: SheetState,
-    // 将失效的旧模糊状态类型替换为 miuix-blur 核心的 LayerBackdrop，保证顶层宿主组件的类型传递一致性
+    // Replace the deprecated old blur state type with miuix-blur core's LayerBackdrop to ensure type delivery consistency of the top-level host component.
     backdrop: LayerBackdrop,
-    // 接收全局玻璃效果模式并传给实际的 ChapterListSheet。
+    // Receive the global glass effect mode and pass it to the actual ChapterListSheet.
     glassEffectMode: GlassEffectMode
 ) {
     if (settings.isChapterListVisible) {
-        // 根据外部传入的当前位置以及章节信息计算当前所在章节
+        // Calculate the current chapter according to the current position and chapter info passed from outside
         val currentChapter = remember(currentPosition, metadata.chapters) {
             ChapterTimeline.currentChapter(metadata.chapters.map { it.chapter }, currentPosition)
         }
@@ -103,9 +105,9 @@ fun ChapterListSheetStateful(
                 actions.content.onDismissChapterList()
             },
             sheetState = sheetState,
-            // 将播放器背景 source 共用的 backdrop 传入章节列表面板 effect。
+            // Pass the backdrop shared with the player background source to the chapter list panel effect.
             backdrop = backdrop,
-            // Material 模式会让章节列表回到原生 BottomSheet 容器层次。
+            // Material mode will return the chapter list to the native BottomSheet container layer.
             glassEffectMode = glassEffectMode
         )
     }
@@ -121,7 +123,7 @@ fun ChapterListSheet(
     onDismissRequest: () -> Unit,
     onChapterClick: (Long) -> Unit,
     backdrop: LayerBackdrop,
-    // 玻璃效果模式必须由播放页从设置状态显式传入，章节 BottomSheet 不再声明 Material 默认值。
+    // Glass effect mode must be explicitly passed from the settings state by the player page; the chapter BottomSheet no longer declares a Material default.
     glassEffectMode: GlassEffectMode,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 ) {
@@ -174,21 +176,21 @@ fun ChapterListSheet(
                 totalDuration = totalDuration,
                 onChapterClick = onChapterClick,
                 listState = listState,
-                // Preview/Inspection 路径同样传入模式，避免调试渲染和真实 BottomSheet 选中态不一致。
+                // Preview/Inspection path also passes the mode to avoid discrepancies between debug rendering and the actual BottomSheet selected state.
                 glassEffectMode = glassEffectMode
             )
         } else {
-            // 使用 miuix-blur 版 BlurModalBottomSheet 替代原 Window blur 版封装，
-            // backdrop 来自播放器 Surface 的采样源，因此章节列表能采样播放器画面形成毛玻璃。
-            // 同时保留所有原有参数：sheetState、自定义拖拽把手、零内边距等。
+            // Use the miuix-blur version of BlurModalBottomSheet to replace the original Window-blur-based wrapper.
+            // The backdrop is sourced from the player Surface's sampling, allowing the chapter list to sample the player screen to form a frosted glass effect.
+            // All original parameters (sheetState, custom drag handle, zero inner padding, etc.) are preserved.
             BlurModalBottomSheet(
                 onDismissRequest = onDismissRequest,
                 sheetState = sheetState,
-                // 传递播放器背景共用的 LayerBackdrop 采样源，以在 BottomSheet 浮层渲染高精度的磨砂玻璃效果。
+                // Pass the LayerBackdrop sampling source shared with the player background to render a high-precision frosted glass effect on the BottomSheet overlay.
                 backdrop = backdrop,
-                // 把 Material/miuix-blur 选择传入通用 BottomSheet 封装，统一控制内部 drawBackdrop 是否启用。
+                // Pass the Material/miuix-blur selection into the general BottomSheet wrapper to unify control of whether internal drawBackdrop is enabled.
                 glassEffectMode = glassEffectMode,
-                // 章节列表的模糊参数由 BlurModalBottomSheet 直接配置，不再在调用处单独传半径。
+                // The blur parameters of the chapter list are configured directly by BlurModalBottomSheet and are no longer passed separately here.
                 tonalElevation = 8.dp,
                 contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
                 dragHandle = {
@@ -211,7 +213,7 @@ fun ChapterListSheet(
                     },
                     listState = listState,
                     bottomSpacerHeight = dynamicSpacerHeight,
-                    // 章节列表内容根据 Material/miuix-blur 模式选择不同的当前章节高亮样式。
+                    // The chapter list content selects different current chapter highlight styles according to the Material/miuix-blur mode.
                     glassEffectMode = glassEffectMode
                 )
             }
@@ -228,7 +230,7 @@ fun ChapterListContent(
     listState: LazyListState,
     modifier: Modifier = Modifier,
     bottomSpacerHeight: Dp = 0.dp,
-    // 玻璃效果模式必须由章节 BottomSheet 显式传入，列表内容不再声明 Material 默认值。
+    // Glass effect mode must be explicitly passed from the chapter BottomSheet; the list content no longer declares a Material default.
     glassEffectMode: GlassEffectMode
 ) {
 
@@ -270,12 +272,12 @@ fun ChapterListContent(
                     val isMissing = bookFile?.status == com.viel.aplayer.data.db.AudiobookSchema.FileStatus.MISSING
                     val context = LocalContext.current
 
-                    // MiuixBlur 模式使用更轻的圆角玻璃高亮，Material 模式保留更明确的 primaryContainer 选中反馈。修改引用至 MiuixBlur。
+                    // MiuixBlur mode uses a lighter rounded glass highlight, while Material mode retains a more distinct primaryContainer selection feedback. Modified references to MiuixBlur.
                     val selectedContainerColor = when (glassEffectMode) {
                         GlassEffectMode.MiuixBlur -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.22f)
                         GlassEffectMode.Material -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.36f)
                     }
-                    // MiuixBlur 模式用细描边替代大面积蓝色块，让选中态在毛玻璃上更精致、更不抢背景焦点。修改引用至 MiuixBlur
+                    // MiuixBlur mode uses fine borders instead of large blue blocks, making the selected state more delicate on frosted glass and less distracting from the background. Modified references to MiuixBlur.
                     val selectedBorderModifier = if (isCurrent && glassEffectMode == GlassEffectMode.MiuixBlur) {
                         Modifier.border(
                             width = 1.dp,
@@ -285,12 +287,14 @@ fun ChapterListContent(
                     } else {
                         Modifier
                     }
-                    // 统一给当前章节行增加圆角，避免 miuix-blur 背景上出现生硬的整块矩形高亮。
+                    // Uniformly add rounded corners to the current chapter row to avoid sharp rectangular highlights on the miuix-blur background.
                     val rowShape = RoundedCornerShape(8.dp)
                     ListItem(
                         headlineContent = {
-                            // 去除了原本冗余的 “[文件不可用]” 红色文案以配合右侧精致的 Rounded.Warning 警告图标，
-                            // 同时物理拆除了无意义的 Row 容器嵌套，仅直接呈现章节标题 Text，在减少重组树深度、提升渲染性能的同时，实现了更极致的极简设计。
+                            // Simplified chapter title layout.
+                            //
+                            // Removed the redundant "[File Unavailable]" red text to cooperate with the exquisite Rounded.Warning alert icon on the right.
+                            // At the same time, the meaningless Row container nesting was physically removed to present the chapter title Text directly, reducing recomposition depth, boosting rendering performance, and achieving a more minimalist design.
                             Text(
                                 text = chapter.title,
                                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
@@ -318,15 +322,15 @@ fun ChapterListContent(
                         },
                         trailingContent = {
                             if (isMissing) {
-                                // 若该章节对应的物理文件缺失，用高保真的红色警告图标优雅地【替换】时间显示，
-                                // 不仅提供更直观、高级的警示视觉反馈，同时提升了列表整体在异常情况下的排版质感。
+                                // If the physical file corresponding to the chapter is missing, replace the duration display with a high-fidelity red warning icon.
+                                // This provides a more intuitive, premium alert feedback and enhances the overall typographic quality of the list in exception scenarios.
                                 Icon(
                                     imageVector = Icons.Rounded.Warning,
                                     contentDescription = "文件不可用",
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             } else {
-                                // 单文件内嵌章节时优先用相邻起点推导时长，避免裸 durationMs 显示不一致。
+                                // When single files contain embedded chapters, prioritize deriving duration using adjacent start times to avoid inconsistent durationMs displays.
                                 Text(
                                     text = formatTime(ChapterTimeline.duration(chapters.map { it.chapter }, chapter, totalDuration)),
                                     style = MaterialTheme.typography.labelMedium,
@@ -364,7 +368,7 @@ fun ChapterListContent(
     }
 }
 
-// 章节列表弹窗有状态桥接组件的预览，由于已完成去 ViewModel 化，可以直接传入 Mock 的进度与总时长，无需构造 ViewModel。
+// Preview of the stateful bridge component for the chapter list sheet. Since decoupling from ViewModel has been completed, mock progress and total duration can be directly passed without constructing a ViewModel.
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
@@ -430,7 +434,7 @@ fun ChapterListSheetPreview() {
                 totalDuration = sampleChapters.last().chapter.startPositionMs + sampleChapters.last().chapter.durationMs,
                 onChapterClick = {},
                 listState = rememberLazyListState(initialFirstVisibleItemIndex = 15),
-                // Preview 显式引用设置模型里的默认玻璃效果，避免 ChapterListContent 参数重新拥有局部默认值。
+                // Preview explicitly references the default glass effect in the settings model, preventing ChapterListContent parameters from having local default values again.
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
             )
         }

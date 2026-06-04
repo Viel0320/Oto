@@ -12,23 +12,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.viel.aplayer.ui.navigation.APlayerApp
 class MainActivity : ComponentActivity() {
-    // 为本次桌面 widget 改动添加注释：用 Compose 可观察状态承接外部 Intent 请求，使 onNewIntent 能在 Activity 已存在时再次拉起播放页 overlay。
+    // Widget Overlay Request (Observe external widget requests using Compose state to handle activity re-entry via onNewIntent)
     private var shouldOpenPlayerOverlay by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 为本次桌面 widget 改动添加注释：冷启动时先读取小组件传入的打开播放页请求，避免 setContent 后丢失初始 Intent 语义。
+        // Cold Start Intent Parsing (Inspect initial Intent parameters early during cold starts to avoid losing widget signals)
         shouldOpenPlayerOverlay = intent?.getBooleanExtra(EXTRA_OPEN_PLAYER_OVERLAY, false) == true
         enableEdgeToEdge()
         
-        // 禁用整个 Activity 的自动填充（包括其所有子视图）
+        // Disable Autofill Services (Disable autofill globally across the entire Activity hierarchy to bypass credentials popup)
         window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
 
         setContent {
             APlayerApp(
                 openPlayerOverlayRequest = shouldOpenPlayerOverlay,
                 onOpenPlayerOverlayConsumed = {
-                    // 为本次桌面 widget 改动添加注释：播放页 overlay 请求被 Compose 宿主消费后复位，防止普通重组重复打开。
+                    // Consume Widget Request (Reset overlay state to prevent repeated triggers on recomposition)
                     shouldOpenPlayerOverlay = false
                 }
             )
@@ -38,17 +38,17 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // 为本次桌面 widget 改动添加注释：应用已经在前台或后台任务栈中时，小组件点击会走这里，直接转换成一次新的 overlay 打开请求。
+        // Re-entry Intent Interception (Process in-flight widget intents when Activity resides in background tasks)
         if (intent.getBooleanExtra(EXTRA_OPEN_PLAYER_OVERLAY, false)) {
             shouldOpenPlayerOverlay = true
         }
     }
 
     companion object {
-        // 为本次桌面 widget 改动添加注释：集中定义小组件打开播放页 overlay 的 Intent extra，避免不同入口手写字符串造成漂移。
+        // Widget Intent Constants (Standardize Intent key names to prevent spelling drifting across modules)
         const val EXTRA_OPEN_PLAYER_OVERLAY = "com.viel.aplayer.extra.OPEN_PLAYER_OVERLAY"
 
-        // 为本次桌面 widget Glance 迁移添加注释：为 Glance actionStartActivity 构造复用任务栈的 Intent，点击非按钮区域即可回到应用并拉起播放页 overlay。
+        // Glance App Entry Mapping (Build activity Intent to launch back into the player overlay from the Glance widget)
         fun createOpenPlayerOverlayIntent(context: Context): Intent =
             Intent(context, MainActivity::class.java)
                 .putExtra(EXTRA_OPEN_PLAYER_OVERLAY, true)

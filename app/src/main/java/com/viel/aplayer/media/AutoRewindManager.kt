@@ -11,34 +11,39 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * 自动回退管理类 (AutoRewindManager)
- * 负责管理自动回退相关的状态变量、设置参数读取、在暂停时应用回退，以及冷启动进度自愈等核心业务逻辑。
- * 遵循高内聚、低耦合的设计原则，从 PlaybackManager 中独立出来，方便单独维护与扩展。
+ * Automatic Rewind Coordinator (Manage playback progress rewinds and state corrections)
+ *
+ * Coordinates state variables, parses configuration limits, applies rewinds upon pause,
+ * and executes progress restoration at cold start. Designed for high cohesion to uncouple
+ * secondary playback features from PlaybackManager.
  */
 @OptIn(UnstableApi::class)
 class AutoRewindManager private constructor(context: Context) {
 
-    // 应用程序的全局上下文，避免内存泄漏
+    // Application Environment Context (Prevent memory leaks by capturing applicationContext)
     private val appContext = context.applicationContext
 
-    // 实例化设置仓库，用于异步读取和写入用户的回退设置以及播放中断标志
+    // Configuration Storage Reference (Access settings flow and toggle interruption state flags)
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
 
     /**
-     * 临时状态标志：控制是否忽略下一次自动回退动作。
-     * 当为 true 时，下一次暂停事件将不会触发回退，用以拦截由于音频焦点临时丢失、主动停止或切换书籍导致的误回退。
+     * Bypassing Flag Control (Temporarily suppress next rewind action)
+     *
+     * When set to true, the subsequent pause trigger is bypassed. Helps avoid redundant rewinds
+     * caused by transient audio focus loss, active user pause, or track switches.
      */
     var ignoreNextAutoRewind: Boolean = false
 
     /**
-     * 处理播放暂停状态跃迁时的自动回退逻辑。
-     * 当检测到正在播放状态转为暂停状态时调用。
-     * 
-     * @param controller 媒体控制器实例，用于进行具体的时间定位寻址
-     * @param currentPlan 当前书籍的播放计划，包含多分轨文件列表，用于跨音轨高精度定位
-     * @param scope 协程作用域，用于执行异步读取设置与进度落盘的操作
-     * @param onProgressUpdated 回调函数，当回退完成后，用于通知主控制器刷新当前的全局进度流
-     * @param onSaveProgress 回调函数，当回退完成后，用于立即将回退后的新进度落盘持久化保存到数据库中
+     * Pause Lifecycle Ingestion (Handle progress rewinds upon state transition to pause)
+     *
+     * Invoked immediately when the player transitions from playing to paused state.
+     *
+     * @param controller The media controller interface used to seek time offsets.
+     * @param currentPlan The active playback structure containing multi-file metrics for precision mapping.
+     * @param scope The coroutine scope governing settings retrieval and progress persistence.
+     * @param onProgressUpdated Notification callback dispatched when the seek operation finishes.
+     * @param onSaveProgress Action callback triggering immediate database serialization.
      */
     fun handlePause(
         controller: MediaController?,
@@ -47,19 +52,22 @@ class AutoRewindManager private constructor(context: Context) {
         onProgressUpdated: (MediaController) -> Unit,
         onSaveProgress: () -> Unit
     ) {
-        // 如果检测到 ignoreNextAutoRewind 为 true，说明此番暂停因临时失去焦点而被动触发，我们应跳过回退逻辑，并将标志重置为 false。
+        // Suppression Verification (Check if the rewind should be bypassed)
+        // If ignoreNextAutoRewind is active, this pause was triggered transiently. Reset the flag and abort.
         if (ignoreNextAutoRewind) {
             ignoreNextAutoRewind = false
             return
         }
 
-        // 调用内部的核心自动回退寻址定位逻辑
+        // Trigger Core Action (Execute seek and database synchronization)
         applyAutoRewind(controller, currentPlan, scope, onProgressUpdated, onSaveProgress)
     }
 
     /**
-     * 执行暂停自动回退功能的核心算法逻辑。
-     * 异步读取最新的回退时长设置，并结合当前的播放状态与多分轨计划，执行单轨或跨音轨的精准定位回退。
+     * Execute Auto-Rewind Offset (Perform calculations to adjust playback head backwards)
+     *
+     * Asynchronously retrieves the current rewind duration constraints, computes global timeline
+     * offsets for multi-file configurations, and updates the media controller position.
      */
     private fun applyAutoRewind(
         controller: MediaController?,
@@ -71,34 +79,34 @@ class AutoRewindManager private constructor(context: Context) {
         if (controller == null) return
         scope.launch {
             try {
-                // 挂起并获取 DataStore 中的最新设置快照，确保读取到最新的回退时长
+                // Settings Synchronization (Ensure configuration values are fresh)
                 val settings = settingsRepository.settingsFlow.first()
                 val rewindSeconds = settings.autoRewindSeconds
                 if (rewindSeconds > 0) {
                     val rewindMs = rewindSeconds * 1000L
                     
                     if (plan != null && plan.files.isNotEmpty()) {
-                        // 如果当前存在多文件播放计划，在全局大维度上计算当前进度，并执行精准的跨文件边界回退，
-                        // 彻底解决单文件回退时被强制截断在 0 秒而无法回退到上一音轨末尾的体验痛点。
+                        // Multi-Track Rewinding (Calculate global book timeline to cross boundaries)
+                        // Computes global offset to handle crossing track boundaries without stuck at 0 seconds.
                         val fileIndex = controller.currentMediaItemIndex.coerceIn(0, plan.files.lastIndex)
                         val positionInFile = controller.currentPosition.coerceAtLeast(0L)
                         val currentGlobalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
                         val targetGlobalPos = (currentGlobalPos - rewindMs).coerceAtLeast(0L)
                         
-                        // 根据回退后的全局目标进度，计算出映射在分轨中的文件索引和文件内偏移位置
+                        // Map to Track Targets (Identify destination track file index and internal track duration)
                         val (targetFileIndex, targetPosInFile) = PositionMapper.globalToFilePosition(targetGlobalPos, plan.files)
-                        // 跨文件定位可能导致媒体源发生变更，因此必须使用 index + file-position 执行 seek
+                        // Execute Multi-Track Seek (Dispatch index change to alter active MediaItem)
                         controller.seekTo(targetFileIndex, targetPosInFile)
                     } else {
-                        // 兜底单文件播放场景下的普通回退寻址。
+                        // Single-Track Supporter (Seek backwards relative to current track time)
                         val currentPos = controller.currentPosition
                         val targetPos = (currentPos - rewindMs).coerceAtLeast(0L)
                         controller.seekTo(targetPos)
                     }
                     
-                    // 回退定位成功后，触发外部刷新进度与状态流
+                    // Pipeline State Notification (Force client components to re-collect position state)
                     onProgressUpdated(controller)
-                    // 立即落盘落库，消除强杀、崩溃导致的位置丢失风险
+                    // Persistence Dispatch (Commit positions to database immediately to avoid data loss)
                     onSaveProgress()
                 }
             } catch (e: Exception) {
@@ -108,19 +116,18 @@ class AutoRewindManager private constructor(context: Context) {
     }
 
     /**
-     * 执行冷启动异常中断自愈逻辑。
-     * 当应用冷启动时，在后台协程中调用此方法。
-     * 读取 AppSettings，如果上次播放异常中断且开启了回退秒数，
-     * 则查询最后一次播放的进度，并对其进行回退补偿。
+     * Cold Start Restoration (Perform progress self-healing for abnormally interrupted tracks)
+     *
+     * Triggered during application launch to offset positions if the previous session closed unexpectedly.
+     * Computes target offsets and commits the corrected position to DB.
      */
      suspend fun performColdStartSelfHealing() {
         try {
-            // 挂起并获取 DataStore 中的最新设置快照，确保数据一致性。
+            // Read Interrupted State (Acquire settings configuration)
             val settings = settingsRepository.settingsFlow.first()
             if (settings.isLastPlaybackInterrupted && settings.autoRewindSeconds > 0) {
-                // 
-                // 在 M4.3 重构中，摒弃重量级的 LibraryRepository，通过 Application 的 container 
-                // 获取解耦后的只读网关 bookQueryGateway 以及进度网关 progressGateway。
+                // Decoupled Gateway Ingestion (Resolve dependencies via the Application's dependency container)
+                // Obtains BookQueryGateway and ProgressGateway, bypassing old heavy repositories.
                 val container = (appContext as com.viel.aplayer.APlayerApplication).container
                 val bookQueryGateway = container.bookQueryGateway
                 val progressGateway = container.progressGateway
@@ -156,10 +163,10 @@ class AutoRewindManager private constructor(context: Context) {
                     )
                 }
                 
-                // 自愈完成后瞬间重置异常中断标志为 false，保障状态正确复位。
+                // State Rejection Toggle (Clear interrupted flag upon successful correction)
                 settingsRepository.updateLastPlaybackInterrupted(false)
             } else {
-                // 若非异常中断恢复，依然主动重置该状态为 false 以免残留脏数据污染。
+                // Clear Stale States (Reset flag to prevent legacy contamination)
                 settingsRepository.updateLastPlaybackInterrupted(false)
             }
         } catch (e: Exception) {
@@ -172,7 +179,7 @@ class AutoRewindManager private constructor(context: Context) {
         private var INSTANCE: AutoRewindManager? = null
 
         /**
-         * 获取单例实例，提供全局一致的状态控制与线程安全保证
+         * Singleton Provider (Ensure thread-safe double-checked instantiation)
          */
         fun getInstance(context: Context): AutoRewindManager {
             return INSTANCE ?: synchronized(this) {

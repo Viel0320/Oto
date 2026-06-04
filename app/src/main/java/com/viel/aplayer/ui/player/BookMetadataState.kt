@@ -6,40 +6,39 @@ import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.player.components.SubtitleLine
 
 /**
- * 当前加载的有声书元数据状态。
- * 仅在切换书籍或元数据解析完成后才会发生变化，属于低频更新数据。
+ * Book metadata state (Model caching static metadata values of loaded audiobook)
+ * Represents low-frequency view properties such as title, author, and chapters lists.
  */
 data class BookMetadataState(
-    /** 书籍的唯一标识 ID */
+    /** Book unique identifier (To represent book entity primary key) */
     val id: String = "",
-    /** 书名 */
+    /** Book title text (To display book title) */
     val title: String = "",
-    /** 作者 */
+    /** Book author name (To display author credits) */
     val author: String = "",
-    /** 播讲人 */
+    /** Audiobook narrator name (To display narrator credits) */
     val narrator: String = "",
-    /** 封面图的本地路径 */
+    /** Original cover path (To store absolute local file coordinates for cover artwork) */
     val coverPath: String? = null,
-    /** 缩略图的本地路径 */
+    /** Thumbnail cover path (To store absolute local file coordinates for thumbnail) */
     val thumbnailPath: String? = null,
-    /** 封面物理文件最后更新的时间戳，用以在封面物理自愈生成后强制打破 Compose 新旧状态比较拦截，强推 UI 线程重绘刷新 */
+    /** Cover modification timestamp (To trigger view recompositions when cover assets are self-healed) */
     val coverLastUpdated: Long = 0L,
-    /** 章节列表（嵌入关联物理文件就绪状态） */
+    /** Track chapters (To store audiobook chapter boundaries with file availability status) */
     val chapters: List<ChapterWithBookFile> = emptyList(),
-    /** 字幕/歌词行列表 */
+    /** External subtitle lines (To store parsed subtitle lists) */
     val subtitles: List<SubtitleLine> = emptyList(),
-    /** 用户添加的书签列表 */
+    /** User saved bookmarks (To store custom bookmark positions) */
     val bookmarks: List<BookmarkEntity> = emptyList(),
-    /** 封面提取出的主色调（ARGB），用于界面背景适配 */
+    /** Backdrop dominant color (To store calculated backdrop ARGB color for layout styling) */
     val backgroundColorArgb: Int = ImageProcessor.DEFAULT_BACKGROUND_ARGB
 ) {
-    /** 是否存在有效的播放轨道 */
+    /** Active track validator (To verify if track metadata is loaded and valid) */
     val hasActiveTrack: Boolean
         get() = title.isNotEmpty() && title != "Unknown"
 
     /**
-     * 根据总时长计算章节在进度条上的标记位置（0.0 - 1.0）。
-     * @param totalDuration 书籍的总时长（毫秒）
+     * Map chapter markers (To calculate fractional chapter starts between 0.0 and 1.0)
      */
     fun getChapterMarkers(totalDuration: Long): List<Float> {
         return if (totalDuration > 0) {

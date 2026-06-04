@@ -39,91 +39,95 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
 /**
- * 简单的依赖注入容器，用于统一管理与初始化全局仓库与高层跨域用例。
+ * Global Dependency Container (Manages lifecycle and instantiation of core gateway services)
+ * Serves as a lightweight DI provider for unified coordination across application domains.
  */
 interface AppContainer : java.io.Closeable {
     val settingsRepository: AppSettingsRepository
     
     /**
-     * 跨域编排用例：注销并清理书库根目录（安全协调播放状态与物理数据擦除）
+     * Cross-Domain Use Case (Unregister and purge library root coordinates)
+     * Coordinates active playback teardown and background physical data cleanup.
      */
     val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
 
     /**
-     * 新的精细化业务门面：聚合书籍查询、播放进度及后台扫描子系统。
+     * High-Level Library Facade (Unified entry point aggregating core domain services)
+     * Simplifies routing to book query, progress database syncing, and scanning sub-systems.
      */
     val libraryFacade: LibraryFacade
 
     /**
-     * 有声书及书签查询与维护分域网关。
+     * Book Query Gateway (Read-write router for audiobook queries and bookmarks)
      */
     val bookQueryGateway: BookQueryGateway
 
     /**
-     * 播放位置与多音轨物理状态网关。
+     * Progress Sync Gateway (State router for playback position and audio file status)
      */
     val progressGateway: ProgressGateway
 
     /**
-     * 媒体重扫触发及定时任务调度网关。
+     * Media Scanner Gateway (Scheduler interface for triggering library updates)
      */
     val scanScheduler: ScanScheduler
 
     /**
-     * 书库根目录管理及维护分域网关。
+     * Library Root Gateway (Maintenance interface for directory registrations)
      */
     val libraryRootGateway: LibraryRootGateway
 
     /**
-     * 封面元数据提取及背景色维护分域网关。
+     * Cover Metadata Gateway (Domain router for image extraction and backdrop color caching)
      */
     val coverGateway: CoverGateway
 
     /**
-     * 搜索检索词历史维护分域网关。
+     * Search History Gateway (Persistence management for keyword lookup logs)
      */
     val searchHistoryGateway: SearchHistoryGateway
 
     /**
-     * 运行期唯一的底层虚拟文件系统物理 I/O 读取通道单例。
+     * Virtual File System Interface (Single I/O access point for file path abstractions)
      */
     val vfsFileInterface: VfsFileInterface
 
     /**
-     * 供播放层使用的音频物理文件快速检索接口。
+     * Playback File Resolver (Lookup utility to associate media IDs with physical files)
      */
     val playbackFileLookup: PlaybackFileLookup
 
     /**
-     * 运行期唯一的媒体播放控制与状态管理器单例，作为容器属性收纳以提升全局可测试性与解耦架构。
+     * Playback Manager Instance (Singleton registry for media controller coordination)
+     * Promotes decoupled architecture and simplifies component isolation during unit testing.
      */
     val playbackManager: com.viel.aplayer.media.PlaybackManager
 
     /**
-     * 运行期唯一的搜索历史记录 DataStore 存储单例，作为容器属性收纳以提升全局可测试性与解耦架构。
+     * Search History Storage (Singleton reference to search term DataStore backend)
      */
     val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore
 
     /**
-     * 运行期唯一的音频播放进度自愈与自动回退进度管理器单例，作为容器属性收纳以提升全局可测试性与解耦架构。
+     * Auto Rewind Controller (Singleton manager tracking playback progress self-healing)
      */
     val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
 
     /**
-     * ABS catalog mirror 专用同步器。
-     * 不进入 LibraryFacade，避免把远端 REST 细节扩散到现有聚合门面。
+     * ABS Catalog Synchronizer (Dedicated mirror processor for Audiobookshelf servers)
+     * Kept separate from LibraryFacade to prevent remote REST details leaking into the local domain.
      */
     val absCatalogSynchronizer: AbsCatalogSynchronizer
 
     /**
-     * ABS 远端播放会话同步器。
-     * 只处理 play/sync/close，会话外的本地进度真相仍在现有进度链。
+     * ABS Playback Session Syncer (Coordinator for remote server progress handshakes)
+     * Restricts operations to play/sync/close events, keeping local database records as the source of truth.
      */
     val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer
 
     /**
-     * ABS 同步应用级协调器。
-     * 手动同步与“添加服务器后自动同步”都通过它在应用级作用域中执行，避免因为设置页销毁而中断。
+     * Application-Level ABS Sync Coordinator (Coordinates background server synchronization)
+     * Ensures sync events persist beyond SettingsActivity lifecycle, preventing unexpected interruptions.
      */
     val absSyncTaskCoordinator: AbsSyncTaskCoordinator
 }
@@ -166,7 +170,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    // 延迟实例化用于运行期音轨物理可读性检测与异常跳轨处理的就绪自愈管理器单例
+    // Playback Reachability Monitor (Lazily instantiates the reachability controller to verify tracks and handle skips)
     private val playbackReachabilityManager: PlaybackReachabilityManager by lazy {
         PlaybackReachabilityManager(
             context,
@@ -180,8 +184,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     /**
-     * 延迟实例化注销书库根目录用例。
-     * 向其直接注入播放管理器、书籍查询网关和书库根管理网关，彻底消除了对旧仓库的直接依赖。
+     * Root Library Deletion Service (Lazily instantiates root deletion orchestrator)
+     * Injects PlaybackManager, BookQueryGateway, and LibraryRootGateway, removing legacy repository dependencies.
      */
     override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
         DeleteLibraryRootUseCase(
@@ -191,27 +195,27 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    // 延迟实例化物理封面图沙盒物理提取及裁剪器单例以直接提供封面处理能力
+    // Sandboxed Cover Extractor (Lazily instantiates helper to parse cover art and apply graphics crops)
     private val coverExtractor: CoverExtractor by lazy {
         CoverExtractor(context.applicationContext)
     }
 
-    // 延迟实例化多媒体音频物理元数据标签解析提取器单例，注入运行期 VFS 单例以避免 MetadataResolver 自行获取 AppDatabase
+    // Audio Metadata Resolver (Lazily instantiates tag parser, injecting the VFS instance to avoid direct DB accesses)
     private val metadataResolver: MetadataResolver by lazy {
         MetadataResolver(vfsFileInterface)
     }
 
-    // 延迟实例化有声书详情物理授权及可达性验证器单例以直接提供详情可用性判断
+    // Detail Availability Verifier (Lazily instantiates component verifying audiobook accessibility)
     private val detailAvailabilityChecker: DetailAvailabilityChecker by lazy {
         DetailAvailabilityChecker(context.applicationContext)
     }
 
-    // 延迟实例化音频分轨单文件可用性物理验证器单例以直接提供单轨可用性探测
+    // Single Track Checker (Lazily instantiates reachability checker for individual media files)
     private val availabilityChecker: AvailabilityChecker by lazy {
         AvailabilityChecker(context.applicationContext)
     }
 
-    // 延迟实例化字幕定位与流式 VFS 检索解析门面单例以直接提供字幕检索与解析
+    // Subtitle Resolver Facade (Lazily instantiates subtitle locator and file reader utility)
     private val subtitleFileResolver: SubtitleFileResolver by lazy {
         SubtitleFileResolver(
             context = context.applicationContext,
@@ -220,8 +224,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    // 延迟实例化封面物理丢失自动重构与自愈助手单例。
-    // 在内部创建专属的后台 IO 协程作用域以防主线程卡死，并注入共享的虚拟文件系统接口。
+    // Cover Self-Healing Agent (Lazily instantiates the self-healing utility restoring missing covers)
+    // Creates a dedicated IO CoroutineScope internally to prevent blocking UI main threads.
     private val coverRecoveryHelper: CoverRecoveryHelper by lazy {
         CoverRecoveryHelper(
             context = context.applicationContext,
@@ -233,12 +237,13 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**延迟初始化有声书及章节书签只读只写网关服务。
-     * 直接向其注入所需的数据库各个精细 DAO 接口与全局封面丢失自愈助手单例，解耦对旧有上帝类仓库与物理文件解析器的依赖。
+    /**
+     * Book Query Service (Lazily instantiates the read-write gateway service for audiobooks)
+     * Injects specific DAO interfaces and the cover self-healing helper, decoupling legacy repository logic.
      */
     override val bookQueryGateway: BookQueryGateway by lazy {
-        // 详尽的中文注释：在此向 BookQueryService 构造参数中注入全局 ApplicationContext 实例，
-        // 供其内部在构建 PlaybackPlan 时，能够通过 FileProvider 对封面图片物理路径进行安全解析与 content:// 协议 URI 转换。
+        // Safe Content URI Resolution (Inject the global ApplicationContext into BookQueryService constructor)
+        // Enables FileProvider to map absolute cached image paths to content:// schemes when constructing PlaybackPlans.
         BookQueryService(
             context = context.applicationContext,
             bookDao = database.bookDao(),
@@ -249,8 +254,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**延迟初始化播放位置与进度落库服务网关。
-     * 向其直接注入 database.bookDao() 以及就绪自愈管理器，解耦对旧有 PlaybackHistoryRepository 仓库的直接依赖。
+    /**
+     * Playback Progress Service (Lazily instantiates progress storage gateway)
+     * Injects database.bookDao() and the reachability manager to bypass legacy history repository dependencies.
      */
     override val progressGateway: ProgressGateway by lazy {
         ProgressService(
@@ -259,8 +265,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**延迟初始化前后台物理重扫与扫描调度网关服务。
-     * 直接向其注入 applicationContext、全局封面丢失自愈助手与全局 PlaybackManager 事件总线，消除对旧有 BookLibraryRepository 的直接依赖。
+    /**
+     * Background Scanner Service (Lazily instantiates background media scanner service)
+     * Injects context, cover healing agent, and PlaybackManager bus, replacing legacy library repositories.
      */
     override val scanScheduler: ScanScheduler by lazy {
         ScanService(
@@ -271,8 +278,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    // 延迟实例化新创建的书库根目录网关。
-    // 向其直接注入 DAO 接口与扫描调度器，彻底避免了旧上帝仓库的薄适配委托。
+    // Library Root Service (Lazily instantiates root directory maintenance gateway)
+    // Injects database DAOs and ScanScheduler, avoiding thin delegator patterns in legacy repositories.
     override val libraryRootGateway: LibraryRootGateway by lazy {
         LibraryRootService(
             context = context,
@@ -282,8 +289,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**延迟实例化新创建的封面网关服务。
-     * 直接向其注入 bookDao、chapterDao 接口以及六个精细化的解耦物理处理与自愈单例，彻底摆脱了对旧上帝仓库的薄适配委托。
+    /**
+     * Cover Service Orchestrator (Lazily instantiates covers and subtitles resolving gateway)
+     * Aggregates bookDao, chapterDao, and the six decoupled helper singletons to clean up legacy dependencies.
      */
     override val coverGateway: CoverGateway by lazy {
         CoverService(
@@ -299,8 +307,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**延迟实例化新创建的搜索历史网关服务。
-     * 直接向其注入检索历史存储 DataStore 门面，彻底消除了对旧上帝仓库的直接依赖。
+    /**
+     * Search History Service (Lazily instantiates search queries storage gateway)
+     * Injects SearchHistoryStore directly, decoupling search logic from the legacy repository.
      */
     override val searchHistoryGateway: SearchHistoryGateway by lazy {
         SearchService(
@@ -308,8 +317,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**聚合新高层媒体库业务门面组件。
-     * 直接向其组合式注入六大精细化分域 Gateway 网关，无需再传递 any legacy 废弃仓库依赖，达成终极物理重构。
+    /**
+     * Unified Media Library Facade (Composes the six domain-specific gateways under one unified facade)
+     * Avoids passing any legacy repositories, completing the decoupling of core storage operations.
      */
     override val libraryFacade: LibraryFacade by lazy {
         LibraryFacade(
@@ -323,7 +333,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     /**
-     * 延迟初始化运行期唯一的虚拟文件系统物理数据通道单例，供前台播放与恢复机制共享。
+     * Virtual File System Channel (Lazily instantiates the VfsFileInterface singleton)
+     * Serves as the single channel for virtual audio path mapping across playback and scan workflows.
      */
     override val vfsFileInterface: VfsFileInterface by lazy {
         VfsFileInterface(
@@ -333,7 +344,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     /**
-     * 延迟初始化供播放器数据源使用的音频文件数据库查询服务。
+     * Playback File Lookup Service (Lazily instantiates default database lookup service)
      */
     override val playbackFileLookup: PlaybackFileLookup by lazy {
         com.viel.aplayer.media.DefaultPlaybackFileLookup(
@@ -361,7 +372,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val absSyncTaskCoordinator: AbsSyncTaskCoordinator by lazy {
-        // 详尽的中文注释：在此向 AbsSyncTaskCoordinator 注入 playbackManager 实例以允许后台同步任务成功或失败时通过 PlaybackManager 全局总线发射 UiEvent.ShowToast，彻底解除对 Context 的硬编码依赖，保持架构纯净。
+        // Decoupled Background Toast Dispatcher (Inject PlaybackManager into AbsSyncTaskCoordinator to handle toast events)
+        // Dispatches UiEvent.ShowToast via the global event bus, eliminating direct dependencies on UI Activity contexts.
         AbsSyncTaskCoordinator(
             libraryRootDao = database.libraryRootDao(),
             synchronizer = absCatalogSynchronizer,
@@ -370,8 +382,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override fun close() {
-        // 详尽的中文注释：在容器关闭时，批量协同清理并取消内部所有存在私有后台协程作用域的网关服务，
-        // 物理打断后台 Room/VFS/扫描监听数据流，保证生命周期释放的完整度，消灭内存垃圾泄露
+        // Resource Cleanup Coordinator (Coordinate teardown across domain services during container release)
+        // Cancels active coroutine jobs and tears down listeners on Room, VFS, and file observers to prevent memory leaks.
         (bookQueryGateway as? java.io.Closeable)?.close()
         (progressGateway as? java.io.Closeable)?.close()
         (scanScheduler as? java.io.Closeable)?.close()

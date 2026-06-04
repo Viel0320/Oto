@@ -5,21 +5,22 @@ import com.viel.aplayer.media.AudiobookMetadata
 import com.viel.aplayer.media.parser.EmbeddedCoverBytes
 import java.io.InputStream
 
-// Audio metadata extracted during one scan; kept package-local so orchestration and heuristics share one shape.
+// Audio metadata: Extracted during one scan; kept package-local so orchestration and heuristics share one shape.
 internal data class AudioMetadataRef(
     val file: FileRef,
     val metadata: AudiobookMetadata,
-    // 导入期 MP4 元数据解析已经读到的 covr 封面随音频引用传递，后续组书可直接写缓存而不重复 Range 读取。
+    // Embedded Cover Transit: Pass pre-extracted cover payload alongside metadata references.
+    // Avoids redundant range reads when serializing covers downstream.
     val embeddedCover: EmbeddedCoverBytes? = null
 )
 
-// Final heuristic plan consumed by ImportOrchestrator when it creates the generated audiobook draft.
+// Final heuristic plan: Consumed by ImportOrchestrator when it creates the generated audiobook draft.
 internal data class HeuristicAggregationPlan(
     val title: String,
     val chapters: List<HeuristicChapterPlan>,
     val ruleVersion: String,
-    // 启发式聚合 parser 现在直接挂出统一 sidecar 结果，
-    // 后续导入阶段不再自己对聚合书做第二次 txt / 图片匹配。
+    // Pre-Resolved Sidecars (Attach resolved description and artwork files directly)
+    // Prevents redundant evaluations during import workflow orchestration.
     val sidecarDescription: String? = null,
     val sidecarCoverFile: FileRef? = null
 )
@@ -83,7 +84,7 @@ internal object HeuristicAudioAggregator {
     }
 
     private fun generatedBookTitle(files: List<AudioMetadataRef>): String {
-        // 启发式默认标题从 VFS 父路径提取，不再读取旧父目录 URI。
+        // Title Resolve Fallback (Derive default name from virtual folder node path)
         val parentName = files.first().file.parentSourcePath.substringAfterLast('/').ifBlank { "Generated audiobook" }
         // Heuristic groups created by sameAlbum should display the shared album as the book title.
         return commonNonBlank(files.map { it.metadata.album })

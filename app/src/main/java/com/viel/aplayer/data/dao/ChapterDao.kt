@@ -15,19 +15,19 @@ interface ChapterDao {
     suspend fun insertChapters(chapters: List<ChapterEntity>)
 
     /**
-     * 响应式观察特定书籍的所有章节列表（自动一对一拼装物理音频分轨状态）。
+     * Observe Chapters Responsively (Emits chapter composition list paired with physical file states)
      * 
-     * 添加 @Transaction 注解以确保 Room 对包含 @Relation 字段的嵌套关系实体进行原子性多表联查，
-     * 避免在高并发下因为数据表未同步修改而导致不一致结果。
+     * Annotated with @Transaction to enforce atomic multi-table queries for nested @Relation fields,
+     * preventing UI discrepancies caused by concurrent DB updates during scans.
      */
     @Transaction
     @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY `index` ASC")
     fun getChaptersForBook(bookId: String): Flow<List<ChapterWithBookFile>>
 
     /**
-     * 同步获取特定书籍的所有章节列表（自动一对一拼装物理音频分轨状态）。
+     * Retrieve Chapters Synchronously (Fetches chapter composition list paired with physical file states)
      * 
-     * 添加 @Transaction 注解以确保嵌套的 BookFile 关联查询在同一个事务内原子性完成。
+     * Annotated with @Transaction to guarantee nested BookFile queries execute atomically in one database action.
      */
     @Transaction
     @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY `index` ASC")
@@ -37,8 +37,9 @@ interface ChapterDao {
     suspend fun deleteChaptersForBook(bookId: String)
 
     /**
-     * 详尽的中文注释：在同一个 Room 写事务中原子地清空特定有声书的旧章节关联并批量录入重扫得到的全新章节。
-     * 无论是在协程被取消还是物理插入发生异常时，都能确保该书不会出现章节“数据空虚”的尴尬，并根除 Flow 收集端闪烁空状态的严重问题。
+     * Atomic Chapter Replacement (Deletes old chapter entities and batches new entries in a single transaction)
+     * Guarantees that even if operations get cancelled mid-execution, the audiobook metadata remains consistent,
+     * resolving empty-state flickering issues observed on Flow collectors.
      */
     @Transaction
     suspend fun replaceChapters(bookId: String, chapters: List<ChapterEntity>) {

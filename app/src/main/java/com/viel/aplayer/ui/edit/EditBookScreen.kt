@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.edit
 
-// 详尽的中文注释：显式导入 ime Insets 依赖，以支持在布局与组件中排除软键盘高度，完美避免多重避让冲突
+// Explicitly import IME window insets to exclude virtual soft-keyboard height from visual layouts, avoiding multiple offset adjustments.
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -83,18 +83,18 @@ import top.yukonga.miuix.kmp.blur.textureBlur
 import java.io.File
 
 /**
- * 书籍编辑屏幕的 Stateless 渲染 Composable 视图。
- * 此组件已被彻底解耦，它不再直接持有 ViewModel，
- * 而是接收外部传入的 BookEntity 实体以及当用户修改并触发保存时的 onSave 回调函数。
- * 它仅保留编辑页面内的高频高内聚的临时 UI 交互状态（如输入文本及封面临时文件物理路径）。
- * 支持磨砂玻璃视效以及向原生 Material 3 不透明样式的高性能无损回退。
+ * Edit Book Screen: Stateless Composable layout for modification of audiobook metadata details.
  *
- * @param book 要编辑的书籍实体，为 null 时将显示加载圈
- * @param onNavigationBack 当用户点击返回按钮或者手势返回时执行的回调，用于优雅清理临时文件并退出
- * @param onSave 当用户确认修改并点击保存按钮时的业务回调，向上派发完整的修改元数据及新封面临时路径
- * @param glassEffectMode 系统当前的玻璃毛玻璃特效配置模式
- * @param modifier 外部修饰符
- * @param detailBackdrop 详情页渲染画面所输出的物理层级模糊采样源
+ * Fully decoupled component that receives the targeted `BookEntity` and saves changes via the `onSave` callback.
+ * Restricts internal mutable state to fast, local input properties (e.g. text input fields and path values).
+ * Supports standard Material 3 color backgrounds and adapts smoothly to glassmorphic visual blurs.
+ *
+ * @param book The target book entity. Shows a loading indicator if null.
+ * @param onNavigationBack Callback invoked when the user exits or cancels editing, ensuring clean-up of temp files.
+ * @param onSave Action callback triggered on confirm save, distributing updated parameters and cover paths.
+ * @param glassEffectMode Specifies the glassmorphic rendering style.
+ * @param modifier The modifier layout chain.
+ * @param detailBackdrop The backdrop sampling source used for glassmorphic layers.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,13 +106,13 @@ fun EditBookScreen(
     modifier: Modifier = Modifier,
     detailBackdrop: LayerBackdrop? = null
 ) {
-    // 获取当前的 Android 上下文环境，用于文件操作和内容解析器调用
+    // Android Context (Needed for file handling and resolution operations)
     val context = LocalContext.current
 
-    // 声明临时封面绝对路径状态，用以持有用户选择并按最短边居中裁剪为正方形后的临时文件路径
+    // Temp Cover Image Reference (Tracks the path of user-cropped square cover preview)
     var tempCoverPath by remember { mutableStateOf<String?>(null) }
 
-    // 构建系统图库选择器 Launcher，当用户选中图片后，在 cache 目录生成 temp 文件，调用 cropToSquareAndSave 裁剪并刷新预览路径
+    // Image Picker Contract (Launches photo picker, crops image, and updates temporary cache path)
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: android.net.Uri? ->
@@ -120,7 +120,7 @@ fun EditBookScreen(
             book?.let { currentBook ->
                 val tempFile = File(context.cacheDir, "temp_cover_${currentBook.id}_${System.currentTimeMillis()}.jpg")
                 if (cropToSquareAndSave(context, inputUri, tempFile)) {
-                    // 若之前已存在另一个临时封面，先物理删除旧的临时文件以防止垃圾堆积
+                    // Disk Cleanup (Purge former temporary assets to avoid cache growth)
                     tempCoverPath?.let { oldPath ->
                         val oldFile = File(oldPath)
                         if (oldFile.exists()) {
@@ -133,7 +133,7 @@ fun EditBookScreen(
         }
     }
 
-    // 统一封装的退出/取消返回函数，物理清理裁剪后产生的 temp 临时文件，确保零文件垃圾残留
+    // Exit handler (Cleans up temporary files on cancel actions and navigates back)
     val handleCancel = remember(tempCoverPath) {
         {
             tempCoverPath?.let { path ->
@@ -146,28 +146,28 @@ fun EditBookScreen(
         }
     }
 
-    // 定义预测性返回手势在书籍编辑页的激活状态与百分比进度，用以驱动视觉过渡动画
+    // Predictive Back State (Observes system gestures to drive exit animations)
     var isPredictiveBackActive by remember { mutableStateOf(false) }
     var predictiveBackProgress by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
 
-    // 拦截并接管系统预测性返回手势，收集返回进度以渲染平移动画，点击返回时物理删除临时文件并优雅退出
+    // Predictive Back Interceptor (Consumes progress values, handles file cleaning on pop)
     androidx.activity.compose.PredictiveBackHandler(enabled = book != null) { progressFlow ->
         try {
-            // 收集返回进度事件以驱动视觉过渡动画
+            // Track gesture swipe progress
             progressFlow.collect { backEvent ->
                 isPredictiveBackActive = true
                 predictiveBackProgress = backEvent.progress
             }
             handleCancel()
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            // 用户中途取消
+            // Gesture cancelled mid-swipe
         } finally {
             isPredictiveBackActive = false
             predictiveBackProgress = 0f
         }
     }
 
-    // 使用 DisposableEffect 守住防线，当编辑页面彻底销毁或退出组合树时，防御性物理清除残留的 temp 临时文件
+    // Lifecycle Guard Disposable (Ensures removal of temporary images upon Composable disposal)
     androidx.compose.runtime.DisposableEffect(Unit) {
         onDispose {
             tempCoverPath?.let { path ->
@@ -179,13 +179,13 @@ fun EditBookScreen(
         }
     }
 
-    // 判断是否开启 miuix-blur 效果且存在有效的背景模糊采样源（即 Detail 页面）。
+    // Blur Feature flag (Verify if MiuixBlur settings and backdrop are present)
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur && detailBackdrop != null
 
     val animatedBgColor = MaterialTheme.colorScheme.surfaceVariant
     val bgColor = MaterialTheme.colorScheme.background
 
-    // 定义背景调色层，isBlur 模式下采用高透光的半透明色以便看清底部的详情页折射
+    // Background tinting brush (Apply translucency in blur mode to allow backdrop colors to bleed through)
     val backgroundBrush = remember(animatedBgColor, bgColor, isBlur) {
         if (isBlur) {
             Brush.verticalGradient(
@@ -208,8 +208,9 @@ fun EditBookScreen(
     val density = LocalDensity.current
     val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
-    // 利用 View 层级的 RootWindowInsets 获取系统最精确的物理圆角半径，
-    // 以便编辑页在磨砂玻璃悬浮展开时，顶部圆角切边能与系统屏幕外轮廓完全共形契合，极具高级质感。
+    // Window Rounded Corner Extraction (Ensure visual harmony with physical display edges)
+    // Queries screen corner radius from system window insets, mapping the container top corners
+    // directly to device outer edges for a clean aesthetic.
     val view = LocalView.current
     val systemCornerRadius = remember(view) {
         val insets = view.rootWindowInsets
@@ -221,8 +222,7 @@ fun EditBookScreen(
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer {
-                // 当处于预测性返回拖拽状态时，顺应编辑页面向下滑动退出的特征，
-                // 让卡片整体随返回手势进度向下平移，并伴随淡出效果（不包含缩放，对齐详情页与播放器页的最新去缩放设计）。
+                // Predictive back transition (Shift container vertically and apply fade-out relative to progress)
                 if (isPredictiveBackActive) {
                     translationY = predictiveBackProgress * maxPredictiveTranslationY
                     alpha = 1f - predictiveBackProgress * 0.3f
@@ -231,12 +231,11 @@ fun EditBookScreen(
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
             .then(
                 if (isBlur) {
-                    // 
-                    // 背景彻底重构为 texture blur pured regular 极致质感磨砂毛玻璃背景。
-                    // 1. 使用 textureBlur 代替原本的 drawBackdrop 绘制。
-                    // 2. 将 blurRadius 设为 60f (regular -> 适中标准高保真高斯模糊半径)。
-                    // 3. 将 noiseCoefficient 设为 0.05f (texture -> 增加拟真细腻的磨砂噪点质感)。
-                    // 4. colors 参数中采用单色高保真混合层 (pured -> 无杂质单色极简底色)，亮暗系统自适应。
+                    // Pure Texture Blur Background (Optimized Gaussian blur parameters for premium texture overlay)
+                    // 1. Employs `textureBlur` instead of generic `drawBackdrop`.
+                    // 2. Adjusts `blurRadius` to 60f for standard high-fidelity Gaussian dispersion.
+                    // 3. Sets `noiseCoefficient` to 0.05f to add a fine frosted noise texture.
+                    // 4. Utilizes a pure solid color mix layer that adapts to light/dark themes.
                     Modifier.textureBlur(
                         backdrop = detailBackdrop,
                         shape = RectangleShape,
@@ -261,7 +260,7 @@ fun EditBookScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // 使用 Modifier.then 链式条件判定背景，避免在 if-else 分支中混合 Color 与 Brush 导致 Kotlin 编译器类型推导为 Any 发生错误
+                // Conditional Background Modifier (Prevent compiler type-inference issues between Color and Brush)
                 .then(
                     if (isBlur) {
                         Modifier.background(Color.Transparent)
@@ -271,16 +270,18 @@ fun EditBookScreen(
                 )
         ) {
             Scaffold(
-                // 详尽的中文注释：允许背景和 TopAppBar 沉浸式通铺到屏幕顶端及底端。通过在 contentWindowInsets 中排除 WindowInsets.ime（软键盘），
-                // 可以彻底避免 Scaffold 的 paddingValues 自动累加键盘高度。这使得内部的 Column 在使用 .imePadding() 时，能够精准独立地进行单次键盘避让，
-                // 从而完美解决软键盘弹起时页面高度被双重 Padding 极度压缩、导致无法正常滚动和编辑的严重显示异常。
+                // Scaffold Insets Configuration (Prevent double soft-keyboard padding compression)
+                // Excludes `WindowInsets.ime` from the Scaffold margins to block cumulative padding calculation.
+                // This allows the inner container column to request `.imePadding()` individually,
+                // solving double-margin squashing bugs where fields would be unreachable during typing.
                 modifier = Modifier.fillMaxSize(),
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
                 topBar = {
                     TopAppBar(
                         modifier = Modifier,
-                        // 详尽的中文注释：在此处对顶部标题栏的 windowInsets 同样排除 WindowInsets.ime 软键盘的高度。
-                        // 这能确保在软键盘弹出时，TopAppBar 的底部高度不会被错误地添加软键盘高度垫高，从而彻底根治标题栏与下方表单之间大面积空白及组件错位的显示 Bug。
+                        // Header Insets Override (Prevent titlebar offset displacement during input focus)
+                        // Bypasses IME insets for the TopAppBar, keeping the header from shifting upwards
+                        // and creating unwanted empty padding gaps when the keyboard populates.
                         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                         title = {
                             Text(
@@ -291,7 +292,7 @@ fun EditBookScreen(
                         },
                         navigationIcon = {
                             IconButton(
-                                onClick = handleCancel, // 点击返回时通过 handleCancel 清理临时图片并退出
+                                onClick = handleCancel, // Call handleCancel to clean up temporary images and exit upon navigation back click.
                                 modifier = Modifier
                             ) {
                                 Icon(
@@ -318,14 +319,14 @@ fun EditBookScreen(
                         CircularProgressIndicator()
                     }
                 } else {
-                    // 高频输入框状态隔离，完全避免由 ViewModel 高频刷新带来的重组开销
+                    // State isolation (Isolate high-frequency field inputs locally to avoid excessive recomposition costs)
                     var title by remember(book) { mutableStateOf(book.title) }
                     var author by remember(book) { mutableStateOf(book.author) }
                     var narrator by remember(book) { mutableStateOf(book.narrator) }
                     var year by remember(book) { mutableStateOf(book.year) }
                     var description by remember(book) { mutableStateOf(book.description) }
 
-                    // 在 miuix-blur 磨砂玻璃下，配置输入框背景为轻微半透融合色，极大增强透光的质感层级
+                    // Input styling (Apply translucent background elements under blur mode to enhance visual contrast)
                     val textFieldColors = if (isBlur) {
                         OutlinedTextFieldDefaults.colors(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
@@ -337,11 +338,11 @@ fun EditBookScreen(
                         OutlinedTextFieldDefaults.colors()
                     }
 
-                    // 详尽的中文注释：使用统一的 WindowClass 接口获取当前自适应布局形态，取代 LocalConfiguration 判断，在横屏/平板下应用双栏表单。
+                    // Responsive layout decision (Check window class parameters to dispatch dual-column grid details)
                     val windowClass = LocalWindowClass.current
                     val useLandscapeLayout = windowClass.isWideScreen
 
-                    // 声明局部 Composable 闭包函数对输入框进行高内聚解耦，避免在横竖屏双栏布局中编写重复代码
+                    // Local input builders (Shared field compositions to avoid duplicating layouts across landscape/portrait)
                     val titleField = @Composable {
                         OutlinedTextField(
                             value = title,
@@ -408,7 +409,7 @@ fun EditBookScreen(
                         )
                     }
 
-                    // 抽离出统一精致、高度自适应的“更换封面”按钮
+                    // Reusable cover button (Unified action element for photo retrieval)
                     val changeCoverButton = @Composable {
                         androidx.compose.material3.OutlinedButton(
                             onClick = { imagePickerLauncher.launch("image/*") },
@@ -443,15 +444,15 @@ fun EditBookScreen(
                     }
 
                     val saveButton = @Composable {
-                        // 保存修改按钮
+                        // Save changes button.
                         if (isBlur) {
-                            // 
-                            // 在 miuix-blur 模式下，将保存按钮重构为与详情页播放按钮同样高品质的磨砂玻璃 Surface。
-                            // 共享底部的 detailBackdrop，底色采用半透主色 (0.12f) 并用 1.dp 精细主色边框勾勒 (0.25f)。
+                            // Glassmorphic save button (Match details page play button styling)
+                            // Utilizes the shared `detailBackdrop` parameter. Applies primary alpha tint (0.12f)
+                            // and maps a 1.dp border (0.25f) around the container.
                             Surface(
                                 onClick = {
                                     val finalTitle = title.ifBlank { "Unknown" }
-                                    // 触发保存回调，将所有被改变的元数据属性向上流转给有状态的 Overlay 容器处理
+                                    // Trigger save callback, passing all modified metadata properties up to the stateful Overlay container.
                                     onSave(
                                         finalTitle,
                                         author,
@@ -464,7 +465,7 @@ fun EditBookScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(56.dp)
-                                    // 在此处使用 drawBackdrop 渲染按钮的毛玻璃背景，使其与主背景高度和谐与视觉统一
+                                    // Apply blur backdrop to save container for design continuity
                                     .then(
                                         Modifier.drawBackdrop(
                                             backdrop = detailBackdrop,
@@ -498,12 +499,11 @@ fun EditBookScreen(
                                 }
                             }
                         } else {
-                            // 
-                            // 在 Material 模式下优雅无缝回退到高能效、不带高斯模糊的 Material 3 实色 Button。
+                            // Fallback Material Button (Graceful degradation to standard opaque component)
                             Button(
                                 onClick = {
                                     val finalTitle = title.ifBlank { "Unknown" }
-                                    // 触发保存回调，向上派发完整的修改元数据
+                                    // Trigger save callback, dispatching the complete modified metadata upwards.
                                     onSave(
                                         finalTitle,
                                         author,
@@ -550,19 +550,19 @@ fun EditBookScreen(
                             .consumeWindowInsets(paddingValues)
                             .imePadding()
                             .verticalScroll(rememberScrollState())
-                            // 借助 consumeWindowInsets 精确规避双重 padding，仅增加 24.dp 的纯界面视觉呼吸留白边距
+                            // Spacing adjustment (Safely consume windows insets and apply a clean 24.dp layout margin)
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
                         if (useLandscapeLayout) {
-                            // 横大屏模式下使用双栏布局排布
+                            // Wide screen mode (Renders dual-pane split structures)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                                 verticalAlignment = Alignment.Top
                             ) {
-                                // 左侧栏使用 Column 承载 PlayerCover 和更换封面按钮，宽度限制在 280dp 以保重叠度完美
+                                // Left pane column: Houses the cover graphic capped at 280dp
                                 Column(
                                     modifier = Modifier
                                         .weight(1.2f)
@@ -589,7 +589,7 @@ fun EditBookScreen(
                                     changeCoverButton()
                                 }
 
-                                // 右侧列容器放置所有的输入框，使其单独成行并彻底铺满容器宽
+                                // Right pane column: Stacks metadata input controls and submit button
                                 Column(
                                     modifier = Modifier.weight(1.8f),
                                     verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -604,7 +604,7 @@ fun EditBookScreen(
                                 }
                             }
                         } else {
-                            // 常规手机竖屏模式，自上而下纵向布局，使用 PlayerCover 渲染封面并限制纵横比
+                            // Portrait layout (Fails back to vertical stack structure)
                             PlayerCover(
                                 coverPath = tempCoverPath ?: book.coverPath ?: book.thumbnailPath,
                                 isPlaying = false,
@@ -643,36 +643,38 @@ fun EditBookScreen(
 }
 
 /**
- * 从系统 Uri 中解码图片，按照最短边居中裁剪为正方形，并按需等比缩放到高清紧凑尺寸（如 800x800），最后以 90% 质量的 JPEG 格式输出到目标临时物理文件中。
- * 此为私有辅助工具函数，能妥善应对高分辨率长图，防范 OutOfMemoryError 溢出，并严谨地显式回收已分配的内存。
+ * Crop to Square and Save: Decodes, crops, resizes, and writes photo selection.
+ *
+ * Crops image input to square aspect ratio, resizes it to 800x800, and saves as a 90% JPEG.
+ * Built with memory safety features to prevent Native OOM issues and ensure bitmap allocation recycling.
  */
 private fun cropToSquareAndSave(
     context: android.content.Context,
     inputUri: android.net.Uri,
     outputFile: File
 ): Boolean {
-    // 编辑页只通过 VFS 外部输入读取器打开用户选择的封面 Uri，不直接访问 ContentResolver 文件流。
+    // VFS Input Stream Bridge (Open files using VfsExternalInputReader instead of querying ContentResolver directly)
     val externalInputReader = VfsExternalInputReader(context)
     var inputStream: java.io.InputStream? = null
     try {
         inputStream = externalInputReader.openInputStream(inputUri) ?: return false
-        // 1. 先通过 inJustDecodeBounds 获取图片原始宽和高以计算采样率，防御性防范高分辨率大图导致内存溢出 (OOM)
+        // Decode dimensions (Check bound dimensions beforehand to configure sub-sampling scale and avoid heap OOM)
         val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
         android.graphics.BitmapFactory.decodeStream(inputStream, null, options)
         inputStream.close()
 
-        // 2. 重新开启输入流，以便真正将 Bitmap 数据载入堆内存
+        // Load bitmap buffer (Initialize fresh stream mapping to decode actual grid values into heap)
         inputStream = externalInputReader.openInputStream(inputUri) ?: return false
         val maxDim = maxOf(options.outWidth, options.outHeight)
         val decodeOptions = android.graphics.BitmapFactory.Options()
-        // 若图片极度庞大（宽或高大于 2000 像素），则采用二次采样以安全无险地载入内存
+        // Resize check (Apply sub-sampling factor of 2 if source dimensions exceed 2000 pixels)
         if (maxDim > 2000) {
             decodeOptions.inSampleSize = 2
         }
         val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream, null, decodeOptions) ?: return false
         inputStream.close()
 
-        // 3. 按最短边居中裁剪为正方形
+        // Perform square crop centered relative to the shortest side
         val width = bitmap.width
         val height = bitmap.height
         val size = minOf(width, height)
@@ -681,7 +683,7 @@ private fun cropToSquareAndSave(
 
         val croppedBitmap = android.graphics.Bitmap.createBitmap(bitmap, x, y, size, size)
 
-        // 4. 将正方形裁剪图等比缩放至 800x800 像素的高清紧凑分辨率，以节约磁盘存储开销并维持极致清晰度
+        // Downscale resolution (Resize the cropped square to 800x800 pixels to optimize disk layout and memory profiles)
         val targetResolution = 800
         val finalBitmap = if (size > targetResolution) {
             croppedBitmap.scale(targetResolution, targetResolution)
@@ -689,13 +691,13 @@ private fun cropToSquareAndSave(
             croppedBitmap
         }
 
-        // 5. 物理写入目标临时文件，采用 JPEG 格式与 90% 压缩品质
+        // Output file commit (Compress and write image block to target file using 90% JPEG quality)
         outputFile.parentFile?.mkdirs()
         java.io.FileOutputStream(outputFile).use { out ->
             finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
         }
 
-        // 6. 严谨清理并显式回收已分配的 Bitmap 内存堆空间，防堵 GC 漂移引起的 Native 物理内存泄露
+        // Explicit recycling (Call recycle on bitmaps to free graphics memory immediately)
         if (finalBitmap != croppedBitmap) {
             finalBitmap.recycle()
         }
@@ -712,17 +714,18 @@ private fun cropToSquareAndSave(
 }
 
 /**
- * 为无状态的 EditBookScreen UI 组件添加多重自适应 Preview 组合。
- * 支持三种不同的设备形态及系统主题模式的集成化可视化预览：
- * 1. Phone Portrait: 手机常规竖屏模式。
- * 2. Phone Landscape: 手机横屏窄高自适应排版。
- * 3. Tablet Landscape: 平板/大屏大宽度双栏最佳排版。
+ * Layout Previews: Integrated Compose visualization targets.
+ *
+ * Verifies component rendering across three typical layouts:
+ * 1. Phone Portrait: Standard vertical form.
+ * 2. Phone Landscape: Split horizontal form.
+ * 3. Tablet Landscape: Dual-pane screen configuration.
  */
 @Preview(name = "Phone Portrait", showBackground = true, apiLevel = 36)
 @Composable
 fun EditBookScreenPortraitPreview() {
     APlayerTheme {
-        // 详尽的中文注释：显式提供 PortraitPhone（竖屏手机）预设，测试编辑页常规垂直表单排版。
+        // Apply PortraitPhone profile configuration
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {
@@ -755,7 +758,7 @@ fun EditBookScreenPortraitPreview() {
 @Composable
 fun EditBookScreenLandscapePreview() {
     APlayerTheme {
-        // 详尽的中文注释：显式提供 LandscapePhone（横屏手机）预设，验证横屏下的左右双栏表单排版。
+        // Apply LandscapePhone profile configuration
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.LandscapePhone
         ) {
@@ -788,7 +791,7 @@ fun EditBookScreenLandscapePreview() {
 @Composable
 fun EditBookScreenTabletLandscapePreview() {
     APlayerTheme {
-        // 详尽的中文注释：显式提供 TabletLandscape（横屏平板）预设，验证大尺寸设备下的极致排版体验。
+        // Apply TabletLandscape profile configuration
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.TabletLandscape
         ) {

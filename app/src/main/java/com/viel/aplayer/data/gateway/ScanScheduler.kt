@@ -1,23 +1,28 @@
 package com.viel.aplayer.data.gateway
 
 /**
- * 领域解耦的网关接口：专门用于触发或安排本地/WebDAV 库的扫描同步工作。
- *
- * 核心设计目标：
- * 1. 拆分扫描任务触发：将后台定时重扫与前台即时扫描触发进行统一归口。
- * 2. 解耦 WorkManager 与前台逻辑：隔离底层并发和锁管理。
+ * Decoupled Domain Gateway Interface (ScanScheduler)
+ * Dedicated to scheduling and triggering directory file scans and metadata sync for local and WebDAV library sources.
+ * 
+ * Core Design Goals:
+ * 1. Unify Scan Ingestions: Consolidates background periodic rescans and foreground immediate sync operations.
+ * 2. Decouple WorkManager dependencies: Isolates low-level concurrency configurations, thread scheduling, and lock controls.
  */
 interface ScanScheduler {
 
     /**
-     * 在前台立即执行库同步和文件扫描重扫操作。
-     * @param trigger 触发源，如 "USER", "SYSTEM", "BACKGROUND" 等
+     * Foreground Immediate Ingestion (Direct sync command)
+     * Triggers database updates and file rescan operations immediately in the active foreground context.
+     * 
+     * @param trigger Origin indicating sync cause (e.g. "USER", "SYSTEM", "BACKGROUND")
      */
     suspend fun syncLibrary(trigger: String = "USER")
 
     /**
-     * 向后台协程异步并发管道中派发库重扫任务。
-     * @param trigger 触发源
+     * Schedule Asynchronous Ingestion (Background dispatcher dispatch)
+     * Dispatches rescan jobs asynchronously into the background thread pools.
+     * 
+     * @param trigger Origin indicating sync cause
      */
     fun scheduleLibrarySync(trigger: String = "USER")
 }

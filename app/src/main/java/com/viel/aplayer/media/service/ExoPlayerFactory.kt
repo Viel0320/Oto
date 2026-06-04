@@ -21,21 +21,21 @@ import androidx.media3.extractor.ts.AdtsExtractor
 import com.viel.aplayer.media.VfsPlaybackDataSource
 
 /**
- * ExoPlayer 媒体播放内核生产构建工厂。
- * 专门负责管理 ExoPlayer 底层渲染器工厂、多媒体文件提取器工厂、全局加载控制策略（LoadControl）以及虚拟数据源的模块化装配与创建。
- * 将高耦合、超长段定制化参数配置代码从 PlaybackService 中彻底抽离，符合单一职责原则（SRP）。
+ * ExoPlayer Core Production Factory (Constructs and configures highly optimized ExoPlayer media engine instances)
+ * Manages low-level configuration of renderers, extractor options, buffer strategies (LoadControl), and virtual VFS data sources.
+ * Decouples complex multi-track and custom focus logic from the playback service domain, adhering to Single Responsibility Principle.
  */
 @UnstableApi
 object ExoPlayerFactory {
 
     /**
-     * 模块化配置并生成一个专用于有声书播放的高度优化的 ExoPlayer 内核实例。
-     * 重构后已彻底移除用于反射提取底层处理器的 AudioSinkCreationListener 接口和回调逻辑。
+     * Modular Audio Player Factory (Builds and configures an optimized ExoPlayer instance tailored for audiobook playback)
+     * Refactoring completely removed the AudioSinkCreationListener reflection callbacks, returning to native Media3 architecture.
      *
-     * @param context 运行期上下文环境
-     * @param listener 播放状态及异常发生监听器
-     * @param isAutomaticAudioFocusAllowed 是否允许系统播放器内部自动处理音频焦点（关闭“通知避让”时为 true）
-     * @return 装配完成的 ExoPlayer 实例
+     * @param context Application runtime context
+     * @param listener Global playback status and exception event observer
+     * @param isAutomaticAudioFocusAllowed Controls whether ExoPlayer handles system audio focus tracking internally
+     * @return Fully configured and initialized ExoPlayer kernel instance
      */
     @Suppress("DEPRECATION")
     fun createExoPlayer(
@@ -44,17 +44,17 @@ object ExoPlayerFactory {
         isAutomaticAudioFocusAllowed: Boolean
     ): ExoPlayer {
         
-        // 1. 配置前台极致秒开与缓存防卡顿缓冲区控制参数 (DefaultLoadControl)
+        // 1. Buffer Configuration (Configures low-latency start and network jitter defense parameters via DefaultLoadControl)
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                30000, // 最小缓冲维持时长（30秒），确保网络不稳定时有足够的冗余缓存
-                30000, // 最大缓冲上限（30秒），防止无限制读取大文件挤爆 JVM 内存
-                1000,  // 起播所需最小缓冲时长（1秒），实现极致开播秒开
-                2000   // 卡顿重缓冲恢复所需最小缓冲时长（2秒），快速自愈且防反复起止
+                30000, // Minimum buffer duration (30 seconds) to ensure sufficient redundancy during network fluctuations
+                30000, // Maximum buffer limit (30 seconds) to prevent unbounded memory usage and memory exhaustion
+                1000,  // Playback start buffer (1 second) to achieve rapid low-latency initial startup
+                2000   // Rebuffer recovery threshold (2 seconds) to recover quickly and prevent rapid play/pause loops
             )
             .build()
 
-        // 2. 定制多媒体物理渲染器工厂，实现无元数据零 I/O 解析及软解自愈支持
+        // 2. Renderer Customization (Builds a specialized renderers factory to disable container metadata I/O and support decoder fallback)
         val renderersFactory = object : DefaultRenderersFactory(context) {
             override fun buildAudioSink(
                 context: Context,
@@ -62,13 +62,13 @@ object ExoPlayerFactory {
                 enableAudioTrackPlaybackParams: Boolean
             ): AudioSink {
                 /**
-                 * 实例化用于动态调整有声书倍速播放的 Sonic 处理器。
-                 * 经过重构，移除了将 AudioSink 生成信息暴露给外部以进行反射刺探的回调接口，
-                 * 彻底断开了不安全的反射修改链路，回归到 Media3 官方标准的音频渲染与倍速处理体系。
+                 * Sonic Processor Initialization (Instantiates the audio speed processor for dynamic playback rate adjustments)
+                 * Refactored to completely remove reflection callbacks exposing internal AudioSink settings to external components,
+                 * ensuring stability by adhering strictly to the official Media3 audio rendering pipeline.
                  */
                 val sonicProcessor = SonicAudioProcessor()
                 
-                // 将 Sonic 处理器塞入 DefaultAudioSink 渲染链中
+                // Registers the Sonic processor within the default AudioSink rendering chain
                 val sink = DefaultAudioSink.Builder(context)
                     .setAudioProcessors(arrayOf(sonicProcessor))
                     .build()
@@ -83,40 +83,40 @@ object ExoPlayerFactory {
                 extensionRendererMode: Int,
                 out: ArrayList<Renderer>
             ) {
-                // 重写置空，强制禁止 ExoPlayer 加载和请求多媒体容器的元数据音轨
-                // 从根本上实现外置字幕单向加载及有声书内置标签零 I/O 资源消耗
+                // Suppresses standard metadata track creation, preventing ExoPlayer from parsing container-level metadata
+                // Optimizes performance by avoiding redundant file I/O operations for built-in container tags
             }
         }.apply {
-            // 允许在系统底层硬解组件失败时无缝退化到软解，增强各种冷门格式播放的稳定性
+            // Enables automatic fallback to software decoders if hardware decoders fail, enhancing format compatibility
             setEnableDecoderFallback(true)
         }
 
-        // 3. 配置长有声书内存映射优化的多媒体文件提取器 (DefaultExtractorsFactory)
+        // 3. Extractor Options (Configures media extractors optimized for long-duration audiobooks)
         val extractorsFactory = DefaultExtractorsFactory()
-            // 开启 MP3 索引寻轨并显式禁用内置 ID3 元数据加载以规避磁盘二次摩擦
+            // Enables MP3 frame indexing for fast seeking and disables container ID3 extraction to prevent redundant disk reads
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING or Mp3Extractor.FLAG_DISABLE_ID3_METADATA)
-            // 开启 ADTS 格式的恒定码率快速寻轨
+            // Enables fast constant-bitrate seeking for ADTS format files
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
 
-        // 4. 将提取器工厂与专用于虚拟文件系统寻轨的 VfsPlaybackDataSource 工厂绑定
+        // 4. Data Source Binding (Binds the extractor factory to the custom VFS media playback data source factory)
         val mediaSourceFactory = DefaultMediaSourceFactory(VfsPlaybackDataSource.Factory(context), extractorsFactory)
 
-        // 5. 组装并初始化最终的 ExoPlayer 内核对象
+        // 5. Player Assembly (Builds and returns the fully assembled ExoPlayer core instance)
         return ExoPlayer.Builder(context, renderersFactory)
             .setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH) // 声音类型设置为语音（SPEECH）以提供最适合有声书朗读的混音特性
+                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH) // Sets the audio type to SPEECH for optimal mix attributes during audiobook narration
                     .setUsage(C.USAGE_MEDIA)
                     .build(),
-                isAutomaticAudioFocusAllowed // 根据通知避让状态控制是否允许播放器自己处理系统音频焦点
+                isAutomaticAudioFocusAllowed // Controls whether ExoPlayer handles system audio focus dynamically based on notification settings
             )
             .setLoadControl(loadControl)
             .setMediaSourceFactory(mediaSourceFactory)
-            .setSeekBackIncrementMs(10000)   // 系统硬性设定双击快退 10 秒
-            .setSeekForwardIncrementMs(30000)  // 系统硬性设定双击快进 30 秒
+            .setSeekBackIncrementMs(10000)   // Hardcodes the seek backward increment to 10 seconds
+            .setSeekForwardIncrementMs(30000)  // Hardcodes the seek forward increment to 30 seconds
             .build()
             .apply {
-                // 挂载全局唯一的运行状态及错误监听器
+                // Attaches the global lifecycle and error state event listener
                 addListener(listener)
             }
     }

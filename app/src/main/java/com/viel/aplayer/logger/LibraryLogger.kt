@@ -4,20 +4,24 @@ import android.os.SystemClock
 import android.util.Log
 
 /**
- * 书库仓库 CRUD 及播放计划耗时 Logger。
- * 统一收纳 BookLibraryRepository 中与播放计划构建查询耗时、
- * 封面/缩略图物理缓存删除等相关的所有日志输出。
- * 使用统一 TAG "Library"，方便在 Logcat 中过滤书库仓库层的操作诊断信息。
+ * Library Storage Logger (Track repository CRUD and playback plan query performance)
+ *
+ * Collects and logs database queries, execution durations, and file operations
+ * (such as cover and thumbnail cache deletions) within the library repository layer.
+ * Uses a unified tag "Library" to simplify diagnosis in Logcat.
  */
 internal object LibraryLogger {
 
     private const val TAG = "Library"
 
-    // 将起始时间戳转换为已耗费的毫秒数
+    // Calculate Elapsed Milliseconds (Determine time delta from a starting timestamp)
+    // Converts the start timestamp into elapsed milliseconds based on current system clock.
     fun elapsedMs(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
 
     /**
-     * 记录 getPlaybackPlan 查询无可播放文件的耗时明细。
+     * Log Empty Playback Plan Query (Record performance metrics when no playable files are found)
+     *
+     * Tracks the exact time spent querying books, files, and progress for empty plans.
      */
     fun logPlaybackPlanEmpty(
         bookId: String,
@@ -34,7 +38,9 @@ internal object LibraryLogger {
     }
 
     /**
-     * 记录 getPlaybackPlan 查询完成的耗时明细。
+     * Log Completed Playback Plan Query (Record performance metrics when a plan is successfully constructed)
+     *
+     * Tracks elapsed durations for querying books, files, and progress to diagnose plan generation latency.
      */
     fun logPlaybackPlanReady(
         bookId: String,
@@ -54,22 +60,26 @@ internal object LibraryLogger {
     }
 
     /**
-     * 记录物理删除有声书封面缓存文件的结果。
+     * Log Cover Cache File Deletion (Record the outcome of deleting local cover images)
      *
-     * @param bookId 书籍 ID
-     * @param path 被删除文件的路径
-     * @param deleted 删除是否成功
+     * Tracks whether the physical cover file was successfully removed from the storage device.
+     *
+     * @param bookId The unique identifier of the book.
+     * @param path The absolute path to the deleted cover cache file.
+     * @param deleted True if the deletion succeeded, false otherwise.
      */
     fun logCoverDeleted(bookId: String, path: String, deleted: Boolean) {
         Log.d(TAG, "物理删除有声书封面缓存文件成功，书籍ID: $bookId, 路径: $path, 结果: $deleted")
     }
 
     /**
-     * 记录物理删除有声书缩略图缓存文件的结果。
+     * Log Thumbnail Cache File Deletion (Record the outcome of deleting local cover thumbnail images)
      *
-     * @param bookId 书籍 ID
-     * @param path 被删除文件的路径
-     * @param deleted 删除是否成功
+     * Tracks whether the physical thumbnail file was successfully removed from the storage device.
+     *
+     * @param bookId The unique identifier of the book.
+     * @param path The absolute path to the deleted thumbnail cache file.
+     * @param deleted True if the deletion succeeded, false otherwise.
      */
     fun logThumbnailDeleted(bookId: String, path: String, deleted: Boolean) {
         Log.d(TAG, "物理删除有声书缩略图缓存文件成功，书籍ID: $bookId, 路径: $path, 结果: $deleted")

@@ -77,18 +77,18 @@ import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
 
 /**
- * 纯无状态的设置主页面（Stateless）。
- *
- * 本组件承载了应用所有的设置条目绘制，已经与有状态的 SettingsActivity 实现了物理文件的彻底拆分。
- * 所有的媒体库添加、删除、开关状态更改等交互，全部通过高纯度的不可变入参和 Lambda 回调向上传递。
- * 移除了外部 ViewModel 的强引用后，本页面可以轻松支持多尺寸屏幕下的实时自适应 Preview 预览。
+ * Stateless settings view (Stateless composable rendering settings configurations)
+ * Represents the main settings layout. Separated from SettingsActivity to enforce stateless design.
+ * Passes interaction callbacks such as updates, additions, and deletions up to the container.
+ * Supports adaptivity across multi-size screens during layout rendering.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
     onLibraryRootSelected: (Uri) -> Unit,
-    // WebDAV 表单提交回调只传标准连接字段，UI 不直接写数据库或凭据存储。
+    // WebDAV submission callback (To delegate credential routing to state container)
+    // Passes connection attributes up instead of performing DB transactions locally.
     onWebDavRootSubmitted: (url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
     onAbsConnectionTest: (baseUrl: String, username: String, password: String) -> Unit,
     onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String) -> Unit,
@@ -102,41 +102,42 @@ fun SettingsScreen(
     absConnectionState: AbsConnectionUiState,
     isChapterProgressMode: Boolean,
     onChapterProgressModeChange: (Boolean) -> Unit,
-    // 是否允许明文 HTTP 流量标志及对应的触发方法。
+    // Cleartext allowance flag (To stream network security preferences)
     isCleartextTrafficAllowed: Boolean,
     onCleartextTrafficAllowedChange: (Boolean) -> Unit,
-    // 删除库根目录并释放物理授权的触发接口方法。
+    // Deregister callback (To handle physical directory authorization removals)
     onDeleteLibraryRoot: (LibraryRootEntity) -> Unit,
     /**
-     * 自动跳过静音（Skip Silence）功能是否启用的全局状态标志及开关回调。
+     * Skip silence configuration (To toggle audio silence stripping preference)
+     * Tracks the global skip silence setting and its state-transition callbacks.
      */
     isSkipSilenceEnabled: Boolean,
     onSkipSilenceEnabledChange: (Boolean) -> Unit,
-    // 睡眠倒计时音量渐隐功能是否启用的全局状态标志。
+    // Sleep fade-out configuration (To verify if volume decay is globally enabled)
     isSleepFadeOutEnabled: Boolean,
-    // 切换睡眠倒计时音量渐隐开关的回调事件。
+    // Toggle volume decay (To delegate sleep volume decay preferences to caller)
     onSleepFadeOutEnabledChange: (Boolean) -> Unit,
-    // 摇晃手机重置睡眠定时器功能是否启用的全局状态标志。
+    // Shake reset configuration (To verify if motion reset triggers are enabled)
     isShakeToResetEnabled: Boolean,
-    // 切换摇晃手机重置睡眠定时器开关的回调事件。
+    // Toggle motion resetting (To delegate shake resetting preference to container)
     onShakeToResetEnabledChange: (Boolean) -> Unit,
-    // 当前睡眠模式状态。
+    // Active sleep mode (To indicate sleep countdown strategies)
     sleepMode: SleepMode,
-    // 睡眠模式状态修改的回调事件。
+    // Change sleep mode (To notify sleep mode adjustments to controller)
     onSleepModeChange: (SleepMode) -> Unit,
-    // 当前悬浮层视觉效果模式，控制 Material 原生容器与 miuix-blur 毛玻璃之间的切换。
+    // Backdrop effect configuration (To dictate visual containers style between Material and miuix-blur styles)
     glassEffectMode: GlassEffectMode,
-    // 切换悬浮层视觉效果模式的回调事件。
+    // Toggle backdrop style (To delegate blur adjustments to controller)
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
-    // 当前自动回退时长状态。
+    // Active auto-rewind seconds (To indicate rollback offset values)
     autoRewindSeconds: Int,
-    // 修改自动回退时长的回调事件。
+    // Change rewind duration (To notify auto-rollback parameter updates)
     onAutoRewindSecondsChange: (Int) -> Unit,
-    // 当前通知避让开关的全局启用状态。
+    // Notification avoidance toggle (To cache playback avoidance settings)
     isNotificationAvoidanceEnabled: Boolean,
-    // 切换通知避让开关状态的回调事件。
+    // Change avoidance toggle (To notify notification avoidance preferences to caller)
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
-    // 点击“开源许可”入口以拉起 AboutLibraries 页面的回调事件。
+    // Licenses trigger (To route navigation events to AboutLibrariesScreen)
     onAboutLibrariesClick: () -> Unit
 ) {
     val launcher = rememberLauncherForActivityResult(
@@ -145,9 +146,11 @@ fun SettingsScreen(
         uri?.let(onLibraryRootSelected)
     }
 
-    // 定义用于记录用户即将触发删除动作的媒体库目录 State 变量，用来拉起强提醒的 AlertDialog 二次确认弹窗。
+    // Delete dialog selection state (To hold current library root scheduled for deletion check)
+    // Triggers confirmation alert dialog showing risk details to prevent user accidents.
     var rootToDelete by remember { mutableStateOf<LibraryRootEntity?>(null) }
-    // WebDAV 添加弹窗状态留在 SettingsScreen 内部，提交后再交给 ViewModel 执行持久化与扫描。
+    // WebDAV panel visibility state (To toggle display of the dialog popup locally)
+    // Delegates network requests and persistence routines to ViewModel upon confirmation.
     var showWebDavDialog by remember { mutableStateOf(false) }
     var webDavUrl by remember { mutableStateOf("") }
     var webDavUsername by remember { mutableStateOf("") }
@@ -161,22 +164,23 @@ fun SettingsScreen(
     var absLibraryId by remember { mutableStateOf("") }
     var absLibraryName by remember { mutableStateOf("") }
 
-    // 详尽的中文注释：
-    // 使用统一的 WindowClass 接口获取当前窗口的方向和屏幕分类状态，
-    // 替代了在此对 LocalConfiguration 对象的直接物理属性读取，使设置页面能够平滑地根据平板/横屏状态自适应中轴窄布局比例。
+    // Load window parameters (To adapt layout proportions for wide displays)
+    // Avoids reading LocalConfiguration attributes directly by subscribing to WindowClass values.
     val windowClass = LocalWindowClass.current
     val isLandscape = windowClass.isLandscape
     val isWideScreen = windowClass.isTablet
     val useWideLayout = windowClass.isWideScreen
 
-    // 利用 WindowInsets.safeDrawing 动态获取当前横屏侧边物理刘海及导航栏宽度，完全零硬编码
+    // Safe drawing insets (To avoid hardcoded display margin constants on notched displays)
+    // Reads WindowInsets.safeDrawing boundaries to offset items.
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     val settingsStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val settingsEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
 
     if (showWebDavDialog) {
-        // WebDAV 弹窗只采集连接信息，真实鉴权在 Provider 首次可用性检测和扫描时完成。
+        // WebDAV input layout (To collect connection information)
+        // Defers credentials checking to Provider scan routines.
         WebDavRootDialog(
             url = webDavUrl,
             username = webDavUsername,
@@ -245,10 +249,11 @@ fun SettingsScreen(
             Scaffold(
                 topBar = {
                     CenterAlignedTopAppBar(
-                        // 恢复普通修饰符，不在容器外侧加 Padding，使 AppBar 背景底色优雅拉满至屏幕左右边缘
+                        // Adjust visual boundaries (To render app bar background color fully to margins)
+                        // Bypasses container spacing padding configurations.
                         modifier = Modifier,
-                        // 将 WindowInsets.statusBars.exclude(navigationBars) 作为顶栏的 safe insets，
-                        // 自适应处理状态栏和横屏左右避让，彻底摆脱返回按钮上的手写 padding
+                        // Calculate top bar margins (To exclude system navigation bars on rotated layouts)
+                        // Uses exclude calculations rather than manual padding values.
                         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
                         title = { Text(stringResource(R.string.settings_title)) },
                         navigationIcon = {
@@ -269,13 +274,14 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding),
-                    // 注入运行时算出的 start/end 物理避让 padding，保障设置项文字与开关在任何物理刘海/侧边导航栏前完全安全
+                    // Apply insets padding (To secure text and buttons visibility from notches or overlays)
+                    // Configures lazy column margins using landscape insets calculations.
                     contentPadding = PaddingValues(
                         start = settingsStartPadding,
                         end = settingsEndPadding
                     )
                 ) {
-                    // === 第一分节：媒体库管理 ===
+                    // === Section 1: Library Directories ===
                     item {
                         SettingsSectionHeader(title = "媒体库管理")
                     }
@@ -288,7 +294,7 @@ fun SettingsScreen(
                         )
                     }
                     item {
-                        // 新增 WebDAV 来源入口，与本地 SAF 入口并列，后续 SMB/S3 可沿用相同设置项模式扩展。
+                        // WebDAV entry point (To support remote storage endpoints alongside local ones)
                         SettingsItem(
                             title = "添加 WebDAV 媒体库",
                             subtitle = "连接远程 WebDAV 目录",
@@ -305,8 +311,8 @@ fun SettingsScreen(
                         )
                     }
 
-                    // 添加模式 key，使用通用 sourceUri 作为唯一标识，避免 UI 继续依赖旧库根字段。
-                    // 防止列表刷新时 item 状态错位复用导致 UI 错乱。
+                    // Configure list key (To assign sourceUri as stable key identifier)
+                    // Prevents recycling errors or misplaced widget states in LazyColumn list.
                     items(libraryRoots.size, key = { libraryRoots[it].sourceUri }) { index ->
                         val root = libraryRoots[index]
                         val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
@@ -316,7 +322,8 @@ fun SettingsScreen(
                         } else if (isAbsRoot) {
                             root.displayName.ifBlank { "ABS ${root.basePath}" }
                         } else {
-                            // 本地 SAF root 继续显示用户可理解的末级目录名，不暴露完整 tree URI。
+                            // Parse local tree URI (To display human-readable terminal folder name)
+                            // Trims structural URI prefixes to avoid confusing users with absolute paths.
                             try {
                                 Uri.decode(root.sourceUri).substringAfterLast(":")
                             } catch (_: Exception) {
@@ -324,7 +331,8 @@ fun SettingsScreen(
                             }
                         }
                         val rootSubtitle = if (isWebDavRoot) {
-                            // WebDAV root 显示远程端点与可用性状态，避免用户把网络失败误认为 SAF 授权撤销。
+                            // WebDAV status information (To display remote url parameters and connection state)
+                            // Informs users of connection state to isolate network issues from permission issues.
                             "WebDAV: ${root.sourceUri}${root.basePath} · 可用性: ${root.availabilityStatus}"
                         } else if (isAbsRoot) {
                             val sync = absServers.firstOrNull { it.rootId == root.id }
@@ -333,8 +341,8 @@ fun SettingsScreen(
                             "状态: ${root.status}"
                         }
                         
-                        // 重构媒体库卡片单行，右侧渲染删除图标。
-                        // 用户点击垃圾桶删除图标后，将当前 root 赋给 rootToDelete 从而异步弹窗让用户进行二次安全确认。
+                        // Render directory layout card (To combine detail metadata labels with deletion actions)
+                        // Captures user clicks on trashcan button and prompts verification dialog.
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -397,22 +405,24 @@ fun SettingsScreen(
                         )
                     }
 
-                    // === 第二分节：界面效果 ===
+                    // === Section 2: Interface Settings ===
                     item {
                         SettingsSectionHeader(title = "界面效果")
                     }
                     item {
-                        // 新增 Material/miuix-blur 双态分段选择，让用户可在原生 Material 层次与 miuix-blur 毛玻璃之间即时切换。
+                        // Backdrop style selector (To toggle container between Material and miuix-blur styles)
                         SettingsSegmentedItem(
                             title = "悬浮层玻璃效果",
-                            subtitle = "控制章节列表和书籍操作弹窗的背景效果",
+                            subtitle = "控制章节列表 and 书籍操作弹窗的背景效果",
                             icon = Icons.Rounded.LinearScale,
-                            selectedMode = glassEffectMode,
-                            onModeSelected = onGlassEffectModeChange
+                            // Parameter Alignment (Aligns arguments to match redefined parameters of SettingsSegmentedItem)
+                            // Renamed selectedMode and onModeSelected to glassEffectMode and onGlassEffectModeChange.
+                            glassEffectMode = glassEffectMode,
+                            onGlassEffectModeChange = onGlassEffectModeChange
                         )
                     }
 
-                    // === 第三分节：播放与网络 ===
+                    // === Section 3: Playback and Network ===
                     item {
                         SettingsSectionHeader(title = "播放与网络")
                     }
@@ -426,8 +436,8 @@ fun SettingsScreen(
                         )
                     }
                     item {
-                        // 新增“允许明文 HTTP 流量”持久化控制开关。
-                        // 默认关闭，开启时客户端代码侧允许流式播放 http 音频文件。
+                        // Cleartext permission toggle (To toggle http network streaming permission)
+                        // Warns about security standards when http sources are used.
                         SettingsToggleItem(
                             title = "允许明文 HTTP 流量",
                             subtitle = "允许应用播放和加载不安全的 http:// 网络有声书源。建议保持关闭以维持最高安全边界。",
@@ -437,7 +447,7 @@ fun SettingsScreen(
                         )
                     }
                     item {
-                        // 新增“通知避让”全局控制开关项。
+                        // Avoidance preference toggle (To coordinate audio pause behavior during focus losses)
                         SettingsToggleItem(
                             title = "通知避让",
                             subtitle = "开启后，播留在失去焦点（如收到通知、导航播报、来电等）时暂停，重获焦点时恢复，避免降音避让时漏听内容。",
@@ -447,7 +457,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    // === 第四分节：自动跳过静音 ===
+                    // === Section 4: Skip Silence ===
                     item {
                         SettingsSectionHeader(title = "自动跳过静音")
                     }
@@ -461,7 +471,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    // === 第五分节：睡眠定时器 ===
+                    // === Section 5: Sleep Timer ===
                     item {
                         SettingsSectionHeader(title = "睡眠定时器")
                     }
@@ -495,7 +505,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    // === 第六分节：自动回放 ===
+                    // === Section 6: Auto Rewind ===
                     item {
                         SettingsSectionHeader(title = "自动回放")
                     }
@@ -507,7 +517,7 @@ fun SettingsScreen(
                             value = autoRewindSeconds.toFloat(),
                             onValueChange = { onAutoRewindSecondsChange(it.toInt()) },
                             valueRange = 0f..30f,
-                            steps = 29, // 0s到30s共有31个刻度点，除去两端，所以 steps = 31 - 2 = 29
+                            steps = 29, // Subtract endpoints from 31 distinct tick steps between 0s and 30s.
                             valueFormatter = {
                                 if (it.toInt() == 0) "已关闭" else String.format(java.util.Locale.US, "%d 秒", it.toInt())
                             },
@@ -515,7 +525,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    // === 第八分节：关于信息 ===
+                    // === Section 7: About Information ===
                     item {
                         SettingsSectionHeader(title = "关于")
                     }
@@ -532,7 +542,8 @@ fun SettingsScreen(
         }
     }
 
-    // 渲染用户确定移除库根目录时的警示 AlertDialog 弹窗。
+    // Render deletion confirmation (To warn users about library root deletion risks)
+    // Ensures database records will be erased while preserving physical storage files.
     if (rootToDelete != null) {
         val root = rootToDelete!!
         AlertDialog(
@@ -612,12 +623,12 @@ private fun AbsServerDialog(
                     Text(if (connectionState.isTesting) "连接中..." else "测试连接")
                 }
                 if (connectionState.loginSucceeded) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
+                     Spacer(modifier = Modifier.height(8.dp))
+                     Text(
                         text = "登录成功，请选择一个 book library 再点击添加",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
-                    )
+                     )
                 }
                 if (connectionState.serverVersion != null) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -683,7 +694,7 @@ private fun AbsServerDialog(
 }
 
 /**
- * 悬浮层玻璃效果分段选择设置项。
+ * Segmented selection setting item for overlay glass effect.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -691,8 +702,8 @@ private fun SettingsSegmentedItem(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    selectedMode: GlassEffectMode,
-    onModeSelected: (GlassEffectMode) -> Unit
+    glassEffectMode: GlassEffectMode,
+    onGlassEffectModeChange: (GlassEffectMode) -> Unit
 ) {
     val modes = listOf(GlassEffectMode.Material, GlassEffectMode.MiuixBlur)
     Row(
@@ -719,8 +730,8 @@ private fun SettingsSegmentedItem(
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 modes.forEachIndexed { index, mode ->
                     SegmentedButton(
-                        selected = selectedMode == mode,
-                        onClick = { onModeSelected(mode) },
+                        selected = glassEffectMode == mode,
+                        onClick = { onGlassEffectModeChange(mode) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
                     ) {
                         Text(text = if (mode == GlassEffectMode.Material) "Material" else "MiuixBlur")
@@ -732,7 +743,7 @@ private fun SettingsSegmentedItem(
 }
 
 /**
- * 睡眠模式分段选择设置项。
+ * Segmented selection setting item for sleep mode.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -798,7 +809,7 @@ private fun SettingsSegmentedSleepModeItem(
 }
 
 /**
- * Switch 切换状态组件。
+ * Switch toggle component (To render settings item containing toggle switch)
  */
 @Composable
 private fun SettingsToggleItem(
@@ -841,7 +852,7 @@ private fun SettingsToggleItem(
 }
 
 /**
- * 普通点击设置条目。
+ * Clickable settings item (To render settings item acting as trigger button)
  */
 @Composable
 private fun SettingsItem(
@@ -878,7 +889,7 @@ private fun SettingsItem(
 }
 
 /**
- * WebDAV 添加弹窗。
+ * WebDAV dialog collector (To display form inputs for remote directory parameters)
  */
 @Composable
 private fun WebDavRootDialog(
@@ -961,7 +972,7 @@ private fun WebDavRootDialog(
 }
 
 /**
- * 新增 Slider 专用的设置项辅助组件。
+ * Slider settings item (To adjust float settings values in a formatted range)
  */
 @Composable
 private fun SettingsSliderItem(
@@ -1009,7 +1020,7 @@ private fun SettingsSliderItem(
 }
 
 /**
- * 设置页面的小标题分节头部组件。
+ * Section title header (To display category dividers in settings list)
  */
 @Composable
 private fun SettingsSectionHeader(title: String) {
@@ -1028,7 +1039,8 @@ private fun SettingsSectionHeader(title: String) {
 @Composable
 fun SettingsScreenPreview() {
     APlayerTheme {
-        // 详尽的中文注释：在预览中显式提供 PortraitPhone（竖屏手机）预设，验证设置页面的竖屏单列填充表现。
+        // Portrait phone template (To preview settings layout under vertical screens)
+        // Uses CompositionLocalProvider to inject standard PortraitPhone window parameters.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {

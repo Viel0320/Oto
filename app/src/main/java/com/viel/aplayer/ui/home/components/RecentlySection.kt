@@ -20,18 +20,19 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 
 /**
- * 首页“最近播放/最近添加”有声书的横向滚动列表解耦组件。
- * 
- * 经过物理拆分，将该区块完全从 HomeScreen 大类中独立出来，
- * 践行了界面与组件解耦的设计理念，规避了大组件过度负载，同时使“最近”栏的卡片在排版上更加高内聚。
- * 
- * @param recentTitle 横向区块的主标题文本（例如：最近添加、最近播放）。
- * @param recentBooks 最近的有声书数据集合。
- * @param recentListState 横向滚动的 LazyListState 状态托管句柄，用于在主网格滚动时保持横向偏好位置不变。
- * @param glassEffectMode 全局磨砂玻璃视效雾化模式。
- * @param screenHorizontalPadding 动态自适应算出的视觉对齐左缩进边距。
- * @param onNavigateToDetail 点击卡片跳转至对应书籍详情页的回调函数。
- * @param onBookLongClick 长按卡片唤起有声书一级操作菜单的回调函数。
+ * RecentlyAddedSection Setup (Recently Played/Added Horizontal List)
+ *
+ * Horizontally scrolling list decoupled component for home page "Recently Played/Recently Added" audiobooks.
+ * Through physical separation, this section is completely independent of the large HomeScreen class,
+ * practicing the design philosophy of UI component decoupling, avoiding bloated components, and making cards inside "recent" section highly cohesive.
+ *
+ * @param recentTitle Main title text of the horizontal block (e.g., Recently Added, Recently Played).
+ * @param recentBooks Audiobook data collection of recent items.
+ * @param recentListState Horizontal scroll LazyListState handler, used to preserve scroll position when grid scrolls vertically.
+ * @param glassEffectMode Global frosted glass visual effect mode.
+ * @param screenHorizontalPadding Dynamically calculated visual alignment left margin.
+ * @param onNavigateToDetail Callback function on card click navigating to audiobook details.
+ * @param onBookLongClick Callback function on card long press invoking first-level action menu.
  */
 @Composable
 fun RecentlyAddedSection(
@@ -47,7 +48,7 @@ fun RecentlyAddedSection(
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
-        // 详尽的中文注释：绘制“最近播放/添加”的主体大标题，并通过 screenHorizontalPadding 确保与其上方和下方的文字安全边距对齐
+        // Draw main title of "Recently Played/Added", using screenHorizontalPadding to ensure alignment with visual margins
         Text(
             text = recentTitle,
             style = MaterialTheme.typography.titleLarge,
@@ -55,34 +56,35 @@ fun RecentlyAddedSection(
             modifier = Modifier.padding(horizontal = screenHorizontalPadding, vertical = 16.dp)
         )
 
-        // 详尽的中文注释：横向滚动视图，为了保证首张封面卡片的物理边缘能与上方标题文字完美垂直对齐，
-        // 将左右 contentPadding 设置为 (业务边距 - 卡片自带的物理外间距 8dp)，实现极佳的视觉对齐补偿。
+        // Align Horizontal List (Apply Edge Compensation Padding)
+        // Horizontal scroll view horizontal contentPadding set to (visual padding - 8.dp card padding) to compensate card horizontal margins, aligning cover borders perfectly with the title text above.
         LazyRow(
             state = recentListState,
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = screenHorizontalPadding - 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // M-20 物理修复：使用唯一的 book.id 作为 LazyList 的稳定 key，杜绝因为列表频繁加载刷新导致卡片封面绘制闪烁或错位
+            // M-20 Fix: Use unique book.id as LazyList stable key to prevent card covers from flickering or shifting due to frequent reloads
             items(recentBooks, key = { it.book.id }) { book ->
                 RecentlyItem(
                     title = book.book.title,
                     author = book.book.author,
                     narrator = book.book.narrator,
-                    // 详尽的中文注释：如果当前有声书有具体的阅读进度，则在其标签上回填显示进度百分比，否则回填 "NEW" 表示最新导入
+                    // If the audiobook has a specific reading progress, fill the badge with progress percentage, otherwise fill "NEW" indicating newly imported
                     progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
-                    // 详尽注释：最近播放卡片使用中等封面规格，路径仍优先选择本地缩略图；
-                    // 这样 360px 请求可直接命中缩略图产物，避免卡片区域回源解码主封面原图。
+                    // Thumbnail Medium Caching (Optimize Memory and Cache Reuse)
+                    // Recently played cards use medium cover specification, preferring local thumbnails.
+                    // This allows 360px requests to hit thumbnail cache directly, avoiding decoding large covers.
                     coverPath = CoverImageSourceSelector.medium(
                         thumbnailPath = book.book.thumbnailPath,
                         coverPath = book.book.coverPath
                     ),
-                    // 详尽的中文注释：将最后扫描更新时间戳传递给卡片的 Coil，使其在缓存重新提取后可声明式直接强刷重绘，不经历磁盘 IO
+                    // Pass last updated timestamp to Coil, allowing it to force redraw without disk I/O when cache is reconstructed.
                     coverLastUpdated = book.book.lastScannedAt,
                     onClick = { onNavigateToDetail(book.book.id) },
                     onLongClick = { onBookLongClick(book) },
                     glassEffectMode = glassEffectMode,
-                    // 详尽的中文注释：将数据库中为该书籍物理提取并持久化缓存的 ARGB 主色调传递给卡片，以渲染氛围底色
+                    // Pass ARGB main color tone physically extracted and persisted in database to card, rendering ambiance background
                     coverColorArgb = book.book.backgroundColorArgb
                 )
             }

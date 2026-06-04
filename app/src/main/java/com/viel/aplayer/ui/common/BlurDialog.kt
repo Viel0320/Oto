@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.common
 
-// 使用 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
+// Miuix-blur Backdrop Integration (Replaces legacy blur library dependencies with miuix-blur's Backdrop API)
+// This achieves high-fidelity textureBlur with frosted noise shading and high-density blur.
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,45 +31,43 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 
 /**
- * 
- * BlurDialog —— 使用 miuix-blur 重写后的通用毛玻璃浮层对话框。
+ * BlurDialog (A common glassmorphic overlay dialog rewritten using miuix-blur)
  *
- * 实现原理：
- * - 调用方将最外层 Activity 的 LayerBackdrop 传给此处的 backdrop 参数。
- * - drawBackdrop 修饰符会就地渲染出基于该 LayerBackdrop 的高阶毛玻璃质感。
- * - 容器面板通过 0.78f 极佳半透明底色，与底下的模糊图层交织，达到极致清透、极佳设计感的呼吸美学。
+ * Implementation principles:
+ * - Callers pass the LayerBackdrop of the outermost Activity into the [backdrop] parameter.
+ * - The textureBlur modifier renders a high-fidelity glassmorphic overlay using the LayerBackdrop.
+ * - Combines the blurred layers with a 0.78f translucent background to achieve clear, breathable visuals.
  *
- * @param onDismissRequest 点击对话框外部或按系统返回键时的关闭回调
- * @param backdrop 与主渲染背景关联的模糊描述符状态机
- * @param glassEffectMode 当前悬浮层玻璃效果模式，Material 模式不挂载模糊修饰符
- * @param scrollable 内容区域是否允许纵向滚动，内容较多时设为 true
- * @param content 对话框正文 Composable 内容
+ * @param onDismissRequest Callback triggered on clicking outside the dialog or pressing the system back button
+ * @param backdrop The blur state coordinator linked to the main rendering backdrop
+ * @param glassEffectMode Specifies the glass style; skips blur sampling if configured as Material
+ * @param scrollable Enables vertical scrolling in the content area if configured as true
+ * @param content Composable slot representing the dialog body content
  */
 @Composable
 fun BlurDialog(
     onDismissRequest: () -> Unit,
     backdrop: LayerBackdrop,
-    // 玻璃效果模式必须由调用方从设置状态显式传入，避免 Dialog 内部私自声明默认值。
+    // Parameter Injection Guard (The glass effect mode must be explicitly provided by the caller to avoid declaring implicit defaults)
     glassEffectMode: GlassEffectMode,
     scrollable: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    // 获取当前系统的亮暗色主题状态，以实现对话框底色自适应着色混合
+    // Dark Mode Auto-Adaptation (Inspects the active system theme to adjust the dialog's blended backdrop color)
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
-            // 关闭 platform 默认宽度限制，由 widthIn 精确约束宽度
+            // Disable Platform Width Bounds (Bypasses system default dialog widths to enforce widthIn layout constraints)
             usePlatformDefaultWidth = false,
-            // 允许内容延伸至系统窗口内边距区域
+            // Window Edge Extension (Allows dialog contents to layout under system status and navigation bar insets)
             decorFitsSystemWindows = false
         )
     ) {
-        // 全屏 Box 作为定位容器。配置了 clickable 修饰符，
-        // 在 usePlatformDefaultWidth = false 时替代失效的原生 Outside Touch，
-        // 使得用户点击对话框外围模糊空白处时，能灵敏触发 onDismissRequest()。
-        // 同时传递无波纹点击反馈以维持视觉的高级感。
+        // Full-Screen Container (Serves as a layout interceptor configuring outside click touch behavior)
+        // Employs a ripple-free clickable modifier to consume clicks on outside regions and trigger [onDismissRequest]
+        // when usePlatformDefaultWidth is set to false.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -81,28 +80,27 @@ fun BlurDialog(
                 .padding(horizontal = 24.dp, vertical = 48.dp),
             contentAlignment = Alignment.Center
         ) {
-            // 仅在 MiuixBlur 模式挂载高阶 textureBlur 质感磨砂与液态玻璃折光效果；Material 模式完全跳过采样以绝缘开销。
+            // Sampling Efficiency Filter (Enables high-fidelity textureBlur only under MiuixBlur; bypasses sampling under Material to save CPU)
             val glassModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
                 val dialogShape = MaterialTheme.shapes.extraLarge
                 Modifier.textureBlur(
                     backdrop = backdrop,
                     shape = dialogShape,
-                    blurRadius = 80f, // thick -> 进一步拉大模糊半径以提供更宽的混色渐变
-                    noiseCoefficient = 0.05f, // texture -> 加强噪点以呈现真实的磨砂漫反纹理
+                    blurRadius = 80f, // Broad Gradient Blend (Extends the blur radius to achieve smooth color blending)
+                    noiseCoefficient = 0.05f, // Frosted Diffuse Texture (Injects fine noise mapping to simulate frosted physical surfaces)
                     colors = BlurColors(
                         blendColors = listOf(
                             BlendColorEntry(
-                                color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 微调蒙版深度，以供底层氛围折光与高光显示
+                                color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // Adaptive Mask Blend (Tones opacity for specular glare and backdrop refraction rendering)
                                 mode = BlurBlendMode.SrcOver
                             )
                         ),
-                        brightness = if (isDark) -0.12f else -0.05f, // 调低亮度，削弱底层高亮反差
-                        contrast = 0.65f, // 大幅压缩对比度，抹平 Recently Added 列表物理硬切分界线
+                        brightness = if (isDark) -0.12f else -0.05f, // Brightness Dampening (Reduces white contrast highlights behind the dialog container)
+                        contrast = 0.65f, // Contrast Mitigation (Flattens high-contrast borders between background elements)
                         saturation = 1.0f
                     )
                 )
-                // 
-                // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，重塑水晶般剔透的 3D 折面反射。
+                // Specular Glare Layer (Draws a linear gradient overlay to simulate specular light refractions)
                 .background(
                     brush = Brush.linearGradient(
                         colors = listOf(
@@ -114,8 +112,7 @@ fun BlurDialog(
                     ),
                     shape = dialogShape
                 )
-                // 
-                // 4. 链式追加 1.dp 极细自适应渐变微光折射边框 (Refraction Edge)，极大增强弹窗面板的悬浮感与视觉豪华度。
+                // Refraction Edge Border (Applies a 1.dp adaptive gradient border to emphasize elevation and contrast)
                 .border(
                     width = 1.dp,
                     brush = Brush.linearGradient(
@@ -141,11 +138,9 @@ fun BlurDialog(
                 Modifier
             }
 
-            // 对话框面板 Surface。
-            // - 采用系统 extraLarge 圆角符合 Material 3 Dialog 规范，支持主题自适应
-            // - tonalElevation = 6.dp：暗色模式下产生色调差，强化层次感
-            // - shadowElevation = 8.dp：轻微投影强化悬浮感
-            // - 关键改动：添加无波纹 clickable 以拦截并消费点击手势，阻止其错误向上穿透触发 dismiss 关闭
+            // Content Surface (Core Dialog container styled under Material 3 specification)
+            // - Uses extraLarge shapes and tonal/shadow elevation mapping to reinforce spatial layering.
+            // - Focus Interceptor: Attaches a custom clickable modifier to prevent gesture events propagating upward and closing the dialog.
             Surface(
                 modifier = Modifier
                     .widthIn(min = 280.dp, max = 460.dp)
@@ -154,18 +149,17 @@ fun BlurDialog(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {
-                        // 空操作，单纯用于拦截手势，防止点击对话框主体错误触发 dismiss
+                        // No-Op Gesture Consumption (Empty lambda consuming clicks to prevent triggering dismiss events)
                     },
                 shape = MaterialTheme.shapes.extraLarge,
-                // MiuixBlur 模式下设为透明以展现完美的着色器材质模糊；Material 模式使用不透明容器。
+                // Set to transparent in MiuixBlur mode to reveal the shader material blur perfectly; Material mode uses an opaque container.
                 color = if (glassEffectMode == GlassEffectMode.MiuixBlur) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
-                // 
-                // 在 MiuixBlur 模式下，由于 Surface 设为完全透明，必须硬性把 elevation 投影调为 0.dp。
-                // 否则 Android 系统的 RenderNode 阴影投影垫片会在透明底层产生极其难看的硬件级灰色“边缘残影/重影”泄露。
+                // Elevation Dampening Guard (Forced to 0.dp under MiuixBlur since the Surface backing is transparent)
+                // This avoids hardware RenderNode shadows generating unsightly grey border relics.
                 tonalElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else 6.dp,
                 shadowElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else 8.dp
             ) {
-                // 按 scrollable 参数决定是否附加纵向滚动能力
+                // Scroll Behavior Toggle (Attaches a vertical scroll modifier if scrollable is set to true)
                 val scrollModifier = if (scrollable) {
                     Modifier.verticalScroll(rememberScrollState())
                 } else {

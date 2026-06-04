@@ -13,13 +13,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
+ * Progress Synchronization Tracker (Helper class decoupled from PlaybackManager singletons)
+ * Handles high-frequency polling loops and manages database persistence operations.
+ * Isolates progress mathematical calculation models and defines precise lifecycle controls.
  * 
- * 进度同步追踪器（ProgressSyncTracker）。
- * 作为 PlaybackManager 的协从组件，用于将高频进度轮询与数据库持久化落库的逻辑从大单例中解耦出来。
- * 追踪器维持核心数据落盘功能，提供清晰的进度计算与回传生命周期控制。
- * 
- * 在 M4.2 重构中，将旧的 LibraryRepository 彻底解耦，拆分为 BookQueryGateway 以及 ProgressGateway，
- * 遵循高内聚低耦合的架构设计。
+ * Decouples the legacy LibraryRepository by splitting operations into BookQueryGateway and ProgressGateway.
  */
 class ProgressSyncTracker(
     private val context: Context,
@@ -31,13 +29,13 @@ class ProgressSyncTracker(
     private val getCurrentPlan: () -> BookPlaybackPlan?,
     private val onProgressUpdated: (positionMs: Long, durationMs: Long) -> Unit
 ) {
-    // 专门用于轮询物理播放器进度的协程 Job 引用，由播放状态控制其激活或停用。
+    // Polling Job Coordinator (Coroutine job reference for active player progress loop, managed dynamically via playback states)
     private var pollingJob: Job? = null
 
     /**
-     * 启动高频进度轮询协程。
-     * 当检测到播放器正在播放时，每 500 毫秒刷新一次 UI 进度信息，每隔 20 次循环（累计 10 秒）安全保存一次当前的播放进度至 Room 数据库。
-     * 轮询在协程生命周期 scope 结束或主动调用 stopPolling 时被安全取消。
+     * Start Polling Routine (Spawns the high-frequency progress polling coroutine)
+     * Refreshes UI progress flows every 500ms and commits state checkpoints to Room every 10s (20 cycles).
+     * Automatically cancelled when the parent scope is destroyed or when stopPolling() is invoked.
      */
     fun startPolling() {
         if (pollingJob?.isActive == true) return
@@ -46,16 +44,16 @@ class ProgressSyncTracker(
             while (isActive) {
                 val controller = getController()
                 if (controller != null && controller.isPlaying) {
-                    // 更新当前的全局播放进度与全书总时长
+                    // State Emission (Propagates global playback positions and overall duration counts to state flows)
                     updateProgress(controller)
                     saveCounter++
                     if (saveCounter >= 20) {
                         saveCounter = 0
-                        // 到达 10 秒周期，立即执行一次数据库保存落盘
+                        // Checkpoint Save (Persists current progress checkpoint to DB every 10 seconds)
                         saveProgressDirectly(controller)
                     }
                 }
-                // 根据播放器当前的播放状态动态确定延迟等待时长，播放中为 500 毫秒以确保 UI 精准，暂停时为 2 秒以降低 CPU 负载。
+                // Dynamic Polling Interval (Delay 500ms during playback to keep UI precise; throttle to 2s when paused to save CPU)
                 val delayTime = if (getController()?.isPlaying == true) 500L else 2000L
                 delay(delayTime)
             }
@@ -63,8 +61,8 @@ class ProgressSyncTracker(
     }
 
     /**
-     * 停止高频进度轮询协程。
-     * 安全取消当前运行的 pollingJob，并将引用置空，确保不发生协程泄漏。
+     * Stop Polling Routine (Terminates the active progress polling coroutine)
+     * Cancels the running job and cleans up references to prevent background coroutine leaks.
      */
     fun stopPolling() {
         pollingJob?.cancel()
@@ -72,11 +70,10 @@ class ProgressSyncTracker(
     }
 
     /**
-     * 计算当前的全局播放位置与时长。
-     * 读取当前的播放计划 files 列表，结合 MediaController 物理上的当前文件索引与文件内偏移，
-     * 通过 PositionMapper 的工具算法换算出全局连续的毫秒级进度，并通过回调推回 PlaybackManager 刷新全局 Flow 状态。
+     * Resolve Global Position (Calculates global position and duration relative to the current playback plan)
+     * Queries MediaController indices and local offsets to resolve overall progress via PositionMapper algorithms.
      *
-     * @param player 当前已就绪的 MediaController 实例
+     * @param player The active MediaController instance
      */
     fun updateProgress(player: MediaController) {
         val plan = getCurrentPlan()
@@ -88,7 +85,7 @@ class ProgressSyncTracker(
                 .coerceIn(0L, totalDur.coerceAtLeast(0L))
             onProgressUpdated(globalPos, totalDur)
         } else {
-            // 若无有效播放计划，则直接回传底层播放器原本的单文件物理进度
+            // Fallback Progress Check (Falls back to reporting raw media track position if no multi-file plan exists)
             onProgressUpdated(
                 player.currentPosition.coerceAtLeast(0L),
                 player.duration.coerceAtLeast(0L)
@@ -97,8 +94,7 @@ class ProgressSyncTracker(
     }
 
     /**
-     * 执行即时进度保存落库。
-     * 适用于状态突变（如暂停、切换音轨）或外部主动调用存盘的场景。
+     * Force Checkpoint Save (Executes progress serialization immediately upon state transitions, e.g., pause, seek, track skips)
      */
     fun saveProgress() {
         val controller = getController() ?: return
@@ -106,10 +102,9 @@ class ProgressSyncTracker(
     }
 
     /**
-     * 内部底层执行进度入库持久化的具体实现。
-     * 将物理的媒体 mediaId 解析还原为业务 bookId，安全计算全局偏移后构造并插入 BookProgressEntity 数据实体。
+     * Database Checkpoint Write (Helper resolving mediaId components and writing BookProgressEntity snapshots to SQLite)
      *
-     * @param controller 当前的 MediaController 物理控制器实例
+     * @param controller The active MediaController instance
      */
     private fun saveProgressDirectly(controller: MediaController) {
         val mediaParts = PlaybackMediaId.parse(controller.currentMediaItem?.mediaId) ?: return
@@ -118,13 +113,13 @@ class ProgressSyncTracker(
         val positionInFile = controller.currentPosition.coerceAtLeast(0L)
 
         scope.launch {
-            // 使用解耦后的 bookQueryGateway 网关服务获取书籍相关的全部音频分轨文件列表
+            // Fetch Track Configurations (Resolves all physical audio files associated with the book using bookQueryGateway)
             val files = bookQueryGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
                 val bookFileId = files.getOrNull(fileIndex)?.id
 
-                // 使用专门用于进度持久化的 progressGateway 异步落库当前的播放进度
+                // Write Progress Checkpoint (Persists calculated progress coordinates to the DB using progressGateway)
                 progressGateway.saveProgress(
                     BookProgressEntity(
                         bookId = bookId,
@@ -155,17 +150,16 @@ class ProgressSyncTracker(
     }
 
     /**
-     * 强制持久化保存指定的进度信息。
-     * 主要用于跳转定位（seekTo）、首次载入播放计划（applyPlaybackPlan）等需要直接修改指定进度的场景，
-     * 绕过对 MediaController 瞬时状态的获取依赖，在 IO 线程池中物理执行写入。
+     * Direct Progress Persistence (Manually overrides progress state, bypassing active player queries)
+     * Utilized during explicit seeks or plan loading, writing changes via background threads.
      *
-     * @param bookId 目标书籍 ID
-     * @param fileIndex 目标文件在播放列表中的索引
-     * @param positionInFile 文件内部的偏移毫秒数
+     * @param bookId Target audiobook identifier
+     * @param fileIndex Current track index inside the playlist
+     * @param positionInFile Local offset in milliseconds relative to the track file
      */
     fun persistProgress(bookId: String, fileIndex: Int, positionInFile: Long) {
         scope.launch {
-            // 使用解耦后的 bookQueryGateway 只读网关服务同步获取最新的书籍音频分轨列表
+            // Fetch Track Configs Sync (Synchronously retrieves track configurations via the read-only gateway)
             val files = bookQueryGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val safeFileIndex = fileIndex.coerceIn(0, files.lastIndex)
@@ -174,7 +168,7 @@ class ProgressSyncTracker(
                     .coerceIn(0L, files.sumOf { it.durationMs }.coerceAtLeast(0L))
                 val bookFileId = files.getOrNull(safeFileIndex)?.id
 
-                // 调用 progressGateway 网关将高精度的定位快照保存落库
+                // Commit Localization Checkpoint (Saves high-precision seek positions to the progress DB)
                 progressGateway.saveProgress(
                     BookProgressEntity(
                         bookId = bookId,

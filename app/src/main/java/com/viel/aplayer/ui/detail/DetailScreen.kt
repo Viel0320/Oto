@@ -6,34 +6,36 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
- * 详情页 L2 容器层组件 DetailScreen。
- * 纯粹作为状态透传与事件桥接的控制器，内部无任何直接的视觉渲染逻辑。
- * 它将传入的 DetailUiState 原样透传给 L3 层的纯渲染组件 DetailContent（不再拆解为扁平参数，
- * 因为 DetailContent 及其下层 Layout 子骨架本就以 DetailUiState 为状态契约）。
- * 这样达成了 Compose 官方三层架构分层规范（L1 Overlay -> L2 Screen -> L3 Layout/Content），
- * 并且解耦了界面渲染与领域状态逻辑。
+ * DetailScreen Bridge (L2 Container Component)
+ *
+ * L2 container level component DetailScreen.
+ * Serves purely as a controller for state transmission and event bridging, containing no direct visual rendering logic.
+ * It passes the incoming DetailUiState as-is to the L3 pure rendering component DetailContent (no longer dismantling into flat parameters,
+ * as DetailContent and its lower-level Layout sub-skeletons already use DetailUiState as their state contract).
+ * This fulfills Compose official three-layer architecture specification (L1 Overlay -> L2 Screen -> L3 Layout/Content),
+ * and decouples UI rendering from domain state logic.
  */
 @Composable
 fun DetailScreen(
-    uiState: DetailUiState, // 输入的详情页 UI 状态模型
-    onBackClick: () -> Unit, // 点击返回键或下滑退场触发的回调
+    uiState: DetailUiState, // Input UI state model of the detail page
+    onBackClick: () -> Unit, // Callback triggered when the back button is clicked or user drags down to dismiss
     modifier: Modifier = Modifier,
-    // M-19 修复 — 增加 onPlayPressed 参数，在点击播放前执行，将 3 秒播放保护期的状态下沉至 ViewModel 处理
+    // Fix M-19: Add onPlayPressed parameter, executed before clicking play to sink the 3-second play protection state into ViewModel
     onPlayPressed: () -> Unit = {},
-    onPlayClick: () -> Unit = {}, // 确认触发播放音频的回调
-    onMoreClick: () -> Unit = {}, // 点击右上角更多控制
-    onSearchClick: (String) -> Unit = {}, // 标签跳转搜索回调
-    // 玻璃效果模式由外部传入
+    onPlayClick: () -> Unit = {}, // Callback to confirm triggering audio playback
+    onMoreClick: () -> Unit = {}, // Callback for clicking top-right more control button
+    onSearchClick: (String) -> Unit = {}, // Callback for tag click navigating to search
+    // Glass effect mode passed from outside
     glassEffectMode: GlassEffectMode,
-    // 共用的 miuix-blur 背景采样源
+    // Shared miuix-blur background sampling source
     backdrop: LayerBackdrop? = null,
-    // 全前景采样的模糊层采样源
+    // Sampling source for full foreground capture
     fullPageBackdrop: LayerBackdrop? = null,
-    // 编辑元数据悬浮层拉起的回调
+    // Callback for launching edit metadata overlay
     onEditClick: (String) -> Unit = {},
 ) {
-    // L-10 修复 — 直接透传完整的 DetailUiState 给 L3 渲染层，
-    // 取代此前“在此拆解为扁平参数、再在 DetailContent 内重新包装回 DetailUiState”的冗余往返。
+    // Fix L-10 (Direct UI State Transmission)
+    // Directly pass the complete DetailUiState to L3 rendering layer, replacing the redundant round-trip of dismantling into flat parameters here and repackaging inside DetailContent.
     DetailContent(
         uiState = uiState,
         onBackClick = onBackClick,

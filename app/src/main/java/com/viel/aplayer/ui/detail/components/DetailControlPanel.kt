@@ -49,9 +49,11 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 
 /**
- * 封装详情页的操作控制面板 (DetailControlPanel)。
- * 整合了元数据标签组 (DetailInfoChip)、播放主控制按钮以及物理文件路径显示。
- * 支持根据 [isLandscape] 自动调整高度、圆角及间距，并完美适配 miuix-blur 磨砂玻璃效果。
+ * DetailControlPanel Setup (Detail Operations Panel Component)
+ *
+ * Encapsulates the operations control panel of the details page (DetailControlPanel).
+ * Integrates metadata chip group (DetailInfoChip), primary playback control buttons, and physical file path display.
+ * Supports height, corner radius, and spacing adjustments adaptively based on [isLandscape], and perfectly fits the miuix-blur frosted glass effect.
  */
 @Composable
 fun DetailControlPanel(
@@ -79,7 +81,7 @@ fun DetailControlPanel(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 1. 元数据标签组
+        // 1. Metadata Chip Group
         androidx.compose.foundation.layout.FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(chipSpacing, Alignment.CenterHorizontally),
@@ -109,7 +111,7 @@ fun DetailControlPanel(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 2. 播放主控制按钮
+        // 2. Main Playback Control Button
         if (isBlur && uiState.isAvailable) {
             Surface(
                 onClick = {
@@ -121,9 +123,9 @@ fun DetailControlPanel(
                     .height(buttonHeight)
                     .let {
                         if (backdrop != null) {
-                            // 
-                            // 1. 使用 textureBlur 对按钮进行硬件级高斯模糊渲染，增加细腻的 0.05f 磨砂噪点。
-                            // 2. 将 blendColors 的不透明度（暗色 0.35f，亮色 0.65f）作为背景主基调，确保亮暗环境下出色的底色透射。
+                            // Apply Texture Blur (Hardware-Level Blur Setup)
+                            // 1. Use textureBlur for hardware-level Gaussian blur rendering on the button, adding delicate 0.05f frosted noise.
+                            // 2. Set the opacity of blendColors (0.35f for dark mode, 0.65f for light mode) as the background keynote, ensuring excellent tint transmission.
                             it.textureBlur(
                                 backdrop = backdrop,
                                 shape = RoundedCornerShape(cornerRadius),
@@ -138,8 +140,8 @@ fun DetailControlPanel(
                                     )
                                 )
                             )
-                            // 
-                            // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，模拟真实水晶玻璃表面对光源的物理折射反光。
+                            // Apply Specular Glare (Physical Reflection Gradient Overlay)
+                            // 3. Chain-append a diagonal white reflective glare overlay (Specular Glare) to simulate physical light reflection on a real crystal glass surface.
                             .background(
                                 brush = Brush.linearGradient(
                                     colors = listOf(
@@ -151,8 +153,8 @@ fun DetailControlPanel(
                                 ),
                                 shape = RoundedCornerShape(cornerRadius)
                             )
-                            // 
-                            // 4. 链式追加 1.dp 极细微光渐变折射边缘描边 (Refraction Edge)，在任何杂乱背景下都能凸显极佳的立体层次。
+                            // Apply Refraction Edge (Finely Detailed Border Stroke)
+                            // 4. Chain-append a 1.dp thin-light gradient refraction border (Refraction Edge) to highlight excellent dimensional layers on any cluttered background.
                             .border(
                                 width = 1.dp,
                                 brush = Brush.linearGradient(
@@ -179,8 +181,8 @@ fun DetailControlPanel(
                         }
                     },
                 shape = RoundedCornerShape(cornerRadius),
-                color = Color.Transparent, // 设置背景完全透明，防止传统底色遮蔽底层磨砂与液态偏光的精妙呈现
-                border = null, // 设为 null，废弃传统实色 border，完全交由上方的渐变 border 修饰符渲染
+                color = Color.Transparent, // Set background fully transparent to prevent traditional base colors from shielding the underlying frosted glass and liquid polarization rendering
+                border = null, // Set to null to discard traditional solid borders, leaving the rendering entirely to the gradient border modifier above
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
                 Row(
@@ -248,7 +250,7 @@ fun DetailControlPanel(
             }
         }
 
-        // 3. 物理文件路径显示
+        // 3. Physical File Path Display
         if (uiState.fullSourcePath.isNotEmpty()) {
             Spacer(modifier = Modifier.height(if (isLandscape) 12.dp else 16.dp))
             Text(
@@ -264,36 +266,38 @@ fun DetailControlPanel(
 
 
 /**
- * 重构后的详情元数据卡片 (DetailInfoChip)。
- * 完美支持在 miuix-blur 模式下动态应用“高雅白羽雾化”设计规范，同时在传统不透明模式下退回为原生 Material3 经典微光描边，确保零额外开销。
+ * DetailInfoChip Setup (Metadata Chip Component)
+ *
+ * Refactored details metadata card (DetailInfoChip).
+ * Perfectly supports dynamically applying the "elegant white-feather atomization" design specification in miuix-blur mode, while falling back to native Material3 classic shimmer borders in traditional opaque modes to ensure zero extra overhead.
  */
 @Composable
 fun DetailInfoChip(
     icon: ImageVector,
     value: String,
     modifier: Modifier = Modifier,
-    // 传入全局玻璃效果模式，默认值设为已存在的 GlassEffectMode.Material
+    // Pass global glass effect mode, defaulting to GlassEffectMode.Material
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    // 传入全局 Backdrop 背景模糊状态
+    // Pass global Backdrop background blur state
     backdrop: LayerBackdrop? = null
 ) {
-    // 感知新更名的 MiuixBlur 磨砂玻璃模式是否已被开启且采样源不为空
+    // Detect whether the newly renamed MiuixBlur frosted glass mode is enabled and sampling source is not null
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
 
-    // 在 DetailInfoChip 内部基于当前 system/应用亮暗主题自适应配置专属的高级半透明蒙版底色与极细微光描边，完全消除未解析引用报错
+    // Adaptively configure exclusive premium translucent mask base color and hairline shimmer border inside DetailInfoChip based on current system/app theme, avoiding unresolved reference errors
     val isDark = isSystemInDarkTheme()
     val localBlurBackgroundColor = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f)
     val localBlurBorderColor = if (isDark) Color.White.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.12f)
     val localBlurBorder = androidx.compose.foundation.BorderStroke(0.5.dp, localBlurBorderColor)
 
-    // 使用自定义 Surface 替代 SuggestionChip，以获得更紧凑的间距且不带有额外的点击透明区域
+    // Using a custom Surface instead of SuggestionChip for tighter spacing and no extra transparent clickable area
     Surface(
         modifier = modifier
             .let {
                 if (isBlur) {
-                    // 
-                    // 1. 使用 textureBlur 对元数据芯片进行高斯模糊渲染（半径 40f 保障小文字极佳可读性），加入 0.03f 细腻噪点质感。
-                    // 2. 将 blendColors 的不透明度（暗色 0.3f，亮色 0.6f）作为背景主基调，确保亮暗环境下出色的底色透射。
+                    // Apply Texture Blur (Micro-sized Chip Gaussian Blur)
+                    // 1. Use textureBlur for Gaussian blur rendering on the metadata chip (radius 40f to ensure text legibility), adding 0.03f noise texture.
+                    // 2. Set the opacity of blendColors (0.3f for dark mode, 0.6f for light mode) as the background keynote.
                     it.textureBlur(
                         backdrop = backdrop,
                         shape = RoundedCornerShape(12.dp),
@@ -308,8 +312,8 @@ fun DetailInfoChip(
                             )
                         )
                     )
-                    // 
-                    // 3. 链式覆盖高光斜向白色物理扫掠折射层 (Specular Glare)，赋予药丸微缩水滴的剔透立体感。
+                    // Apply Specular Glare (Glass Refraction Layer Overlay)
+                    // 3. Chain-append a specular diagonal white physical glare refraction overlay, giving a water-droplet frosted glass aesthetic.
                     .background(
                         brush = Brush.linearGradient(
                             colors = listOf(
@@ -321,8 +325,8 @@ fun DetailInfoChip(
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )
-                    // 
-                    // 4. 链式添加 0.5.dp 极致精细的“微光折射渐变描边 (Refraction Edge)”，防止在大面积杂色背景上边缘发生粘连。
+                    // Apply Refraction Edge (Gradient Refraction Border)
+                    // 4. Chain-append a 0.5.dp micro-light gradient refraction border to prevent edge sticking on large variegated backgrounds.
                     .border(
                         width = 0.5.dp,
                         brush = Brush.linearGradient(
@@ -350,7 +354,7 @@ fun DetailInfoChip(
             },
         shape = RoundedCornerShape(12.dp),
         border = if (isBlur) {
-            null // 在模糊状态下将原生 border 设为 null，完美移交上方的渐变 border 修饰符进行自定义精细绘制
+            null // Set native border to null under blur state to delegate drawing entirely to gradient border modifier above
         } else {
             androidx.compose.foundation.BorderStroke(
                 width = 1.dp,
@@ -358,7 +362,7 @@ fun DetailInfoChip(
             )
         },
         color = if (isBlur) {
-            Color.Transparent // 在模糊状态下使 Surface 背景完全透明，杜绝背景色彩叠加穿帮
+            Color.Transparent // Make Surface background fully transparent under blur state to avoid overlapping background colors
         } else {
             Color.Transparent
         }

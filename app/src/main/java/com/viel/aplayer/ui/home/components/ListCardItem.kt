@@ -1,7 +1,8 @@
 package com.viel.aplayer.ui.home.components
 
-// 补充导入 getValue 和 setValue 扩展函数以完美适配 Composable 的 by 属性代理逻辑 (H-15)
-// 引入 miuix-blur 模糊视效相关的依赖，绘制极致性能的毛玻璃效果
+// Setup ListCardItem Imports (Coil & MiuixBlur Integration)
+// Added getValue and setValue import extensions to perfectly support Composable's 'by' property delegation logic.
+// Introduce miuix-blur related dependencies to draw high-performance frosted glass effects.
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -61,15 +62,15 @@ fun RecentlyItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     coverPath: String? = null,
-    coverLastUpdated: Long = 0L, // 用于传递封面文件自愈重建时间戳，用以触发响应式强打破缓存
-    // 新增长按回调函数，用于支持最近添加/播放区域的长按快捷菜单
+    coverLastUpdated: Long = 0L, // Used to pass cover file self-healing milliseconds timestamp to trigger responsive cache breaking
+    // New long-press callback to support the long-press shortcut menu in the recently added/played section
     onLongClick: () -> Unit = {},
-    // 新增 glassEffectMode 参数，使 RecentlyItem 可以响应全局磨砂玻璃雾化模式，默认值降级为传统不透明模式
+    // New glassEffectMode parameter to make RecentlyItem respond to global frosted glass blur mode, defaulting to traditional opaque mode
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    // 新增 coverColorArgb 可选参数，传递当前书籍封面的 ARGB 取色，默认为空，用于实现文字颜色同源取色融合
+    // New coverColorArgb optional parameter to pass the current book cover ARGB color extraction, used to blend text color with cover color
     coverColorArgb: Int? = null
 ) {
-    // 判断当前是否启用 miuix-blur 模糊视效，对齐新命名的 MiuixBlur 枚举类型
+    // Determine if miuix-blur visual effect is currently enabled, matching the newly named MiuixBlur enum type
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
     val localBackdrop = rememberLayerBackdrop()
 
@@ -77,7 +78,7 @@ fun RecentlyItem(
         modifier = modifier
             .width(160.dp)
             .clip(RoundedCornerShape(16.dp))
-            // 改用 combinedClickable 手势监听器响应点击 and 长按事件
+            // Use combinedClickable gesture listener instead to handle click and long-press events
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -91,29 +92,29 @@ fun RecentlyItem(
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            // Background Cover (Sampling Source Only)
-            // 
-            // 将封面图或占位图包裹在独立的背景 Box 中，并仅将该背景 Box 注册为 layerBackdrop 采样源。
-            // 这使进度 Badge（Surface）成为背景的“同级兄弟组件（Sibling）”而非“子组件（Child）”，
-            // 从而彻底避免 Badge 在采样时将自己也画进模糊源中，实现极致纯净、完全正确的物理磨砂渲染层级。
+            // Background Cover (Sampling Source Isolation)
+            // Wrap the cover image or placeholder in an independent background Box, and only register that background Box as the layerBackdrop sampling source.
+            // This makes the progress Badge (Surface) a sibling component of the background rather than a child component,
+            // completely preventing the Badge from being drawn into the blur source, achieving pure and physically correct frosted rendering.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
                         if (isBlur) {
-                            // 挂载 layerBackdrop 以便让 localBackdrop 能够正确捕获背景的渲染像素
+                            // Mount layerBackdrop so localBackdrop can capture background rendering pixels correctly
                             Modifier.layerBackdrop(localBackdrop)
                         } else {
                             Modifier
                         }
                     )
             ) {
-                // 利用 Coil 的 onError 物理防抖回调，完全剥离 Composable 重组中主线程同步调用 File.exists() 的性能隐患 (H-15)
+                // Use Coil's onError callback to fully decouple the performance risk of calling File.exists() synchronously on the main thread during Composable recombination.
                 var isImageError by remember(coverPath) { mutableStateOf(false) }
                 if ((coverPath != null) && !isImageError) {
                     val context = LocalContext.current
-                    // 最近播放卡片固定使用 ThumbnailMedium 规格，并与 360px 缩略图产物对齐；
-                    // 这样中等卡片优先命中本地缩略图和同规格 Coil 缓存，不再把主封面大图带进列表区域。
+                    // Thumbnail Resizing Strategy (Cache Reuse Optimization)
+                    // Recently played cards strictly use ThumbnailMedium specification, matching the 360px thumbnail output.
+                    // This ensures medium cards hit local thumbnails and the same Coil cache specifications, avoiding bringing large covers into the list.
                     val request = remember(coverPath, coverLastUpdated) {
                         CoverImageRequestFactory.build(
                             context = context,
@@ -129,8 +130,8 @@ fun RecentlyItem(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                         onError = {
-                            // 详尽的中文注释：卡片组件只处理显示降级，成功/失败/取消及命中率指标
-                            // 都由统一 ImageRequest listener 负责，避免 UI 文件继续散落第二套图片日志。
+                            // Log Metric Handling (Decoupled Image Metrics Logging)
+                            // Card component only handles display degradation; success, failure, cancel, and hit rate logging are handled uniformly by image request listener, preventing duplicate logs.
                             isImageError = true
                         }
                     )
@@ -149,22 +150,22 @@ fun RecentlyItem(
                 }
             }
             
-            // Progress Badge
-            // 重构进度 Badge 容器为支持 miuix-blur 雾化的高雅白羽 Surface。
-            // 当启用毛玻璃时，引入定制后可灵动调节透明度的模糊材质、透光 0.5.dp 微光描边边框；在传统模式下平滑退回为原生 Material 经典高饱和度小圆角容器。
+            // Progress Badge Styling (Frosted Glass/Material Adaptive)
+            // Refactor the progress Badge container into an elegant frosted glass Surface supporting miuix-blur.
+            // When frosted glass is enabled, introduce custom adjustable opacity blur materials and translucent 0.5.dp border; fall back to native high-saturation Material container in traditional mode.
             val isDark = isSystemInDarkTheme()
 
-            // 
-            // 升级采用基于明亮度判定（luminance）的 RGB 65% 物理通道混色强力拉伸对比度算法：
-            // - 深色模式下：如果封面取色偏暗（luminance < 0.5f），与纯白色按 65% 比例拉伸混色（0.35f * rawColor + 0.65f），让文字在暗灰色磨砂底上展现出温润发光效果；
-            // - 亮色模式下：如果封面取色偏亮（luminance > 0.5f），与纯黑色按 65% 比例拉伸混色（0.35f * rawColor），强力压低亮度以防止文字在乳白半透磨砂卡片上发生视觉消融。
+            // Contrast Stretching Algorithm (Luminance Contrast Tuning)
+            // Upgrade to contrast-stretching algorithm based on luminance checking (RGB 65% physical channel color blending):
+            // - Dark mode: If cover color extraction is dark (luminance < 0.5f), blend with pure white at 65% ratio (0.35f * rawColor + 0.65f), allowing text to shine warm-glow on dark frosted glass background.
+            // - Light mode: If cover color extraction is light (luminance > 0.5f), blend with pure black at 65% ratio (0.35f * rawColor), suppressing brightness to prevent text from melting on milky semi-translucent glass.
             val coverColor = remember(coverColorArgb, isDark) {
                 coverColorArgb?.let { argb ->
                     val rawColor = Color(argb)
                     val lum = rawColor.luminance()
                     if (isDark) {
                         if (lum < 0.5f) {
-                            // 深色模式且取色偏暗时，应用 65% 白色强力提亮拉伸以保障对比度（0.35 * rawColor + 0.65）
+                            // In dark mode and cover color is dark, apply 65% white enhancement stretch to guarantee contrast (0.35 * rawColor + 0.65)
                             Color(
                                 red = rawColor.red * 0.35f + 0.65f,
                                 green = rawColor.green * 0.35f + 0.65f,
@@ -176,7 +177,7 @@ fun RecentlyItem(
                         }
                     } else {
                         if (lum > 0.5f) {
-                            // 亮色模式且取色偏亮时，应用 65% 黑色强力压暗拉伸以保障辨识度（0.35 * rawColor）
+                            // In light mode and cover color is light, apply 65% black suppression stretch to guarantee recognition (0.35 * rawColor)
                             Color(
                                 red = rawColor.red * 0.35f,
                                 green = rawColor.green * 0.35f,
@@ -197,9 +198,9 @@ fun RecentlyItem(
                     .then(
                         if (isBlur) {
                             Modifier
-                                // 首先在 Modifier 链最前端裁剪圆角，杜绝毛玻璃溢出穿帮
+                                // Clip corner radius at the very front of Modifier chain to prevent frosted glass overflow glitches
                                 .clip(RoundedCornerShape(12.dp))
-                                // 使用 drawBackdrop 绘制高阶毛玻璃模糊背景
+                                // Use drawBackdrop to render high-level frosted glass blur background
                                 .drawBackdrop(
                                     backdrop = localBackdrop,
                                     shape = { RoundedCornerShape(12.dp) },
@@ -207,7 +208,7 @@ fun RecentlyItem(
                                         blur(20f)
                                     }
                                 )
-                                // 使用 background 蒙版混合底色，亮色模式采用白羽半透底，深色模式采用玄羽半透底，保证最佳边缘对比度
+                                // Use background mask to blend base colors: translucent white in light mode, translucent black in dark mode, ensuring optimal contrast
                                 .background(
                                     if (isDark) {
                                         Color.Black.copy(alpha = 0.4f)
@@ -220,13 +221,14 @@ fun RecentlyItem(
                         }
                     ),
                 color = if (isBlur) {
-                    // 毛玻璃模式下，由于底层的 drawBackdrop 已精细融合了半透明蒙版底色，
-                    // 此处 Surface 应置为完全透明（Color.Transparent），防止双重蒙版物理重叠导致玻璃失去透光感与呼吸感。
+                    // Opacity Setup (Prevent Double Alpha Stacking)
+                    // Under blur mode, since drawBackdrop has blended translucent background masks,
+                    // Surface background should be completely transparent to avoid opacity stacking.
                     Color.Transparent
                 } else {
                     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
                 },
-                // 根据用户要求去掉胶囊描边以确立极简平滑的无边界透光感，此处不再传递任何描边配置
+                // Remove badge borders to establish a minimalist edge-free light-transmitting visual; no border configuration is passed here
                 border = null,
                 shape = if (isBlur) {
                     RoundedCornerShape(12.dp)
@@ -236,16 +238,16 @@ fun RecentlyItem(
             ) {
                 Text(
                     text = progressText,
-                    // 将左右内边距从 6.dp 增宽至 10.dp，使小胶囊的横向视觉延伸更加舒展、饱满且具备呼吸感
+                    // Widen horizontal padding from 6.dp to 10.dp to make the badge visual extension fuller and more spacious
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
                     textAlign = TextAlign.Center,
-                    // 使用 .copy(fontWeight = FontWeight.ExtraBold) 显式融于 Style 中，强制启用 ExtraBold (超强加粗) 字重，以在细小字号及毛玻璃背景下压榨出极致的边缘清晰度与轮廓质感
+                    // Use .copy(fontWeight = FontWeight.ExtraBold) explicitly to force ExtraBold weight, ensuring edge sharpness and outline clarity in small font sizes on frosted glass background.
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
                     color = if (isBlur) {
-                        // 胶囊 chip 文字使用封面取色与智能拉伸配色体系。
-                        // 优先选用精细对比度处理后的 coverColor，在数据缺省时自动安全降级：
-                        // - 亮色模式下使用原生 primary 强调色。
-                        // - 深色模式下使用纯白色（androidx.compose.ui.graphics.Color.White），达成 100% 极佳对比度与高级毛玻璃观感。
+                        // Smart Contrast Color Mapping (Dynamic Text Color)
+                        // Badge text uses cover color and smart contrast stretching:
+                        // - Light mode: use native primary theme color on fallback.
+                        // - Dark mode: use pure white (Color.White) to achieve 100% optimal contrast and premium frosted glass look.
                         coverColor ?: if (isDark) {
                             Color.White
                         } else {
@@ -307,7 +309,7 @@ fun RecentlyItemProgressPreview() {
                 narrator = "Unknown",
                 progressText = "45%",
                 onClick = {},
-                // 在预览中显式开启毛玻璃，对齐更名后的 MiuixBlur 枚举
+                // Explicitly enable frosted glass in preview, matching the renamed MiuixBlur enum
                 glassEffectMode = GlassEffectMode.MiuixBlur
             )
         }

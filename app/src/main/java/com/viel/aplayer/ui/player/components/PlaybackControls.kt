@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.player.components
 
-// 导入基础 background 修饰符，修复 miuix-blur 磨砂玻璃大圆钮的背景修饰符编译未解析引用问题
+// Import fundamental background modifiers to resolve unresolved reference compilation errors on miuix-blur frosted glass big button background modifiers.
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -73,10 +73,14 @@ fun PlaybackControls(
     var lastSpeed by remember { mutableFloatStateOf(playbackSpeed) }
     LaunchedEffect(playbackSpeed) {
         if (playbackSpeed != lastSpeed) {
-            // 详尽的中文注释：将倍速选择的防抖延迟时间调整为 1500 毫秒（1.5秒），以获得更加充足的防连击防爆刷体验
+            // Debounce delay adjustment for speed selection.
+            //
+            // Adjusted to 1500 milliseconds (1.5 seconds) to provide a more sufficient buffer against accidental double clicks or spamming.
             delay(1500) // Wait for 1.5s of inactivity
             val msg = if (playbackSpeed == 1.0f) "Playback speed reset" else "Playback speed: ${playbackSpeed}x"
-            // 详尽的中文注释：根据统一一次性 UiEvent 事件流流转原则，将倍速重置与切换提示移出本地物理 Toast 调用，改为 actions.onShowToast 发射至全局总线。
+            // Unified speed UI feedback events.
+            //
+            // Moved speed reset and toggle tips out of local physical Toast calls, routing them via actions.onShowToast to the global event bus.
             actions.onShowToast(msg)
             lastSpeed = playbackSpeed
         }
@@ -86,7 +90,9 @@ fun PlaybackControls(
     var lastTimer by remember { androidx.compose.runtime.mutableIntStateOf(selectedSleepTimer) }
     LaunchedEffect(selectedSleepTimer) {
         if (selectedSleepTimer != lastTimer) {
-            // 详尽的中文注释：将睡眠定时器时长选择的防抖延迟时间同样调整为 1500 毫秒（1.5秒），避免连按时弹窗刷屏
+            // Debounce delay adjustment for sleep timer.
+            //
+            // Adjusted to 1500 milliseconds (1.5 seconds) to avoid spamming the screen with toast popups during rapid successive clicks.
             delay(1500) // Wait for 1.5s of inactivity
             val msg = when (selectedSleepTimer) {
                 0 -> "Sleep timer off"
@@ -94,7 +100,9 @@ fun PlaybackControls(
                 -2 -> "Stop at end of chapter"
                 else -> "Sleep in $selectedSleepTimer minutes"
             }
-            // 详尽的中文注释：根据统一一次性 UiEvent 事件流流转原则，将定时时长改变的反馈改由 actions.onShowToast 发射，以解耦 UI 与 Context 实例。
+            // Unified sleep timer UI feedback.
+            //
+            // Route sleep timer duration change events via actions.onShowToast to decouple the UI from Context instances.
             actions.onShowToast(msg)
             lastTimer = selectedSleepTimer
         }
@@ -147,23 +155,24 @@ fun PlaybackControls(
             )
         }
 
-        // 对齐 MiuixBlur，感知当前是否启用了磨砂高斯模糊效果，统一重命名逻辑引用
+        // Detect whether the frosted Gaussian blur effect is enabled, aligning with MiuixBlur and unifying renamed logic references.
         val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
 
         if (isBlur) {
-            // 
-            // miuix-blur 磨砂效果激活时，将播放暂停按钮升级为清透灵动的磨砂玻璃大圆钮 Surface。
-            // 彻底去除对 drawBackdrop 实时采样的物理依赖，在播放器自带的 blur(64.dp) 超强大半径氛围模糊背景之上，
-            // 级联自适应亮/暗色调的半透明圆形蒙版底色，并在此处结合自适应本地声明 0.5.dp 微光银丝描边。
-            // 这在视觉层面上构建出极佳的 iOS 级轮廓光实体呼吸感，且彻底消除了高通 Vulkan 驱动在平移变换时的 Feedback Loop 闪退死锁。
+            // Play/pause button upgrade for miuix-blur.
+            //
+            // Upgrade the play/pause button to a clear and dynamic frosted glass big button Surface when miuix-blur is active.
+            // Completely strip the physical dependency on real-time backdrop sampling, cascading an adaptive light/dark semi-transparent circular mask color,
+            // and combining it with an adaptive locally-declared 0.5.dp shimmering silver stroke on top of the player's built-in large-radius blur(64.dp) background.
+            // This constructs an iOS-grade outline lighting breathing visual effect and completely eliminates Feedback Loop crashes on Qualcomm Vulkan drivers during translation animations.
             val playPauseShape = CircleShape
             val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-            // 
-            // 在 miuix-blur 磨砂效果下，将播放按钮改造为高透液态玻璃物理圆钮。
-            // 1. 如果 backdrop 采样源存在，使用 textureBlur 对大圆钮进行物理高斯模糊渲染，添加细腻磨砂噪声；
-            // 2. 链式覆盖高光斜向线性渐变 Specular Glare 层，形成晶莹的水滴反光面；
-            // 3. 链式追加 1.dp 极细自适应 Refraction Edge 折射渐变边框，重塑 3D 精致轮廓。
-            // 4. 若为 null，优雅安全降级回无描边的半透材质背景以维持极致稳定。
+            // Frosted glass play button transformation.
+            //
+            // 1. If the backdrop sampling source is present, use textureBlur to render physical Gaussian blur and add subtle frosted noise.
+            // 2. Chain-overlay a specular glare layer with diagonal linear gradient to form a sparkling droplet reflective surface.
+            // 3. Chain-append a 1.dp ultra-fine adaptive refraction edge gradient border to reshape the 3D delicate outline.
+            // 4. If null, elegantly and safely degrade back to a semi-transparent material background without strokes to maintain ultimate stability.
             val glassModifier = Modifier
                 .size(80.dp)
                 .let { modifier ->
@@ -227,7 +236,7 @@ fun PlaybackControls(
                 modifier = glassModifier,
                 shape = playPauseShape,
                 color = Color.Transparent,
-                border = null, // 完全交由上方的渐变 border 修饰符进行渲染
+                border = null, // Fully delegated to the gradient border modifier above for rendering
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -244,7 +253,7 @@ fun PlaybackControls(
                 }
             }
         } else {
-            // Material 默认模式下维持原本色彩的 FilledIconButton 实色设计
+            // Maintain the original filled solid-color design of FilledIconButton in Material default mode.
             FilledIconButton(
                 onClick = actions.onPlayPauseClick,
                 modifier = Modifier.size(80.dp),

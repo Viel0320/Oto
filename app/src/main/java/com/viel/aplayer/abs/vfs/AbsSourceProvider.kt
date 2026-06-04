@@ -79,7 +79,9 @@ class AbsSourceProvider(
             )
         }
         val openStart = AbsStreamLogger.mark()
-        // 详尽中文注释：ABS 流媒体打开要区分“逻辑路径 sourcePath”和“真正发起网络时的 offset”，便于排查 seek 与普通顺序播放差异。
+        // Stream Open Parameters (Distinguish logical path vs byte offset)
+        // Record both the logical file path (sourcePath) and the requested network byte offset when opening the stream.
+        // This distinction is critical for diagnosing seek behaviors versus standard sequential playback.
         AbsStreamLogger.logOpenStart(rootId = file.root.id, sourcePath = file.metadata.sourcePath, offset = offset)
         return withContext(Dispatchers.IO) {
             val response = executeRequest(
@@ -278,7 +280,9 @@ class AbsSourceProvider(
             val resolved = base.newBuilder()
                 .addEncodedPathSegments(source.removePrefix("/"))
                 .build()
-            // 详尽中文注释：相对 `/api/...` 是 ABS 最常见 contentUrl 形态，必须把解析结果打出来，排查子路径拼接错误时最有用。
+            // URL Resolution Trace (Log resolved relative API URLs)
+            // Log the resolved destination URL when a relative `/api/...` path is encountered.
+            // Since this is the most common format for ABS content URLs, tracking the resolution helps isolate base path or segment concatenation bugs.
             AbsStreamLogger.logResolveContentUrl(baseUrl = baseUrl, sourcePath = contentUrl, resolvedUrl = resolved.toString())
             return resolved
         }

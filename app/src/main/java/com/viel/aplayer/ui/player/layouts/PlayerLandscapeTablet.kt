@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.player.layouts
 
-// 导入 Jetpack Compose 动画、手势和布局 API
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
@@ -35,7 +34,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
-// 详尽的中文注释：在此移除了冗余的旧 LocalWindowClass 导入，统一使用 theme 包下的最新 WindowClass 统一自适应代理。
+// Resolve window class dependencies (To replace redundant LocalWindowClass imports with the unified theme package structure)
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
@@ -51,28 +50,28 @@ import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
- * 平板/大屏横屏播放器自适应布局组件 (PlayerTabletLandscape)。
- * 专门在平板横屏大屏幕或折叠屏展开的横屏状态下提供顶级的视觉表现。
- * 左右双栏对称铺开，上下应用 10% 屏幕高度的大边距，产生极其尊贵的高级感与舒适空灵的呼吸感。
+ * Tablet landscape player layout (Component rendering double-column player panels in wide screens)
+ * Implements clean layouts for tablet screens and folding displays.
+ * Applies symmetrical padding structures and spacing margins to provide professional visual hierarchies.
  */
 @Composable
 fun PlayerTabletLandscape(
-    currentPosition: Long, // 播放器当前物理播放进度（毫秒）
-    totalDuration: Long, // 播放器当前物理总时长（毫秒）
-    isChapterMode: Boolean, // 当前进度条是否处于章节进度视图模式
-    currentChapter: com.viel.aplayer.data.entity.ChapterEntity?, // 当前正处于播放状态的章节实体
-    isPlaying: Boolean, // 当前是否处于播放中状态
-    playbackSpeed: Float, // 当前的播放速率
-    isSpeedManualMode: Boolean, // 播放速率是否被手动调节锁定
-    bookmarkToDelete: com.viel.aplayer.data.entity.BookmarkEntity?, // 待删除书签实体
-    bookmarkToEdit: com.viel.aplayer.data.entity.BookmarkEntity?, // 待编辑书签实体
-    bookmarkEditTitle: String, // 编辑书签时输入框中的草稿标题
-    onRequestDeleteBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit, // 触发删除书签确认弹窗的回调
-    onRequestEditBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit, // 触发编辑书签弹窗的回调
-    onBookmarkEditTitleChange: (String) -> Unit, // 书签编辑标题输入变更的回调
-    onConfirmDeleteBookmark: () -> Unit, // 确认删除书签的回调
-    onConfirmUpdateBookmark: () -> Unit, // 确认更新书签标题的回调
-    onDismissBookmarkDialogs: () -> Unit, // 取消/关闭书签对话框的回调
+    currentPosition: Long,
+    totalDuration: Long,
+    isChapterMode: Boolean,
+    currentChapter: com.viel.aplayer.data.entity.ChapterEntity?,
+    isPlaying: Boolean,
+    playbackSpeed: Float,
+    isSpeedManualMode: Boolean,
+    bookmarkToDelete: com.viel.aplayer.data.entity.BookmarkEntity?,
+    bookmarkToEdit: com.viel.aplayer.data.entity.BookmarkEntity?,
+    bookmarkEditTitle: String,
+    onRequestDeleteBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit,
+    onRequestEditBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit,
+    onBookmarkEditTitleChange: (String) -> Unit,
+    onConfirmDeleteBookmark: () -> Unit,
+    onConfirmUpdateBookmark: () -> Unit,
+    onDismissBookmarkDialogs: () -> Unit,
     metadata: BookMetadataState,
     settings: com.viel.aplayer.ui.settings.PlayerSettingsState,
     actions: PlayerActions,
@@ -84,21 +83,21 @@ fun PlayerTabletLandscape(
     chapterSheetBackdrop: LayerBackdrop,
     modifier: Modifier = Modifier
 ) {
-    // 详尽的中文注释：使用全局窗口属性 LocalWindowClass 获取屏幕逻辑像素尺寸，去掉了在此对 LocalConfiguration 对象的物理读取，增加了布局逻辑的内聚性与可移植性。
+    // Resolve window dimensions (To query device width coordinates without reading LocalConfiguration parameters directly)
     val windowClass = LocalWindowClass.current
     val density = LocalDensity.current
 
-    // 平板大屏幕下使用更宽裕的大边距
+    // Tablet layout configuration (To set wide margins for spacious screen widths)
     val screenWidthDp = windowClass.screenWidthDp
     val screenHeightDp = windowClass.screenHeightDp
     val sidePadding = screenWidthDp * 0.04f
     val middleSpacing = screenWidthDp * 0.06f
 
-    // 平板专用策略 — 上下固定留出 10% 屏幕高度，极具品质呼吸感
+    // Tablet vertical spacing (To reserve 10% display margins at top and bottom boundaries)
     val topPadding = screenHeightDp * 0.1f
     val bottomPadding = screenHeightDp * 0.1f
 
-    // 根据系统方向在物理左右侧叠加计算刘海和系统栏安全边距，保证大封面与右侧控制完全显示
+    // Screen safe offsets (To avoid content overlap with system notches or navigation bars)
     val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
     val layoutDirection = LocalLayoutDirection.current
     val startPadding = sidePadding + systemBarsPadding.calculateStartPadding(layoutDirection)
@@ -179,7 +178,7 @@ fun PlayerTabletLandscape(
                         )
                     }
             ) {
-                // 页签大内容区动画过渡
+                // Tab panel crossfades (To animate active contents transitions smoothly)
                 AnimatedContent(
                     targetState = contentShell,
                     modifier = Modifier.fillMaxSize(),
@@ -213,7 +212,7 @@ fun PlayerTabletLandscape(
                                 when (topMode) {
                                     PlayerScreenMode.SUBTITLES -> {
                                         Box(modifier = Modifier.fillMaxSize()) {
-                                            // 直接调用无状态的 SubtitlesView 渲染字幕组件
+                                            // Subtitles view layout (To render parsed lyrics elements using stateless components)
                                             SubtitlesView(
                                                 subtitles = metadata.subtitles,
                                                 currentPosition = currentPosition,
@@ -223,9 +222,8 @@ fun PlayerTabletLandscape(
                                         }
                                     }
                                     else -> {
+                                        // Tablet main cover (To render original high-definition cover artwork in left column)
                                         PlayerCover(
-                                            // 详尽注释：平板播放页的大封面显示面积最大，复用 Main1200 的原图优先策略；
-                                            // 缩略图只作为兜底，避免高密度或大窗口下出现低清封面。
                                             coverPath = CoverImageSourceSelector.main(
                                                 coverPath = metadata.coverPath,
                                                 thumbnailPath = metadata.thumbnailPath
@@ -242,7 +240,7 @@ fun PlayerTabletLandscape(
                             }
                         }
                         PlayerContentShell.Bookmarks -> {
-                            // 直接调用无状态的 BookmarkListView，解耦桥接
+                            // Bookmark list layout (To delegate custom bookmark lists to stateless component)
                             Box(modifier = Modifier.fillMaxSize()) {
                                 BookmarkListView(
                                     bookmarks = metadata.bookmarks,
@@ -277,7 +275,7 @@ fun PlayerTabletLandscape(
                 }
             }
 
-            // 平板导航切签栏
+            // Bottom navigation tabs (To coordinate active tab state in left column)
             BottomNavTabs(
                 selectedTab = currentMode,
                 onTabSelected = {
@@ -301,7 +299,7 @@ fun PlayerTabletLandscape(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // 平板顶部标题及折叠操作入口
+                // Tablet layout header (To present main title labels and minimizer actions in right column)
                 PlayerLandscapeHeader(
                     metadata = metadata,
                     settings = settings,
@@ -310,11 +308,10 @@ fun PlayerTabletLandscape(
                     backdrop = chapterSheetBackdrop
                 )
 
-                // 强制将控制面板下压靠底
+                // Push control panel down (To align controls at bottom boundaries)
                 Spacer(modifier = Modifier.weight(1f))
                 
-                // 平板主控制面板。
-                // 传入解包后的基础数据类型，彻底解耦 PlayerViewModel。
+                // Tablet playback controls (To render timeline markers and speed values)
                 PlayerControlPanel(
                     currentPosition = currentPosition,
                     totalDuration = totalDuration,
@@ -335,5 +332,3 @@ fun PlayerTabletLandscape(
         }
     }
 }
-
-

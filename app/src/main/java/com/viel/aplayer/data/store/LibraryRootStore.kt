@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
- * 负责管理媒体库授权目录的持久化存储。
+ * Library Roots Ingestion Store (Persistent management of source roots)
  */
 class LibraryRootStore(
     private val context: Context,
@@ -25,15 +25,19 @@ class LibraryRootStore(
     private val absCredentialStoreOverride: AbsCredentialStore? = null
 ) {
     private val rootDao by lazy { rootDaoOverride ?: AppDatabase.getInstance(context).libraryRootDao() }
-    // 统一根目录可用性探测入口；SAF 阶段仍复刻旧授权检查，WebDAV 后续复用同一状态模型。
+    // Unified Availability Scanner (Access checking facade)
+    // Resolves folder accessibility states, reusing identical state schemas across SAF and WebDAV protocols.
     private val availabilityChecker by lazy { availabilityCheckerOverride ?: AvailabilityChecker(context.applicationContext) }
-    // WebDAV 凭据由根目录仓库统一写入/更新，Room 只保存 credentialId 引用。
+    // WebDAV Credential Store (Local password manager)
+    // Updates credentials inside secure memory databases, storing only references to credentialId inside SQLite.
     private val webDavCredentialStore by lazy { webDavCredentialStoreOverride ?: WebDavCredentialStore(context.applicationContext) }
-    // ABS 凭据同样由独立仓库承载，root 只保留 credentialId 引用，避免把 token 写进 Room 普通字段。
+    // ABS Token Scoping Boundary (Credential isolation support)
+    // Stores only reference IDs in root models, preventing auth tokens from persisting to raw library tables.
     private val absCredentialStore by lazy { absCredentialStoreOverride ?: AbsCredentialStore.getInstance(context.applicationContext) }
 
     /**
-     * 添加新的授权目录。
+     * Add New Storage Root (Ingestion path registration)
+     * Registers a local filesystem Uri or updates active authorization properties if already stored.
      */
     suspend fun addRoot(uri: Uri, displayName: String): LibraryRootEntity = withContext(Dispatchers.IO) {
         val normalizedUri = uri.normalizeScheme().toString()
@@ -55,7 +59,8 @@ class LibraryRootStore(
             }
         val root = LibraryRootEntity(
             id = UUID.randomUUID().toString(),
-            // 本地 SAF 库根也写入通用 sourceUri，后续 WebDAV 复用同一个来源地址字段。
+            // Unified URI Mapping (Uniform path parameter abstraction)
+            // Assigns tree URIs to sourceUri, allowing WebDAV protocols to share identical location fields later.
             sourceUri = normalizedUri,
             displayName = displayName,
             grantedAt = System.currentTimeMillis(),
@@ -76,7 +81,8 @@ class LibraryRootStore(
         val normalizedEndpoint = normalizeWebDavEndpoint(parsed)
         val normalizedBasePath = normalizeWebDavBasePath(basePath.ifBlank { parsed.path.orEmpty() })
         val resolvedDisplayName = displayName.ifBlank {
-            // 未填写显示名时用主机与库内路径兜底，避免 UI 出现空白媒体库名称。
+            // Label Fallback Interpolation (UI rendering safety guard)
+            // Interpolates host address and base folder path if no display name is defined by the user.
             buildString {
                 append(parsed.host ?: normalizedEndpoint)
                 if (normalizedBasePath.isNotBlank()) append(normalizedBasePath)
@@ -100,7 +106,8 @@ class LibraryRootStore(
                     lastAvailabilityCheckedAt = 0L,
                     lastAvailabilityErrorCode = null
                 )
-                // 重复添加同一 WebDAV 根时更新凭据与显示名，不插入第二条 root。
+                // WebDAV Ingest Deduplication (Record update strategy)
+                // Overwrites credentials and labels rather than creating duplicate rows if the same WebDAV target is added.
                 rootDao.insertRoot(updated)
                 return@withContext updated
             }
@@ -115,7 +122,7 @@ class LibraryRootStore(
             grantedAt = now,
             status = AudiobookSchema.LibraryRootStatus.ACTIVE
         )
-        // WebDAV root 入库后立即可被现有 SourceInventoryScanner 作为标准来源扫描。
+        // Scanner availability: Permits SourceInventoryScanner to sweep files immediately after the record commits.
         rootDao.insertRoot(root)
         root
     }
@@ -152,7 +159,8 @@ class LibraryRootStore(
             } else if (LibrarySourceKind.from(root.sourceType) == LibrarySourceKind.SAF) {
                 AudiobookSchema.LibraryRootStatus.REVOKED
             } else {
-                // 远程来源失败不是 SAF 授权撤销，保留为 ERROR 便于后续重试和 UI 区分认证/网络问题。
+                // Remote Error Flagging (Diagnostics routing policy)
+                // Maps remote checkouts to ERROR states, enabling UI lists to separate network timeouts from local permission revocations.
                 AudiobookSchema.LibraryRootStatus.ERROR
             }
             if (root.status != status) {
@@ -168,12 +176,14 @@ class LibraryRootStore(
     }
 
     private fun LibraryRootEntity.isSameRoot(candidateTreeUri: String): Boolean =
-        // 重复库根检测改用 sourceUri，旧库根字段已从数据库模型中移除。
+        // URI-Based Deduplication (Legacy schema decoupling)
+        // Asserts similarity through sourceUri, replacing legacy root fields from schema versions.
         sourceType == AudiobookSchema.LibrarySourceType.SAF &&
             (sourceUri == candidateTreeUri || treeDocumentId(sourceUri) == treeDocumentId(candidateTreeUri))
 
     private fun LibraryRootEntity.isSameWebDavRoot(candidateEndpoint: String, candidateBasePath: String): Boolean =
-        // WebDAV 去重以来源类型、规范化端点和库内根路径共同判定，支持同服务器多个书库路径。
+        // WebDAV Identity Uniqueness (Composite target matching)
+        // Matches unique targets using sourceType, normalized endpoint, and basePath to permit multiple library setups on one server.
         sourceType == AudiobookSchema.LibrarySourceType.WEBDAV &&
             sourceUri == candidateEndpoint &&
             normalizeWebDavBasePath(basePath) == candidateBasePath
@@ -184,12 +194,14 @@ class LibraryRootStore(
         val authority = parsed.encodedAuthority
             ?: throw IllegalArgumentException("WebDAV URL 缺少主机")
         require(scheme == "http" || scheme == "https") { "WebDAV URL 仅支持 http/https" }
-        // sourceUri 只保存协议与主机端点，库内路径统一放入 basePath。
+        // Endpoint Scheme Split (Unified domain partitioning)
+        // Restricts sourceUri to protocol scheme and host address, shifting paths into the basePath field.
         return "$scheme://$authority"
     }
 
     private fun normalizeWebDavBasePath(path: String): String =
-        // basePath 统一成以 / 开头、无结尾 / 的远程库内路径，根目录用空字符串表示。
+        // Path Format Uniformity (URL canonicalization helper)
+        // Standardizes sub-paths to start with / and end without trailing slashes, mapping server root directory to an empty string.
         Uri.decode(path)
             .replace('\\', '/')
             .trim()
@@ -228,7 +240,8 @@ internal fun mergeAbsRoot(
         ?: LibraryRootEntity(
             id = newRootId,
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            // ABS root 只记录规范化 baseUrl，libraryId 独立放入 basePath，便于后续一台服务器挂多个库。
+            // ABS Endpoint Partitioning (Multi-library abstraction support)
+            // Binds baseUrl to sourceUri and moves libraryId to basePath, allowing host reuse across libraries.
             sourceUri = normalizedBaseUrl,
             basePath = libraryId,
             credentialId = credentialId,

@@ -25,10 +25,10 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 /**
- * 全局通用的背景封面强模糊氛围组件，适用于播放页与详情页。
- * 1. 自动处理背景主色的平滑颜色动画。
- * 2. 在 MiuixBlur 模式下挂载 layerBackdrop 采样源，并渲染 64.dp 强模糊封面。
- * 3. 自动适配亮暗色主题遮罩，确保前景 UI 的识别度。
+ * Globally shared background cover strong blur ambience component, applicable to both playback and details pages.
+ * 1. Automatically handles smooth color animations of the background dominant color.
+ * 2. Mounts the layerBackdrop sampling source in MiuixBlur mode and renders a 64.dp strong-blurred cover.
+ * 3. Automatically adapts light and dark theme masks to ensure visibility of foreground UI elements.
  */
 @Composable
 fun CoverBackground(
@@ -43,15 +43,15 @@ fun CoverBackground(
     val isDark = isSystemInDarkTheme()
     val bgColor = MaterialTheme.colorScheme.background
 
-    // 平滑过渡背景主色调，确保切换书籍时视觉无缝衔接。
+    // Smoothly transition the background dominant color to ensure a seamless visual connection when switching books.
     val animatedBgColor by animateColorAsState(
         targetValue = Color(backgroundColorArgb),
         animationSpec = tween(300),
         label = "bg_color"
     )
 
-    // 根据是否开启毛玻璃模式计算背景渐变笔刷。
-    // 在 MiuixBlur 模式下大幅降低透明度以透出底层模糊图。
+    // Calculate the background gradient brush depending on whether the frosted glass mode is enabled.
+    // Significantly reduce the opacity in MiuixBlur mode to reveal the underlying blurred image.
     val backgroundBrush by remember(animatedBgColor, bgColor, isBlur) {
         derivedStateOf {
             if (isBlur) {
@@ -77,7 +77,7 @@ fun CoverBackground(
             .fillMaxSize()
             .background(backgroundBrush)
             .then(
-                // 挂载采样源，为前景组件提供磨砂背景图像源。
+                // Mount the sampling source to provide a frosted background image source for foreground components.
                 if (isBlur) {
                     Modifier.layerBackdrop(backdrop)
                 } else {
@@ -85,12 +85,12 @@ fun CoverBackground(
                 }
             )
     ) {
-        // 只有在 MiuixBlur 模式下才渲染全屏封面模糊背景。
+        // Render the full-screen cover blurred background only when in MiuixBlur mode.
         if (isBlur && coverPath != null) {
             val context = LocalContext.current
             val bgRequest = remember(coverPath, lastUpdated) {
-                // 背景图只作为模糊采样源，固定使用 Backdrop 规格并禁用 hardware bitmap；
-                // 这样既能减少 Bitmap 体积，也避免软件模糊链路后续读取硬件位图时出现兼容风险。
+                // The background image only serves as a blur sampling source; it uses the Backdrop spec and disables hardware bitmaps.
+                // This reduces the Bitmap footprint and avoids potential compatibility risks when reading hardware bitmaps later in the software blur pipeline.
                 CoverImageRequestFactory.build(
                     context = context,
                     sourcePath = coverPath,
@@ -114,14 +114,14 @@ fun CoverBackground(
                     .blur(64.dp)
             )
 
-            // 叠加自适应主题遮罩层。
+            // Overlay an adaptive theme mask layer.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(bgColor.copy(alpha = if (isDark) 0.62f else 0.74f))
             )
 
-            // 底部渐变加深层。
+            // Bottom gradient deepening layer.
             Box(
                 modifier = Modifier
                     .fillMaxSize()

@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.player.layouts
 
-// 导入 Jetpack Compose 布局、手势和动画相关的依赖包
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
@@ -35,7 +34,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
-// 详尽的中文注释：在此移除了冗余的旧 LocalWindowClass 导入，统一使用 theme 包下的最新 WindowClass 统一自适应代理。
+// Resolve window class dependencies (To replace redundant LocalWindowClass imports with the unified theme package structure)
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
@@ -51,29 +50,9 @@ import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
- * 手机横屏播放器布局组件 (PlayerLandscapePhone)。
- * 专门针对普通智能手机横屏状态下“垂直高度极窄、水平面积极宽”的场景做视觉深度定制优化。
- * 左右双栏对称铺开，并将控制条沉底压实。
- *
- * 已经过重构彻底消除了对 PlayerViewModel 及其内部 State 类型的任何依赖，
- * 达成了 100% 纯无状态 L3 布局组件的高标准，符合 Compose 架构分层设计。
- *
- * @param currentPosition 播放器当前物理播放进度（毫秒）
- * @param totalDuration 播放器当前物理总时长（毫秒）
- * @param isChapterMode 当前进度条是否处于章节进度视图模式
- * @param currentChapter 当前正处于播放状态的章节实体
- * @param isPlaying 当前是否处于播放中状态
- * @param playbackSpeed 当前的播放速率
- * @param isSpeedManualMode 播放速率是否被手动调节锁定
- * @param bookmarkToDelete 待删除书签实体
- * @param bookmarkToEdit 待编辑书签实体
- * @param bookmarkEditTitle 编辑书签时输入框中的草稿标题
- * @param onRequestDeleteBookmark 触发删除书签确认弹窗的回调
- * @param onRequestEditBookmark 触发编辑书签弹窗的回调
- * @param onBookmarkEditTitleChange 书签编辑标题输入变更的回调
- * @param onConfirmDeleteBookmark 确认删除书签的回调
- * @param onConfirmUpdateBookmark 确认更新书签标题的回调
- * @param onDismissBookmarkDialogs 取消/关闭书签对话框的回调
+ * Landscape phone player layout (Component rendering dual-column layouts for horizontal phone screens)
+ * Optimizes layouts for tight vertical spaces and wider horizontal bounds.
+ * Splits layout into left tab area and right control area.
  */
 @Composable
 fun PlayerLandscapePhone(
@@ -104,22 +83,22 @@ fun PlayerLandscapePhone(
     chapterSheetBackdrop: LayerBackdrop,
     modifier: Modifier = Modifier
 ) {
-    // 详尽的中文注释：使用全局窗口属性 LocalWindowClass 获取屏幕宽度和高度，完全隔离 LocalConfiguration 以提供更内聚的自适应布局体验。
+    // Resolve window dimensions (To query screen width and height coordinates without reading LocalConfiguration directly)
     val windowClass = LocalWindowClass.current
     val density = LocalDensity.current
 
-    // 根据手机屏幕总宽度按比重划分呼吸间距
+    // Landscape phone layout (To calculate side spacing ratios dynamically matching device width)
     val screenWidthDp = windowClass.screenWidthDp
     val screenHeightDp = windowClass.screenHeightDp
     val sidePadding = screenWidthDp * 0.04f
     val middleSpacing = screenWidthDp * 0.06f
 
-    // 由于是手机常规横大屏，上下边距需完全贴紧并规避状态栏与导航栏以保障大封面的渲染利用率
+    // Screen safe offsets (To clamp margins to system bars height boundaries to optimize cover drawing area)
     val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
     val topPadding = systemBarsPadding.calculateTopPadding()
     val bottomPadding = systemBarsPadding.calculateBottomPadding()
 
-    // 左右避让刘海缺口/挖孔屏及虚拟导航键，保障左侧和右侧操作绝对不被切角
+    // Leave safe margins on both left and right sides to avoid notch cutouts/punched holes and virtual navigation keys, guaranteeing that operations on both sides are never clipped.
     val layoutDirection = LocalLayoutDirection.current
     val startPadding = sidePadding + systemBarsPadding.calculateStartPadding(layoutDirection)
     val endPadding = sidePadding + systemBarsPadding.calculateEndPadding(layoutDirection)
@@ -149,7 +128,7 @@ fun PlayerLandscapePhone(
         }
 
         // ==========================================
-        // 1. 左侧自适应页签内容列 (分配占比 1f)
+        // 1. Left Adaptive Tab Content Column (Allocation ratio 1f)
         // ==========================================
         Column(
             modifier = Modifier
@@ -162,7 +141,6 @@ fun PlayerLandscapePhone(
                     .weight(1f)
                     .fillMaxWidth()
                     .pointerInput(currentMode) {
-                        // 仅在非 PLAYER 模式下激活滑动手势以便在书签、歌词、关联中左右切换
                         if (currentMode == PlayerScreenMode.PLAYER) return@pointerInput
                         var accumulatedX = 0f
                         var hasSwipeTriggered = false
@@ -200,7 +178,7 @@ fun PlayerLandscapePhone(
                         )
                     }
             ) {
-                // 横向滑动切换左边的大卡片模式（主播放/书签/推荐面板）
+                // Sliding transitions animation (To slide left column layouts smoothly between tabs)
                 AnimatedContent(
                     targetState = contentShell,
                     modifier = Modifier.fillMaxSize(),
@@ -222,7 +200,7 @@ fun PlayerLandscapePhone(
                             } else {
                                 PlayerScreenMode.PLAYER
                             }
-                            // 渐变过渡，支持大封面与歌词滚动的淡入淡出无缝对接
+                            // Crossfade transitions (To animate artwork cover and subtitles card displays)
                             AnimatedContent(
                                 targetState = playbackTopMode,
                                 modifier = Modifier.fillMaxSize(),
@@ -235,7 +213,7 @@ fun PlayerLandscapePhone(
                                 when (topMode) {
                                     PlayerScreenMode.SUBTITLES -> {
                                         Box(modifier = Modifier.fillMaxSize()) {
-                                            // 直接调用无状态的 SubtitlesView 渲染字幕组件，实现极致的重绘隔离
+                                            // Subtitles view layout (To render parsed lyrics elements using stateless components)
                                             SubtitlesView(
                                                 subtitles = metadata.subtitles,
                                                 currentPosition = currentPosition,
@@ -245,10 +223,8 @@ fun PlayerLandscapePhone(
                                         }
                                     }
                                     else -> {
-                                        // 独立手势声音/左右切歌大封面，在横大屏下高度自适应顶满
+                                        // Landscape phone cover (To render original high-definition cover artwork in left column)
                                         PlayerCover(
-                                            // 详尽注释：横屏手机的左侧大封面同样使用 Main1200 输入规则；
-                                            // 保持与竖屏播放器一致，避免同一播放页因布局不同产生路径优先级差异。
                                             coverPath = CoverImageSourceSelector.main(
                                                 coverPath = metadata.coverPath,
                                                 thumbnailPath = metadata.thumbnailPath
@@ -265,7 +241,7 @@ fun PlayerLandscapePhone(
                             }
                         }
                         PlayerContentShell.Bookmarks -> {
-                            // 直接调用无状态的 BookmarkListView，解耦所有的有状态桥接层
+                            // Bookmark list layout (To delegate custom bookmark lists to stateless component)
                             Box(modifier = Modifier.fillMaxSize()) {
                                 BookmarkListView(
                                     bookmarks = metadata.bookmarks,
@@ -285,6 +261,7 @@ fun PlayerLandscapePhone(
                             }
                         }
                         PlayerContentShell.Related -> {
+                            // Related books layout (To display related items in left column)
                             Box(modifier = Modifier.fillMaxSize()) {
                                 RelatedBooksView(
                                     currentBookId = metadata.id,
@@ -300,7 +277,7 @@ fun PlayerLandscapePhone(
                 }
             }
 
-            // 页签切换条
+            // Bottom navigation tabs (To coordinate active tab state in left column)
             BottomNavTabs(
                 selectedTab = currentMode,
                 onTabSelected = {
@@ -311,7 +288,7 @@ fun PlayerLandscapePhone(
         }
 
         // ==========================================
-        // 2. 右侧固定播放控制列 (分配占比 1f)
+        // 2. Right Fixed Playback Control Column (Allocation ratio 1f)
         // ==========================================
         Surface(
             modifier = Modifier
@@ -324,7 +301,7 @@ fun PlayerLandscapePhone(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // 右侧顶部栏，容纳标题、作者信息、睡眠定时器及折叠控制菜单
+                // Landscape layout header (To present main title labels and minimizer actions in right column)
                 PlayerLandscapeHeader(
                     metadata = metadata,
                     settings = settings,
@@ -333,11 +310,10 @@ fun PlayerLandscapePhone(
                     backdrop = chapterSheetBackdrop
                 )
 
-                // 撑满多余的垂直高度，强制使控制面板在底部对齐
+                // Push control panel down (To align controls at bottom boundaries)
                 Spacer(modifier = Modifier.weight(1f))
                 
-                // 横屏下的主要播放控制按钮及细长进度调节面板，采用全宽自适应填充。
-                // 传入解包后的参数，彻底去除对 PlayerViewModel 的依赖。
+                // Landscape playback controls (To render timeline markers and speed values)
                 PlayerControlPanel(
                     currentPosition = currentPosition,
                     totalDuration = totalDuration,

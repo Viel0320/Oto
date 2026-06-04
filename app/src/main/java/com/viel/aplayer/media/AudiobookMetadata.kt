@@ -3,19 +3,19 @@ package com.viel.aplayer.media
 import com.viel.aplayer.data.entity.ChapterEntity
 
 /**
- * 从音频文件中提取出的完整元数据。
+ * Metadata Extraction Model (Represents structured metadata parsed from audio files)
  */
 data class AudiobookMetadata(
     val title: String,
     val author: String,
     val narrator: String,
-    /** 专辑名用于扫描阶段判断多个音频文件是否属于同一本书。 */
+    /** Album Identifier (Used during folder scanning to group multiple files into one book) */
     val album: String = "",
-    /** 曲目序号用于启发式聚合时按 ID3 顺序生成章节。 */
+    /** Track Sequence Number (Used during heuristic sorting to arrange segments sequentially) */
     val trackIndex: Int? = null,
     val description: String,
     val year: String,
     val durationMs: Long,
-    /** 提取出的章节列表（暂未绑定 bookId） */
+    /** Extracted Chapter Entities (List of parsed chapter boundaries, unbound to book ID) */
     val chapters: List<ChapterEntity> = emptyList()
 )

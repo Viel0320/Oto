@@ -75,7 +75,7 @@ class AbsIncrementalStage6Test {
             AbsLibraryItemDto(id = "item-3", mediaType = "book", updatedAt = 50L)
         )
 
-        // 详尽的中文注释：当整份 minified 指纹完全没变时，已有 mirror 的 item 不应再进入详情队列。
+        // Fingerprint comparison validation. When the overall minified fingerprint remains unchanged, items with existing mirrors should not enter the detail fetch queue.
         assertTrue(
             selectAbsDetailCandidateIds(
                 minifiedItems = unchangedItems,
@@ -85,7 +85,7 @@ class AbsIncrementalStage6Test {
             ).isEmpty()
         )
 
-        // 详尽的中文注释：一旦指纹变化，增量逻辑必须把“remoteUpdatedAt 变化的旧 item”和“本地没有 mirror 的新 item”拉进详情队列。
+        // Incremental queue populating. Once the fingerprint changes, the incremental synchronization logic must queue items with modified update timestamps or those lacking local mirrors.
         assertEquals(
             listOf("item-2", "item-3"),
             selectAbsDetailCandidateIds(
@@ -111,7 +111,7 @@ class AbsIncrementalStage6Test {
 
         synchronizer.syncRoot(root)
 
-        // 详尽的中文注释：第一次 batch/get 失败后，同步器只允许再做三次单 item 重试，超过上限立即放弃本轮条目。
+        // Retry bounds validation. Following a batch request failure, the synchronizer allows at most three retries per item before discarding them for the current round.
         assertEquals(4, api.detailRequestCount)
         assertTrue(store.books.isEmpty())
         assertNotNull(store.syncState)
@@ -162,8 +162,8 @@ class AbsIncrementalStage6Test {
 
         synchronizer.syncRoot(root)
 
-        // 详尽的中文注释：当 minified 指纹未变化且历史镜像已存在时，应直接复用本地镜像并激活 mirror，
-        // 不应该为了“把状态改回 ACTIVE”而额外重拉详情。
+        // Unchanged mirror reactivation. When the minified fingerprint is unchanged and a local mirror exists, we reactivate the mirror directly,
+        // avoiding redundant detail requests simply to restore the active state status.
         assertEquals(0, api.detailRequestCount)
         assertEquals(AudiobookSchema.AbsMirrorState.ACTIVE, store.mirrors["item-1"]?.state)
         assertEquals(AudiobookSchema.BookStatus.READY, store.books[existingBookId]?.status)
@@ -182,8 +182,8 @@ class AbsIncrementalStage6Test {
 
         val summary = synchronizer.syncRootWithSummary(sampleRoot())
 
-        // 详尽的中文注释：摘要必须把真正新增成功入库的书本数和最终失败的 item 数分开统计，
-        // 这样设置页自动后台同步完成后的 toast 才能准确回答用户“添加了几本、失败了几本”。
+        // Sync statistics isolation. The sync summary must separately track successfully imported books and failed items,
+        // ensuring the settings page's auto-sync toast accurately informs the user of successful and failed items.
         assertEquals(2, summary.totalItems)
         assertEquals(1, summary.addedBooks)
         assertEquals(1, summary.syncedBooks)
@@ -216,7 +216,7 @@ class AbsIncrementalStage6Test {
         val bookWithoutTracks = catalogMapper.toBook(root, serverKey, missingTracksItem, existing = null, syncedAt = 1234L)
         val filesWithoutTracks = catalogMapper.toFiles(root, serverKey, missingTracksItem)
 
-        // 详尽的中文注释：低版本或裁剪后的服务端响应即使缺 tracks，也只能让结果自然变空，不能让 DTO 解析或 mapper 崩溃。
+        // Empty tracks compatibility. A server response missing track fields (due to older versions or pruning) should gracefully fall back to an empty list without causing DTO or mapper crashes.
         assertEquals("No Tracks", bookWithoutTracks.title)
         assertTrue(filesWithoutTracks.isEmpty())
 
@@ -253,7 +253,7 @@ class AbsIncrementalStage6Test {
         val files = catalogMapper.toFiles(root, serverKey, missingSizeAndProgressTimeItem)
         val progress = progressMapper.toProgressOrNull(missingSizeAndProgressTimeItem, book, files, 1234L)
 
-        // 详尽的中文注释：track metadata 缺少 size 时只应回退到 0；progress 缺 lastUpdate 时应回退到同步时刻，不允许空指针。
+        // Metadata safety bounds. A track missing a size attribute defaults to 0, and progress missing lastUpdate defaults to the sync time, preventing NullPointerExceptions.
         assertEquals(1, files.size)
         assertEquals(0L, files.first().fileSize)
         assertEquals(1234L, progress?.lastPlayedAt)
@@ -268,7 +268,7 @@ class AbsIncrementalStage6Test {
             )
         )
 
-        // 详尽的中文注释：root 级错误文案只保留失败数量和首个失败条目，避免设置页被长错误列表淹没。
+        // Error message truncation. The root-level error summary retains only the total failure count and the first failing item, preventing the settings UI from being overwhelmed.
         assertEquals("DETAIL_ITEM_FAILED:2:first=item-2:HTTP_500", summary)
         assertNull(buildAbsIncrementalErrorSummary(emptyMap()))
     }

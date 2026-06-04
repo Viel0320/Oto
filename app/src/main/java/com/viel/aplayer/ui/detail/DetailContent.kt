@@ -1,7 +1,8 @@
 package com.viel.aplayer.ui.detail
 
-// 使用 miuix-blur 替换旧的模糊库依赖，以实现基于视口的高分辨率毛玻璃高斯模糊效果。
-// 引入 Compose 的各种组件与状态依赖以构造无状态的书籍详情页纯渲染组件 DetailContent。
+// Setup MiuixBlur Import (Viewport-Level High Resolution Gaussian Blur)
+// Replace the legacy blur library dependency with miuix-blur to achieve high-resolution frosted glass Gaussian blur effects based on the viewport.
+// Import various Compose component and state dependencies to construct the stateless book details pure rendering component DetailContent.
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -80,10 +81,12 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import kotlin.math.roundToInt
 
 /**
- * 纯 L3 级别的无状态详情页渲染骨架 DetailContent。
- * 遵循 Compose 三层分层架构规范，移除所有与 ViewModel 级别的耦合引用，
- * 直接接收不可变的 DetailUiState 与纯粹的 Lambda 回调函数（与下层 Layout 子骨架保持同一状态契约，
- * 避免“拆解扁平参数再重新包装回 DetailUiState”的往返），为多端自适应布局提供高效、可测试的渲染层。
+ * DetailContent Skeleton (Stateless L3 UI Skeleton)
+ *
+ * Stateless detail page rendering skeleton (DetailContent) at the L3 level.
+ * Follows the Compose three-layer architecture specification, removing all coupled references to ViewModels.
+ * Directly receives immutable DetailUiState and pure Lambda callbacks (consistent with the lower-level Layout sub-skeletons,
+ * avoiding the round-trip of dismantling flat parameters and repackaging them into DetailUiState), providing an efficient, testable rendering layer for adaptive layouts.
  */
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -91,42 +94,44 @@ import kotlin.math.roundToInt
 )
 @Composable
 fun DetailContent(
-    uiState: DetailUiState, // 详情页完整 UI 状态（端到端传递，避免“拆解扁平参数再重组”的往返开销）
-    onBackClick: () -> Unit, // 点击返回键或下滑退场触发的回调
+    uiState: DetailUiState, // Complete UI state of the detail page (passed end-to-end to avoid round-trip overhead of dismantling flat parameters and reassembling them)
+    onBackClick: () -> Unit, // Callback triggered when the back button is clicked or user drags down to dismiss
     modifier: Modifier = Modifier,
-    onPlayPressed: () -> Unit = {}, // 物理点击播放键开始防抖状态前置监听
-    onPlayClick: () -> Unit = {}, // 正式播放操作回调
-    onMoreClick: () -> Unit = {}, // 点击右上角更多控制
-    onSearchClick: (String) -> Unit = {}, // 点击特定标签进行相关书籍搜索回调
-    glassEffectMode: GlassEffectMode, // 精准控制 Material 与磨砂毛玻璃 miuix-blur 双模切换
-    backdrop: LayerBackdrop? = null, // 上层共享的采样源
-    fullPageBackdrop: LayerBackdrop? = null, // 全屏无缝采样的模糊映射源
-    onEditClick: (String) -> Unit = {}, // 点击编辑书籍元数据详情回调
+    onPlayPressed: () -> Unit = {}, // Pre-listener for physical playback button click debounce status
+    onPlayClick: () -> Unit = {}, // Official playback action callback
+    onMoreClick: () -> Unit = {}, // Callback for clicking the top-right more control button
+    onSearchClick: (String) -> Unit = {}, // Callback for clicking a specific tag to search for related books
+    glassEffectMode: GlassEffectMode, // Precise control of dynamic switching between Material design and frosted glass miuix-blur mode
+    backdrop: LayerBackdrop? = null, // Shared sampling source from the upper layer
+    fullPageBackdrop: LayerBackdrop? = null, // Blur mapping source for full-screen seamless sampling
+    onEditClick: (String) -> Unit = {}, // Callback for clicking to edit book metadata details
 ) {
-    // L-10 修复 — 从完整 UI 状态派生 L3 渲染所需字段，取代此前“在本组件内把扁平参数重新包装回 DetailUiState”的冗余往返。
+    // Fix L-10 (Deriving UI Render Fields)
+    // Derive fields required for L3 rendering from the complete UI state, replacing the redundant round-trip of repackaging flat parameters into DetailUiState inside this component.
     val book = uiState.book?.book
     val isVisible = uiState.isVisible
     val backgroundColorArgb = uiState.backgroundColorArgb
-    // 状态定义：预测性返回拖拽过程中的物理缩放与动画位移进度
+    // State definition: Predictive back drag physical scale and animation displacement progress
     var isPredictiveBackActive by remember { mutableStateOf(false) }
     var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
     
-    // 右上角 TopAppBar 下拉折叠管理菜单显示管理
+    // Top-right dropdown menu visibility management
     var showMenu by remember { mutableStateOf(false) }
     
-    // 背景通铺渲染专用的 layerBackdrop 采样源，避免子浮层毛玻璃递归穿帮段错误闪退
+    // Dedicated layerBackdrop sampling source for background rendering to prevent recursive blur glitches and segmentation fault crashes
     val coverBackdrop = rememberLayerBackdrop()
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
-    // 详尽注释：详情页背景只作为 128px 模糊采样源，路径优先使用缩略图；
-    // 主封面清晰度由各布局里的 PlayerCover 单独决定，避免背景层误持有主封面大图。
+    // Detail Background Resolution (Thumbnail Preferred Backdrop)
+    // The details page background is only used as a 128px blur sampling source, so the path prefers the thumbnail.
+    // The main cover resolution is determined independently by PlayerCover in each layout, avoiding the background layer from mistakenly holding a large main cover image.
     val backdropCoverPath = CoverImageSourceSelector.backdrop(
         thumbnailPath = book?.thumbnailPath,
         coverPath = book?.coverPath
     )
 
-    // 动态捕获最精确的系统状态栏与物理安全区大小
+    // Dynamically capture the most precise system status bar and physical safe area size
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
 
     val scope = rememberCoroutineScope()
@@ -141,7 +146,7 @@ fun DetailContent(
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    // 感知系统级拦截并实时绘制系统预测性返回过渡动画
+    // Sense system-level interception and draw system predictive back transition animations in real time
     androidx.activity.compose.PredictiveBackHandler(enabled = isVisible) { progressFlow ->
         try {
             progressFlow.collect { backEvent ->
@@ -150,7 +155,7 @@ fun DetailContent(
             }
             onBackClick()
         } catch (_: kotlin.coroutines.cancellation.CancellationException) {
-            // 中途滑回放弃返回手势
+            // Slide back halfway to abandon the back gesture
         } finally {
             isPredictiveBackActive = false
             predictiveBackProgress = 0f
@@ -165,7 +170,7 @@ fun DetailContent(
             .fillMaxSize()
             .offset { IntOffset(0, offsetY.value.roundToInt()) }
             .graphicsLayer {
-                // 手势拖拽向下平移，并不再应用 Scale 形变，使得动画更沉浸与稳固
+                // Gesture drag translates downwards without applying scale transformation, making the animation more immersive and stable
                 if (isPredictiveBackActive) {
                     translationY = predictiveBackProgress * maxPredictiveTranslationY
                     alpha = 1f - predictiveBackProgress * 0.3f
@@ -176,7 +181,7 @@ fun DetailContent(
         color = Color.Transparent
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // 背景毛玻璃流光动画与大图采样渲染
+            // Background frosted glass gradient animation and large image sampling rendering
             CoverBackground(
                 coverPath = backdropCoverPath,
                 lastUpdated = book?.lastScannedAt ?: 0L,
@@ -254,7 +259,8 @@ fun DetailContent(
                 },
                 containerColor = Color.Transparent,
             ) { padding ->
-                // 详尽的中文注释：使用统一的 WindowClass 接口获取当前窗口的方向与平板横屏状态，去除了直接对 LocalConfiguration 的依赖。
+                // WindowClass Orientation Adaptation (Determine Adaptation Orientation)
+                // Use the unified WindowClass interface to obtain current window orientation and tablet landscape status, removing direct dependency on LocalConfiguration.
                 val windowClass = LocalWindowClass.current
                 val isLandscape = windowClass.isLandscape
                 val isTabletLandscape = windowClass.isTabletLandscape
@@ -397,7 +403,8 @@ fun DetailContent(
 @Composable
 fun DetailContentPortraitPreview() {
     APlayerTheme {
-        // 详尽的中文注释：显式提供 PortraitPhone（竖屏手机）窗口预设，确保详情页在竖屏下渲染出从上至下排列的垂直详情布局。
+        // Portrait Preview Mocking (Provide Portrait Window Class)
+        // Explicitly provide PortraitPhone window preset, ensuring the details page renders a vertical details layout from top to bottom in portrait mode.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {
@@ -440,7 +447,8 @@ fun DetailContentPortraitPreview() {
 @Composable
 fun DetailContentLandscapePreview() {
     APlayerTheme {
-        // 详尽的中文注释：显式提供 LandscapePhone（横屏手机）窗口预设，测试详情页在横屏下的左右双栏窄高自适应排版。
+        // Landscape Preview Mocking (Provide Landscape Window Class)
+        // Explicitly provide LandscapePhone window preset to test the adaptively balanced left-and-right column layout on landscape phones.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.LandscapePhone
         ) {
@@ -483,7 +491,8 @@ fun DetailContentLandscapePreview() {
 @Composable
 fun DetailContentTabletLandscapePreview() {
     APlayerTheme {
-        // 详尽的中文注释：显式提供 TabletLandscape（横屏平板）窗口预设，确保宽屏幕下渲染出尊贵的平板自适应双栏排版。
+        // Tablet Landscape Preview Mocking (Provide Tablet Window Class)
+        // Explicitly provide TabletLandscape window preset, ensuring the wide-screen renders a premium tablet adaptive double-column layout.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.TabletLandscape
         ) {

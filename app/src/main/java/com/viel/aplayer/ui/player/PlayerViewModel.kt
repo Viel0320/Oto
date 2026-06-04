@@ -43,7 +43,7 @@ class PlayerViewModel : ViewModel() {
     }
 
     private var playbackManager: PlaybackManager? = null
-    // 切换至高层业务门面以隔离直接的重量级数据库依赖
+    // Downgrade database operations (To decouple direct heavy DB transactions from view models)
     private var libraryFacade: com.viel.aplayer.data.LibraryFacade? = null
     private var settingsRepository: AppSettingsRepository? = null
     private var getRelatedBooksUseCase: GetRelatedBooksUseCase? = null
@@ -52,21 +52,19 @@ class PlayerViewModel : ViewModel() {
     private val _currentBookId = MutableStateFlow<String?>(null)
     val currentBookId: StateFlow<String?> = _currentBookId.asStateFlow()
 
-    // 
-    // 新增播放器链路级一次性 UI 反馈共享流 uiEvents（采用 SharedFlow 保证一次性事件的可靠消费）。
-    // 专门用来对外广播由底层 PlaybackManager 捕获并转发的 UI 反馈事件（如静音跳过提示等），
-    // 遵循单向数据流与 MVI 架构设计，杜绝在 ViewModel 或后台服务中直接持有 UI 组件。
+    // Shared UI events flow (To dispatch one-time visual alerts like toast notices)
+    // Listens to playback feedback events asynchronously without holding UI view references.
     private val _uiEvents = kotlinx.coroutines.flow.MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
     val uiEvents = _uiEvents.asSharedFlow()
 
     private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.ui.player.components.SubtitleLine>>(emptyList())
 
-    // 用于控制内置歌词与外置字幕异步加载生命周期的 Job。每次切歌或销毁时进行物理取消，防止多协程并发竞争。
+    // Subtitle async job (To prevent overlapping coroutine threads when changing tracks)
     private var subtitleLoadJob: kotlinx.coroutines.Job? = null
 
     private var bookmarkManager: BookmarkManager? = null
     private var playbackDelegate: MediaPlaybackDelegate? = null
-    // 新增持有的 appContext 对象，在 initialize 时进行安全赋值，仅用于构造 lambda 桥接以规避内存泄露风险。
+    // Cached application context (To decouple Activity context bounds during initialization)
     private var appContext: Context? = null
     private val settingsManager: PlayerSettingsManager = PlayerSettingsManager(
         scope = viewModelScope,
@@ -76,13 +74,11 @@ class PlayerViewModel : ViewModel() {
     )
 
     // =====================================================================
-    // M-16 修复 — 书签对话框状态上提到 ViewModel
-    // 将删除/编辑对话框的业务状态从叶子 Composable 中彻底移除，
-    // 改由 ViewModel 持有 StateFlow，防止配置变更（旋转/深色模式切换）时
-    // 用户正在编辑的内容丢失，同时使状态可被单元测试覆盖。
+    // M-16 Fix — Elevate bookmark dialog states (To preserve user edit text during orientation changes)
+    // Manages edit state in ViewModel scopes rather than transient composables.
     // =====================================================================
 
-    /** 书签对话框的复合状态，涵盖待删除/待编辑条目以及编辑中的标题文本 */
+    /** Dialog visual states (To aggregate active edits and deletions options) */
     data class BookmarkDialogsState(
         val toDelete: BookmarkEntity? = null,
         val toEdit: BookmarkEntity? = null,
@@ -90,34 +86,34 @@ class PlayerViewModel : ViewModel() {
     )
 
     private val _bookmarkDialogs = MutableStateFlow(BookmarkDialogsState())
-    /** 外部 Composable 通过此 StateFlow 观察对话框状态 */
+    /** Expose dialog flows (To stream dialog overlays state) */
     val bookmarkDialogs: StateFlow<BookmarkDialogsState> = _bookmarkDialogs.asStateFlow()
 
-    /** 触发删除确认对话框 */
+    /** Request bookmark deletion (To display confirmation modal dialog) */
     fun requestDeleteBookmark(b: BookmarkEntity) {
         _bookmarkDialogs.update { it.copy(toDelete = b) }
     }
 
-    /** 触发编辑对话框，同步回填当前标题 */
+    /** Request bookmark modification (To display edit dialog autofilled with existing content) */
     fun requestEditBookmark(b: BookmarkEntity) {
         _bookmarkDialogs.update { it.copy(toEdit = b, editTitle = b.title) }
     }
 
-    /** 用户实时修改编辑框内容时更新标题 */
+    /** Update editing text (To synchronizes edit input changes to state) */
     fun onBookmarkEditTitleChange(t: String) {
         _bookmarkDialogs.update { it.copy(editTitle = t) }
     }
 
-    /** 关闭所有书签对话框并清空状态 */
+    /** Dismiss dialog models (To wipe active bookmark edit memory) */
     fun dismissBookmarkDialogs() {
         _bookmarkDialogs.value = BookmarkDialogsState()
     }
 
     // =====================================================================
-    // 物理分轨物理不可用二次确认弹窗状态管理
+    // Track failure dialog states (To manage confirmation overlays for broken audio tracks)
     // =====================================================================
 
-    /** 物理分轨失效对话框的状态结构 */
+    /** Track failure model (To model broken audio details) */
     data class TrackUnavailableDialogState(
         val show: Boolean = false,
         val bookId: String = "",
@@ -125,15 +121,15 @@ class PlayerViewModel : ViewModel() {
     )
 
     private val _trackUnavailableDialog = MutableStateFlow(TrackUnavailableDialogState())
-    /** 供 UI 观察的分轨文件损坏/丢失二次确认弹窗状态 */
+    /** Expose failure alerts (To stream broken track alerts to UI screens) */
     val trackUnavailableDialogState: StateFlow<TrackUnavailableDialogState> = _trackUnavailableDialog.asStateFlow()
 
-    /** 触发显示物理分轨不可用确认跳转对话框 */
+    /** Display broken track warnings (To alert user that track files are missing) */
     fun showTrackUnavailableDialog(bookId: String, queueIndex: Int) {
         _trackUnavailableDialog.value = TrackUnavailableDialogState(true, bookId, queueIndex)
     }
 
-    /** 关闭物理分轨不可用确认跳转对话框 */
+    /** Close track warnings (To hide track failure dialogs) */
     fun dismissTrackUnavailableDialog() {
         _trackUnavailableDialog.value = TrackUnavailableDialogState()
     }
@@ -162,7 +158,7 @@ class PlayerViewModel : ViewModel() {
                     narrator = entity?.narrator ?: "",
                     coverPath = entity?.coverPath,
                     thumbnailPath = entity?.thumbnailPath,
-                    // 将数据库中书籍实体的 lastScannedAt 映射作为 coverLastUpdated，从而在封面缓存重建完成后，促使数据流重发新状态包，迫使页面进行画面重绘
+                    // Map database lastScannedAt timestamp (To force downstream updates when image caches are reconstructed)
                     coverLastUpdated = entity?.lastScannedAt ?: 0L,
                     chapters = chapters,
                     bookmarks = bookmarks,
@@ -190,11 +186,8 @@ class PlayerViewModel : ViewModel() {
 
             val author = meta.author
             val narrator = meta.narrator
-            //
-            // 将推荐数据源绑定到 metadataState 响应式流上。
-            // 这样，只要元数据从 Room 成功加载，或者用户在信息修改器中对属性进行了保存，
-            // 都会触发 flatMapLatest 自动以正确的实机属性调用 usecase，彻底修复了原先 _currentBookId 刚更新时
-            // 静态读取 metadataState.value 快照所导致的全空 Bug！
+            // Bind recommendations query (To query related catalog items reactively)
+            // Relies on metadataState flows rather than reading snapshots to fetch data updates.
             getRelatedBooksUseCase?.invoke(id, author, narrator)
                 ?: flowOf(RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
         }
@@ -225,15 +218,15 @@ class PlayerViewModel : ViewModel() {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
 
-    // 定义精细化局部的进度状态大实体，专门承载 elapsedMs、durationMs 以在局部微观范围响应重组
+    // Spaced progress model (To capture position and duration attributes dynamically)
     data class PlaybackProgressViewState(
         val elapsedMs: Long = 0L,
         val durationMs: Long = 0L,
         val isChapterProgressMode: Boolean = false
     )
 
-    // 新增细粒度进度高频 StateFlow 通道。
-    // 使用 distinctUntilChanged() 对各个变量进行锁死拦截，只在高频通道中发射这三个变量，确保不污染其他全局组件。
+    // Spaced progress channel (To stream position updates without causing full-screen recompositions)
+    // Uses distinctUntilChanged to isolate changes in pos, dur, and mode variables.
     val playbackProgressState: StateFlow<PlaybackProgressViewState> = combine(
         playbackState.map { it.currentPosition }.distinctUntilChanged(),
         playbackState.map { it.duration }.distinctUntilChanged(),
@@ -242,7 +235,7 @@ class PlayerViewModel : ViewModel() {
         PlaybackProgressViewState(pos, dur, mode)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
 
-    // 极其低频的章节边界流通道，章节检索映射算法已彻底解耦至 PlaybackStateMapper，在 UI 端使用 chapter 解包以保持算法兼容性
+    // Chapter mapping flow (To match timestamps dynamically into chapter entities)
     val currentChapterState: StateFlow<com.viel.aplayer.data.entity.ChapterEntity?> = combine(
         playbackState.map { it.currentPosition }.distinctUntilChanged(),
         metadataState.map { it.chapters }.distinctUntilChanged()
@@ -259,7 +252,7 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackControlState(false, 1.0f, false))
 
-    // 当前播放进度百分比 (0-100)，核心公式和向上取整运算已被剥离委托给 PlaybackStateMapper
+    // Calculate progress percent (To calculate current progress percentage via PlaybackStateMapper)
     val currentPlaybackProgressPercent: StateFlow<Int> = playbackState
         .map { state ->
             PlaybackStateMapper.calculateProgressPercent(state.currentPosition, state.duration)
@@ -267,7 +260,7 @@ class PlayerViewModel : ViewModel() {
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    // 迷你播放器显示进度 (0.0f - 1.0f)，复杂的局部进度和章节偏移计算逻辑完全由 PlaybackStateMapper 代理
+    // Mini-player progress offset (To proxy complex offset calculations to PlaybackStateMapper)
     val miniPlayerProgress: StateFlow<Float> = combine(
         playbackState,
         metadataState.map { it.chapters }.distinctUntilChanged(),
@@ -285,9 +278,8 @@ class PlayerViewModel : ViewModel() {
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
 
 
-    // 重构后的低频全局 uiState 流。
-    // 核心重构设计在于对 playback 字段进行彻底的进度“脱水”（将 currentPosition 和 duration 强制清零），
-    // 这样全局 uiState 便能对每 500 毫秒一次的高频进度时间完全免疫，只有在播放控制改变、切换书籍或设置更新时才极低频重组。
+    // Spaced global uiState (To decouple high-frequency position ticks from main screen layout)
+    // Strips position values to avoid triggering constant layout recompositions.
     val uiState: StateFlow<PlayerUiState> = combine(
         metadataState,
         playbackControlState,
@@ -298,8 +290,8 @@ class PlayerViewModel : ViewModel() {
             metadata = metadata,
             playback = PlaybackState(
                 isPlaying = control.isPlaying,
-                currentPosition = 0L, // 进行彻底的“进度脱水”，切断高频重组
-                duration = 0L,        // 进度脱水
+                currentPosition = 0L, // Perform thorough "progress dehydration" to cut off high-frequency recompositions.
+                duration = 0L,        // Progress dehydration.
                 playbackSpeed = control.playbackSpeed,
                 playWhenReady = control.isPlaying
             ),
@@ -307,7 +299,7 @@ class PlayerViewModel : ViewModel() {
             relatedAuthorSections = related.authorSections,
             relatedNarratorSections = related.narratorSections,
             recentlyAddedBooks = related.recentlyAdded,
-            // 映射注入启发式推荐数据到全局 uiState 流，实现端到端数据传输
+            // Inject recommended data (To route catalog recommendations to uiState)
             heuristicRecommendedBooks = related.heuristicRecommended
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlayerUiState())
@@ -329,8 +321,8 @@ class PlayerViewModel : ViewModel() {
         this.appContext = appContext
         val container = (appContext as APlayerApplication).container
         
-        // 从应用容器 container 中安全获取解耦门面 libraryFacade 以及只读网关 bookQueryGateway。
-        // 用局部变量接收以规避连续非空断言引发的潜在 NPE 风险，同时解除对旧有 BookLibraryRepository 的重量级依赖。
+        // Resolve gateway dependencies (To load facade structures during initialization)
+        // Avoids caching heavy repository references inside local scopes.
         val facade = container.libraryFacade
         libraryFacade = facade
         val queryGateway = container.bookQueryGateway
@@ -357,17 +349,17 @@ class PlayerViewModel : ViewModel() {
         hasRestoredLastPlayedBook = true
 
         viewModelScope.launch {
-            // 在冷启动恢复迷你播放器进度之前，必须强力等待后台自愈计算执行完毕，消除并发竞争。
+            // Perform progress self-healing (To resolve progress drift before restoring compact player UI)
             appContext?.let { ctx ->
                 AutoRewindManager.getInstance(ctx).performColdStartSelfHealing()
             }
 
-            // Prepare the latest saved book/progress for compact player using facade
+            // Query persistent playback checkpoint (To restore previous audiobook track coordinates)
             val lastProgress = libraryFacade?.getLastPlayedProgressSync() ?: return@launch
             if (_currentBookId.value == null) {
                 loadBook(lastProgress.bookId, playWhenReady = false)
-                // 详尽的中文注释：冷启动恢复最近播放书籍时，如果外部入口已经请求了全屏播放页 overlay，则不再强制收回到迷你播放器；
-                // 此处彻底清除了先前无操作且极具误导性的 `if(!isFullPlayerVisible) { setFullPlayerVisible(false) }` 条件分支死代码，简化状态流转逻辑
+                // Restore compact player UI (To reveal mini-player controls in bottom navigation area)
+                // Clears redundant visibility conditions to ensure proper layout hierarchy flow.
                 settingsManager.setMiniPlayerHidden(false)
             }
         }
@@ -379,11 +371,11 @@ class PlayerViewModel : ViewModel() {
                 if (settings.isChapterProgressMode != settingsState.value.isChapterProgressMode) {
                     settingsManager.setChapterProgressMode(settings.isChapterProgressMode)
                 }
-                // 实时同步持久化配置中的睡眠渐隐开关状态至 PlayerSettingsManager 内部。
+                // Synchronize sleep decay switch (To update PlayerSettingsManager fade-out options dynamically)
                 settingsManager.isSleepFadeOutEnabled = settings.isSleepFadeOutEnabled
-                // 实时同步持久化配置中的摇晃重置开关状态至 PlayerSettingsManager 内部。
+                // Synchronize shake reset switch (To update PlayerSettingsManager motion triggers options dynamically)
                 settingsManager.isShakeToResetEnabled = settings.isShakeToResetEnabled
-                // 实时同步持久化配置中的睡眠模式状态至 PlayerSettingsManager 内部，实现三态计时的底层业务流转。
+                // Synchronize timer strategy (To align PlayerSettingsManager sleep mode config with DataStore values)
                 settingsManager.sleepMode = settings.sleepMode
             }
         }
@@ -393,11 +385,8 @@ class PlayerViewModel : ViewModel() {
         val manager = playbackManager ?: return
 
         viewModelScope.launch {
-            //
-            // 监听并订阅底层单例 PlaybackManager 广播的全局一次性 UI 事件共享流 uiEvents。
-            // 当接收到事件（如静音跳过 EVENT_SKIP_SILENCE 触发的 UiEvent.ShowToast）时，
-            // 立即将其向下层转发至当前 PlayerViewModel 持有的 uiEvents 流中，
-            // 从而被正在活动的 Composable 宿主（APlayerApp）所收集并渲染展示，完成完整的事件响应环。
+            // Forward background events (To pipe service-level notifications to observing UI components)
+            // Emits notifications (like EVENT_SKIP_SILENCE) into shared flows.
             manager.uiEvents.collect { event ->
                 _uiEvents.emit(event)
             }
@@ -409,19 +398,18 @@ class PlayerViewModel : ViewModel() {
                     val mediaParts = PlaybackMediaId.parse(mediaItem.mediaId)
                     if (mediaParts != null) {
                         val bookId = mediaParts.bookId
-                        // 详尽中文注释：统一通过 PlaybackMediaId 从最后一个冒号切分 `bookId:fileId`。
-                        // 这样 ABS 的 `bookId` 即使自身包含多个 `:`，也不会把文件 ID 解析错位，字幕与章节链路才能命中正确书籍。
+                        // Parse composite media identifier (To extract track path and book ID tokens)
+                        // Uses trailing colon markers to avoid misparsing multi-colon identifiers.
                         val bookFileId = mediaParts.fileId
                         _currentBookId.value = bookId
                         settingsManager.setMiniPlayerHidden(false)
 
-                        // 切歌/切书时，强行取消上一章节或分轨的字幕加载协程，清空字幕缓存，防止跨文件旧歌词时序残留
+                        // Evict active track lyrics (To wipe previous subtitles lines when changing track selections)
                         subtitleLoadJob?.cancel()
                         _currentSubtitles.value = emptyList()
 
-                        // 全面移除内置字幕歌词的超时竞争与合并逻辑，仅单向执行物理外置字幕的异步加载。
-                        // 将异步加载包裹在 subtitleLoadJob = viewModelScope.launch 中，
-                        // 便于在切歌或销毁时进行物理取消，防止多协程并发竞争以及悬空引用的内存泄露风险。
+                        // Load track subtitles (To fetch text lines from filesystem asynchronously)
+                        // Wraps jobs in ViewModel scope to avoid leak or concurrency risks.
                         subtitleLoadJob = viewModelScope.launch {
                             val externalSubs = kotlinx.coroutines.withContext(Dispatchers.IO) {
                                 libraryFacade?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
@@ -429,12 +417,12 @@ class PlayerViewModel : ViewModel() {
                             _currentSubtitles.value = externalSubs
                         }
                     } else {
-                        // 即使 mediaId 不包含冒号，也需物理取消字幕加载任务并清空字幕缓存
+                        // Clear subtitle tasks (To wipe subtitle state when identifier parsing fails)
                         subtitleLoadJob?.cancel()
                         _currentSubtitles.value = emptyList()
                     }
                 } else {
-                    // mediaItem 为 null 时，彻底清空字幕缓存并重置协程，防任何旧缓存残留
+                    // Clear subtitle tasks (To wipe subtitle state when track is null)
                     subtitleLoadJob?.cancel()
                     _currentSubtitles.value = emptyList()
                 }
@@ -442,14 +430,12 @@ class PlayerViewModel : ViewModel() {
         }
 
         viewModelScope.launch {
-            // 监听播放状态变化。
-            // 当检测到播放结束（STATE_ENDED）时，启动一个 5 秒的延迟任务来自动关闭播放界面。
-            // 这样能与 PlaybackService 的自动停止逻辑保持同步，提供一致的退出体验。
+            // Monitor track completions (To close active playback screen upon track end)
+            // Delays for 5 seconds to synchronize UI dismissals with PlaybackService actions.
             manager.playbackState.collectLatest { state ->
                 if (state == androidx.media3.common.Player.STATE_ENDED) {
                     delay(5000)
-                    // 再次检查状态，确保在延迟期间没有发生新的播放操作。
-                    // 只要状态仍为 ENDED 或变为 IDLE（Service 可能已清空队列并停止），就关闭界面。
+                    // Verify completion status (To ensure player is still idle before dismissing screen)
                     val currentState = manager.playbackState.value
                     if (currentState == androidx.media3.common.Player.STATE_ENDED || 
                         currentState == androidx.media3.common.Player.STATE_IDLE) {
@@ -461,24 +447,22 @@ class PlayerViewModel : ViewModel() {
     }
 
     fun loadBook(id: String, playWhenReady: Boolean = true) {
-        // 记录用户触发 loadBook 到播放计划准备完成的整段耗时，
-        // 便于区分入口层、Repository 取计划层是否参与了启动延迟。
+        // Log loadBook duration (To identify performance lag during playback startup)
         val loadBookRequestStart = SystemClock.elapsedRealtime()
-        // 
-        // 如果当前请求加载的音频书籍 ID 与当前正在播放的音频书籍 ID 相同，则无需重新加载该书。
-        // 这可以防止因为重复加载媒体播放计划（loadBook）而打断当前的连续播放状态，提升播放体验的连贯性。
+        // Prevent loading duplicate tracks (To avoid interrupting active playback sessions)
+        // Ignores load requests matching current book ID.
         if (_currentBookId.value == id) {
-            // 如果外部传入期望在就绪后立即播放，且目前底层播放器实际处于暂停/非播放状态，则只需直接恢复播放即可，无需执行重载打断当前会话。
+            // Restore active playback (To resume paused sessions without reloading files)
             if (playWhenReady && !playbackState.value.isPlaying) {
                 play()
             }
             return
         }
 
-        // 加载新书时，必须彻底强行取消并物理回收正在运行的上一本书的字幕加载协程任务，杜绝残留回调污染新会话
+        // Evict previous track metadata (To prepare views for subsequent loading session)
         subtitleLoadJob?.cancel()
         _currentBookId.value = id
-        _currentSubtitles.value = emptyList() // 重置上一本书的字幕
+        _currentSubtitles.value = emptyList() // Reset subtitles of the previous book.
         settingsManager.setUndoSeekVisible(false)
         settingsManager.dismissChapterList()
         settingsManager.dismissBookmarkDialog()
@@ -519,12 +503,10 @@ class PlayerViewModel : ViewModel() {
         bookmarkManager?.addBookmark(id, playbackState.value.currentPosition, title)
     }
 
-    /**
-     * 停止播放并清理当前书籍状态（主要用于删除书籍时）。
-     */
+    /** Stop active playback (To pause media player and wipe current tracks cache) */
     fun closePlayback(bookId: String) {
         if (_currentBookId.value == bookId) {
-            // 停止播放新书或关闭物理会话时，必须强行取消正在运行的字幕检索协程并清空字幕数据
+            // Clear subtitle tasks (To cancel active lyrics threads)
             subtitleLoadJob?.cancel()
             _currentBookId.value = null
             _currentSubtitles.value = emptyList()
@@ -586,7 +568,7 @@ class PlayerViewModel : ViewModel() {
     fun setSleepTimer(minutes: Int) = settingsManager.setSleepTimer(minutes, { playbackState.value }, { metadataState.value })
     fun adjustVolume(delta: Float) = settingsManager.adjustVolume(delta)
     
-    // 详尽的中文注释：公开事件发射接口，支持 Composable Actions 动作或其它层回调向当前 ViewModel 拥有的 uiEvents 共享流发射一次性事件，实现高解耦与主线程集中分发。
+    // Dispatch UI notifications (To pipe temporary alert events to the main thread)
     fun sendUiEvent(event: com.viel.aplayer.ui.common.UiEvent) {
         viewModelScope.launch {
             _uiEvents.emit(event)
@@ -601,16 +583,15 @@ class PlayerViewModel : ViewModel() {
     fun saveBookmarkFromDialog() {
         addBookmark(settingsState.value.bookmarkTitle.ifBlank { "Bookmark" })
         dismissBookmarkDialog()
-        // 详尽的中文注释：书签保存成功后，向全局 uiEvents 管道中发射 ShowToast 事件，将 Toast 6 的触发源归拢入业务控制器中，由宿主 UI 统一在主线程弹出。
+        // Alert bookmark additions (To emit ShowToast event in uiEvents flow)
         sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("Bookmark added"))
     }
     fun setSelectedContentTab(tab: Int) = settingsManager.setSelectedContentTab(tab)
     fun setFullPlayerVisible(visible: Boolean) {
         settingsManager.setFullPlayerVisible(visible)
         if (visible) {
-            // 
-            // 当进入全屏播放器界面时（visible 为 true），自动重置并解除迷你播放器的隐藏状态（设置为 false）。
-            // 从而保证当用户后续关闭/收起全屏播放器时，底部的迷你播放器能够自动重新显示，不会因为之前的 hide 状态而消失。
+            // Restore mini-player visibility (To reveal compact playback controls in root layout)
+            // Ensures bottom control panel is restored when leaving full-screen views.
             settingsManager.setMiniPlayerHidden(false)
         }
     }
@@ -637,10 +618,7 @@ class PlayerViewModel : ViewModel() {
     fun skipToPreviousChapter() = playbackDelegate?.skipToPreviousChapter(metadataState.value.chapters.map { it.chapter }, playbackState.value.currentPosition)
 
     /**
-     * 用户在弹窗确认中同意跳轨时，调用底层播放管理器执行下一 READY 轨的灾备自愈跳转。
-     *
-     * @param bookId 当前音频书籍的 ID
-     * @param queueIndex 发生故障的分轨索引
+     * Skip damaged tracks (To jump current playback session to next available track item)
      */
     fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
         playbackManager?.skipToNextAvailableTrack(bookId, queueIndex)
@@ -662,5 +640,4 @@ class PlayerViewModel : ViewModel() {
             }
         }
     }
-
 }

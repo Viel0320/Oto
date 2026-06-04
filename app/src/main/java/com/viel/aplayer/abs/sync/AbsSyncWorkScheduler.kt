@@ -20,7 +20,10 @@ class AbsSyncWorkScheduler(context: Context) {
             )
             .setInitialDelay(0, TimeUnit.SECONDS)
             .build()
-        // 详尽中文注释：调度器只负责“是否成功入队”，不负责执行结果，因此这里单独记录 unique work 名称，方便排查互斥与覆盖策略。
+        // Task Queue Logging (Trace work scheduling attempt)
+        // Log the scheduling event with the unique work name when enqueuing the sync task.
+        // The scheduler only tracks whether the task is successfully submitted to WorkManager, not the final execution.
+        // Recording this helps diagnose queue collisions, concurrency constraints, and replacement policies.
         AbsSyncLogger.logSchedulerEnqueue(rootId = rootId, uniqueWorkName = uniqueWorkName(rootId))
         workManager.enqueueUniqueWork(
             uniqueWorkName(rootId),

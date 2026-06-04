@@ -23,8 +23,8 @@ class AbsCatalogSynchronizer(
     private val batchSize: Int = 20
 ) {
     /**
-     * 详尽的中文注释：带摘要结果的同步入口，供设置页在后台自动同步完成后生成更有信息量的 toast。
-     * 它不会改变现有同步语义，只是在原有执行结果之外，额外返回“新增成功多少本、失败多少本”的统计。
+     * Documented Sync Entrypoint (Executes synchronization and constructs a descriptive summary for setting toast prompts)
+     * Does not alter synchronization behavior, solely extending output to record detailed book statistics.
      */
     suspend fun syncRootWithSummary(root: LibraryRootEntity): AbsSyncSummary {
         val start = AbsSyncLogger.mark()
@@ -57,7 +57,7 @@ class AbsCatalogSynchronizer(
     suspend fun inspectRootSyncPlan(root: LibraryRootEntity): AbsSyncPlan {
         require(root.sourceType == AudiobookSchema.LibrarySourceType.ABS) { "Only ABS roots are supported" }
         val start = AbsSyncLogger.mark()
-        // 详尽中文注释：同步计划预检查是大库确认弹窗的入口，必须单独记日志，便于区分“同步器没跑”和“被确认门槛挡住”。
+        // Logging Plan Inspection (Differentiates scheduler execution locks from active verification boundaries)
         AbsSyncLogger.logInspectPlanStart(rootId = root.id, libraryId = root.basePath)
         val credential = requireNotNull(credentialStore.get(root.credentialId)) {
             "Missing ABS credential for root ${root.id}"
@@ -80,15 +80,14 @@ class AbsCatalogSynchronizer(
     }
 
     suspend fun syncRoot(root: LibraryRootEntity) {
-        // 详尽的中文注释：兼容旧调用方的无返回值入口直接委托到带摘要的新入口，
-        // 这样既保留原有行为，又能让新的设置页自动同步 toast 拿到统计结果。
+        // Legacy Sync Adapter (Bridges the legacy void calls to the new summary-returning execution channel)
         syncRootWithSummary(root)
         return
     }
 
     private suspend fun syncRootInternal(root: LibraryRootEntity): AbsSyncSummary {
         require(root.sourceType == AudiobookSchema.LibrarySourceType.ABS) { "Only ABS roots are supported" }
-        // 详尽中文注释：内部同步流程再单独维护一个耗时起点，避免误用外层包装方法的计时变量，保证日志口径稳定。
+        // Internal Timing Marker (Establishes a localized stopwatch baseline to secure precise latency recordings in logs)
         val internalStart = AbsSyncLogger.mark()
         val credential = requireNotNull(credentialStore.get(root.credentialId)) {
             "Missing ABS credential for root ${root.id}"
@@ -119,13 +118,12 @@ class AbsCatalogSynchronizer(
         )
         var hadBatchFailure = false
         val unresolvedDetailFailures = linkedMapOf<String, String>()
-        // 详尽的中文注释：摘要统计只记录“本轮真正新增入库的书本数”和“本轮 detail 最终失败的条目数”，
-        // 不把历史镜像复用算成新增，避免 toast 误导用户。
+        // Summary Increment Logic (Tracks newly resolved items only, preventing already stored records from skewing counts)
         var addedBookCount = 0
         var syncedBookCount = 0
         val detailItems = detailCandidateIds.chunked(batchSize).flatMapIndexed { batchIndex, ids ->
             val batchStart = AbsSyncLogger.mark()
-            // 详尽中文注释：batch/get 是 ABS mirror 最容易出局部失败的地方，因此单独记录每批请求的 item 集合与结果。
+            // Logging Batch Transports (Logs batch-level parameters to identify transport issues during batch queries)
             AbsSyncLogger.logBatchRequest(rootId = root.id, batchIndex = batchIndex, batchSize = ids.size, itemIds = ids)
             runCatching {
                 apiClient.batchGetItems(credential.baseUrl, credential.token, ids)
@@ -194,15 +192,13 @@ class AbsCatalogSynchronizer(
                 )
                 syncedBookCount += 1
                 if (existingMirrors[remoteItemId] == null) {
-                    // 详尽的中文注释：只有本地此前不存在 mirror 的条目，才算“成功新增添加的书本数”。
+                    // New Mirror Increment (Increments new book counters only when no mirroring entity exists in the schema)
                     addedBookCount += 1
                 }
                 continue
             }
             val existingMirror = existingMirrors[remoteItemId] ?: continue
-            // 详尽的中文注释：未进入详情队列或详情最终失败，但本地已有历史镜像时，
-            // 直接复用历史 book/files/chapters，并把 mirror 的 seen 状态刷新为 ACTIVE，
-            // 避免无变化条目每轮都重拉详情，也避免单 item 失败把既有书错误打成 STALE。
+            // Resilient Mirror Reuse (Preserves active records and marks mirrors ACTIVE to bypass redundant queries or premature STALE states)
             reusedMirrors += existingMirror.copy(
                 lastSeenSyncRunId = syncRunId,
                 lastSeenAt = now,
@@ -292,9 +288,8 @@ class AbsCatalogSynchronizer(
         val cachedCover = runCatching {
             coverCache?.downloadCover(root, requireNotNull(item.id))
         }.getOrNull()
-        // 详尽的中文注释：先把“本轮最终会落库的封面路径”提前算出来，
-        // 这样既能继续复用旧封面，也能在新封面下载成功时准确比较路径是否发生变化，
-        // 从而只在真实换图时刷新 lastScannedAt，避免每轮 ABS 同步都把 UI 缓存全部打穿。
+        // Cover Expiration Strategy (Aligns syncedAt parameters with true layout changes to secure UI image caches)
+        // Returns fresh syncedAt values only for new books or if paths shift; otherwise returns cached stamps.
         val resolvedCoverPath = cachedCover?.originalPath ?: existingBookEntity?.coverPath
         val resolvedThumbnailPath = cachedCover?.thumbnailPath ?: existingBookEntity?.thumbnailPath
         val resolvedLastScannedAt = resolveAbsCoverLastScannedAt(
@@ -347,7 +342,7 @@ class AbsCatalogSynchronizer(
             mirror = mirror,
             syncState = syncState
         )
-        // 详尽中文注释：item 级 upsert 是 catalog mirror 的核心结果点，记录文件数、章节数、进度有无，可快速判断映射是否异常收缩。
+        // Logging plan results at item level.
         AbsSyncLogger.logUpsertItem(
             rootId = root.id,
             itemId = item.id,
@@ -396,7 +391,7 @@ class AbsCatalogSynchronizer(
         }
         if (remoteDeletedMirrors.isNotEmpty()) {
             catalogStore.replaceMirrors(remoteDeletedMirrors)
-            // 详尽中文注释：REMOTE_DELETED 是最危险的收敛动作之一，必须单独记数量，方便排查误删与批量删除风险。
+            // Logging Evictions (Explicitly logs remote deletions to track potential sync loss and verify cascade removals)
             AbsSyncLogger.logMarkRemoteDeleted(rootId = root.id, count = remoteDeletedMirrors.size)
         }
         catalogStore.saveSyncState(
@@ -417,9 +412,8 @@ class AbsCatalogSynchronizer(
     }
 
     /**
-     * 详尽的中文注释：当 batch/get 失败时，退化为单 item 小批量重试。
-     * 这里固定最多重试三次，三次后直接放弃当前同步轮次内的该 item，并把失败摘要记到 root 级同步状态；
-     * 不额外引入新的持久化错误表，也不暴露 UI 入口，下一轮常规扫描再根据增量规则决定是否重拉。
+     * Single-Item Fallback Retries (Invokes isolated single-item lookups on failure up to three times)
+     * Records failure signatures under sync state bounds instead of propagating exceptions.
      */
     private suspend fun fetchItemsIndividuallyWithRetry(
         root: LibraryRootEntity,
@@ -492,11 +486,8 @@ class AbsCatalogSynchronizer(
 }
 
 /**
- * 详尽的中文注释：ABS 封面失效时间戳的判定必须同时满足“新封面能及时刷新”和“未换图时缓存稳定”。
- * 因此这里只在两种情况下返回新的 `syncedAt`：
- * 1. 新书首次同步就已经拿到了本地封面缓存路径；
- * 2. 旧书本轮同步后 coverPath 或 thumbnailPath 与上次持久化值不同。
- * 除此之外都保留旧的 lastScannedAt，避免把没有变化的封面请求 key 全部打穿。
+ * Cover Expiration Strategy (Aligns syncedAt parameters with true layout changes to secure UI image caches)
+ * Returns fresh syncedAt values only for new books or if paths shift; otherwise returns cached stamps.
  */
 internal fun resolveAbsCoverLastScannedAt(
     existing: BookEntity?,
@@ -513,18 +504,16 @@ internal fun resolveAbsCoverLastScannedAt(
 }
 
 /**
- * 详尽的中文注释：ABS 可播放书籍的筛选门槛必须与实际入库主链保持一致。
- * 当前 BookFileEntity 的可播放文件完全来自 `media.tracks`，并依赖其中的 `contentUrl` 作为真实流地址，
- * 因此这里必须严格要求 `mediaType == book` 且 `tracks` 非空，不能再把只有 `audioFiles` 的条目误判为可播放。
- * 否则同步器会放行一个后续无法生成任何 BookFileEntity 的条目，导致镜像层出现“书已入库但无可播音轨”的语义裂缝。
+ * Playability Inspection (Verifies item format criteria to ensure that the parsed entity possesses valid media tracks)
+ * Requires mediaType as "book" and non-empty track records; items without media URLs are skipped.
  */
 internal fun isAbsPlayableBook(item: AbsLibraryItemDto): Boolean =
     item.mediaType.equals("book", ignoreCase = true) &&
         (item.media?.tracks?.isNotEmpty() == true)
 
 /**
- * 详尽的中文注释：根据上一轮全量列表指纹与每个 item 的 `remoteUpdatedAt`，裁决哪些 item 需要重拉详情。
- * 设计目标是“无变化 item 不进详情队列，但新 item 和疑似变化 item 一定进入”，这样既降低同步成本，又不破坏阶段 2 的全量正确性路径。
+ * Sync Candidate Filter (Analyzes minified lists and timestamps to identify entries requiring deep details)
+ * Excludes static segments while routing updated elements to optimize payload sizes and database transactions.
  */
 internal fun selectAbsDetailCandidateIds(
     minifiedItems: List<AbsLibraryItemDto>,
@@ -545,10 +534,11 @@ internal fun selectAbsDetailCandidateIds(
 }
 
 /**
- * 详尽的中文注释：增量详情候选的逐 item 判定规则。
- * 1. 本地还没有 mirror 的新 item，必须拉详情。
- * 2. 如果整份 minified 指纹未变化，且本地已有 mirror，则直接复用历史镜像，不重拉详情。
- * 3. 指纹变化时，再退回 `remoteUpdatedAt` 比较；任一侧缺失时间戳也按保守策略重拉。
+ * Dynamic Fetch Rules (Assesses mirror structures and server updates to decide if metadata should reload)
+ * Rules:
+ * 1. Missing local mirrors demand fresh metadata queries.
+ * 2. If fingerprints are unchanged, existing mirrors are preserved directly.
+ * 3. If signatures differ, compares remote and local timestamps, querying on mismatch.
  */
 internal fun shouldFetchAbsItemDetail(
     item: AbsLibraryItemDto,
@@ -568,8 +558,9 @@ internal fun shouldFetchAbsItemDetail(
 }
 
 /**
- * 详尽的中文注释：把多条单 item 失败聚合成 root 级简短错误摘要，供设置页显示与日志定位使用。
- * 这里故意不暴露完整远端 DTO 或堆栈，只保留失败数量与首个 item 的紧凑原因，避免错误文案膨胀。
+ * Aggregate Item Failures (Error summary builder)
+ * Compiles individual item failures into a compact root-level summary for log diagnostics and UI settings indicators.
+ * Intentionally isolates remote payload details, showing only failure count and the first item's root cause to avoid string bloating.
  */
 internal fun buildAbsIncrementalErrorSummary(failures: Map<String, String>): String? {
     if (failures.isEmpty()) return null
@@ -578,9 +569,9 @@ internal fun buildAbsIncrementalErrorSummary(failures: Map<String, String>): Str
 }
 
 /**
- * 详尽的中文注释：同步完成后返回给上层设置页的轻量结果摘要。
- * 这里专门区分“本轮新增添加的书本数”和“仅做详情刷新/镜像复用的书本数”，
- * 这样 toast 才能准确回答用户最关心的“成功添加多少本、失败多少本”。
+ * Synchronization Ingestion Summary (Result statistics wrapper)
+ * Returns a lightweight summary of ingestion results to the settings view upon rescan completion.
+ * Separates new books from refreshed/reused books, enabling accurate toast reporting of successes and failures.
  */
 data class AbsSyncSummary(
     val totalItems: Int,

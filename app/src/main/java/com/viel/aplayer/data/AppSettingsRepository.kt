@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
 
 /**
- * 负责应用设置的持久化管理，基于 Jetpack DataStore。
+ * App Settings Storage (Manages persistence of user configuration via Jetpack DataStore)
  */
 class AppSettingsRepository private constructor(private val dataStore: DataStore<Preferences>) {
 
@@ -27,30 +27,31 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         val IS_GLOBAL_SPEED_ENABLED = booleanPreferencesKey("is_global_speed_enabled")
         val GLOBAL_PLAYBACK_SPEED = floatPreferencesKey("global_playback_speed")
         val IS_CHAPTER_PROGRESS_MODE = booleanPreferencesKey("is_chapter_progress_mode")
-        // 新增 PreferenceKey 存储键名，用于指示是否开启明文 http 连接授权状态。
+        // Cleartext HTTP Switch (Preferences key indicating if cleartext HTTP traffic is permitted for WebDAV/remote servers)
         val IS_CLEARTEXT_TRAFFIC_ALLOWED = booleanPreferencesKey("is_cleartext_traffic_allowed")
         /**
-         * 自动跳过静音开关持久化存储 Key。已经过重构去除了自定义判定时长和通知开关相关的 Key。
+         * Skip Silence Storage (Preferences key tracking whether the silence-skipping player mode is enabled)
+         * Unified under default system configurations; custom duration keys have been removed.
          */
         val IS_SKIP_SILENCE_ENABLED = booleanPreferencesKey("is_skip_silence_enabled")
-        // 新增睡眠定时器音量渐隐机制的持久化存储 Key
+        // Sleep Timer Fade-Out (Preferences key for enabling gradual volume reduction at timer expiration)
         val IS_SLEEP_FADE_OUT_ENABLED = booleanPreferencesKey("is_sleep_fade_out_enabled")
-        // 新增摇晃手机重置睡眠定时器机制的持久化存储 Key
+        // Shake-to-Reset Sensor (Preferences key tracking whether shake movements reset active sleep timers)
         val IS_SHAKE_TO_RESET_ENABLED = booleanPreferencesKey("is_shake_to_reset_enabled")
-        // 新增睡眠模式持久化存储 Key
+        // Sleep Timer Target Mode (Preferences key storing the target sleep duration behavior, e.g. Regular or EndOfChapter)
         val SLEEP_MODE = stringPreferencesKey("sleep_mode")
-        // 新增悬浮层玻璃效果模式持久化存储 Key，字符串值直接保存 GlassEffectMode.name 方便兼容未来扩展。
+        // Glassmorphic Rendering Mode (Preferences key tracking dialog blur style: MiuixBlur vs Material)
         val GLASS_EFFECT_MODE = stringPreferencesKey("glass_effect_mode")
-        // 新增自动回退播放进度秒数（0-30s）持久化存储 Key，0 表示不开启自动回退。
+        // Post-Interrupt Auto Rewind (Preferences key storing rewind offset in seconds; 0 disables the feature)
         val AUTO_REWIND_SECONDS = intPreferencesKey("auto_rewind_seconds")
-        // 新增上次播放是否为非正常中断（如系统强杀）持久化存储 Key。
+        // Interrupted State Tracker (Preferences key flagging whether the previous session terminated abnormally, e.g. system kill)
         val IS_LAST_PLAYBACK_INTERRUPTED = booleanPreferencesKey("is_last_playback_interrupted")
-        // 新增通知避让机制是否启用的持久化存储 Key，开启时失去焦点将执行暂停并由自主逻辑在重获焦点后恢复。
+        // Audio Focus Ducking Avoidance (Preferences key tracking whether focus loss forces explicit playback pause)
         val IS_NOTIFICATION_AVOIDANCE_ENABLED = booleanPreferencesKey("is_notification_avoidance_enabled")
     }
 
     /**
-     * 获取实时设置流。
+     * Live Preferences Stream (Exposes a Flow of updated AppSettings from the DataStore repository)
      */
     val settingsFlow: Flow<AppSettings> = dataStore.data.map { preferences ->
         AppSettings(
@@ -58,30 +59,30 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             isGlobalSpeedEnabled = preferences[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] ?: false,
             globalPlaybackSpeed = preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] ?: 1.0f,
             isChapterProgressMode = preferences[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] ?: false,
-            // 从 DataStore 缓存中提取明文 http 流量授权状态，缺失则以 true 默认授权状态加载，以提供更友好的初始 WebDAV 配置体验。
+            // Read HTTP Policy (Resolve cleartext connection permission, falling back to true for initial WebDAV onboarding)
             isCleartextTrafficAllowed = preferences[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] ?: true,
             /**
-             * 从 DataStore 物理读取自动跳过静音的开关状态，默认值为 false。
-             * 经过重构，移除了自定义时长和提示通知字段的读取，遵循官方默认配置。
+             * Read Skip Silence (Expose silence skipping flag, defaulting to false)
+             * Custom threshold offsets and status notification settings have been pruned in this revision.
              */
             isSkipSilenceEnabled = preferences[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] ?: false,
-            // 从 DataStore 物理读取睡眠定时音量渐隐的开关状态，默认值为 true
+            // Read Sleep Fade-Out (Expose volume fading status, defaulting to true)
             isSleepFadeOutEnabled = preferences[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] ?: true,
-            // 从 DataStore 读取摇晃重置睡眠定时器的开关状态，默认值为 true
+            // Read Shake-to-Reset (Expose shake reset flag, defaulting to true)
             isShakeToResetEnabled = preferences[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] ?: true,
-            // 从 DataStore 读取睡眠模式，缺失或非法历史值统一回落到常规模式（Regular）。
+            // Read Sleep Mode (Parse active SleepMode, defaulting to Regular if empty or invalid)
             sleepMode = preferences[PreferencesKeys.SLEEP_MODE]
                 ?.let { runCatching { SleepMode.valueOf(it) }.getOrNull() }
                 ?: SleepMode.Regular,
-            // 从 DataStore 读取玻璃效果模式，缺失或非法历史值统一回落到 AppSettings 声明 of 设置默认值。
+            // Read Glass Mode (Parse glass effect style, falling back to the designated AppSettings default)
             glassEffectMode = preferences[PreferencesKeys.GLASS_EFFECT_MODE]
                 ?.let { runCatching { GlassEffectMode.valueOf(it) }.getOrNull() }
                 ?: AppSettings.DEFAULT_GLASS_EFFECT_MODE,
-            // 从 DataStore 中读取自动回退秒数，默认为 0 秒（已关闭）。
+            // Read Auto Rewind (Expose rewind duration, defaulting to 0 for disabled state)
             autoRewindSeconds = preferences[PreferencesKeys.AUTO_REWIND_SECONDS] ?: 0,
-            // 从 DataStore 中读取上次播放是否为异常非正常中断的标志，默认为 false。
+            // Read Session Interruption (Flag indicating abnormal application restarts, defaulting to false)
             isLastPlaybackInterrupted = preferences[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] ?: false,
-            // 从 DataStore 中读取通知避让选项开关的最新状态，如果配置不存在则以极高安全防护的默认状态（false，即不开启）来加载。
+            // Read Ducking Avoidance (Expose focus loss avoidance status, defaulting to false for safe media defaults)
             isNotificationAvoidanceEnabled = preferences[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] ?: false
         )
     }
@@ -101,50 +102,50 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         dataStore.edit { it[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] = enabled }
     }
 
-    // 提供外部调用修改明文流量持久化设置的接口函数。
+    // Write HTTP Policy (Persist user permission settings regarding cleartext HTTP connections)
     suspend fun updateCleartextTrafficAllowed(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] = enabled }
     }
 
-    /**
-     * 提供修改自动跳过静音开关持久化配置的接口函数。
-     * 重构后已彻底移除自定义判定时长和通知提示开关持久化更新函数。
-     */
+     /**
+      * Write Skip Silence (Persist skip silence preferences)
+      * Custom thresholds and notification triggers are managed implicitly under system defaults.
+      */
     suspend fun updateSkipSilenceEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] = enabled }
     }
 
-    // 提供修改睡眠定时器音量渐隐配置的接口函数
+    // Write Sleep Fade-Out (Persist volume fade-out switch settings for sleep timer expirations)
     suspend fun updateSleepFadeOutEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] = enabled }
     }
 
-    // 提供修改摇晃重置睡眠定时器配置的接口函数，由 SettingsViewModel 调用实现持久化写操作。
+    // Write Shake-to-Reset (Persist shake reset switch settings to toggle sensor inputs on timer start)
     suspend fun updateShakeToResetEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] = enabled }
     }
 
-    // 提供修改睡眠模式的持久化接口，由 SettingsViewModel 调用并实现持久化写操作。
+    // Write Sleep Mode (Persist target SleepMode layout options into the local data store)
     suspend fun updateSleepMode(mode: SleepMode) {
         dataStore.edit { it[PreferencesKeys.SLEEP_MODE] = mode.name }
     }
 
-    // 提供修改悬浮层玻璃效果模式的持久化接口，由设置页切换 Material/miuix-blur 时调用。
+    // Write Glass Effect (Persist rendering preference for glassmorphic overlay sheets)
     suspend fun updateGlassEffectMode(mode: GlassEffectMode) {
         dataStore.edit { it[PreferencesKeys.GLASS_EFFECT_MODE] = mode.name }
     }
 
-    // 提供修改自动回退播放进度秒数（0-30s）持久化配置的接口函数，由 ViewModel 调用并写入 DataStore。
+    // Write Auto Rewind (Persist rewind offset in seconds to offset post-interruption session restarts)
     suspend fun updateAutoRewindSeconds(seconds: Int) {
         dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = seconds }
     }
 
-    // 提供修改上次播放是否为非正常中断持久化配置的接口函数，用来在播放器开始/暂停以及冷启动自愈时写入。
+    // Write Interruption Flag (Flag whether the current playback loop ended normally or via process terminations)
     suspend fun updateLastPlaybackInterrupted(interrupted: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] = interrupted }
     }
 
-    // 提供修改是否启用通知避让机制持久化配置的接口函数，由 SettingsViewModel 异步调用并落盘写入 DataStore。
+    // Write Ducking Avoidance (Persist notification avoidance configurations for audio focus loss)
     suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] = enabled }
     }

@@ -1,8 +1,9 @@
 package com.viel.aplayer.ui.home.components
 
-// 新增 combinedClickable 导入以响应列表项目长按的高阶手势监听
-// 新增 ExperimentalFoundationApi 导入，由于 combinedClickable 在旧版中是实验性 API，这里作为安全屏障防御编译期缺陷
-// 补充导入 getValue 和 setValue 的扩展方法以支持 Composable 属性代理委托机制 (H-13)
+// Setup ListItem Imports (Coil & click delegate)
+// Added combinedClickable import to respond to list item long press.
+// Added ExperimentalFoundationApi import to shield compilation defects of experimental APIs.
+// Added getValue and setValue import extensions to support Composable property delegation.
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,14 +55,14 @@ fun ListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     coverPath: String? = null,
-    coverLastUpdated: Long = 0L, // 用于传递封面文件自愈重建时间戳，用以触发响应式强打破缓存
+    coverLastUpdated: Long = 0L, // Used to pass cover file self-healing milliseconds timestamp to trigger responsive cache breaking
     progressPercent: Int? = null,
-    // 新增 onLongClick 参数以接收长按列表项目触发的事件回调
+    // New onLongClick parameter to receive long-press events callback
     onLongClick: () -> Unit = {},
     onPlayClick: () -> Unit = {}
 ) {
     ListItem(
-        // 使用 combinedClickable 替换原本的 clickable，以高阶手势监听 onClick 及 onLongClick 交互
+        // Replace original clickable with combinedClickable to listen to onClick and onLongClick gestures
         modifier = modifier.combinedClickable(
             onClick = onClick,
             onLongClick = onLongClick
@@ -120,12 +121,13 @@ fun ListItem(
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 val isPreview = LocalInspectionMode.current
-                // 定义本地图片加载错误状态，利用 Coil 的异步加载与 onError 回调实现零主线程磁盘同步 I/O 探测 (H-13)
+                // Define local image load error state, using Coil's async loading and onError callback to achieve zero main-thread sync disk I/O probing.
                 var isImageError by remember(coverPath) { mutableStateOf(false) }
                 if (!isPreview && (coverPath != null) && !isImageError) {
                     val context = LocalContext.current
-                    // 列表项固定使用 ThumbnailSmall 规格，列表、搜索小图和迷你播放器可以共享 180px 缓存；
-                    // 这里不做同步 File.exists()，让 Coil 异步处理文件缺失或损坏并统一记录结果。
+                    // Thumbnail Small Caching (Optimize Memory and Cache Reuse)
+                    // List item strictly uses ThumbnailSmall specification, allowing list, search thumbnail, and miniplayer to share 180px cache.
+                    // Skips synchronous File.exists() calls, letting Coil handle file missing asynchronously and log results.
                     val request = remember(coverPath, coverLastUpdated) {
                         CoverImageRequestFactory.build(
                             context = context,
@@ -140,8 +142,8 @@ fun ListItem(
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         onError = {
-                            // 详尽的中文注释：UI 层只负责把失败状态切换为占位图，日志指标统一交给
-                            // CoverImageRequestFactory 里的 request listener 输出，避免同一次请求出现两套口径。
+                            // Log Metric Handling (Decoupled Image Metrics Logging)
+                            // UI layer only handles displaying placeholder when image fails; logging metrics are handled by request listener inside CoverImageRequestFactory.
                             isImageError = true
                         }
                     )

@@ -7,8 +7,8 @@ import androidx.room.PrimaryKey
 import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
- * 物理音频/清单文件实体。
- * 一本书可以包含一个或多个通过 VFS 定位的物理文件。
+ * Physical Track Asset (Entity representing physical audio tracks or manifest configurations)
+ * An audiobook contains one or more physical files located using the Virtual File System (VFS).
  */
 @Entity(
     tableName = "book_files",
@@ -19,7 +19,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
             childColumns = ["bookId"],
             onDelete = ForeignKey.CASCADE
         ),
-        // BookFile 通过 rootId 级联到库根，删除库根时同步清理该来源下的文件所有权。
+        // Cascade File Cleanup (Establishes cascade delete with LibraryRootEntity to remove files when root is deleted)
         ForeignKey(
             entity = LibraryRootEntity::class,
             parentColumns = ["id"],
@@ -31,19 +31,19 @@ import com.viel.aplayer.data.db.AudiobookSchema
 )
 data class BookFileEntity(
     @PrimaryKey
-    val id: String, // 稳定主键
+    val id: String, // Unique stable identifier
     val bookId: String,
-    // SOURCE_MANIFEST 和 AUDIO 共用所有权表，清单文件也通过 VFS 定位。
+    // Shared Asset Mapping (SOURCE_MANIFEST and AUDIO roles share the same files table, all indexed via VFS paths)
     val fileRole: String = AudiobookSchema.FileRole.AUDIO,
-    val rootId: String, // 所属授权目录 ID
-    val index: Int, // 在播放队列中的顺序
-    // BookFile 不再持久化 provider 原生 URI，所有定位统一使用 rootId + sourcePath 这组 VFS 路径。
+    val rootId: String, // Associated library root identifier
+    val index: Int, // Logical position order inside the media playback queue
+    // Virtual File Pathing (Avoids storing raw URIs; all tracks are resolved via composite VFS path keys (rootId + sourcePath))
     val sourcePath: String,
-    // sourceIdentity 保存来源标准件返回的稳定身份，用作辅助 claim，不再保存旧 URI 身份。
+    // Source Identifier Claims (Stores provider-specific stable keys as auxiliary claims instead of raw URIs)
     val sourceIdentity: String,
-    // etag 用于 WebDAV 等远程源的增量检测；SAF 当前没有稳定 etag，保持 null。
+    // WebDAV ETag Check (Used for incremental sync on WebDAV servers; SAF tracks have no etag and default to null)
     val etag: String? = null,
-    // manifestEntryPath 只保存 CUE/M3U8 原始条目文本用于诊断，不参与文件身份判定。
+    // Diagnostic Manifest Path (Stores raw track names inside CUE/M3U8 playlists for debug inspections)
     val manifestEntryPath: String? = null,
     val displayName: String,
     val durationMs: Long,

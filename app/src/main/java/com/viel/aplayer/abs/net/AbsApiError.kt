@@ -4,11 +4,11 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import java.io.IOException
 
 /**
- * ABS 网络层统一错误模型。
- *
- * 说明：
- * 1. `message` 禁止拼接 token。
- * 2. `availabilityStatus` 复用现有可用性标准件，便于 AvailabilityChecker 直接映射。
+ * ABS Unified API Error Model (Represents a structured request exception occurring in the ABS network interface layer)
+ * 
+ * Rules:
+ * 1. `message` is prohibited from appending raw tokens to protect server security.
+ * 2. `availabilityStatus` reuses standard components to simplify mapping in the AvailabilityChecker.
  */
 class AbsApiError(
     val code: String,

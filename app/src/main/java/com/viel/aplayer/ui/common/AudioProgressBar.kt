@@ -23,8 +23,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
+// Import Resolution (Brings Modifier.semantics extension into scope to build accessibility semantics tree)
+// Added semantics import to fix unresolved reference semantics error.
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -32,30 +34,29 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
 
 @Composable
 fun AudioProgressBar(
-    progress: () -> Float, // 优化：使用 Lambda 避免高频重组
+    progress: () -> Float, // Optimization: Use Lambda to prevent high-frequency recompositions.
     onProgressChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
     showKnob: Boolean = true,
     markers: List<Float> = emptyList(),
-    // 新增玻璃视效选择模式参数，以开启极具拟物水滴水晶质感的高阶进度条
+    // Added glass effect selection mode parameter to enable a premium progress bar with a realistic water droplet crystal texture.
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     val currentOnProgressChange by rememberUpdatedState(onProgressChange)
     
-    // 缓存颜色和密度转换，避免在绘制时重复创建对象或计算
+    // Cache colors and density conversions to avoid repeatedly creating objects or performing calculations during drawing.
     val trackColor = remember(color) { color.copy(alpha = 0.2f) }
     val markerColor = remember { Color.Black.copy(alpha = 0.3f) }
     val density = LocalDensity.current
     val strokeWidthPx = remember(density) { with(density) { 6.dp.toPx() } }
-    // 新增章节标记点小球的半径参数，使其完美且精致地嵌入在轨道中
+    // Added the radius parameter of the chapter marker ball, allowing it to embed perfectly and delicately in the track.
     val markerRadiusPx = remember(density) { with(density) { 2.dp.toPx() } }
     val knobRadiusPx = remember(density) { with(density) { 8.dp.toPx() } }
     val isDark = isSystemInDarkTheme()
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
-    // 
-    // 在 Composable 上下文提取 secondary 和 tertiary 次/三级色，缓存为局部非 Composable 变量。
-    // 这将完美修复 DrawScope 内部直接调用 @Composable 属性而引发的编译段错误。
+    // Extract secondary and tertiary colors within the Composable context, caching them as local non-Composable variables.
+    // This perfectly resolves compilation errors caused by calling @Composable properties directly inside DrawScope.
     val secondaryColor = MaterialTheme.colorScheme.secondary
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
 
@@ -63,10 +64,10 @@ fun AudioProgressBar(
         modifier = modifier
             .fillMaxWidth()
             .height(32.dp)
-            .graphicsLayer() // 隔离重绘，减少对父布局的影响
-            // M-17 修复 — 补充无障碍语义节点
-            // 提供 progressBarRangeInfo 以使 TalkBack 识别进度值与范围；
-            // setProgress 自定义动作允许无障碍服务以编程方式设置进度。
+            .graphicsLayer() // Isolate Repaint (Isolate repaint layer to minimize redraw effects on the parent layout container)
+            // M-17 Fix — Supplement accessibility semantic nodes.
+            // Provide progressBarRangeInfo to allow TalkBack to recognize progress values and range.
+            // setProgress custom action allows accessibility services to programmatically configure the progress.
             .semantics(mergeDescendants = true) {
                 contentDescription = "播放进度"
                 progressBarRangeInfo = ProgressBarRangeInfo(
@@ -98,15 +99,14 @@ fun AudioProgressBar(
         val width = size.width
         val height = size.height
         val centerY = height / 2
-        val currentProgress = progress() // 仅在绘制阶段读取进度
+        val currentProgress = progress() // Only read the progress during the drawing phase
         val activeWidth = width * currentProgress
 
-        // 1. 绘制背景轨道 (未播放部分)
+        // 1. Draw the background track (unplayed part)
         if (isBlur) {
-            // 
-            // 将未播放底轨轨线 (Track Brush) 的半透明色调做极致降噪与清亮化微调，
-            // 深色模式下从 15% -> 5% 极致下调至 8% -> 2%，浅色模式下从 12% -> 3% 极致下调至 6% -> 1%，
-            // 彻底保障底轨轨道呈现出空灵通透、薄如蝉翼的微弱磨砂质感。
+            // Fine-tune the transparency of the unplayed background track (Track Brush) to minimize noise and improve clarity.
+            // Adjusted from 15% -> 5% down to 8% -> 2% in dark mode, and from 12% -> 3% down to 6% -> 1% in light mode.
+            // This ensures the background track exhibits a highly translucent, feather-light frosted texture.
             val trackBrush = Brush.linearGradient(
                 colors = if (isDark) {
                     listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.02f))
@@ -133,13 +133,12 @@ fun AudioProgressBar(
             )
         }
         
-        // 2. 绘制章节标记 (水晶小球化升级)
+        // 2. Draw chapter markers (upgraded to crystal balls)
         markers.forEach { marker ->
             if (marker > 0f && marker < 1f) {
                 val markerX = width * marker
-                // 
-                // 章节标记在 miuix-blur 磨砂状态下全新升级为自适应“微雕折光水晶小球”，镶嵌于 6.dp 轨道中央，
-                // 深色模式下绘制 35% 晶莹白，浅色下绘制 20% 玄墨半透，实现与滑块 Knob 大小相得益彰的协调拟物感。
+                // The chapter markers are upgraded to adaptive "micro-carved refractive crystal balls" in the miuix-blur state, embedded in the center of the 6.dp track.
+                // It draws 35% crystal white in dark mode and 20% semi-transparent black in light mode, achieving a realistic look that coordinates beautifully with the Knob size.
                 val currentMarkerColor = if (isBlur) {
                     if (isDark) Color.White.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.20f)
                 } else {
@@ -153,12 +152,11 @@ fun AudioProgressBar(
             }
         }
 
-        // 3. 绘制已播放进度轨道
+        // 3. Draw the played progress track
         if (activeWidth > 0) {
             if (isBlur) {
-                // 
-                // 将三层立体水晶已播管整体调亮调薄以响应“更加透明一些”的要求：
-                // (a) 底层：绘制略宽的外围折射描边线，深色模式透明度由 0.22 调薄降至 0.12，浅色模式由 0.55 降至 0.30，杜绝浮噪感。
+                // Brighten and thin out the three-layered crystal progress tube to respond to the requirement of "more transparency":
+                // (a) Bottom layer: Draw a slightly wider peripheral refraction stroke line. The opacity is thinned down from 0.22 to 0.12 in dark mode, and from 0.55 to 0.30 in light mode, eliminating floaty noise.
                 val borderGlowColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.30f)
                 drawLine(
                     color = borderGlowColor,
@@ -167,8 +165,8 @@ fun AudioProgressBar(
                     strokeWidth = strokeWidthPx + with(density) { 1.dp.toPx() },
                     cap = StrokeCap.Round
                 )
-                // (b) 中间层：绘制彩色流光已播液体水柱轨，其三色流动渐变透明度参数由原先的 55%/45%/50% 均调薄折半至 28%/18%/23%，
-                //     使其在保持冷暖流光流动感的同时，能够与后方的毛玻璃环境发生更通透、更清澈的物理融合。
+                // (b) Middle layer: Draw the colored flowing liquid column track. The opacity of its three-color gradient is halved from 55%/45%/50% to 28%/18%/23%.
+                //     While keeping the warm and cool flow sensations, this allows it to integrate more transparently and clearly with the frosted glass background.
                 val progressBrush = Brush.linearGradient(
                     colors = listOf(
                         color.copy(alpha = 0.28f),
@@ -185,7 +183,7 @@ fun AudioProgressBar(
                     strokeWidth = strokeWidthPx,
                     cap = StrokeCap.Round
                 )
-                // (c) 顶层内嵌：白色反光核管线的透明度从原先的 55%/10%/35% 微降至 35%/0.05%/20%，实现极致清爽透明的流光反光效果。
+                // (c) Top inner layer: The opacity of the white reflective core tube is slightly reduced from 55%/10%/35% to 35%/0.05%/20%, achieving an ultra-refreshing and transparent flowing reflection effect.
                 val innerGlowBrush = Brush.linearGradient(
                     colors = listOf(
                         Color.White.copy(alpha = 0.35f),
@@ -213,12 +211,11 @@ fun AudioProgressBar(
             }
         }
         
-        // 4. 绘制进度小球 (Knob)
+        // 4. Draw progress handle (Knob)
         if (showKnob) {
             if (isBlur) {
-                // 
-                // 在 miuix-blur 模式下，将进度小滑块圆球全新升级重构为玻璃微缩珠子效果：
-                // (a) 绘制微光半透的径向渐变毛斯磨砂小球底色
+                // In miuix-blur mode, the progress knob is refactored into a glass micro-bead effect:
+                // (a) Draw a radial gradient semi-transparent frosted base for the knob.
                 val knobBgBrush = Brush.radialGradient(
                     colors = if (isDark) {
                         listOf(Color.White.copy(alpha = 0.35f), Color.White.copy(alpha = 0.05f))
@@ -233,13 +230,13 @@ fun AudioProgressBar(
                     radius = knobRadiusPx,
                     center = Offset(activeWidth, centerY)
                 )
-                // (b) 在珠子中心绘制主色调极其润泽的“发光核 (Luminous Nucleus)”
+                // (b) Draw a moist "Luminous Nucleus" using the primary color at the center of the bead.
                 drawCircle(
                     color = color,
                     radius = knobRadiusPx * 0.45f,
                     center = Offset(activeWidth, centerY)
                 )
-                // (c) 链式在外围套上一圈 1.dp 极细微光折射渐变描边 (Refraction Edge)
+                // (c) Wrap it with a 1.dp extremely fine refracting gradient border (Refraction Edge).
                 drawCircle(
                     brush = Brush.linearGradient(
                         colors = if (isDark) {

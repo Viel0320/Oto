@@ -3,12 +3,12 @@ package com.viel.aplayer.logger
 import android.util.Log
 
 /**
- * ABS 日志公共底座。
+ * ABS Logging Common Base (Base components for ABS logging support)
  *
- * 设计目标：
- * 1. 所有 ABS logger 共享同一套计时与脱敏规则，避免不同链路各自手写导致口径不一致。
- * 2. 在日志输出前统一抹掉 token、password、Bearer header、query 参数里的敏感值。
- * 3. 对超长 URL、sourcePath、itemId 做裁剪，避免 Logcat 被大字段淹没。
+ * Design Goals:
+ * 1. Ensure all ABS loggers share the same clock timing and sanitization logic to keep logging formats consistent.
+ * 2. Redact sensitive values like authorization tokens, passwords, Bearer headers, and query parameters before writing to Logcat.
+ * 3. Compact excessively long URLs, source paths, and item IDs to avoid flooding Logcat.
  */
 internal object AbsLogClock {
     fun mark(): Long = System.nanoTime()
@@ -17,9 +17,9 @@ internal object AbsLogClock {
 }
 
 /**
- * ABS 敏感信息脱敏工具。
+ * ABS Log Sanitizer (Utility to redact sensitive information in log text)
  *
- * 这里只做纯字符串处理，不依赖 Android 运行时，便于后续补 JVM 单测锁住“日志不泄漏凭据”。
+ * Uses pure string operations without relying on Android runtime classes to facilitate standard JVM unit testing for credential leaks.
  */
 internal object AbsLogSanitizer {
     private val bearerRegex = Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE)
@@ -39,8 +39,8 @@ internal object AbsLogSanitizer {
     }
 
     /**
-     * URL 日志默认去掉 query 和 fragment，再做统一脱敏与裁剪。
-     * 这样既能保留定位接口所需的 path，又不会把 token 或临时签名打进日志。
+     * URL Sanitization (Remove query and fragment sections before sanitizing and compacting URLs)
+     * This keeps the request path needed for debugging while ensuring signature tokens do not slip into logs.
      */
     fun sanitizeUrl(raw: String?): String =
         compact(
@@ -60,10 +60,9 @@ internal object AbsLogSanitizer {
 }
 
 /**
- * ABS logger 的统一输出入口。
+ * ABS Log Emitter (Unified output emitter routing messages to Logcat)
  *
- * 所有消息在真正写入 Logcat 前都会再次执行一次脱敏，保证调用方就算遗漏了某个字段的手动裁剪，
- * 也不会直接把敏感值原样输出。
+ * Performs a final sanitization sweep on all messages before emitting them to ensure sensitive values are redacted even if callers forgot to sanitize inputs.
  */
 internal object AbsLogEmitter {
     fun debug(tag: String, message: String) {

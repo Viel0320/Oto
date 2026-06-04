@@ -6,7 +6,8 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * 章节实体，支持落到具体的物理文件。
+ * Audiobook Chapter Schema (Entity representing logical chapter indices parsed for books)
+ * Supports mapping boundaries to specific physical audio files.
  */
 @Entity(
     tableName = "chapters",
@@ -29,13 +30,13 @@ import androidx.room.PrimaryKey
 )
 data class ChapterEntity(
     @PrimaryKey
-    val id: String, // 建议使用稳定 ID
+    val id: String, // Stable chapter identifier
     val bookId: String,
-    val bookFileId: String, // 章节实际落在哪一个音频文件
+    val bookFileId: String, // Stable anchor: associated physical track asset ID
     val index: Int,
     val title: String,
-    val startPositionMs: Long, // 在整本书中的全局起始位置
+    val startPositionMs: Long, // Global starting position offset in milliseconds from the book start
     val durationMs: Long,
-    val fileOffsetMs: Long, // 在对应音频文件内部的起始位置
+    val fileOffsetMs: Long, // Local starting offset in milliseconds relative to the physical audio file
     val source: String // EMBEDDED / CUE / M3U8 / MANUAL
 )

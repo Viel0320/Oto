@@ -3,11 +3,12 @@ package com.viel.aplayer.media.manifest
 import java.net.URLDecoder
 
 /**
- * 负责解析 Manifest 文件（cue/m3u8）中的相对路径。
+ * Manifest Reference Resolver (Helper for parsing relative paths inside cue/m3u8 metadata sheets)
  */
 object ManifestResolver {
 
-    // 把清单条目规整成“当前清单同目录下的一个文件名”，让调用方可以直接用扫描阶段已有的文件索引匹配，避免再次触发 SAF findFile/listFiles。
+    // Clean Entry Filename (Normalize path separators to resolve sibling files inside the same folder)
+    // Enables the orchestrator to resolve track positions directly against memory indexes without directory walk calls.
     fun sameDirectoryFileName(manifestEntryPath: String): String? {
         val decodedPath = decodeManifestEntryPath(manifestEntryPath)
         val parts = decodedPath.split('/', '\\').filter { it.isNotBlank() && it != "." }
@@ -15,7 +16,9 @@ object ManifestResolver {
         return parts.single()
     }
 
-    // URL 解码集中在一个小函数里，清单闭包和旧 SAF 解析共用同一套文件名语义，避免两个调用点在空格、日文文件名或百分号编码上表现不一致。
+    // Standard Decode Format (Centralize URL decoding to keep filename string formats unified across parsers)
+    // Ensures manifest closures and legacy SAF parsing share the same filename semantics, avoiding
+    // discrepancies in handling spaces, Japanese characters, or percent-encoded paths at entry points.
     private fun decodeManifestEntryPath(manifestEntryPath: String): String =
         try {
             URLDecoder.decode(manifestEntryPath, "UTF-8")

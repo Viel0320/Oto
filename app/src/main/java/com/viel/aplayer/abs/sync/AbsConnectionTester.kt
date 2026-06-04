@@ -13,12 +13,14 @@ data class AbsConnectionTestResult(
 )
 
 /**
- * 阶段 1 的连接测试器只负责连接验证与选库前数据准备。
+ * Connection Tester: Performs connection validation and library preparation.
  *
- * 流程固定：
- * 1. 读取 `/status` 获取 serverVersion。
- * 2. 用 POST `/api/authorize` 验证 token。
- * 3. 拉取 `/api/libraries` 并只保留 `mediaType=book`。
+ * This tester is responsible for verifying connection details and preparing
+ * library data before catalog synchronization.
+ * Flow sequence:
+ * 1. Request `/status` to retrieve the server version.
+ * 2. Send `POST /api/authorize` to validate the authorization token.
+ * 3. Fetch `/api/libraries` and filter to retain libraries with `mediaType=book`.
  */
 class AbsConnectionTester(
     private val apiClient: AbsApiClient
@@ -28,8 +30,10 @@ class AbsConnectionTester(
         AbsAuthLogger.logStatusStart(baseUrl)
         val status = runCatching {
             apiClient.status(baseUrl).also { dto ->
-                // 详尽的中文注释：连接阶段必须在 `/status` 返回后立刻校验版本下限，
-                // 这样低版本服务器会在“测试连接”这一步直接被拒绝，而不是等到后面的 catalog 或播放链路才出现半兼容故障。
+                // Server Version Validation (Early failure check)
+                // The server version must be validated immediately after the status call.
+                // This ensures that unsupported, older versions of the server are rejected
+                // at the connection stage, preventing half-compatibility issues later in synchronization or playback.
                 ensureSupportedAbsServerVersion(dto.serverVersion)
             }
         }

@@ -17,7 +17,9 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
- * 扫描类型枚举，指示当前扫描会话的触发来源和执行策略。
+ * Rescan Trigger Type (Incremental Configuration)
+ *
+ * Configures the source and depth characteristics of the current rescan request.
  */
 enum class RescanType {
     COLD_START_LIGHT,
@@ -26,23 +28,25 @@ enum class RescanType {
 }
 
 /**
- * 扫描会话执行引擎（ScanSessionRunner）。
- * 
- * 本类作为导入流程的对外生命周期控制入口，负责：
- * 1. 声明并初始化扫描会话实体（ScanSessionEntity）。
- * 2. 协调和串联 VFS 依赖、MetadataResolver、ImportPipeline、BookImporter。
- * 3. 实例化 ScopeOrchestrator 并委托其执行具体的增量目录流与导入 Scope 流的调度。
- * 4. 执行扫描结束后的书库状态刷新、丢失文件自愈以及统计数据落库回写。
- * 
- * 通过该阶段的彻底重构，原本长达 555 行的上帝类被拆分瘦身至不足 100 行，
- * 极大地提高了系统的内聚性与可维护性。
+ * Audiobook Scan Session Executor (Lifecycle Manager)
+ *
+ * Serves as the primary external lifecycle control entry for scanning tasks.
+ * Key responsibilities:
+ * 1. Initializes the scan session tracker (ScanSessionEntity).
+ * 2. Coordinates VFS structures, MetadataResolver, ImportPipeline, and BookImporter.
+ * 3. Allocates ScopeOrchestrator to run folder collections and incremental updates.
+ * 4. Finalizes library state recalibrations, self-heals missing files, and writes back diagnostic session records.
+ *
+ * Designed to replace legacy architectures by isolating orchestration from individual folder parsing steps.
  */
 @UnstableApi
 class ScanSessionRunner(
     private val context: Context,
-    // 注入虚拟文件系统门面单例，消除底层隐式自构行为
+    // Inject VFS Facade Singleton (Dependency Decoupling)
+    // Ensures file operations refer to a single virtual file system to prevent raw resource creation.
     vfsFileInterface: VfsFileInterface,
-    // 封面缓存重建的回调方法，将重建控制权交还给外层架构
+    // Cover Image Caching Hook (Decoupled Callback)
+    // Forwards cover reconstruction triggers to higher layers rather than managing extraction directly.
     private val triggerCoverRegeneration: (BookEntity) -> Unit = {}
 ) {
     private val database = AppDatabase.getInstance(context)
@@ -56,7 +60,8 @@ class ScanSessionRunner(
     private val importer = BookImporter(context)
     private val missingRecoveryChecker = MissingBookFileRecoveryChecker(context)
 
-    // 实例化目录音频分流导入工位，负责单目录内的音频解析与分批入库
+    // Initialize Scoped Directory Importer (Subcomponent Orchestration)
+    // Spawns a dedicated coordinator responsible for processing files and writing them in sub-batches.
     private val directoryAudioImporter = DirectoryAudioImporter(
         metadataResolver = metadataResolver,
         pipeline = pipeline,
@@ -64,7 +69,8 @@ class ScanSessionRunner(
         triggerCoverRegeneration = triggerCoverRegeneration
     )
 
-    // 实例化会话调度引擎，负责驱动目录扫描流、增量缓存校验与 Scope 执行路由
+    // Initialize Scoped Orchestrator Engine (Subcomponent Orchestration)
+    // Allocates the coordination logic responsible for cache validation, file trees, and pipeline execution.
     private val scopeOrchestrator = ScopeOrchestrator(
         context = context,
         scanner = scanner,
@@ -75,9 +81,10 @@ class ScanSessionRunner(
     )
 
     /**
-     * 触发全量或增量重新扫描的唯一生命周期入口。
-     * 本方法首先在数据库中注册并初始化本次扫描会话，然后委托 ScopeOrchestrator 完成核心导入流程，
-     * 并在执行完毕后统一收集导入状态，更新扫描数据库指标并安全返回会话状态。
+     * Dispatch Rescan Operation (Session Entry Point)
+     *
+     * Registers a new scan session in the database, delegates import processing to ScopeOrchestrator,
+     * updates system status, recalculates missing counts, and returns the final session model.
      */
     suspend fun rescan(type: RescanType, rootId: String? = null): ScanSessionEntity = withContext(Dispatchers.IO) {
         val scanId = UUID.randomUUID().toString()
@@ -92,7 +99,8 @@ class ScanSessionRunner(
             status = AudiobookSchema.ScanStatus.RUNNING,
             startedAt = System.currentTimeMillis()
         )
-        // 清空上次扫描未确认的挂起冲突项，确保每次扫描的会话干净独立
+        // Flush Stale Pending Actions (Data Integrity Protection)
+        // Removes old, unconfirmed conflict entries from the DB to ensure a clean rescan environment.
         scanSessionDao.clearPendingActions()
         scanSessionDao.insertSession(session)
 
@@ -103,12 +111,14 @@ class ScanSessionRunner(
             }
             val existingIndex = ExistingClaimIndex.from(bookDao.getAllBookFilesOnce())
             
-            // 委托给 ScopeOrchestrator 驱动整个会话级 Scope 解析与入库流程
+            // Delegate Import Pipeline (Pipeline Execution)
+            // Invokes ScopeOrchestrator to parse and import all files within folders.
             scopeOrchestrator.execute(scanId, roots, existingIndex, type)
         }
 
         result.onSuccess { importResult ->
-            // 轻量级冷启动扫描需额外触发丢失文件的自愈物理找回
+            // Run Cold-Start File Recovery (Asset Self-Healing)
+            // Triggers missing file checks during light cold starts to restore database references if file access returns.
             val recoveryResult = if (type == RescanType.COLD_START_LIGHT) {
                 missingRecoveryChecker.recoverMissingAudioFiles()
             } else {
@@ -135,7 +145,8 @@ class ScanSessionRunner(
         scanSessionDao.getSessionById(scanId) ?: session
     }
 
-    // 将扫描得到的各种最终状态及书本标题序列化为合法的 JSON 字符串，持久化存储于汇总日志中
+    // Compile Session Summary Log (JSON Diagnostics Compilation)
+    // Serializes discovered names, updates, conflicts, and failures into a diagnostic JSON string.
     private fun ImportRunResult.toSummaryJson(recoveryResult: MissingBookFileRecoveryResult = MissingBookFileRecoveryResult()): String =
         buildString {
             append('{')
@@ -147,11 +158,13 @@ class ScanSessionRunner(
             append('}')
         }
 
-    // 将字符串列表安全编码并拼接为 JSON 数组格式字串
+    // Encode Collection to JSON Array (JSON Formatting Utility)
+    // Safely encodes and joins a list of strings into a standard JSON array representation.
     private fun List<String>.toJsonArray(): String =
         joinToString(prefix = "[", postfix = "]") { value -> "\"${value.escapeJson()}\"" }
 
-    // 对 JSON 字符串内的敏感转义字符进行标准化处理，防止数据库反序列化崩溃
+    // Escape Special Characters for JSON (Formatting Security)
+    // Sanitizes strings to prevent JSON structural breakdowns when stored or parsed.
     private fun String.escapeJson(): String =
         buildString {
             this@escapeJson.forEach { char ->

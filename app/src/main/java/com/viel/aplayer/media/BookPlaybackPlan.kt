@@ -5,19 +5,18 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.ui.player.components.SubtitleLine
 
 /**
- * 书籍播放计划，定义了一本书如何被播放。
+ * Playback Plan Configuration (Defines structure and properties for playing a specific book)
  */
 data class BookPlaybackPlan(
     val bookId: String,
     val title: String,
     val author: String,
-    // 播放计划现在只保留轻量的封面文件 URI，
-    // 不再把封面原图字节直接塞进计划对象；
-    // 这样可以避免启动播放时同步读取整张封面，
-    // 也能避免多分轨队列把同一份封面字节重复复制到每个 MediaItem 中。
+    // Artwork URI Referencing (Store lightweight cover image URI to avoid memory inflation)
+    // Prevents synchronous reading of raw cover bytes during player startup
+    // and eliminates redundant copy actions of the same image across multiple MediaItems.
     val artworkUri: Uri? = null,
     val files: List<BookFileEntity>,
-    // 每个 AUDIO 文件预解析出的同目录同名字幕，播放器和字幕页共用这份结果。
+    // Subtitle Registry (Map subtitle paths by their corresponding audio file ID to share with the player UI)
     val subtitlesByFileId: Map<String, PlaybackSubtitle> = emptyMap(),
     val startGlobalPositionMs: Long = 0L
 ) {

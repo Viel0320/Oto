@@ -1,7 +1,7 @@
 package com.viel.aplayer.ui.navigation
 
-//
-// 引入 miuix-blur 的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现更加清透的视口级高斯模糊折射效果
+// Setup MiuixBlur Backdrop (Enhance Blur Visuals)
+// Import miuix-blur's backdrop mechanism API to completely replace the legacy blur library dependency, achieving a clearer viewport-level Gaussian blur refraction effect.
 import android.text.Layout
 import android.text.SpannableString
 import android.text.Spanned
@@ -59,45 +59,44 @@ fun APlayerApp(
         val context = LocalContext.current
         val libraryViewModel: LibraryViewModel = viewModel()
         val playerViewModel: PlayerViewModel = viewModel()
-        // 书籍详情页独立的 ViewModel，从 LibraryViewModel 中拆分出来，使各 ViewModel 职责单一
+        // Separation of DetailViewModel (Single Responsibility)
+        // Independent ViewModel for the audiobook details page, split from LibraryViewModel to make each ViewModel have a single responsibility.
         val detailViewModel: DetailViewModel = viewModel()
-        // 实例化书籍元数据编辑独立的 ViewModel，交由当前 Activity 统一承载与销毁。
+        // EditBookViewModel Lifecycle (Host Lifecycle Management)
+        // Instantiate the independent ViewModel for editing book metadata, which is hosted and destroyed by the current Activity.
         val editViewModel: EditBookViewModel = viewModel()
         
-        // 
-        // 实例化非独立的 SearchViewModel，由当前 Activity 统一承载与销毁。
+        // SearchViewModel Lifecycle (Host Lifecycle Management)
+        // Instantiate the non-independent SearchViewModel, hosted and destroyed by the current Activity.
         val searchViewModel: SearchViewModel = viewModel()
 
         val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
         val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
         val scanResult by libraryViewModel.scanResultDialogState.collectAsStateWithLifecycle()
-        // 在此收集详情页 detailViewModel 的 uiState 状态。
-        // 用以在后续渲染迷你播放器 PlayerOverlay 时感知详情页是否处于可见状态，以进行 miuix-blur 模糊采样源的动态自动切换映射。
+        // Collect Detail UI State (Adapt MiuixBlur Sampling Source)
+        // Collect the detailUiState from detailViewModel here. This is used when rendering the MiniPlayer overlay to perceive whether the details page is visible, so as to dynamically map the miuix-blur sampling source.
         val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
-        // 详尽的中文注释：响应式收集非独立搜索悬浮层 SearchOverlay 的可见状态流，用于动态判定与控制迷你播放器的显示与挂载，避免层级遮挡下的无效渲染与资源浪费
+        // Collect Search Visibility State (Control MiniPlayer Rendering)
+        // Responsively collect the visibility state flow of the non-independent SearchOverlay, used to dynamically determine and control the display and mounting of the mini-player, avoiding invalid rendering and resource waste under layer occlusion.
         val isSearchVisible by searchViewModel.isVisible.collectAsStateWithLifecycle()
 
         val canStartNavigation = rememberNavigationThrottle()
 
-        // 
-        // 实例化全局共享的 LayerBackdrop 采样源。
-        // 当用户全局开启磨砂玻璃效果时，整个 APlayerNavHost 容器会被作为采样源挂载，
-        // 从而使得位于其上方悬浮的迷你播放器 (CompactMediaPlayer) 以及非独立的搜索悬浮层 (SearchOverlay)
-        // 能够以 100% 实时的超高性能直接模糊下方的 HomeScreen 主页面卡片，杜绝一切由于跨 Activity 物理模糊导致的系统桌面穿帮隐患。
+        // Global App Backdrop (Live Backdrop Blur)
+        // Instantiate a globally shared LayerBackdrop sampling source. When the user globally enables the frosted glass effect, the entire APlayerNavHost container will be mounted as the sampling source, allowing the MiniPlayer (CompactMediaPlayer) and the non-independent SearchOverlay floating above it to directly and highly performantly blur the HomeScreen main page cards below, eliminating any system desktop leak risks caused by cross-activity blurs.
         val appBackdrop = rememberLayerBackdrop()
 
-        // 
-        // 实例化专门用来采集整个详情页（DetailOverlay）视觉渲染画面的 detailBackdrop 采样源。
-        // 当编辑悬浮层 (EditBookOverlay) 弹出覆盖在详情页之上时，能通过 detailBackdrop
-        // 渲染出把底下详情页上的文字、封面卡片和按钮等融为一体的极其精致的高斯磨砂毛玻璃视觉背景。
+        // Detail Backdrop Source (Detail Page Blur Backdrop)
+        // Instantiate the detailBackdrop sampling source specifically for capturing the visual rendering of the entire details page (DetailOverlay). When the EditBookOverlay pops up over the details page, it can render a highly sophisticated frosted glass visual backdrop using detailBackdrop to blend the text, cover cards, and buttons on the details page.
         val detailBackdrop = rememberLayerBackdrop()
 
         LaunchedEffect(Unit) {
             playerViewModel.initialize(context)
         }
 
-        // 为本次桌面 widget 改动添加注释：消费 MainActivity 从桌面小组件转交的外部入口请求，直接切回主播放页并显示全屏播放器 overlay。
+        // Process Widget Intent (Trigger Full Player Overlay)
+        // Consume the external request passed from MainActivity via the desktop app widget, immediately switching back to the main playback page and showing the full-screen player overlay.
         LaunchedEffect(openPlayerOverlayRequest) {
             if (openPlayerOverlayRequest) {
                 playerViewModel.setSelectedContentTab(-1)
@@ -112,10 +111,8 @@ fun APlayerApp(
         }
 
 
-        // M-19 修复 — 高频单向数据同步管道
-        // 监听播放器的当前播放书籍 ID 和实时播放进度百分比。
-        // 一旦它们发生变化，立刻调用 detailViewModel.updatePlaybackProgress，
-        // 将高频更新推送到详情页 ViewModel 内部，由其结合 3 秒锁定保护状态进行统一调度。
+        // Fix M-19 (High-Frequency Progress Sync)
+        // Observe the player's current playing book ID and real-time playback progress percentage. Once they change, immediately call detailViewModel.updatePlaybackProgress to push high-frequency updates into the detail ViewModel, which will coordinate updates with a 3-second locking mechanism.
         val currentBookId by playerViewModel.currentBookId.collectAsStateWithLifecycle()
         val playbackPercent by playerViewModel.currentPlaybackProgressPercent.collectAsStateWithLifecycle()
         LaunchedEffect(currentBookId, playbackPercent) {
@@ -126,10 +123,8 @@ fun APlayerApp(
             }
         }
 
-        // 消费 LibraryViewModel 发射的一次性 UI 事件（如 Toast 消息），
-        // 遵循 ViewModel 不直接操作 Android UI 组件的架构原则，
-        // 所有 Toast 的构造和展示均回归 Composable 层。
-        // 重构后：匹配通用的 UiEvent.ShowToast 进行集中渲染。
+        // Toast Notification Collection (Decouple Toast Construction)
+        // Consume the one-time UI events (such as Toast messages) emitted by LibraryViewModel, adhering to the architecture principle that ViewModels do not directly manipulate Android UI components. The construction and display of all Toasts are handled in the Composable layer. Refactored to centrally render matching common UiEvent.ShowToast events.
         LaunchedEffect(Unit) {
             libraryViewModel.uiEvents.collect { event ->
                 when (event) {
@@ -147,9 +142,8 @@ fun APlayerApp(
             }
         }
 
-        // 
-        // 消费由当前播放器 PlayerViewModel 共享并转发过来的一次性 UI 反馈事件。
-        // 直接使用标准的 Toast 进行提示，避免过度包装以保持原生的简明风格。
+        // Player UI Event Collection (Native Toast Presentation)
+        // Consume the one-time UI feedback events shared and forwarded by the player's PlayerViewModel. Present messages using standard Toast directly, avoiding over-packaging to maintain a native and concise style.
         LaunchedEffect(Unit) {
             playerViewModel.uiEvents.collect { event ->
                 when (event) {
@@ -157,7 +151,8 @@ fun APlayerApp(
                         Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                     }
                     is UiEvent.ShowTrackUnavailableDialog -> {
-                        // 详尽的中文注释：收到分轨失效事件后，立即在 ViewModel 中触发状态更新，以便拉起 Compose 确认跳转弹窗
+                        // Track Unavailable Event (Trigger Confirmatory Dialog)
+                        // Upon receiving the track unavailable event, immediately update the state in the ViewModel to trigger the Compose confirmation and jump dialog.
                         playerViewModel.showTrackUnavailableDialog(event.bookId, event.queueIndex)
                     }
                 }
@@ -172,11 +167,13 @@ fun APlayerApp(
             }
         }
 
-        // 使用扩展函数构建 Actions 对象，实现逻辑解耦与性能缓存
+        // Build Action Objects (Logical Decoupling & Performance Caching)
+        // Use extension functions to construct the Actions object, achieving logical decoupling and performance caching.
         val playerActions = playerViewModel.rememberActions(
             onDeleteBook = { bookId ->
                 playerViewModel.closePlayback(bookId)
-                // 显式协调详情页状态清理，与 playerViewModel.closePlayback 保持一致的外层协调模式
+                // Dismiss Detail Page (State Cleanup Coordination)
+                // Explicitly coordinate the cleanup of the details page state, keeping it consistent with the outer coordination mode of playerViewModel.closePlayback.
                 detailViewModel.dismissIfShowing(bookId)
                 libraryViewModel.deleteBook(bookId)
                 if (currentRoute != null && currentRoute != "home") {
@@ -212,29 +209,24 @@ fun APlayerApp(
             )
         }
 
-        // 
-        // 恢复最顶级干净的 Surface 布局，用以完全避免悬浮高度和背景采样层在键盘弹起时被迫消费 bottom padding 的截断与穿帮。
+        // Outer Surface Layout (Avoid Keyboard Inset Clipping)
+        // Restore the cleanest top-level Surface layout to completely avoid the truncation and leakage of the floating height and background sampling layer when forced to consume bottom padding due to the keyboard popping up.
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background,
         ) {
-            // 
-            // 在最外层使用一个没有挂载 layerBackdrop 的全屏顶级 Box 容器，仅作为所有悬浮层的坐标对齐和兄弟节点布局容器。
-            // 这能够彻底隔离 layerBackdrop 采样源的层级，避免因为悬浮层在内部使用 textureBlur 采样自身父容器而导致无限递归死锁渲染失效。
+            // Box Layer Decoupling (Prevent Recursive Deadlock Rendering)
+            // Use a full-screen top-level Box container at the outermost layer without mounting layerBackdrop, solely as a coordinate alignment and sibling node layout container for all overlays. This completely isolates the layerBackdrop sampling source layer, avoiding infinite recursion deadlock rendering failure due to overlays using textureBlur to sample their own parent containers internally.
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // 
-                // 
-                // 使用独立的 Box 容器专门包裹底层 APlayerNavHost（即 HomeScreen 主页面卡片所在的主视图），并在此 Box 上挂载 Modifier.layerBackdrop(state = appBackdrop)。
-                // 这样，当用户在全局设置中开启 miuix-blur 效果时，appBackdrop 采样源只采集主导航页的画面数据，
-                // 而上方的 DetailOverlay、PlayerOverlay、SearchOverlay 则以同级兄弟节点形式存在于其外部。
-                // 这样既能实现完全的 Z 轴遮盖与高斯模糊渲染，又彻底打破了“子采样父”导致的图形绘制死锁，使磨砂玻璃视效完美还原。
+                // NavHost Backdrop Mounting (Isolate Overlay Blur Source)
+                // Use a separate Box container specifically wrapping the bottom APlayerNavHost (where the HomeScreen main page cards reside), and mount Modifier.layerBackdrop(state = appBackdrop) on this Box. Thus, when the user enables the miuix-blur effect in global settings, the appBackdrop sampling source only captures the screen data of the main navigation page, while the DetailOverlay, PlayerOverlay, and SearchOverlay above exist as sibling nodes outside it. This achieves full Z-axis occlusion and Gaussian blur rendering while breaking the drawing deadlock caused by "child sampling parent", restoring the frosted glass effect perfectly.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(
-                            // 对齐新命名的 MiuixBlur，如果是该模式则为底层视图容器注册 appBackdrop 采样源
+                            // Align to MiuixBlur settings mode
                             if (libraryUiState.glassEffectMode == GlassEffectMode.MiuixBlur) {
                                 Modifier.layerBackdrop(appBackdrop)
                             } else {
@@ -242,7 +234,8 @@ fun APlayerApp(
                             }
                         )
                 ) {
-                    // 最底层系统导航管理容器，主导航页（HomeScreen 包含其自己的局部 Scaffold 以自备底部 Insets 避让）
+                    // System Navigation Container (Scaffold Insets Handling)
+                    // The bottom-most system navigation management container, the main navigation page (HomeScreen contains its own local Scaffold to provide its own bottom insets avoidance).
                     APlayerNavHost(
                         navController = navController,
                         libraryViewModel = libraryViewModel,
@@ -254,17 +247,17 @@ fun APlayerApp(
                     )
                 }
 
-                // 
-                // 详情页悬浮层 (DetailOverlay)。现在作为同级兄弟节点挂载于 layerBackdrop 外部，避免模糊死锁问题。
-                // 彻底废弃原本的拉起 SearchActivity 的 Intent 启动契约，改用内存 Lambda 同步桥接：
-                // 当在书籍详情页点击搜索按钮时，直接在同一个 Activity 内部零延迟地唤醒非独立 SearchOverlay，并同步传入初始 query 以快速搜索相关作者/播音。
+                // DetailOverlay Mounting (Search overlay coupling and EditBook integration)
+                // The DetailOverlay is now mounted as a sibling node outside layerBackdrop to avoid blur deadlock issues. Completely deprecates the original intent-based contract for launching SearchActivity, using an in-memory Lambda synchronous bridge: when the search button on the book details page is clicked, the non-independent SearchOverlay is awakened without delay inside the same Activity, and the initial query is passed synchronously to quickly search for related authors/narrators.
                 DetailOverlay(
                     detailViewModel = detailViewModel,
                     canStartNavigation = canStartNavigation,
                     glassEffectMode = libraryUiState.glassEffectMode,
-                    // 将全局 appBackdrop 传入详情页，实现与背景相同的毛玻璃折射效果。
+                    // Pass App Backdrop (Apply Glass Effect)
+                    // Pass the global appBackdrop to the detail page to achieve the same frosted glass refraction effect as the background.
                     backdrop = appBackdrop,
-                    // 将专属的 detailBackdrop 传入详情页，让其注册为该采样源的 source，用以采集全量详情页画面
+                    // Pass Detail Backdrop (Register Capture Source)
+                    // Pass the exclusive detailBackdrop to the detail page, letting it register as the source of that sampling source to capture the full detail page screen.
                     detailBackdrop = detailBackdrop,
                     onPlayBook = { bookId ->
                         playerViewModel.loadBook(bookId)
@@ -274,30 +267,27 @@ fun APlayerApp(
                         searchViewModel.setVisible(true)
                         searchViewModel.onQueryChange(TextFieldValue(query))
                     },
-                    // 接收来自详情页的修改书籍信息点击事件，并在内存中零延迟地直接拉起 EditBookOverlay 悬浮层
+                    // Handle Edit Click (Launch EditBookOverlay)
+                    // Receive the book editing click event from the detail page, and directly launch the EditBookOverlay floating layer inside the memory without delay.
                     onEditClick = { bookId ->
                         editViewModel.startEdit(bookId)
                     }
                 )
 
-                // 
-                // 【物理 Z-index 层级调整说明】：
-                // 根据主 Activity 窗口内部的物理层级规范，由底至顶精确重排所有悬浮组件的绘制顺序。
-                // 此时在 Jetpack Compose 的 Box 容器中，后声明的组件会拥有更高的物理渲染和交互优先级（即 Z-index 更高）：
-                // 1. 底层 APlayerNavHost (已在上方声明)
-                // 2. 详情页 DetailOverlay (已在上方声明)
-                // 3. 迷你播放器 MiniPlayerOverlay 浮于详情页之上
-                // 4. 书籍信息编辑悬浮层 EditBookOverlay (全屏编辑界面) 彻底覆盖详情页和迷你播放器
-                // 5. 全屏播放器 PlayerOverlay 展开时彻底遮盖迷你播放器、编辑层与详情页
-                // 6. 搜索悬浮层 SearchOverlay 最顶层，覆盖全屏播放器及一切内容
+                // Z-index Level Adjustments (Precise Overlay Draw Order)
+                // Precisely reorder the drawing sequence of all overlay components based on the physical hierarchy specification inside the main Activity window. In the Jetpack Compose Box container, components declared later have higher physical rendering and interaction priority (higher Z-index):
+                // 1. Bottom APlayerNavHost (declared above)
+                // 2. DetailOverlay (declared above)
+                // 3. MiniPlayerOverlay floating above the details page
+                // 4. EditBookOverlay (full-screen edit interface) completely covering the detail page and mini-player
+                // 5. PlayerOverlay (full-screen player) completely covering the mini-player, edit layer, and detail page when expanded
+                // 6. SearchOverlay (top layer) covering the full-screen player and all other content.
 
-                // 
-                // 3. 迷你播放器悬浮层 (MiniPlayerOverlay)。
-                // 核心模糊采样源自适应修复与延迟策略：
-                // - 当详情页 DetailOverlay 显示（detailUiState.isVisible 为 true）时，迷你播放器底部的物理图层其实是详情页，
-                //   此时我们将其 backdrop 动态切换为 detailBackdrop，使得模糊的磨砂玻璃能以极其精致真实的物理透射展现详情页的背景颜色。
-                // - 当详情页隐藏时，则安全地切回 appBackdrop 采样底层的 HomeScreen 界面。
-                // 针对详情页的可见性变化，采用自适应延迟切换采样源策略以平滑转场动画：
+                // MiniPlayer Backdrop Source (Adaptive Blur Source Strategy)
+                // Core blur sampling source adaptive repair and delay strategy:
+                // - When DetailOverlay is visible (detailUiState.isVisible is true), the physical layer below the mini-player is actually the details page, so we dynamically switch its backdrop to detailBackdrop, allowing the frosted glass to display the background color of the details page realistically.
+                // - When the details page is hidden, safely switch back to appBackdrop to sample the HomeScreen interface.
+                // Adaptive delay switching strategy for sampling source is used for the detail page visibility changes to smooth the transition animation.
                 val targetBackdrop = if (detailUiState.isVisible) detailBackdrop else appBackdrop
                 val delayedBackdropState = remember(appBackdrop, detailBackdrop) {
                     mutableStateOf(targetBackdrop)
@@ -313,27 +303,25 @@ fun APlayerApp(
                     miniPlayerActions = miniPlayerActions,
                     isSearchActive = isSearchVisible,
                     glassEffectMode = libraryUiState.glassEffectMode,
-                    // 使用延迟后的采样源，避免转场动画残影与闪烁，提升极致平滑感
+                    // Use Delayed Backdrop (Avoid Transition Flicker)
+                    // Use the delayed sampling source to avoid transition animation persistence and flickering, enhancing the ultimate feeling of smoothness.
                     backdrop = delayedBackdropState.value
                 )
 
-                // 
-                // 4. 书籍信息修改悬浮层 (EditBookOverlay)。
-                // 【核心层级变动】：为了确保全屏编辑悬浮层能遮盖在迷你播放器的上方（覆盖详情页和迷你播放器），
-                // 在 Box 容器中将其声明在 MiniPlayerOverlay 之后。同时使用专属 detailBackdrop 提供精致的磨砂毛玻璃透光质感。
+                // EditBookOverlay Mounting (Frosted Glass Translucency)
+                // Core hierarchy change: To ensure the full-screen editing overlay is displayed above the mini-player (covering both the details page and the mini-player), it is declared after MiniPlayerOverlay in the Box container. Meanwhile, the dedicated detailBackdrop is used to provide an exquisite frosted glass translucent texture.
                 EditBookOverlay(
                     editViewModel = editViewModel,
                     glassEffectMode = libraryUiState.glassEffectMode,
                     backdrop = detailBackdrop,
                     onSaveSuccess = {
-                        // 保存成功后响应式流程会通过 Room Flow 自动刷新并重绘详情页，此处无需执行额外 UI 强制刷新的脏操作
+                        // Edit Save Success (Reactive Flow Refresh)
+                        // After saving successfully, the responsive flow will automatically refresh and redraw the details page via the Room Flow, so there is no need to execute extra UI dirty operations to force a refresh.
                     }
                 )
 
-                // 
-                // 5. 全屏播放器悬浮层 (PlayerOverlay)。
-                // 【核心层级变动】：为了确保全屏播放器在展开时彻底遮盖下方的迷你播放器、全屏编辑界面与详情页，
-                // 在 Box 容器中将 PlayerOverlay 的物理声明位置后移至 EditBookOverlay 之后。
+                // PlayerOverlay Mounting (Layer Decoupling Hierarchy)
+                // Core hierarchy change: To ensure that the full-screen player completely covers the mini-player, full-screen editing interface, and details page when expanded, the physical declaration position of PlayerOverlay is moved after EditBookOverlay in the Box container.
                 PlayerOverlay(
                     playerViewModel = playerViewModel,
                     playerActions = playerActions,
@@ -341,10 +329,8 @@ fun APlayerApp(
                     glassEffectMode = libraryUiState.glassEffectMode
                 )
 
-                // 
-                // 6. 非独立搜索悬浮层 (SearchOverlay)。
-                // 【核心层级变动】：为了确保搜索功能作为全局最顶层容器运行，可覆盖全屏播放器及一切内容，
-                // 我们在 Z 轴物理声明上将其摆在 PlayerOverlay 之后，拥有除扫码结果之外的最高物理渲染层级。
+                // SearchOverlay Mounting (Top-most Rendering Layer)
+                // Core hierarchy change: To ensure the search function runs as a global top-level container, covering the full-screen player and all other contents, we place it after PlayerOverlay in the physical Z-axis declaration, giving it the highest physical rendering level except for the scan results.
                 SearchOverlay(
                     searchViewModel = searchViewModel,
                     backdrop = appBackdrop,
@@ -363,7 +349,8 @@ fun APlayerApp(
                     }
                 )
 
-                // 扫码结果 Dialog 面板
+                // Scan Result Dialog (Display Scan Summary)
+                // Dialog panel for showing QR/barcode scanning results.
                 scanResult?.let { session ->
                     ScanResultDialog(
                         session = session,
@@ -371,7 +358,8 @@ fun APlayerApp(
                     )
                 }
 
-                // 物理分轨不可用时的二次确认跳轨弹窗，限定在全屏播放器展开时（isFullPlayerVisible）才弹窗展示
+                // Track Unavailable Confirm Dialog (Avoid Interruptions)
+                // Secondary confirmation dialog for track unavailability, shown only when the full-screen player is expanded (isFullPlayerVisible) to prevent interrupting user interaction on other screens.
                 val trackUnavailableState by playerViewModel.trackUnavailableDialogState.collectAsStateWithLifecycle()
                 if (trackUnavailableState.show && playerUiState.isFullPlayerVisible) {
                     AlertDialog(
@@ -381,7 +369,8 @@ fun APlayerApp(
                         confirmButton = {
                             TextButton(
                                 onClick = {
-                                    // 详尽的中文注释：用户在弹窗二次确认后决定执行跳轨，在此调用 ViewModel 的接口触发自愈
+                                    // Skip to Next Available (Trigger ViewModel Self-Healing)
+                                    // The user confirms skipping the current unavailable track, calling the ViewModel interface to trigger self-healing.
                                     playerViewModel.skipToNextAvailableTrack(
                                         trackUnavailableState.bookId,
                                         trackUnavailableState.queueIndex

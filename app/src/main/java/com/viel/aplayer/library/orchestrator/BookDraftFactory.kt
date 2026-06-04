@@ -21,21 +21,21 @@ import com.viel.aplayer.media.parser.Mp4MetadataFrameReader
 import java.util.UUID
 
 /**
- * 有声书草稿实体构建工厂（BookDraftFactory）。
+ * Audiobook Draft Entity Construction Factory (BookDraftFactory)
  * 
- * 本类是由原 ConflictClaimStep 中拆分抽离出来的纯实体构建与映射工厂。
- * 它的核心职责是：根据从清单解析、元数据解析或者启发式分类阶段获得的有声书数据，
- * 映射构建出 APlayer 数据库底盘所需的有声书逻辑实体（BookEntity）、
- * 物理文件实体（BookFileEntity）以及章节实体（ChapterEntity），并打包为 BookDraft。
+ * A pure entity mapping factory decoupled from the original ConflictClaimStep.
+ * It maps audiobook metadata resolved from manifests, tags, or heuristic classification into core APlayer database entities:
+ * BookEntity, BookFileEntity, and ChapterEntity, and bundles them into a BookDraft.
  * 
- * 这种拆分实现了“决策算法（ConflictClaimStep）”与“实体构建数据映射（BookDraftFactory）”的彻底物理隔离，
- * 有效降低了 ConflictClaimStep 的复杂度，防止其成为“上帝类”。
+ * This isolation decouples decision algorithms from data-mapping details, 
+ * keeping core step classes focused and avoiding god-class anti-patterns.
  */
 @OptIn(UnstableApi::class)
 internal class BookDraftFactory(private val metadataResolver: MetadataResolver) {
 
     /**
-     * 构建单音频文件有声书的草稿实体（BookDraft）。
+     * Build Draft Entity for Single Audio Book (Single-file mapping)
+     * Constructs a BookDraft containing a BookEntity, a BookFileEntity, and associated chapters from metadata.
      */
     fun buildSingleAudioDraft(
         bookId: String,
@@ -74,16 +74,17 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
                 )
             }
         } else {
-            // 详尽的中文注释：单音频且无内嵌章节时，不再在导入阶段把“整本书唯一章节”写入数据库。
-            // 章节兜底语义现在统一迁移到查询投影层按需合成，避免把展示层默认值持久化成真实章节事实，
-            // 从而保证数据库里的章节表只保存“真实解析得到的章节”，进度锚点仍继续只依赖文件与全局位置。
+            // Defer Single-Track Virtual Chapters (Query-side projection migration)
+            // Avoids persisting a single virtual chapter to the database when no embedded chapters are found.
+            // Displays default chapter behavior at query time to prevent polluting database tables, keeping progress tracking decoupled.
             emptyList()
         }
         return BookDraft(book, listOf(file), chapters)
     }
 
     /**
-     * 构建清单型有声书（CUE/M3U8）的草稿实体（BookDraft）。
+     * Build Draft Entity for Manifest Audiobook (Manifest-file mapping)
+     * Constructs a BookDraft from manifest specifications (CUE/M3U8), including track durations and metadata suggestions.
      */
     suspend fun buildManifestDraft(
         bookId: String,
@@ -174,7 +175,8 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
     }
 
     /**
-     * 构建启发式智能聚类有声书的草稿实体（BookDraft）。
+     * Build Draft Entity for Heuristically Aggregated Audiobook (Heuristic mapping)
+     * Constructs a BookDraft from a heuristically grouped set of audio files, generating track-based virtual chapters.
      */
     fun buildGeneratedDraft(
         bookId: String,
@@ -229,7 +231,8 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
     }
 
     /**
-     * 读取清单首个音频的兜底元数据，用于有声书属性的兜底赋值。
+     * Read Manifest Fallback Metadata (Initial track reading)
+     * Extracts tag information from the first audio track in a manifest list as a fallback for missing manifest attributes.
      */
     suspend fun firstManifestAudioMetadata(audioRefs: List<FileRef>): ManifestAudioMetadata? {
         val firstAudio = audioRefs.firstOrNull() ?: return null
@@ -241,7 +244,8 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
     }
 
     /**
-     * 裁决清单有声书在入库映射时的元数据字段值，遵循“清单优先，ID3兜底，文件名最后”的覆盖逻辑。
+     * Resolve Manifest Metadata Priority (Precedence rule evaluator)
+     * Evaluates final book metadata fields following the precedence: Manifest > Embedded tags > File name.
      */
     fun resolveManifestBookMetadata(
         manifestMetadata: MetadataSuggestion,
@@ -374,9 +378,9 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
 }
 
 /**
- * 详尽的中文注释：对包含 JSON 敏感控制字符的字符串进行基础安全转义（主要针对反斜杠和双引号），
- * 将其包装为合规的 JSON 转义字符形式。主要应用于使用 String 模版硬编码拼接 JSON 数据的场景，
- * 彻底防范包含特殊字符的有声书 URI 导致生成的 JSON 字符串解析撕裂以及运行期异常崩溃。
+ * Escape JSON Special Characters (Formatting security utility)
+ * Sanitizes backslashes and double quotes in raw strings before manual JSON template composition.
+ * Prevents structural breakdowns and runtime parsing crashes when handling URIs with escape sequences.
  */
 internal fun String.escapeJson(): String =
     replace("\\", "\\\\").replace("\"", "\\\"")

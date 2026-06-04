@@ -9,37 +9,37 @@ import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 统一记录封面图片加载、缓存命中和处理结果。
+ * Cover Image Cache Logger (Aggregated logging for cover image loading, cache hits, and failures)
  *
- * 这里不承载任何图片加载或业务判断，只把各页面、Coil 回调和 ABS 封面处理链路产生的事实
- * 收拢到 logger 目录，避免 UI 组件继续分散打印封面路径、缓存 key 和解码结果。
+ * This object does not perform image loading or business logic operations. It aggregates facts emitted by UI pages,
+ * Coil callbacks, and ABS cover handlers into a centralized logging portal to prevent logs from being scattered across components.
  */
 object CoverImageCacheLogger {
     private const val TAG = "CoverImageCache"
-    // 详尽的中文注释：封面请求上下文注册表只在调试期服务于“全局 EventListener 反查 scene/variant”，
-    // 不参与任何业务语义，也不需要长期持有；因此这里使用轻量内存 map，并配合 TTL/上限定期清理，
-    // 避免把已经完成的 ImageRequest 一直留在进程内。
+    // Cover Request Context Registry
+    // Debugging registry mapped to identify the UI scene and variant in the global event listener.
+    // It does not carry business logic and is periodically cleared using TTL and capacity limits to prevent completed ImageRequest instances from leaking.
     private val requestContexts = ConcurrentHashMap<Int, RegisteredRequestContext>()
-    // 详尽的中文注释：fetcher 类型由全局 Coil EventListener 的 fetchStart 捕获，再由 request 级 listener
-    // 在终态日志里读取，用来尽量区分 “disk cache 命中” 与 “本地文件重新 decode”。
+    // Fetcher Type Capture (Stores the fetcher class caught by Coil's fetchStart listener to be evaluated in final success callbacks)
+    // This allows the logging system to differentiate between local disk cache hits and raw file decodes.
     private val requestFetcherClasses = ConcurrentHashMap<Int, String>()
-    // 详尽的中文注释：命中率统计只做轻量调试聚合，不落数据库，也不从 UI 线程同步读磁盘。
-    // 用一个锁保护小型内存表即可满足一致性要求，无需额外引入更重的统计组件。
+    // Light Statistics Accumulation (Accumulate memory-only diagnostic metrics for memory vs disk cache performance)
+    // Protects the in-memory statistics map using a standard synchronization lock to ensure thread safety without heavy storage overhead.
     private val statsLock = Any()
     private val sceneVariantStats = linkedMapOf<String, SceneVariantStats>()
 
     /**
-     * 详尽的中文注释：统一约束封面请求 cache key 的命名空间判断。
-     * 全局 Coil EventListener 只能依赖 request 自带的 key 信息识别“这是不是封面请求”，
-     * 因此这里集中维护前缀规则，避免 Application、logger 与请求工厂各自硬编码字符串。
+     * Cover Cache Key Identifier (Determines whether a cache key represents an audiobook cover image request)
+     * The global Coil EventListener only receives the raw image request, so we centralize the namespace checks
+     * to avoid duplicate hardcoded string checks in other layers.
      */
     fun isCoverCacheKey(cacheKey: String?): Boolean =
         cacheKey?.startsWith("cover:") == true
 
     /**
-     * 详尽的中文注释：从统一格式的 cache key 中提取 variant 分段。
-     * 这样全局日志桥接即使拿不到具体 UI 场景名，也能稳定判断当前命中的是 small、medium、
-     * backdrop 还是 main1200，便于后续按规格维度观察缓存命中与 Bitmap 开销。
+     * Cache Key Variant Extractor (Extract the variant segment suffix from the standard cache key format)
+     * Provides the global event listener with a stable variant identification (e.g. small, medium, backdrop, main1200)
+     * even when the specific UI class name is missing, facilitating cache performance diagnostics.
      */
     fun variantFromCacheKey(cacheKey: String?): String =
         cacheKey
@@ -56,9 +56,9 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * 详尽的中文注释：在请求工厂 build 出最终的 ImageRequest 后，把该请求所属的 scene/variant/source
-     * 注册到 logger 内部表中。这样全局 ImageLoader 的 EventListener 在只拿到 request 对象时，
-     * 仍能准确反查“这是首页小图、最近播放中图还是播放器主封面”，从而按文档要求输出 scene 级指标。
+     * Request Context Registration (Register the UI scene, variant, and source path when the ImageRequest is constructed)
+     * Enables the global ImageLoader EventListener to lookup the context from a raw ImageRequest object,
+     * ensuring we can accurately log scene-specific metrics.
      */
     fun registerRequest(
         request: ImageRequest,
@@ -79,9 +79,9 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * 详尽的中文注释：记录本次请求最终实际走到的 fetcher 实现类。
-     * 这类信息只有 EventListener.fetchStart 能拿到，因此先暂存在 logger 里，等 request listener 收到 success/error/cancel
-     * 再取出来参与 decodeSource 归一化。
+     * Remember Fetcher Class (Temporarily store the fetcher class name captured during the fetchStart cycle)
+     * The fetcher class name is only accessible during fetchStart, so we hold it until success/error/cancel callbacks
+     * trigger to normalize the decode source.
      */
     fun rememberFetcherClass(request: ImageRequest, fetcherClassName: String?) {
         if (fetcherClassName.isNullOrBlank()) return
@@ -89,22 +89,23 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * 详尽的中文注释：在请求结束时取回并顺手移除 fetcher 类名，避免这类一次性调试信息长期残留在内存表里。
+     * Take Fetcher Class (Retrieve and remove the registered fetcher class name from the cache)
+     * Prevents temporary memory-allocated string identifiers from hanging indefinitely after request completion.
      */
     fun takeFetcherClass(request: ImageRequest): String? =
         requestFetcherClasses.remove(requestIdentity(request))
 
     /**
-     * 详尽的中文注释：取消或失败路径也需要清理 fetcher 暂存，防止请求中途终止后留下无效条目。
+     * Clear Fetcher Class (Purge the fetcher class name cache for canceled or failed image request pipelines)
      */
     fun clearFetcherClass(request: ImageRequest) {
         requestFetcherClasses.remove(requestIdentity(request))
     }
 
     /**
-     * 详尽的中文注释：全局 EventListener 用 request 对象反查先前在请求工厂里注册的上下文。
-     * 如果这次请求对象因为复用或时序问题没有命中注册表，则回退到一个“unknown scene + cacheKey 推导 variant”
-     * 的兜底上下文，保证日志链路不断。
+     * Resolve Request Context (Lookup the registered request context from the active request contexts registry)
+     * If the lookup fails due to recycling or timing differences, returns a fallback context mapping to "unknown" scene
+     * and the variant inferred from the cache key to keep the logging pipeline running.
      */
     fun resolveRequestContext(request: ImageRequest): RequestContext {
         val nowElapsedMs = SystemClock.elapsedRealtime()
@@ -143,9 +144,9 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * 详尽的中文注释：记录来自全局 Coil EventListener 的成功事件。
-     * 这一层日志专门补齐“统一缓存池最终是否命中、耗时多少、Bitmap 大致占多大”的 loader 事实，
-     * 与各 UI 组件里的场景日志互补，便于判断跨页面是否真的复用了同一份缓存结果。
+     * Pipeline Success Logger (Log successful image loading completion events from the global Coil listener)
+     * Records cache hits, load latencies, and Bitmap allocations to check whether images are shared
+     * efficiently across different UI screens.
      */
     fun logPipelineSuccess(
         scene: String,
@@ -166,9 +167,9 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * 详尽的中文注释：记录来自全局 Coil EventListener 的失败事件。
-     * 这里仍然附带统一 cache key、variant 和耗时，方便排查“请求工厂 key 正常但底层 fetch/decode 失败”的问题，
-     * 而不需要回到具体页面逐个复现实验。
+     * Pipeline Error Logger (Log image request failure exceptions from the global Coil listener)
+     * Combines the cache key, variant, and cost duration to help diagnose decoding or fetching errors
+     * without needing to reproduce them on individual screens.
      */
     fun logPipelineError(
         scene: String,
@@ -186,9 +187,9 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * 详尽的中文注释：记录来自全局 Coil EventListener 的取消事件。
-     * 列表快速滚动时取消请求本身是正常现象，但只有把取消和命中、失败分开记录，
-     * 才能避免把“用户滚动造成的取消”误判成“缓存没有命中”或“图片加载器异常”。
+     * Pipeline Cancel Logger (Log image request cancellation events from the global Coil listener)
+     * Differentiates routine cancellations (e.g. from rapid scrolling) from actual cache misses or errors
+     * to keep overall reliability statistics accurate.
      */
     fun logPipelineCancel(
         scene: String,
@@ -204,9 +205,9 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * 详尽的中文注释：从 drawable 中尽量提取实际 Bitmap 占用字节数。
-     * 对 BitmapDrawable 直接读取 allocationByteCount；若不是 BitmapDrawable，则回退为
-     * “宽 x 高 x 4” 的近似估算，用于持续观察不同规格请求的大致内存体量。
+     * Bitmap Byte Count Extractor (Calculate the approximate heap size allocated for the decoded image)
+     * Reads allocationByteCount directly for BitmapDrawable, falling back to a "width * height * 4" estimation
+     * for custom drawables to monitor memory footprints.
      */
     fun bitmapByteCount(drawable: Drawable?): Long? {
         val bitmapDrawable = drawable as? BitmapDrawable
@@ -234,9 +235,9 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * 详尽的中文注释：把底层 Coil DataSource 与 fetcher 类型归一化成文档里的观测口径。
-     * 这里优先识别 memory cache；其次用 fetcher 是否为 DiskCache 相关实现区分真正的 disk hit；
-     * 剩余的本地文件路径读取统一收口为 file decode，确保日志里至少能稳定区分 memory / disk / file 三种主路径。
+     * Normalize Decode Source (Map the low-level Coil DataSource and fetcher type to stable metrics labels)
+     * Normalizes the source type into memory_hit, disk_hit, file_decode, or network, helping keep
+     * image caching statistics clean and easy to interpret.
      */
     fun normalizeDecodeSource(dataSource: String?, fetcherClassName: String?): String =
         when {
@@ -248,9 +249,9 @@ object CoverImageCacheLogger {
         }
 
     /**
-     * 详尽的中文注释：按 `scene + variant` 聚合一次成功请求的来源分类计数，并回传当前快照。
-     * 该快照只做调试日志展示，帮助直接从 logcat 判断当前场景是否主要命中 memory cache，
-     * 还是仍然频繁回落到 disk/file decode。
+     * Record Success Metric (Update the in-memory statistics metrics for the given scene and variant combination)
+     * Aggregates hit counters and returns a snapshot of cache efficiency, allowing developers to inspect cache
+     * performance patterns inside Logcat.
      */
     fun recordSuccessMetric(
         scene: String,
@@ -278,8 +279,9 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * 详尽的中文注释：ConcurrentHashMap 中的请求上下文不需要长期保存。
-     * 当数量超过上限后，只清理长时间未被访问的旧请求，既避免无界增长，也不会干扰当前还在使用的 request 对象。
+     * Prune Expired Contexts (Clear stale request contexts to keep the registry map size bounded)
+     * Clears contexts that exceed the TTL limits when the cache exceeds capacity, protecting memory bounds
+     * without interrupting active requests.
      */
     private fun pruneExpiredRequestContexts(nowElapsedMs: Long) {
         if (requestContexts.size <= MAX_REQUEST_CONTEXTS) return
@@ -291,8 +293,8 @@ object CoverImageCacheLogger {
     private fun requestIdentity(request: ImageRequest): Int = System.identityHashCode(request)
 
     /**
-     * 详尽的中文注释：RequestContext 是全局 EventListener 真正需要消费的精简视图。
-     * 它只保留 scene、variant、source 和 cacheKey 四项与观测直接相关的字段，不把 request 对象本身继续往外传。
+     * Request Context DTO (Lightweight context structure containing metadata needed for pipeline diagnostics)
+     * Avoids holding references to massive ImageRequest objects inside logs or event listener loops.
      */
     data class RequestContext(
         val scene: String,
@@ -302,7 +304,7 @@ object CoverImageCacheLogger {
     )
 
     /**
-     * 详尽的中文注释：内部注册表额外保存最后一次触碰时间，用于做 TTL 清理。
+     * Registered Request Context (Internal wrapper logging the registry timestamp to support TTL cleanup sweeps)
      */
     private data class RegisteredRequestContext(
         val scene: String,
@@ -313,8 +315,7 @@ object CoverImageCacheLogger {
     )
 
     /**
-     * 详尽的中文注释：每个 `scene + variant` 聚合一份轻量命中统计。
-     * 这里只统计成功请求，因为 cacheHitRatio 的目标是观察成功加载里有多少命中了 memory/disk/file 路径。
+     * Scene Variant Statistics (Internal statistics counters tracking successful cache allocations)
      */
     private data class SceneVariantStats(
         var totalSuccesses: Int = 0,
@@ -326,8 +327,7 @@ object CoverImageCacheLogger {
     )
 
     /**
-     * 详尽的中文注释：输出到日志的统计快照。
-     * 百分比使用一位小数，直接按总成功数折算，方便在 logcat 中肉眼对比不同场景的命中稳定性。
+     * Scene Variant Metrics Snapshot (Immutable stats projection showing cache ratios with single-decimal percentage formats)
      */
     data class SceneVariantMetricsSnapshot(
         val totalSuccesses: Int,

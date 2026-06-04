@@ -3,12 +3,12 @@ package com.viel.aplayer.ui.common.theme
 import androidx.compose.ui.graphics.Color
 
 // =====================================================================
-// APlayer MD3 颜色系统 (M-21 补全)
-// 补充了 dynamicColor=false 时的 secondary / tertiary / error 等关键 role 配色，
-// 以支持在各种设备及 fallback 模式下完备、优质的主题交互体验。
+// APlayer MD3 Color System (M-21 Completion)
+// Added key role colors such as secondary / tertiary / error when dynamicColor = false,
+// supporting a complete and high-quality theme interaction experience across various devices and fallback modes.
 // =====================================================================
 
-// 暗色主题关键配色 (Dark Theme Roles)
+// Dark Theme Key Colors
 val PrimaryDark = Color(0xFFD0BCFF)
 val OnPrimaryDark = Color(0xFF381E72)
 val PrimaryContainerDark = Color(0xFF4F378B)
@@ -19,7 +19,8 @@ val OnSecondaryDark = Color(0xFF332D41)
 val SecondaryContainerDark = Color(0xFF4A4458)
 val OnSecondaryContainerDark = Color(0xFFE8DEF8)
 
-// M-21 补全 — 暗色模式下的 tertiary / error 及其容器角色颜色
+// M-21 Completion (Dark Mode Tertiary & Error Roles)
+// Tertiary, error, and container role colors in dark mode.
 val TertiaryDark = Color(0xFFEFB8C8)
 val OnTertiaryDark = Color(0xFF492532)
 val TertiaryContainerDark = Color(0xFF633B48)
@@ -37,13 +38,14 @@ val OnSurfaceVariantDark = Color(0xFFCAC4D0)
 val OutlineDark = Color(0xFF938F99)
 
 
-// 亮色主题关键配色 (Light Theme Roles)
+// Light Theme Key Colors
 val PrimaryLight = Color(0xFF6750A4)
 val OnPrimaryLight = Color(0xFFFFFFFF)
 val PrimaryContainerLight = Color(0xFFEADDFF)
 val OnPrimaryContainerLight = Color(0xFF21005D)
 
-// M-21 补全 — 亮色模式下的 secondary / tertiary / error 及其容器角色颜色
+// M-21 Completion (Light Mode Secondary, Tertiary & Error Roles)
+// Secondary, tertiary, error, and container role colors in light mode.
 val SecondaryLight = Color(0xFF625B71)
 val OnSecondaryLight = Color(0xFFFFFFFF)
 val SecondaryContainerLight = Color(0xFFE8DEF8)

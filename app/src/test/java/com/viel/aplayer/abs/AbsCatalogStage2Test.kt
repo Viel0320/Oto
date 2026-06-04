@@ -123,11 +123,11 @@ class AbsCatalogStage2Test {
             mediaType = "podcast"
         )
 
-        // 详尽的中文注释：当前真正可落为 BookFileEntity 的主链只认 tracks，所以有 tracks 的 book 必须通过筛选。
+        // Track-based playback validation. The core pipeline relies strictly on 'tracks' to build BookFileEntities, so only books with tracks pass the criteria.
         assertTrue(isAbsPlayableBook(playable))
-        // 详尽的中文注释：只有 audioFiles 而没有 tracks 的条目无法提供 contentUrl，不应再被误放行进入镜像库。
+        // Missing tracks exclusion. Items having 'audioFiles' but lacking 'tracks' cannot provide play URLs and must be excluded from the local catalog mirrors.
         assertTrue(!isAbsPlayableBook(audioFilesOnly))
-        // 详尽的中文注释：即使 tracks 完整，只要 mediaType 不是 book，也不能进入 Audiobooks catalog mirror。
+        // MediaType book constraint. Even with complete tracks, items whose mediaType is not 'book' must not enter the audiobook catalog mirrors.
         assertTrue(!isAbsPlayableBook(podcast))
     }
 
@@ -291,11 +291,11 @@ class AbsCatalogStage2Test {
 
         synchronizer.syncRoot(root)
 
-        // 详尽的中文注释：整批 detail 拉取失败时，已存在但这轮未见的镜像不应被误收敛成 STALE，
-        // 否则单次网络抖动就会错误推进删除确认状态。
+        // Network resilience logic. When detail batch fetches fail entirely, existing but currently unseen mirrors should not be marked as STALE,
+        // preventing network fluctuations from incorrectly triggering deletion confirmation processes.
         assertEquals(AudiobookSchema.AbsMirrorState.ACTIVE, store.mirrors["stale-item"]?.state)
-        // 详尽的中文注释：minified 只负责“发现 item”，不携带 tracks/contentUrl 真相；
-        // 因此拿不到 detail 时不能直接把新书写进本地镜像库，避免生成无可播音轨的半成品书籍。
+        // Minified data limits. The minified response only discovers items and lacks track/URL details;
+        // hence, we must not write new books to the local mirrors without detail responses to prevent unplayable empty items.
         assertNull(store.books[idMapper.bookId(serverKey, "item-1")])
     }
 

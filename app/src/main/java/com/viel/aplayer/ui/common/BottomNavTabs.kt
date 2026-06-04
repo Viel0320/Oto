@@ -43,18 +43,20 @@ import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.player.PlayerScreenMode
 
-// 
-// 独立出来的播放器底部 Tab 导航组件。
-// 宽度完全依据 Tab 文本的实际测量宽度进行自适应设定，且在 Tab 之间滑动时提供完美的居中对齐与插值缩放动画。
+// Decoupled player bottom Tab navigation component.
+//
+// The width is adaptively determined based on the actual measured width of the Tab text.
+// It provides perfect center alignment and interpolated scaling animations when sliding between tabs.
 @Composable
 fun BottomNavTabs(
     selectedTab: PlayerScreenMode,
     onTabSelected: (PlayerScreenMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 使用 Column 包裹底栏导航组件。我们不在此处直接添加 navigationBarsPadding()，
-    // 而是通过在其底部顺序放置 16.dp 的防误触 Spacer 和系统的 navigationBarsPadding Spacer 来精准控制高度，
-    // 确保把 Tab 的点击交互区（高度为 48.dp）硬性往上抬升 16.dp，彻底杜绝虚拟导航键/手势的防误触隐患。
+    // Wrap the bottom navigation component with Column.
+    //
+    // Instead of applying navigationBarsPadding() directly here, we precisely control the height by sequentially placing a 16.dp anti-mistouch Spacer and the system navigationBarsPadding Spacer at the bottom.
+    // This ensures the Tab click interaction area (height of 48.dp) is physically raised by 16.dp, completely avoiding accidental triggers from virtual navigation keys/gestures.
     Column(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
@@ -69,9 +71,10 @@ fun BottomNavTabs(
 
             val density = LocalDensity.current
 
-            // 
-            // 声明 3 个独立的 mutableStateOf 变量，为每个 Tab 真实文本宽度提供物理层面的隔离记录。
-            // 使用经典优雅的 (80, 70, 60.dp) 做首帧保底，确保首帧文字在测量完成前指示器宽度绝不会突兀为 0。
+            // Declare 3 independent mutableStateOf variables.
+            //
+            // This provides isolated records for the actual text width of each Tab.
+            // Elegant default widths of (80, 70, 60.dp) are used for the first frame to ensure that the indicator width is never abruptly 0 before measurement is complete.
             var bookmarkTextWidth by remember { mutableStateOf(80.dp) }
             var subtitlesTextWidth by remember { mutableStateOf(70.dp) }
             var relatedTextWidth by remember { mutableStateOf(60.dp) }
@@ -96,7 +99,7 @@ fun BottomNavTabs(
                 label = "tab_indicator_offset"
             )
 
-            // 根据当前激活的 Tab 索引，动态读取对应的物理隔离后的独立测量文本宽度
+            // Dynamically read the corresponding independently measured text width after physical isolation based on the current active Tab index.
             val activeTabWidth = remember(lastActiveTab, bookmarkTextWidth, subtitlesTextWidth, relatedTextWidth) {
                 when (lastActiveTab) {
                     PlayerScreenMode.BOOKMARKS -> bookmarkTextWidth
@@ -123,18 +126,19 @@ fun BottomNavTabs(
                 val tabWidth = width / 3
                 val indWidthPx = currentIndicatorWidth.toPx()
 
-                // 
-                // 精确计算出三个对齐 Tab 文本在 Canvas 坐标系下的物理中心坐标。
-                // 1. Bookmark 靠左对齐，其中心点在宽度的一半。
-                // 2. Subtitles 居中对齐，其中心点始终在中间 1/3 部分的几何中点。
-                // 3. Related 靠右对齐，其右边缘贴紧 canvas 右侧，因此其中心点在宽度减去自身半宽处。
+                // Calculate physical center coordinates.
+                //
+                // 1. Bookmark is aligned left; its center is at half its width.
+                // 2. Subtitles is aligned center; its center is always at the geometric midpoint of the middle 1/3 section.
+                // 3. Related is aligned right; its right edge sits tight against the right of the canvas, so its center is at the total width minus half its own width.
                 val centerX0 = bookmarkTextWidth.toPx() / 2f
                 val centerX1 = tabWidth * 1.5f
                 val centerX2 = width - relatedTextWidth.toPx() / 2f
 
-                // 
-                // 基于滑动百分比 indicatorOffset 对这三个物理文本中心点做线性插值计算，
-                // 确保指示器无论是在左、中、右，还是在滑动过渡过程中，都绝对与文字真实中心 100% 重合对齐。
+                // Linear interpolation logic.
+                //
+                // Linearly interpolate between the three physical text centers based on the sliding percentage indicatorOffset.
+                // This ensures the indicator is always 100% aligned with the actual center of the text during sliding transitions.
                 val indicatorCenterX = if (indicatorOffset <= 1f) {
                     val t = indicatorOffset
                     centerX0 + (centerX1 - centerX0) * t
@@ -143,12 +147,13 @@ fun BottomNavTabs(
                     centerX1 + (centerX2 - centerX1) * t
                 }
 
-                // 根据动画渐变宽 indWidthPx 和计算出的中心点，定位指示器的左侧起点 fluidXPos
+                // Position the left starting point fluidXPos of the indicator based on the animated width indWidthPx and the calculated center point.
                 val fluidXPos = indicatorCenterX - indWidthPx / 2f
 
-                // 
-                // 将指示器在 y 轴上的高度绘制起点由原先的 size.height - 4.dp 往上抬升到 size.height - 10.dp。
-                // 这样指示器与垂直居中的 Tab 文本（底部大约在 32.dp 处）之间的物理距离就从原先的 12.dp 精确缩减到 6.dp，完美将物理间距降低了一半。
+                // Adjust Y-axis height.
+                //
+                // Raise the starting y-coordinate of the indicator from size.height - 4.dp to size.height - 10.dp.
+                // This reduces the physical distance between the indicator and the vertically centered Tab text (bottom is around 32.dp) from 12.dp to exactly 6.dp, halving the space.
                 drawRoundRect(
                     color = activeColor.copy(alpha = indicatorAlpha),
                     topLeft = androidx.compose.ui.geometry.Offset(fluidXPos, size.height - 10.dp.toPx()),
@@ -157,23 +162,20 @@ fun BottomNavTabs(
                 )
             }
 
-            // M-18 修复 — 添加 selectableGroup 让无障碍服务
-            // （TalkBack/切换控制）能识别出这是一组互斥单选的 Tab 容器
+            // M-18 Fix — Add selectableGroup to allow accessibility services (TalkBack/Switch Access) to recognize this as a mutually exclusive tab container group.
             Row(
                 modifier = Modifier.fillMaxWidth().height(48.dp).selectableGroup(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 tabs.forEachIndexed { index, (title, mode) ->
-                    // M-18 修复 — 每个 Tab 使用独立 MutableInteractionSource，
-                    // 避免原先共享一个 interactionSource 导致按压/悬停状态相互串扰
+                    // M-18 Fix — Use independent MutableInteractionSource for each Tab to avoid pressing/hover state crosstalk from sharing a single interactionSource.
                     val tabInteractionSource = remember(mode) { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(8.dp))
-                            // M-18 修复 — 将 .clickable 改为 .selectable，
-                            // 声明 selected 状态与 Role.Tab，让 TalkBack 读出"已选中/未选中"
+                            // M-18 Fix — Change .clickable to .selectable, declaring selected state and Role.Tab to allow TalkBack to speak "Selected/Not selected".
                             .selectable(
                                 selected = (selectedTab == mode),
                                 onClick = { onTabSelected(mode) },
@@ -216,32 +218,37 @@ fun BottomNavTabs(
             
         }
         
-        // 详尽的中文注释：使用统一的 WindowClass 接口获取当前方向，隔离了 LocalConfiguration，增加了布局一致性。
+        // WindowClass integration.
+        //
+        // Use the unified WindowClass interface to obtain the current orientation, isolating LocalConfiguration and improving layout consistency.
         val windowClass = LocalWindowClass.current
         val isLandscape = windowClass.isLandscape
 
-        // 在 Tab 点击内容区 Box 的正下方放置防误触隔离 Spacer。
-        // 横屏状态下垂直空间极其宝贵，且系统手势小白条通常移至侧边，故将占位缩减为 0.dp；竖屏时则保持 16.dp 保护手势防误触。
+        // Tab navigation spacing controls.
+        //
+        // In landscape, vertical space is highly precious and the gesture bar is typically on the side, so the spacer is reduced to 0.dp; in portrait, 16.dp is kept to protect gestures from accidental touches.
         val bottomSpacerHeight = if (isLandscape) 0.dp else 16.dp
         Spacer(modifier = Modifier.height(bottomSpacerHeight))
         
-        // 使用独立的 Spacer 来应用系统底栏安全边距，确保交互区域完美安全抬升而不产生双重 Padding
+        // Use an independent Spacer to apply system bottom bar navigation insets, ensuring the interaction area is safely elevated without producing double padding.
         Spacer(modifier = Modifier.navigationBarsPadding())
     }
 }
 
 // ==========================================
-// Jetpack Compose @Preview 预览代码区
+// Jetpack Compose @Preview Code Area
 // ==========================================
 
-// 
-// 1. Tab 激活状态下的预览。
-// 默认模拟选中“SUBTITLES（字幕歌词）”，且支持在 Android Studio 预览面板中通过 Live Edit 进行点击动态切换。
+// 1. Preview of active Tab.
+//
+// Simulates selecting "SUBTITLES" by default, supporting dynamic click switching via Live Edit in Android Studio preview panel.
 @Preview(name = "BottomNavTabs - Active Tab", showBackground = true)
 @Composable
 fun BottomNavTabsPreview_Active() {
     APlayerTheme {
-        // 详尽的中文注释：显式注入竖屏预设以供底栏预览。
+        // Preview environment setup.
+        //
+        // Explicitly inject portrait configuration presets for bottom bar preview.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {
@@ -256,14 +263,16 @@ fun BottomNavTabsPreview_Active() {
     }
 }
 
-// 
-// 2. Tab 未激活状态下的预览。
-// 模拟返回主播放器状态（PlayerScreenMode.PLAYER），此时指示器完美收缩隐藏，所有 Tab 文字呈均匀的 0.6f 低亮显示。
+// 2. Preview of inactive Tabs.
+//
+// Simulates returning to the main player (PlayerScreenMode.PLAYER) where the indicator collapses and all Tab texts display uniformly at a low 0.6f brightness.
 @Preview(name = "BottomNavTabs - All Inactive", showBackground = true)
 @Composable
 fun BottomNavTabsPreview_Inactive() {
     APlayerTheme {
-        // 详尽的中文注释：显式注入竖屏预设以供底栏未激活指示器状态预览。
+        // Preview environment setup.
+        //
+        // Explicitly inject portrait configuration presets for the bottom bar inactive indicator state preview.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {

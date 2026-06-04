@@ -1,12 +1,12 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS 媒体流读取与 Range 请求日志。
+ * ABS Stream Logger (Media streaming and Range requests logging)
  *
- * 责任边界：
- * 1. 只记录 AbsSourceProvider 与其上游 VFS 入口的读流行为。
- * 2. 专注定位 contentUrl 解析、HEAD 可达性、GET/Range、416/401/403/404/5xx 等流媒体风险点。
- * 3. 不记录目录同步、不记录播放会话、不记录设置页动作。
+ * Boundaries of responsibility:
+ * 1. Only logs media streaming reads for AbsSourceProvider and its upper VFS entry points.
+ * 2. Focuses on diagnosing streaming issues: contentUrl parsing, HEAD check latency, GET/Range response codes (e.g. 416, 401, 403, 404, 5xx).
+ * 3. Does not log catalog syncs, playback session events, or settings view actions.
  */
 internal object AbsStreamLogger {
     private const val TAG = "AbsStream"

@@ -3,11 +3,13 @@ package com.viel.aplayer.media
 import com.viel.aplayer.data.entity.BookFileEntity
 
 /**
- * 负责在全局播放位置与具体文件的位置之间进行转换。
+ * Position Translation Engine (Responsible for mapping between global audiobook positions and file-specific positions)
+ * Decouples playback interfaces from multi-track storage offsets by managing coordinate mapping.
  */
 object PositionMapper {
     /**
-     * 将全局位置转换为文件索引和文件内位置。
+     * Global Position Mapper (Translates global playback offsets to specific file index and internal offsets)
+     * Walks through the book file segments to locate the target track and calculates the relative position.
      */
     fun globalToFilePosition(
         globalPositionMs: Long,
@@ -20,7 +22,8 @@ object PositionMapper {
             }
             accumulatedMs += file.durationMs
         }
-        // 如果超过总时长，返回最后一个文件的末尾
+        // Boundary Overflow Handling (Returns the end of the last file if the position exceeds the total book duration)
+        // Prevents out-of-bounds playback index errors when seeking past the end of the media sequence.
         return if (files.isNotEmpty()) {
             Pair(files.size - 1, files.last().durationMs)
         } else {
@@ -29,7 +32,8 @@ object PositionMapper {
     }
 
     /**
-     * 将文件索引和文件内位置转换为全局位置。
+     * File Offset Accumulator (Converts file index and inner offset into a global playback position)
+     * Sums the duration of all preceding file tracks and appends the current file's play position.
      */
     fun fileToGlobalPosition(
         fileIndex: Int,

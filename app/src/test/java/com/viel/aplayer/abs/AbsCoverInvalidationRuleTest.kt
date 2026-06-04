@@ -17,8 +17,8 @@ class AbsCoverInvalidationRuleTest {
             syncedAt = 2000L
         )
 
-        // 详尽的中文注释：新书第一次同步就拿到封面缓存路径时，必须写入 syncedAt。
-        // 否则 UI 请求 key 会继续使用 0，后续新封面和旧缺省状态之间没有明确失效信号。
+        // Initial sync timestamp validation. When a new book obtains cover cache paths during its first sync, lastScannedAt must be set to syncedAt.
+        // Otherwise, UI cache keys remain 0, providing no invalidation signal between default placeholders and newly loaded covers.
         assertEquals(2000L, resolved)
     }
 
@@ -31,8 +31,8 @@ class AbsCoverInvalidationRuleTest {
             syncedAt = 2000L
         )
 
-        // 详尽的中文注释：如果新书没有任何封面缓存产物，就不伪造封面更新时间。
-        // 这样缺省占位图不会被误认为已有可加载封面。
+        // Empty cover timestamp suppression. If a new book has no cached cover assets, do not fabricate a cover update timestamp.
+        // This ensures default placeholder drawables are not falsely considered as containing loadable cover files.
         assertEquals(0L, resolved)
     }
 
@@ -51,8 +51,8 @@ class AbsCoverInvalidationRuleTest {
             syncedAt = 2000L
         )
 
-        // 详尽的中文注释：路径没有变化时不能每轮 ABS 同步都刷新 lastScannedAt。
-        // 否则所有封面请求 key 会被无意义打穿，反而破坏已建立的 Coil 缓存命中率。
+        // Timestamp preservation rule. Do not update lastScannedAt during ABS synchronization cycles if the cover paths remain unchanged.
+        // Constantly refreshing the timestamp would invalidate UI cache keys pointlessly, damaging the Coil cache hit rate.
         assertEquals(1000L, resolved)
     }
 
@@ -77,7 +77,7 @@ class AbsCoverInvalidationRuleTest {
             syncedAt = 3000L
         )
 
-        // 详尽的中文注释：原图或缩略图任一缓存路径变化，都说明 UI 后续应生成新 key 并加载新图。
+        // Cover path variation invalidation. Any modification in the original or thumbnail cover paths indicates that the UI must generate a new key to load the updated image.
         assertEquals(2000L, changedCover)
         assertEquals(3000L, changedThumbnail)
     }

@@ -7,8 +7,8 @@ import java.nio.charset.StandardCharsets
 import java.util.UUID
 import kotlin.math.roundToLong
 
-// mp3 的所有格式逻辑都收口在本文件内：
-// ID3v2、ID3v1、Xing/VBRI/CBR 时长估算都不再委托给外部格式专属 helper。
+// All MP3 format parsing details are consolidated in this file:
+// Parses ID3v2, ID3v1 tags and calculates Xing/VBRI/CBR durations without delegating to external helper classes.
 internal object Mp3MetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
         displayName.endsWith(".mp3", ignoreCase = true)
@@ -254,7 +254,7 @@ internal object Mp3MetadataRangeParser : RangeAudioFormatParser {
                 "TRK", "TRCK" -> trackIndex = trackIndex ?: RangeAudioParserSupport.normalizeTrackIndex(decodeId3TextFrame(payload))
                 "TLE", "TLEN" -> durationMs = durationMs ?: decodeId3TextFrame(payload)?.toLongOrNull()
                 "TXX", "TXXX" -> {
-                    // TXXX/TXX 是用户自定义字段集合，先记录字段名和值，最终交给统一 description 规则按优先级挑选。
+                    // TXXX/TXX fields represent user-defined text tags; caches names and values to let the unified priority rules select the final description.
                     decodeId3UserTextFrame(payload)?.let { (fieldName, value) ->
                         customDescriptionFields.putIfAbsent(fieldName, value)
                     }
@@ -277,8 +277,8 @@ internal object Mp3MetadataRangeParser : RangeAudioFormatParser {
             author = author,
             narrator = narrator,
             album = album,
-            // 调整 MP3 描述的提取优先级：优先选择普通备注帧（COMM 帧，即这里的 description 变量）作为简介入库；
-            // 如果不存在 COMM 普通备注帧，则降级回退到 TXXX 自定义文本帧（如自定义的 description、synopsis 等）中进行匹配。
+            // Re-orders description extraction priorities: matches standard COMM (comment) frames as primary choice;
+            // Falls back to user-defined TXXX text frames (e.g. custom description/synopsis fields) if COMM is missing.
             description = description?.takeIf { it.isNotBlank() }
                 ?: MetadataDescriptionRules.firstDescriptionFromFields(customDescriptionFields),
             year = year,

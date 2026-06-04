@@ -7,9 +7,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <!-- WebDAV 远程标准件需要访问局域网/互联网 HTTP 服务以列目录、读元数据和播放流。 -->
+    <!-- WebDAV Networking (Allows remote provider to access LAN/Internet HTTP services) -->
+    <!-- This is required for listing directories, reading metadata, and streaming audio playback. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 声明震动权限，当睡眠定时器即将归零且用户轻轻摇晃手机成功触发重置倒计时时，为听众提供轻微的物理震动触觉反馈，以提供卓越的夜间盲操体验。 -->
+    <!-- Haptic Feedback Permission (Declare vibrate permission to provide physical cues when sleep timer is reset) -->
+    <!-- Provides a subtle vibration feedback when the user gently shakes the phone to reset the countdown, enhancing night-time accessibility. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <attribution android:tag="media_playback" android:label="@string/app_name" />
@@ -26,8 +28,8 @@
         </intent>
     </queries>
 
-    <!-- 启用 largeHeap 属性以允许应用申请更大的 Java 堆内存空间。 -->
-    <!-- 这能有效应对多路并发解析大体积 .m4b 有声书文件时，Media3 底层分配巨大 sample size 数组所带来的 OOM 崩溃隐患。 -->
+    <!-- Heap Expansion Policy (Enable largeHeap attribute to request a larger Java heap memory allocation) -->
+    <!-- This mitigates potential OOM crashes when parsing multiple large-sized .m4b audiobook files, which allocate massive sample size arrays under Media3. -->
     <application
         android:name=".APlayerApplication"
         android:allowBackup="true"
@@ -43,19 +45,17 @@
         android:largeHeap="true"
         android:networkSecurityConfig="@xml/network_security_config">
         <!-- 
-             将 MainActivity 的 windowSoftInputMode 调整为 adjustNothing。
-             这样当 IME 软键盘弹出时，Android 系统不会物理收缩（Resize）Activity 根窗口的高度，
-             从而保证底层 HomeScreen (采样源) 的尺寸绝对静止、不发生布局位移或尺寸压缩，
-             使 MiuixBlur 磨砂玻璃实时采样效果保持极致稳定、不穿帮与无任何闪烁跳变。
-             至于键盘避让，则完全交由 Compose 内部（例如 SearchOverlay 内的 WindowInsets.ime）进行精确、平滑的逻辑避让。 -->
+             Soft Keyboard Window Mode (Configure MainActivity windowSoftInputMode to adjustNothing)
+         This prevents the system from resizing the root window when the IME keyboard appears, keeping the underlying HomeScreen stable.
+         This avoids visual glitches or flickers in the real-time MiuixBlur frosted sampling, while layout padding adjustments are handled via Compose insets. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustNothing"
             android:theme="@style/Theme.APlayer">
-            <!-- 为本次桌面 widget 改动添加注释：singleTop 让桌面小组件点击正在运行的应用时复用现有 MainActivity，并通过 onNewIntent
-            拉起播放页 overlay。 -->
+            <!-- SingleTop Launch Behavior (Ensure widget clicks reuse the existing MainActivity instance)
+                 Launches via singleTop so that onNewIntent can intercept the event to bring up the player overlay sheet. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -63,17 +63,16 @@
         </activity>
 
 
-        <!-- 注册独立的设置 Activity。
-             同样不在 Manifest 级别配置动画样式，由调用方 ActivityOptions 统一控制，
-             保证设置页和搜索页进出动画风格完全一致。 -->
+        <!-- Settings Activity Registration (Declare the dedicated Settings screen activity)
+             Does not configure animation styles at the Manifest level; transition effects are managed by the caller via ActivityOptions for consistency. -->
         <activity
             android:name=".ui.settings.SettingsActivity"
             android:exported="false"
             android:label="设置"
             android:theme="@style/Theme.APlayer" />
 
-        <!-- 详尽的中文注释：注册专用于桌面小组件更新的外部接收器 PlayerWidgetReceiver。
-             已安全剥离了所有媒体播控自定义 action，防止被恶意第三方通过外部广播越权控制或拉起服务。 -->
+        <!-- Widget Broadcast Receiver (Register PlayerWidgetReceiver for handling system-triggered desktop widget updates)
+             All custom media control actions are detached to prevent malicious external processes from hijacking playback or forcing service starts. -->
         <receiver
             android:name=".widget.PlayerWidgetReceiver"
             android:enabled="true"
@@ -86,8 +85,8 @@
                 android:resource="@xml/player_widget_info" />
         </receiver>
 
-        <!-- 详尽的中文注释：注册专用于媒体播放控制动作的安全广播接收器 PlayerWidgetActionReceiver。
-             显式指定 android:exported="false"，确保此控制接口仅在应用同包内部可见，任何外部虚假广播将被系统自动物理抛弃。 -->
+        <!-- Playback Action Broadcast Receiver (Register local PlayerWidgetActionReceiver to handle widget media actions)
+             Explicitly configured with android:exported="false" to restrict access to local package context and drop spoofed external intents. -->
         <receiver
             android:name=".widget.PlayerWidgetActionReceiver"
             android:enabled="true"
@@ -100,9 +99,9 @@
         </receiver>
 
         <!-- 
-             详尽的中文注释：声明共享文件的 FileProvider 实体。
-             用于向外部进程（特别是 SystemUI 的 MediaDataManager）安全且临时地共享应用内部 covers 缓存目录下的封面图片。
-             通过 content:// 协议格式进行跨进程访问，以符合 Android 严格的私有沙盒与存储权限访问规则，彻底避免物理路径下的 ENOENT 文件未找到错误。
+             File Sharing Provider (Declare FileProvider to facilitate secure, cross-process data sharing)
+             Provides temporary URI read permissions to system components (e.g., SystemUI MediaDataManager) for accessing cached covers.
+             Utilizes content:// schemes to comply with sandboxing policies, completely eliminating physical path-related ENOENT file errors.
         -->
         <provider
             android:name="androidx.core.content.FileProvider"

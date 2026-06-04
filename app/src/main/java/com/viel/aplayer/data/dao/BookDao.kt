@@ -20,7 +20,8 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title ASC")
     fun getAllBooks(): Flow<List<BookEntity>>
 
-    // 详尽的中文注释：新增一次性获取全部未逻辑删除的书籍实体的挂起查询，用于后台同步任务直接获取数据快照判定空库状态，解耦对 Flow 流的物理消费。
+    // Direct Snapshot Query (Suspended query to retrieve active books in a single shot for sync task initialization)
+    // This avoids consuming Flow data streams when only a state check is needed.
     @Query("SELECT * FROM books WHERE status != 'DELETED'")
     suspend fun getAllBooksOnce(): List<BookEntity>
 
@@ -160,18 +161,21 @@ interface BookDao {
     @Query("SELECT * FROM book_files WHERE bookId = :bookId AND fileRole = 'AUDIO' ORDER BY `index` ASC")
     suspend fun getFilesForBookList(bookId: String): List<BookFileEntity>
 
-    // 获取书籍的所有物理关联文件，包括音频与清单（SOURCE_MANIFEST），不带 fileRole 过滤，专门用于详情页识别源文件名
+    // Complete File Listing (Retrieves all physical book files including media tracks and manifest records)
+    // Useful on detail screens to inspect actual file configurations.
     @Query("SELECT * FROM book_files WHERE bookId = :bookId ORDER BY `index` ASC")
     suspend fun getAllFilesForBookList(bookId: String): List<BookFileEntity>
 
-    // 播放和字幕链路现在都以 MediaItem.mediaId 中的 BookFileEntity.id 为稳定入口，不再从播放 URI 反查旧文件行。
+    // Stable ID Resolution (Resolves the associated BookFileEntity via its unique ID as exposed in MediaItem.mediaId)
+    // Keeps playback and subtitle layers isolated from raw file URI queries.
     @Query("SELECT * FROM book_files WHERE id = :id AND fileRole = 'AUDIO' LIMIT 1")
     suspend fun getBookFileById(id: String): BookFileEntity?
 
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id = :id")
     suspend fun updateBookFileStatus(id: String, status: String, scanId: String? = null)
 
-    // 详情页和恢复流程会批量刷新多文件书籍的可用状态，用 IN 更新避免逐文件 Room 写入拖慢 UI。
+    // Batch Status Updates (Updates multiple file reachability flags inside a single SQL IN transaction)
+    // Prevents repetitive database writes from lagging UI threads during library verification.
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id IN (:ids)")
     suspend fun updateBookFileStatuses(ids: List<String>, status: String, scanId: String? = null)
 
@@ -182,9 +186,8 @@ interface BookDao {
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
     suspend fun getProgressForBookSync(bookId: String): BookProgressEntity?
 
-    // 应用冷启动恢复逻辑。
-    // 仅检索最后一次播放、且尚未完成（进度未达 99%）的非删除书籍进度。
-    // 这样可以确保用户下次进入应用时，迷你播放器不会加载已经播放完毕的书籍。
+    // Cold Start Session Healing (Queries progress of the last played book that is incomplete (progress < 99%))
+    // Prevents completed audiobooks from being restored into the miniplayer during cold startup loops.
     @Query("""
         SELECT book_progress.* FROM book_progress
         INNER JOIN books ON books.id = book_progress.bookId
@@ -201,28 +204,26 @@ interface BookDao {
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, totalDurationMs = :duration WHERE id = :id")
     suspend fun updateMetadata(id: String, title: String, author: String, narrator: String, description: String, duration: Long)
 
-    // 根据书籍ID更新书籍的详细元数据，包括标题、作者、讲述人、描述与年份，便于“书籍信息修改器”进行统一编辑与保存
+    // Save Metadata Edits (Updates logical book details including title, creator, narrator, and release year)
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, year = :year WHERE id = :id")
     suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String)
 
-    // 专门用于当缓存被清理丢失后，后台重新提取并局部更新书籍封面的物理缓存路径、背景主色调与最新扫描时间戳。
-    // 使用局部 UPDATE 避免覆盖其他并发更新的字段，防止引发多线程写入竞态。此外，通过更新 lastScannedAt 强制让 Flow 重发以触发布局重绘自动刷新。
+    // Partial Cover Path Resolution (Re-persists cover location, palette color, and scan timestamps after cache clearance)
+    // Updates specific columns to prevent overwrite race conditions and triggers Flow emissions for UI redraws.
     @Query("UPDATE books SET coverPath = :coverPath, thumbnailPath = :thumbnailPath, backgroundColorArgb = :backgroundColorArgb, lastScannedAt = :lastScannedAt WHERE id = :id")
     suspend fun updateCoverPaths(id: String, coverPath: String?, thumbnailPath: String?, backgroundColorArgb: Int?, lastScannedAt: Long)
 
-    // 根据书库根目录ID查询该书库下所有的书籍实体，专用于在书库被删除释放权限时，安全地物理清理关联的封面和缩略图物理缓存文件，避免造成文件垃圾残留
+    // Root Directory Teardown Helper (Retrieves books associated with a target root ID to safely delete cached cover files)
+    // This avoids piling up orphaned thumbnail files in sandboxed application caches.
     @Query("SELECT * FROM books WHERE rootId = :rootId")
     suspend fun getBooksByRootId(rootId: String): List<BookEntity>
-
-    // 根据书籍 ID 更新书籍的阅读状态（未开始/进行中/已完成）到 Room 数据库中，用于响应长按菜单状态修改和播放位置自动更新
     @Query("UPDATE books SET readStatus = :readStatus WHERE id = :id")
     suspend fun updateBookReadStatus(id: String, readStatus: String)
 
     /**
-     * 详尽的中文注释：在同一个数据库写事务内，原子化执行进度读取、映射计算、进度落盘以及阅读状态联动更新。
-     * 本方法采用 Room 核心的 @Transaction 机制，将原本分散在应用服务层的多步读写动作聚合为原子事务，
-     * 从而在底层彻底规避高频进度上报时由于协程并发交错执行导致的“读-改-写”竞态数据覆盖（进度回退）缺陷，
-     * 并确保在进程强杀或异常抛出时数据绝对处于一致状态。
+     * Atomic Progress Transaction (Atomically executes reading, mapping, inserting, and readStatus updates within a transaction)
+     * Utilizes Room's @Transaction mechanism to combine multi-step writes into a single database transaction.
+     * This avoids read-modify-write race conditions under concurrent progress reports and maintains database consistency.
      */
     @Transaction
     suspend fun updateProgressWithReadStatus(bookId: String, position: Long, currentTime: Long) {
@@ -256,7 +257,7 @@ interface BookDao {
             ))
         }
 
-        // 联动更新阅读状态
+        // Read State Correlation (Dynamically transition readStatus flags based on calculated position progress)
         val book = getBookById(bookId)
         if (book != null) {
             val nextStatus = when {

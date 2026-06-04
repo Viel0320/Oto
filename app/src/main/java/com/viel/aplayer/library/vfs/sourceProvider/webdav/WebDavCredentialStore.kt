@@ -5,7 +5,7 @@ import android.util.Base64
 import androidx.core.content.edit
 import java.util.UUID
 
-// WebDAV 凭据先用独立 SharedPreferences 持久化，LibraryRootEntity 只保存 credentialId，后续可无侵入替换为 Keystore/加密存储。
+// WebDAV credentials are persisted in separate SharedPreferences initially; LibraryRootEntity only references credentialId, allowing future Keystore migration.
 data class WebDavCredential(
     val id: String,
     val username: String,
@@ -13,7 +13,7 @@ data class WebDavCredential(
     val allowInsecureTls: Boolean = false
 )
 
-// 该仓库是远程连接凭据边界，避免 Provider、UI 和数据库表直接散落保存账号密码字段。
+// This store encapsulates connection credentials, preventing usernames/passwords from scattering into Provider, UI, or Room tables.
 class WebDavCredentialStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -30,7 +30,7 @@ class WebDavCredentialStore(context: Context) {
             password = password,
             allowInsecureTls = allowInsecureTls
         )
-        // 所有字段按 credentialId 分组写入，确保同一应用内可以同时保存多个 WebDAV 连接。
+        // Groups preference fields by credentialId, enabling concurrent storage of multiple WebDAV connections.
         preferences.edit {
             putString(key(credentialId, KEY_USERNAME), username)
                 .putString(key(credentialId, KEY_PASSWORD), encodedPassword)
@@ -57,7 +57,7 @@ class WebDavCredentialStore(context: Context) {
 
     fun delete(credentialId: String?) {
         if (credentialId.isNullOrBlank()) return
-        // 删除 WebDAV root 时同步清掉凭据引用，避免遗留不可见账号密码。
+        // Erases credentials when deleting WebDAV root to avoid leaving stale username/password records in SharedPreferences.
         preferences.edit {
             remove(key(credentialId, KEY_USERNAME))
                 .remove(key(credentialId, KEY_PASSWORD))

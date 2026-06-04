@@ -25,11 +25,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * 书库根目录管理与维护应用服务（实现了 LibraryRootGateway 网关）。
- *
- * 核心设计目标：
- * 1. 彻底解耦消灭上帝类：在 M6d 阶段，去掉对 BookLibraryRepository 的所有直接引用，直接通过注入 Context, LibraryRootDao, BookDao 与 ScanScheduler 支撑。
- * 2. 完美平移热缓存与清理：精心保留 SAF 持久化授权 takePersistableUriPermission、CachedRoots 内存热缓存更新以及级联删除时的物理封面图清理机制。
+ * Library Roots Management Application Service (Implements LibraryRootGateway)
+ * 
+ * Core Design Goals:
+ * 1. Eradicate God-Class Dependencies: Directly queries narrow schemas by injecting Context, LibraryRootDao, BookDao, and ScanScheduler in the M6d phase.
+ * 2. Re-anchor Memory Cache and Purge Steps: Retains takePersistableUriPermission permissions, synchronous cachedRoots syncs, and cover purges upon deletion.
  */
 class LibraryRootService(
     context: Context,
@@ -41,29 +41,35 @@ class LibraryRootService(
     private val absCredentialStoreOverride: AbsCredentialStore? = null
 ) : LibraryRootGateway, java.io.Closeable {
 
-    // 采用全局 applicationContext 阻断潜在的生命周期泄露
+    // Application Context Binding (Lifecycle leak prevention)
+    // Captures the global context to avoid referencing and leaking short-lived Activity lifecycles.
     private val appContext = context.applicationContext
 
-    // 物理目录与 WebDAV 凭据底层管理组件
+    // Core Storage Managers (Low-level protocol abstractions)
+    // Handles directory registrations and server configuration store managers.
     private val rootStore = rootStoreOverride ?: LibraryRootStore(appContext)
     private val webDavCredentialStore = webDavCredentialStoreOverride ?: WebDavCredentialStore(appContext)
     private val absCredentialStore = absCredentialStoreOverride ?: AbsCredentialStore.getInstance(appContext)
     private val database by lazy { com.viel.aplayer.data.db.AppDatabase.getInstance(appContext) }
 
-    // 后台热缓存更新专属协程异常拦截器
+    // Private Exception Handler (Background thread failure barrier)
+    // Intercepts background failures during reactive root cache synchronization.
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         ScanWorkflowLogger.error("libraryRootService coroutine failure", exception)
     }
 
-    // 服务专属异步写与缓存操作协程上下文
+    // Operations Coroutine Scope (Isolated task execution pool)
+    // Dedicated scope bound to Dispatchers.IO for offloading write and cache tracking operations.
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
-    // 零延迟冷启动极速渲染缓存，消解 Room 异步流读取导致的首帧闪烁
+    // Hot Cache Cache-Memory (Render delay prevention)
+    // Stores memory caches synchronously to avoid first-frame flickering from asynchronous database loads.
     @Volatile
     private var cachedRoots: List<LibraryRootEntity> = emptyList()
 
     init {
-        // 在服务初始化时即刻订阅书库根的变动 Flow，热同步内存缓存
+        // Initialize In-Memory Cache (Reactive collection sync)
+        // Collects database updates reactively to keep the local cachedRoots snapshot fresh.
         scope.launch {
             observeLibraryRoots().collect {
                 cachedRoots = it
@@ -104,7 +110,8 @@ class LibraryRootService(
         libraryId: String,
         displayName: String
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
-        // ABS root 只写入 root 与凭据引用，不触发本地文件扫描；catalog mirror 会在后续阶段独立执行。
+        // ABS Registration Isolation (Independent scan scheduling)
+        // Writes only the root schema references without scanning files; remote catalog mirroring runs in a separate stage.
         rootStore.addAbsRoot(
             credentialId = credentialId,
             libraryId = libraryId,
@@ -115,13 +122,15 @@ class LibraryRootService(
     override fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String) {
         scope.launch {
             runCatching {
-                // 向系统内容解析器确保持久化申请 SAF 本地目录树级别读取授权，防止关机重启后吊销
+                // Persistent Permission Acquisition (SAF reachability guard)
+                // Requests persistable directory read permissions to prevent access loss upon device reboot.
                 appContext.contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
                 setLibraryRoot(uri)
-                // 通过注入的扫描网关，非阻塞触发本次新入库物理路径的文件深度同步
+                // Trigger Immediate Rescan (Pipeline synchronization trigger)
+                // Dispatches an immediate background sync scan for the newly registered storage root.
                 scanScheduler.syncLibrary(trigger)
             }.onFailure { error ->
                 ScanWorkflowLogger.error("libraryRootService add SAF root failed", error)
@@ -140,7 +149,8 @@ class LibraryRootService(
         scope.launch {
             runCatching {
                 addWebDavLibraryRoot(url, username, password, displayName, basePath)
-                // 通过注入的扫描网关，非阻塞触发本次新入库网络路径的文件深度同步
+                // Trigger Immediate Rescan (Pipeline synchronization trigger)
+                // Dispatches an immediate background sync scan for the newly registered WebDAV root.
                 scanScheduler.syncLibrary(trigger)
             }.onFailure { error ->
                 ScanWorkflowLogger.error("libraryRootService add WebDAV root failed", error)
@@ -153,7 +163,7 @@ class LibraryRootService(
     }
 
     override suspend fun deleteLibraryRootDataOnly(root: LibraryRootEntity): Unit = withContext(Dispatchers.IO) {
-        // 1. 在数据库级联删除触发前，递归清除该根旗下所有书籍关联的物理封面与缩略图文件，规避存储泄露
+        // 1. Recursive cover cache purge: Deletes cover files from storage to prevent leaks before SQLite cascade deletes.
         try {
             val books = bookDao.getBooksByRootId(root.id)
             books.forEach { book ->
@@ -176,7 +186,7 @@ class LibraryRootService(
             ScanWorkflowLogger.error("libraryRootService clear cover cache failed: rootId=${root.id}", e)
         }
 
-        // 2. 根据数据源类型，撤销系统级 SAF 持久访问权限或安全抹除网络 WebDAV 凭据
+        // 2. Revoke permissions or remove secrets based on the root type (SAF tree release, or credential purge).
         when (LibrarySourceKind.from(root.sourceType)) {
             LibrarySourceKind.SAF -> {
                 try {
@@ -193,7 +203,8 @@ class LibraryRootService(
                 webDavCredentialStore.delete(root.credentialId)
             }
             LibrarySourceKind.ABS -> {
-                // 一个 ABS server 可以绑定多个 library root，因此只有当没有其他 ABS root 继续引用同一 credentialId 时，才真正删除凭据。
+                // ABS Credential Reference Check (Multi-root secret isolation)
+                // Only removes ABS credentials if no other registered ABS roots share the same credential ID.
                 if (shouldDeleteAbsCredential(root, libraryRootDao.getAllRootsOnce())) {
                     absCredentialStore.delete(root.credentialId)
                 }
@@ -210,13 +221,13 @@ class LibraryRootService(
             }
         }
 
-        // 3. 在 Room 库执行根注销（外键配置了 ON DELETE CASCADE 级联删除，书籍与音轨子记录会在同个事务里被全量自动擦除）
+        // 3. Room root deletion: Removes the database row, triggering SQLite CASCADE deletes for child files and books.
         libraryRootDao.deleteRoot(root)
     }
 
     override fun close() {
-        // 详尽的中文注释：当服务被销毁或依赖容器卸载时，显式取消私有后台协程专属作用域，
-        // 打断 init 中永不结束的 observeLibraryRoots Flow 监听收集，彻底消灭内存泄漏风险
+        // Cancel Background Scopes (Memory leak cleanup)
+        // Cancels the private coroutine scope to close active Flow collection loops upon service teardown.
         scope.cancel()
     }
 }

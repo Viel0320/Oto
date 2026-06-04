@@ -6,11 +6,11 @@ import com.viel.aplayer.data.store.SearchHistoryStore
 import kotlinx.coroutines.flow.Flow
 
 /**
- * 历史检索清册维护应用服务（实现了 SearchHistoryGateway 网关）。
- *
- * 核心设计目标：
- * 1. 彻底解耦并消灭大仓库：在 M6f 阶段直接直连注入 SearchHistoryStore 检索历史存储，完全摆脱对旧上帝仓库的委托。
- * 2. 完美平移搜索历史的 DataStore 读写及清空：精心平移了对 `addToHistory`、`deleteFromHistory` 以及 `clearHistory` 等核心数据流存取行为。
+ * Search History Persistence Service (Implements SearchHistoryGateway)
+ * 
+ * Core Design Goals:
+ * 1. Complete Repository Decoupling: Directly connects with SearchHistoryStore in the M6f phase, fully eliminating bloated repository delegations.
+ * 2. Re-anchor DataStore Actions: Perfectly preserves underlying stream processing flows for addToHistory, deleteFromHistory, and clearHistory operations.
  */
 class SearchService(
     private val searchHistoryStore: SearchHistoryStore
@@ -20,19 +20,22 @@ class SearchService(
         get() = searchHistoryStore.history
 
     override suspend fun addToHistory(query: String) {
-        // 校验检索词非空后，将其异步以追加合并的方式写入 DataStore 存储
+        // Validate and Append Search Query (DataStore write optimization)
+        // Verifies the search query is non-blank before asynchronously prepending it to the persistent history database.
         if (query.isNotBlank()) {
             searchHistoryStore.add(query)
         }
     }
 
     override suspend fun deleteFromHistory(history: SearchHistoryEntry) {
-        // 物理删除指定的搜索历史条目
+        // Delete Specific History Query (Targeted entry purge)
+        // Permanently removes the designated search history record from the persistent storage.
         searchHistoryStore.delete(history)
     }
 
     override suspend fun clearHistory() {
-        // 一键物理清空 DataStore 中的全部搜索历史清单
+        // Clear All Search History (Bulk storage format purge)
+        // Cleans the persistent DataStore list, deleting all cached search queries.
         searchHistoryStore.clear()
     }
 }

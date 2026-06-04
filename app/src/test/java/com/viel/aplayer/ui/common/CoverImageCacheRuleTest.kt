@@ -9,8 +9,8 @@ class CoverImageCacheRuleTest {
 
     @Test
     fun `small and medium scenes should prefer thumbnail path`() {
-        // 详尽的中文注释：搜索结果、首页列表、迷你播放器和最近播放都属于缩略图优先场景。
-        // 这个测试把规则钉在 CoverImageSourceSelector 上，避免后续 UI 文件重新散落 `thumbnailPath ?: coverPath`。
+        // Thumbnail preference verification. Search results, main feed list, mini player, and recently played scenes prefer thumbnails.
+        // This test pins the selection rules on CoverImageSourceSelector, preventing individual UI files from scattered fallback expressions.
         assertEquals(
             "/cache/thumb.jpg",
             CoverImageSourceSelector.small(
@@ -29,8 +29,8 @@ class CoverImageCacheRuleTest {
 
     @Test
     fun `main scenes should prefer original cover path`() {
-        // 详尽的中文注释：详情页和播放器主封面需要优先使用原图，再通过 Main1200 限制解码尺寸。
-        // 如果这里误改成缩略图优先，主封面会复用低清小图，直接破坏阶段 2 的展示规则边界。
+        // Main cover preference verification. Detail pages and the main player cover prioritize the original high-resolution cover before restricting decoding dimensions via Main1200.
+        // Misconfiguring this to prefer thumbnails would cause the main cover to reuse low-res images, violating the phase 2 presentation rule boundaries.
         assertEquals(
             "/cache/original.jpg",
             CoverImageSourceSelector.main(
@@ -42,7 +42,7 @@ class CoverImageCacheRuleTest {
 
     @Test
     fun `backdrop scenes should prefer thumbnail path`() {
-        // 详尽的中文注释：背景模糊只作为采样源，优先缩略图可以避免为了 64dp blur 解码高清封面。
+        // Backdrop preference verification. Background blur only serves as a sampling source, so preferring thumbnails avoids decoding high-res covers for simple 64dp blur effects.
         assertEquals(
             "/cache/thumb.jpg",
             CoverImageSourceSelector.backdrop(
@@ -54,8 +54,8 @@ class CoverImageCacheRuleTest {
 
     @Test
     fun `selector should fall back to available path and keep null when both paths missing`() {
-        // 详尽的中文注释：选择器只负责路径优先级，不负责制造占位路径。
-        // 两个路径都缺失时继续返回 null，让 UI 的占位分支自然接管。
+        // Selector responsibility bounds. The selector only determines path priority and does not generate placeholders.
+        // When both paths are missing, it returns null to let UI placeholder branches naturally take over.
         assertEquals("/cache/original.jpg", CoverImageSourceSelector.small(null, "/cache/original.jpg"))
         assertEquals("/cache/thumb.jpg", CoverImageSourceSelector.main(null, "/cache/thumb.jpg"))
         assertNull(CoverImageSourceSelector.small(null, null))
@@ -85,11 +85,11 @@ class CoverImageCacheRuleTest {
             variant = CoverImageVariant.ThumbnailSmall
         )
 
-        // 详尽的中文注释：同一 variant、同一路径、同一更新时间必须稳定复用 key。
+        // Cache key stability. The key must be consistently reused for the identical variant, path, and update timestamp.
         assertEquals(firstSmallKey, secondSmallKey)
-        // 详尽的中文注释：不同 variant 必须隔离，防止列表小图和主封面大图互相污染内存缓存。
+        // Cache key variant isolation. Different variants must be isolated to prevent memory cache pollution between thumbnail and main cover images.
         assertNotEquals(firstSmallKey, mainKey)
-        // 详尽的中文注释：更新时间变化必须打破旧 key，封面自愈或 ABS 换图后才能刷新 UI。
+        // Cache key invalidation. Changes in update timestamp must invalidate the old key, ensuring UI updates upon cover recovery or ABS replacements.
         assertNotEquals(firstSmallKey, refreshedSmallKey)
     }
 }

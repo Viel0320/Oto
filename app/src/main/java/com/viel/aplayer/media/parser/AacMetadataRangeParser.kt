@@ -7,8 +7,8 @@ import java.nio.charset.StandardCharsets
 import java.util.UUID
 import kotlin.math.roundToLong
 
-// aac/adts 的格式逻辑也全部留在本文件内，
-// 这里只接受前置 ID3v2 / 尾部 ID3v1 / 首帧 ADTS 的局部范围读取。
+// ADTS Frame Parsing Rules (Centralize all AAC/ADTS file layout logic inside this file)
+// Restricts file IO to front ID3v2, trailing ID3v1, and leading ADTS frame segments.
 internal object AacMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
         displayName.endsWith(".aac", ignoreCase = true)
@@ -174,7 +174,8 @@ internal object AacMetadataRangeParser : RangeAudioFormatParser {
                 "TRK", "TRCK" -> trackIndex = trackIndex ?: RangeAudioParserSupport.normalizeTrackIndex(decodeId3TextFrame(payload))
                 "TLE", "TLEN" -> durationMs = durationMs ?: decodeId3TextFrame(payload)?.toLongOrNull()
                 "TXX", "TXXX" -> {
-                    // TXXX/TXX 是用户自定义字段集合，先记录字段名和值，最终交给统一 description 规则按优先级挑选。
+                    // User-Defined Tags Caching (Collect TXXX/TXX custom text tags to let the unified priority rules select description)
+                    // Caches names and values of custom fields in customDescriptionFields for later description mapping.
                     decodeId3UserTextFrame(payload)?.let { (fieldName, value) ->
                         customDescriptionFields.putIfAbsent(fieldName, value)
                     }
@@ -197,8 +198,8 @@ internal object AacMetadataRangeParser : RangeAudioFormatParser {
             author = author,
             narrator = narrator,
             album = album,
-            // 调整 AAC 描述的提取优先级：优先选择普通备注帧（COMM 帧，即这里的 description 变量）作为简介入库；
-            // 如果不存在 COMM 普通备注帧，则降级回退到 TXXX 自定义文本帧（如自定义的 description、synopsis 等）中进行匹配。
+            // Target Description Priority (Prioritize standard COMM comment frames over custom TXXX texts)
+            // Returns standard comments if present, otherwise falls back to custom tags (e.g., synopsis).
             description = description?.takeIf { it.isNotBlank() }
                 ?: MetadataDescriptionRules.firstDescriptionFromFields(customDescriptionFields),
             year = year,

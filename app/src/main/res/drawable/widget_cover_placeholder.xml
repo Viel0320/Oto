@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 为本次桌面 widget 改动添加注释：无封面时的霓虹渐变占位图，呼应用户参考图里的紫蓝色音乐氛围。 -->
+<!-- Widget Cover Placeholder (Neon gradient background image shown when no cover art is available, aligning with the dark purple and blue aesthetic) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <corners android:radius="18dp" />
     <gradient

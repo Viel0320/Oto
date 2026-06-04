@@ -17,26 +17,26 @@ import com.viel.aplayer.ui.settings.PlayerSettingsState
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
- * 全屏播放器下半区控制面板。
- * 纵向编排章节标题、进度条、播放控制按钮三个子区域。
+ * Player control panel component (PlayerControlPanel).
  *
- * 已经过重构彻底去除了对 PlayerViewModel 及其内部 State 类型的任何依赖，
- * 所有状态均通过基础类型与通用实体显式参数传递，实现了 Layer 3 无状态纯渲染组件的极致解耦与极致的重绘隔离。
+ * This panel occupies the lower section of the full screen player, vertically arranging three sub-sections: chapter title, playback progress bar, and playback control buttons.
+ * It has been refactored to completely remove any dependencies on PlayerViewModel and its internal UI state classes.
+ * All states are explicitly passed down using primitive types and general entity parameters to achieve layer 3 stateless pure-rendering separation and maximum recomposition isolation.
  *
- * @param currentPosition 播放器当前物理播放进度（毫秒）
- * @param totalDuration 播放器当前物理总时长（毫秒）
- * @param isChapterMode 当前进度条是否处于章节进度视图模式
- * @param currentChapter 当前正处于播放状态的章节实体
- * @param metadata 当前书籍的元数据状态
- * @param isPlaying 当前是否处于播放中状态
- * @param playbackSpeed 当前的播放速率
- * @param isSpeedManualMode 播放速率是否被手动调节锁定
- * @param settings 播放器 UI 设置状态
- * @param actions 播放器操作回调聚合
- * @param buttonColor 控制按钮的主色调（动画过渡后的封面主色）
- * @param glassEffectMode 播放器当前玻璃视效模式 (Material/miuix-blur)
- * @param backdrop 采样源的 LayerBackdrop
- * @param modifier 外部传入的布局修饰符，便于弹性控制宽度及对齐排版
+ * @param currentPosition The current physical playback progress of the player (in milliseconds).
+ * @param totalDuration The current physical total duration of the player (in milliseconds).
+ * @param isChapterMode Whether the progress bar is currently in chapter progress view mode.
+ * @param currentChapter The chapter entity that is currently playing.
+ * @param metadata The metadata state of the current book.
+ * @param isPlaying Whether the player is currently playing.
+ * @param playbackSpeed The current playback speed.
+ * @param isSpeedManualMode Whether the playback speed is locked by manual adjustment.
+ * @param settings The player UI settings state.
+ * @param actions Aggregated player actions callback.
+ * @param buttonColor The dominant color of the control buttons (the transition-animated dominant color of the book cover).
+ * @param glassEffectMode The current glass effect mode (Material/miuix-blur) for the player.
+ * @param backdrop The LayerBackdrop sampling source.
+ * @param modifier The layout modifier passed from outside to elastically control width and alignment layout.
  */
 @Composable
 fun PlayerControlPanel(
@@ -56,13 +56,13 @@ fun PlayerControlPanel(
     modifier: Modifier = Modifier
 ) {
     Column(
-        // 剥离硬编码的 padding(horizontal = 24.dp)，将布局内边距的控制权移交给外部调用者，以实现彻底顶满屏幕或者按需缩进
-        // 为整个播放控制面板容器添加 4dp 的内边距，以避免控制面板的子元素紧贴边缘，提升视觉美观度与触控体验
+        // Hardcoded padding(horizontal = 24.dp) has been stripped, moving control of layout padding to external callers to achieve full edge-to-edge layout or custom indentations.
+        // Add 8dp of padding to the entire play control panel container to prevent control panel sub-elements from sticking to the edges, improving visual elegance and touch experience.
         modifier = modifier
             .fillMaxWidth()
             .padding(8.dp)
     ) {
-        // 章节标题显示组件，已解耦 ViewModel，直接调用无状态组件，传入解包后的当前章节标题等参数
+        // Chapter title display component, decoupled from ViewModel, directly calling the stateless component by passing the unpacked current chapter title and other parameters.
         ChapterDisplay(
             currentChapterTitle = currentChapter?.title ?: metadata.title,
             onChapterClick = actions.content.onShowChapterList,
@@ -73,12 +73,12 @@ fun PlayerControlPanel(
         )
         Spacer(Modifier.height(16.dp))
 
-        // 进度条显示组件，已解耦 ViewModel，直接传入当前播放位置、总时长以及对应的章节划分，实现极致渲染性能
+        // Progress bar display component, decoupled from ViewModel, directly passing the current playback position, total duration, and corresponding chapter partitions to achieve peak rendering performance.
         PlaybackProgress(
             currentPosition = currentPosition,
             totalDuration = totalDuration,
             isChapterMode = isChapterMode,
-            // 从元数据列表中映射并就地解包出无关联的章节物理定义，以匹配 Stateless 组件的数据类型要求
+            // Map and unpack the independent chapter physical definitions from the metadata list on the fly to match the data type requirements of the stateless component.
             chapters = metadata.chapters.map { it.chapter },
             markers = metadata.getChapterMarkers(totalDuration),
             onSeek = { pos -> actions.playback.onSeek(pos, true) },
@@ -87,7 +87,7 @@ fun PlayerControlPanel(
         )
         Spacer(Modifier.height(24.dp))
         
-        // 播放控制组件，传入 fillMaxWidth 让底部的五个控制按钮横向等距均匀排开，自适应各尺寸容器宽度
+        // Playback control component, passing fillMaxWidth to allow the five control buttons at the bottom to expand horizontally with equal spacing, adapting to container widths of various sizes.
         PlaybackControls(
             isPlaying = isPlaying,
             playbackSpeed = playbackSpeed,
@@ -102,4 +102,3 @@ fun PlayerControlPanel(
         Spacer(Modifier.height(12.dp))
     }
 }
-

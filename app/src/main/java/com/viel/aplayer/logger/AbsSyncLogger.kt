@@ -1,12 +1,12 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS catalog mirror 与后台同步链路日志。
+ * ABS Sync Logger (Catalog synchronization and background synchronization worker logs)
  *
- * 责任边界：
- * 1. 记录 root 级同步计划、全量清单、batch detail、upsert、STALE/REMOTE_DELETED、worker 与 scheduler。
- * 2. 不记录认证、设置页动作、播放会话、读流细节。
- * 3. 专注回答“哪一个 root 同步了什么、失败在哪一层、是否发生了删除收敛”。
+ * Boundaries of responsibility:
+ * 1. Logs root-level sync plans, minified index results, batch details requests, local upserts, stale markers, remote deleted lists, and WorkManager task scheduling.
+ * 2. Does not log authentication checks, user settings view actions, playback sessions, or low-level HTTP stream details.
+ * 3. Designed to trace library synchronization cycles, batch failure hotspots, and deletions reconciliation.
  */
 internal object AbsSyncLogger {
     private const val TAG = "AbsSync"

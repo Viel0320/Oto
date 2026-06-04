@@ -5,27 +5,33 @@ import com.viel.aplayer.library.FileInventory
 import com.viel.aplayer.library.vfs.VfsFileInterface
 
 /**
- * 导入同步上下文
+ * Import Synchronization Context
  * 
- * 本类声明为 internal 限制其在本模块内可见，妥善解决类型曝光错误。
- * 本类承载扫描生命周期内的全局只读变量和内存缓存，避免多级步骤间的繁琐参数传递。
+ * This class is declared as internal to limit its visibility within this module, resolving type exposure issues.
+ * It carries global read-only variables and in-memory cache within the scanning lifecycle to avoid complex parameter passing between steps.
  */
 internal data class ImportContext(
-    // 唯一的扫描任务会话 ID，每次扫描由协调器分配，用于日志追踪与冲突动作归档
+    // Scan Session Identifier (Unique run ID)
+    // Allocated by the orchestrator for log tracking and conflict action archiving.
     val scanId: String,
     
-    // 内存中的“首次认领者胜出”冲突内存账本，防范同批次扫描内多个书籍草稿争夺同一个物理音轨
+    // Conflict Claim Ledger (Memory claim tracker)
+    // In-memory 'first claim wins' ledger preventing multiple draft books from contesting the same track in a single scan.
     val runClaimLedger: RunClaimLedger = RunClaimLedger(),
     
-    // 数据库中目前已经存在的书籍和音轨物理归属认领索引
+    // Existing Claims Index (Database ownership lookup)
+    // Index mapping existing book and track ownership claims currently persisted in the database.
     val existingClaimIndex: ExistingClaimIndex,
     
-    // 物理文件存量盘点结果的缓存（共享给后续工位，防重复扫描）
+    // Shared File Inventory (Physical scan cache)
+    // Cached physical file inventory shared among pipeline stages to prevent redundant file scans.
     var sharedInventory: FileInventory? = null,
     
-    // 已被清单文件（CUE/M3U8）预占用的音频物理标识，防止它们参与启发式智能聚类
+    // Reserved Audio Identities (Pre-allocated files exclusion)
+    // Tracks audio file identities pre-allocated by manifests (CUE/M3U8) to prevent heuristic grouping.
     val reservedAudioIdentities: MutableSet<FileIdentity> = mutableSetOf(),
 
-    // 会话生命周期级统一的虚拟文件系统读取门面，避免下层步骤重复构建 VFS 快照
+    // Virtual File System Reader (Shared VFS facade)
+    // Shared file reader facade for the current session to avoid redundant VFS snapshot reconstructions.
     val scopeFileReader: VfsFileInterface? = null
 )

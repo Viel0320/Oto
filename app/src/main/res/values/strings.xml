@@ -23,7 +23,7 @@
     <string name="chapter_progress_title">Chapter Progress Mode</string>
     <string name="chapter_progress_subtitle">Progress bar and notifications show current chapter
         only</string>
-    <!-- 为本次桌面 widget 改动添加注释：以下字符串专供 2x2 播放器桌面小组件使用，覆盖名称、空状态与按钮无障碍文案。 -->
+    <!-- Widget Strings (String definitions dedicated to the 2x2 player widget, including titles, empty states, and accessibility descriptions) -->
     <string name="player_widget_name">APlayer 播放器</string>
     <string name="player_widget_description">2x2 桌面播放器小组件</string>
     <string name="player_widget_empty_title">APlayer</string>

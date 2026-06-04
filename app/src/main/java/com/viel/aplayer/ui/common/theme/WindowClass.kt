@@ -13,57 +13,60 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * 详尽的中文注释：
- * 统一的屏幕与窗口尺寸类别自适应数据类。
- * 封装了基于 Android 官方 WindowSizeClass API 的核心自适应逻辑，
- * 用以在各种不同尺寸的设备（如手机、折叠屏、平板）以及不同的横竖屏方向下，
- * 统一控制和计算网格列数、内边距、布局类型等属性，避免硬编码判断。
+ * Window Class Spec: Defines device size categories for responsive UI layouts.
+ *
+ * Encapsulates core layout calculation logic derived from the Android WindowSizeClass API.
+ * Tracks screen boundaries across varying device form factors (e.g., phones, foldables, tablets) and orientations
+ * to dynamically determine columns, padding, and layout structures, eliminating hardcoded checks.
  */
 @Immutable
 data class WindowClass(
     /**
-     * 详尽的中文注释：官方的宽度尺寸分级类，包括 Compact、Medium、Expanded。
+     * Width Bracket (Standardized width tier: Compact, Medium, or Expanded)
      */
     val widthSizeClass: WindowWidthSizeClass,
     /**
-     * 详尽的中文注释：官方的高度尺寸分级类，包括 Compact、Medium、Expanded。
+     * Height Bracket (Standardized height tier: Compact, Medium, or Expanded)
      */
     val heightSizeClass: WindowHeightSizeClass,
     /**
-     * 详尽的中文注释：当前窗口是否处于横屏方向。
+     * Orientation Flag (True if device is in landscape mode)
      */
     val isLandscape: Boolean,
     /**
-     * 详尽的中文注释：当前屏幕或窗口的逻辑像素宽度，用于更精细的宽边距或对称分栏比例运算。
+     * Logical Width (Physical screen width mapped to density-independent pixels)
      */
     val screenWidthDp: Dp,
     /**
-     * 详尽的中文注释：当前屏幕或窗口的逻辑像素高度，用于更精细的比例计算。
+     * Logical Height (Physical screen height mapped to density-independent pixels)
      */
     val screenHeightDp: Dp
 ) {
     /**
-     * 详尽的中文注释：
-     * 判断当前是否为平板设备或折叠大屏。
-     * 根据官方自适应推荐规范，最窄宽度（widthSizeClass）为 Medium（宽度 >= 600dp）或 Expanded（宽度 >= 840dp）时，判定为大屏平板或折叠屏设备。
+     * Large Screen Check (Verify if device has a tablet-class display)
+     *
+     * Returns true if width size class is Medium (>= 600dp) or Expanded (>= 840dp),
+     * matching the official guidelines for tablets and foldable devices.
      */
     val isTablet: Boolean
         get() = widthSizeClass != WindowWidthSizeClass.Compact
 
     /**
-     * 详尽的中文注释：
-     * 判断当前是否为宽屏显示状态。
-     * 平板大屏设备（无论横竖屏）或处于横屏方向下的普通手机，均归为宽屏形态，以便共用卡片式或双栏流体布局。
+     * Wide Layout Check (Determine if wide configuration should be used)
+     *
+     * True if the screen is either tablet-sized or a standard phone in landscape orientation.
+     * Used to trigger side-by-side split layouts or grid card structures.
      */
     val isWideScreen: Boolean
         get() = isTablet || isLandscape
 
     /**
-     * 详尽 of 中文注释：
-     * 自适应计算书籍列表的网格展示列数（columnsCount）：
-     * 1. 当且仅当设备是平板（isTablet 为 true）且当前宽度达到 Expanded 级别（即宽度 >= 840dp，如平板横屏或大折叠屏展开）时，采用 3 列网格以提升大屏利用效率。
-     * 2. 其他宽屏设备（如普通横屏手机或较窄的平板竖屏），统一展示为 2 列卡片，避免手机横屏 3 列导致内容过于拥挤。
-     * 3. 手机竖屏状态（Compact 宽度）下展示为 1 列经典列表。
+     * Grid Column Calculator (Adjust grid columns dynamically for book catalog lists)
+     *
+     * Calculations base:
+     * 1. Renders 3 columns if the device is a tablet and width is Expanded (>= 840dp, e.g., landscape tablet).
+     * 2. Renders 2 columns for other wide screens (e.g., standard phone in landscape or portrait tablet).
+     * 3. Falls back to 1 column for standard vertical phone viewport (Compact width).
      */
     val columnsCount: Int
         get() = when {
@@ -73,26 +76,26 @@ data class WindowClass(
         }
 
     /**
-     * 详尽的中文注释：
-     * 自适应获取屏幕两侧的横向业务内边距（Dp）。
-     * 宽屏状态下采用 24.dp 边距，普通状态下采用 16.dp 边距，确保极致的视觉对齐和内容呼吸感。
+     * Responsive Side Padding (Differentiate margins for spacing layout)
+     *
+     * Returns 24.dp for wide screens and 16.dp for compact viewports, optimizing visual breathing room.
      */
     val screenHorizontalPadding: Dp
         get() = if (isWideScreen) 24.dp else 16.dp
 
     /**
-     * 详尽的中文注释：
-     * 平板横屏双栏排版判定条件。
-     * 只有当设备是平板（最窄宽度 >= 600dp）且当前处于横屏状态时，才启用高级的左右对称双栏控制板。
+     * Tablet Landscape Flag (Verify if dual-pane layouts are active)
+     *
+     * Evaluates to true only on tablet devices in landscape orientation, allowing side-by-side control views.
      */
     val isTabletLandscape: Boolean
         get() = isTablet && isLandscape
 
     companion object {
         /**
-         * 详尽的中文注释：
-         * 常用预设一：竖屏普通智能手机。
-         * 宽度为 Compact（360dp），高度为 Medium（800dp），非横屏。
+         * Standard Preset: Portrait Phone view.
+         *
+         * Configured with Compact width (360dp), Medium height (800dp), and vertical orientation.
          */
         val PortraitPhone = WindowClass(
             widthSizeClass = WindowWidthSizeClass.Compact,
@@ -103,9 +106,9 @@ data class WindowClass(
         )
 
         /**
-         * 详尽的中文注释：
-         * 常用预设二：横屏普通智能手机。
-         * 宽度为 Medium（720dp），高度为 Compact（360dp），横屏状态。
+         * Standard Preset: Landscape Phone view.
+         *
+         * Configured with Medium width (720dp), Compact height (360dp), and horizontal orientation.
          */
         val LandscapePhone = WindowClass(
             widthSizeClass = WindowWidthSizeClass.Medium,
@@ -116,9 +119,9 @@ data class WindowClass(
         )
 
         /**
-         * 详尽的中文注释：
-         * 常用预设三：横屏平板设备。
-         * 宽度为 Expanded（1280dp），高度为 Medium（800dp），横屏状态。
+         * Standard Preset: Landscape Tablet view.
+         *
+         * Configured with Expanded width (1280dp), Medium height (800dp), and horizontal orientation.
          */
         val TabletLandscape = WindowClass(
             widthSizeClass = WindowWidthSizeClass.Expanded,
@@ -131,21 +134,23 @@ data class WindowClass(
 }
 
 /**
- * 详尽的中文注释：
- * 全局专用的 CompositionLocal 静态实例。
- * 允许在 Compose 页面渲染树中低耦合、高性能地检索当前窗口对应的自适应参数。
+ * Composition Local Key: Exposes the adaptive layout helper contextually.
+ *
+ * Allows Compose widgets to easily retrieve the active `WindowClass` parameters with minimal coupling.
  */
 val LocalWindowClass: ProvidableCompositionLocal<WindowClass> = staticCompositionLocalOf {
-    // 详尽的中文注释：默认提供 PortraitPhone 实例，保证在 Preview 预览或未显式配置的极端情况下不引发闪退崩溃，实现完美的自愈降级。
+    // Safe Fallback Default (Prevent preview layout crashes)
+    // Defaults to `PortraitPhone` to prevent potential NullPointerExceptions inside Compose Previews or unconfigured scopes.
     WindowClass.PortraitPhone
 }
 
 /**
- * 详尽的中文注释：
- * 在 Compose 组件树中感知物理窗口与配置变化，动态计算并构造 WindowClass 的 Composable 辅助函数。
- * 它能够精确对应官方 WindowSizeClass 级别的宽度高度判定：
- * - 宽度：小于 600dp 为 Compact，小于 840dp 为 Medium，大于等于 840dp 为 Expanded。
- * - 高度：小于 480dp 为 Compact，小于 900dp 为 Medium，大于等于 900dp 为 Expanded。
+ * Window Class Remembers: Computes window classes inside the Compose composition.
+ *
+ * Observes physical screen dimension and orientation transitions.
+ * Matches standard sizing tiers:
+ * - Width: Compact (<600dp), Medium (<840dp), Expanded (>=840dp).
+ * - Height: Compact (<480dp), Medium (<900dp), Expanded (>=900dp).
  */
 @Composable
 fun rememberWindowClass(): WindowClass {

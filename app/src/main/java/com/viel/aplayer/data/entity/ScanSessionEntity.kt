@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * 扫描会话实体，记录全库重扫批次。
+ * Scan Session Entity (Database model tracking global library rescan batches)
  */
 @Entity(tableName = "scan_sessions")
 data class ScanSessionEntity(

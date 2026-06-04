@@ -16,23 +16,26 @@ import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.settings.SettingsActivity
 
 /**
- * 首页图书馆的过滤选项枚举。
+ * HomeFilter Enum (Home Library Filter Options)
+ *
+ * Filter options enum for the library home screen.
  */
 enum class HomeFilter {
-    /** 正在阅读（播放进度 > 0 且未读完） */
+    /** Reading in progress (playback progress > 0 and unfinished) */
     InProgress,
-    /** 未开始 */
+    /** Not started */
     NotStarted,
-    /** 已读完 */
+    /** Finished reading */
     Finished
 }
 
 /**
- * 首页容器组件（Stateful），负责在主导航宿主中观察和同步 LibraryViewModel 和 PlayerViewModel 里的状态。
+ * HomeScreen Container (Stateful Home Page Component)
  *
- * 经过物理分离架构建设，HomeScreen 升级为了高层次的业务状态绑定容器，
- * 专门从 ViewModel 的 StateFlow 中收集 UI 数据状态，并在内部托管最近列表横向滚动状态 `recentListState`，
- * 从而完全屏蔽了网格因上下滚动被销毁导致的状态丢失隐患，净化了系统的导航与路由架构。
+ * Stateful home container component, responsible for observing and syncing state from LibraryViewModel and PlayerViewModel inside the main navigation host.
+ * Through logical architectural refactoring, HomeScreen is upgraded to a high-level business state binding container.
+ * Specifically collects UI data state from ViewModels' StateFlows, and manages the horizontal scroll state of the recent list `recentListState` internally,
+ * completely shielding the scroll state loss risk when grid scrolling dismisses it, and purifying system navigation and routing architecture.
  */
 @SuppressLint("FrequentlyChangingValue")
 @Composable
@@ -49,21 +52,22 @@ fun HomeScreen(
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // 详尽中文注释：为主页“最近”横向滚动列表维护独立的滚动状态，放在最外层，
-    // 防止在网格（LazyVerticalGrid）上下滚动时，该横向列表的状态由于离开屏幕而被销毁重置。
+    // Manage Horizontal Scroll State (State Loss Prevention)
+    // Maintain independent scroll state for home page "recent" horizontal scrolling list, placed at the outermost layer.
+    // This prevents the state of this horizontal list from being destroyed/reset due to leaving the screen when the grid (LazyVerticalGrid) scrolls up and down.
     val recentListState = rememberLazyListState()
 
-    // 详尽中文注释：利用 state 变量记录上一次渲染时的首轨书籍 ID 以及是否需要重置滚动的标记。
-    // 在 composition 阶段，列表的实际 layout 尚未运行，因此此时的 `firstVisibleItemIndex` 和 `firstVisibleItemScrollOffset`
-    // 依旧保留着上一帧的真实滚动位置。这能让我们在多本书籍批量插入导致 layout 发生物理移位前，精准捕获到“变更前是否处于起点”的状态，
-    // 彻底规避多项目批量导入时由于 Compose 默认锚定导致的状态判断失效与竞态问题。
+    // Track Initial Book State (Detect Data Mutations)
+    // Use state variables to record the first book ID of the last render and a flag indicating whether scroll needs to be reset.
+    // In composition phase, grid layout has not run, so `firstVisibleItemIndex` and `firstVisibleItemScrollOffset` still preserve the real scroll position of the previous frame.
+    // This allows us to capture the "before change start position" state before multi-book batch insertion shifts layouts, avoiding status detection failure and race conditions caused by Compose default anchor rules.
     var prevFirstBookId by remember { mutableStateOf<String?>(null) }
     var shouldScrollToStart by remember { mutableStateOf(false) }
 
     val recentBooks = libraryUiState.recentBooks
     val firstBookId = recentBooks.firstOrNull()?.book?.id
     if (firstBookId != prevFirstBookId) {
-        // 数据源首项发生变更（有新书导入或切换了过滤器）
+        // Data source first item changed (new book imported or filter switched)
         val wasAtStart = recentListState.firstVisibleItemIndex == 0 && recentListState.firstVisibleItemScrollOffset == 0
         if (wasAtStart) {
             shouldScrollToStart = true
@@ -73,8 +77,9 @@ fun HomeScreen(
 
     LaunchedEffect(shouldScrollToStart) {
         if (shouldScrollToStart) {
-            // 详尽中文注释：在 layout 运行且视口由于锚定发生偏移后，由 LaunchedEffect 异步安全地重置视口到最左侧第 0 项。
-            // 这样无论一次性导入多少本书，只要用户之前在起点，视口就会始终锁定在最左侧的最新书籍上，将旧书籍顺延推到右侧。
+            // Scroll to First Item (Safe Viewport Reset)
+            // After layout runs and the viewport offsets due to anchoring, LaunchedEffect asynchronously and safely resets viewport to the leftmost 0th item.
+            // Thus, no matter how many books are imported at once, if the user was at the start, viewport will stay locked on the leftmost newest book.
             recentListState.scrollToItem(0)
             shouldScrollToStart = false
         }

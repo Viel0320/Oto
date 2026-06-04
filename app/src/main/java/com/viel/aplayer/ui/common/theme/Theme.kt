@@ -17,8 +17,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 // =====================================================================
-// M-21 修复 — 完整的 DarkColorScheme，
-// 补齐了在 dynamicColor=false 时的 secondary, tertiary, error 及其 container 角色。
+// Complete DarkColorScheme (M-21 Fix)
+// Filled in secondary, tertiary, error, and container roles when dynamicColor = false.
 // =====================================================================
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryDark,
@@ -47,8 +47,8 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 // =====================================================================
-// M-21 修复 — 完整的 LightColorScheme，
-// 补齐了在 dynamicColor=false 时的 secondary, tertiary, error 及其 container 角色。
+// Complete LightColorScheme (M-21 Fix)
+// Filled in secondary, tertiary, error, and container roles when dynamicColor = false.
 // =====================================================================
 private val LightColorScheme = lightColorScheme(
     primary = PrimaryLight,
@@ -94,8 +94,9 @@ fun APlayerTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            // 详尽的中文注释：使用 findActivity 递归检索 Activity 宿主以获得状态栏 Window 控制权；
-            // 这避免了在 Compose Preview 预览、Glance 小组件或者次要嵌入式视图中 view.context 并非 Activity 导致强转崩溃的隐患
+            // Get StatusBar Window Control (Safe Activity Host Retrieval)
+            // Use findActivity to recursively retrieve the Activity host to get status bar Window control.
+            // This avoids crash risks caused by casting view.context to Activity in Compose Preview, Glance app widget, or minor embedded views where it is not an Activity.
             val activity = view.context.findActivity()
             if (activity != null) {
                 val window = activity.window
@@ -104,10 +105,9 @@ fun APlayerTheme(
         }
     }
 
-    // 详尽的中文注释：
-    // 感知当前窗口/物理屏幕的配置与像素尺寸变化，自适应推导并产生相应的 WindowClass 实例。
-    // 使用 CompositionLocalProvider 将该实例作为全局 LocalWindowClass 提供，
-    // 使得整棵界面树下的所有子 Composable 界面与各个 Compose Previews 均能零阻碍地共享自适应逻辑。
+    // WindowClass Adaptation Setup (Adaptive Setup & Sharing)
+    // Perceive changes in current window/physical screen configuration and pixel size, and adaptively derive corresponding WindowClass instance.
+    // Use CompositionLocalProvider to provide this instance as a global LocalWindowClass, allowing all sub-Composables under the UI tree and all Compose Previews to share adaptive logic seamlessly.
     val windowClass = rememberWindowClass()
     CompositionLocalProvider(
         LocalWindowClass provides windowClass
@@ -121,7 +121,9 @@ fun APlayerTheme(
 }
 
 /**
- * 详尽的中文注释：沿 ContextWrapper 上下文包装器链条递归向上查找，直至发现真实的宿主 Activity 实例；找不到则安全返回 null
+ * Find Activity Host (Recursive Context Traversal)
+ *
+ * Recursively search up the ContextWrapper wrapper chain until the true host Activity instance is found. Returns null if not found.
  */
 private tailrec fun Context.findActivity(): Activity? {
     if (this is Activity) return this

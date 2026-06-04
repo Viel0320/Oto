@@ -11,66 +11,78 @@ import com.viel.aplayer.media.BookPlaybackPlan
 import kotlinx.coroutines.flow.Flow
 
 /**
- * 领域解耦的网关接口：专注于有声书基本信息检索、元数据、书签和章节的库表查询与维护。
- *
- * 核心设计目标：
- * 1. 消除上帝类依赖：为上游 ViewModel 及后台服务暴露狭窄且边界清晰的只读与只写逻辑，不掺杂任何播放进度保存、物理设备扫描触发等不相干职责。
- * 2. 促进依赖倒置：为彻底停用庞大臃肿的 LibraryRepository 提供前置抽象。
+ * Decoupled Domain Gateway Interface (BookQueryGateway)
+ * Focuses on audiobook info retrieval, metadata, bookmarks, and chapter database queries and maintenance.
+ * 
+ * Core Design Goals:
+ * 1. Eradicate God-Class Dependencies: Expose narrow, boundary-clear read/write logic for upstream ViewModels and background services, excluding playback tracking and directory scanning.
+ * 2. Promote Dependency Inversion: Provide front-end abstractions to phase out the bloated LibraryRepository.
  */
 interface BookQueryGateway {
 
     /**
-     * 响应式观察媒体库内所有的有声书。
+     * Reactive Audiobooks Stream (Observe entire library)
+     * Reactively observes all audiobooks stored in the local database.
      */
     val audiobooks: Flow<List<BookWithProgress>>
 
     /**
-     * 根据书籍的唯一主键 ID 同步获取对应的有声书实体。
+     * Query Book Entity by ID (Synchronous fetch)
+     * Fetches the audiobook entity matching the unique primary key ID.
      */
     suspend fun getBookById(id: String): BookEntity?
 
     /**
-     * 响应式观察特定 ID 的书籍变化状态。
+     * Observe Book State (Reactive ID query)
+     * Reactively tracks state changes of the audiobook specified by ID.
      */
     fun observeBookById(id: String): Flow<BookEntity?>
 
     /**
-     * 根据关键字，模糊检索有声书。
+     * Search Audiobooks (Fuzzy keyword search)
+     * Performs a fuzzy text search on title, author, and narrator fields.
      */
     fun searchAudiobooks(query: String): Flow<List<BookWithProgress>>
 
     /**
-     * 按年份过滤有声书列表。
+     * Filter by Year (Categorization helper)
+     * Filters audiobooks by their publication/creation year.
      */
     fun filterByYear(year: String): Flow<List<BookWithProgress>>
 
     /**
-     * 按作者精确匹配过滤有声书列表。
+     * Filter by Author (Author exact match)
+     * Filters audiobooks based on the exact author name.
      */
     fun filterByAuthor(author: String): Flow<List<BookWithProgress>>
 
     /**
-     * 按作者精确匹配过滤有声书列表，带有返回数量限制并过滤掉当前正在阅读的书籍（用于个性化推荐模块）。
+     * Filter by Author with Limit (Personalized recommendation)
+     * Filters audiobooks by author with size limits, excluding the book currently in playback.
      */
     fun filterByAuthorLimited(author: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>>
 
     /**
-     * 按讲述人精确过滤有声书。
+     * Filter by Narrator (Narrator exact match)
+     * Filters audiobooks based on the exact narrator name.
      */
     fun filterByNarrator(narrator: String): Flow<List<BookWithProgress>>
 
     /**
-     * 按讲述人精确过滤有声书，带有返回数量限制并过滤掉当前正在阅读的书籍（用于个性化推荐模块）。
+     * Filter by Narrator with Limit (Personalized recommendation)
+     * Filters audiobooks by narrator with size limits, excluding the book currently in playback.
      */
     fun filterByNarratorLimited(narrator: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>>
 
     /**
-     * 获取最近添加/导入的有声书列表，带有数量上限。
+     * Get Recently Added (Ingestion history query)
+     * Retrieves a list of recently imported audiobooks, constrained by a maximum limit.
      */
     fun getRecentlyAdded(limit: Int): Flow<List<BookWithProgress>>
 
     /**
-     * 获取除指定书籍本身外，与指定作者、讲述人都不重合的最近导入有声书（用于智能填充推荐槽位）。
+     * Get Personalized Fallback Recommendations (Recommendation padding)
+     * Retrieves recently added audiobooks excluding the active book, ensuring no author/narrator overlaps.
      */
     fun getRecentlyAddedExclusive(
         currentId: String,
@@ -80,17 +92,20 @@ interface BookQueryGateway {
     ): Flow<List<BookWithProgress>>
 
     /**
-     * 逻辑删除指定书籍记录。
+     * Logical Audiobook Deletion (Soft delete command)
+     * Soft deletes the audiobook record from the database, retaining identifiers for future scan comparisons.
      */
     suspend fun deleteBook(bookId: String)
 
     /**
-     * 手动更新有声书的阅读状态。
+     * Update Reading Status (User state modification)
+     * Manually updates the reading progress category (e.g., STARTED, FINISHED) for the audiobook.
      */
     suspend fun updateBookReadStatus(bookId: String, readStatus: String)
 
     /**
-     * 在元数据面板上手动覆盖并保存书籍的文字元数据详情。
+     * Update Text Metadata (Manual editor override)
+     * Overwrites text attributes of the audiobook (title, author, narrator, etc.) in the database.
      */
     suspend fun updateBookDetails(
         id: String,
@@ -102,27 +117,32 @@ interface BookQueryGateway {
     )
 
     /**
-     * 同步获取指定有声书所包含的物理分轨音频文件清册。
+     * Get Associated Audio Tracks (Synchronous tracks fetch)
+     * Synchronously fetches the list of audio files mapped to the specified audiobook.
      */
     suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity>
 
     /**
-     * 同步获取指定有声书包含的映射物理文件清单（包含音频以及 XML 元数据清单）。
+     * Get All Associated Files (Synchronous physical asset inventory)
+     * Synchronously fetches all database file records (audio tracks and manifest sidecars) for the book.
      */
     suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity>
 
     /**
-     * 响应式观察最后一次扫描会话的状态结果。
+     * Observe Last Scan Session (Sync status monitoring)
+     * Reactively tracks progress and completion results of the latest scan session execution.
      */
     fun observeLatestScanSession(): Flow<ScanSessionEntity?>
 
     /**
-     * 构建并同步获取书籍的轻量级播放计划（包含分轨、段落索引及历史记忆位置）。
+     * Build Playback Plan (Controller initialization utility)
+     * Synchronously constructs the playback structure, resolving track sequences and resume offsets.
      */
     suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan?
 
     /**
-     * 供后台扫描静默覆盖写入书籍的标签提取元数据信息。
+     * Update Tag Metadata (Silent parser synchronization)
+     * Allows background sync pipelines to silently update audio tag fields (duration, details) in the database.
      */
     fun updateMetadata(
         bookId: String,
@@ -134,37 +154,44 @@ interface BookQueryGateway {
     )
 
     /**
-     * 响应式订阅观察指定有声书的章节列表。
+     * Observe Audiobook Chapters (Reactive index flow)
+     * Reactively observes the list of chapters associated with the specified audiobook.
      */
     fun getChapters(bookId: String): Flow<List<ChapterWithBookFile>>
 
     /**
-     * 同步获取指定有声书的章节实体列表。
+     * Get Audiobook Chapters (Synchronous chapter query)
+     * Synchronously queries all chapter entities resolved for the specified audiobook.
      */
     suspend fun getChaptersForBookSync(bookId: String): List<ChapterWithBookFile>
 
     /**
-     * 强制覆盖或批量保存提取得到的章节数据。
+     * Bulk Save Chapters (Write transaction entry)
+     * Replaces or batch inserts newly parsed chapters for the specified audiobook.
      */
     fun saveChapters(bookId: String, chapters: List<ChapterEntity>)
 
     /**
-     * 响应式订阅观察指定书籍的用户书签标记。
+     * Observe User Bookmarks (Reactive bookmark flow)
+     * Reactively monitors bookmark entries created by the user for the target audiobook.
      */
     fun getBookmarks(bookId: String): Flow<List<BookmarkEntity>>
 
     /**
-     * 向有声书中追加一个新的书签标记。
+     * Add Bookmark Entry (User marking action)
+     * Appends a new bookmark at the specified global position offset.
      */
     suspend fun addBookmark(bookId: String, position: Long, title: String)
 
     /**
-     * 覆写更新单个书签实体的信息。
+     * Update Bookmark Details (User edit action)
+     * Overwrites details (such as notes/titles) of a specific bookmark record.
      */
     suspend fun updateBookmark(bookmark: BookmarkEntity)
 
     /**
-     * 删除特定的书签记录。
+     * Delete Bookmark Record (User removal action)
+     * Permanently deletes a specific bookmark record from the database.
      */
     suspend fun deleteBookmark(bookmark: BookmarkEntity)
 }

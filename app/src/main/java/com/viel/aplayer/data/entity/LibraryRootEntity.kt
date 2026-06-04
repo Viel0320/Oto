@@ -5,25 +5,32 @@ import androidx.room.PrimaryKey
 import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
- * 媒体库授权目录实体。
+ * Library Root Entity (Database model representing authorized media source roots)
  */
 @Entity(tableName = "library_roots")
 data class LibraryRootEntity(
     @PrimaryKey
     val id: String,
-    // sourceType 是本地 SAF、WebDAV 等来源标准件的分发键，业务层不再依赖旧库根字段。
+    // Source Distribution Type (Cross-provider dispatch key)
+    // Identifies the storage protocol (e.g., SAF, WebDAV), decoupling business logic from legacy root schemas.
     val sourceType: String = AudiobookSchema.LibrarySourceType.SAF,
-    // sourceUri 是跨来源的根地址；SAF 写入 tree URI，WebDAV 后续写入规范化服务器地址。
+    // Standardized Root URI (Cross-provider unified location pointer)
+    // Stores tree URIs for SAF or normalized server URLs for WebDAV remote hosts.
     val sourceUri: String,
-    // basePath 描述来源内部的库根路径；SAF 当前为空，WebDAV 后续可存 /audiobooks 这类远程根目录。
+    // Internal Sub-Path Mapping (Remote directory pointer)
+    // Defines inner directory offsets (e.g., empty for SAF, or paths like '/audiobooks' for WebDAV).
     val basePath: String = "",
-    // credentialId 只保存凭据引用，不保存密码本体，为后续 Keystore/加密存储接入留出安全边界。
+    // Decoupled Credential Reference (Secret isolation boundary)
+    // Stores a reference key rather than raw credentials, reserving secure boundaries for future Keystore encryption.
     val credentialId: String? = null,
-    // availabilityStatus 由统一可用性检测标准件写入，避免把 SAF 授权状态和远程网络状态塞进同一个 status 字段。
+    // Standardized Availability Status (Decoupled health indicator)
+    // Populated by a unified checker, keeping local access flags distinct from network reachability.
     val availabilityStatus: String = AudiobookSchema.AvailabilityStatus.UNKNOWN,
-    // lastAvailabilityCheckedAt 记录最近一次来源可用性探测时间，便于 UI 和后续后台检测区分“未知”和“刚失败”。
+    // Availability Timestamp (UI and background scanning checker)
+    // Logs the last verification time to distinguish between long-term offline and newly failed states.
     val lastAvailabilityCheckedAt: Long = 0L,
-    // lastAvailabilityErrorCode 保存可解释的失败码；SAF v1 常见为 REVOKED/NOT_FOUND，WebDAV 后续扩展 AUTH_FAILED/TIMEOUT。
+    // Interpretable Error Codes (Diagnostics mapping helper)
+    // Logs failures (e.g., REVOKED/NOT_FOUND for SAF, or AUTH_FAILED/TIMEOUT for WebDAV servers).
     val lastAvailabilityErrorCode: String? = null,
     val displayName: String,
     val grantedAt: Long = System.currentTimeMillis(),

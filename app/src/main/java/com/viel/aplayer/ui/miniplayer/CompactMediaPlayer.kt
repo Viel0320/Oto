@@ -51,8 +51,9 @@ import top.yukonga.miuix.kmp.blur.textureBlur
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-// 已取消封面取色着色功能，移除了 color 参数，迷你播放器进度条直接采用系统默认的 Material 3 主色调
-// 新增 backdrop 和 glassEffectMode 两个参数，用来在启用毛玻璃效果时折射底部 NavHost 的画面内容，保持跟搜索/详情页的设计一致。
+// Setup CompactMediaPlayer Options (Glass Effect Parameter Binding)
+// Color tint coloring has been removed. Progress bar uses system Material 3 primary theme color.
+// Added backdrop and glassEffectMode parameters to refract the background NavHost viewport when glass effect is enabled, matching search/detail design.
 fun CompactMediaPlayer(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
@@ -60,17 +61,17 @@ fun CompactMediaPlayer(
     author: String = "Unknown",
     narrator: String = "",
     coverPath: String? = null,
-    // 新增封面图像最后修改/重建时间戳，用以打破 Coil 的缓存记录
+    // New cover image last updated/reconstructed timestamp to break Coil cache records
     coverLastUpdated: Long = 0L,
     progress: () -> Float = { 0f },
     showProgressBar: Boolean = true,
     isMediaAvailable: Boolean = true,
     actions: MiniPlayerActions = MiniPlayerActions(),
-    // 将共享的模糊状态变更为 miuix-blur 的 LayerBackdrop 采样源参数
+    // Change the shared blur state to miuix-blur's LayerBackdrop sampling source parameter
     backdrop: LayerBackdrop? = null,
-    // 新增 onClick 参数，用于接管迷你播放器的全屏展开点击事件，在其 Surface 最外层处理以获取优良的水波纹点击波澜
+    // New onClick parameter to take over mini-player full-screen expanding clicks, handled at the outermost Surface to get M3 ripples
     onClick: () -> Unit = {},
-    // 新增 glassEffectMode 参数，以区分是毛玻璃高斯模糊还是标准 Material 纯色背景
+    // New glassEffectMode parameter to distinguish between frosted glass Gaussian blur and standard Material solid background
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     LaunchedEffect(isMediaAvailable) {
@@ -80,22 +81,22 @@ fun CompactMediaPlayer(
         }
     }
 
-    // 对齐新更名的 MiuixBlur，基于 LayerBackdrop 与新枚举判断是否启用毛玻璃渲染
+    // Align to newly renamed MiuixBlur, checking if frosted glass rendering is enabled based on LayerBackdrop and the new enum
     val isBlurMode = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
 
-    // 获取当前系统的亮暗色主题状态，以实现毛玻璃自适应
+    // Get light/dark theme status of current system to achieve frosted glass adaptation
     val isDark = isSystemInDarkTheme()
 
-    // 
-    // 将 Surface 改为支持 onClick 的重载，并将传入 of onClick 动作直接挂载在此。
-    // 这将实现该紧凑样式播放器卡片本体的完全可点击化，且拥有与 Material 3 一致的水波纹动效表现。
+    // Surface Click Handler (Unified Ripple Wave Ripple)
+    // Modify Surface to support onClick, and bind the incoming onClick action directly.
+    // This makes the compact player card fully clickable with consistent Material 3 ripple animations.
     Surface(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .let {
                 if (isBlurMode) {
-                    // 使用与 Pill 播放器完全一致的 let 链式动态判定绑定高保真 textureBlur 模糊
+                    // Use let chain dynamic binding exactly consistent with Pill player for high-fidelity textureBlur rendering
                     it.textureBlur(
                         backdrop = backdrop,
                         shape = RoundedCornerShape(0.dp),
@@ -114,12 +115,12 @@ fun CompactMediaPlayer(
                     it
                 }
             },
-            color = if (isBlurMode) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
+        color = if (isBlurMode) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(0.dp)
     ) {
         Column(modifier = Modifier.navigationBarsPadding()) {
             if (showProgressBar) {
-                // 已在此处取消了进度条的封面取色绑定，不再传入自定义 color 属性，使迷你进度条自动回归为 Material 3 主色调
+                // Discarded cover color mapping of progress bar; no color attribute passed, making progress bar return to Material 3 primary color
                 AudioProgressBar(
                     progress = progress,
                     onProgressChange = {},
@@ -147,8 +148,8 @@ fun CompactMediaPlayer(
                 ) {
                     if (coverPath != null) {
                         val context = LocalContext.current
-                        // 迷你播放器是常驻小图，固定复用 ThumbnailSmall 规格；
-                        // 不同步探测文件存在性，避免播放器常驻区域在重组时触发磁盘 I/O。
+                        // Thumbnail Small Caching (Reuse Small List Image Cache)
+                        // Mini player uses ThumbnailSmall specification for small persistent cover; skips sync File.exists() to prevent disk I/O on recomposition.
                         val request = remember(coverPath, coverLastUpdated) {
                             CoverImageRequestFactory.build(
                                 context = context,

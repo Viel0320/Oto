@@ -7,17 +7,17 @@ import java.nio.charset.Charset
 import java.util.Locale
 
 /**
- * Parser 侧车支持工具。
+ * Parser Sidecar Manager (Centralize sidecar image/text evaluation routines to decouple directory traversal from step layers)
  *
- * 
- * 这里把 parser 层共用的 side cover / description 规则集中收口，
- * 让 `CueManifestParser`、`M3u8ManifestParser`、`HeuristicAudioAggregator`
- * 共用完全一致的行为：
- * 1. side cover 候选优先级
- * 2. txt 简介匹配与读取
- * 3. 文本解码与截断策略
+ * Consolidates helper logic for locating nearby covers and text summaries,
+ * ensuring CueManifestParser, M3u8ManifestParser, and HeuristicAudioAggregator
+ * share the same constraints:
+ * 1. Sidecar artwork lookup priority.
+ * 2. Txt description identification and loading.
+ * 3. Text decoding and length clipping limits.
  *
- * 这样后续流程只消费 parser 结果，不再在步骤层重复枚举目录和实现一套平行规则。
+ * This allows subsequent import steps to purely consume parser output,
+ * preventing redundant directory listing and parallel rules implementation in execution stages.
  */
 object ManifestSidecarSupport {
 
@@ -53,8 +53,7 @@ object ManifestSidecarSupport {
         openTextFile: suspend (FileRef) -> InputStream?
     ): SidecarPayload =
         SidecarPayload(
-            // 启发式聚合没有单一 manifest 文件名作为锚点，
-            // 因此这里故意不做 same-name 匹配，只保留“通用简介文件名 / 单 txt”这两类目录级规则。
+            // No anchor parsing (Omit same-name checks; rely purely on standard filenames or single txt fallback)
             description = readTxtDescription(
                 textFiles = directoryContext.textFiles,
                 openTextFile = openTextFile,

@@ -11,27 +11,27 @@ import kotlinx.coroutines.withContext
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
-// 导入链路需要把“元数据 + 内嵌封面”一起向后传递，
-// 这里把封面类型抽象成通用的 EmbeddedCoverBytes，不再绑定到 MP4 专属实现。
+// Import flow needs to pass both "metadata + embedded cover" down the pipeline.
+// Abstracted the cover representation to generic EmbeddedCoverBytes to decouple from MP4-specific implementations.
 internal data class ExtractedAudiobookMetadata(
     val metadata: AudiobookMetadata,
     val embeddedCover: EmbeddedCoverBytes?
 )
 
 /**
- * 负责从音频文件中提取标题、作者、旁白、简介、年份、时长与章节信息。
+ * Metadata Resolver (Responsible for extracting title, author, narrator, synopsis, year, duration, and chapters from audio files)
  *
- * 从这次重构开始，非 MP4 格式不再走 MediaMetadataRetriever，
- * 而是统一交给各自的范围读取 parser；MetadataResolver 只负责路由、标题兜底与乱码修正。
+ * Beginning with this refactor, non-MP4 formats no longer traverse MediaMetadataRetriever.
+ * Instead, they are delegated to format-specific range parsers, while MetadataResolver manages routing, title fallbacks, and mojibake correction.
  */
 @UnstableApi
 class MetadataResolver(
-    // 由调用方注入运行期 VFS 单例或扫描快照 VFS，
-    // 消除内部自构 AppDatabase→libraryRootDao→VfsFileInterface 的隐式依赖。
+    // Inject the active VFS singleton or scan-snapshot VFS from the caller.
+    // Eliminates implicit dependencies by avoiding internal construction of AppDatabase -> libraryRootDao -> VfsFileInterface.
     private val fileReader: VfsFileInterface
 ) {
-    // 全局元数据提取并发仍然限制在 4，
-    // 防止大批量导入时多个 parser 同时读取大文件头尾造成内存与 I/O 抖动。
+    // Global metadata extraction concurrency remains capped at 4.
+    // Prevents memory and I/O thrashing caused by multiple parsers reading headers/trailers of large files during batch imports.
     private val semaphore = kotlinx.coroutines.sync.Semaphore(4)
 
     suspend fun extract(file: FileRef): AudiobookMetadata =
@@ -140,7 +140,7 @@ class MetadataResolver(
             ),
             options = RangeAudioParseOptions(includeEmbeddedCover = includeEmbeddedCover)
         )?.let { parsed ->
-            // parser 只负责返回“原始容器语义”，统一的标题兜底和乱码修复继续收口在 MetadataResolver。
+            // The parser only yields raw container semantics; fallback title assignment and mojibake repair remain localized in MetadataResolver.
             ExtractedAudiobookMetadata(
                 metadata = parsed.metadata.normalizeMetadata(displayName),
                 embeddedCover = parsed.embeddedCover
@@ -161,7 +161,7 @@ class MetadataResolver(
         )
 
     private fun fallbackMetadata(displayName: String): AudiobookMetadata =
-        // 如果 parser 完全读不出来，就只回退到文件名级别兜底，而不是再走任何整文件探测。
+        // Fall back strictly to the filename if the parser fails completely, avoiding any secondary full-file probes.
         AudiobookMetadata(
             title = displayName.substringBeforeLast('.'),
             author = "",

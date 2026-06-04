@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ===================================================================== -->
-    <!-- M-22 修复 — 将应用全局基础主题升级为系统级原生内置的 DeviceDefault NoActionBar 主题。 -->
-    <!-- 这样在完全不需要引入任何外部传统 appcompat/material View 依赖的前提下， -->
-    <!-- 实现了完美的免依赖编译，并由 Android 操作系统底层自动进行系统级的亮暗模式背景与状态栏自适应适配，彻底杜绝闪白屏！ -->
-    <!-- ===================================================================== -->
+    <!-- Global Application Theme (Upgrades global base theme to the native DeviceDefault.NoActionBar style) -->
+    <!-- Enables zero-dependency compilation by avoiding legacy appcompat/material components, -->
+    <!-- and delegates light/dark transitions and status bar coloring directly to the Android OS to prevent flash-on-start. -->
     <style name="Theme.APlayer" parent="android:Theme.DeviceDefault.NoActionBar" />
 </resources>

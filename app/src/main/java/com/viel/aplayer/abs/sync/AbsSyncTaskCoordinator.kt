@@ -10,12 +10,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 /**
- * 详尽的中文注释：ABS 同步应用级协调器。
+ * ABS Sync Task Coordinator: Manages application-scoped ABS catalog synchronization.
  *
- * 设计目标：
- * 1. 手动同步和“添加成功后自动同步”都在应用级协程作用域中运行，不受 SettingsActivity / SettingsViewModel 销毁影响。
- * 2. ViewModel 只负责发起任务和消费结果事件，不再直接承载真正的同步生命周期。
- * 3. 同一 root 在同一时刻只允许存在一个应用级同步任务，避免重复点击或页面切换导致并发写库。
+ * Design Objectives:
+ * 1. Ensure that both manual synchronization and automatic synchronization (triggered upon adding a server)
+ *    run within an application-scoped coroutine scope. This prevents interruption when `SettingsActivity` or
+ *    `SettingsViewModel` is destroyed.
+ * 2. Decouple the ViewModel so that it only initiates tasks and consumes result events without hosting the
+ *    actual synchronization lifecycle.
+ * 3. Restrict concurrent synchronization executions per server root, permitting only one active sync task
+ *    per `rootId` to avoid write conflicts in the local database.
  */
 class AbsSyncTaskCoordinator(
     private val libraryRootDao: LibraryRootDao,
@@ -29,8 +33,14 @@ class AbsSyncTaskCoordinator(
     val events: SharedFlow<AbsSyncTaskResult> = _events.asSharedFlow()
 
     /**
-     * 详尽的中文注释：以应用级后台任务的方式启动一次 ABS 同步。
-     * 若同一 root 已经在同步中，则直接返回 false，调用方可据此给出“同步已在进行中”的提示。
+     * Start Sync Task: Launches an application-level background synchronization job.
+     *
+     * Initiates the catalog sync for the specified root. If a synchronization task for the given `rootId`
+     * is already active, this method immediately returns `false` so the caller can display a "sync in progress" message.
+     *
+     * @param rootId The unique identifier of the library root.
+     * @param origin The trigger source of this synchronization task.
+     * @return `true` if the synchronization task was successfully queued; `false` if it was already running.
      */
     fun start(rootId: String, origin: AbsSyncTaskOrigin): Boolean {
         synchronized(lock) {
@@ -95,8 +105,10 @@ class AbsSyncTaskCoordinator(
 }
 
 /**
- * 详尽的中文注释：同步来源只保留最小分类，
- * 便于 UI 在展示结果时区分这是“用户手动触发”还是“添加服务器后的自动后台同步”。
+ * Sync Task Origin: Categorizes the source of the synchronization trigger.
+ *
+ * Classified to enable the UI to distinguish between user-initiated manual synchronization
+ * and automated background synchronization following server addition.
  */
 enum class AbsSyncTaskOrigin {
     MANUAL,
@@ -104,8 +116,10 @@ enum class AbsSyncTaskOrigin {
 }
 
 /**
- * 详尽的中文注释：应用级同步任务结束后抛给 UI 层的轻量结果事件。
- * 如果 summary 非空，则说明同步实际完成；如果 errorMessage 非空，则说明任务中途失败。
+ * Sync Task Result: Represents the lightweight result event dispatched to the UI.
+ *
+ * Contains synchronization details upon completion. A non-null `summary` denotes a successful
+ * execution, whereas a non-null `errorMessage` indicates a failure.
  */
 data class AbsSyncTaskResult(
     val rootId: String,

@@ -26,10 +26,9 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
-// 
-// 抽离竖屏播放器顶部栏组件。
-// 该组件不仅封装了 PlayerAppBar 的调用，还集成了“下拉最小化”的手势识别逻辑（vertical drag gestures）。
-// 通过将手势逻辑与 UI 声明分离，使 PlayerScreen 的主布局结构更加清晰。
+// Portrait top app bar component (To render the top app bar for portrait player screens)
+// Integrates the vertical drag gesture detection logic for pull-down minimization.
+// Decouples gesture logic from main views declarations to clarify the layout.
 @Composable
 fun PlayerVerticalAppBar(
     metadata: BookMetadataState,

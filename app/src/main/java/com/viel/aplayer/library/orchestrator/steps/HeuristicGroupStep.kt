@@ -9,15 +9,17 @@ import com.viel.aplayer.media.manifest.HeuristicAudioAggregator
 import com.viel.aplayer.media.manifest.ManifestSidecarSupport
 
 /**
- * 启发式智能聚类分步类。
- * 
- * 本类已被重构，去除了原有的泛型接口 ImportStep<I, O> 和 StepResult 密封类包装。
- * 现在 execute 方法直接返回具体的 GroupedBookDrafts 结果，遇到异常自然向上抛出。
+ * Heuristic Audiobook Clustering (Pipeline Step)
+ *
+ * This step has been refactored to remove the legacy generic ImportStep<I, O> interface and StepResult wrappers.
+ * The execute method directly returns GroupedBookDrafts and lets exceptions bubble up naturally.
  */
 internal class HeuristicGroupStep(private val appContext: Context) {
 
     /**
-     * 执行聚类分步逻辑。直接接收 ResolvedMetadataDrafts 并返回 GroupedBookDrafts 结果，不再包装在 StepResult 中。
+     * Execute Clustering Logic (Core Execution)
+     *
+     * Processes metadata drafts to group related files and compile heuristic aggregation plans.
      */
     suspend fun execute(
         input: ResolvedMetadataDrafts,
@@ -26,7 +28,8 @@ internal class HeuristicGroupStep(private val appContext: Context) {
         val aggregatedPlans = mutableListOf<HeuristicAggregationPlan>()
         val singleAudios = mutableListOf<AudioMetadataRef>()
         val inventory = context.sharedInventory
-        // 复用从 ImportContext 传入的统一会话级 VFS 读取门面，避免多处自构造成额外性能开销
+        // Reuse Session-Level VFS Reader (Performance Optimization)
+        // Obtains the shared file reader from ImportContext to prevent redundant resource allocations.
         val fileReader = context.scopeFileReader
 
         val pendingHeuristic = mutableListOf<AudioMetadataRef>()
@@ -34,7 +37,8 @@ internal class HeuristicGroupStep(private val appContext: Context) {
         suspend fun flushHeuristic() {
             if (pendingHeuristic.isEmpty()) return
             if (HeuristicAudioAggregator.shouldAggregate(pendingHeuristic)) {
-                // 如果满足启发式合并条件（如共享相同的 album 或者文件名呈数字递增关系），则构造成一本书 the plan
+                // Build Aggregation Plan (Heuristic Grouping)
+                // If conditions are met (e.g. sharing an album tag or sequential numeric filenames), construct a multi-file book plan.
                 val first = pendingHeuristic.first()
                 val plan = HeuristicAudioAggregator.buildPlan(
                     files = pendingHeuristic.toList(),
@@ -43,21 +47,25 @@ internal class HeuristicGroupStep(private val appContext: Context) {
                 )
                 aggregatedPlans.add(plan)
             } else {
-                // 否则，拆散作为单本有声书
+                // Fallback to Loose Files (Individual Books)
+                // Treat each file as a separate single-file audiobook.
                 singleAudios.addAll(pendingHeuristic)
             }
             pendingHeuristic.clear()
         }
 
-        // 顺序对散落音频进行智能聚合分类
+        // Process Loose Audios Sequentially (Clustering Algorithm)
+        // Group candidate files into sequential aggregation blocks.
         input.looseAudioMetadataRefs.forEach { audioRef ->
             if (audioRef.metadata.chapters.isNotEmpty()) {
-                // 如果音频自身就内嵌了章节信息，直接作为独立单曲，先冲刷掉当前的缓冲池
+                // Flush on Embedded Chapters (Metadata Boundary)
+                // Audio files with embedded chapters cannot be grouped; flush current buffer and emit as a single-file book.
                 flushHeuristic()
                 singleAudios.add(audioRef)
             } else {
                 val last = pendingHeuristic.lastOrNull()
-                // 如果音频跨越了不同的文件夹，则同样把前一个文件夹的内容先冲刷处理掉
+                // Flush on Directory Change (Directory Boundary)
+                // Ensure files from different VFS parent directories are never grouped together.
                 if (last != null && last.file.parentSourceKey != audioRef.file.parentSourceKey) {
                     flushHeuristic()
                 }
@@ -81,15 +89,17 @@ internal class HeuristicGroupStep(private val appContext: Context) {
 }
 
 /**
- * 承载聚类分类结果的实体类
+ * Consolidated Clustering Results (Data Holder)
  */
 internal data class GroupedBookDrafts(
-    // 往下透传清单解析数据，为最终 Draft 汇总保留上下文
+    // Propagate Manifest Parse Data (Pipeline Context Preservation)
+    // Forwards parsed manifest results for eventual consolidation.
     val manifestParsedResult: ManifestParsedResult,
     
-    // 启发式聚合计划
+    // Compiled Heuristic Aggregation Plans (Data Model)
     val aggregatedPlans: List<HeuristicAggregationPlan>,
     
-    // 独立单音频列表
+    // Property Alignment (Aligns property name to singleAudios to resolve pipeline compilation error)
+    // Renamed from looseAudioMetadataRefs to match orchestrator single track referencing conventions.
     val singleAudios: List<AudioMetadataRef>
 )

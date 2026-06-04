@@ -3,12 +3,12 @@ package com.viel.aplayer.ui.player.components.relatedsection
 import com.viel.aplayer.data.entity.BookWithProgress
 
 /**
- * 关联书籍板块的数据模型。
- * 用于在详情页展示“同作者”或“同播讲人”的书籍列表。
+ * Related books section model (Data container for grouping recommended audiobooks)
+ * Represents collection rows such as same-author or same-narrator items.
  */
 data class RelatedSection(
-    /** 板块名称（通常是作者名或播讲人名） */
+    /** Section title label (To display creator or narrator identity string) */
     val name: String,
-    /** 该板块下的书籍列表 */
+    /** Section books list (To store related audiobook progress items) */
     val books: List<BookWithProgress>
 )

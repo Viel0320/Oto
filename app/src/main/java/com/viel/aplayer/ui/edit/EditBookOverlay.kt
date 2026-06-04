@@ -22,11 +22,13 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
- * 编辑书籍元数据的轻量规范化 ViewModel。
- * 其生命周期已成功与 EditBookActivity 解耦，现在挂载于主 App 的 Activity 级作用域中。
+ * EditBookViewModel Setup (Lightweight Meta Editing ViewModel)
+ *
+ * Lightweight normalized ViewModel for editing book metadata.
+ * Its lifecycle has been successfully decoupled from EditBookActivity and is now hosted in the Activity-level scope of the main App.
  */
 class EditBookViewModel(application: Application) : AndroidViewModel(application) {
-    // 在 M6 物理收口中，将 EditBookViewModel 中对旧仓库的依赖彻底移去，替换为引入高层业务门面 libraryFacade。
+    // M6 Refactoring: Completely remove dependency on legacy repositories in EditBookViewModel, replacing it with the high-level business facade libraryFacade.
     private val libraryFacade = (application as APlayerApplication).container.libraryFacade
 
     private val _bookState = MutableStateFlow<BookEntity?>(null)
@@ -36,7 +38,9 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     val isVisible = _isVisible.asStateFlow()
 
     /**
-     * 启动编辑书籍流程。触发异步读取数据，并将悬浮 Overlay 的可见状态设为 true。
+     * Start Edit Flow (Initialize Edit and Visible State)
+     *
+     * Starts the book editing process. Triggers asynchronous data reading and sets the visibility state of the floating overlay to true.
      */
     fun startEdit(bookId: String) {
         loadBook(bookId)
@@ -44,8 +48,10 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * 控制编辑 Overlay 悬浮层的显隐。
-     * 当关闭悬浮层时，主动将 bookState 置为空，彻底清除脏数据缓存，防止下一次拉起时发生界面闪烁。
+     * Set Overlay Visibility (Visibility Control and State Reset)
+     *
+     * Controls the visibility of the editing overlay.
+     * When closing the overlay, actively sets bookState to null to clear dirty data cache and prevent UI flickering on the next launch.
      */
     fun setVisible(visible: Boolean) {
         _isVisible.value = visible
@@ -55,19 +61,23 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * 根据书籍 ID 异步加载单本图书的底层 Room 实体记录
+     * Load Book Details (Asynchronous Room Query)
+     *
+     * Asynchronously loads the underlying Room entity record of a single book based on the book ID.
      */
     fun loadBook(bookId: String) {
         viewModelScope.launch {
-            // 使用 libraryFacade 高层门面异步获取书籍详情信息
+            // Use libraryFacade high-level facade to asynchronously obtain book details
             _bookState.value = libraryFacade.getBookById(bookId)
         }
     }
 
     /**
-     * 将编辑好的全新元数据以及用户手动上传裁剪后的自定义封面路径异步保存并持久化回数据库。
-     * @param newCoverPath 用户手动裁剪生成的临时封面文件绝对物理路径，如果为 null 则表示未修改封面
-     * @param onComplete 保存成功并持久化后的回调，一般用于关闭悬浮 Overlay
+     * Save Book Details (Metadata Persistence and Cover Self-healing)
+     *
+     * Asynchronously saves the edited metadata and user-uploaded custom cover path back to the database.
+     * @param newCoverPath Absolute physical path of the temporary cover file generated after custom cropping; null if cover is unchanged.
+     * @param onComplete Callback after save and persistence success, typically used to close the floating overlay.
      */
     fun saveBook(
         title: String,
@@ -80,7 +90,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     ) {
         val currentBook = _bookState.value ?: return
         viewModelScope.launch {
-            // 使用 libraryFacade 异步持久化修改后的文本元数据字段到 Room
+            // Use libraryFacade to asynchronously persist modified text metadata fields into Room
             libraryFacade.updateBookDetails(
                 id = currentBook.id,
                 title = title.trim(),
@@ -89,7 +99,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
                 description = description.trim(),
                 year = year.trim()
             )
-            // 如果更换了封面，调用 libraryFacade 级联存储以物理清理老封面残余并重刷自愈封面
+            // If the cover is replaced, call libraryFacade cascade storage to physically clean up legacy cover remnants and refresh self-healing covers
             if (newCoverPath != null) {
                 libraryFacade.saveCustomCover(currentBook.id, newCoverPath)
             }
@@ -99,28 +109,30 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
 }
 
 /**
- * 有状态的 Composable 书籍编辑悬浮层包裹组件（Stateful Overlay）。
- * 该组件负责承载并管理所有的业务生命周期及状态订阅逻辑，
- * 从 ViewModel 中按需收集 `isVisible` 与 `bookState` 数据，
- * 并在平滑进退场动画内将数据与操作以 Lambda 回调形式完整传递给底层的无状态渲染组件 `EditBookScreen`。
+ * EditBookOverlay Setup (Stateful Edit Book Overlay Wrapper)
  *
- * @param editViewModel 关联的轻量书籍编辑 ViewModel 实例
- * @param glassEffectMode 系统当前的玻璃毛玻璃特效配置模式
- * @param modifier 外部修饰词
- * @param backdrop 来自详情页渲染出来的专属模糊采样源
- * @param onSaveSuccess 书籍成功保存后的宿主级事件回调
+ * Stateful Composable book editing overlay wrapper component (Stateful Overlay).
+ * Responsible for hosting and managing all business lifecycles and state subscription logic,
+ * collecting `isVisible` and `bookState` data from ViewModel as needed,
+ * and passing data and operations as Lambda callbacks to the underlying stateless rendering component `EditBookScreen` during smooth transition animations.
+ *
+ * @param editViewModel Associated lightweight book edit ViewModel instance
+ * @param glassEffectMode Current glass effect mode config of the system
+ * @param modifier External modifier
+ * @param backdrop Shared blur sampling source rendered from the details page
+ * @param onSaveSuccess Host-level event callback after successful book saving
  */
 @Composable
 fun EditBookOverlay(
     editViewModel: EditBookViewModel,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // 增加 detailBackdrop 参数，接收来自详情页渲染出来的模糊采样源
+    // Add detailBackdrop parameter, receiving the blur sampling source rendered from the details page
     backdrop: LayerBackdrop? = null,
     onSaveSuccess: () -> Unit = {}
 ) {
     val isVisible by editViewModel.isVisible.collectAsStateWithLifecycle()
-    // 在此处高品质订阅有状态数据模型 bookState，向下透传，贯彻单向数据流与关注点分离
+    // Subscribe to the stateful bookState data model here and pass it down, adhering to unidirectional data flow and separation of concerns
     val book by editViewModel.bookState.collectAsStateWithLifecycle()
 
     AnimatedVisibility(
@@ -129,7 +141,7 @@ fun EditBookOverlay(
         exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) + fadeOut(),
         modifier = modifier
     ) {
-        // 调用已被彻底解耦抽离的无状态 EditBookScreen UI 组件
+        // Call the completely decoupled stateless EditBookScreen UI component
         EditBookScreen(
             book = book,
             onNavigationBack = { editViewModel.setVisible(false) },

@@ -9,26 +9,26 @@ import java.io.File
 import kotlin.math.roundToInt
 
 /**
- * 桌面小组件专用封面位图渲染器。
+ * Desktop widget cover bitmap renderer.
  *
- * 小组件封面最终会通过 Glance/RemoteViews 进入跨进程更新链路，因此这里固定输出小尺寸软件 Bitmap，
- * 不复用播放器主封面的 1200px 规格，也不把磁盘探测和采样计算散落在 Widget 组合函数里。
+ * Widget covers are updated cross-process via Glance/RemoteViews. Therefore, this renderer strictly outputs a small software Bitmap,
+ * instead of reusing the 1200px specification from the main player cover, avoiding disk checks and sampling calculations scattered within Widget compositions.
  */
 internal object WidgetCoverArtRenderer {
     private const val TAG = "WidgetCoverArtRenderer"
-    private const val TARGET_MAX_SIZE = 120
+    private const val TARGET_MAX_SIZE = 180
     private const val BLUR_RADIUS = 8
     private const val BLUR_PASSES = 2
 
-    // 小组件通常只展示当前播放书籍的封面，保留最近一次解码结果即可覆盖播放/暂停等高频状态刷新场景。
-    // 缓存内容保存的是已经缩小并模糊后的最终背景 Bitmap，缓存键同时纳入修改时间和文件大小，避免封面文件被原路径覆盖后继续复用旧图。
+    // In-memory cover cache. Widgets usually show the cover of the currently playing book; caching the most recent decode suffices for high-frequency updates like play/pause.
+    // The cached content holds the downscaled and blurred background Bitmap, using a cache key that embeds the file path, last modification time, and file size to prevent stale reuse.
     @Volatile
     private var latestCover: CachedCover? = null
 
     /**
-     * 在 IO 线程读取、下采样并模糊封面文件，返回适合小组件背景直接展示的小尺寸 Bitmap。
+     * Load cover bitmap. Decodes, downsamples, and blurs the cover file on the IO dispatcher, returning a compact Bitmap suitable for widget background presentation.
      *
-     * 返回值保持可为空：封面路径为空、文件不存在或解码失败时，调用方继续使用内置占位图。
+     * Returns null if the cover path is blank, the file does not exist, or decoding fails, letting the caller fallback to the default placeholder.
      */
     suspend fun loadCoverBitmap(coverPath: String?): Bitmap? = withContext(Dispatchers.IO) {
         decodeBoundedBitmap(coverPath)
@@ -45,14 +45,14 @@ internal object WidgetCoverArtRenderer {
             byteLength = file.length()
         )
 
-        // 命中最近封面时直接复用已缩小且已模糊的软件位图，避免播放状态刷新反复触发 BitmapFactory 解码和像素处理。
+        // Cache hit optimization. Reuse the downscaled and blurred software bitmap directly on cache hits, avoiding redundant BitmapFactory decoding and pixel operations during state refreshes.
         latestCover
             ?.takeIf { it.key == cacheKey && !it.bitmap.isRecycled }
             ?.let { return it.bitmap }
 
         return try {
             val bounds = BitmapFactory.Options().apply {
-                // 先只读取宽高，避免为了计算采样率提前分配大图像素内存。
+                // Pre-decode dimensions check. Read dimensions only to prevent early pixel memory allocations before calculating sample sizes.
                 inJustDecodeBounds = true
             }
             BitmapFactory.decodeFile(file.absolutePath, bounds)
@@ -60,7 +60,7 @@ internal object WidgetCoverArtRenderer {
 
             val decodeOptions = BitmapFactory.Options().apply {
                 inSampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight)
-                // 小组件背景有深色蒙层覆盖，不需要透明通道；RGB_565 可把跨进程 Bitmap 体积降到 ARGB_8888 的一半。
+                // Color configuration tuning. Widgets feature an opaque dark overlay, making alpha channels unnecessary; RGB_565 halves the Bitmap size for cross-process transfer compared to ARGB_8888.
                 inPreferredConfig = Bitmap.Config.RGB_565
             }
             val decoded = BitmapFactory.decodeFile(file.absolutePath, decodeOptions) ?: return null
@@ -83,7 +83,7 @@ internal object WidgetCoverArtRenderer {
     private fun calculateInSampleSize(width: Int, height: Int): Int {
         var sampleSize = 1
         val maxEdge = maxOf(width, height)
-        // 以最大边作为采样约束，避免横向或纵向极端长图因为短边较小而跳过下采样。
+        // Max edge constraint. Constrain by the longest edge to avoid skipping downsampling on extremely tall or wide images.
         while (maxEdge / (sampleSize * 2) >= TARGET_MAX_SIZE) {
             sampleSize *= 2
         }
@@ -106,14 +106,14 @@ internal object WidgetCoverArtRenderer {
 
     private fun Bitmap.blurForWidgetBackground(): Bitmap {
         if (width <= 1 || height <= 1) {
-            // 极小图没有可见模糊收益，直接转成不可变 RGB_565，保持后续跨进程传输的位图格式一致。
+            // Tiny bitmap fallback. Avoid blurry computations on tiny images and copy directly to immutable RGB_565, preserving consistent format for IPC.
             return copy(Bitmap.Config.RGB_565, false)
         }
 
         val sourcePixels = IntArray(width * height)
         getPixels(sourcePixels, 0, width, 0, 0, width, height)
 
-        // 小组件封面已经被压到 120px 级别，两轮 box blur 可以用很低成本得到接近高斯模糊的背景观感。
+        // Low-cost box blur. Since the cover is resized to 120px, two passes of box blur produce a background resembling Gaussian blur at very low cost.
         var blurredPixels = sourcePixels
         repeat(BLUR_PASSES) {
             blurredPixels = blurredPixels.boxBlur(width, height, BLUR_RADIUS)
@@ -122,7 +122,7 @@ internal object WidgetCoverArtRenderer {
         val mutableBlurred = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
         mutableBlurred.setPixels(blurredPixels, 0, width, 0, 0, width, height)
 
-        // Glance/RemoteViews 只需要展示成品背景，不需要再被修改；转成不可变 Bitmap 可降低后续被误写像素的风险。
+        // Immutability conversion. RemoteViews only needs the finalized background; copying to an immutable Bitmap protects it against subsequent pixel alterations.
         val immutableBlurred = mutableBlurred.copy(Bitmap.Config.RGB_565, false)
         mutableBlurred.recycle()
         return immutableBlurred
@@ -132,7 +132,7 @@ internal object WidgetCoverArtRenderer {
         val horizontal = IntArray(size)
         val output = IntArray(size)
 
-        // 先横向平均每个像素周围的颜色，单独拆一遍可让模糊半径保持可控，避免直接二维卷积带来的额外计算量。
+        // Horizontal pass. Blur horizontally to keep the radius manageable, preventing the computational load of direct 2D convolutions.
         for (y in 0 until height) {
             val rowStart = y * width
             for (x in 0 until width) {
@@ -140,7 +140,7 @@ internal object WidgetCoverArtRenderer {
             }
         }
 
-        // 再纵向平均横向结果，两段一维模糊组合成稳定的背景柔化效果，足够覆盖 widget 尺寸下的封面细节。
+        // Vertical pass. Blur vertically over the horizontal result; combining two 1D passes yields a soft background sufficient for the widget scale.
         for (y in 0 until height) {
             val rowStart = y * width
             for (x in 0 until width) {

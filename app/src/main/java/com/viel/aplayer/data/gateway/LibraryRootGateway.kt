@@ -5,41 +5,46 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import kotlinx.coroutines.flow.Flow
 
 /**
- * 领域解耦的网关接口：专注于有声书库根目录（包括本地 SAF 根目录以及 WebDAV 根目录）的维护与管理。
- *
- * 核心设计目标：
- * 1. 消除上帝类依赖：为上游设置页、扫描器等暴露专门的只读与只写书库根逻辑。
- * 2. 促进依赖倒置：隔离文件目录授权/网络 DAV 实体在领域外的表现形式。
+ * Decoupled Domain Gateway Interface (LibraryRootGateway)
+ * Focuses on maintenance and management of library source roots (including local SAF roots and WebDAV remote hosts).
+ * 
+ * Core Design Goals:
+ * 1. Eradicate God-Class Dependencies: Exposes dedicated read/write library root logic for upstream settings pages and scanners.
+ * 2. Promote Dependency Inversion: Isolates directory authorization or network DAV credential states from core business domains.
  */
 interface LibraryRootGateway {
 
     /**
-     * 响应式观察当前全部注册的书库根目录列表。
+     * Observe Registered Roots (Reactive roots flow)
+     * Reactively tracks the list of all registered library source roots.
      */
     fun observeLibraryRoots(): Flow<List<LibraryRootEntity>>
 
     /**
-     * 同步获取当前已缓存的全部书库根目录列表快照。
+     * Get Cached Roots Snapshot (Synchronous cache fetch)
+     * Returns a synchronous snapshot of the library roots list currently cached in memory.
      */
     fun getCachedLibraryRoots(): List<LibraryRootEntity>
 
     /**
-     * 注册并持久化一个本地存储（SAF 授权）的书库根目录。
-     *
-     * @param uri 本地 SAF 返回的持久化授权目录 Uri
-     * @return 新创建的书库根目录实体记录
+     * Register Local Storage Root (SAF directory mapping)
+     * Persists a local SAF authorized tree directory as a library root.
+     * 
+     * @param uri Persistable SAF directory tree URI
+     * @return Newly created LibraryRootEntity record
      */
     suspend fun setLibraryRoot(uri: Uri): LibraryRootEntity
 
     /**
-     * 注册并持久化一个 WebDAV 远程网络书库根目录。
-     *
-     * @param url WebDAV 的网络服务器物理终点 URL
-     * @param username 用户名
-     * @param password 密码
-     * @param displayName 显示名称
-     * @param basePath 挂载的基础目录路径
-     * @return 新创建的 WebDAV 书库根目录实体记录
+     * Register WebDAV Storage Root (Remote server connection persistence)
+     * Persists a WebDAV remote directory mapping, saving server credentials in a secure store.
+     * 
+     * @param url Physical endpoint URL of the WebDAV server
+     * @param username Account login username
+     * @param password Account login password
+     * @param displayName Label visible in settings UI
+     * @param basePath Mount directory path (e.g. '/audiobooks')
+     * @return Newly created WebDAV LibraryRootEntity record
      */
     suspend fun addWebDavLibraryRoot(
         url: String,
@@ -50,12 +55,13 @@ interface LibraryRootGateway {
     ): LibraryRootEntity
 
     /**
-     * 注册并持久化一个 ABS 远端书库根。
-     *
-     * @param credentialId ABS 凭据存储中的稳定引用 ID
-     * @param libraryId Audiobookshelf book library 的远端 ID
-     * @param displayName 设置页展示名称，通常使用 library 名称
-     * @return 新创建或更新后的 ABS 书库根实体记录
+     * Register ABS Remote Root (Audiobookshelf library link)
+     * Persists an ABS remote library reference mapping.
+     * 
+     * @param credentialId Stable identifier referencing credentials in ABS secure store
+     * @param libraryId Remote Audiobookshelf library ID
+     * @param displayName Label visible in settings UI
+     * @return Newly created or updated ABS LibraryRootEntity record
      */
     suspend fun addAbsLibraryRoot(
         credentialId: String,
@@ -64,19 +70,21 @@ interface LibraryRootGateway {
     ): LibraryRootEntity
 
     /**
-     * 注册本地 SAF 授权的书库根目录并即刻发起物理文件增量同步。
+     * Add SAF Root and Sync (Immediate ingestion sequence)
+     * Registers a local SAF root and immediately schedules an incremental sync scan.
      */
     fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String = "USER")
 
     /**
-     * 注册 WebDAV 远程网络书库根目录并即刻发起文件增量同步。
-     *
-     * @param url WebDAV 的网络服务器物理终点 URL
-     * @param username 用户名
-     * @param password 密码
-     * @param displayName 显示名称
-     * @param basePath 挂载的基础目录路径
-     * @param trigger 同步触发源，默认为 USER
+     * Add WebDAV Root and Sync (Immediate ingestion sequence)
+     * Registers a remote WebDAV source and immediately schedules an incremental sync scan.
+     * 
+     * @param url Endpoint URL of the WebDAV server
+     * @param username Login username
+     * @param password Login password
+     * @param displayName Label visible in settings UI
+     * @param basePath Target remote mount folder sub-path
+     * @param trigger Event source (e.g. USER, SYSTEM)
      */
     fun addWebDavLibraryRootAndScheduleSync(
         url: String,
@@ -88,13 +96,15 @@ interface LibraryRootGateway {
     )
 
     /**
-     * 异步刷新并校验所有书库根目录在底层的真实授权/连接状态。
+     * Refresh Root Statuses (Reachability sanity checks)
+     * Asynchronously checks active access permissions for SAF or credentials validation for remote roots.
      */
     suspend fun refreshLibraryRootStatuses()
 
     /**
-     * 仅清理与书库根相关的底层数据（物理封面图清理、SAF授权释放、WebDAV凭证物理删除、Room级联记录删除）。
-     * 此操作为纯数据层职责，不参与任何播放状态的控制，解耦反向依赖。
+     * Pure Data Deletion Cleanups (Cascaded cleanup transaction)
+     * Purges all cache structures associated with the library root (covers, SAF permission releases, WebDAV credential deletion, Room cascades).
+     * Dedicated to pure data layers, keeping playback operations decoupled.
      */
     suspend fun deleteLibraryRootDataOnly(root: LibraryRootEntity)
 }

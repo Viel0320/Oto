@@ -22,31 +22,31 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
- * 播放器悬浮层组件 (PlayerOverlay)。
- * 
- * 本组件已彻底重构剥离了迷你播放器相关的 Popup 弹窗及高频隔离容器，
- * 仅承担纯粹、职责单一的全屏播放器 (Full Player) 的隐显渲染与 Z-index 包裹协调。
+ * Player overlay component (PlayerOverlay).
+ *
+ * This component has been completely refactored to strip away the mini player related Popup window and high-frequency isolation containers,
+ * solely bearing the pure, single-responsibility rendering visibility and Z-index wrapper coordination of the full-screen player (Full Player).
  */
 @Composable
 fun PlayerOverlay(
     playerViewModel: PlayerViewModel,
     playerActions: PlayerActions,
     playerNavigationActions: PlayerNavigationActions,
-    // 玻璃效果模式必须由 App 容器从设置状态显式传入。
+    // Glass effect mode must be explicitly passed from the settings state by the App container.
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier
 ) {
-    // 仅监听播放器可见性（低频信号）
+    // Only listen to the player visibility (low-frequency signal)
     val isFullPlayerVisible by remember(playerViewModel) {
         playerViewModel.settingsState.map { it.isFullPlayerVisible }.distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 全屏播放器层
-        // 
-        // 实例化全屏播放器自身专属的 playerBackdrop 采样源，
-        // 挂载在最外层包裹的 Box 上以实时采集整个播放器的画面数据（包含前景文字与全部控制按钮），
-        // 并穿透给 PlayerScreen 以让内部的章节列表抽屉组件（ChapterListSheet）实现真正清透的模糊效果。
+        // Full screen player layer
+        //
+        // Instantiate the playerBackdrop sampling source dedicated to the full screen player itself,
+        // mount it on the outermost wrapping Box to collect real-time layout data of the entire player (including foreground text and all control buttons),
+        // and pass it through to PlayerScreen to allow the internal chapter list sheet component (ChapterListSheet) to achieve a truly clear blur effect.
         val playerBackdrop = rememberLayerBackdrop()
         AnimatedVisibility(
             visible = isFullPlayerVisible,
@@ -68,9 +68,9 @@ fun PlayerOverlay(
                     viewModel = playerViewModel,
                     actions = playerActions,
                     navigationActions = playerNavigationActions,
-                    // 全屏播放器内部负责创建章节列表的 miuix-blur 模糊视效，因此这里仅透传模式。
+                    // The full screen player internally manages creating the miuix-blur effect for the chapter list, so only the mode is passed through here.
                     glassEffectMode = glassEffectMode,
-                    // 传递播放器自身的整页全量画面采样源，实现无穿帮高质感磨砂模糊。
+                    // Pass the full-page sampling source of the player itself to achieve seamless, high-quality frosted glass blur.
                     fullPageBackdrop = playerBackdrop
                 )
             }

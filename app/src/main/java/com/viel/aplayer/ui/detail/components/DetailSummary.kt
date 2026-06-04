@@ -19,20 +19,22 @@ import androidx.core.text.HtmlCompat
 import com.viel.aplayer.R
 
 /**
- * 详情页书籍概要组件 (DetailSummary)。
- * 包含“概要”标题标签和经过 HTML 解析处理的简介内容。
- * 使用 SelectableTextView 支持系统级文本选择。
+ * DetailSummary Setup (Detail Summary Component)
+ *
+ * Detail page book summary component (DetailSummary).
+ * Contains "Summary" title label and HTML parsed description content.
+ * Uses SelectableTextView to support system-level text selection.
  */
 @Composable
 fun DetailSummary(
     description: String,
     modifier: Modifier = Modifier,
-    isScrollable: Boolean = false // 新增参数：控制内容区域是否允许滚动
+    isScrollable: Boolean = false // New parameter: Controls whether the content area is allowed to scroll
 ) {
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
-        // 1. 固定标题部分：始终显示在组件顶部
+        // 1. Fixed Title Part: Always displayed at the top of the component
         Text(
             text = stringResource(R.string.summary_label),
             style = MaterialTheme.typography.titleLarge,
@@ -44,10 +46,10 @@ fun DetailSummary(
             renderDescriptionText(description)
         }
         
-        // 2. 可滚动的内容区域：如果开启 isScrollable，则占据剩余空间并允许内部滚动
+        // 2. Scrollable Content Area: If isScrollable is true, occupies remaining space and allows inner scrolling
         val contentModifier = if (isScrollable) {
             Modifier
-                .weight(1f) // 当父布局高度固定时，占据除标题外的所有剩余高度
+                .weight(1f) // Occupy all remaining height except the title when parent layout height is fixed
                 .verticalScroll(rememberScrollState())
         } else {
             Modifier
@@ -66,14 +68,16 @@ fun DetailSummary(
     }
 }
 
-// HTML 标签检测正则表达式，用于判断简介是否包含 HTML 格式
+// Regular expression for HTML tag detection, used to check if description contains HTML formatting
 private val htmlDescriptionPattern = Regex("""</?[a-zA-Z][a-zA-Z0-9]*(\s[^>]*)?/?>""")
 
 /**
- * 渲染简介文本的辅助方法。
- * 1. parser / 导入层负责换行归一化和字面量 "\n" 还原。
- * 2. UI 层只判断是否需要 HTML 解析，避免展示组件耦合音频标签格式差异。
- * 3. 非 HTML 内容保持入库后的文本原样展示。
+ * Render Description Text (Helper Method)
+ *
+ * Helper method for rendering description text.
+ * 1. Parser/import layer is responsible for line break normalization and literal "\n" restoration.
+ * 2. UI layer only determines whether HTML parsing is needed, avoiding display component coupling with audio tag format differences.
+ * 3. Non-HTML content keeps the original text format as stored in the database.
  */
 private fun renderDescriptionText(rawDescription: String): CharSequence {
     return if (htmlDescriptionPattern.containsMatchIn(rawDescription)) {

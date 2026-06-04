@@ -6,12 +6,10 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * 用于缓存各个文件夹（目录）物理 lastModified 修改时间戳的 Room 数据表实体。
- * 本表将 LibraryRootEntity 声明为外键，并配置了级联 CASCADE 删除规则。
- * 当用户在应用中物理删除某个媒体库根目录时，Room 数据库将在 SQLite 引擎层，
- * 自动且安全地将该媒体库下所有已缓存的文件夹状态和 lastModified 记录一并清除。
- * 这保证了随着文件夹的移除，绝不会在系统数据库中留下任何无用缓存的冗余垃圾记录，
- * 实现了极高内聚的自愈化生命周期关联。
+ * Directory Modification Cache Schema (Room entity storing directory lastModified timestamps for scanning optimizations)
+ * Establishes a cascade delete relationship (CASCADE) with LibraryRootEntity as a foreign key.
+ * When a library root is deleted, Room automatically purges all child folder timestamps from SQLite.
+ * This guarantees zero orphaned cache indices left inside databases, completing self-healing cycles.
  */
 @Entity(
     tableName = "directory_cache",
@@ -27,43 +25,43 @@ import androidx.room.PrimaryKey
 )
 data class DirectoryCacheEntity(
     /**
-     * 目录缓存主键改为 rootId/sourcePath 组合，避免缓存层继续绑定 SAF URI。
+     * Cache Key (Primary key combined as rootId/sourcePath to decouple from raw SAF URIs)
      */
     @PrimaryKey
     val cacheKey: String,
 
     /**
-     * sourcePath 是 VFS 目录路径，SAF 本地目录和 WebDAV 远程目录共用同一套缓存寻址方式。
+     * VFS Directory Path (Abstract path shareable between local SAF directories and remote WebDAV directories)
      */
     val sourcePath: String,
 
     /**
-     * 对应物理文件夹的最新的修改时间戳（由 directory.lastModified() 读出）
+     * Modification Timestamp (The last modified time read via directory.lastModified())
      */
     val lastModified: Long,
 
     /**
-     * 为远程 VFS 预留的目录 etag；SAF 当前没有可靠 etag，保持 null，不影响现有 lastModified 缓存判断。
+     * Remote Directory ETag (Reserved for WebDAV delta checks; SAF tracks have no etag and remain null)
      */
     val etag: String? = null,
 
     /**
-     * childSignature 表示目录子项快照签名；WebDAV 无 etag 时可用它做增量判断，SAF 第一阶段暂不计算。
+     * Child File Signature (Used for delta detection on WebDAV folders lacking etags; skipped on SAF)
      */
     val childSignature: String? = null,
 
     /**
-     * lastCheckedAt 记录最近一次目录缓存校验时间，后续远程源可用来控制探测频率，SAF 默认不改变现有行为。
+     * Verification Time (Timestamp of the last scanning checks; used to throttle scans on remote drives)
      */
     val lastCheckedAt: Long = 0L,
 
     /**
-     * availabilityStatus 让目录级不可用状态独立于根目录状态，远程目录临时失败时不会误伤整本书库。
+     * Directory Reachability Status (Restricts failure domains so transient folder issues do not revoke library roots)
      */
     val availabilityStatus: String = "UNKNOWN",
 
     /**
-     * 该文件夹所属的媒体库根授权目录 ID，用于外键级联 CASCADE 级联清理
+     * Parent Root Identifier (Associated media library root ID used for CASCADE deletions)
      */
     val rootId: String
 )

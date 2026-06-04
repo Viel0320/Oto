@@ -41,26 +41,26 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
 fun BookmarkListView(
     modifier: Modifier = Modifier,
     bookmarks: List<BookmarkEntity>,
-    // 展平状态传递，解耦 PlayerViewModel.BookmarkDialogsState 以达成完全去 ViewModel 的设计
+    // Flattened state delegates (To decouple BookmarkDialogsState parameters and enforce stateless layouts design)
     bookmarkToDelete: BookmarkEntity? = null,
     bookmarkToEdit: BookmarkEntity? = null,
     bookmarkEditTitle: String = "",
     onBookmarkClick: (Long) -> Unit,
-    // 触发删除确认对话框的 callback，委托给 ViewModel.requestDeleteBookmark
+    // Request deletion confirmation (To delegate deletion checks to ViewModel callbacks)
     onRequestDelete: (BookmarkEntity) -> Unit = {},
-    // 触发编辑对话框的 callback，委托给 ViewModel.requestEditBookmark
+    // Request modification confirmation (To delegate edit overlays checks to ViewModel callbacks)
     onRequestEdit: (BookmarkEntity) -> Unit = {},
-    // 编辑框内容变更 callback，委托给 ViewModel.onBookmarkEditTitleChange
+    // Update edit text (To forward edit inputs changes back to ViewModel scope)
     onEditTitleChange: (String) -> Unit = {},
-    // 确认删除 callback，委托给 ViewModel.deleteBookmark
+    // Confirm bookmark deletion (To invoke bookmark deletion transactions)
     onConfirmDelete: () -> Unit = {},
-    // 确认更新 callback，委托给 ViewModel.updateBookmark
+    // Confirm title updates (To invoke bookmark renaming transactions)
     onConfirmUpdate: () -> Unit = {},
-    // 关闭所有对话框 callback，委托给 ViewModel.dismissBookmarkDialogs
+    // Clear dialog states (To invoke dialogs dismissal callbacks)
     onDismissDialogs: () -> Unit = {},
     currentPosition: Long = 0L
 ) {
-    // 删除确认对话框——状态由上层通过基础类型传入，配置变更不丢失
+    // Deletion confirmation overlay (To show alert layout using primitive variables passed from container)
     if (bookmarkToDelete != null) {
         AlertDialog(
             onDismissRequest = onDismissDialogs,
@@ -84,7 +84,7 @@ fun BookmarkListView(
         )
     }
 
-    // 编辑对话框——状态由上层传入，旋转屏幕后编辑的标题仍得以完好保存
+    // Modification dialog overlay (To preserve active drafts titles during configuration changes)
     if (bookmarkToEdit != null) {
         AlertDialog(
             onDismissRequest = onDismissDialogs,
@@ -126,7 +126,7 @@ fun BookmarkListView(
     ) {
         items(
             items = bookmarks,
-            // 使用书签 id 作为稳定 key，确保列表更新时 item 状态不错位复用
+            // Configure stable key (To assign unique identifier key to prevent index recycling glitches)
             key = { it.id }
         ) { bookmark ->
             val isActive = currentPosition >= bookmark.globalPositionMs
@@ -136,7 +136,7 @@ fun BookmarkListView(
                     .fillMaxWidth()
                     .combinedClickable(
                         onClick = { onBookmarkClick(bookmark.globalPositionMs) },
-                        // 长按触发编辑，委托给 ViewModel，不再写入局部 mutableState
+                        // Long click triggers modification (To route long-press edit commands directly to ViewModel)
                         onLongClick = { onRequestEdit(bookmark) }
                     )
                     .padding(vertical = 4.dp),
@@ -174,7 +174,7 @@ fun BookmarkListView(
                     }
                 }
 
-                // 点击删除图标，委托给 ViewModel.requestDeleteBookmark，不再直接写局部 mutableState
+                // Deletion click trigger (To delegate bookmark removals commands to ViewModel request queue)
                 IconButton(onClick = { onRequestDelete(bookmark) }) {
                     Icon(
                         Icons.Rounded.Delete,
@@ -187,8 +187,6 @@ fun BookmarkListView(
         }
     }
 }
-
-
 
 @Preview(name = "Bookmark List View - Dark", apiLevel = 36)
 @Composable

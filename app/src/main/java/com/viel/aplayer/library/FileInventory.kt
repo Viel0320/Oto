@@ -10,49 +10,56 @@ data class FileInventory(
     val m3u8Files: List<FileRef>,
     val audioFiles: List<FileRef>,
     val imageFilesByParent: Map<String, List<FileRef>>,
-    // 把同目录 txt 侧车文件也纳入扫描快照，
-    // 这样 manifest parser 可以直接消费本轮目录快照完成简介匹配，
-    // 不必在后续步骤里再次通过 VFS 重新枚举目录。
+    // Include Directory Text Sidecars (Scan snapshot aggregation)
+    // Includes sibling txt sidecars in the scan snapshot, enabling the manifest parser to match descriptions directly without re-evaluating VFS directories.
     val textFilesByParent: Map<String, List<FileRef>>
 )
 
-// DirectoryInventory 表示扫描器已经关闭的单个物理目录快照，是后续 scope 级流式导入的输入事件。
+// Directory Inventory Representation (Physical folder snapshot)
+// Represents a completed physical directory scan snapshot, serving as an ingestion event for scope-based streaming imports.
 data class DirectoryInventory(
     val root: LibraryRootEntity,
-    // 目录快照只保存 VFS sourcePath，目录缓存和增量导入不再持久依赖 SAF URI。
+    // VFS Path Identification (Legacy URI decoupling)
+    // Stores directory locations via VFS sourcePath, removing persistent runtime dependencies on SAF URIs.
     val sourcePath: String,
     val sourceIdentity: String,
     val cueFiles: List<FileRef>,
     val m3u8Files: List<FileRef>,
     val audioFiles: List<FileRef>,
     val imageFiles: List<FileRef>,
-    // 目录关闭事件额外携带同级 txt 文件，
-    // 让后续 manifest scope 在不重新 listChildren 的前提下就能拿到简介侧车候选。
+    // Bundle Text Sidecars (Context propagation optimization)
+    // Attaches sibling text files to the directory completion event, providing description candidates for subsequent manifest scopes without triggering listChildren.
     val textFiles: List<FileRef>,
-    // 新增物理文件夹最后修改时间属性，默认赋予 0L 以确保最大化的反射及兼容安全性
+    // Folder Last Modified Timestamp (Backward compatibility safety)
+    // Introduces directory modification timestamps defaulting to 0L for reflection and database schema compatibility.
     val lastModified: Long = 0L
 ) {
-    // 冷启动轻量扫描沿用旧逻辑，只让未被 BookFile 认领过的清单与音频进入后续 scope 构建。
+    // Light Scan Filtering (Legacy incremental boundary checks)
+    // Retains only manifest and audio files not yet claimed by any BookFile for downstream import scope building.
     fun onlyUnclaimed(existingClaimIndex: ExistingClaimIndex): DirectoryInventory =
         copy(
             cueFiles = cueFiles.filterNot { existingClaimIndex.has(it.identity) },
             m3u8Files = m3u8Files.filterNot { existingClaimIndex.has(it.identity) },
             audioFiles = audioFiles.filterNot { existingClaimIndex.has(it.identity) }
-            // txt 与图片一样不参与“已认领文件”过滤，
-            // 它们只作为仍需保留的目录辅助资产存在。
+            // Asset Retention Exclusion (Asset lifecycle management)
+            // Sidecar files (text, images) bypass unclaimed filters, remaining in scope as directory metadata assets.
         )
 }
 
 // Runtime file reference used during a single scan/import run.
 data class FileRef(
     val rootId: String,
-    // sourcePath 是扫描期文件定位字段，后续所有解析都通过 VFS 使用它。
+    // VFS Path Resolution Location (Scan file targeting pointer)
+    // Source path for scanning, utilized directly by the VFS facade for all subsequent content reads.
     val sourcePath: String,
-    // sourceIdentity 是跨协议身份键，不再保存 SAF 专属旧身份作为运行时字段。
+    // Cross-Protocol Identity Key (Generic protocol mapping identifier)
+    // Unique identity key across storage providers, removing SAF-specific storage references.
     val sourceIdentity: String,
-    // etag 是远程增量检测预留字段；SAF 没有稳定 etag 时保持 null。
+    // Remote ETag Checksum (Incremental sync optimization)
+    // Optional ETag value for remote sync verification; remains null for providers without etag support (e.g., SAF).
     val etag: String? = null,
-    // parentSourcePath 和 parentSourceKey 用于同目录匹配、claim 限定和 sidecar 查找。
+    // Sibling Scoping Keys (Directory context mapping pointers)
+    // Parent source indicators for directory grouping, claim constraints, and metadata sidecar resolution.
     val parentSourcePath: String,
     val parentSourceKey: String,
     val parentSourceIdentity: String,
@@ -60,14 +67,17 @@ data class FileRef(
     val fileSize: Long,
     val lastModified: Long
 ) {
-    // 扫描期 FileRef 的稳定键直接等于 VFS 路径键，后续 manifest、claim 和日志都不再回退到 provider URI。
+    // VFS Path Stable Key (Uniform asset identifier mapping)
+    // Computes unique file key from the VFS path, preventing fallback to provider-specific URIs in manifest parser and logs.
     val vfsKey: String = vfsFileKey(rootId, sourcePath)
 
-    // 所有权身份使用 rootId/sourcePath 为主、sourceIdentity 为辅，完全替代旧 uri 身份。
+    // Resource Claim Identity (Identity mapping decoupling)
+    // Computes ownership identity from rootId/sourcePath and sourceIdentity, replacing legacy URI-based structures.
     val identity: FileIdentity = FileIdentity(rootId = rootId, sourcePath = sourcePath, sourceIdentity = sourceIdentity)
 }
 
-// FileIdentity 只描述 VFS 标准身份，不再把 provider URI 放进 claim key。
+// Decoupled File Identity (Normalized storage reference wrapper)
+// Encapsulates VFS standard identity parameters, excluding provider-specific URIs from claim keys.
 data class FileIdentity(
     val rootId: String,
     val sourcePath: String,
@@ -79,7 +89,8 @@ data class FileIdentity(
     }
 }
 
-// VFS 文件键使用不可见分隔符组合 rootId/sourcePath，避免普通路径字符导致键碰撞。
+// Unique VFS Key Formatting (Collision avoidance utility)
+// Combines rootId and sourcePath using an invisible delimiter to prevent string collisions on common directory symbols.
 fun vfsFileKey(rootId: String, sourcePath: String): String = "$rootId\u001F$sourcePath"
 
 // Stable scanner ordering keeps the same import result for the same file tree.

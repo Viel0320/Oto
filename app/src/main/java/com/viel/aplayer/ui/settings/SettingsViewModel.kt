@@ -24,7 +24,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * 设置页面的 ViewModel，负责管理持久化配置的交互。
+ * Settings view model (Handler for configuration persistence interactions)
+ * Manages reactive settings flows and dispatches business operations.
  */
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val container = (application as APlayerApplication).container
@@ -33,24 +34,24 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val absPlaybackSessionSyncer = container.absPlaybackSessionSyncer
     private val absSyncTaskCoordinator = container.absSyncTaskCoordinator
     private val absCredentialStore = AbsCredentialStore.getInstance(application.applicationContext)
-    // 详尽的中文注释：设置页里的“测试连接”和“添加服务器”共用同一个 ABS API client，
-    // 这样后续可以直接复用一次成功测试拿到的登录结果，而不是在添加时再平白多跑一遍登录链路。
+    // Shared client instance (To avoid redundant authentication requests)
+    // Reuses a single API client instance across connection tests and registration flows.
     private val absApiClient = com.viel.aplayer.abs.net.RealAbsApiClient()
     private val absConnectionTester = com.viel.aplayer.abs.sync.AbsConnectionTester(absApiClient)
     private val absSyncWorkScheduler = com.viel.aplayer.abs.sync.AbsSyncWorkScheduler(application.applicationContext)
     private val database = com.viel.aplayer.data.db.AppDatabase.getInstance(application.applicationContext)
-    // 详尽的中文注释：最近一次“测试连接成功”的快照只保存在 ViewModel 内存里，
-    // 不进数据库、不进 DataStore，也不暴露给 UI。它只服务于“刚测试成功就点添加”的短链路提速。
+    // Cache connection snapshot (To speed up registration directly after a successful test)
+    // Temporarily retains connection metadata in memory without writing to database or exposing it to UI.
     private var lastSuccessfulAbsConnection: AbsConnectionReuseSnapshot? = null
     
-    // 
-    // 在 M5b.1 迁移中，将 SettingsViewModel 中对旧仓库 libraryRepository 的依赖彻底剥离，
-    // 降级解耦为书库根网关 libraryRootGateway 与增量扫描网关 scanScheduler。
+    // M5b.1 Decouple repositories (To remove deprecated libraryRepository dependency)
+    // Downgrades direct repository operations to libraryRootGateway and scanScheduler.
     private val libraryRootGateway = container.libraryRootGateway
     private val scanScheduler = container.scanScheduler
     
     /**
-     * 跨域书库根目录删除协调器用例，用于替代原有的门面仓库调用，以符合领域解耦规范。
+     * Cross-domain deletion usecase (To enforce DDD architecture boundaries)
+     * Replaces direct facade repository calls with clean domain-level service triggers.
      */
     private val deleteLibraryRootUseCase = container.deleteLibraryRootUseCase
     private val _uiEvents = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
@@ -60,7 +61,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _absSyncConfirmationState = MutableStateFlow<AbsSyncConfirmationState?>(null)
     val absSyncConfirmationState: StateFlow<AbsSyncConfirmationState?> = _absSyncConfirmationState.asStateFlow()
 
-    /** 暴露给 UI 的设置状态流 */
+    /** Exposed settings flow (To stream settings modifications to observing UI views) */
     val settingsState: StateFlow<AppSettings> = settingsRepository.settingsFlow
         .stateIn(
             scope = viewModelScope,
@@ -68,8 +69,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = AppSettings()
         )
 
-    /** 暴露给 UI 的媒体库根目录流 */
-    // 使用 libraryRootGateway 网关响应式观察观察注册的书库目录并获取内存快照初始缓存值，以消解首帧空白和布局闪烁
+    /** Exposed library roots (To display registered directories) */
+    // Subscribes to library root state flow and initializes with cached values to mitigate frame flickers.
     val libraryRoots: StateFlow<List<LibraryRootEntity>> = libraryRootGateway.observeLibraryRoots()
         .stateIn(
             scope = viewModelScope,
@@ -90,17 +91,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     displayName = root.displayName,
                     baseUrl = root.sourceUri,
                     libraryId = root.basePath,
-                        syncStatus = when {
-                            sync?.lastError?.isNotBlank() == true -> "ERROR"
-                            sync?.lastFullSyncAt != null -> "SYNCED"
-                            else -> "IDLE"
-                        },
-                        lastFullSyncAt = sync?.lastFullSyncAt,
-                        serverVersion = sync?.serverVersion,
-                        lastError = sync?.lastError?.redactAbsError()
-                    )
-                }
-        }.stateIn(
+                    syncStatus = when {
+                        sync?.lastError?.isNotBlank() == true -> "ERROR"
+                        sync?.lastFullSyncAt != null -> "SYNCED"
+                        else -> "IDLE"
+                    },
+                    lastFullSyncAt = sync?.lastFullSyncAt,
+                    serverVersion = sync?.serverVersion,
+                    lastError = sync?.lastError?.redactAbsError()
+                )
+            }
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
@@ -108,38 +109,39 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch {
-            // Settings entry should show current SAF grant status, including revoked roots.
-            // 延迟 500 毫秒后再触发系统的 SAF 物理授权检测，以完美避开 Activity 启动转场动画及首帧绘制的核心渲染时间，保证界面展示绝对丝滑
+            // Postpone SAF status refresh (To avoid interfering with Activity transitions and initial frame draws)
+            // Delays for 500ms before validating SAF storage permissions to ensure smooth UI animation rendering.
             kotlinx.coroutines.delay(500)
-            // 使用 libraryRootGateway 的 refreshLibraryRootStatuses 校验书库目录可达性
+            // Verify folder accessibility (To update status indicators for library root cards)
+            // Triggers directory verification flow through libraryRootGateway.
             libraryRootGateway.refreshLibraryRootStatuses()
         }
     }
 
     init {
         viewModelScope.launch {
-            // Settings entry should show current SAF grant status, including revoked roots.
-            // 延迟 500 毫秒后再触发系统的 SAF 物理授权检测，以完美避开 Activity 启动转场动画及首帧绘制的核心渲染时间。
+            // Postpone SAF status refresh (To avoid interfering with Activity transitions and initial frame draws)
+            // Delays for 500ms before validating SAF storage permissions to ensure smooth UI animation rendering.
             kotlinx.coroutines.delay(500)
-            // 使用 libraryRootGateway 的 refreshLibraryRootStatuses 校验书库目录可达性。
+            // Verify folder accessibility (To update status indicators for library root cards)
+            // Triggers directory verification flow through libraryRootGateway.
             libraryRootGateway.refreshLibraryRootStatuses()
         }
     }
 
     fun refreshLibraryRootStatuses() {
         viewModelScope.launch {
-            // Route entry calls this explicitly because the SettingsViewModel may be created before navigation.
-            // 手动触发的刷新依然走异步协程检测，保证物理可达性更新。
-            // 通过 libraryRootGateway 异步校验当前全部已添加的 SAF 目录授权可达状态
+            // Manually refresh root status (To update folder accessibility statuses via async validation)
+            // Dispatches status verification routine in a coroutine block using libraryRootGateway.
             libraryRootGateway.refreshLibraryRootStatuses()
         }
     }
 
-    // 
-    // 在设置页中选择媒体库目录后的回调逻辑，负责获取持久化 SAF 授权，将其存入数据库并异步触发 USER 手动增量扫描任务。
-    // 这能让设置页完全独立处理 SAF 动作，从而将 LibraryViewModel 彻底解耦，消除 Activity 切换时的冷启动扫描问题。
+    // Handle SAF registry callback (To register new storage authority and trigger background scan)
+    // Separates settings-scoped SAF requests to isolate navigation lifecycle and decouple LibraryViewModel.
     fun onLibraryRootSelected(uri: Uri) {
-        // 利用 libraryRootGateway 写入新选择的本地 SAF 授权目录，并在应用级后台执行同步
+        // Persist local library directory (To registers new SAF path and schedules import sync)
+        // Dispatches the folder registration to libraryRootGateway.
         libraryRootGateway.addLibraryRootAndScheduleSync(uri)
     }
 
@@ -150,7 +152,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         displayName: String,
         basePath: String
     ) {
-        // 使用 libraryRootGateway 在后台注册并立即调度 WebDAV 网络书库目录的文件同步
+        // Register WebDAV endpoint (To initiate a background sync task for remote WebDAV resources)
+        // Passes connection credentials and directories to libraryRootGateway.
         libraryRootGateway.addWebDavLibraryRootAndScheduleSync(
             url = url,
             username = username,
@@ -168,7 +171,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         libraryName: String
     ) {
         viewModelScope.launch {
-            // 详尽中文注释：添加 ABS server 属于设置页入口动作，因此归档到设置路径 logger，方便和底层认证/同步日志分层排查。
+            // Log ABS server addition (To track user registration attempt in settings log scope)
+            // Segregates user configuration events from network-level authentication logs.
             AbsSettingsLogger.logAddServerStart(baseUrl, username, libraryId, libraryName)
             runCatching {
                 val reuseSnapshot = lastSuccessfulAbsConnection?.takeIf { snapshot ->
@@ -179,8 +183,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         libraryId = libraryId
                     )
                 }
-                // 详尽的中文注释：只有当当前输入仍然命中最近一次测试连接成功的同一服务器、同一账号和同一书库时，
-                // 才允许跳过第二遍登录与鉴权请求，从而缩短“测试成功后立刻点击添加”的等待时间。
+                // Skip authentication request (To skip login network requests when parameters align with the tested endpoint)
+                // Verifies if input arguments match the cached snapshot metadata.
                 val token = reuseSnapshot?.token ?: requireNotNull(absApiClient.login(baseUrl, username, password).user?.token)
                 val connection = reuseSnapshot?.connection ?: absConnectionTester.testConnection(baseUrl, token)
                 val credential = absCredentialStore.save(
@@ -194,8 +198,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     libraryId = libraryId,
                     displayName = libraryName
                 )
-                // 详尽的中文注释：添加成功后保留这次有效连接快照，支持同一会话里继续给同一服务器添加别的书库，
-                // 从而把用户的重复等待压到最小。
+                // Retain connection snapshot (To minimize waiting times when adding multiple libraries from the same host)
+                // Saves the validated connection payload in memory.
                 val normalizedSnapshot = AbsConnectionReuseSnapshot(
                     baseUrl = normalizeAbsBaseUrlForReuse(baseUrl),
                     username = username.trim(),
@@ -218,8 +222,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     errorClass = error::class.java.simpleName,
                     message = redactedMessage
                 )
-                // 详尽的中文注释：添加服务器同样可能在 `/status` 版本校验阶段被拒绝，
-                // 因此这里必须把具体失败原因通过 Toast 透出给用户，而不能只给模糊的“添加失败”。
+                // Expose authentication failures (To detail precise server constraints on the settings interface)
+                // Toast details error payload rather than generic failure messages.
                 _uiEvents.tryEmit(UiEvent.ShowToast("ABS server 添加失败：$redactedMessage"))
             }
         }
@@ -227,7 +231,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun testAbsConnection(baseUrl: String, username: String, password: String) {
         viewModelScope.launch {
-            // 详尽中文注释：测试连接是设置页的直接用户动作，入口与结果统一放到设置 logger，后续再用认证 logger 补底层 REST 细节。
+            // Log testing action (To record user action endpoint configuration in settings scope)
+            // Routes connection check parameters directly to AbsSettingsLogger.
             val start = AbsSettingsLogger.mark()
             AbsSettingsLogger.logTestConnectionStart(baseUrl, username)
             _absConnectionState.value = AbsConnectionUiState(
@@ -239,8 +244,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 val login = absApiClient.login(baseUrl, username, password)
                 val token = requireNotNull(login.user?.token)
                 val result = absConnectionTester.testConnection(baseUrl, token)
-                // 详尽的中文注释：测试连接成功后，把 token 与书库列表缓存在 ViewModel 内存里，
-                // 供后续紧接着的“添加服务器”直接复用，避免再次触发完整的登录和鉴权链路。
+                // Cache authorization parameters (To avoid login loops when registration is performed right after check)
+                // Holds token and library list in memory.
                 lastSuccessfulAbsConnection = AbsConnectionReuseSnapshot(
                     baseUrl = normalizeAbsBaseUrlForReuse(baseUrl),
                     username = username.trim(),
@@ -271,8 +276,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 )
                 _uiEvents.tryEmit(UiEvent.ShowToast("连接成功，发现 ${result.bookLibraries.size} 个可用书库"))
             }.onFailure { error ->
-                // 详尽的中文注释：只要本轮测试失败，就立刻清空上一次成功快照，
-                // 防止用户改了服务器地址或账号后，后续“添加服务器”错误复用旧 token。
+                // Evict cached credentials (To avoid reusing stale or invalid tokens)
+                // Discards the snapshot when a subsequent test check fails or returns an error.
                 lastSuccessfulAbsConnection = null
                 _absConnectionState.value = AbsConnectionUiState(
                     isTesting = false,
@@ -296,7 +301,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun syncAbsRoot(rootId: String) {
         viewModelScope.launch {
             val root = libraryRootGateway.getCachedLibraryRoots().firstOrNull { it.id == rootId } ?: return@launch
-            // 详尽中文注释：手动同步的入口先记在设置路径 logger，便于和底层同步日志按时间关联。
+            // Log manual sync (To trace trigger events initiated from settings panel)
+            // Routes synchronization initialization to settings diagnostic logs.
             val start = AbsSettingsLogger.mark()
             AbsSettingsLogger.logManualSyncStart(rootId = root.id, displayName = root.displayName)
             val plan = absCatalogSynchronizer.inspectRootSyncPlan(root)
@@ -320,13 +326,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun scheduleAbsRootSync(rootId: String) {
-        // 详尽中文注释：后台同步已入队需要独立日志，否则只看 worker 侧无法区分“用户没点”还是“队列没起”。
+        // Log background sync queue (To track work enqueue actions before execution)
+        // Writes task scheduling information to settings logger.
         AbsSettingsLogger.logScheduleBackgroundSync(rootId)
         absSyncWorkScheduler.enqueue(rootId)
     }
 
     fun triggerRescan() {
-        // 调用 scanScheduler 网关异步提交 USER 手动增量重扫指令
+        // Trigger manual scan (To check file updates on registered roots)
+        // Dispatches scan scheduler request in asynchronous scope.
         scanScheduler.scheduleLibrarySync("USER")
     }
 
@@ -336,34 +344,38 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // 新增切换是否允许 HTTP 明文流量持久化配置的交互方法。
+    // Toggle HTTP traffic config (To adjust cleartext allowance setting parameters)
     fun toggleCleartextTrafficAllowed(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateCleartextTrafficAllowed(enabled)
         }
     }
 
-    // 删除库根目录并释放 SAF 授权。通过跨域协调用例执行，安全地处理停播与文件清理，然后通过 Toast 通知用户结果。
+    // Deregister library root (To release SAF grant permissions, stop related playback, and clear DB entries)
     fun deleteLibraryRoot(root: LibraryRootEntity) {
         viewModelScope.launch {
-            // 详尽中文注释：删除 server 是设置入口上的高风险动作，先记录入口，便于与停播和数据清理日志对时序。
+            // Log directory deletion (To record high-risk library removal event)
+            // Writes deletion request info with ID and type indicators.
             AbsSettingsLogger.logDeleteServerStart(rootId = root.id, sourceType = root.sourceType)
-            // 调用高层用例执行删除，该用例会智能判断是否需要在此之前触发紧急停播
+            // Stop playback before deletion (To prevent crashes or unexpected playback behaviors from missing tracks)
+            // Triggers deleteLibraryRootUseCase which conditionally stops active playback.
             val playbackWasStopped = deleteLibraryRootUseCase.invoke(root)
             val message = if (playbackWasStopped) {
                 "媒体库已移除，当前播放已停止"
             } else {
                 "媒体库已移除"
             }
-            // 详尽中文注释：记录删除完成与是否发生了紧急停播，帮助区分普通删除和“删除正在播放的库”。
+            // Log removal result (To track whether the removal caused immediate playback halt)
+            // Records outcome stats to log system.
             AbsSettingsLogger.logDeleteServerFinished(rootId = root.id, playbackStopped = playbackWasStopped)
             _uiEvents.tryEmit(UiEvent.ShowToast(message))
         }
     }
 
     /**
-     * 切换自动跳过静音（Skip Silence）功能全局总开关的交互方法。
-     * 经过重构，移除了自定义判定最小时长和温馨通知提示开关的交互逻辑。
+     * Toggle the global switch for the Skip Silence feature.
+     *
+     * Following refactoring, the interactive logic for custom minimum duration and warm notification tips switches has been removed.
      */
     fun toggleSkipSilenceEnabled(enabled: Boolean) {
         viewModelScope.launch {
@@ -371,42 +383,42 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // 新增切换睡眠定时音量渐隐功能全局总开关的交互方法。
+    // Toggle skip silence (To modify persistent preference for audio skip settings)
     fun toggleSleepFadeOutEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateSleepFadeOutEnabled(enabled)
         }
     }
 
-    // 新增切换“摇晃手机重置睡眠定时器 (Shake-to-Reset)”全局总开关的交互方法。
+    // Toggle shake reset (To toggle shake timer resetting capability)
     fun toggleShakeToResetEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateShakeToResetEnabled(enabled)
         }
     }
 
-    // 新增设置页切换睡眠模式的交互方法，通过协程异步更新 DataStore 持久化配置，由 UI 组件触发。
+    // Update sleep mode (To adjust sleep target mode settings)
     fun updateSleepMode(mode: SleepMode) {
         viewModelScope.launch {
             settingsRepository.updateSleepMode(mode)
         }
     }
 
-    // 新增设置页切换悬浮层视觉效果模式的交互方法，统一写入 DataStore 供主页 and 播放器实时响应。
+    // Update glass effect (To modify visual backdrop parameters for navigation overlays)
     fun updateGlassEffectMode(mode: GlassEffectMode) {
         viewModelScope.launch {
             settingsRepository.updateGlassEffectMode(mode)
         }
     }
 
-    // 新增设置页修改自动回退播放进度秒数（0-30s）的交互方法，通过协程异步写入持久化 DataStore。
+    // Update rewind seconds (To customize position rollback durations)
     fun updateAutoRewindSeconds(seconds: Int) {
         viewModelScope.launch {
             settingsRepository.updateAutoRewindSeconds(seconds)
         }
     }
 
-    // 新增设置页切换通知避让（Notification Avoidance）功能全局开关的交互方法，通过协程异步写入持久化 DataStore。
+    // Toggle notification avoidance (To enable/disable playback avoidance behavior)
     fun toggleNotificationAvoidanceEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateNotificationAvoidanceEnabled(enabled)
@@ -414,13 +426,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * 详尽的中文注释：添加服务器成功后，立刻在 ViewModel 后台协程里触发一次 ABS catalog 同步。
-     * 这里不阻塞“添加成功”这条主交互链，而是把同步结果通过 toast 回报给用户，
-     * 这样既能满足“自动开始后台扫描”的体验要求，又不会让添加按钮一直卡到同步结束。
+     * Start automated catalog sync (To sync items immediately after server registration)
+     * Initiates non-blocking synchronization process in background coroutine scope.
      */
     private fun launchAutoAbsSync(root: LibraryRootEntity) {
-        // 详尽的中文注释：自动同步必须提升为应用级任务，不能依赖当前 SettingsViewModel 是否还存活。
-        // 因此这里先尝试把任务交给应用级协调器；一旦成功入队，后面的旧 ViewModel 作用域实现就不再执行。
+        // Start application-level task (To prevent task cancellation upon SettingsViewModel destruction)
+        // Enqueues synchronization to absSyncTaskCoordinator.
         val scheduled = absSyncTaskCoordinator.start(root.id, com.viel.aplayer.abs.sync.AbsSyncTaskOrigin.AUTO_ADD)
         if (!scheduled) {
             _uiEvents.tryEmit(UiEvent.ShowToast("ABS 同步已在进行中"))
@@ -433,8 +444,8 @@ private fun String.redactAbsError(): String =
     replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
 
 /**
- * 详尽的中文注释：设置页成功测试连接后，保存在 ViewModel 内存里的复用快照。
- * 该快照不进 Room、不进 DataStore，也不暴露给 UI；只服务于“测试连接成功后立刻添加”的短链路提速。
+ * Connection reuse data snapshot (To cache successful testing credentials)
+ * Retains validation details in memory to facilitate smooth registration.
  */
 internal data class AbsConnectionReuseSnapshot(
     val baseUrl: String,
@@ -444,16 +455,15 @@ internal data class AbsConnectionReuseSnapshot(
 )
 
 /**
- * 详尽的中文注释：统一规范化设置页连接复用所使用的 baseUrl 比较值。
- * 这里只做 trim 和去尾斜杠，保证用户手动输入 `.../audiobookshelf` 与 `.../audiobookshelf/` 时可以命中同一快照。
+ * Normalize baseUrl value (To align user input URLs during reuse validation check)
+ * Removes trailing slash and trims whitespace character margins.
  */
 internal fun normalizeAbsBaseUrlForReuse(baseUrl: String): String =
     baseUrl.trim().trimEnd('/')
 
 /**
- * 详尽的中文注释：判断“添加服务器”是否可以复用最近一次测试连接成功的快照。
- * 只有当 baseUrl、username 与快照完全对齐，且选中的 libraryId 仍存在于当时返回的书库列表中时，才允许复用。
- * 这样既减少重复请求，又避免把旧测试结果误套到新的服务器、账号或库选择上。
+ * Validate reuse criteria (To determine if the cached connection snapshot can be safely reused)
+ * Checks if URLs, username, and target library IDs are equivalent.
  */
 internal fun shouldReuseAbsConnectionSnapshot(
     snapshot: AbsConnectionReuseSnapshot,

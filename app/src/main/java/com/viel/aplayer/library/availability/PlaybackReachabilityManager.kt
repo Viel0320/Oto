@@ -10,20 +10,25 @@ import com.viel.aplayer.media.PositionMapper
 import kotlinx.coroutines.delay
 
 /**
- * 专门负责播放运行期音频文件物理就绪度存在性校验、就绪降级重算、
- * 以及下一首就绪音频查找检索的物理可达性管理器。
- * 本组件从原 LibraryRepository 中彻底解耦，消除复杂的物理降级与查找重算算法给主体数据存取类带来的复杂性耦合。
+ * Playback Reachability and Failover Manager (Core Service)
+ *
+ * Verifies physical file presence during playback, handles reachability degradation,
+ * and performs failover routing to identify next playable track.
+ * Decoupled from LibraryRepository to simplify core data access layers.
  */
 class PlaybackReachabilityManager(
     context: Context,
     private val bookDao: BookDao,
     private val libraryRootDao: LibraryRootDao
 ) {
-    // 播放运行期可达性统一进入 AvailabilityChecker，后续 WebDAV 播放探测可在同一标准件内扩展。
+    // Route to AvailabilityChecker (Unified Check Path)
+    // Directs playback reachability check to the shared AvailabilityChecker, open for WebDAV extension.
     private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     /**
-     * 播放期可达性按本地/非本地分层；本地单次快判，非本地留出网络缓冲重试窗口。
+     * Determine File Reachability (Tiered Strategy Pattern)
+     *
+     * Local files are checked instantly, while remote files employ a retry strategy with grace windows.
      */
     private suspend fun checkFileAvailable(file: BookFileEntity): Boolean {
         val root = libraryRootDao.getRootById(file.rootId) ?: return false
@@ -36,7 +41,8 @@ class PlaybackReachabilityManager(
     }
 
     private suspend fun checkRemoteFileAvailableWithGrace(file: BookFileEntity): Boolean {
-        // 非本地来源可能受网络抖动影响，连续失败后才允许播放层降级或跳过。
+        // Retry Remote Availability Checks (Network Resiliency)
+        // Accommodates temporary network hiccups; error states apply only after consecutive failures.
         REMOTE_REACHABILITY_RETRY_DELAYS_MS.forEachIndexed { attempt, delayMs ->
             if (availabilityChecker.checkBookFile(file).isAvailable) return true
             if (attempt < REMOTE_REACHABILITY_RETRY_DELAYS_MS.lastIndex) delay(delayMs)
@@ -44,13 +50,17 @@ class PlaybackReachabilityManager(
         return false
     }
 
-    /**校验当前有声书的恢复进度对应的音频文件在物理上是否可读就绪。
-     * 若已就绪，保存就绪状态，若已丢失，降级该文件及整本书的就绪级别（如降级为 PARTIAL/UNAVAILABLE）。
+    /**
+     * Verify Active Track Availability (State Synchronization)
+     *
+     * Inspects the track mapped to the book's current playback progress.
+     * Updates states and recalculates the book-wide reachability level (e.g. READY, PARTIAL, UNAVAILABLE).
      */
     suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean {
         val files = bookDao.getFilesForBookList(bookId)
         if (files.isEmpty()) {
-            // 无音频行说明此书不可播放，强制设为 UNAVAILABLE
+            // Mark Book as Unavailable (Empty Track Guard)
+            // Books missing any file references cannot be played; updates status to UNAVAILABLE.
             bookDao.updateBookStatus(bookId, AudiobookSchema.BookStatus.UNAVAILABLE)
             return false
         }
@@ -63,12 +73,16 @@ class PlaybackReachabilityManager(
         return isReady
     }
 
-    /**在播放器遇到音频缓冲/准备播放错误时，物理标记具体的排队音频行状态为 MISSING 丢失，并重算整本书可达性。
+    /**
+     * Flag Failed Track (Playback Failover Trigger)
+     *
+     * Triggered by player preparation errors to label a track as MISSING and trigger recalculation.
      */
     suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) {
         val files = bookDao.getFilesForBookList(bookId)
         files.getOrNull(queueIndex)?.let { failedFile ->
-            // 播放器报错后本地文件立即降级，非本地文件先走缓冲重试，避免网络瞬断导致误标 MISSING。
+            // Safe Failure Transitions (State Protection)
+            // Local files degrade immediately, whereas remote files execute checks with retries to prevent false alarms during dropouts.
             if (checkFileAvailable(failedFile)) {
                 bookDao.updateBookFileStatus(failedFile.id, AudiobookSchema.FileStatus.READY)
             } else {
@@ -78,8 +92,10 @@ class PlaybackReachabilityManager(
         }
     }
 
-    /**在当前正在播放的文件发生不可达异常时，检索列表中下一个可播放（READY）的音频文件，
-     * 从而规避死循环准备失败，为 PlaybackService 提供可靠的自动跳过能力。
+    /**
+     * Find Next Playable Track (Failover Logic)
+     *
+     * Traverses the queue to locate the next READY track to avoid crash loops and provide robust automatic skip capabilities.
      */
     suspend fun findNextAvailablePlaybackFile(bookId: String, afterQueueIndex: Int): Pair<Int, BookFileEntity>? {
         val files = bookDao.getFilesForBookList(bookId)
@@ -92,7 +108,8 @@ class PlaybackReachabilityManager(
         if (!allLocalFiles(candidateFiles)) {
             return findNextAvailableRemoteAware(bookId, afterQueueIndex, files)
         }
-        // 播放器错误后查找下一轨时，对剩余分轨做一次批量 VFS 可达性检查，避免多文件书籍逐轨重复枚举同一目录。
+        // Batch Check Downstream Tracks (Performance Optimization)
+        // Scans all remaining tracks in a single folder query to avoid repeated SAF directory walk overhead.
         val availabilityByFileId = availabilityChecker.checkBookFiles(candidateFiles)
         val readyFileIds = mutableListOf<String>()
         val missingFileIds = mutableListOf<String>()
@@ -121,7 +138,8 @@ class PlaybackReachabilityManager(
     }
 
     private suspend fun allLocalFiles(files: List<BookFileEntity>): Boolean {
-        // 播放期批量快检只应用于本地 SAF；非本地来源仍走带网络缓冲时间的单文件策略。
+        // Validate Local Source Constraints (Protocol Optimization)
+        // Restricts bulk checks to local SAF root paths; remote sources retain single-file verification with retry windows.
         val sourceTypesByRootId = files.map { it.rootId }.distinct().associateWith { rootId ->
             libraryRootDao.getRootById(rootId)?.sourceType
         }
@@ -146,7 +164,10 @@ class PlaybackReachabilityManager(
         return null
     }
 
-    /**私有方法，将特定的进度模型对象映射到关联的物理音频行中。
+    /**
+     * Map Progress to Audiobook File (Track Resolution Helper)
+     *
+     * Maps the progress pointer to its respective audiobook track based on file IDs, sequence indices, or global offset.
      */
     fun resolveProgressFile(progress: BookProgressEntity?, files: List<BookFileEntity>): BookFileEntity? {
         if (progress == null) return null
@@ -155,21 +176,24 @@ class PlaybackReachabilityManager(
             ?: files.getOrNull(PositionMapper.globalToFilePosition(progress.globalPositionMs, files).first)
     }
 
-    /**更新单个音频物理文件的就绪状态（READY/MISSING）。
+    /**
+     * Update Single Track State (Persistence Handler)
      */
     private suspend fun updatePlaybackFileStatus(file: BookFileEntity, isReady: Boolean) {
         val status = if (isReady) AudiobookSchema.FileStatus.READY else AudiobookSchema.FileStatus.MISSING
         bookDao.updateBookFileStatus(file.id, status)
     }
 
-    /**物理重算并回写某本有声书在库中的就绪级别（READY、PARTIAL、UNAVAILABLE）。
+    /**
+     * Recalculate Book-wide Availability Status (State Recalculation)
      */
     private suspend fun recalculatePlaybackBookStatus(bookId: String) {
         val files = bookDao.getFilesForBookList(bookId)
         bookDao.updateBookStatus(bookId, playbackBookStatusFromFiles(files))
     }
 
-    /**通过某本书所有音频物理行的状态判定其书籍状态级别。
+    /**
+     * Compute Book Status from File Statuses (Availability Resolution Matrix)
      */
     private fun playbackBookStatusFromFiles(files: List<BookFileEntity>): String {
         val readyCount = files.count { it.status == AudiobookSchema.FileStatus.READY }
@@ -182,7 +206,8 @@ class PlaybackReachabilityManager(
     }
 
     private companion object {
-        // 非本地播放可达性最多尝试三次，总等待约 2.3 秒，给 WebDAV 等网络源短暂恢复窗口。
+        // Network Recovery Wait Budget (Resiliency Configuration)
+        // Limits remote checks to three tries over ~2.3s, allowing brief connection restoration before skipping.
         val REMOTE_REACHABILITY_RETRY_DELAYS_MS = longArrayOf(800L, 1_500L, 0L)
     }
 }

@@ -39,8 +39,8 @@ class AbsApiClientTest {
 
     @Test
     fun `server version comparator should reject lower malformed and missing versions`() {
-        // 详尽的中文注释：连接阶段的版本门槛依赖这里的比较器，因此需要把边界全锁住，
-        // 防止未来有人把 `2.35.0`、空版本号或非数字版本号错误放行。
+        // Version comparator boundary lock. The version gating during connection setup depends on this comparator,
+        // so we must seal all boundary conditions to prevent improper authorization of older versions (e.g., 2.35.0), nulls, or non-numeric strings.
         assertEquals(0, compareAbsServerVersion("2.35.1", MIN_SUPPORTED_ABS_SERVER_VERSION))
         assertTrue(compareAbsServerVersion("2.35.2", MIN_SUPPORTED_ABS_SERVER_VERSION) > 0)
         assertTrue(compareAbsServerVersion("2.35.10", MIN_SUPPORTED_ABS_SERVER_VERSION) > 0)
@@ -196,8 +196,8 @@ class AbsApiClientTest {
                 }
                 error("Expected unsupported version rejection")
             } catch (error: Exception) {
-                // 详尽的中文注释：低版本服务器必须在 `/status` 阶段就被拒绝，
-                // 后续 `/api/authorize` 和 `/api/libraries` 都不应该继续发起请求。
+                // Early server version rejection. Unsupported server versions must be rejected immediately during the /status check,
+                // ensuring no subsequent requests to /api/authorize or /api/libraries are dispatched.
                 assertTrue(error.message?.contains("版本过低") == true)
                 assertTrue(error.message?.contains(MIN_SUPPORTED_ABS_SERVER_VERSION) == true)
                 val statusRequest = server.takeRequest()
@@ -214,7 +214,7 @@ class AbsApiClientTest {
         val client = RealAbsApiClient(
             client = OkHttpClient.Builder()
                 .addInterceptor(Interceptor { chain ->
-                    // 记录真正执行 HTTP 的线程，锁住“调用线程与网络线程分离”的回归要求。
+                    // Thread separation verification. Record the actual thread executing the HTTP transaction, enforcing the regression requirement that offloads network requests from the calling coroutine thread.
                     networkThreadName.set(Thread.currentThread().name)
                     Response.Builder()
                         .request(chain.request())

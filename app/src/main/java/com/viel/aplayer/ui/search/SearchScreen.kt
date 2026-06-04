@@ -64,11 +64,12 @@ import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
 
 /**
- * 纯无状态的搜索界面 UI 展现组件（Stateless）。
+ * SearchContent Setup (Stateless Search Content UI)
  *
- * 经过物理架构拆分与组件解耦，SearchContent 不再依赖任何特定的 ViewModel 或是业务数据流。
- * 所有的搜索关键字输入、搜索触发、删除历史、点击书籍等复杂逻辑，全部转化为清晰易懂的声明式入参以及 Lambda 回调。
- * 这极大清空了 UI 组件的职责，消除了不必要的重组，同时为 Compose Previews 提供了无障碍的即时预览能力。
+ * Pure stateless search content UI rendering component (Stateless).
+ * Through architectural separation and component decoupling, SearchContent no longer depends on any specific ViewModel or business data stream.
+ * All complex logics like query input, search trigger, history deletion, and book click are converted into declarative parameters and Lambda callbacks,
+ * greatly simplifying UI responsibilities, eliminating unnecessary recompositions, and providing barrier-free instant preview capabilities for Compose Previews.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +96,7 @@ fun SearchContent(
     val focusManager = LocalFocusManager.current
     val scrollState = rememberLazyListState()
 
-    // 详详尽中文注释：基于运行时系统 WindowInsets.safeDrawing 动态感知侧向刘海屏及横屏导航栏，完全零硬编码避让
+    // Dynamically sense side cutout screen and landscape navigation bar based on runtime WindowInsets.safeDrawing, avoiding hard-coded offsets entirely
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     val searchStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection) + 16.dp
@@ -118,19 +119,20 @@ fun SearchContent(
         }
     }
 
-    // 详尽中文注释：感知 miuix-blur 磨砂玻璃模式是否已被开启且采样源不为空
+    // Detect whether MiuixBlur frosted glass mode is enabled and sampling source is not null
     val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
 
     Scaffold(
-        // 详尽中文注释：如果启用 miuix-blur 模式，将 Scaffold 容器底色改为透明，并挂载 drawBackdrop 修饰符与 background 半透混色底。
-        // 这会令整个搜索界面实时折射下方的 APlayerNavHost 内容，形成美轮美奂的磨砂质感；
-        // 非 miuix-blur 模式下恢复原生 M3 background 色。
+        // Apply MiuixBlur Background (Frosted Glass Mask Setup)
+        // If miuix-blur mode is enabled, set Scaffold container base color to transparent, and mount drawBackdrop modifier with background translucent blend.
+        // This makes the entire search interface refract underlying APlayerNavHost content, forming a beautiful frosted texture.
+        // Fall back to native M3 background color in non-miuix-blur mode.
         modifier = modifier
             .fillMaxSize()
             .then(
                 if (isBlur) {
                     Modifier
-                        // 使用 drawBackdrop 渲染折射模糊效果，并补全必填的 shape 参数
+                        // Use drawBackdrop to render refraction blur effect, completing the required shape parameter
                         .drawBackdrop(
                             backdrop = backdrop,
                             shape = { RectangleShape },
@@ -138,7 +140,7 @@ fun SearchContent(
                                 blur(20f)
                             }
                         )
-                        // 使用 background 链式附加一层偏亮的半透明蒙版底色（亮/暗自适应），防止搜索界面内容被下方主页文本影响而视觉穿帮
+                        // Chain background to append a translucent mask color (light/dark adaptive) to prevent search screen contents from blending with home page text
                         .background(
                             if (androidx.compose.foundation.isSystemInDarkTheme()) {
                                 Color.Black.copy(alpha = 0.6f)
@@ -160,8 +162,9 @@ fun SearchContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester)
-                            // 在此处应用 WindowInsets.safeDrawing 运行时左右物理安全边距避让，
-                            // 确保输入区域内部的返回图标与清除图标在横屏状态下不被刘海物理裁切，同时保证 SearchBar 的背景色能够彻底铺满屏幕
+                            // Safe Drawing Margin (Cutout Avoidance Padding)
+                            // Apply WindowInsets.safeDrawing horizontal physical safety margins here
+                            // to ensure internal back and clear icons are not clipped in landscape mode, while allowing SearchBar background to fill screen edges.
                             .padding(
                                 start = safeDrawingPadding.calculateStartPadding(layoutDirection),
                                 end = safeDrawingPadding.calculateEndPadding(layoutDirection)
@@ -211,7 +214,7 @@ fun SearchContent(
                 onExpandedChange = {
                     if (!it) handleBack()
                 },
-                // 详尽中文注释：搜索栏也参与磨砂，若开启 miuix-blur，搜索框设为透明偏亮的遮罩，否则退回 SearchBar 原生色。
+                // Search bar also participates in frosting. If miuix-blur is enabled, search box uses transparent/light mask, otherwise falls back to SearchBar native color.
                 colors = SearchBarDefaults.colors(
                     containerColor = if (isBlur) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh
                 ),
@@ -221,14 +224,15 @@ fun SearchContent(
                     LazyColumn(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
-                        // 应用动态算出的 start/end 物理安全区 Padding，彻底解决横屏刘海物理裁切
+                        // Apply dynamically calculated start/end physical safe area Padding to resolve landscape cutout clipping entirely
                         contentPadding = PaddingValues(
                             start = searchStartPadding,
                             end = searchEndPadding,
                             top = 16.dp,
-                            // 详尽中文注释：将 bottom padding 绑定为 WindowInsets.ime 替代原本只计算 navigationBars，
-                            // 如此在键盘弹起时，bottom padding 会自动精确自适应累加键盘高度，确保列表滚到底时元素绝对不会被软键盘挡死，
-                            // 并在收起键盘时完美降级回落为原生 NavigationBar 的底 padding，体验极其优秀。
+                            // Keyboard Inset Avoidance (Adaptive Bottom Padding Adjustment)
+                            // Bind bottom padding to WindowInsets.ime instead of only navigationBars.
+                            // When keyboard pops up, bottom padding adaptively adds keyboard height, preventing elements from being blocked by the soft keyboard.
+                            // Falling back to native NavigationBar bottom padding when keyboard is hidden.
                             bottom = 16.dp + WindowInsets.ime.asPaddingValues().calculateBottomPadding()
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -310,12 +314,12 @@ fun SearchContent(
                     LazyColumn(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
-                        // 应用动态算出的左右物理避让区，确保搜索结果列表防刘海遮挡
+                        // Apply dynamically calculated left/right physical safety paddings, ensuring search results list avoids cutout occlusion
                         contentPadding = PaddingValues(
                             start = searchStartPadding,
                             end = searchEndPadding,
                             top = 16.dp,
-                            // 详尽中文注释：同样此处也将 bottom padding 自适应绑定为 WindowInsets.ime，确保搜索有结果时最后几项在键盘拉起状态下依然 100% 可滚动并展示出来，消除遮挡盲区。
+                            // Similarly bind bottom padding to WindowInsets.ime here, ensuring that when search has results, the last items are still fully scrollable and visible when keyboard is raised.
                             bottom = 16.dp + WindowInsets.ime.asPaddingValues().calculateBottomPadding()
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -412,8 +416,9 @@ fun SearchContent(
                                     author = result.book.author,
                                     narrator = result.book.narrator,
                                     duration = result.book.totalDurationMs,
-                                    // 详尽的中文注释：搜索结果属于小图展示场景，统一复用 CoverImageSourceSelector.small。
-                                    // 这样缩略图优先的规则集中表达在同一个选择器里，后续调整小图策略时不需要回到搜索页单独同步。
+                                    // Search Thumbnail Selection (Thumbnail Small Preferred)
+                                    // Search results use small thumbnail image size, reusing CoverImageSourceSelector.small.
+                                    // Thumbnail-preferred rule is centrally expressed in the selector, so adjustments don't require changes in the search page.
                                     coverPath = CoverImageSourceSelector.small(
                                         thumbnailPath = result.book.thumbnailPath,
                                         coverPath = result.book.coverPath
@@ -441,7 +446,9 @@ fun SearchContent(
 }
 
 /**
- * 搜索指令参数辅助模型。
+ * SearchCommand Model (Search Directive Helper Model)
+ *
+ * Helper model for search directive parameters.
  */
 data class SearchCommand(
     val token: String,
@@ -449,7 +456,9 @@ data class SearchCommand(
 )
 
 /**
- * 静态定义的内置高级过滤指令组。
+ * Built-in Directives (Static Filter Directives)
+ *
+ * Statically defined built-in advanced filter directives.
  */
 private val searchCommands = listOf(
     SearchCommand("Year:", "Search by release year"),
@@ -458,7 +467,9 @@ private val searchCommands = listOf(
 )
 
 /**
- * 详尽中文注释：基于当前输入内容和光标位置，智能匹配并计算出合适的过滤指令提示词。
+ * Resolve Directives (Smart Directive Matching)
+ *
+ * Intelligently matches and calculates appropriate filter directives based on current input text and cursor position.
  */
 fun commandSuggestionsFor(value: TextFieldValue): List<SearchCommand> {
     val text = value.text

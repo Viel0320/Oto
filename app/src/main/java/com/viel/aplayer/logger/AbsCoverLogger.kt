@@ -1,12 +1,12 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS 封面缓存链路日志。
+ * ABS Cover Cache Logger (Cover cache operations logging)
  *
- * 责任边界：
- * 1. 只记录 cover 下载、cover 处理、cover 缺失、cover 缓存失败。
- * 2. 不记录 catalog upsert，不记录通用封面自愈链，那是公共流程。
- * 3. 用于排查“为什么 ABS 书没有封面 / 为什么同步很慢 / 为什么封面缓存失败”。
+ * Boundaries of responsibility:
+ * 1. Only logs cover download, cover processing, missing covers, and cover cache failures.
+ * 2. Does not log catalog upsert or common cover self-healing processes, which belong to the public workflow.
+ * 3. Designed to diagnose cover loading issues, slow sync, or physical file write failures.
  */
 internal object AbsCoverLogger {
     private const val TAG = "AbsCover"

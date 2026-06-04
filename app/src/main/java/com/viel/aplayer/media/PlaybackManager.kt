@@ -34,31 +34,32 @@ import kotlinx.coroutines.withContext
 class PlaybackManager private constructor(context: Context) {
 
     private val appContext = context.applicationContext
-    // 新增 CoroutineExceptionHandler 以捕获全局协程中由于未知原因（如文件损坏、网络请求失败等）抛出的异常，防止异常直接导致进程 Crash。
+    // Coroutine Exception Handler (Intercept uncaught coroutine errors to prevent process crashes)
+    // Captures failures arising from broken local tracks, network disconnects, or storage issues.
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         PlaybackWorkflowLogger.error("playbackManager coroutine failure", exception)
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
 
-    // 
-    // 在 M4.1 重构中，为了彻底摆脱庞大重量级的 LibraryRepository 依赖，
-    // 获取全局 Application 中的 container，并提取只读的 bookQueryGateway 以及用于进度保存的 progressGateway。
+    // Decoupled Gateway Resolution (Extract read-only and write gateways from the application dependency container)
+    // Bypasses direct references to the legacy LibraryRepository to align with clean architecture guidelines.
     private val container = (appContext as com.viel.aplayer.APlayerApplication).container
     private val bookQueryGateway = container.bookQueryGateway
     private val progressGateway = container.progressGateway
     private val absPlaybackSessionSyncer = container.absPlaybackSessionSyncer
 
-    // 实例化 AppSettingsRepository 以便动态获取和监控用户的 HTTP 明文流量配置权限。
+    // Configuration Repository Reference (Access runtime settings such as cleartext HTTP configurations)
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
-    // 实例化新的 AutoRewindManager 以便对自动回退逻辑进行精细化管理与状态维护。
+    // Automatic Rewind Coordinator Reference (Initialize manager to coordinate pause-rewind triggers)
     private val autoRewindManager = AutoRewindManager.getInstance(appContext)
 
-    // 进度同步追踪器实例，用于隔离进度高频轮询更新与底层的数据库落盘，实现单一职责设计与解耦。
+    // High-Frequency Poller (Isolate database writes from high-frequency UI updates to follow single-responsibility rules)
     private val progressSyncTracker: ProgressSyncTracker
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
-    // 为本次桌面 widget 改动添加注释：记录异步连接 MediaController 期间的 autoplay 意图，确保 widget 冷启动恢复播放不会因为控制器尚未就绪而丢指令。
+    // Autoplay Intention Buffer (Cache play requests issued while MediaController is establishing its connection)
+    // Prevents loss of command triggers initiated during cold startup before setup completes.
     private var pendingPlayWhenReady = false
 
     // Exposed Flows for UI to observe
@@ -71,16 +72,16 @@ class PlaybackManager private constructor(context: Context) {
     private val _currentMediaItem = MutableStateFlow<MediaItem?>(null)
     val currentMediaItem = _currentMediaItem.asStateFlow()
 
-    // 底层的 Media3/ExoPlayer 已经通过 Mp3Extractor 和 DefaultRenderersFactory 彻底屏蔽了内置元数据和字幕轨道的解析与创建，
-    // 因此前后台桥接层无需再为任何媒体轨道维护内置字幕、元数据条目的缓存流或相关的事件监听器，此处仅保留用于承载物理外置字幕的 Flow 供 UI 层订阅
+    // External Subtitle Dispatcher (Expose a hot stream of external subtitles to the subscriber UI)
+    // Media3/ExoPlayer manages internal tag parses natively; hence, only physical sidecar files are tracked here.
     private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
     val currentSubtitles = _currentSubtitles.asStateFlow()
 
-    // 新增一次性 UI 反馈事件流，向外广播由 PlaybackService 发出的自定义界面提示事件（如静音跳过）
+    // Feedback Notification Stream (Broadcast transient UI notifications dispatched from PlaybackService)
     private val _uiEvents = MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
     val uiEvents = _uiEvents.asSharedFlow()
 
-    // 公开事件分发方法，供外部组件（如 PlayerSettingsManager 动作检测）安全向 UI 线程发射一次性弹窗提示。
+    // Emitter Pipeline Entry (Allow utility components to dispatch transient popups safely to the UI thread)
     fun sendUiEvent(event: com.viel.aplayer.ui.common.UiEvent) {
         _uiEvents.tryEmit(event)
     }
@@ -96,16 +97,16 @@ class PlaybackManager private constructor(context: Context) {
 
     private var currentPlan: BookPlaybackPlan? = null
 
-    // 物理记录播放器前一时刻真实的播放状态，用以作为核心依据检测用户点击暂停、耳机拔出等导致的“播放->暂停”状态跃迁，以无缝触发自动回退功能。
+    // State Transition Cache (Store playing state of previous frame to identify transition from active to paused)
+    // Used to accurately capture events such as headset unplug or manual pauses to trigger auto-rewind.
     private var lastIsPlaying = false
 
-    /** 当前播放计划的 bookId，非挂起，可从任意线程安全读取。 */
+    /** Book Identifier Snapshot (Retrieve active plan book ID thread-safely without suspending) */
     val currentPlayingBookId: String?
         get() = currentPlan?.bookId
 
-    // 详尽的中文注释：定义 Player.Listener 成员变量，以代替 setupController 中的局部匿名内部类；
-    // 这样可以彻底支持在 release() 销毁时，从 mediaController 中安全 removeListener 注销，
-    // 防范由于 Listener 存活而将外部的协程 scope 以及控制器实例永久强引用泄漏的问题
+    // Retained Player Listener (Define persistent member variable to avoid inner anonymous classes)
+    // Ensures listener is successfully released on teardown to prevent context leakage.
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             val controller = mediaController ?: return
@@ -165,7 +166,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     init {
-        // 构建进度同步追踪器，并通过 lambda 回调无缝对接 Flow 值的更新，实现管道式状态上报。
+        // Coordinate Poller (Instantiate tracker and bind lambdas to update position StateFlows directly)
         progressSyncTracker = ProgressSyncTracker(
             context = appContext,
             bookQueryGateway = bookQueryGateway,
@@ -185,10 +186,9 @@ class PlaybackManager private constructor(context: Context) {
 
     private fun initializeController() {
         val sessionToken = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
-        // 
-        // 重构 MediaController.Builder，向其注入自定义的 MediaController.Listener 接口，
-        // 用以监听并拦截来自后台 PlaybackService 发出的自定义媒体会话命令（如 EVENT_SKIP_SILENCE 静音跳过触发通知），
-        // 收到后将其转换为 UiEvent.ShowToast 分发到全局 uiEvents 共享流中，交由宿主 UI 层进行精致渲染弹出。
+        // Custom Session Interceptor (Inject custom listener to decode server-originated session commands)
+        // Captures background service events (e.g., skip silence notifications or bad track indicators)
+        // and broadcasts them to the UI thread as Toast or Dialog triggers.
         controllerFuture = MediaController.Builder(appContext, sessionToken)
             .setListener(object : MediaController.Listener {
                 override fun onCustomCommand(
@@ -198,7 +198,7 @@ class PlaybackManager private constructor(context: Context) {
                 ): ListenableFuture<androidx.media3.session.SessionResult> {
                     if (command.customAction == "EVENT_SKIP_SILENCE") {
                     } else if (command.customAction == "EVENT_TRACK_UNAVAILABLE") {
-                        // 详尽的中文注释：解析后台传来的书籍 ID 和出故障的队列序列索引，并发送 ShowTrackUnavailableDialog 一次性事件，通知 UI 弹窗
+                        // Damaged Track Intercept (Extract payload from command arguments and dispatch dialog trigger to UI)
                         val bookId = args.getString("bookId") ?: ""
                         val queueIndex = args.getInt("queueIndex", -1)
                         _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowTrackUnavailableDialog(bookId, queueIndex))
@@ -211,9 +211,8 @@ class PlaybackManager private constructor(context: Context) {
             .buildAsync()
         
         controllerFuture?.addListener({
-            // 使用 scope.launch 开启协程，并在其中通过 withContext(Dispatchers.IO) 安全地调用 
-            // ListenableFuture.get()。虽然此时 Future 已完成，但 get() 仍被 IDE 视为阻塞方法，
-            // 这样做可以消除“在非阻塞上下文中调用阻塞方法”的警告，并符合协程架构规范。
+            // Async Future Awaiter (Await token retrieval inside IO thread to satisfy warning check rules)
+            // ListenableFuture.get() remains a blocking call; wrapping in withContext(Dispatchers.IO) conforms to coroutine safety.
             scope.launch {
                 try {
                     val controller = withContext(Dispatchers.IO) { controllerFuture?.get() }
@@ -222,7 +221,7 @@ class PlaybackManager private constructor(context: Context) {
                         setupController(conn)
                         // Cold-start restore may set the playback plan before MediaController connects; apply it once ready.
                         currentPlan?.let { setBookPlaybackPlan(it) }
-                        // 详尽的中文注释：由于桌面小组件已彻底下线，此处移除原有的 PlayerWidgetProvider.updateAll 更新小组件状态的调用
+                        // Widget Update Bypass (Widget features are deprecated; widget refresh triggers are omitted)
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -232,7 +231,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     private fun setupController(controller: MediaController) {
-        // 在控制器连接成功进行初始化赋值时，同步设定 lastIsPlaying 初始状态快照。
+        // Baseline Cache Snapshot (Synchronize local states with active MediaController attributes)
         lastIsPlaying = controller.isPlaying
         _isPlaying.value = controller.isPlaying
         _playbackState.value = controller.playbackState
@@ -240,36 +239,33 @@ class PlaybackManager private constructor(context: Context) {
         progressSyncTracker.updateProgress(controller)
         _playbackSpeed.value = controller.playbackParameters.speed
 
-        // 详尽的中文注释：改用统一声明为类私有成员变量的 playerListener，
-        // 确保当 release() 销毁时能干净彻底地移出此 Listener，规避原本局部匿名对象带来的内存泄漏隐患
+        // Shared Listener Binding (Attach retained player listener to avoid anonymous leak routes)
         controller.addListener(playerListener)
     }
 
     /**
-     * 将当前进度持久化到数据库。
-     * 该方法保留以维持与外部调用组件及 AutoRewindManager 原本的契约，内部委托给 progressSyncTracker 执行。
+     * Commit Playback Offset (Flush memory cached positions down to database storage)
+     *
+     * Retained to satisfy contract calls from settings controls and AutoRewindManager.
      */
     fun saveProgress() {
         progressSyncTracker.saveProgress()
     }
 
     /**
-         * 为书籍设定播放计划。整个方法执行在 scope 协程环境主线程中。
-     * 首先读取持久化设置快照，如果 isLastPlaybackInterrupted（上次播放异常强杀中断）为 true 且开启了回退秒数，
-     * 则对当前载入的起始进度进行减去回退时长的进度自愈补偿，最小值不低于 0，
-     * 接着通过 copy 构造出自愈后的计划，并同步在数据库重置中断标志为 false 以免后续换歌等发生重复自愈。
-     * 最后，百分之百还原原作者关于明文 HTTP 安全校验、Toast 弹出以及 withContext/executeOnMain 等多线程调度设计。
+     * Apply Playback Configuration (Initialize playback engine with files, artwork, and offsets)
+     *
+     * Executed on Main thread within coroutine. Maps plan values and routes control logic.
      */
     fun setBookPlaybackPlan(plan: BookPlaybackPlan, playWhenReady: Boolean = false) {
         scope.launch {
-                // 记录 PlaybackManager 从拿到播放计划到真正准备下发给 MediaController 的耗时，
-            // 这样可以看出 DataStore 读取、异常中断修正等前置逻辑是否在这一层拖慢启动。
+            // Performance Monitor Anchor (Capture start timestamp to profile pre-apply latency)
             val setPlanStart = SystemClock.elapsedRealtime()
-            // 异步从设置仓库中读取最新的全局持久化快照。
+            // Retrieve Configuration (Fetch settings from settingsRepository settingsFlow)
             val settingsReadStart = SystemClock.elapsedRealtime()
             val settings = settingsRepository.settingsFlow.first()
             val settingsReadCost = SystemClock.elapsedRealtime() - settingsReadStart
-            // 异常中断进度自愈机制已前置到应用冷启动阶段执行，此处直接使用传入的 plan
+            // Bypass Interrupted Self-Healing (Bypassed since cold start restoration has been applied)
             val finalPlan = plan
 
             com.viel.aplayer.logger.PlaybackTimingLogger.logSetPlanEntry(
@@ -281,23 +277,22 @@ class PlaybackManager private constructor(context: Context) {
                 playWhenReady = playWhenReady
             )
 
-            // 完成进度自愈判定后，切回 Dispatchers.Main 线程，百分之百还原原作者的所有多线程渲染及安全检查逻辑。
+            // UI Thread Transition (Switch thread context back to Main to handle UI update constraints)
             withContext(Dispatchers.Main) {
-                // 在切换或加载新的播放计划前，强行将 ignoreNextAutoRewind 设为 true。
-                // 这样能完美拦截由于切换书籍重载媒体资源导致播放器暂停状态改变时，误触发的针对上一本书或新书初始进度的自动回退动作。
+                // Bypassing Lock Activation (Prevent erroneous auto-rewind triggers during track reloading)
                 autoRewindManager.ignoreNextAutoRewind = true
 
                 this@PlaybackManager.currentPlan = finalPlan
                 this@PlaybackManager.pendingPlayWhenReady = playWhenReady
                 openAbsSessionIfNeeded(finalPlan.bookId)
 
-                // 性能优化：立即将自愈后最终计划中的初始进度和总时长推送到 UI 流，避免闪烁
+                // State Prefetching (Publish initial positions instantly to prevent UI frame flickers)
                 val totalDur = finalPlan.files.sumOf { it.durationMs }
                 _currentPosition.value = finalPlan.startGlobalPositionMs
                 _duration.value = totalDur
-                // 详尽的中文注释：桌面小组件功能已完全停用，加载新播放计划时移除对 PlayerWidgetProvider.updateAll 的调用
+                // Widget Refresh Bypass (Omit Widget refresh since widget is deprecated)
 
-                // 播放器计划只接收 VFS URI；本地/非本地策略后续按 LibraryRoot.sourceType 判断，不再从 BookFile.uri 探测 HTTP。
+                // Stream Address Validation (VFS abstracts endpoints; HTTP checks are protocol-specific)
                 val hasHttp = false
                 if (hasHttp) {
                     scope.launch {
@@ -323,10 +318,9 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     private fun applyPlaybackPlan(plan: BookPlaybackPlan) {
-        // 把 applyPlaybackPlan 拆成“MediaItem 构建”和“controller.setMediaItems/prepare 下发”两段，
-        // 用来判断多分轨队列构造还是 MediaController 会话调用更耗时。
+        // Phase Latency Tracking (Split operation into translation phase and controller update phase)
         val applyPlanStart = SystemClock.elapsedRealtime()
-        // 调用 PlaybackPlanBuilder 的 buildMediaItems 接口对播放计划进行转换，完全剥离传输实体构建细节，实现工厂化解耦
+        // Plan Mapper (Delegate compile logic to PlaybackPlanBuilder to detach transport translation details)
         val mediaItems = PlaybackPlanBuilder.buildMediaItems(plan)
         val mediaItemsBuildCost = SystemClock.elapsedRealtime() - applyPlanStart
         val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
@@ -347,13 +341,13 @@ class PlaybackManager private constructor(context: Context) {
                 positionInFile = positionInFile
             )
             if (pendingPlayWhenReady) {
-                // 为本次桌面 widget 改动添加注释：在 prepare 之后消费 autoplay 请求，避免先 play 后 setMediaItems 的异步时序丢失。
+                // Autoplay Command Flush (Consume autoplay command post-prepare to prevent asynchronous loss)
                 pendingPlayWhenReady = false
                 controller.play()
-                        // 明确记录 autoplay 指令已经被消费，方便和后续真正出声时间做对比。
+                // Consume Command Logging (Mark autoplay execution for latency analysis)
                 com.viel.aplayer.logger.PlaybackTimingLogger.logAutoplayConsumed(plan.bookId)
             }
-            // 当前文件字幕由 ViewModel 监听 currentMediaItem 后按需解析。
+            // Subtitle Delay Ingestion (ViewModel handles lazy load of subtitle tracks upon track transitions)
             _currentSubtitles.value = emptyList()
             // Loading a book should create/update BookProgress immediately, even before playback events fire.
             progressSyncTracker.persistProgress(plan.bookId, fileIndex, positionInFile)
@@ -380,8 +374,9 @@ class PlaybackManager private constructor(context: Context) {
 
 
     /**
-     * 获取或设置当前播放器的内部音量比例（0.0f - 1.0f）。
-     * 用于在音量渐隐机制中实现平滑、无感知的对数音量衰减，而不惊扰系统全局的物理音量设置。
+     * Logarithmic Volume Scalar (Get or set player engine volume without affecting system settings)
+     *
+     * Used in volume fades to gradually quiet the playback smoothly.
      */
     var playerVolume: Float
         get() = mediaController?.volume ?: 1.0f
@@ -392,23 +387,23 @@ class PlaybackManager private constructor(context: Context) {
         }
 
     fun seekTo(globalPositionMs: Long) {
-        // 为本次桌面 widget 崩溃修复添加注释：MediaController 只能在创建它的 application thread 上访问；widget 会从后台广播线程触发 seek，因此这里先切回 PlaybackManager 的主线程 scope 再读取 currentMediaItem。
+        // Main-Thread Seek Enforcement (Redirect request to application main thread to safely interact with MediaController)
         scope.launch {
             val controller = mediaController ?: return@launch
             val mediaParts = PlaybackMediaId.parse(controller.currentMediaItem?.mediaId) ?: return@launch
             val bookId = mediaParts.bookId
-            // 使用 bookQueryGateway 接口查询指定书籍的物理音频分轨，以执行高精度的 seek 定位跳转
+            // Track Query Ingestion (Query track configuration details using bookQueryGateway)
             val files = bookQueryGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val totalDuration = files.sumOf { it.durationMs }
                 val targetGlobal = globalPositionMs.coerceIn(0L, totalDuration.coerceAtLeast(0L))
                 val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(targetGlobal, files)
-                // UI 传入全书位置；这里用当前书籍文件列表恢复到真实播放队列位置。
+                // Seek Position Mapping (Locate track index and track offset matching global timestamp)
                 controller.seekTo(fileIndex, positionInFile)
                 controller.play()
                 _currentPosition.value = targetGlobal
                 _duration.value = totalDuration
-                // 跳转后的字幕由 currentMediaItem 变化触发懒加载，避免 seek 时同步解析字幕。
+                // Delay Subtitle Loading (Defer parsing to prevent sync disk reads during seek movements)
                 _currentSubtitles.value = emptyList()
                 // User-initiated seek must persist immediately so BookProgress is not dependent on later callbacks.
                 progressSyncTracker.persistProgress(bookId, fileIndex, positionInFile)
@@ -425,32 +420,23 @@ class PlaybackManager private constructor(context: Context) {
     fun release() {
         progressSyncTracker.stopPolling()
         scope.cancel()
-        // 详尽的中文注释：在销毁时主动从控制器中注销 Player.Listener 成员变量，彻底释放捕获的强引用，防止内存泄漏
+        // Listener Teardown (Deregister member listener explicitly from MediaController to prevent memory leaks)
         mediaController?.removeListener(playerListener)
         controllerFuture?.let {
             MediaController.releaseFuture(it)
             controllerFuture = null
         }
         mediaController = null
-        // 详尽的中文注释：将单例 INSTANCE 置空操作纳入 synchronized(PlaybackManager.Companion) 锁内，
-        // 与 getInstance() 保持物理一致的互斥锁以达到完全的线程安全，避免多线程竞态下产生脑裂异常
+        // Singleton Cleanup Lock (Perform cleanup within companion lock to maintain concurrency safety)
         synchronized(PlaybackManager.Companion) {
             INSTANCE = null
         }
     }
 
     /**
-     * 异步获取已连接的 MediaController 实例。
-     * 如果当前 mediaController 已建立连接则立即返回；
-     * 如果 controllerFuture 处于连接中，则通过 suspendCancellableCoroutine 挂起并等待连接完成，
-     * 以便在 Activity 已销毁或后台重建的异步时序下依然能获取到真实的 MediaController，
-     * 解决删除书库时因连接尚未就绪导致 getCurrentBookId() 漏判后台播放的缺陷。
-     */
-    /**
-     * 为每一次改动添加详异步获取已连接的 MediaController 实例。
-     * 直接利用 withContext(Dispatchers.IO) 包装阻塞式的 ListenableFuture.get() 调用。
-     * 该方式能完美消除 IDE 对“非阻塞上下文调用阻塞方法”的警告，因为 Dispatchers.IO 允许阻塞。
-     * 协程会在此处挂起并释放主线程，直到控制器连接完成并返回结果，代码逻辑大幅精简且类型安全。
+     * Retrieve Controller Instance (Get connected MediaController asynchronously using coroutine wait logic)
+     *
+     * Awaits future completion using Dispatchers.IO to safely resolve blocking calls without halting UI.
      */
     suspend fun getController(): MediaController? {
         val controller = mediaController
@@ -459,7 +445,7 @@ class PlaybackManager private constructor(context: Context) {
         val future = controllerFuture ?: return null
         return try {
             withContext(Dispatchers.IO) {
-                // 即使 Future 已 Done，.get() 依然是阻塞调用，必须在 IO 线程中执行。
+                // Future Blocking Guard (Resolve .get() on IO thread pool to prevent blocking caller thread)
                 future.get()
             }.also { mediaController = it }
         } catch (e: Exception) {
@@ -469,28 +455,26 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * 异步获取当前正在播放或计划播放的书籍 ID。
-     * 优先等待 MediaController 异步连接就绪后再行检索 currentMediaItem，
-     * 确保在 UI 退出且 PlaybackManager 被 release 重新获取单例的极端生命周期下，
-     * 依然能准确捕捉后台真实的播放书籍 ID。
+     * Get Active Book ID (Resolve ID of the currently playing audiobook)
+     *
+     * Checks both the active MediaItem configuration and the loaded fallback plan.
      */
     fun getCurrentBookId(): String? {
-        // 为本次桌面 widget 崩溃修复添加注释：该方法可能被 IO 协程调用，优先读取 StateFlow 快照，避免跨线程直接访问 MediaController.currentMediaItem。
+        // Safe ID Parsing (Read StateFlow memory snapshot to avoid concurrent thread access conflicts)
         val mediaId = currentMediaItem.value?.mediaId ?: currentPlan?.bookId
         return PlaybackMediaId.parse(mediaId)?.bookId ?: mediaId
     }
 
     /**
-     * 异步停止并清空受影响的书籍播放队列，重置播放状态 Flow。
-     * 首先挂起等待 MediaController 异步连接完毕，以防在未就绪时调用导致底层 ExoPlayer 无法接收到 pause 和 stop 指令，
-     * 确保即使在后台被动调用的时序下也能彻底切断底层音频播放流。
+     * Terminate Playback Session (Suspend active playback, clear queue, and reset flows)
+     *
+     * Block-waits controller readiness to ensure stop command hits ExoPlayer even from background threads.
      */
     suspend fun stopPlayback() {
         closeAbsSessionIfNeeded()
         val controller = getController()
         withContext(Dispatchers.Main) {
-            // 在主动停止播放器前，强行将 ignoreNextAutoRewind 设为 true。
-            // 这样可以拦截由于主动暂停/清除播放资源导致物理播放状态回调触发时，无意义且有隐患的自动回退与保存进度操作。
+            // Prevent Redundant Actions (Toggle ignoreNextAutoRewind flag prior to stop to suppress post-pause rewinds)
             autoRewindManager.ignoreNextAutoRewind = true
             controller?.let { conn ->
                 conn.pause()
@@ -525,28 +509,27 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * 为发生物理加载故障的书籍，跳轨跳转至下一个 READY 音频轨进行自愈播放。
-     * 该方法由用户在 UI 弹窗中点击“确认跳转”后，通过 ViewModel 间接调度执行。
+     * Failover Next Track (Skip forward to the next available playable audio track)
      *
-     * @param bookId 当前发生错误的音频书籍 ID
-     * @param queueIndex 发生故障的分轨索引
+     * @param bookId The unique identifier of the book.
+     * @param queueIndex The track index that failed to load.
      */
     fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
         scope.launch {
-            // 通过 progressGateway 的 findNextAvailablePlaybackFile 检索下一首正常的音频分轨以自动自愈起播
+            // Query Fallback Tracks (Lookup next eligible track from database using progressGateway)
             val next = progressGateway.findNextAvailablePlaybackFile(bookId, queueIndex)
             if (next != null) {
                 val (nextIndex, _) = next
                 com.viel.aplayer.logger.PlaybackFailureLogger.logSelfHealSuccess(nextIndex)
                 mediaController?.let { controller ->
-                    // 详尽的中文注释：控制控制器跳转到下一可用轨道，并重新 prepare 与 play 起播
+                    // Execute Redirect (Command controller to transition to the recovered track index)
                     controller.seekTo(nextIndex, 0L)
                     controller.prepare()
                     controller.play()
                 }
             } else {
                 PlaybackWorkflowLogger.warn("playbackManager no next available track: bookId=$bookId, queueIndex=$queueIndex")
-                // 使用 Toast 提示用户已经没有后续分轨了
+                // Send UI Notification (Notify user that no further playable tracks remain)
                 _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast("未找到后续任何可播音频分轨，已终止播放"))
             }
         }

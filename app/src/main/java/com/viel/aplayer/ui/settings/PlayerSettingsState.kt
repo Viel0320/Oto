@@ -2,26 +2,26 @@ package com.viel.aplayer.ui.settings
 
 
 /**
- * UI 交互设置与临时状态数据类。
- * 存储仅与界面表现相关的状态，不涉及播放逻辑核心。
+ * UI setting state model (Container for UI view states)
+ * Represents UI settings and transient visual states that do not affect core playback business logic.
  */
 data class PlayerSettingsState(
-    /** 选中的休眠时间选项（分钟），0 表示关闭 */
+    /** Selected sleep duration (To keep track of sleep timer in minutes; 0 represents disabled) */
     val selectedSleepTimer: Int = 0,
-    /** 是否显示“撤销进度跳转”提示 */
+    /** Seek undo flag (To indicate if the seek undo banner is visible) */
     val showUndoSeek: Boolean = false,
-    /** 章节列表弹窗是否可见 */
+    /** Chapter sheet visibility (To indicate if the chapter list overlay is shown) */
     val isChapterListVisible: Boolean = false,
-    /** 书签添加/编辑对话框是否可见 */
+    /** Bookmark dialog visibility (To indicate if the bookmark editor dialog is visible) */
     val isBookmarkDialogVisible: Boolean = false,
-    /** 当前正在编辑的书签标题 */
+    /** Edited bookmark title (To store the text in the bookmark creation/edit input) */
     val bookmarkTitle: String = "",
-    /** 详情页底部选中的内容 Tab 索引（如 0:书签, 1:字幕, 2:推荐） */
+    /** Detail tab index (To track the current selected tab in the detail screen bottom panel; e.g. 0 for bookmark, 1 for subtitle, 2 for related books) */
     val selectedContentTab: Int = -1,
-    /** 迷你播放器是否被用户手动隐藏 */
+    /** Mini-player dismissal flag (To track if the mini-player has been manually dismissed by the user) */
     val isMiniPlayerHidden: Boolean = false,
-    /** 是否开启章节进度模式（显示当前章节内的进度） */
+    /** Chapter progress mode flag (To toggle rendering progress relative to current chapter instead of full book) */
     val isChapterProgressMode: Boolean = false,
-    /** 全屏播放器页面是否可见 */
+    /** Fullscreen player visibility (To control whether the full player screen is displayed) */
     val isFullPlayerVisible: Boolean = false
 )

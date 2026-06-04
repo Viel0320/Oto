@@ -8,15 +8,18 @@ import com.viel.aplayer.media.manifest.HeuristicAggregationPlan
 import com.viel.aplayer.media.parser.CoverExtractor
 
 /**
- * 本文件是从原 CoverExtractStep.kt 中提取出来的 5 个核心有声书封面提取状态数据模型。
- * 它们在后续的入库步骤 ConflictClaimStep (以及未来的 OwnershipClaimStep) 以及
- * 主编排器 ImportOrchestrator 中被作为流程流转媒介使用。
- * 
- * 将其独立提取有利于降低各 Step 之间的耦合度，避免因旧 Step 被删除而导致的核心数据模型丢失问题。
+ * Audiobook Cover Processing Models (Asset Pipeline Models)
+ *
+ * Extracted from the legacy CoverExtractStep.kt to hold the five core audiobook cover state models.
+ * They are utilized downstream within the ownership claim steps and core orchestration segments.
+ *
+ * Keeping these models decoupled prevents compile-time breakdowns when specific processing steps are refactored or deleted.
  */
 
 /**
- * 聚合了 CUE、M3U8、启发式目录及单音频这四类有声书经过封面图处理后的综合结果集。
+ * Consolidated Cover Extraction Results (Data Model)
+ *
+ * Aggregates processed cover results for CUE lists, M3U8 lists, heuristic folders, and loose single audio files.
  */
 internal data class CoverExtractedResult(
     val cueBooks: List<CoverExtractedCue>,
@@ -26,7 +29,9 @@ internal data class CoverExtractedResult(
 )
 
 /**
- * 描述通过 CUE 描述文件解析并提取封面图后的有声书草稿。
+ * CUE Book Cover Processing Draft (Data Model)
+ *
+ * Represents an audiobook parsed from a CUE manifest with its associated extracted cover result.
  */
 internal data class CoverExtractedCue(
     val bookId: String,
@@ -36,7 +41,9 @@ internal data class CoverExtractedCue(
 )
 
 /**
- * 描述通过 M3U8 描述文件解析并提取封面图后的有声书草稿。
+ * M3U8 Book Cover Processing Draft (Data Model)
+ *
+ * Represents an audiobook parsed from an M3U8 playlist with its associated extracted cover result.
  */
 internal data class CoverExtractedM3u8(
     val bookId: String,
@@ -46,7 +53,9 @@ internal data class CoverExtractedM3u8(
 )
 
 /**
- * 描述通过启发式目录扫描并提取封面图后的有声书草稿。
+ * Heuristic Audiobook Cover Processing Draft (Data Model)
+ *
+ * Represents an audiobook grouped via folder-level heuristics with its associated extracted cover result.
  */
 internal data class CoverExtractedAggregated(
     val bookId: String,
@@ -55,7 +64,9 @@ internal data class CoverExtractedAggregated(
 )
 
 /**
- * 描述单个音频文件且无外部描述文件，在提取封面图后的有声书草稿。
+ * Single File Audiobook Cover Processing Draft (Data Model)
+ *
+ * Represents an audiobook compiled from a single audio track with its associated extracted cover result.
  */
 internal data class CoverExtractedSingle(
     val bookId: String,

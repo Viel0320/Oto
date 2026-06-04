@@ -4,22 +4,27 @@ import android.os.SystemClock
 import android.util.Log
 
 /**
- * 播放链路性能计时 Logger。
- * 统一收纳 PlaybackManager / PlayerViewModel / VfsPlaybackDataSource / BookLibraryRepository
- * 中与播放计划构建、下发、MediaItems 构建、autoplay 消费、DataSource 打开等相关的所有性能打点日志。
- * 使用统一 TAG "PlaybackTiming"，方便在 Logcat 中通过单一 TAG 过滤整条播放链路耗时。
+ * Playback Pipeline Timing Logger (Track time duration metrics across the playback pipeline)
+ *
+ * Collects latency logs from PlaybackManager, PlayerViewModel, VfsPlaybackDataSource, and
+ * BookLibraryRepository regarding plan construction, media item mapping, controller updates,
+ * autoplay handling, and data source open operations.
+ * Uses a unified tag "PlaybackTiming" to isolate playback performance in Logcat.
  */
 internal object PlaybackTimingLogger {
 
     private const val TAG = "PlaybackTiming"
 
-    // 将起始时间戳转换为已耗费的毫秒数
+    // Calculate Elapsed Milliseconds (Determine time delta from a starting timestamp)
+    // Converts the start timestamp into elapsed milliseconds based on current system clock.
     fun elapsedMs(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
 
     // ========== PlaybackManager ==========
 
     /**
-     * 记录 setBookPlaybackPlan 入口时的初始参数与设置读取耗时。
+     * Log Plan Execution Entry (Record parameters and settings-read latency at plan entry)
+     *
+     * Captures the configuration status before constructing playback plans.
      */
     fun logSetPlanEntry(
         bookId: String,
@@ -38,7 +43,9 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * 记录 setBookPlaybackPlan 从入口到调用 applyPlaybackPlan 之间的前置总耗时。
+     * Log Pre-Application Duration (Record setup time prior to applying the plan)
+     *
+     * Tracks the interval between plan setup start and application trigger.
      */
     fun logPreApplyCost(bookId: String, preApplyCostMs: Long) {
         Log.d(
@@ -48,7 +55,9 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * 记录 applyPlaybackPlan 中 MediaItems 构建和 Controller 下发各阶段的耗时。
+     * Log Plan Application Detail (Record latency of MediaItem creation and controller updates)
+     *
+     * Tracks time taken to compile items and notify the underlying media controller.
      */
     fun logApplyPlan(
         bookId: String,
@@ -68,14 +77,18 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * 记录 autoplay 请求已被消费并调用 play() 的事件。
+     * Log Autoplay Consumption (Record successful trigger of the play command)
+     *
+     * Traces when the initial play request is fulfilled after setup.
      */
     fun logAutoplayConsumed(bookId: String) {
         Log.d(TAG, "applyPlaybackPlan($bookId) 已消费 autoplay 请求并调用 play()")
     }
 
     /**
-     * 记录 MediaController 尚未就绪导致 applyPlaybackPlan 被跳过。
+     * Log Application Skip (Record when plan application is bypassed because controller is unready)
+     *
+     * Tracks instances where setup fails to complete immediately due to controller state.
      */
     fun logApplyPlanSkipped(bookId: String, totalMs: Long) {
         Log.d(
@@ -87,7 +100,9 @@ internal object PlaybackTimingLogger {
     // ========== PlayerViewModel ==========
 
     /**
-     * 记录 loadBook 中播放计划构建耗时。
+     * Log Playback Plan Construction Duration (Record construction latency during book load)
+     *
+     * Helps diagnose delays in fetching records to form the playback sequence.
      */
     fun logPlaybackPlanBuild(bookId: String, costMs: Long, planReady: Boolean, playWhenReady: Boolean) {
         Log.d(
@@ -98,7 +113,9 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * 记录 loadBook 准备交给 PlaybackDelegate 时的总耗时。
+     * Log Book Load Completion (Record total load time before routing to delegate)
+     *
+     * Captures total latency experienced from initiating load to final hand-off.
      */
     fun logLoadBookReady(bookId: String, totalMs: Long, fileCount: Int, startPosition: Long) {
         Log.d(
@@ -109,7 +126,9 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * 记录 loadBook 未能生成播放计划。
+     * Log Missing Playback Plan (Record duration when no plan is generated)
+     *
+     * Traces latency when a book fails to generate a playable structure.
      */
     fun logLoadBookNoPlan(bookId: String, totalMs: Long) {
         Log.d(TAG, "loadBook($bookId) 未生成播放计划, 总耗时=${totalMs}ms")
@@ -118,7 +137,9 @@ internal object PlaybackTimingLogger {
     // ========== VfsPlaybackDataSource ==========
 
     /**
-     * 记录 VfsPlaybackDataSource.open() 中数据库查询和 VFS 流打开各阶段耗时。
+     * Log DataSource Open Latency (Record durations for DB queries and VFS stream access)
+     *
+     * Pinpoints performance bottlenecks during ExoPlayer's data source instantiation.
      */
     fun logDataSourceOpen(
         bookFileId: String,

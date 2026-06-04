@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 
-// 新扫描器只面向 VFS 工作；第一阶段由 SAF Provider 提供数据，后续 WebDAV Provider 可复用同一条导入流水线。
+// VFS-aligned Scanner (SAF Provider supplies data in Phase 1; WebDavProvider shares the same pipeline in later phases)
 class SourceInventoryScanner(context: Context) {
     private val vfs = VirtualFileSystem(LibrarySourceProviderFactory(context.applicationContext))
 
@@ -26,7 +26,7 @@ class SourceInventoryScanner(context: Context) {
         merge(roots, inventories)
     }
 
-    // 保持现有“目录关闭后释放 DirectoryInventory”的后序遍历语义，确保导入即时入库边界不变。
+    // Post-order Traversal (Releases DirectoryInventory when folders close to guarantee stable transactional boundaries)
     fun scanDirectories(roots: List<LibraryRootEntity>): Flow<DirectoryInventory> = flow {
         roots.forEach { root ->
             val rootNode = vfs.root(root) ?: return@forEach
@@ -42,8 +42,7 @@ class SourceInventoryScanner(context: Context) {
         val m3u8Files = mutableListOf<FileRef>()
         val audioFiles = mutableListOf<FileRef>()
         val imagesByParent = mutableMapOf<String, MutableList<FileRef>>()
-        // 全量扫描同时为 txt 侧车建立按父目录分组的快照，
-        // 让后续 manifest parser 可以直接复用扫描结果完成简介匹配。
+        // Sidecar Indexing (Groups text files by parent folder during scans so that manifest parsers can reuse cached structures)
         val textFilesByParent = mutableMapOf<String, MutableList<FileRef>>()
 
         suspend fun walk(directory: VfsNode) {
@@ -61,7 +60,7 @@ class SourceInventoryScanner(context: Context) {
                     isM3u(name) -> m3u8Files.add(ref)
                     isAudio(name) -> audioFiles.add(ref)
                     isImage(name) -> imagesByParent.getOrPut(ref.parentSourceKey) { mutableListOf() }.add(ref)
-                    // txt 不进入 claim 主体，只作为目录侧车资产保留。
+                    // Text files are kept as folder assets and skipped from primary ownership claims.
                     isText(name) -> textFilesByParent.getOrPut(ref.parentSourceKey) { mutableListOf() }.add(ref)
                 }
             }
@@ -90,8 +89,7 @@ class SourceInventoryScanner(context: Context) {
             val m3u8Files = mutableListOf<FileRef>()
             val audioFiles = mutableListOf<FileRef>()
             val imageFiles = mutableListOf<FileRef>()
-            // 目录关闭事件保留同级 txt 资产，
-            // 后续 manifest scope 可以直接在当前目录快照中匹配简介文件。
+            // Retains sibling text files when emitting directory closure, allowing manifest scopes to resolve synopsis files.
             val textFiles = mutableListOf<FileRef>()
             val childDirectories = mutableListOf<VfsNode>()
 
@@ -99,7 +97,7 @@ class SourceInventoryScanner(context: Context) {
                 yield()
                 val name = node.metadata.displayName
                 if (node.metadata.isDirectory) {
-                    // 先记录子目录，等当前目录直接文件分类完成后再递归，保持旧扫描器的后序释放顺序。
+                    // Post-order Queue (Enlists folders first and walks recursively after file classification completes)
                     childDirectories.add(node)
                     return@forEach
                 }
@@ -177,7 +175,7 @@ class SourceInventoryScanner(context: Context) {
         name.endsWith(".m3u8", ignoreCase = true) || name.endsWith(".m3u", ignoreCase = true)
 
     private fun isAudio(name: String): Boolean {
-        // mp4 也可能承载纯音频/有声书章节，扫描阶段统一归入 audioFiles 交给元数据解析器裁决。
+        // MP4 containers are mapped to audioFiles to let the metadata resolvers determine audio capabilities.
         val extensions = listOf(".mp3", ".m4b", ".m4a", ".mp4", ".aac", ".flac", ".wav", ".ogg")
         return extensions.any { name.endsWith(it, ignoreCase = true) }
     }
@@ -188,8 +186,7 @@ class SourceInventoryScanner(context: Context) {
     }
 
     private fun isText(name: String): Boolean {
-        // 当前只把 txt 视为简介侧车来源，
-        // 保持与既有 ConflictClaimStep 中的描述匹配规则一致，不顺手放大到 md/nfo 等其他文本格式。
+        // Limits description sidecars to .txt files to align with matching rules inside ConflictClaimStep.
         return name.endsWith(".txt", ignoreCase = true)
     }
 }

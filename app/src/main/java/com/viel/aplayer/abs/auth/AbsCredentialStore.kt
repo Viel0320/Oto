@@ -16,11 +16,11 @@ import java.util.UUID
 private val Context.absCredentialDataStore: DataStore<Preferences> by preferencesDataStore(name = "abs_credentials")
 
 /**
- * ABS 凭据仓库只负责保存服务器连接所需的敏感字段。
- *
- * 设计约束：
- * 1. Room 与 UI 永远只拿 `credentialId`，不直接拿 token。
- * 2. 先用 DataStore 落盘，后续可替换成更强的加密存储而不影响调用方。
+ * ABS Credential Store (Responsible for storing sensitive connection tokens and server parameters safely)
+ * 
+ * Design Constraints:
+ * 1. Room DB references and outer UI layers query using `credentialId` and never query tokens directly.
+ * 2. Backed by DataStore for now; the implementation can be upgraded to Keystore-encrypted storage seamlessly.
  */
 class AbsCredentialStore private constructor(
     private val dataStore: DataStore<Preferences>,
@@ -47,8 +47,8 @@ class AbsCredentialStore private constructor(
         dataStore.edit { preferences ->
             preferences[credentialKey(credential.id)] = adapter.toJson(credential)
         }
-        // 详尽中文注释：凭据真正落盘成功后，记录一条“认证域”日志，帮助排查“登录成功但后续找不到 credential”的问题。
-        // 这里刻意只记录 credentialId、baseUrl、userId、username，绝不记录 token 本体。
+        // Logging Credential Persistence (Log authentication details to help trace initialization issues)
+        // Strictly logs non-sensitive parameters (credentialId, baseUrl, userId, username), omitting raw tokens.
         AbsAuthLogger.logCredentialSave(
             baseUrl = credential.baseUrl,
             credentialId = credential.id,
@@ -67,7 +67,7 @@ class AbsCredentialStore private constructor(
                 runCatching { adapter.fromJson(raw) }
                     .getOrNull()
             }
-        // 详尽中文注释：每次从凭据仓库读取都记“是否命中”，便于区分“root 写错 credentialId”和“凭据被删/损坏”两类问题。
+        // Logging Retrieval Outcome (Tracks query cache hits to distinguish invalid ID calls from corrupted records)
         AbsAuthLogger.logCredentialGet(credentialId = credentialId, found = credential != null)
         return credential
     }
@@ -77,7 +77,7 @@ class AbsCredentialStore private constructor(
         dataStore.edit { preferences ->
             preferences.remove(credentialKey(credentialId))
         }
-        // 详尽中文注释：删除凭据是 ABS 生命周期里的高风险动作，必须有单独日志，方便追查“为什么某个 server 突然鉴权失效”。
+        // Logging Deletion Events (Logs critical cleanup operations to aid in tracing unauthorized request events)
         AbsAuthLogger.logCredentialDelete(credentialId)
     }
 
@@ -95,7 +95,7 @@ class AbsCredentialStore private constructor(
         @Volatile
         private var INSTANCE: AbsCredentialStore? = null
 
-        // 提供给 JVM 单元测试的构造入口，避免测试为了凭据读写引入 Android Context。
+        // JVM Unit Test Constructor (Exposes initialization factory to run test scripts without Android contexts)
         internal fun createForTesting(dataStore: DataStore<Preferences>): AbsCredentialStore =
             AbsCredentialStore(dataStore = dataStore)
 
@@ -105,7 +105,7 @@ class AbsCredentialStore private constructor(
             }
         }
 
-        // 仅供测试重置全局单例，避免不同测试之间复用旧的 DataStore 实例。
+        // Test Singleton Reset (Exposes state cleaner to prevent test instances from sharing the cached DataStore)
         internal fun resetForTesting() {
             INSTANCE = null
         }

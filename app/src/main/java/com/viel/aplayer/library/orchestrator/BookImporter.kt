@@ -60,5 +60,6 @@ class BookImporter(context: Context) {
         }
     }
 
-    // 旧单文件直接入库入口已移除，所有持久化导入必须来自 VFS 扫描生成的 ImportRunResult。
+    // Deprecated Direct Ingestion Removed (Scan pipeline enforcement)
+    // Legacy direct file insertion entry points have been removed; all imports must run via the VFS scan ImportRunResult.
 }

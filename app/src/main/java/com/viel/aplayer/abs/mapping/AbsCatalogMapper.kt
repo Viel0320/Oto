@@ -52,9 +52,10 @@ class AbsCatalogMapper(
             thumbnailPath = thumbnailPath,
             backgroundColorArgb = backgroundColorArgb,
             addedAt = existing?.addedAt ?: syncedAt,
-            // 详尽的中文注释：ABS 远端封面同步现在允许由调用方显式传入新的失效时间戳，
-            // 这样当 coverPath 或 thumbnailPath 发生真实变化时，UI 请求工厂就会生成新 key；
-            // 若路径未变化，则继续保留旧时间戳，避免每轮同步都无意义打穿本地封面缓存。
+            // Cover Cache Invalidation (Prevent unnecessary UI image reload cycles)
+            // Allow callers to supply an updated scan timestamp explicitly.
+            // If the cover or thumbnail path has actually changed, the UI loader requests a new cache key.
+            // If no changes have occurred, the existing timestamp is retained, avoiding invalidation of the local cover image cache.
             lastScannedAt = lastScannedAt,
             status = AudiobookSchema.BookStatus.READY,
             readStatus = progressMapper.toReadStatus(item, existing)

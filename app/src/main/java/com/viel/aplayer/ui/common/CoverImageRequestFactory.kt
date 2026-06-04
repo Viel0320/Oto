@@ -9,10 +9,10 @@ import com.viel.aplayer.logger.CoverImageCacheLogger
 import java.io.File
 
 /**
- * 封面展示规格。
+ * Cover display specification (CoverImageVariant).
  *
- * 每个规格都有明确的缓存 key 分段和目标解码尺寸，防止同一封面在不同页面中因为手写 key
- * 或临近尺寸差异产生重复 Bitmap，也避免小图场景误持有主封面大图。
+ * Each variant has a distinct cache key segment and target decoding dimensions, preventing duplicate Bitmaps of the same cover in different pages caused by manual keys
+ * or slight dimension discrepancies, and ensuring small-image scenes do not inadvertently hold onto full-size main cover Bitmaps.
  */
 enum class CoverImageVariant(
     val keySegment: String,
@@ -21,15 +21,17 @@ enum class CoverImageVariant(
 ) {
     ThumbnailSmall("small180", 180, 180),
     ThumbnailMedium("medium360", 360, 360),
-    Backdrop("backdrop128", 128, 128),
+    // Backdrop Cache Coalescing (Reuse the exact small180 request key)
+    // Backdrop keeps the same 180px dimensions and cache key as ThumbnailSmall so blurred ambience, list thumbnails, mini-player covers, and transition preloads reuse one Coil cache entry; the request scene still identifies background usage in logs.
+    Backdrop("small180", 180, 180),
     Main1200("main1200", 1200, 1200)
 }
 
 /**
- * 统一生成 Coil 封面请求。
+ * Unified generation of Coil cover requests (CoverImageRequestFactory).
  *
- * 该对象只负责请求规格、缓存 key 和基础日志，不持有 UI 状态，也不访问数据库，避免把图片加载
- * 收口工具膨胀成跨层级的集中管理器。
+ * This object is solely responsible for request specifications, cache keys, and basic logging. It does not hold UI states or access the database, preventing this image loading
+ * entry-point utility from bloating into a cross-hierarchy centralized manager.
  */
 object CoverImageRequestFactory {
     fun build(
@@ -49,10 +51,12 @@ object CoverImageRequestFactory {
             targetWidth = variant.targetWidth,
             targetHeight = variant.targetHeight
         )
-        // 详尽的中文注释：这里把“文档要求的指标日志”直接绑到 request 级 listener 上，
-        // 避免指标是否出现还要额外依赖 Compose 默认是否命中了某个全局 singleton ImageLoader。
-        // 这样只要这份 ImageRequest 被真实执行，就一定会输出终态指标；全局 EventListener 则退回到
-        // 提供 fetcher 线索的辅助角色，用来尽量区分 disk cache 命中与本地文件重新 decode。
+        // Bind metric logs directly to the request listener.
+        //
+        // Here we bind the "document-required metrics logs" directly to the request-level listener,
+        // avoiding metric occurrences depending on whether Compose hit a global singleton ImageLoader by default.
+        // As long as this ImageRequest is actually executed, the final metrics will always be outputted; the global EventListener shifts back to
+        // an auxiliary role providing fetcher clues to distinguish between disk cache hits and local file decoding as much as possible.
         val pipelineListener = object : ImageRequest.Listener {
             private var startedAtElapsedMs = SystemClock.elapsedRealtime()
 
@@ -112,15 +116,19 @@ object CoverImageRequestFactory {
             .memoryCacheKey(cacheKey)
             .diskCacheKey(cacheKey)
             .allowHardware(allowHardware)
-            // 详尽注释：主封面 1200px 位图单张约 5.8MB native heap，Backdrop 又会立刻进入模糊链路。
-            // 这两类图不做 crossfade，避免切换期间额外同时持有旧图和新图；小图保留过渡动画即可。
+            // Crossfade behavior.
+            //
+            // A single 1200px main cover bitmap takes about 5.8MB of native heap, and Backdrop immediately enters the blur pipeline.
+            // These two variants skip crossfade to avoid concurrently holding both the old and new bitmaps in memory during transitions; small images retain transition animations.
             .crossfade(variant != CoverImageVariant.Main1200 && variant != CoverImageVariant.Backdrop)
             .size(variant.targetWidth, variant.targetHeight)
             .listener(pipelineListener)
             .build()
-        // 详尽的中文注释：把 scene / variant / source / cacheKey 这组指标上下文绑定到最终生成的 request 对象。
-        // 这样全局 ImageLoader 的 EventListener 在请求真正落到 loader 层后，仍然能反查出它属于哪个 UI 场景，
-        // 从而输出文档要求的 `scene + variant + sourceKeyHash + decodeCostMs + decodeSource + cacheHitRatio` 指标。
+        // Register metrics context.
+        //
+        // Bind the metrics context (scene / variant / source / cacheKey) to the final generated request object.
+        // This allows the EventListener of the global ImageLoader to trace back to which UI scene a request belongs after it hits the loader layer,
+        // thereby outputting the required metrics: `scene + variant + sourceKeyHash + decodeCostMs + decodeSource + cacheHitRatio`.
         CoverImageCacheLogger.registerRequest(
             request = request,
             scene = scene,
@@ -136,10 +144,10 @@ object CoverImageRequestFactory {
 }
 
 /**
- * 封面路径选择规则。
+ * Cover path selection rules.
  *
- * 展示层只声明自己是小图、主封面或背景场景，具体优先使用缩略图还是原图在这里集中表达，
- * 既能提升缓存命中，也能避免列表类组件反复从原图解码。
+ * The UI layer only declares whether it is a small image, main cover, or backdrop scene. The preference of using thumbnails vs original images is centralized here.
+ * This improves cache hit rates and prevents list components from repeatedly decoding from original full-size images.
  */
 object CoverImageSourceSelector {
     fun small(thumbnailPath: String?, coverPath: String?): String? = thumbnailPath ?: coverPath

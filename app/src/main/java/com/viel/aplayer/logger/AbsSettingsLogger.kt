@@ -1,12 +1,12 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS 设置页与用户操作入口日志。
+ * ABS Settings Logger (User actions and settings interface logging)
  *
- * 责任边界：
- * 1. 只记录“测试连接、添加服务器、手动同步、调度后台同步、删除入口”这类用户动作。
- * 2. 不直接记录底层 REST、同步明细、读流事件，那些由对应专属 logger 负责。
- * 3. 用于把用户操作和后端链路串起来，方便排查“点了什么、走到了哪一步”。
+ * Boundaries of responsibility:
+ * 1. Only logs user-triggered events like test connections, adding servers, manual sync requests, scheduling background syncs, and deleting servers.
+ * 2. Does not directly log low-level REST requests, mirror synchronizer updates, or playback stream events.
+ * 3. Bridges user operations to low-level sync engines for general troubleshooting.
  */
 internal object AbsSettingsLogger {
     private const val TAG = "AbsSettings"

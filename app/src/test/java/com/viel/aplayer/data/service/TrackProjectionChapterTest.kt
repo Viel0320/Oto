@@ -23,8 +23,8 @@ class TrackProjectionChapterTest {
             chapters = emptyList()
         )
 
-        // 详尽的中文注释：单 track 无真实章节时，查询投影必须补出唯一一条 track 章节，
-        // 并继续绑定真实文件锚点，这样播放器和通知层都能在不写库的前提下共享章节语义。
+        // Single-track synthetic chapter projection. When there are no real chapters for a single track,
+        // we must project a single synthetic chapter bound to the physical file anchor so that the player and notifications can share chapter semantics without database writes.
         assertEquals(1, projected.size)
         assertEquals(syntheticTrackProjectionChapterId(book.id, file.id), projected.single().chapter.id)
         assertEquals(book.id, projected.single().chapter.bookId)
@@ -61,7 +61,7 @@ class TrackProjectionChapterTest {
             chapters = listOf(realChapter)
         )
 
-        // 详尽的中文注释：查询投影只负责在“无真实章节”时补视图，绝不能覆盖真实解析得到的章节事实。
+        // Projection precedence rules. Query projection only generates fallback views when no real chapters exist and must never overwrite parsed chapter facts.
         assertEquals(listOf(realChapter), projected)
     }
 
@@ -77,8 +77,8 @@ class TrackProjectionChapterTest {
             chapters = emptyList()
         )
 
-        // 详尽的中文注释：ABS 即使没有服务端章节，也必须按 track 投影出两条章节，
-        // 这样多 track 书的章节列表、章节跳转和章节模式时间轴都能与真实音频分轨保持一致。
+        // Multi-track synthetic chapter projection. For ABS, if there are no server-side chapters, we must project one chapter per track
+        // so that the chapter list, jumping behaviors, and timeline align perfectly with the physical audio tracks.
         assertEquals(2, projected.size)
         assertEquals("Part 1", projected[0].chapter.title)
         assertEquals(0L, projected[0].chapter.startPositionMs)
@@ -103,7 +103,8 @@ class TrackProjectionChapterTest {
             chapters = emptyList()
         )
 
-        // 详尽的中文注释：查询投影必须严格依赖真实音频文件锚点；若没有任何文件，就不能凭空生成章节。
+        // Audio file anchor requirement. Synthetic chapter projection strictly depends on valid physical audio files;
+        // no chapters should be projected if there are no underlying audio files.
         assertTrue(projected.isEmpty())
     }
 

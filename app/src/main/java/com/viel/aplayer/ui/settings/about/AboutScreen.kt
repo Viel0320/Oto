@@ -76,7 +76,8 @@ import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
 
 /**
- * 开源库实体信息数据类，存储每个开源库的各种元数据。
+ * Open-source library entity (Model representing open source dependency info)
+ * Holds descriptive metadata and licensing strings for a single library.
  */
 data class OpenSourceLibrary(
     val name: String,
@@ -88,8 +89,8 @@ data class OpenSourceLibrary(
 )
 
 /**
- * 全局开源库静态数据源。
- * 整理并汇总了 APlayer 当前的核心技术栈依赖，帮助用户全方位知晓底层支撑力量。
+ * Open-source libraries static list (Database of dependency details)
+ * Organizes APlayer core dependencies to help users explore licenses.
  */
 private val openSourceLibraries = listOf(
     OpenSourceLibrary(
@@ -104,7 +105,7 @@ private val openSourceLibraries = listOf(
         name = "AndroidX Media3 (ExoPlayer)",
         developer = "Google / AndroidX Project",
         license = "Apache License 2.0",
-        description = "Media3 是 AndroidX 媒体支持的新一代核心，其集成的 ExoPlayer 是一个基于底层的、高度可定制的媒体播放器。APlayer 使用它处理有声书音频流的异步加载、无缝断点播放以及硬解码渲染。",
+        description = "Media3 是 AndroidX 媒体支持的新一代核心，其集成的 ExoPlayer 是一个基于底层的、高度可定制 of 媒体播放器。APlayer 使用它处理有声书音频流的异步加载、无缝断点播放以及硬解码渲染。",
         url = "https://github.com/androidx/media",
         licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
@@ -167,8 +168,8 @@ private val openSourceLibraries = listOf(
 )
 
 /**
- * 开源许可页面核心 Composable。
- * 运用全面屏设计、渐变卡片、微交互折叠等尊贵美学。
+ * Open-source licenses view (Component displaying list of library licenses)
+ * Renders brand header card followed by lists of dependency details in landscape and portrait views.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -179,13 +180,14 @@ fun AboutLibrariesScreen(
     val context = LocalContext.current
     val layoutDirection = LocalLayoutDirection.current
 
-    // 详尽的中文注释：使用统一封装的 WindowClass 替代 LocalConfiguration 进行大屏/横屏的优雅自适应，支持中轴窄卡片布局。
+    // Resolve window proportions (To adapt widths dynamically across diverse display configurations)
+    // Employs unified WindowClass instead of reading LocalConfiguration directly.
     val windowClass = LocalWindowClass.current
     val isLandscape = windowClass.isLandscape
     val isWideScreen = windowClass.isTablet
     val useWideLayout = windowClass.isWideScreen
 
-    // 提取当前系统的物理避让 safe insets，用于精准控制内容安全边距
+    // Read window bounds (To calculate padding boundaries under active displays)
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val startPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val endPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
@@ -202,7 +204,7 @@ fun AboutLibrariesScreen(
             Scaffold(
                 topBar = {
                     CenterAlignedTopAppBar(
-                        // 状态栏安全区域托管，保持背景通透到顶
+                        // Adjust status bar overlap (To align content properly under status bars)
                         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
                         title = {
                             Text(
@@ -234,12 +236,12 @@ fun AboutLibrariesScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 第一项为 APlayer 品牌标志致谢卡片，渲染出无与伦比的美感
+                    // Renders branding layout (To display logo and greetings card)
                     item {
                         BrandHeaderCard()
                     }
 
-                    // 渲染开源许可项目列表卡片
+                    // Renders license library list (To display each library description card)
                     items(openSourceLibraries, key = { it.name }) { library ->
                         LibraryCard(
                             library = library,
@@ -248,7 +250,7 @@ fun AboutLibrariesScreen(
                                     val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                                     context.startActivity(intent)
                                 } catch (_: Exception) {
-                                    // 容错处理
+                                    // Handle web launch errors (To catch intent dispatch failures safely)
                                 }
                             }
                         )
@@ -260,8 +262,8 @@ fun AboutLibrariesScreen(
 }
 
 /**
- * 精美极致的品牌 Logo 与致谢卡片。
- * 使用梦幻的流光渐变背景配合高规格圆角，带来极致奢华的第一眼印象。
+ * Branding detail card (Component rendering APlayer identity logo and greetings text)
+ * Builds styled backdrop gradient container with rounded edges.
  */
 @Composable
 private fun BrandHeaderCard() {
@@ -282,7 +284,7 @@ private fun BrandHeaderCard() {
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 构建一个精致的渐变拟物化 Logo 图标
+            // Styled logo image (To draw vector info icon over gradient backdrop)
             Box(
                 modifier = Modifier
                     .size(80.dp)
@@ -332,8 +334,8 @@ private fun BrandHeaderCard() {
 }
 
 /**
- * 开源库单体信息卡片。
- * 支持点击动态展开折叠动画 (animateContentSize)，折叠时保持精致紧凑，展开时显示详细许可证详情和外部项目主页跳转按钮。
+ * Open-source library layout card (Component rendering expandable license info item)
+ * Supports dynamic resize transitions (animateContentSize) to fold or unfold license text.
  */
 @Composable
 private fun LibraryCard(
@@ -346,7 +348,7 @@ private fun LibraryCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded }
-            .animateContentSize(), // 折叠展开过渡平滑动画
+            .animateContentSize(), // Transition resize animator (To provide smooth accordion animation effects)
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (expanded) {
@@ -386,7 +388,7 @@ private fun LibraryCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // 开源许可证小标签
+                        // License label container (To group license type information tags)
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
@@ -412,7 +414,7 @@ private fun LibraryCard(
                     }
                 }
 
-                // 外部网页跳转点击
+                // Anchor web hyperlink (To navigate users to project host site)
                 IconButton(
                     onClick = { onVisitUrl(library.url) },
                     modifier = Modifier.size(36.dp)
@@ -428,7 +430,7 @@ private fun LibraryCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 常态展示简短的库介绍，折叠时最多显示 2 行，展开后展示完整文本，层次极强
+            // Toggle brief description (To truncate texts under folded view states)
             Text(
                 text = library.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -438,7 +440,7 @@ private fun LibraryCard(
                 lineHeight = 20.sp
             )
 
-            // 利用 AnimatedVisibility 控制协议文本细节面板展示
+            // Toggle accordion section (To reveal license text details with expand transition animation)
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn() + expandVertically(),
@@ -449,7 +451,7 @@ private fun LibraryCard(
                         .fillMaxWidth()
                         .padding(top = 16.dp)
                 ) {
-                    // 分割线
+                    // Section line separator (To divide metadata summary from detailed license texts)
                     Spacer(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -468,7 +470,7 @@ private fun LibraryCard(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 用背景微暗的 Card 显示等宽许可证底板，科技感极佳
+                    // License block backdrop (To render monospace texts on shaded gray backgrounds)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -515,20 +517,21 @@ private fun LibraryCard(
 }
 
 /**
- * BorderStroke 的便捷声明封装。
+ * Convenient BorderStroke factory (To create border properties dynamically)
  */
 @Composable
 private fun borderStroke(width: Dp, color: Color) =
     BorderStroke(width, color)
 
 /**
- * 开源许可页面预览。
+ * Licenses view preview (To preview component styling)
  */
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun AboutLibrariesScreenPreview() {
     APlayerTheme {
-        // 详尽的中文注释：显式提供 PortraitPhone（竖屏手机）预设以展示开源许可页面的竖屏单列填充。
+        // Portrait phone preview (To preview licenses layout in portrait constraints)
+        // Uses CompositionLocalProvider to inject vertical phone window attributes.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {

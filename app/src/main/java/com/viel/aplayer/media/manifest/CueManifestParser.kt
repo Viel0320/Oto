@@ -11,7 +11,7 @@ import java.io.InputStreamReader
 import java.nio.charset.Charset
 
 /**
- * 工业级 CUE 标准解析器。
+ * Industry Standard CUE Parser (Implements standard CUE sheet tag decoding)
  */
 object CueManifestParser {
 
@@ -198,8 +198,8 @@ object CueManifestParser {
         val mins = (parts[0].toLongOrNull() ?: 0L).coerceAtLeast(0L)
         val secs = (parts[1].toLongOrNull() ?: 0L).coerceAtLeast(0L)
         val rawFrames = parts[2].toLongOrNull() ?: 0L
-        // 根据 CUE 规范，每一秒包含 75 个帧（0-74）。
-        // 此处强制限制帧数在 [0, 74] 区间内，避免因帧数超出合法范围导致计算出偏离的时间戳。
+        // CUE Time Standard (CUE standard divides one second into 75 audio frames)
+        // Coerces frame offsets to [0, 74] bounds to prevent overflow timestamp errors.
         val frames = rawFrames.coerceIn(0L, 74L)
         return (mins * 60 + secs) * 1000 + (frames * 1000 / 75)
     }
@@ -212,13 +212,13 @@ object CueManifestParser {
                 val read = bis.read(buffer)
                 if (read <= 0) return Charsets.UTF_8
                 
-                // 检查 BOM
+                // UTF-8 BOM Check (Verify leading byte markers)
                 if (read >= 3 && buffer[0] == 0xEF.toByte() && buffer[1] == 0xBB.toByte() && buffer[2] == 0xBF.toByte()) {
                     return Charsets.UTF_8
                 }
                 
-                // 简单的启发式检测：检查是否包含有效的 UTF-8 字节序列
-                // 如果检测失败，针对你的场景，默认回退到日文编码 Shift-JIS
+                // Heuristic Encoding Fallback (Fall back to Shift-JIS if input is not valid UTF-8)
+                // Serves as default encoding strategy for audio logs of local Japanese audiobooks.
                 if (isValidUtf8(buffer, read)) Charsets.UTF_8 else Charset.forName("Shift-JIS")
             } ?: Charsets.UTF_8
         } catch (_: Exception) {

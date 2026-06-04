@@ -22,66 +22,75 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * 媒体库扫描调度应用服务（实现了 ScanScheduler 接口）。
- *
- * 核心设计目标：
- * 1. 彻底解耦消灭大上帝仓库：在 M6c 阶段直接直连配合 LibraryRootStore 与 ScanSessionRunner，完全隔离并彻底废除对 BookLibraryRepository 的依赖。
- * 2. 完美平移串行同步锁：在类内部独立维护 Mutex 串行锁，并保留 COLD_START_LIGHT 与 USER_GLOBAL 扫描类型的智能研判逻辑，确保扫描安全。
+ * Library Ingestion Coordination Service (Implements ScanScheduler)
+ * 
+ * Core Design Goals:
+ * 1. Eradicate God-Class Repositories: Integrates with LibraryRootStore and ScanSessionRunner in the M6c phase, breaking all ties to the bloated BookLibraryRepository.
+ * 2. Re-anchor Serial Scans Lock: Manages a private Mutex internally to coordinate COLD_START_LIGHT and USER_GLOBAL scan modes safely.
  */
 @OptIn(UnstableApi::class)
 class ScanService(
     context: Context,
     private val coverRecoveryHelper: CoverRecoveryHelper,
-    // 由依赖注入容器提供运行期唯一的虚拟文件系统读取门面，避免底层组件自行初始化
+    // Shared VFS Facade (Dependency injection reference)
+    // Reference to the module's single VFS reader, avoiding internal self-initialization.
     private val vfsFileInterface: VfsFileInterface,
     private val playbackManager: com.viel.aplayer.media.PlaybackManager
 ) : ScanScheduler, java.io.Closeable {
 
-    // 采用全局 applicationContext 隔离以彻底斩断潜在的内存泄漏风险
+    // Safe Application Context Binding (Memory leak avoidance)
+    // Binds applicationContext to avoid tracking Activity lifecycle contexts.
     private val appContext = context.applicationContext
 
-    // 直接实例化底层的 SAF 及 WebDAV 挂载库提供者组件
+    // Local Database Store Instantiation (Sub-dependency initializer)
+    // Directly instantiates LibraryRootStore to manage credentials and local paths.
     private val rootStore = LibraryRootStore(appContext)
 
-    // 串行扫描专属后台协程异常拦截器
+    // Private Sync Exception Handler (Task crash safety block)
+    // Captures background exception states to avoid uncaught background thread failures.
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         ScanWorkflowLogger.error("scanService coroutine failure", exception)
     }
 
-    // 专门维护在 IO 线程池中的扫描异步同步后台作用域
+    // Background Ingestion Coroutine Scope (Resource-isolated execution pool)
+    // Manages background tasks on the IO dispatch thread pool to prevent blocking main routines.
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
-    // 同步扫描的串行排他锁，杜绝前后台多任务重叠扫描引发的 Room 并发读写冲突
+    // Serial Scan Exclusion Mutex (Database transaction isolation)
+    // Excludes concurrent scanner invocations to prevent SQLite concurrent lock and transaction errors.
     private val scanMutex = Mutex()
 
     override suspend fun syncLibrary(trigger: String): Unit = scanMutex.withLock {
-        // 在持有串行扫描锁 the 受保护作用域中，执行同步物理文件扫描任务
+        // Protected Sync Block (Mutex-wrapped scanner execution)
+        // Invokes actual library sync operations within the scanMutex execution block.
         runSyncLibrary(trigger)
     }
 
     override fun scheduleLibrarySync(trigger: String) {
-        // 向前台或后台 WorkManager 暴露的非阻塞式扫描调度异步接口
+        // Asynchronous Ingest Invoker (WorkManager dispatch bridge)
+        // Dispatches a non-blocking job to run the scanner asynchronously inside the private scope.
         scope.launch {
             syncLibrary(trigger)
         }
     }
 
-    /**具体的书库物理文件与元数据同步核心流程，结合扫描自愈提取
+    /**
+     * Core Sync Execution (Metadata synchronization and recovery)
+     * Dispatches reachability checks, scans folders, and launches cover self-healing procedures.
      */
     private suspend fun runSyncLibrary(trigger: String) = withContext(Dispatchers.IO) {
-        // 1. 同步校验并刷新所有 SAF 本地目录授权状态与 WebDAV 网络挂载连接状态
+        // 1. Validate and refresh permission/connection states for SAF and WebDAV.
         rootStore.refreshPermissionStatuses()
         
-        // 2. 区分冷启动轻量级浅同步还是用户发起的全局深度递归扫描
+        // 2. Classify rescan type (shallow/light for COLD_START, deep for active USER request).
         val type = if (trigger == AudiobookSchema.ScanTrigger.COLD_START) {
             RescanType.COLD_START_LIGHT
         } else {
             RescanType.USER_GLOBAL
         }
 
-        // 3. 构建临时扫描协调器，并挂载封面文件解析器的自愈检查回调，在书籍入库瞬间快速自检封面可达性。
-        // 同时注入全局统一的 vfsFileInterface 虚拟文件系统通道以规避底层隐式自构。
-        // 实例化重构后的 ScanSessionRunner，委托其执行全局扫描与生命周期调度
+        // 3. Rescan files utilizing ScanSessionRunner.
+        // Injects cover recovery hooks to repair missing images during database ingestion, passing vfsFileInterface.
         val session = ScanSessionRunner(
             context = appContext,
             vfsFileInterface = vfsFileInterface,
@@ -90,8 +99,9 @@ class ScanService(
 
         ScanWorkflowLogger.info("scanService success: trigger=$trigger, discovered=${session.discoveredBookCount}, pending=${session.pendingActionCount}")
 
-        // 详尽的中文注释：将本地扫描同步完成后的提示事件，发射至全局 PlaybackManager 总线上作为一次性 UiEvent 广播。
-        // 这种设计完美替代了原先对 Handler/Toast 物理弹框的硬编码依赖，保持了服务层纯净的业务属性，也方便后续全局集中管理所有的弹出动作。
+        // Broadcast Scan Completion (Decoupled UI notification bus)
+        // Emits toast commands through PlaybackManager's event stream.
+        // Replaces legacy hardcoded Toast calls inside business services to maintain clean domain boundaries.
         if (session.pendingActionCount == 0) {
             val isLibraryEmpty = com.viel.aplayer.data.db.AppDatabase.getInstance(appContext).bookDao().getAllBooksOnce().isEmpty()
             val message = if (session.discoveredBookCount > 0) {
@@ -106,8 +116,8 @@ class ScanService(
     }
 
     override fun close() {
-        // 详详尽的中文注释：当扫描网关服务销毁或 DI 容器重置时，安全且显式地取消专属于后台异步扫描调度的协程作用域，
-        // 打断挂起的文件系统深度同步动作，避免无意义的后台资源空耗与泄漏
+        // Terminate Active Sync Pipelines (Shutdown resource cleanup)
+        // Cancels the private scope upon service teardown to abort active directory synchronization tasks.
         scope.cancel()
     }
 }

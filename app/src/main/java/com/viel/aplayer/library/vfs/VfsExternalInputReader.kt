@@ -4,11 +4,11 @@ import android.content.Context
 import android.net.Uri
 import java.io.InputStream
 
-// 外部选择器返回的临时 content Uri 也集中在 VFS 边界打开，UI 层不直接触碰 ContentResolver 文件流。
+// Temporary content URIs returned from external picker are resolved inside VFS; the UI layer does not access ContentResolver file streams directly.
 class VfsExternalInputReader(context: Context) {
     private val appContext = context.applicationContext
 
     fun openInputStream(uri: Uri): InputStream? =
-        // 自定义封面导入只暴露 InputStream 结果，具体 content:// 读取细节留在 VFS 边界内。
+        // Custom cover imports expose only the InputStream; content:// resolution details are kept inside the VFS boundary.
         runCatching { appContext.contentResolver.openInputStream(uri) }.getOrNull()
 }

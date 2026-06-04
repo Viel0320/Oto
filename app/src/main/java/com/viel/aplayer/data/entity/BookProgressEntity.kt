@@ -6,7 +6,8 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * 播放进度实体，独立于书籍信息保存。
+ * Playback Progress State (Entity representing the current listening state of an audiobook)
+ * Persisted independently of book metadata to decouple search indexes from progress updates.
  */
 @Entity(
     tableName = "book_progress",
@@ -30,11 +31,11 @@ import androidx.room.PrimaryKey
 data class BookProgressEntity(
     @PrimaryKey
     val bookId: String,
-    val globalPositionMs: Long = 0L, // 整本书中的全局位置
-    val bookFileId: String? = null, // 进度稳定锚点：文件 ID
+    val globalPositionMs: Long = 0L, // Global position offset in milliseconds relative to the entire book duration
+    val bookFileId: String? = null, // Progress stable anchor: target file ID
     val currentFileIndex: Int = 0,
-    val positionInFileMs: Long = 0L, // 进度稳定锚点：文件内偏移
-    val fileFingerprint: String? = null, // 辅助匹配锚点
+    val positionInFileMs: Long = 0L, // Progress stable anchor: relative offset in milliseconds inside the target file
+    val fileFingerprint: String? = null, // Auxiliary matching anchor: file fingerprint checksum
     val anchorStatus: String = "OK", // OK / REMAPPED / UNRESOLVED
     val playbackSpeed: Float = 1.0f,
     val lastPlayedAt: Long = System.currentTimeMillis()

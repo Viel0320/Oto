@@ -1,6 +1,6 @@
 package com.viel.aplayer.widget
 
-// 详尽的中文注释：导入 produceState 和 getValue 扩展，以便在 Compose 组合内声明并绑定异步加载的状态变量
+// Compose state imports. Imports produceState and getValue extensions to declare and bind asynchronously loaded state variables within compositions.
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -39,33 +39,32 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-// 详尽的中文注释：旧版本的 unit.ColorProvider 已经废弃，在 Glance 1.1.0+ 架构中已重构并移至 color.ColorProvider，此处修改为新包路径以规避 Deprecation 警告
+// ColorProvider migration. The legacy unit.ColorProvider package is deprecated; refactored to color.ColorProvider in Glance 1.1.0+ structures to avoid compiler deprecation warnings.
 import androidx.glance.color.ColorProvider
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 
 /**
- * 详尽的中文注释：
- * 现代声明式桌面媒体控制小组件（PlayerWidget）。
+ * Modern declarative desktop media control widget.
  * 
- * 核心职责：
- * 1. 继承自 GlanceAppWidget，采用 Jetpack Glance 声明式开发规范。
- * 2. 依靠 PreferencesGlanceStateDefinition 与应用主进程 DataStore 进行数据绑定，实时监听并呈现播放状态。
- * 3. 完美兼容 Material 3 动态取色（GlanceTheme），在 Android 12+ 上可直接取用系统壁纸调色板。
- * 4. 提供严谨的 2x2 双行自适应比例布局，左右、上下结构紧凑美观。
+ * Core Responsibilities:
+ * 1. Extends GlanceAppWidget, adhering to Jetpack Glance declarative coding standards.
+ * 2. Utilizes PreferencesGlanceStateDefinition to bind with the main process DataStore for real-time state monitoring and presentation.
+ * 3. Supports Material 3 dynamic color styling (GlanceTheme), adapting directly to the system wallpaper color palette on Android 12+.
+ * 4. Renders a tight 2x2 adaptive dual-line layout with compact visual balance.
  */
 class PlayerWidget : GlanceAppWidget() {
 
-    // 详尽的中文注释：指定 Glance 内部数据存储定义为 Preferences
+    // Datastore preferences configuration. Configures Glance internal state storage to use Preferences definition.
     override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
-            // 1. 获取持久化存在 Datastore 中的播放元数据
+            // 1. Read persisted playback metadata from the Datastore.
             val prefs = currentState<Preferences>()
             val isPlaying = prefs[PlayerWidgetStateHelper.KEY_IS_PLAYING] ?: false
             
-            // 详尽的中文注释：对标题和作者空状态进行友好占位降级
+            // Placeholder fallbacks. Provide friendly placeholder fallbacks for empty metadata cases.
             val title = prefs[PlayerWidgetStateHelper.KEY_TITLE].let { 
                 if (it.isNullOrEmpty()) "APlayer" else it 
             }
@@ -74,13 +73,13 @@ class PlayerWidget : GlanceAppWidget() {
             }
             val coverPath = prefs[PlayerWidgetStateHelper.KEY_COVER_PATH] ?: ""
 
-            // 2. 详尽的中文注释：组合层只负责把 Glance 状态桥接成可展示的 Bitmap 状态，真实的文件存在性检查、边界探测、下采样和异常降级全部交给 WidgetCoverArtRenderer。
-            // 这样可以避免在 Widget UI 代码中散落磁盘 I/O 和 BitmapFactory 细节，也能确保小组件始终拿到接近实际展示尺寸的安全位图，而不是误用主界面的大图缓存规格。
+            // 2. State bridging optimization. The UI composition layer only bridges Glance states to Bitmap representations; I/O bounds, downsampling, and fallbacks are delegated to WidgetCoverArtRenderer.
+            // This prevents scattering disk operations and BitmapFactory operations within UI components, ensuring the widget retrieves a small memory-safe bitmap rather than using main-feed large image cache footprints.
             val bitmap by produceState<Bitmap?>(initialValue = null, coverPath) {
                 value = WidgetCoverArtRenderer.loadCoverBitmap(coverPath)
             }
 
-            // 3. 将 UI 包裹在 GlanceTheme 内以完美开启 Material 3 动态取色
+            // 3. Wrap the composition in GlanceTheme to inherit Material 3 dynamic color schemes.
             GlanceTheme {
                 WidgetLayout(
                     context = context,
@@ -94,8 +93,7 @@ class PlayerWidget : GlanceAppWidget() {
     }
 
     /**
-     * 详尽的中文注释：
-     * 构建 2x2 桌面 Widget 高保真 UI 排版。
+     * Widget UI construction. Renders the 2x2 desktop widget layout with high fidelity.
      */
     @Composable
     private fun WidgetLayout(
@@ -105,7 +103,7 @@ class PlayerWidget : GlanceAppWidget() {
         author: String,
         coverBitmap: Bitmap?
     ) {
-        // 详尽的中文注释：点击卡片外层空白区域，将通过 SingleTop 的方式平滑打开 MainActivity 回到应用主页面，不再自动拉起全屏播放器界面
+        // Card click navigation. Clicking empty card areas launches MainActivity smoothly via SingleTop, instead of automatically pulling up full-screen player interfaces.
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
@@ -116,7 +114,7 @@ class PlayerWidget : GlanceAppWidget() {
                 .cornerRadius(16.dp)
                 .clickable(actionStartActivity(openAppIntent))
         ) {
-            // 详尽的中文注释：1. 将有声书封面设置为桌面组件的全屏铺满背景
+            // 1. Render the physical cover art as the full-screen cropped background.
             if (coverBitmap != null) {
                 Image(
                     provider = ImageProvider(coverBitmap),
@@ -125,7 +123,7 @@ class PlayerWidget : GlanceAppWidget() {
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // 详尽的中文注释：无封面时降级为预置的默认占位图背景
+                // Fallback background. Use the bundled default neon-gradient placeholder when no cover is present.
                 Image(
                     provider = ImageProvider(R.drawable.widget_cover_placeholder),
                     contentDescription = "Background Placeholder",
@@ -134,14 +132,14 @@ class PlayerWidget : GlanceAppWidget() {
                 )
             }
 
-            // 详尽的中文注释：2. 叠加一层精心调配的半透明黑色蒙层（不透明度55%），新版 ColorProvider 需显式指定亮色和暗色以表示同一固定色
+            // 2. Dark scrim overlay. Superimpose a 55% transparent black scrim; ColorProvider requires explicit day and night definitions for identical colors.
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .background(ColorProvider(day = Color.Black.copy(alpha = 0.55f), night = Color.Black.copy(alpha = 0.55f)))
             ) {}
 
-            // 详尽的中文注释：3. 容器整体垂直与水平居中，并适当缩减上下内边距，保持极其精致的微缩版面比例
+            // 3. Compact flex columns. Center content containers vertically and horizontally, contracting vertical paddings to preserve miniature layouts.
             Column(
                 modifier = GlanceModifier
                     .fillMaxSize()
@@ -149,7 +147,7 @@ class PlayerWidget : GlanceAppWidget() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 详尽的中文注释：标题及作者介绍行整体水平居中对齐，采用纯白与半透明白色以获得完美的对比效果
+                // Meta alignment. Align text information horizontally using solid white and translucent white colors for optimal readability contrast.
                 Column(
                     modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -158,7 +156,7 @@ class PlayerWidget : GlanceAppWidget() {
                     Text(
                         text = title,
                         style = TextStyle(
-                            // 详尽的中文注释：此处将文字颜色设为白色，由于新版 ColorProvider 不提供单参重载，需显式传入相同的 day 和 night 颜色值
+                            // Solid white text color. Due to the lack of single-parameter constructors in Glance ColorProvider, pass identical colors for day and night parameters.
                             color = ColorProvider(day = Color.White, night = Color.White),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
@@ -168,7 +166,7 @@ class PlayerWidget : GlanceAppWidget() {
                     Text(
                         text = author,
                         style = TextStyle(
-                            // 详尽的中文注释：此处将副标题文字设为半透明白色，由于新版 ColorProvider 无单参数构造器，故同时传入相同的 day 和 night 颜色以避免编译错误
+                            // Translucent subtitle color. Pass identical day and night values to satisfy the dual-argument constructor and avoid compile issues.
                             color = ColorProvider(day = Color.White.copy(alpha = 0.7f), night = Color.White.copy(alpha = 0.7f)),
                             fontSize = 11.sp
                         ),
@@ -177,14 +175,14 @@ class PlayerWidget : GlanceAppWidget() {
                     )
                 }
 
-                // 详尽的中文注释：下半部实时期播控操作排，居中对齐，间距缩小，并在底部追加 8.dp 边距防止按钮过于贴近边缘
+                // Playback row layout. Align playback controls horizontally with a compact width, appending an 8.dp bottom margin to keep icons off visual screen edges.
                 Row(
                     modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 详尽的中文注释：快退 10 秒控制按钮，大小由 32dp 缩小至 24dp。
-                    // 路由目标类已由导出的接收器安全重构为非公开（exported=false）的 PlayerWidgetActionReceiver，规避越权拉起漏洞
+                    // Skip backward action. Downscale the button size to 24dp.
+                    // The receiver is securely routed to the non-exported PlayerWidgetActionReceiver to prevent unauthorized system service access.
                     val rewindIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
                         action = PlayerWidgetActionReceiver.ACTION_REWIND
                     }
@@ -194,15 +192,15 @@ class PlayerWidget : GlanceAppWidget() {
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(rewindIntent)),
-                        // 详尽的中文注释：快退按钮图标着色过滤，使用 ColorProvider.day/night 双参传递以支持新版 API 规范
+                        // Icon Color Filtering (Color tint filtering for rewind button icon, using two-argument ColorProvider.day/night to comply with Glance API specifications)
                         colorFilter = ColorFilter.tint(ColorProvider(day = Color.White, night = Color.White))
                     )
 
-                    // 详尽的中文注释：将操作按钮之间的间隔距离从 20dp 收缩至 16dp，避免布局过宽
+                    // Icon spacing contraction. Shrink spacer width to 16dp to avoid layout overflow.
                     Box(modifier = GlanceModifier.width(16.dp)) {}
 
-                    // 详尽的中文注释：核心播放/暂停按钮，容器大小微调至 34dp，内部图标大小增至 22dp。
-                    // 路由目标类已由导出的接收器安全重构为非公开（exported=false）的 PlayerWidgetActionReceiver，杜绝前台服务被外部非法拉起
+                    // Play/pause control button. Renders a 34dp container wrapping a 22dp icon.
+                    // The destination receiver is routed to the non-exported PlayerWidgetActionReceiver to prevent third-party applications from launching the service.
                     val playPauseIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
                         action = PlayerWidgetActionReceiver.ACTION_PLAY_PAUSE
                     }
@@ -225,8 +223,8 @@ class PlayerWidget : GlanceAppWidget() {
 
                     Box(modifier = GlanceModifier.width(16.dp)) {}
 
-                    // 详尽的中文注释：快进 30 秒控制按钮，大小由 32dp 缩小至 24dp。
-                    // 路由目标类已由导出的接收器安全重构为非公开（exported=false）的 PlayerWidgetActionReceiver，彻底防范虚假广播操控
+                    // Skip forward action. Downscale the button size to 24dp.
+                    // Employs the non-exported PlayerWidgetActionReceiver to prevent external playback control command injections.
                     val forwardIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
                         action = PlayerWidgetActionReceiver.ACTION_FORWARD
                     }
@@ -236,7 +234,7 @@ class PlayerWidget : GlanceAppWidget() {
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(forwardIntent)),
-                        // 详尽的中文注释：快进按钮图标着色过滤，使用 ColorProvider.day/night 双参传递以符合新包路径下 ColorProvider 构造规则
+                        // Color filter tinting. Use a dual-argument ColorProvider to satisfy the new API constructors.
                         colorFilter = ColorFilter.tint(ColorProvider(day = Color.White, night = Color.White))
                     )
                 }

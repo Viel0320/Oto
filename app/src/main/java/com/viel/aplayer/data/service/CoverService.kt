@@ -25,11 +25,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * 封面、元数据物理提取与主色调更新应用服务（实现了 CoverGateway 网关）。
- *
- * 核心设计目标：
- * 1. 彻底解耦并消灭大仓库：在 M6e 阶段直接直连注入 BookDao, ChapterDao 以及精细化的物理处理组件，彻底废弃旧有 PhysicalFileResolver 仓库的直接委托。
- * 2. 完美平移元数据物理重扫与自愈：精心保留自定义封面保存写入 Room、主背景色异步写缓存以及深度的分轨物理元数据强制重扫和章节实体级联刷新自愈动作。
+ * Cover and Tag Extraction Application Service (Implements CoverGateway)
+ * 
+ * Core Design Goals:
+ * 1. Complete Repository Decoupling: Injected with BookDao, ChapterDao, and narrow VFS utilities in the M6e phase, avoiding direct delegation to the monolithic PhysicalFileResolver.
+ * 2. Re-anchor Metadata Scans and Healing: Retains custom cover savings, background color caches, audio track rescans, and cascade updates to Chapter schemas.
  */
 @OptIn(UnstableApi::class)
 class CoverService(
@@ -41,44 +41,47 @@ class CoverService(
     private val subtitleResolver: SubtitleFileResolver,
     private val detailAvailabilityChecker: DetailAvailabilityChecker,
     private val availabilityChecker: AvailabilityChecker,
-    // 详尽的中文注释：注入全局的 AppDatabase 实例以执行多 DAO 连携 Room 数据库写事务，确保 ACID 数据原子性
+    // Global Database Reference (Room transaction support)
+    // Inject global AppDatabase instance to run multi-DAO database write operations in atomic Room transactions.
     private val database: AppDatabase
 ) : CoverGateway, java.io.Closeable {
 
-    // 异步写任务专属协程异常拦截器
+    // Private Exception Handler (Background thread crash boundary)
+    // Intercepts background exceptions in CoverService to prevent uncaught scope terminations.
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         Log.e("CoverService", "协程在 CoverService 运行中捕获到未处理异常", exception)
     }
 
-    // 此服务内部维护的专属后台协程上下文作用域
+    // Private Operations Coroutine Scope (Non-blocking execution boundary)
+    // Dedicated scope on Dispatchers.IO for background color calculations and other async operations.
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
     override suspend fun saveCustomCover(bookId: String, tempCoverPath: String) = withContext(Dispatchers.IO) {
         val book = bookDao.getBookById(bookId) ?: return@withContext
-        // 首先委托封面图物理提取器在沙盒内执行自定义封面物理文件的拷贝与缩略图生成裁剪
+        // Copy and generate thumbnail: Delegates to coverExtractor to save custom files in the application sandbox.
         val result = coverExtractor.saveCustomCover(bookId, tempCoverPath)
         if (result.originalPath != null) {
-            // 物理安全清除磁盘上的旧封面文件以防存储空间的垃圾积累
+            // Clear legacy cover: Deletes old files from disk to prevent storage leaks.
             book.coverPath?.let { oldPath ->
                 val oldFile = File(oldPath)
                 if (oldFile.exists()) {
                     oldFile.delete()
                 }
             }
-            // 物理安全清除磁盘上的旧封面缩略图缓存文件
+            // Clear legacy thumbnail: Deletes old cached thumbnails from disk.
             book.thumbnailPath?.let { oldPath ->
                 val oldFile = File(oldPath)
                 if (oldFile.exists()) {
                     oldFile.delete()
                 }
             }
-            // 清理编辑或裁剪时留在临时目录下的临时源文件
+            // Clear temporary files: Purges temp paths used during image cropping and edits.
             val tempFile = File(tempCoverPath)
             if (tempFile.exists()) {
                 tempFile.delete()
             }
 
-            // 随后同步安全将原图绝对路径、缩略图绝对路径、计算得到的主背景 ARGB 色更新回 Room
+            // Update database entity: Synchronously updates absolute paths and ARGB color keys in Book database tables.
             bookDao.updateCoverPaths(
                 id = bookId,
                 coverPath = result.originalPath,
@@ -90,23 +93,24 @@ class CoverService(
     }
 
     override suspend fun forceRegenerateCoverAndMetadata(bookId: String) = withContext(Dispatchers.IO) {
-        // 强行对该有声书的物理元数据标签及封面进行自愈检查和重扫
+        // Trigger Tag and Image Rescan (Ingestion recovery workflow)
+        // Refreshes database schemas with latest tag extractions and self-heals cover files.
         try {
             val book = bookDao.getBookById(bookId) ?: return@withContext
             val files = bookDao.getFilesForBookList(bookId)
             if (files.isEmpty()) return@withContext
 
-            // 1. 物理安全寻址首条可供读取且状态就绪的主音频物理分轨文件
+            // 1. Find primary audio file: Locates the first active, readable track.
             val primaryFile = files.firstOrNull { it.status == AudiobookSchema.FileStatus.READY } ?: files.first()
             
-            // 2. 委托元数据解析工具深度提取音频的结构化标签信息
+            // 2. Extract metadata: Resolves embedded track tags (duration, author, chapters) via metadataResolver.
             val metadata = metadataResolver.extract(primaryFile)
 
-            // 详尽的中文注释：使用 Room 核心的 withTransaction 扩展函数，将元数据属性更新、详细详情更新、
-            // 历史老章节清空以及重新扫描出新章节集批量持久化这四步写操作，强行收束在底层的同一个物理数据库原子写事务中。
-            // 这确保了在重扫中断、设备异常断电或插入抛出异常时，数据能瞬时回滚，消灭数据撕裂与空章节列表 UI 闪烁。
+            // Transactional Atomic Synchronization (Data integrity guard)
+            // Wraps metadata updates, detail updates, chapter purges, and chapter insertions within a single database transaction.
+            // Guarantees atomic rollbacks if interrupted, preventing visual flickers or empty chapter arrays in the UI.
             database.withTransaction {
-                // 3. 将物理重新扫出来的唱片集/年份/讲述人/持续时长等详细元数据属性覆盖写回 Room
+                // 3. Update Book attributes: Overwrites description, author, year, and duration.
                 bookDao.updateMetadata(
                     id = bookId,
                     title = metadata.album.trim().ifBlank { metadata.title.trim() }.ifBlank { book.title },
@@ -124,7 +128,7 @@ class CoverService(
                     year = metadata.year
                 )
 
-                // 4. 清理旧物理分轨对应的所有老章节记录，并批量重新持久化写入重扫出来的新章节集
+                // 4. Update Chapters: Purges legacy chapter schemas and batch inserts newly parsed entries.
                 if (metadata.chapters.isNotEmpty()) {
                     chapterDao.deleteChaptersForBook(bookId)
                     val chaptersWithBookId = metadata.chapters.map { it.copy(bookId = bookId) }
@@ -132,7 +136,7 @@ class CoverService(
                 }
             }
 
-            // 5. 强刷底层磁盘中生成的封面物理缓存，强制封面加载系统感知最新自愈出的物理图片文件
+            // 5. Force cover reload: Purges cache key states to force ImageLoader systems to render the recovered image.
             coverRecoveryHelper.forceRegenerateCover(bookId)
         } catch (e: Exception) {
             Log.e("CoverService", "物理强制重建有声书 $bookId 的封面与元数据发生异常", e)
@@ -140,32 +144,34 @@ class CoverService(
     }
 
     override fun updateBackgroundColor(id: String, color: Int) {
-        // 在专属后台协程中非阻塞异步地更新书籍详情的主背景色 ARGB 缓存值
+        // Asynchronous Color Updates (Non-blocking UI adjustments)
+        // Offloads palette updates to a background task, keeping the details transition fluid.
         scope.launch {
             bookDao.updateBackgroundColor(id, color)
         }
     }
 
     override suspend fun checkDetailAvailability(bookId: String): Boolean = withContext(Dispatchers.IO) {
-        // 通过详情页就绪可用状态校验器检测书籍物理上的存在性与授权可读性
+        // Verify Details Availability (Ingestion reachability checks)
+        // Audits whether parent folders are accessible and cover assets are present.
         detailAvailabilityChecker.check(bookId).isAvailable
     }
 
     override suspend fun checkPrimaryAudioFileExists(bookId: String): Boolean = withContext(Dispatchers.IO) {
-        // 首先获取当前书籍关联的所有音轨分轨列表以获取首个主物理音频轨
+        // Query primary track: Fetches track sequences, then checks physical VFS file readiness.
         val primaryFile = bookDao.getFilesForBookList(bookId).firstOrNull() ?: return@withContext false
-        // 随后委托物理就绪校验器在文件系统层面上核验其主音频文件的真实存在性
+        // Verify physical reachability via availabilityChecker.
         availabilityChecker.checkBookFile(primaryFile).isAvailable
     }
 
     override suspend fun loadSubtitlesForBookFile(bookFileId: String): List<com.viel.aplayer.ui.player.components.SubtitleLine> = withContext(Dispatchers.IO) {
-        // 委托外置字幕文件解析门面在 VFS 中流式定位并加载解析该音轨关联的字幕数据
+        // Resolve external subtitles: Locates and parses sidecar subtitle assets mapped to this file.
         subtitleResolver.loadSubtitlesForBookFile(bookFileId)
     }
 
     override fun close() {
-        // 详尽的中文注释：在封面网关服务卸载或重置时，安全且显式地取消专属于后台异步色调更新的私有协程作用域，
-        // 确保没有任何遗留的任务挂起悬空，防范内存碎片累积
+        // Explicit Coroutine Scope Cancellation (Memory leak cleanup)
+        // Cancels the private scope upon service teardown to ensure pending transactions release memory resources.
         scope.cancel()
     }
 }

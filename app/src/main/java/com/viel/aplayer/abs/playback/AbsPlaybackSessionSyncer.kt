@@ -100,7 +100,9 @@ class AbsPlaybackSessionSyncer(
                     updatedAt = System.currentTimeMillis()
                 )
             )
-            // 详尽中文注释：远端 sync 失败时，本地进度仍然是主真相，因此日志明确标注“进入 pending”，而不是简单记成失败。
+            // Local Progress Truth (Log sync state as pending on network failure)
+            // When remote synchronization fails, the local playback progress remains the single source of truth.
+            // Therefore, the event is logged as "pending" rather than a hard failure to reflect that progress will be retried later.
             AbsPlaybackLogger.logSyncPending(
                 bookId = book.id,
                 sessionId = session.sessionId,

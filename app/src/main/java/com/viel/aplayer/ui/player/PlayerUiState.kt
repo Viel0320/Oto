@@ -5,32 +5,32 @@ import com.viel.aplayer.ui.player.components.relatedsection.RelatedSection
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 
 /**
- * 根 UI 状态聚合类。
- * 将元数据、播放状态和设置组合在一起，作为单项数据流提供给 UI 层。
+ * Root UI state model (Aggregator for view layer configurations)
+ * Bundles metadata, playback status, and settings parameters as a single MVI state container.
  */
 data class PlayerUiState(
-    /** 书籍元数据子状态 */
+    /** Metadata sub-state (To store book details) */
     val metadata: BookMetadataState = BookMetadataState(),
-    /** 核心播放逻辑子状态 */
+    /** Playback sub-state (To store player states) */
     val playback: PlaybackState = PlaybackState(),
-    /** UI 表现与交互子状态 */
+    /** Settings sub-state (To store visual parameters) */
     val settings: PlayerSettingsState = PlayerSettingsState(),
-    /** 相关作者板块列表 */
+    /** Author sections (To display list of related author collections) */
     val relatedAuthorSections: List<RelatedSection> = emptyList(),
-    /** 相关播讲人板块列表 */
+    /** Narrator sections (To display list of related narrator collections) */
     val relatedNarratorSections: List<RelatedSection> = emptyList(),
-    /** 最近添加/导入的书籍列表 */
+    /** Recently added books (To store list of imported audiobooks) */
     val recentlyAddedBooks: List<BookWithProgress> = emptyList(),
-    // 新增 heuristicRecommendedBooks 状态以承载启发式智能打分推荐的有声书列表
+    // Recommended books (To store list of smart scored recommendation items)
     val heuristicRecommendedBooks: List<BookWithProgress> = emptyList()
 ) {
-    // --- 快捷访问器：保留以下字段以保证现有 UI 代码的向后兼容性 ---
+    // --- Accessor delegates (To preserve backward compatibility for existing UI code) ---
     
-    /** 播放状态 */
+    /** Playback state getters (To expose player states) */
     val isPlaying get() = playback.isPlaying
     val playWhenReady get() = playback.playWhenReady
     
-    /** 基础信息 */
+    /** Book metadata getters (To expose details properties) */
     val currentId get() = metadata.id
     val currentTitle get() = metadata.title
     val currentAuthor get() = metadata.author
@@ -39,14 +39,14 @@ data class PlayerUiState(
     val currentThumbnailPath get() = metadata.thumbnailPath
     val backgroundColorArgb get() = metadata.backgroundColorArgb
     
-    /** 进度与时长 */
+    /** Position timing getters (To expose playback position coordinates) */
     val currentPosition get() = playback.currentPosition
     val duration get() = playback.duration
     val progress get() = playback.progress
     val playbackSpeed get() = playback.playbackSpeed
     val isSpeedManualMode get() = playback.isSpeedManualMode
     
-    /** UI 设置 */
+    /** Spaced settings getters (To expose settings properties) */
     val selectedSleepTimer get() = settings.selectedSleepTimer
     val showUndoSeek get() = settings.showUndoSeek
     val isChapterListVisible get() = settings.isChapterListVisible
@@ -57,7 +57,7 @@ data class PlayerUiState(
     val isChapterProgressMode get() = settings.isChapterProgressMode
     val isFullPlayerVisible get() = settings.isFullPlayerVisible
     
-    /** 衍生状态 */
+    /** Derived state getters (To expose calculated track states) */
     val hasActiveTrack get() = metadata.hasActiveTrack
     val currentChapters get() = metadata.chapters
     val currentSubtitles get() = metadata.subtitles

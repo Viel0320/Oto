@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 详尽的中文注释：由于 glance 库编译依赖已被完全移除，此处将 initialLayout 与 previewLayout 替换为本地保留的 widget_player_2x2 布局以防编译失败 -->
+<!-- Widget Provider Configuration (Configure initial and preview layout resources to use widget_player_2x2 layout definition to avoid compilation errors due to the removal of Glance compilation dependencies) -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/player_widget_description"
     android:initialLayout="@layout/widget_player_2x2"

@@ -4,25 +4,28 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.media.parser.ImageProcessor
 
 /**
- * 书籍详情页的 UI 状态。
+ * DetailUiState Model (Detail Screen UI State)
+ *
+ * UI State for the book details page.
  */
 data class DetailUiState(
-    /** 当前选中的书籍实体 */
+    /** Currently selected book entity */
     val book: BookWithProgress? = null,
-    /** 是否显示详情页 */
+    /** Whether to show the details page */
     val isVisible: Boolean = false,
-    /** 书籍文件在本地是否可用 */
-    // 详情页采用乐观可用状态，后台 VFS 检测确认缺失后才降级为不可播放，避免打开详情时误报不可用。
+    /** Whether the book files are available locally */
+    // Detail page adopts an optimistic availability status, only degrading to unplayable after background VFS check confirms missing, avoiding false alarms of unavailability when opening details.
     val isAvailable: Boolean = true,
-    /** 播放进度百分比 (0-100)，来自数据库的真实进度 */
+    /** Playback progress percentage (0-100), the real progress from the database */
     val progressPercent: Int = 0,
-    // M-19 修复 — 经过 3 秒保护期过滤后的展示进度。
-    // 当用户从"未播放状态"点击播放后的 3 秒内，此值强制为 0，
-    // 防止按钮图标/文案在"Start Listening"和"Continue at X%"之间高频闪烁。
-    // 由 DetailViewModel.onPlayPressed 控制，配置变更后不丢失。
+    // Fix M-19 (Display Progress Under Protection)
+    // Display progress filtered through the 3-second protection period.
+    // Within 3 seconds after the user clicks play from the "unstarted state", this value is forced to 0,
+    // preventing the button icon/text from high-frequency flashing between "Start Listening" and "Continue at X%".
+    // Controlled by DetailViewModel.onPlayPressed, and preserved through configuration changes.
     val displayProgressPercent: Int = 0,
-    /** 背景适配色 (ARGB) */
+    /** Background adaptation color (ARGB) */
     val backgroundColorArgb: Int = ImageProcessor.DEFAULT_BACKGROUND_ARGB,
-    // 新增 fullSourcePath 字段，用于存储在 ViewModel 层已经处理完毕（经过 SAF 解码、primary: 过滤截断并与文件名拼接）的完整物理源文件路径，以保证 UI 渲染层的纯净和高性能
+    // Added fullSourcePath field to store the complete physical source file path processed at the ViewModel level (after SAF decoding, 'primary:' filtering, and concatenation with the filename), ensuring purity and high performance in the UI rendering layer.
     val fullSourcePath: String = ""
 )

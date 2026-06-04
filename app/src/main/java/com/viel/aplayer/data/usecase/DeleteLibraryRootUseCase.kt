@@ -7,16 +7,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 跨领域协调的具体用例：安全卸载/删除一个书库根目录。
- *
- * 核心职责：
- * 1. 跨领域协同：由于删除书库数据属于“数据领域”职责，而停止播放属于“媒体播放领域”职责。
- *    原本这两个不同的领域耦合在数据仓库底层（BookLibraryRepository），造成了严重的反向依赖。
- *    现在将此跨领域的控制协调逻辑上移到具体的应用用例（UseCase）中，实现彻底解耦。
- * 2. 安全策略执行：
- *    - 检查当前正在播放的有声书是否属于待删除的书库根目录。
- *    - 如果是，则先行安全停止媒体播放，防止出现底层 VFS 句柄丢失、IO 异常或播放器崩溃。
- *    - 最后再调用数据仓库的纯数据清理接口，级联清除所有文件、权限和 Room 记录。
+ * Cross-Domain Coordination Use Case (DeleteLibraryRootUseCase)
+ * Safely unloads and deletes a library root directory.
+ * 
+ * Core Responsibilities:
+ * 1. Cross-Domain Coordination: Removing database records is a data domain responsibility, while pausing audio belongs to playback domains.
+ *    These were originally coupled in the low-level BookLibraryRepository, causing circular dependencies.
+ *    Moving coordination here to an application use case resolves dependencies cleanly.
+ * 2. Safety Policy Execution:
+ *    - Evaluates if the active audiobook belongs to the root designated for deletion.
+ *    - If matched, stops playback immediately to avoid missing VFS handles, IO exceptions, or player crashes.
+ *    - Invokes data-cleaning APIs to cascade delete files, permissions, and Room entities.
  */
 class DeleteLibraryRootUseCase(
     private val playbackManager: PlaybackManager,
@@ -25,24 +26,29 @@ class DeleteLibraryRootUseCase(
 ) {
 
     /**
-     * 执行书库根卸载逻辑。
-     * @param root 待删除的书库根实体
-     * @return 如果在此过程中触发了紧急停播，则返回 true，否则返回 false
+     * Execute Library Root Purging (Clean ingestion entries)
+     * 
+     * @param root Target LibraryRootEntity to remove
+     * @return True if active playback was emergency stopped, false otherwise
      */
     suspend fun invoke(root: LibraryRootEntity): Boolean = withContext(Dispatchers.IO) {
         var playbackStopped = false
 
-        // 1. 获取当前正在播放的有声书 ID（来自媒体播放领域）
+        // Retrieve active playback ID (Media player state lookup)
+        // Queries the current playing audiobook ID from the playback domain.
         try {
             val currentBookId = playbackManager.currentPlayingBookId
             if (currentBookId != null) {
-                // 2. 使用书籍查询网关 getBookById 接口检索当前播放的书籍实体以进行归属判断
+                // Query Active Audiobook Entity (Domain boundary crossing)
+                // Queries target book details from bookQueryGateway to check if it belongs to the deleted root.
                 val currentBook = bookQueryGateway.getBookById(currentBookId)
                 if (currentBook != null && currentBook.rootId == root.id) {
-                    // 3. 如果属于被删书库，立即下发紧急停播指令，并锁定返回状态
+                    // Halt Active Playback (Emergency state override)
+                    // Triggers emergency stop commands if the book belongs to the target root, locking the stopped status.
                     playbackManager.stopPlayback()
                     playbackStopped = true
-                    // 详尽中文注释：删除库根前触发的紧急停播是公共业务流程，不属于某个来源协议，因此记录到公共流程 logger。
+                    // Log Emergency Pause Actions (Process diagnostics logger)
+                    // Logs focus loss and shutdown routines to the shared workflow log, rather than source-specific targets.
                     LibraryWorkflowLogger.debug("deleteRoot stopPlayback: rootId=${root.id}, currentBookId=$currentBookId")
                     LibraryWorkflowLogger.info("deleteRoot stopPlayback success: rootId=${root.id}")
                 }
@@ -51,7 +57,8 @@ class DeleteLibraryRootUseCase(
             LibraryWorkflowLogger.warn("deleteRoot stopPlayback failed: rootId=${root.id}", e)
         }
 
-        // 4. 使用书库根网关的 deleteLibraryRootDataOnly 接口完成本地缓存、SAF授权及Room记录的彻底级联清理
+        // Purge Root Cache and Database Entries (Cascade cleaning action)
+        // Invokes root gateway to clear local cover caches, revoke SAF tree permissions, and delete database rows.
         libraryRootGateway.deleteLibraryRootDataOnly(root)
 
         playbackStopped

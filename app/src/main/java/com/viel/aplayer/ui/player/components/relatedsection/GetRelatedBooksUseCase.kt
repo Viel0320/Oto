@@ -8,23 +8,18 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
- * 用例类：获取与当前书籍相关的推荐列表。
- * 已升级重构：不仅包含原有的同作者、同播讲人和最近添加书籍分类，
- * 更是置顶新增了由 100% 响应式 Flow 驱动的“启发式推荐” (Heuristic Recommendation) 算法，
- * 深度结合书名相似度（LCS 最长公共子串算法）、作者/播讲人重合度、年份匹配以及添加时间新鲜度进行多维度加权打分，并配备智能兜底填充策略。
- * 
- * 在 M3.3 重构中，将旧的 LibraryRepository 仓库依赖替换为更狭窄的 BookQueryGateway 接口。
- * 遵循面向接口编程和单一职责原则，解除高层业务用例与底层臃肿仓库的直接耦合。
+ * UseCase: Get related audiobooks (Service querying related catalog recommendations)
+ * Features "Heuristic Recommendation" sorting by combining title similarity (LCS), year, narrator, and author weight scoring.
+ * Refactored to bind BookQueryGateway interface rather than direct fat LibraryRepository dependencies.
  */
 class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
 
     /**
-     * 计算两个字符串的最长公共连续子串 (LCS) 长度，
-     * 用于有声书书名相关度的动态打分，能够极其精准地识别系列丛书或前缀相同的相关书籍。
+     * Compute longest common substring (To score title similarity using dynamic programming algorithms)
      */
     private fun getLongestCommonSubstringLength(s1: String, s2: String): Int {
         if (s1.isEmpty() || s2.isEmpty()) return 0
-        // 将字符串转换为小写并去除空格以提升相似度匹配的鲁棒性
+        // Normalize comparison strings (To strip spaces and convert characters to lowercase for robust matches)
         val str1 = s1.lowercase().replace("\\s".toRegex(), "")
         val str2 = s2.lowercase().replace("\\s".toRegex(), "")
         
@@ -46,21 +41,17 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
     }
 
     /**
-         * 从书名中提取出其丛书或序列的自然序号。
-     * 支持提取：
-     * 1. 汉字“上、中、下”分别映射为 1.0, 2.0, 3.0
-     * 2. 阿拉伯数字，如“第3部”、“卷2”、“(4)”或末尾的数字，提取出其数值
-     * 3. 中文数字，如“第一册”、“第二卷”等，映射为对应的数值 1.0, 2.0...
+     * Parse sequence digits (To extract sequence index numbers from book title patterns)
      */
     private fun extractSequenceIndex(title: String): Double? {
         val clean = title.lowercase().replace("\\s".toRegex(), "")
         
-        // 1. 上中下特殊映射
+        // 1. Map relative Chinese markers
         if (clean.contains("上册") || clean.endsWith("上")) return 1.0
         if (clean.contains("中册") || clean.endsWith("中")) return 2.0
         if (clean.contains("下册") || clean.endsWith("下")) return 3.0
         
-        // 2. 匹配“第X(部|册|卷|季|集|传)”
+        // 2. Match standard prefix patterns
         val cnPattern = "第([一二三四五六七八九十]+)[部册卷季集]".toRegex()
         cnPattern.find(clean)?.let { match ->
             val numStr = match.groupValues[1]
@@ -72,9 +63,9 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
             return match.groupValues[1].toDoubleOrNull()
         }
         
-        // 3. 直接匹配尾部的阿拉伯数字或括号中的数字
-        val tailNumPattern = "(\\d+)\\s*$".toRegex() // 结尾的阿拉伯数字
-        val parenNumPattern = "\\((\\d+)\\)".toRegex() // 括号内的阿拉伯数字
+        // 3. Match trailing digits or parenthesized numbers
+        val tailNumPattern = "(\\d+)\\s*$".toRegex()
+        val parenNumPattern = "\\((\\d+)\\)".toRegex()
         
         parenNumPattern.find(clean)?.let { match ->
             return match.groupValues[1].toDoubleOrNull()
@@ -83,7 +74,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
             return match.groupValues[1].toDoubleOrNull()
         }
         
-        // 4. 直接在文件名或书名中寻找第一个明显的数字（如果有的话，但排除 1900~2200 年份）
+        // 4. Fallback search for first non-year number digits
         val anyNumPattern = "(\\d+)".toRegex()
         anyNumPattern.findAll(clean).forEach { match ->
             val num = match.groupValues[1].toDoubleOrNull()
@@ -92,7 +83,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
             }
         }
         
-        // 5. 中文数字兜底，如 "一", "二"...
+        // 5. Check Chinese digit characters fallback
         val simpleCnNums = listOf("一", "二", "三", "四", "五", "六", "七", "八", "九", "十")
         for (i in simpleCnNums.indices) {
             if (clean.contains(simpleCnNums[i])) {
@@ -104,7 +95,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
     }
 
     /**
-         * 将繁体/简体中文数字转换为对应的 Double 数值，辅助进行丛书前后册大小比对。
+     * Chinese digits to decimal converter (To parse Chinese digit strings into double values)
      */
     private fun chineseToDecimal(chinese: String): Double {
         val cnNums = mapOf(
@@ -133,10 +124,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
     }
 
     /**
-     * 获取推荐数据流。
-     * @param currentId 当前书籍 ID
-     * @param author 当前书籍作者（支持逗号分隔多个）
-     * @param narrator 当前书籍播讲人（支持逗号分隔多个）
+     * Query related items flows (To stream related collections)
      */
     operator fun invoke(
         currentId: String,
@@ -150,28 +138,27 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
         val narratorList = narrator.split(",")
             .map { it.trim() }
             .filter { it.isNotBlank() }
-
-        // 1. 作者板块流
+ 
+        // 1. Author collections flow
         val authorFlows = authorList.map { name ->
             repository.filterByAuthorLimited(name, currentId, 3).map { books ->
                 RelatedSection(name, books)
             }
         }
-
-        // 2. 播讲人板块流
+ 
+        // 2. Narrator collections flow
         val narratorFlows = narratorList.map { name ->
             repository.filterByNarratorLimited(name, currentId, 3).map { books ->
                 RelatedSection(name, books)
             }
         }
-
-        // 3. 最近添加流（排除当前作者和播讲人）
+ 
+        // 3. Recently added flow (excluding current creator and narrator)
         val recentFlow = repository.getRecentlyAddedExclusive(currentId, authorList, narratorList, 3)
 
-        // 
-        // 4. 置顶高保真启发式智能推荐流 (Heuristic Recommendation)
-        // 通过 combine 管道将全局书籍流 audiobooks 与当前有声书的实时 Room 实体流 observeBookById 联动合并。
-        // 一旦用户在详情页右上角修改了元数据并保存，该数据流管道会瞬间重新捕获，触发算法跑分重算，极速响应式实时更新播放面板推荐页。
+        //
+        // 4. Combined heuristic scoring flow (To calculate recommendation metrics dynamically)
+        // Combines audiobooks list and current book metadata flow to recalculate recommendations instantly upon edits.
         val currentBookFlow = repository.observeBookById(currentId)
         val heuristicFlow = combine(repository.audiobooks, currentBookFlow) { allBooks, currentBook ->
             if (currentBook == null) return@combine emptyList()
@@ -179,31 +166,28 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
             val currentTitle = currentBook.title
             val currentYear = currentBook.year
             
-            // 筛选并计算候选书籍评分
+            // Calculate candidate recommendation scores
             val scoredBooks = allBooks.filter { it.book.id != currentId }
                 .map { item ->
                     val book = item.book
                     var score = 0.0
                     
-                    // A. 【最高优先级】书名相关度打分 (Title Similarity)
+                    // A. Title similarity scoring (Highest priority)
                     val cleanCurrentTitle = currentTitle.replace("\\s".toRegex(), "")
                     val cleanCandidateTitle = book.title.replace("\\s".toRegex(), "")
                     var isTitleMatched = false
                     if (cleanCurrentTitle.isNotBlank() && cleanCandidateTitle.isNotBlank()) {
                         when {
-                            // 书名完全一致（若有重名）：+40.0 分
                             cleanCurrentTitle.equals(cleanCandidateTitle, ignoreCase = true) -> {
                                 score += 40.0
                                 isTitleMatched = true
                             }
-                            // 前缀/包含匹配（如丛书关系）：+30.0 分
                             cleanCandidateTitle.contains(cleanCurrentTitle, ignoreCase = true) || 
                             cleanCurrentTitle.contains(cleanCandidateTitle, ignoreCase = true) -> {
                                 score += 30.0
                                 isTitleMatched = true
                             }
                             else -> {
-                                // 利用 LCS 算法计算最长公共连续子串长度，只要重合长度 >= 2 即可享受高额动态打分：每字 +5 分
                                 val lcsLen = getLongestCommonSubstringLength(currentTitle, book.title)
                                 if (lcsLen >= 2) {
                                     score += lcsLen * 5.0
@@ -213,10 +197,9 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
                         }
                     }
 
-                    // 
-                    // 自然排序降权过滤设计：如果书名匹配成功，分析两本书的丛书/自然排序序号（如上中下、123、一二三等）。
-                    // 若候选书籍的序列序号严格小于当前播放书籍（即属于当前播放章节或册数之前的历史内容），
-                    // 则对其进行大额降权（扣减 25.0 分，但不低于 1.0 分，保证关联性仍存），从而让后续未听的章节或新书自动跃升排到前列。
+                    //
+                    // Natural sequence sorting decay (To demote previous parts/chapters of the same series)
+                    // Deducts points from candidate books with sequence numbers smaller than the current book.
                     if (isTitleMatched) {
                         val currentIndex = extractSequenceIndex(currentTitle)
                         val candidateIndex = extractSequenceIndex(book.title)
@@ -225,7 +208,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
                         }
                     }
                     
-                    // B. 作者匹配打分：+10.0 分
+                    // B. Author matched score: +10.0
                     if (authorList.isNotEmpty() && book.author.isNotBlank()) {
                         val candidateAuthors = book.author.split(",").map { it.trim() }
                         if (authorList.any { a -> candidateAuthors.any { ca -> ca.equals(a, ignoreCase = true) } }) {
@@ -233,7 +216,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
                         }
                     }
                     
-                    // C. 讲述人（播讲人）匹配打分：+8.0 分
+                    // C. Narrator matched score: +8.0
                     if (narratorList.isNotEmpty() && book.narrator.isNotBlank()) {
                         val candidateNarrators = book.narrator.split(",").map { it.trim() }
                         if (narratorList.any { n -> candidateNarrators.any { cn -> cn.equals(n, ignoreCase = true) } }) {
@@ -241,23 +224,23 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
                         }
                     }
                     
-                    // D. 出版年份匹配打分：+4.0 分
+                    // D. Publishing year matched score: +4.0
                     if (currentYear.isNotBlank() && book.year.isNotBlank() && currentYear == book.year) {
                         score += 4.0
                     }
                     
-                    // E. 新鲜度微调权重（Added Date）：保证匹配分值相同时，最近添加/导入的书籍排在最前面
+                    // E. Freshness weight tuning (Added Date)
                     score += book.addedAt.toDouble() / 1e13
                     
                     Pair(item, score)
                 }
             
-            // 过滤出真正具有相关度（匹配得分 > 0）的书籍
+            // Filter candidates with matching scores
             val matchedBooks = scoredBooks.filter { it.second > 1e-5 }
                 .sortedByDescending { it.second }
                 .map { it.first }
             
-            // 智能兜底填充策略：如果推荐数不足 5 个，从剩余书籍中按 addedAt 倒序（Recently Added）强力补充，保证展示的饱满度与高端感
+            // Fallback backfill strategy (To fill up list with recently added items if recommendations are fewer than 5)
             if (matchedBooks.size < 5) {
                 val matchedIds = matchedBooks.map { it.book.id }.toSet()
                 val fillerBooks = allBooks.filter { it.book.id != currentId && !matchedIds.contains(it.book.id) }
@@ -270,7 +253,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
             }
         }
 
-        // 聚合所有流：将启发式智能推荐流 (heuristicFlow) 合并注入 RelatedData 最顶层
+        // Assemble data flows (To bundle same-author, same-narrator, and heuristic flows into RelatedData)
         return combine(
             if (authorFlows.isEmpty()) flowOf(emptyList()) else combine(authorFlows) { it.toList() },
             if (narratorFlows.isEmpty()) flowOf(emptyList()) else combine(narratorFlows) { it.toList() },
@@ -283,12 +266,11 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
 }
 
 /**
- * 聚合后的关联书籍数据模型。
+ * Consolidated related details (Data payload representing recommendations collections)
  */
 data class RelatedData(
     val authorSections: List<RelatedSection>,
     val narratorSections: List<RelatedSection>,
     val recentlyAdded: List<BookWithProgress>,
-    // 新增 heuristicRecommended 板块，用于承载高颜值的启发式推荐列表
     val heuristicRecommended: List<BookWithProgress>
 )

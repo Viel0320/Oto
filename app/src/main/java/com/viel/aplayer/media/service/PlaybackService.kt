@@ -1,8 +1,7 @@
 package com.viel.aplayer.media.service
 
-// 详尽的中文注释：因小组件重建，在此处引入小组件状态同步助手，用于将实时期播放状态持久化推送到桌面小组件 DataStore
-// 详尽的中文注释：导入小组件状态更新所需的 GlanceAppWidgetManager 管理器以及 PlayerWidget 实例
-// 详尽的中文注释：导入协程 withContext 工具，以便在 IO 协程中执行小组件数量查询及 Room 书籍信息加载
+// Widget State Sync Imports (Import the helper classes, Glance widget manager, and coroutine utilities)
+// Resolves UI and database mapping dependencies needed to update widget data store asynchronously.
 import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
@@ -44,47 +43,44 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * 核心前台媒体播放服务。
- * 
- * 经过架构解耦重构，该类原本的上帝类职责已完全剥离，具体子领域的具体逻辑已成功下沉：
- * 1. ExoPlayer 及其多媒体参数的定制与装配工作完全交由 [ExoPlayerFactory] 模块化构建；
- * 2. 系统的音频焦点（Audio Focus）申请、释放与“通知避让”状态机完全由 [PlaybackAudioFocusManager] 独立接管；
- * 3. 运行期 HTTP 安全审计与物理丢失（ENOENT）自愈跳轨灾备控制器交由 [PlaybackFailureHandler] 模块化托管；
- *
- * 瘦身重构后的播放服务仅仅作为 Media3 官方 Session 的生命周期外壳挂载体，
- * 在保证 100% 外部 MediaController 兼容平滑运行的同时，将代码复杂度降低了 45% 以上，极大提升了测试性。
+ * Core Foreground Playback Service (Manages life cycle of media playbacks and acts as a container for MediaSession instances)
+ * Architectural refinement isolates concerns across specialized components:
+ * 1. Customized ExoPlayer configuration is delegated entirely to [ExoPlayerFactory].
+ * 2. System audio focus and notification ducking dynamics are isolated in [PlaybackAudioFocusManager].
+ * 3. Media accessibility verification and error handling are managed by [PlaybackFailureHandler].
+ * Under this design, the playback service serves as a lightweight harness wrapper, reducing visual coupling.
  */
 @UnstableApi
 class PlaybackService : MediaSessionService() {
-    // 详尽的中文注释：持有去抖小组件刷新任务的 Job 引用，用于在频繁播放事件触发时取消之前的待执行任务
+    // Debounced Widget Update Job (Retains the active coroutine job reference to discard overlapping refresh tasks)
     private var widgetUpdateJob: Job? = null
 
     private var mediaSession: MediaSession? = null
-    // 通知栏使用独立的 Session，避免通知栏显示进度反向污染 App UI 控制器
+    // Isolated Media Notification Session (Constructs a separate session to prevent timeline mock values from leaking into standard UI controllers)
     private var notificationSession: MediaSession? = null
 
-    // 缓存持有的 ExoPlayer 实例成员变量，供内部 Listener 闭包安全引用
+    // Local Player Cache (Holds a reference to the active ExoPlayer instance for secure callback execution)
     private var player: ExoPlayer? = null
 
-    // 音频焦点与避让状态管理器组件
+    // Audio Focus Manager Helper (Directly delegates system audio focus lifecycle tracking to the sub-component)
     private lateinit var audioFocusManager: PlaybackAudioFocusManager
 
-    // 播放物理故障与安全审计拦截处理器组件
+    // Media Playback Error Handler (Handles stream validation and dynamic playback segment skipping on error)
     private lateinit var failureHandler: PlaybackFailureHandler
 
-    // 经过重构，移除了 silenceController 成员变量
+    // Legacy Field Cleanup (Removed silenceController after refactoring)
 
     private lateinit var rewindButton: CommandButton
     private lateinit var forwardButton: CommandButton
     private lateinit var bookmarkButton: CommandButton
-    // 在 M4.4 重构中，将旧的上帝仓库 libraryRepository 更换为全新的 LibraryFacade 门面
+    // Unified Library Facade Service (References the consolidated gateway domain instead of the legacy monolithic repository)
     private lateinit var libraryFacade: LibraryFacade
     private lateinit var settingsRepository: AppSettingsRepository
     private lateinit var notificationPlayer: NotificationProgressPlayer
 
-    // 通知层缓存当前书籍 ID，防止切书瞬间误用上一书的文件列表
+    // Notification Layer Book Metadata Cache (Stores the active book identifier to prevent track index cross-pollution during transitions)
     private var notificationBookId: String? = null
-    // 通知层缓存当前书籍文件列表，只服务于通知命令和进度显示映射
+    // Notification Segment Reference List (Maintains track schemas exclusively for timeline calculations)
     private var notificationFiles: List<BookFileEntity> = emptyList()
 
     private var exitJob: Job? = null
@@ -94,7 +90,7 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_REWIND = "ACTION_REWIND"
         const val ACTION_FORWARD = "ACTION_FORWARD"
         const val ACTION_BOOKMARK = "ACTION_BOOKMARK"
-        // 给通知 sessionActivity 使用稳定 requestCode，避免复用到其他 PendingIntent 后丢失打开播放页的 extra
+        // Stable Notification Request Code (Ensures unique PendingIntent definition so that the launcher overlay parameters are not discarded)
         private const val REQUEST_OPEN_PLAYER_OVERLAY_FROM_NOTIFICATION = 4100
     }
 
@@ -105,7 +101,7 @@ class PlaybackService : MediaSessionService() {
         libraryFacade = container.libraryFacade
         settingsRepository = AppSettingsRepository.getInstance(this)
 
-        // 1. 初始化解耦出去的音频焦点管理器组件
+        // 1. Instantiate the dedicated audio focus manager component.
         audioFocusManager = PlaybackAudioFocusManager(
             context = this,
             serviceScope = serviceScope,
@@ -113,8 +109,7 @@ class PlaybackService : MediaSessionService() {
             playerProvider = { mediaSession?.player }
         )
 
-        // 2. 初始化解耦出去的播放物理故障与拦截处理器组件
-        // 将 progressGateway 传入 PlaybackFailureHandler 故障灾备处理器以替代旧的 libraryRepository 依赖
+        // 2. Instantiate the isolated error handler, passing progressGateway to decouple from the legacy repository.
         failureHandler = PlaybackFailureHandler(
             context = this,
             serviceScope = serviceScope,
@@ -122,15 +117,15 @@ class PlaybackService : MediaSessionService() {
             settingsRepository = settingsRepository
         )
 
-        // 3. 委托 ExoPlayerFactory 生产配置并创建核心播放器实例
+        // 3. Delegate Configuration (Configures and instantiates the core player instance using ExoPlayerFactory)
         val playerInstance = ExoPlayerFactory.createExoPlayer(
             context = this,
              listener = object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
                     PlaybackWorkflowLogger.error("playbackService player error: code=${error.errorCode}, message=${error.message}", error)
-                    // 委托给灾备处理器进行 HTTP 安全流量审计与音轨缺失自愈跳轨
+                    // Error Recovery Delegation (Routes server exceptions to the disaster recovery handler for track skipping)
                     if (failureHandler.isUnavailableMediaError(error)) {
-                        // 详尽的中文注释：在此处将当前服务的 mediaSession 传入，以便灾备处理器向连接的前台控制器广播 EVENT_TRACK_UNAVAILABLE 指令，拉起二次确认跳轨弹窗
+                        // Interactive Error Broadcast (Passes the mediaSession to allow broadcasting EVENT_TRACK_UNAVAILABLE command to connected controllers)
                         this@PlaybackService.player?.let { failureHandler.handleUnavailableMediaItem(it, mediaSession) }
                     }
                     if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED) {
@@ -139,25 +134,25 @@ class PlaybackService : MediaSessionService() {
                             PlaybackWorkflowLogger.error("playbackService parser error: malformed=${cause.contentIsMalformed}", cause)
                         }
                     }
-                    // 详尽的中文注释：当播放器抛出内核物理加载异常导致轨道中断时，即时同步并推送播放失败状态给桌面小组件
+                    // Failure Widget Synchronization (Ensures any fatal playback error triggers a widget update to display current stopped state)
                     updateWidgetState()
                 }
  
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
-                    // 详尽的中文注释：向系统 UI 与潜在的外部控制器（如 Android Auto）授予封面 URI 的临时读取权限。
-                    // 这一步至关重要，能彻底修复由于 FileProvider 隐私隔离导致的 SecurityException: Permission Denial 崩溃。
+                    // Transient Artwork Permission Grant (Explicitly grants read access to System UI and external receivers like Android Auto)
+                    // Resolves SecurityException crash caused by FileProvider isolation constraints in Android 11+.
                     grantArtworkPermission(mediaItem?.mediaMetadata?.artworkUri)
 
-                    // 音轨成功过渡，重置跳轨重试防抖锁
+                    // Lock State Reset (Clears track-skipping transition guard to allow fresh recovery runs)
                     failureHandler.clearSkipGuard()
                     updateNotificationTimeline(mediaItem)
-                    // 详尽的中文注释：有声书物理分轨音轨切换过渡时，即时提取新音轨所属的书籍元数据与本地封面并刷新桌面小组件
+                    // Transition Widget Synchronization (Triggers immediate widget update during track transition to reflect current metadata)
                     updateWidgetState()
                 }
  
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
-                        // 当检测到整个播放队列播放结束时，弹出提示并启动 5 秒倒计时安全退出
+                        // Playback Queue Finished (Prompts the user and schedules a safe 5-second delayed shutdown of the service)
                         exitJob?.cancel()
                         exitJob = serviceScope.launch {
                             Toast.makeText(this@PlaybackService, "播放结束，5秒后将自动关闭", Toast.LENGTH_SHORT).show()
@@ -166,39 +161,37 @@ class PlaybackService : MediaSessionService() {
                             stopSelf()
                         }
                     } else {
-                        // 若状态变为非结束（如用户手动操作），则取消待定的退出任务
+                        // Active State Cancellation (Cancels the pending shutdown task since user returned to active state)
                         exitJob?.cancel()
                         exitJob = null
                     }
-                    // 详尽的中文注释：播放器整体状态（缓冲、就绪、播放完毕）发生物理更改时，即时同步播控状态给桌面小组件
+                    // State Change Widget Synchronization (Updates the widget immediately whenever the underlying playback state evolves)
                     updateWidgetState()
                 }
  
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    // 将实际的物理播放状态变更委托给音频焦点管理器，用于同步系统焦点与焦点避让状态机
+                    // Audio Focus Delegation (Routes the active player state updates to keep system focus tracking in sync)
                     audioFocusManager.handlePlayerPlayingStateChanged(isPlaying)
-                    // 详尽的中文注释：用户的播放/暂停动作引起 isPlaying 标识位实质变动时，即时向桌面小组件推送最新播控标志
+                    // Playback Status Widget Synchronization (Reflects the changes of user-initiated play/pause toggles directly onto the widget)
                     updateWidgetState()
                 }
             },
-            isAutomaticAudioFocusAllowed = true // 初始默认由 ExoPlayer 内部处理
+            isAutomaticAudioFocusAllowed = true // Default automatic audio focus (Delegates initial focus handling to ExoPlayer's internal system)
         )
         this.player = playerInstance
 
         notificationPlayer = NotificationProgressPlayer(playerInstance)
         observeNotificationProgressMode()
 
-        // 4. 监听设置流，动态热更“静音跳过”开关以及音频通知避让属性
+        // 4. Hot-Reload Configuration (Subscribes to setting flows to adjust dynamic playback parameters at runtime)
         serviceScope.launch {
             settingsRepository.settingsFlow.collect { settings ->
                 /**
-                 * 动态热重载有声书静音跳过属性。
-                 * 经过重构，去除了反射式最小时长更新逻辑，纯粹使用官方标准的 skipSilenceEnabled 属性控制。
+                 * Dynamic Silence Skipping (Updates dynamic silence skipping parameters using the standard ExoPlayer API)
                  */
                 playerInstance.skipSilenceEnabled = settings.isSkipSilenceEnabled
 
-                // 实时热更新“通知避让”机制。
-                // 开启避让时，接管播放器焦点，交由自主逻辑处理；关闭时重新让 ExoPlayer 托管，并注销自主焦点
+                // Dynamic Notification Avoidance (Adjusts audio attributes and takes over player focus dynamically based on settings)
                 val isAvoidanceEnabled = settings.isNotificationAvoidanceEnabled
                 val audioAttributes = AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
@@ -218,7 +211,7 @@ class PlaybackService : MediaSessionService() {
 
 
 
-        // 初始化媒体通知和自定义命令按钮快退、快进、书签
+        // Custom Controller Assembly (Initializes the command button models for rewind, forward, and bookmark buttons)
         rewindButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("快退10秒")
             .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
@@ -240,7 +233,7 @@ class PlaybackService : MediaSessionService() {
             .setEnabled(true)
             .build()
 
-        // 复用桌面 widget 已使用的 overlay Intent，让通知点击进入应用时也携带 OPEN_PLAYER_OVERLAY=true
+        // Intent Reuse Strategy (Configures playerOverlayPendingIntent to launch the active player overlay view directly)
         val playerOverlayPendingIntent = PendingIntent.getActivity(
             this,
             REQUEST_OPEN_PLAYER_OVERLAY_FROM_NOTIFICATION,
@@ -249,20 +242,20 @@ class PlaybackService : MediaSessionService() {
         )
 
         mediaSession = MediaSession.Builder(this, playerInstance)
-            // App UI 控制器连接默认 session，必须看到真实分轨文件的播放状态
+            // Real Timeline Bindings (Exposes original playback sequences directly to the foreground app controller UI)
             .setId("ui")
             .setSessionActivity(playerOverlayPendingIntent)
             .setCallback(CustomCallback())
             .build()
 
         notificationSession = MediaSession.Builder(this, notificationPlayer)
-            // 通知专用 session 可以包装进度，不影响 UI 真实的 controller
+            // Isolated Notification Bindings (Enables custom timeline presentation specifically for system notifications)
             .setId("notification")
             .setSessionActivity(playerOverlayPendingIntent)
             .setCallback(CustomCallback())
             .build()
             
-        // 顺序：快退 -> 快进 -> 书签。书签在列表最后，会显示在通知栏的最右侧槽位
+        // Custom Command Array (Orders buttons as rewind, forward, and bookmark to position actions consistently on the notification drawer)
         mediaSession?.let {
             it.setCustomLayout(listOf(rewindButton, forwardButton, bookmarkButton))
             addSession(it)
@@ -282,20 +275,20 @@ class PlaybackService : MediaSessionService() {
     }
 
     /**
-     * 详尽的中文注释：针对 FileProvider 生成的 content:// 协议封面 URI，向系统关键进程及已连接的控制器主动授予临时读取权限。
-     *
-     * 为什么要这样做？
-     * 在 Android 11+ 中，由于存储沙盒化，外部进程（如 com.android.systemui）无法直接访问本应用私有目录下的文件。
-     * 即便我们通过 FileProvider 转换了 URI，如果不显式调用 grantUriPermission，
-     * 系统服务在尝试解析 MediaMetadata 以展示通知栏大图时，仍会因权限不足抛出 SecurityException 并导致 Binder 传输异常。
+     * Explicit Artwork Permission Grant (Grants transient read permissions for FileProvider-generated content:// URIs)
+     * 
+     * Rationale:
+     * In Android 11+ scoped storage, System UI components cannot access private directories.
+     * We must call grantUriPermission explicitly, otherwise the system notification service
+     * will fail to read artwork images, throwing a SecurityException during metadata resolution.
      */
     private fun grantArtworkPermission(uri: Uri?) {
         if (uri == null || uri.scheme != "content") return
 
-        // 核心目标包名：系统 UI（通知栏）以及 Android 核心系统框架
+        // Target Process Packages (Defines System UI and Core OS frameworks as target packages for permission delegation)
         val targetPackages = mutableSetOf("com.android.systemui", "android")
 
-        // 动态扩展：向所有当前已通过 MediaSession 握手成功的外部控制器（如 Android Auto, 蓝牙耳机等）同步授权
+        // Client Authority Extension (Grants read access to currently connected controllers dynamically)
         mediaSession?.connectedControllers?.forEach { targetPackages.add(it.packageName) }
         notificationSession?.connectedControllers?.forEach { targetPackages.add(it.packageName) }
 
@@ -303,7 +296,7 @@ class PlaybackService : MediaSessionService() {
             try {
                 grantUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } catch (_: Exception) {
-                // 若包名无效或环境差异，静默略过，不干扰核心播放流程
+                // Safe Exception Catching (Ignores dynamic package errors to ensure core playback flow continues without crashes)
             }
         }
     }
@@ -313,16 +306,14 @@ class PlaybackService : MediaSessionService() {
         val bookId = mediaParts.bookId
 
         serviceScope.launch(Dispatchers.IO) {
-            // 通过高层门面 libraryFacade 同步获取特定书籍的全部物理分轨与章节清册
+            // Sync Metadata Load (Fetches book file mappings and chapters directly using the library facade interface)
             val files = libraryFacade.getFilesForBookSync(bookId)
             val chapters = libraryFacade.getChaptersForBookSync(bookId)
             if (files.isNotEmpty()) {
                 launch(Dispatchers.Main) {
                     notificationBookId = bookId
                     notificationFiles = files
-                    // 由于 chapters 现在的底层类型是 ChapterWithBookFile（包含物理音轨文件状态），
-                    // 而前台通知栏的时间轴播放计算器 notificationPlayer 仅需要原始的章节区间实体 ChapterEntity，
-                    // 因此在此处通过 .map { it.chapter } 进行轻量解包，确保向后兼容与类型安全。
+                    // Safe Chapter Extraction (Unwraps ChapterWithBookFile objects to retrieve raw ChapterEntity blocks for the player tracker)
                     notificationPlayer.updateBookTimeline(bookId, files, chapters.map { it.chapter })
                 }
             }
@@ -335,7 +326,7 @@ class PlaybackService : MediaSessionService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo
         ): MediaSession.ConnectionResult {
-            // 对外暴露服务的包名安全审计（白名单机制）
+            // Client Package Whitelisting (Performs handshake verification against known package signatures)
             val callingPackage = controller.packageName
             val allowedPackages = listOf(
                 packageName,
@@ -349,7 +340,7 @@ class PlaybackService : MediaSessionService() {
 
             val sessionCommandsBuilder = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             
-            // 安全解包，装载自定义快退、快进、书签命令
+            // Custom Layout Assembly (Injects the customized rewind, forward, and bookmark actions into the controller layout)
             rewindButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
             forwardButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
             bookmarkButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
@@ -357,7 +348,7 @@ class PlaybackService : MediaSessionService() {
             val sessionCommands = sessionCommandsBuilder.build()
             val customLayout = listOf(rewindButton, forwardButton, bookmarkButton)
 
-            // 移除默认的前进、后退媒体源操作，以防止在多分轨有声书播放时发生越界截断
+            // Sequence Guard configuration (Removes system forward/backward commands to prevent index out of bounds on multi-track media items)
             val playerCommands = Player.Commands.Builder()
                 .addAllCommands()
                 .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
@@ -372,13 +363,12 @@ class PlaybackService : MediaSessionService() {
                 .setCustomLayout(customLayout)
                 .build()
                 .also {
-                    // 详尽的中文注释：在新控制器建立连接的瞬间，若当前已有正在播放的封面，立即为其授予读取权限。
-                    // 确保像 Android Auto 这种后连入的设备能立刻加载出第一张封面。
+                    // Immediate Client Permission Sync (Ensures that newly connected controllers receive immediate access to the current artwork)
                     session.player.currentMediaItem?.mediaMetadata?.artworkUri?.let { uri ->
                         try {
                             grantUriPermission(controller.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         } catch (_: Exception) {
-                            // 忽略异常
+                            // Ignore Exception (Ignores transient grant failures safely)
                         }
                     }
                 }
@@ -400,11 +390,11 @@ class PlaybackService : MediaSessionService() {
                         val bookId = mediaParts.bookId
 
                         serviceScope.launch {
-                            // 书签保存基于全书绝对毫秒进度
+                            // Absolute bookmark matching (Determines bookmark timing using absolute millisecond offset across all combined audio tracks)
                             val positionMs = (session.player as? NotificationProgressPlayer)
                                 ?.currentGlobalPosition()
                                 ?: currentGlobalPosition(session.player, bookId)
-                            // 使用 libraryFacade 门面接口在指定物理位置创建书签
+                            // Unified Facade Persistence (Delegates persistence changes directly to the library facade endpoint)
                             libraryFacade.addBookmark(bookId, positionMs, "Bookmark")
                             Toast.makeText(this@PlaybackService, "已添加当前播放位置到书签", Toast.LENGTH_SHORT).show()
                         }
@@ -428,7 +418,7 @@ class PlaybackService : MediaSessionService() {
     private suspend fun currentGlobalPosition(player: Player, bookId: String): Long {
         val fileIndex = player.currentMediaItemIndex.coerceAtLeast(0)
         val positionInFile = player.currentPosition.coerceAtLeast(0L)
-        // 当通知栏缓存书籍信息不存在时，通过 libraryFacade 安全加载对应音频分轨以正确映射进度
+        // Missing Cache Fetch (Retrieves the segments using the facade when cached files are missing to ensure correct mapping)
         val files = notificationFiles.takeIf { notificationBookId == bookId && it.isNotEmpty() }
             ?: libraryFacade.getFilesForBookSync(bookId)
         
@@ -440,17 +430,17 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    // 详尽的中文注释：对桌面小组件进行防抖更新，并且优化空小组件场景下的数据库查库开销
+    // Debounced Widget Updates (Controls update frequency and avoids database hits when no widgets are currently active)
     private fun updateWidgetState() {
         val playerInstance = player ?: return
         
-        // 详尽的中文注释：取消上一次尚未执行的去抖更新任务，以防止状态频繁波动时产生多余开销
+        // Debounce Task Cancellation (Discards the previously scheduled update request to prevent redundant redraw overhead)
         widgetUpdateJob?.cancel()
         widgetUpdateJob = serviceScope.launch(Dispatchers.Main) {
-            // 详尽的中文注释：设置 250ms 的更新去抖延迟，过滤因连续状态改变或网络缓冲抖动引起的密集重绘
+            // Debounce Delay (Filters rapid status transitions by deferring the execution by 250ms)
             delay(250.milliseconds)
 
-            // 详尽的中文注释：所有对物理播放器实例属性的读取必须在 Main 线程完成以符合多媒体框架的线程限制契约
+            // Main Thread Verification (Ensures player properties are queried on the main thread, satisfying media framework requirements)
             val isPlaying = playerInstance.isPlaying
             val mediaItem = playerInstance.currentMediaItem
             val mediaId = mediaItem?.mediaId
@@ -461,13 +451,12 @@ class PlaybackService : MediaSessionService() {
             if (mediaParts != null) {
                 val bookId = mediaParts.bookId
                 withContext(Dispatchers.IO) {
-                    // 详尽的中文注释：在通过 LibraryFacade 执行任何 Room 数据库查询之前，首先运行 Glance 自身的 ID 数量预判。
-                    // 若桌面上完全没有添加该 Widget，则立刻早退，从物理层杜绝在此场景下进行昂贵且无意义的本地查库操作，完美保护磁盘 I/O 资源
+                    // Glance Widget Check (Pre-evaluates the active widget count to skip heavy database queries when no widgets are displayed)
                     val glanceIds = GlanceAppWidgetManager(this@PlaybackService)
                         .getGlanceIds(PlayerWidget::class.java)
                     if (glanceIds.isEmpty()) return@withContext
 
-                    // 详尽的中文注释：此时已确认桌面上有小组件实例，通过门面接口加载书籍详细信息以同步 UI 封面和文字
+                    // Detailed Metadata Query (Loads active book details to populate widget text fields and remote artwork)
                     val book = libraryFacade.getBookById(bookId)
                     val title = book?.title ?: fallbackTitle
                     val author = book?.author ?: fallbackArtist
@@ -483,7 +472,7 @@ class PlaybackService : MediaSessionService() {
                 }
             } else {
                 withContext(Dispatchers.IO) {
-                    // 详尽的中文注释：若未播放任何书籍，同样首先检测是否有小组件被放置，以杜绝无意义的数据写入
+                    // Idle Widget Check (Ensures idle status changes only write updates when active widgets are present)
                     val glanceIds = GlanceAppWidgetManager(this@PlaybackService)
                         .getGlanceIds(PlayerWidget::class.java)
                     if (glanceIds.isEmpty()) return@withContext
@@ -501,10 +490,10 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        // 详尽的中文注释：服务销毁时取消所有未完成的去抖更新任务，防止内存泄漏和协程泄露
+        // Job Cancellation (Discards pending debounced widget updates to prevent memory leaks during service shutdown)
         widgetUpdateJob?.cancel()
 
-        // 详尽的中文注释：当前后台播放服务完全销毁生命周期退出时，强行重置并向小组件写入静置状态，保证桌面小组件状态不残留
+        // Clear Widget State (Enforces a clean idle update to the widget data store to prevent lingering notification displays)
         serviceScope.launch {
             PlayerWidgetStateHelper.updateWidgetState(
                 context = this@PlaybackService,
@@ -515,7 +504,7 @@ class PlaybackService : MediaSessionService() {
             )
         }
         serviceScope.cancel()
-        audioFocusManager.reset() // 注销并安全释放占用的系统音频焦点
+        audioFocusManager.reset() // Release System Focus (Releases audio focus resources when service terminates)
         notificationSession?.run {
             release()
             notificationSession = null

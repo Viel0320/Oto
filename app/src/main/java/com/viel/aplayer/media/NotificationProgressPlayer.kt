@@ -10,7 +10,7 @@ import com.viel.aplayer.data.entity.ChapterEntity
 import java.util.concurrent.CopyOnWriteArraySet
 
 /**
- * 通知专用 MediaSession 包装器：只把系统通知看到的进度映射成章节/全书显示窗口。
+ * Notification Playback Window Wrapper (Expose chapter or full-book bounds to system notifications)
  */
 @OptIn(UnstableApi::class)
 class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
@@ -20,7 +20,7 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
     private var files: List<BookFileEntity> = emptyList()
     private var chapters: List<ChapterEntity> = emptyList()
     private var isChapterMode: Boolean = false
-    // 记录上次通知显示窗口，用来发现同一音频文件内的章节边界切换。
+    // Track Previous Display Boundaries (Detect transition events across chapter indexes within one track)
     private var lastDisplayWindow: DisplayWindow? = null
 
     // ForwardingPlayer wraps callbacks for normal player events; we keep the original listeners for manual timeline updates.
@@ -40,7 +40,7 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
         this.bookId = bookId
         this.files = files.sortedBy { it.index }
         this.chapters = chapters.sortedBy { it.startPositionMs }
-        // 新书或章节数据变更后重置窗口缓存，避免通知继续沿用旧书章节边界。
+        // Reset Cache Limits (Clear stored display boundaries when metadata is updated)
         lastDisplayWindow = null
         notifyTimelineShapeChanged()
     }
@@ -73,10 +73,10 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
         return if (duration > 0) ((bufferedPosition * 100L) / duration).toInt().coerceIn(0, 100) else 0
     }
 
-    // 通知 session 仍保留真实 contentPosition，供 Media3 内部计时和外部诊断使用。
+    // Expose Original contentPosition (Ensure real playback offset is preserved for internal diagnostics)
     override fun getContentPosition(): Long = wrappedPlayer.contentPosition.coerceKnown()
 
-    // 通知 session 仍保留真实 contentDuration，避免底层播放状态被显示窗口污染。
+    // Expose Original contentDuration (Ensure total stream duration is preserved from window overrides)
     override fun getContentDuration(): Long = wrappedPlayer.contentDuration.coerceKnown()
 
     // A notification seek in the current displayed window is mapped back to the real playlist item and file offset.
@@ -186,7 +186,7 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
         lastDisplayWindow = window
         if (previous == null) return
         if (previous.globalStartMs != window.globalStartMs || previous.durationMs != window.durationMs) {
-            // 单文件多章节播放不会触发 MediaItemTransition，跨章节时要主动刷新通知进度条窗口。
+            // Force Notification Repaints (Trigger updates when crossing chapter bounds within the same physical file)
             notifyTimelineShapeChanged()
         }
     }

@@ -17,9 +17,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 
-// 
-// 彻底将打字状态隔离在 BookmarkDialog 内部。
-// 外部不再提供 onTitleChange 高频回传通道，而只在点击“Save”保存的一瞬间，一次性将 localTitle 回调出去。
+// Isolate dialog input state (To decouple high-frequency text changes from external observers)
+// Restricts typing state within the component scope and emits the string payload upon clicking save.
 @Composable
 fun BookmarkDialog(
     isVisible: Boolean,
@@ -28,8 +27,8 @@ fun BookmarkDialog(
     onDismiss: () -> Unit
 ) {
     if (isVisible) {
-        // 升级 remember 为 rememberSaveable(isVisible)，在 Dialog 显示时初始化 localTitle，
-        // 并在设备屏幕旋转等配置变更（Configuration Changes）时自动从 Bundle 完美恢复内容，彻底修复输入丢失问题。
+        // Cache input state locally (To preserve bookmark title draft across device orientation changes)
+        // Uses rememberSaveable bound to isVisible key to retain state in Android Bundles.
         var localTitle by rememberSaveable(isVisible) { mutableStateOf(defaultTitle) }
 
         AlertDialog(

@@ -38,8 +38,10 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
- * 手机横屏优化布局 (Phone Landscape)
- * 针对垂直高度极窄的情况，采用左右分流，并将控制面板置于右侧顶部。
+ * Phone Landscape Layout Specification (Optimized horizontal splitting for compact screens)
+ *
+ * Caters to viewports with restricted vertical heights by dividing content left and right.
+ * Places the playback controls at the top of the right-hand column.
  */
 @Composable
 fun DetailLandscapePhone(
@@ -55,12 +57,14 @@ fun DetailLandscapePhone(
     onShowInfo: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 详尽的中文注释：使用全局窗口属性 LocalWindowClass 获取屏幕宽度，去除对 LocalConfiguration.current 的直接读取，增加代码内聚性。
+    // Adaptive Parameter Extraction (Retrieve logical width from LocalWindowClass)
+    // Accesses logical screen width through the global `LocalWindowClass` composition local.
+    // This avoids querying the platform config directly, improving component encapsulation.
     val windowClass = LocalWindowClass.current
     val layoutDirection = LocalLayoutDirection.current
     val screenWidthDp = windowClass.screenWidthDp
     
-    // 手机横屏下的边距策略
+    // Spacing Configuration (Adjust padding weights for phone landscape mode)
     val sidePadding = screenWidthDp * 0.04f
     val startPadding = sidePadding + safeDrawingPadding.calculateStartPadding(layoutDirection)
     val endPadding = sidePadding + safeDrawingPadding.calculateEndPadding(layoutDirection)
@@ -72,7 +76,7 @@ fun DetailLandscapePhone(
             .padding(start = startPadding, end = endPadding),
         horizontalArrangement = Arrangement.spacedBy(screenWidthDp * 0.06f)
     ) {
-        // 左侧列：封面 + 标题
+        // Left Column: Displays the primary cover and metadata text
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -88,8 +92,9 @@ fun DetailLandscapePhone(
                 contentAlignment = Alignment.Center
             ) {
             PlayerCover(
-                // 详尽注释：横屏详情左侧大封面与竖屏详情保持同一 Main1200 输入规则，
-                // 优先使用原始封面，防止横向大尺寸展示误用缩略图导致清晰度下降。
+                // Cover Selection Priority (Prioritize high-definition raw images for primary detail viewport)
+                // The landscape detail view renders a large cover surface. Consequently, it shares the "Main1200" priority logic
+                // to load the raw image, preventing resolution degradation on wider screens.
                 coverPath = CoverImageSourceSelector.main(
                     coverPath = book?.coverPath,
                     thumbnailPath = book?.thumbnailPath
@@ -132,7 +137,7 @@ fun DetailLandscapePhone(
             Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
         }
 
-        // 右侧列：播放控制 + 简介
+        // Right Column: Houses the playback action panel and scrollable synopsis text
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -165,7 +170,7 @@ fun DetailLandscapePhone(
 @Composable
 fun DetailLandscapePhonePreview() {
     APlayerTheme {
-        // 详尽的中文注释：在预览中显式注入横屏手机预设以展示正确的横屏自适应样式。
+        // Preview Window Configuration (Verify landscape phone rendering)
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.LandscapePhone
         ) {

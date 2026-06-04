@@ -1,12 +1,12 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS 播放会话与远端进度同步日志。
+ * ABS Playback Logger (Playback session and remote progress synchronization logging)
  *
- * 责任边界：
- * 1. 只记录 open/sync/close/pending flush/credential resolve 这些“远端会话”相关事件。
- * 2. 不记录本地播放计划构建、不记录底层字节流读取。
- * 3. 专注回答“本地进度有没有尝试同步到 ABS，失败时是否进入 pending”。
+ * Boundaries of responsibility:
+ * 1. Only logs events related to remote sessions like open, sync, close, pending flush, and credential resolution.
+ * 2. Does not log local playback plan construction or low-level byte stream reads.
+ * 3. Focuses on whether local progress successfully syncs with the ABS server or falls back to pending queue states upon failure.
  */
 internal object AbsPlaybackLogger {
     private const val TAG = "AbsPlayback"

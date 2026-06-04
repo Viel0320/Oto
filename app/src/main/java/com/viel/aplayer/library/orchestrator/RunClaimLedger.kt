@@ -5,20 +5,23 @@ import com.viel.aplayer.library.FileIdentity
 
 // In-memory first-claim-wins ledger for one import run.
 class RunClaimLedger(
-    // 允许 ScopeOrchestrator 传入同一轮扫描共享的 owner map，从而跨 scope 保留 claim 预留状态。
+    // Share Scan Session State (Ownership Integrity)
+    // Allows ScopeOrchestrator to pass a shared owner map to preserve claim state across scope limits.
     private val ownerByKey: MutableMap<String, ImportSourceRef> = mutableMapOf()
 ) {
 
     /**
-         * 为某个导入源分配并预留物理文件。
-     * 增加 currentParentSourcePath 参数，在向 existingClaimIndex 校验物理文件已被数据库中已有书籍抢占时，
-     * 能够将检测局域化在该同级 VFS 目录内。
-     * 
-     * @param source 本次认领的来源
-     * @param files 待认领的物理文件标识列表
-     * @param existingClaimIndex 全局/已入库所有权索引
-     * @param currentParentSourcePath 当前正在被认领的文件所属的 VFS 父目录路径
-     * @return 认领预留结果
+     * Reserve Physical Tracks (Claim Allocation)
+     *
+     * Allocates and reserves files for an import source.
+     * Incorporates currentParentSourcePath to localize checks within the same VFS directory,
+     * ensuring existing claimed files are verified correctly.
+     *
+     * @param source Source of the current claim
+     * @param files Identifiers of the files to reserve
+     * @param existingClaimIndex Index containing all database claims
+     * @param currentParentSourcePath VFS parent directory path of the tracks
+     * @return Result of the reservation attempt
      */
     fun reserve(
         source: ImportSourceRef,
@@ -26,13 +29,15 @@ class RunClaimLedger(
         existingClaimIndex: ExistingClaimIndex,
         currentParentSourcePath: String? = null
     ): ReservationResult {
-        // 详尽的中文注释：对一轮扫描中全局共享的 ownerByKey 进行互斥锁定，防止多协程并行校验与抢占预留时产生竞态覆盖和并发数据不一致
+        // Synchronized Map Access (Thread Safety Protection)
+        // Locks the shared ownerByKey map to prevent concurrent threads from creating race conditions or inconsistent states during checks.
         return synchronized(ownerByKey) {
             val existingHits = mutableListOf<BookFileEntity>()
             val runHits = mutableListOf<ImportSourceRef>()
 
             files.forEach { identity ->
-                // 将 VFS 父目录路径透传给 existingClaimIndex.find，去掉旧父目录 URI 兼容分支。
+                // Localized Folder Queries (Storage Decoupling)
+                // Forwards parent path to localized index checks, removing obsolete parent URI compatibility pathways.
                 existingClaimIndex.find(identity, currentParentSourcePath)?.let { existingHits.add(it) }
                 identity.keys().forEach { key ->
                     ownerByKey[key]?.let { runHits.add(it) }
@@ -54,16 +59,16 @@ class RunClaimLedger(
         }
     }
 
-    // 为单个 scope 创建隔离副本，scope 内的 claim 只有在入库成功后才通过 commitFrom 合并回全局扫描账本。
-    // 详尽的中文注释：对共享 Map 的读取拷贝操作进行互斥锁定，防止其他协程并发写入导致 ConcurrentModificationException 异常
+    // Fork Ledger for Scope Execution (State Protection)
+    // Synchronizes copy operations to isolate scoped claims, merging them only upon successful writes to prevent ConcurrentModificationException.
     fun fork(): RunClaimLedger {
         return synchronized(ownerByKey) {
             RunClaimLedger(ownerByKey.toMutableMap())
         }
     }
 
-    // scope 入库成功后提交其新增 claim 预留，避免解析失败或入库失败的 scope 污染后续 claim判断。
-    // 详尽的中文注释：合并隔離副本的数据到全局账本时，必须获取当前共享 Map 锁以实现批量操作的原子性
+    // Commit Isolated Scope Claims (State Synchronization)
+    // Synchronizes the merge operation to atomically consolidate scoped claims into the global scan session registry.
     fun commitFrom(scopeLedger: RunClaimLedger) {
         synchronized(ownerByKey) {
             scopeLedger.ownerByKey.forEach { (key, owner) ->

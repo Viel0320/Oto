@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.common
 
-// 使用 miuix-blur 模糊库的 Backdrop 机制 API 彻底替换旧的模糊库依赖，以实现高保真 textureBlur 噪点磨砂着色高密度模糊
+// Completely replace legacy blur library dependencies with miuix-blur's Backdrop API to achieve high-fidelity textureBlur noisy frosted glass colored high-density blur.
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,19 +23,19 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 
 /**
- * BlurDropdownMenu —— 支持 Material 原生菜单与 miuix-blur 毛玻璃菜单之间切换的通用 DropdownMenu 封装。
+ * BlurDropdownMenu — A generic DropdownMenu wrapper supporting switching between Material native menu and miuix-blur frosted glass menu.
  *
- * 使用方式：
- * - 调用方在宿主页面根部维护同一个 [LayerBackdrop]。
- * - Material 模式只使用原生 [DropdownMenu]，不启用毛玻璃渲染管线。
- * - miuix-blur 模式在 DropdownMenu 自己的 content modifier 层挂载 textureBlur，并添加 0.78f 半透明底色，确保文字有良好对比度与极致设计美学。
+ * Usage:
+ * - Callers maintain the same [LayerBackdrop] at the root of the host page.
+ * - Material mode only uses the native [DropdownMenu] and does not enable the frosted glass rendering pipeline.
+ * - miuix-blur mode attaches textureBlur to the content modifier of the DropdownMenu itself, adding a 0.78f semi-transparent base color to ensure good text contrast and premium design aesthetics.
  */
 @Composable
 fun BlurDropdownMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     backdrop: LayerBackdrop,
-    // 玻璃效果模式必须由调用方从设置状态显式传入，避免通用菜单内部私自声明默认值。
+    // Glass effect mode must be explicitly passed from the settings state by the caller to prevent the generic menu from declaring default values privately.
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(0.dp, 0.dp),
@@ -43,35 +43,34 @@ fun BlurDropdownMenu(
     properties: PopupProperties = PopupProperties(focusable = true),
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // 复用 Material3 默认菜单形状，保证模糊层和 DropdownMenu 外层 Surface 使用同一套圆角边界。
+    // Reuse the Material3 default menu shape to ensure the blur layer and the outer Surface of DropdownMenu share the same rounded corner boundaries.
     val menuShape = MenuDefaults.shape
-    // MiuixBlur 模式把外层 Surface 设为透明，避免 Surface 背景和 drawBackdrop 发生重叠渲染冲突。修改引用为新更名的 MiuixBlur。
+    // Set the outer Surface to transparent in MiuixBlur mode to avoid overlap rendering conflicts between the Surface background and drawBackdrop. Reference modified to the newly renamed MiuixBlur.
     val menuContainerColor = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
         Color.Transparent
     } else {
         MenuDefaults.containerColor
     }
-    // 获取当前系统的亮暗色主题状态，以实现下拉菜单底色自适应着色混合
+    // Obtain the current dark/light mode state of the system for adaptive drop-down menu base color blending.
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
-    // modifier 会被 Material3 应用到内部滚动 Column，使用 miuix-blur 就地绘制模糊与液态高光折光并涂覆半透明蒙版底色。将引用修改为新更名的 MiuixBlur
+    // The modifier will be applied by Material3 to the internal scrolling Column, using miuix-blur on the fly to render blur and liquid specular refraction and overlaying a semi-transparent mask base color. Reference modified to the newly renamed MiuixBlur.
     val menuModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
         Modifier.textureBlur(
             backdrop = backdrop,
             shape = menuShape,
-            blurRadius = 60f, // thick -> 厚模糊，提供极佳沉浸感
-            noiseCoefficient = 0.05f, // texture -> 强磨砂噪点质感
+            blurRadius = 60f, // thick -> thick blur, providing excellent immersion
+            noiseCoefficient = 0.05f, // texture -> strong frosted noise texture
             colors = BlurColors(
                 blendColors = listOf(
                     BlendColorEntry(
-                        color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // 微调蒙版深度，以供底层氛围折光与高光显示
+                        color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f), // Fine-tune mask depth to support ambient refraction and specular display from the underlying layers.
                         mode = BlurBlendMode.SrcOver
                     )
                 )
             )
         )
-        // 
-        // 3. 链式追加斜向白色反射光掠覆盖层 (Specular Glare)，模拟真实水晶玻璃表面对光源的物理折射反光。
+        // 3. Chain-append a specular glare layer (diagonal white reflection) to simulate physical refraction reflections of light source on actual crystal glass surfaces.
         .background(
             brush = Brush.linearGradient(
                 colors = listOf(
@@ -83,8 +82,7 @@ fun BlurDropdownMenu(
             ),
             shape = menuShape
         )
-        // 
-        // 4. 链式追加 1.dp 极细自适应渐变微光折射边框 (Refraction Edge)，大幅提升下拉菜单的品质与立体质感。
+        // 4. Chain-append a 1.dp extremely fine adaptive gradient shimmering refraction edge border (Refraction Edge) to significantly enhance the quality and three-dimensional texture of the drop-down menu.
         .border(
             width = 1.dp,
             brush = Brush.linearGradient(
@@ -119,12 +117,12 @@ fun BlurDropdownMenu(
         properties = properties,
         shape = menuShape,
         containerColor = menuContainerColor,
-        // MiuixBlur 模式不再让 Material tonal overlay 参与混色，避免菜单边缘出现和内容区不同的色调。修改引用为新更名的 MiuixBlur
+        // MiuixBlur mode no longer lets the Material tonal overlay participate in color blending to avoid color tone discrepancies between the menu edge and content area. Reference modified to the newly renamed MiuixBlur.
         tonalElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else MenuDefaults.TonalElevation,
-        // 自适应归零 Elevation，彻底杜绝菜单在透明视口下可能产生的 Android 系统级硬件影子重影
+        // Adaptively zero out elevation to completely eliminate potential Android system-level hardware shadow ghosting under transparent viewports.
         shadowElevation = if (glassEffectMode == GlassEffectMode.MiuixBlur) 0.dp else MenuDefaults.ShadowElevation
     ) {
-        // 透传原 DropdownMenuItem 内容，业务层只需要替换容器组件。
+        // Pass through original DropdownMenuItem content; the business layer only needs to replace the container component.
         content()
     }
 }

@@ -37,25 +37,29 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
- * 平板/大屏横屏自适应布局 (DetailTabletLandscape)
- * 专门在平板横屏大屏幕或折叠屏展开的横屏状态下提供双栏排版：
- * 左侧为固定封面、元数据与操作播放控制区，右侧为详情简介。
+ * Tablet Landscape Layout Specification (Responsive dual-pane for large/foldable landscape viewports)
+ *
+ * Designed to show a dual-column configuration:
+ * Left column features the fixed cover image, book metadata, and playback controls.
+ * Right column displays the scrollable synopsis details.
  */
 @Composable
 fun DetailTabletLandscape(
-    book: BookEntity?, // 书籍元数据实体
-    uiState: DetailUiState, // UI状态模型
-    padding: PaddingValues, // scaffold 内边距
-    safeDrawingPadding: PaddingValues, // 物理安全区
-    glassEffectMode: GlassEffectMode, // 玻璃视效选择模式
-    detailBackdrop: LayerBackdrop, // 背景采样源
-    onPlayPressed: () -> Unit, // 播放物理触发前防抖回调
-    onPlayClick: () -> Unit, // 确认播放操作回调
-    onSearchClick: (String) -> Unit, // 搜索回调
-    onShowInfo: (String, String) -> Unit, // 弹窗详情展示回调
+    book: BookEntity?, // The book metadata entity.
+    uiState: DetailUiState, // The UI state model.
+    padding: PaddingValues, // Inner padding for Scaffold.
+    safeDrawingPadding: PaddingValues, // The physical safe drawing area.
+    glassEffectMode: GlassEffectMode, // Selected glass effect mode.
+    detailBackdrop: LayerBackdrop, // Background sampling source.
+    onPlayPressed: () -> Unit, // Playback trigger debounce callback.
+    onPlayClick: () -> Unit, // Confirm playback action callback.
+    onSearchClick: (String) -> Unit, // Search callback.
+    onShowInfo: (String, String) -> Unit, // Dialog detail display callback.
     modifier: Modifier = Modifier
 ) {
-    // 详尽的中文注释：使用全局窗口属性 LocalWindowClass 获取屏幕宽度，避免直接依赖 LocalConfiguration，增强组件封装。
+    // Adaptive Parameter Extraction (Access screen dimensions via LocalWindowClass)
+    // Obtains screen logical width via the global `LocalWindowClass` composition local,
+    // avoiding direct dependency on the platform `LocalConfiguration` to improve component isolation.
     val windowClass = LocalWindowClass.current
     val layoutDirection = LocalLayoutDirection.current
     val screenWidthDp = windowClass.screenWidthDp
@@ -71,7 +75,7 @@ fun DetailTabletLandscape(
             .padding(start = startPadding, end = endPadding),
         horizontalArrangement = Arrangement.spacedBy(screenWidthDp * 0.06f)
     ) {
-        // 左栏：元数据 + 播放按钮
+        // Left Column: Features album cover, book details, and primary controls
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -87,8 +91,9 @@ fun DetailTabletLandscape(
                 contentAlignment = Alignment.Center
             ) {
                 PlayerCover(
-                    // 详尽注释：平板详情页左栏封面显示面积最大，必须复用 Main1200 的原图优先规则；
-                    // 缩略图只作为缺少原始封面时的安全兜底，不参与常规高清展示。
+                    // Cover Selection Priority (Prioritize high-definition raw images for primary detail viewport)
+                    // The tablet detail screen presents the largest cover view. Consequently, it must utilize the "Main1200" priority logic
+                    // to display the raw high-resolution image, keeping the thumbnail strictly as a fallback.
                     coverPath = CoverImageSourceSelector.main(
                         coverPath = book?.coverPath,
                         thumbnailPath = book?.thumbnailPath
@@ -145,7 +150,7 @@ fun DetailTabletLandscape(
             Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
         }
 
-        // 右栏：概要简介
+        // Right Column: Displays the scrollable audiobook synopsis
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -167,7 +172,7 @@ fun DetailTabletLandscape(
 @Composable
 fun DetailLandscapeTabletPreview() {
     APlayerTheme {
-        // 详尽的中文注释：在预览中显式提供横屏平板设备窗口预设，验证详情页平板双栏排版展示效果。
+        // Preview Window Configuration (Verify landscape tablet rendering)
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.TabletLandscape
         ) {
