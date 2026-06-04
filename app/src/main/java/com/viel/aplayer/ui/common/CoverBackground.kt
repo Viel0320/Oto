@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.common
 
+// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and haze modifier for Compose-based blur.
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -12,22 +13,20 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.data.store.GlassEffectMode
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 
 /**
  * Globally shared background cover strong blur ambience component, applicable to both playback and details pages.
  * 1. Automatically handles smooth color animations of the background dominant color.
- * 2. Mounts the layerBackdrop sampling source in MiuixBlur mode and renders a 64.dp strong-blurred cover.
+ * 2. Mounts the Haze state modifier in Haze mode and renders a 64.dp strong-blurred cover.
  * 3. Automatically adapts light and dark theme masks to ensure visibility of foreground UI elements.
  */
 @Composable
@@ -36,10 +35,12 @@ fun CoverBackground(
     lastUpdated: Long,
     backgroundColorArgb: Int,
     glassEffectMode: GlassEffectMode,
-    backdrop: LayerBackdrop,
+    // Setup HazeState Parameter (Map backdrop from LayerBackdrop to HazeState) Changed backdrop to hazeState.
+    hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
-    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
+    // Setup Glass Effect Flag (Check active theme style) Check if Haze mode is configured.
+    val isBlur = glassEffectMode == GlassEffectMode.Haze
     val isDark = isSystemInDarkTheme()
     val bgColor = MaterialTheme.colorScheme.background
 
@@ -51,7 +52,6 @@ fun CoverBackground(
     )
 
     // Calculate the background gradient brush depending on whether the frosted glass mode is enabled.
-    // Significantly reduce the opacity in MiuixBlur mode to reveal the underlying blurred image.
     val backgroundBrush by remember(animatedBgColor, bgColor, isBlur) {
         derivedStateOf {
             if (isBlur) {
@@ -72,25 +72,23 @@ fun CoverBackground(
         }
     }
 
+    // Setup Layout Modifier (Apply haze to background Box) Link haze modifier to background container if in Haze mode.
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(backgroundBrush)
             .then(
-                // Mount the sampling source to provide a frosted background image source for foreground components.
-                if (isBlur) {
-                    Modifier.layerBackdrop(backdrop)
+                if (isBlur && hazeState != null) {
+                    Modifier.haze(hazeState)
                 } else {
                     Modifier
                 }
             )
     ) {
-        // Render the full-screen cover blurred background only when in MiuixBlur mode.
+        // Render the full-screen cover blurred background only when in Haze mode.
         if (isBlur && coverPath != null) {
             val context = LocalContext.current
             val bgRequest = remember(coverPath, lastUpdated) {
-                // The background image only serves as a blur sampling source; it uses the Backdrop spec and disables hardware bitmaps.
-                // This reduces the Bitmap footprint and avoids potential compatibility risks when reading hardware bitmaps later in the software blur pipeline.
                 CoverImageRequestFactory.build(
                     context = context,
                     sourcePath = coverPath,
@@ -105,13 +103,14 @@ fun CoverBackground(
                 model = bgRequest,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                // Render Clear Background (Do not pre-blur image under Haze)
+                // Let the background image render clearly. Haze will dynamically blur it using hazeChild on the upper layer.
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
                         scaleX = 1.12f
                         scaleY = 1.12f
                     }
-                    .blur(64.dp)
             )
 
             // Overlay an adaptive theme mask layer.

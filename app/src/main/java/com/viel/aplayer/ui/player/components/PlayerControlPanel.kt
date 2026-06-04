@@ -14,7 +14,7 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.settings.PlayerSettingsState
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import dev.chrisbanes.haze.HazeState
 
 /**
  * Player control panel component (PlayerControlPanel).
@@ -52,7 +52,8 @@ fun PlayerControlPanel(
     actions: PlayerActions,
     buttonColor: Color,
     glassEffectMode: GlassEffectMode,
-    backdrop: LayerBackdrop?,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -68,7 +69,7 @@ fun PlayerControlPanel(
             onChapterClick = actions.content.onShowChapterList,
             onBookmarkClick = actions.bookmarks.onShowDialog,
             glassEffectMode = glassEffectMode,
-            backdrop = backdrop,
+            hazeState = hazeState,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(16.dp))
@@ -96,7 +97,7 @@ fun PlayerControlPanel(
             actions = actions.playback,
             buttonColor = buttonColor,
             glassEffectMode = glassEffectMode,
-            backdrop = backdrop,
+            hazeState = hazeState,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(12.dp))

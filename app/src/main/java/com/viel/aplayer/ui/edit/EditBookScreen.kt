@@ -55,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -73,13 +72,9 @@ import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurBlendMode
-import top.yukonga.miuix.kmp.blur.BlurColors
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.blur
-import top.yukonga.miuix.kmp.blur.drawBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.HazeMaterials
 import java.io.File
 
 /**
@@ -104,7 +99,8 @@ fun EditBookScreen(
     onSave: (title: String, author: String, narrator: String, year: String, description: String, newCoverPath: String?) -> Unit,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    detailBackdrop: LayerBackdrop? = null
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    detailHazeState: HazeState? = null
 ) {
     // Android Context (Needed for file handling and resolution operations)
     val context = LocalContext.current
@@ -179,8 +175,8 @@ fun EditBookScreen(
         }
     }
 
-    // Blur Feature flag (Verify if MiuixBlur settings and backdrop are present)
-    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur && detailBackdrop != null
+    // Blur Feature flag (Verify if Haze settings and state are present)
+    val isBlur = glassEffectMode == GlassEffectMode.Haze && detailHazeState != null
 
     val animatedBgColor = MaterialTheme.colorScheme.surfaceVariant
     val bgColor = MaterialTheme.colorScheme.background
@@ -230,25 +226,12 @@ fun EditBookScreen(
             }
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
             .then(
-                if (isBlur) {
-                    // Pure Texture Blur Background (Optimized Gaussian blur parameters for premium texture overlay)
-                    // 1. Employs `textureBlur` instead of generic `drawBackdrop`.
-                    // 2. Adjusts `blurRadius` to 60f for standard high-fidelity Gaussian dispersion.
-                    // 3. Sets `noiseCoefficient` to 0.05f to add a fine frosted noise texture.
-                    // 4. Utilizes a pure solid color mix layer that adapts to light/dark themes.
-                    Modifier.textureBlur(
-                        backdrop = detailBackdrop,
-                        shape = RectangleShape,
-                        blurRadius = 60f,
-                        noiseCoefficient = 0.05f,
-                        colors = BlurColors(
-                            blendColors = listOf(
-                                BlendColorEntry(
-                                    color = if (isDark) Color.Black.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.85f),
-                                    mode = BlurBlendMode.SrcOver
-                                )
-                            )
-                        )
+                if (isBlur && detailHazeState != null) {
+                    // Setup EditBook Haze (Apply hazeChild to main sheet container Box)
+                    // Remove EditBook Haze Shape (Use default shape matching host) Haze 1.x hazeChild does not take shape parameter.
+                    Modifier.hazeChild(
+                        state = detailHazeState,
+                        style = HazeMaterials.regular()
                     )
                 } else {
                     Modifier
@@ -467,11 +450,18 @@ fun EditBookScreen(
                                     .height(56.dp)
                                     // Apply blur backdrop to save container for design continuity
                                     .then(
-                                        Modifier.drawBackdrop(
-                                            backdrop = detailBackdrop,
-                                            shape = { RoundedCornerShape(16.dp) },
-                                            effects = { blur(20f) }
-                                        )
+                                        if (detailHazeState != null) {
+                                            // Setup Save Button Haze (Apply hazeChild to Save button background)
+                                            // Clip Save Button Shape (Apply clip to button container) Clip shape before calling hazeChild.
+                                            Modifier
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .hazeChild(
+                                                    state = detailHazeState,
+                                                    style = HazeMaterials.regular()
+                                                )
+                                        } else {
+                                            Modifier
+                                        }
                                     ),
                                 shape = RoundedCornerShape(16.dp),
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),

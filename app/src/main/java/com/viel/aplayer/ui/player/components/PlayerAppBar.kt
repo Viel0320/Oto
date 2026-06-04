@@ -37,8 +37,7 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import dev.chrisbanes.haze.HazeState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,15 +53,13 @@ fun PlayerAppBar(
     isChapterProgressMode: Boolean = false,
     // Glass effect mode must be explicitly passed from the settings state by the player page; the player top bar no longer declares a Material default.
     glassEffectMode: GlassEffectMode,
-    // The menu reuses the LayerBackdrop sampling source of the player background; it defaults to self-recovery during independent preview or when no parameters are passed.
-    backdrop: LayerBackdrop? = null,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState? = null,
     containerColor: Color = Color.Transparent,
     contentColor: Color = LocalContentColor.current
 ) {
     val navIcon = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
-    // Safely create a local backdrop sampler internally to ensure an elegant high-definition blur background is still acquired when the external backdrop is null.
-    val localBackdrop = backdrop ?: rememberLayerBackdrop()
 
     CenterAlignedTopAppBar(
         // Remove statusBarsPadding() from the modifier, using more professional windowInsets for direct adaptive management to completely eliminate double padding.
@@ -113,8 +110,8 @@ fun PlayerAppBar(
                 BlurDropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
-                    // Pass the LayerBackdrop sampled from the player Surface into the drop-down menu to generate the frosted glass effect.
-                    backdrop = localBackdrop,
+                    // Setup dropdown menu blur (Pass HazeState to the drop-down menu to render glassmorphism)
+                    hazeState = hazeState,
                     // The player's "more" menu switches between Material and miuix-blur depending on the selection in the settings page.
                     glassEffectMode = glassEffectMode
                 ) {

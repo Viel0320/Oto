@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    // Setup Kotlin Serialization (Apply compiler serialization plugin) Required for type-safe routes serialization in Navigation 3.
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -83,8 +85,12 @@ dependencies {
     // Window Size Class Integration (Introduce the official material3-window-size-class dependency)
     // This implements adaptive layout scaling using WindowWidthSizeClass and WindowHeightSizeClass.
     implementation(libs.androidx.compose.material3.windowsize)
+    // Fix Compose Material Icons Extended Reference (Use dot notation instead of hyphens in Gradle Kotlin DSL)
+    // Map libraries entry 'androidx-compose-material-icons-extended' correctly using dot syntax.
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.navigation.compose)
+    // Migrate Navigation 2 to Navigation 3 (Transition core navigation containers) Replaced old navigation-compose with navigation3 runtime and UI.
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     
     // Media3 (for audiobook playback)
@@ -99,9 +105,9 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.datastore.preferences)
 
-    // Miuix-blur Dependency (Integrate miuix-blur library to enable glassmorphic window effects)
-    // This achieves hardware-level high-fidelity frosted window blur rendering on Android 13+.
-    implementation(libs.miuix.blur)
+    // Introduce Haze Blur (Transition backdrop blur from miuix-blur to dev.chrisbanes.haze) Replaced miuix-blur dependency with haze and haze-materials.
+    implementation(libs.haze)
+    implementation(libs.haze.materials)
 
     // Jetpack Glance Integration (Re-declare and introduce Jetpack Glance dependencies)
     // Includes core declarative API, AppWidget support, and Material 3 adaptive color mapping.

@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.miniplayer
 
+// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState class for mini player.
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -18,18 +19,14 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.player.PlayerViewModel
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
  * MiniPlayerOverlay Setup (Independent Popup Window Overlay)
  *
  * Dedicated independent sub-window floating overlay component (MiniPlayerOverlay) for the mini player.
- * 1. Physical Window Decoupling: Render mini player in a system independent popup window, completely decoupled from the main page rendering tree.
- * 2. 100% Safe Foreground Sampling: Since window is physically decoupled, when frosted glass is enabled, it can safely sample the viewport of appBackdrop/detailBackdrop containing text/cards without Vulkan Feedback Loop crashes.
- * 3. Immersive Edge Extension: Open clippingEnabled = false on Popup properties to stretch frosted glass background under navigation bar for immersive transparency.
- * 4. Ultra-smooth Transition Animation: Nest AnimatedVisibility inside to get smooth slide-in/slide-out entrance/exit animations.
  */
 @Composable
 fun MiniPlayerOverlay(
@@ -37,7 +34,8 @@ fun MiniPlayerOverlay(
     miniPlayerActions: MiniPlayerActions,
     isSearchActive: Boolean,
     glassEffectMode: GlassEffectMode,
-    backdrop: LayerBackdrop? = null
+    // Setup HazeState Parameter (Map backdrop from LayerBackdrop to HazeState) Changed LayerBackdrop to HazeState.
+    hazeState: HazeState? = null
 ) {
     // Only monitor player visibility (low-frequency signal)
     val isFullPlayerVisible by remember(playerViewModel) {
@@ -56,24 +54,15 @@ fun MiniPlayerOverlay(
 
     // Use global LocalWindowClass to obtain adaptive configuration details, determining alignment and whether to use a pill player, enhancing responsiveness and cohesion.
     val windowClass = LocalWindowClass.current
-    val isLandscape = windowClass.isLandscape
-    val isLargeScreen = windowClass.isTablet
     val usePillPlayer = windowClass.isWideScreen
 
     // Pill player floats in the bottom-right; bar player clings to the bottom-center
     val playerAlignment = if (usePillPlayer) Alignment.BottomEnd else Alignment.BottomCenter
 
     // MiniPlayer Visibility Guard (Check Active Track and Search overlay)
-    // If an active audio track exists and the search overlay is inactive, mount the mini-player layout container;
-    // this replaces the NavHost startsWith("search") route guard check.
     val isPopupNeeded = hasActiveTrack && !isSearchActive
 
     if (isPopupNeeded) {
-        // Eliminate Popup Wrapper (Resolve Window-level Blur Barrier)
-        // Completely remove independent Popup window packaging, using Box full-screen container alignment inside main Window.
-        // This resolves LayerBackdrop sampling isolation issues caused by cross-Android Window barriers, allowing frosted glass to refract underlying pages realistically.
-        // Meanwhile, since it is mounted outside appBackdrop/detailBackdrop in APlayerApp root Box as sibling node,
-        // it avoids Vulkan Feedback Loop graph rendering deadlock crashes.
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = playerAlignment
@@ -96,7 +85,7 @@ fun MiniPlayerOverlay(
                 MiniPlayerContent(
                     viewModel = playerViewModel,
                     actions = miniPlayerActions,
-                    backdrop = backdrop,
+                    hazeState = hazeState,
                     glassEffectMode = glassEffectMode
                 )
             }
@@ -114,7 +103,7 @@ fun MiniPlayerOverlay(
 private fun MiniPlayerContent(
     viewModel: PlayerViewModel,
     actions: MiniPlayerActions,
-    backdrop: LayerBackdrop?,
+    hazeState: HazeState?,
     glassEffectMode: GlassEffectMode
 ) {
     val playback by viewModel.playbackState.collectAsStateWithLifecycle()
@@ -126,8 +115,6 @@ private fun MiniPlayerContent(
 
     // Use LocalWindowClass in content cards to retrieve screen size to decide rendering compact pill player or wide bottom player.
     val windowClass = LocalWindowClass.current
-    val isLandscape = windowClass.isLandscape
-    val isLargeScreen = windowClass.isTablet
     val usePillPlayer = windowClass.isWideScreen
     // Thumbnail Small Cover Path (Thumbnail Small Preferred)
     // Small cover path resolved to ThumbnailSmall, letting child components render without knowing "thumbnail preferred, original fallback" business details.
@@ -137,6 +124,7 @@ private fun MiniPlayerContent(
     )
 
     Box {
+        // Setup Haze State Parameters (Pass hazeState down to child player views) Map backdrop to hazeState.
         if (usePillPlayer) {
             PillCompactMediaPlayer(
                 isPlaying = playback.isPlaying,
@@ -144,7 +132,7 @@ private fun MiniPlayerContent(
                 coverLastUpdated = metadata.coverLastUpdated,
                 isMediaAvailable = isMediaAvailable,
                 actions = actions,
-                backdrop = backdrop,
+                hazeState = hazeState,
                 onClick = { viewModel.setFullPlayerVisible(true) },
                 glassEffectMode = glassEffectMode
             )
@@ -159,7 +147,7 @@ private fun MiniPlayerContent(
                 progress = { displayProgress },
                 isMediaAvailable = isMediaAvailable,
                 actions = actions,
-                backdrop = backdrop,
+                hazeState = hazeState,
                 onClick = { viewModel.setFullPlayerVisible(true) },
                 glassEffectMode = glassEffectMode
             )

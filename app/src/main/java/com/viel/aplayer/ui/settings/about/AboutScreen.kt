@@ -118,12 +118,13 @@ private val openSourceLibraries = listOf(
         licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
     OpenSourceLibrary(
-        name = "Miuix Blur (miuix-blur)",
-        developer = "Yukonga",
+        // Open Source Haze (Update Open Source License Library) Replace old Miuix Blur license details with Chris Banes' Haze.
+        name = "Haze",
+        developer = "Chris Banes",
         license = "Apache License 2.0",
-        description = "Miuix Blur 是一个专为 Android 13+ 提供的高端系统级硬件模糊渲染组件，用声明式 API 实现尊贵的视窗高阶磨砂玻璃模糊物理透射效果。APlayer 运用它在章节列表和操作悬浮层中呈现极致的毛玻璃质感。",
-        url = "https://github.com/Yukonga/miuix-blur",
-        licenseText = "Copyright 2024 Yukonga\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
+        description = "Haze 是一个为 Jetpack Compose 提供的高性能图像与毛玻璃模糊效果组件。APlayer 运用它在播放器、列表卡片徽章、弹窗及各种底面板中实现极致、尊贵且高阶的磨砂玻璃物理透射模糊效果。",
+        url = "https://github.com/chrisbanes/haze",
+        licenseText = "Copyright 2023 Chris Banes\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
     OpenSourceLibrary(
         name = "Coil Compose",

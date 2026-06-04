@@ -59,8 +59,9 @@ import com.viel.aplayer.ui.player.components.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
 import com.viel.aplayer.ui.player.layouts.PlayerPortrait
 import com.viel.aplayer.ui.player.layouts.PlayerTabletLandscape
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
 
@@ -80,8 +81,9 @@ fun PlayerScreen(
     // Glass effect mode (To customize overlay blur styles)
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // Fullpage backdrop sampling (To avoid sub-dialog leakage when rendering blurs)
-    fullPageBackdrop: LayerBackdrop? = null,
+    // Setup Haze State Parameter (Map fullPageBackdrop parameter to HazeState)
+    // Accept a nullable parent/global HazeState to support popup dialog/sheet blur.
+    hazeState: HazeState? = null,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
@@ -226,9 +228,9 @@ fun PlayerScreen(
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         
-        // Isolate backdrop sampling source (To avoid recursive drawing loops on specific vendor devices)
+        // Setup Haze State (Initialize local state for player backdrop blur)
         // Splits blurred cover backgrounds into a separate visual sibling layer.
-        val coverBackdrop = rememberLayerBackdrop()
+        val coverHazeState = remember { HazeState() }
 
         // Panel sheet back handler (To slide back to player main view using system back gesture)
         PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
@@ -304,8 +306,18 @@ fun PlayerScreen(
                     lastUpdated = metadata.coverLastUpdated,
                     backgroundColorArgb = metadata.backgroundColorArgb,
                     glassEffectMode = glassEffectMode,
-                    backdrop = coverBackdrop
+                    hazeState = coverHazeState
                 )
+
+                // Background Blur Layer (Render dynamic ultra-thin blur on top of clear cover background)
+                // Draw a full-screen box configured with hazeChild using ultra-thin style to blur the backdrop.
+                if (glassEffectMode == GlassEffectMode.Haze) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .hazeChild(state = coverHazeState, style = HazeMaterials.ultraThin())
+                    )
+                }
 
                 // 2. Forefront controls layer (Sibling forefront node)
                 Box(
@@ -353,7 +365,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetBackdrop = coverBackdrop
+                                                                 chapterSheetHazeState = coverHazeState
                             )
                         }
                         isLandscape -> {
@@ -395,7 +407,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetBackdrop = coverBackdrop
+                                                                 chapterSheetHazeState = coverHazeState
                             )
                         }
                         else -> {
@@ -437,7 +449,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetBackdrop = coverBackdrop,
+                                chapterSheetHazeState = coverHazeState,
                                 offsetY = offsetY,
                                 scope = scope,
                                 dismissThreshold = dismissThreshold,
@@ -466,7 +478,7 @@ fun PlayerScreen(
                 ) {
                     // Render blur snackbar (To support blur sampling overlays under miuix-blur styles)
                     BlurSnackbar(
-                        backdrop = coverBackdrop,
+                        hazeState = coverHazeState,
                         glassEffectMode = glassEffectMode,
                         action = {
                             TextButton(onClick = actions.playback.onUndoSeek) {
@@ -499,7 +511,7 @@ fun PlayerScreen(
             actions = actions,
             sheetState = sheetState,
             // Full-screen backdrop resolution (To apply full-screen backdrop sampling parameters)
-            backdrop = fullPageBackdrop ?: coverBackdrop,
+            hazeState = hazeState ?: coverHazeState,
             glassEffectMode = glassEffectMode
         )
 
@@ -561,7 +573,7 @@ fun PlayerScreenLandscapePreview() {
                     viewModel = PlayerViewModel(),
                     actions = PlayerActions(),
                     navigationActions = PlayerNavigationActions(),
-                    glassEffectMode = GlassEffectMode.MiuixBlur
+                    glassEffectMode = GlassEffectMode.Haze
                 )
             }
         }

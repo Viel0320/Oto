@@ -36,7 +36,7 @@ import com.viel.aplayer.ui.player.components.PlayerVerticalAppBar
 import com.viel.aplayer.ui.player.components.RelatedBooksView
 import com.viel.aplayer.ui.player.components.SubtitlesView
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import dev.chrisbanes.haze.HazeState
 
 /**
  * Portrait adaptive player layout (Component rendering main player details in vertical orientation)
@@ -86,7 +86,8 @@ fun PlayerPortrait(
     onModeChange: (PlayerScreenMode) -> Unit,
     animatedBgColor: androidx.compose.ui.graphics.Color,
     glassEffectMode: GlassEffectMode,
-    chapterSheetBackdrop: LayerBackdrop,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    chapterSheetHazeState: HazeState?,
     // Generic layout parameters (To specify Animatable type constraints to avoid runtime matching errors)
     offsetY: Animatable<Float, AnimationVector1D>,
     scope: kotlinx.coroutines.CoroutineScope,
@@ -109,7 +110,7 @@ fun PlayerPortrait(
             navigationActions = navigationActions,
             focusManager = focusManager,
             glassEffectMode = glassEffectMode,
-            backdrop = chapterSheetBackdrop,
+            hazeState = chapterSheetHazeState,
             offsetY = offsetY,
             scope = scope,
             dismissThreshold = dismissThreshold
@@ -250,7 +251,7 @@ fun PlayerPortrait(
                                 actions = actions,
                                 buttonColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                backdrop = chapterSheetBackdrop,
+                                hazeState = chapterSheetHazeState,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 24.dp)

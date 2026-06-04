@@ -1,55 +1,62 @@
 package com.viel.aplayer.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.ui.NavDisplay
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.player.PlayerViewModel
+import kotlinx.serialization.Serializable
+
+// Define Navigation Routes (Type-safe Navigation 3 Key)
+// Serializable key representing the home screen route in Navigation 3.
+@Serializable
+data object HomeRoute : NavKey
 
 /**
- * Navigation Host (Manage Core Screens)
+ * Navigation Host (Manage Core Screens under Navigation 3)
  *
- * System navigation management container, hosting core application pages.
- * Removed the independent compose route for settings, changing to launch the corresponding independent Activity.
- * To achieve a 100% perfect, leak-free frosted glass effect, the search page was refactored as the SearchOverlay floating layer inside the same Activity,
- * so we removed the searchLauncher field and introduced the non-independent searchViewModel.
+ * System navigation management container, hosting core application pages using NavDisplay.
  */
 @Composable
 fun APlayerNavHost(
     modifier: Modifier = Modifier,
-    navController: NavHostController,
+    navigationState: NavigationState,
+    navigator: Navigator,
     libraryViewModel: LibraryViewModel,
     playerViewModel: PlayerViewModel,
-    // Inject DetailViewModel (Select Audiobook in DetailViewModel)
-    // Receive the independent DetailViewModel, used for detail page book selection operation.
     detailViewModel: DetailViewModel,
     canStartNavigation: () -> Boolean,
     navigateBack: () -> Unit,
-    // Inject SearchViewModel (Seamless Search Overlay Launching)
-    // Introduce the non-independent SearchViewModel to seamlessly open the search overlay inside the same Activity when long-pressed or clicked without delay.
     searchViewModel: com.viel.aplayer.ui.search.SearchViewModel
 ) {
-    NavHost(
-        navController = navController,
-        startDestination = "home",
-        modifier = modifier
-    ) {
-        composable("home") {
-            // Inject Stateful HomeScreen (ViewModel Injection & Decoupling)
-            // Call the refactored Stateful HomeScreen, directly injecting the ViewModels held by the navigation host.
-            // Following single responsibility, NavHost no longer bears the responsibility of collecting UI State for HomeScreen and passing long parameters down.
-            HomeScreen(
-                libraryViewModel = libraryViewModel,
-                playerViewModel = playerViewModel,
-                detailViewModel = detailViewModel,
-                searchViewModel = searchViewModel,
-                canStartNavigation = canStartNavigation,
-                navigateBack = navigateBack
-            )
+    // Setup Entry Provider (Resolve NavKeys to Screen composables)
+    // Declares the mapping of serializable NavKey to their respective Compose screen contents.
+    // Explicit NavKey Provider (Fix Nav3 type parameter matching issue) Explicitly parameterize entryProvider with NavKey to bypass Kotlin contravariance compile errors.
+    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, searchViewModel, canStartNavigation, navigateBack) {
+        entryProvider<NavKey> {
+            entry<HomeRoute> {
+                HomeScreen(
+                    libraryViewModel = libraryViewModel,
+                    playerViewModel = playerViewModel,
+                    detailViewModel = detailViewModel,
+                    searchViewModel = searchViewModel,
+                    canStartNavigation = canStartNavigation,
+                    navigateBack = navigateBack
+                )
+            }
         }
     }
+
+    // Render Navigation Stack (Mount NavDisplay component)
+    // Renders the active back stack content and intercepts the physical back gestures.
+    NavDisplay(
+        modifier = modifier,
+        entries = navigationState.toEntries(provider),
+        onBack = { navigator.goBack() }
+    )
 }

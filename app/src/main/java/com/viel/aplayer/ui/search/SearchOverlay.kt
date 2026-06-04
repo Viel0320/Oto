@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import dev.chrisbanes.haze.HazeState
 
 /**
  * SearchOverlay Setup (In-Activity Stateless Search Overlay)
@@ -31,7 +31,8 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 @Composable
 fun SearchOverlay(
     searchViewModel: SearchViewModel,
-    backdrop: LayerBackdrop?,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
@@ -46,7 +47,8 @@ fun SearchOverlay(
     // When the global setting has enabled MiuixBlur mode, we limit the overlay's entrance/exit animations to pure fade-in/fade-out.
     // This effectively avoids edge clipping or rendering flicker of the Gaussian blur sampling layer during fast slide-in/slide-out transitions.
     // In regular non-miuix-blur mode, continue using original slide-in/slide-out animations.
-    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
+    // Determine Glass Blur Status (Enable blur only if in Haze mode and state is provided)
+    val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
     AnimatedVisibility(
         visible = isVisible,
         enter = if (isBlur) {
@@ -64,7 +66,7 @@ fun SearchOverlay(
         Surface(
             modifier = Modifier.fillMaxSize(),
             // If newly named MiuixBlur is enabled, set the outer Surface container background to transparent so rendering engine can reveal underlying content
-            color = if (glassEffectMode == GlassEffectMode.MiuixBlur) Color.Transparent else MaterialTheme.colorScheme.background
+            color = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) Color.Transparent else MaterialTheme.colorScheme.background
         ) {
             SearchScreen(
                 onBack = { searchViewModel.setVisible(false) },
@@ -72,7 +74,7 @@ fun SearchOverlay(
                 onLoadBook = onLoadBook,
                 onNavigateToPlayer = onNavigateToPlayer,
                 viewModel = searchViewModel,
-                backdrop = backdrop,
+                hazeState = hazeState,
                 glassEffectMode = glassEffectMode
             )
         }
@@ -94,7 +96,8 @@ fun SearchScreen(
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
     viewModel: SearchViewModel,
-    backdrop: LayerBackdrop?,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier
 ) {
@@ -125,7 +128,7 @@ fun SearchScreen(
         onLoadBook = onLoadBook,
         onNavigateToPlayer = onNavigateToPlayer,
         autoFocus = true,
-        backdrop = backdrop,
+        hazeState = hazeState,
         glassEffectMode = glassEffectMode,
         modifier = modifier
     )

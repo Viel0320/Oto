@@ -40,7 +40,7 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDialog
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import dev.chrisbanes.haze.HazeState
 
 /**
  * AudiobookActionDialogs Setup (Long-press Audiobook Action Dialogs)
@@ -56,7 +56,8 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 @Composable
 fun AudiobookActionDialogs(
     bookWithProgress: BookWithProgress?,
-    backdrop: LayerBackdrop,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState? = null,
     // Glass effect mode must be explicitly passed from the settings state by the host page, avoiding default values inside the dialog wrapper.
     glassEffectMode: GlassEffectMode,
     onDismissRequest: () -> Unit,
@@ -78,8 +79,8 @@ fun AudiobookActionDialogs(
     if (!showDeleteConfirm) {
         BlurDialog(
             onDismissRequest = onDismissRequest,
-            // Pass the shared backdrop of the home page to ensure the first-level operations panel can sample current bookshelf background.
-            backdrop = backdrop,
+            // Pass the shared HazeState of the home page to ensure the first-level operations panel can sample current bookshelf background.
+            hazeState = hazeState,
             // Pass user settings to BlurDialog; Material mode will skip internal miuix-blur related textureBlur modifiers.
             glassEffectMode = glassEffectMode,
             // Blur radius, background color, and tint are adaptively configured inside BlurDialog, no longer passed from the call point.
@@ -296,7 +297,7 @@ fun AudiobookActionDialogs(
         BlurDialog(
             onDismissRequest = { showDeleteConfirm = false },
             // Secondary confirmation panel reuses the home page shared backdrop, keeping background sampling source consistent with first-level panel.
-            backdrop = backdrop,
+            hazeState = hazeState,
             // Delete confirmation Dialog follows user-selected glass effect mode.
             glassEffectMode = glassEffectMode,
             // Delete confirmation Dialog config is also handled by BlurDialog, avoiding hard-coded secondary blur parameters.

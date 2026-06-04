@@ -43,7 +43,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -59,9 +58,9 @@ import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.blur
-import top.yukonga.miuix.kmp.blur.drawBackdrop
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * SearchContent Setup (Stateless Search Content UI)
@@ -87,7 +86,8 @@ fun SearchContent(
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
-    backdrop: LayerBackdrop?,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     autoFocus: Boolean = true,
@@ -120,7 +120,8 @@ fun SearchContent(
     }
 
     // Detect whether MiuixBlur frosted glass mode is enabled and sampling source is not null
-    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
+    // Determine Glass Blur Status (Enable blur only if in Haze mode and state is provided)
+    val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
     Scaffold(
         // Apply MiuixBlur Background (Frosted Glass Mask Setup)
@@ -130,15 +131,13 @@ fun SearchContent(
         modifier = modifier
             .fillMaxSize()
             .then(
-                if (isBlur) {
+                if (isBlur && hazeState != null) {
                     Modifier
-                        // Use drawBackdrop to render refraction blur effect, completing the required shape parameter
-                        .drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { RectangleShape },
-                            effects = {
-                                blur(20f)
-                            }
+                        // Setup SearchContent Haze (Apply hazeChild to Scaffold to blur underlying home screen contents)
+                        // Remove Search Haze Shape (Use default shape matching host) Haze 1.x hazeChild does not take shape parameter.
+                        .hazeChild(
+                            state = hazeState,
+                            style = HazeMaterials.regular()
                         )
                         // Chain background to append a translucent mask color (light/dark adaptive) to prevent search screen contents from blending with home page text
                         .background(
@@ -507,7 +506,7 @@ fun SearchScreenEmptyPreview() {
             onNavigateToDetail = {},
             onLoadBook = {},
             onNavigateToPlayer = {},
-            backdrop = null,
+            hazeState = null,
             glassEffectMode = GlassEffectMode.Material,
             autoFocus = false
         )
@@ -547,7 +546,7 @@ fun SearchScreenResultsPreview() {
             onNavigateToDetail = {},
             onLoadBook = {},
             onNavigateToPlayer = {},
-            backdrop = null,
+            hazeState = null,
             glassEffectMode = GlassEffectMode.Material,
             autoFocus = false
         )

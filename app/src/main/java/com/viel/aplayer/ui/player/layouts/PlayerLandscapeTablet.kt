@@ -47,7 +47,7 @@ import com.viel.aplayer.ui.player.components.PlayerLandscapeHeader
 import com.viel.aplayer.ui.player.components.RelatedBooksView
 import com.viel.aplayer.ui.player.components.SubtitlesView
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import dev.chrisbanes.haze.HazeState
 
 /**
  * Tablet landscape player layout (Component rendering double-column player panels in wide screens)
@@ -80,7 +80,8 @@ fun PlayerTabletLandscape(
     onModeChange: (PlayerScreenMode) -> Unit,
     animatedBgColor: Color,
     glassEffectMode: GlassEffectMode,
-    chapterSheetBackdrop: LayerBackdrop,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    chapterSheetHazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
     // Resolve window dimensions (To query device width coordinates without reading LocalConfiguration parameters directly)
@@ -305,7 +306,7 @@ fun PlayerTabletLandscape(
                     settings = settings,
                     actions = actions,
                     glassEffectMode = glassEffectMode,
-                    backdrop = chapterSheetBackdrop
+                    hazeState = chapterSheetHazeState
                 )
 
                 // Push control panel down (To align controls at bottom boundaries)
@@ -325,7 +326,7 @@ fun PlayerTabletLandscape(
                     actions = actions,
                     buttonColor = animatedBgColor,
                     glassEffectMode = glassEffectMode,
-                    backdrop = chapterSheetBackdrop,
+                    hazeState = chapterSheetHazeState,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

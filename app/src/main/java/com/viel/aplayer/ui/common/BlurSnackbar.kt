@@ -1,8 +1,7 @@
 package com.viel.aplayer.ui.common
 
-// Completely replace legacy blur library dependencies with miuix-blur's Backdrop API to achieve high-fidelity textureBlur noisy frosted glass colored high-density blur.
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+// Setup Haze Snackbar Integration (Replace miuix-blur with dev.chrisbanes.haze) Replaced miuix backdrop APIs with HazeState, hazeChild, and HazeMaterials.
+// Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,33 +18,28 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurBlendMode
-import top.yukonga.miuix.kmp.blur.BlurColors
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * BlurSnackbar — A generic Snackbar wrapper supporting real-time dual-state switching between Material 3 native styling and miuix-blur frosted glass.
+ * BlurSnackbar — A generic Snackbar wrapper supporting real-time dual-state switching between Material 3 native styling and Haze frosted glass.
  *
  * Core Principles:
- * 1. Explicit Rounded Corner Clipping (Modifier.clip):
- *    In miuix-blur mode, we place the clip modifier before `textureBlur` to achieve perfect rounded-edge sample clipping.
- * 2. Completely Cut Off Shadow Leakage (Custom Shadowless Surface):
- *    In miuix-blur mode, we adopt a custom shadowless Surface (shadowElevation = 0.dp, tonalElevation = 0.dp)
- *    and use defaultMinSize(minHeight) to precisely simulate the minimum height of the official Snackbar, completely eliminating shadow line leaks.
- * 3. Color Adaptation and Blur:
- *    - miuix-blur mode: Sets the Surface container color to fully transparent, relying on textureBlur to render the blurred background and chain-overlaying a semi-transparent mask base color (adaptive to light/dark).
+ * 1. Color Adaptation and Blur:
+ *    - Haze mode: Sets the Surface container color to fully transparent, relying on hazeChild to render the blurred background.
  *    - Material mode: Uses standard native colors and container corner radiuses to guarantee the peak performance and pure experience of native styling.
  */
 @Composable
 fun BlurSnackbar(
-    backdrop: LayerBackdrop,
+    // Support Nullable HazeState (Provide fallback when hazeState is not ready)
+    // Make hazeState optional and default to null so the snackbar can degrade gracefully in previews or when parent has no blur context.
+    hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     action: @Composable (() -> Unit)? = null,
@@ -63,64 +57,24 @@ fun BlurSnackbar(
     // Constrain the maximum width to 480.dp to provide better visual layout and readability on large-screen/landscape devices.
     val constrainedModifier = modifier.widthIn(max = 480.dp)
 
-    // Align with the newly renamed MiuixBlur, using textureBlur on the fly to render the frosted glass effect.
-    if (glassEffectMode == GlassEffectMode.MiuixBlur) {
+    // Align with the Haze mode, using hazeChild on the fly to render the frosted glass effect when hazeState is available.
+    if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         // Obtain the current dark mode status of the system for dual-state frosted glass color adaptation.
         val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-        // Use textureBlur instead of the original drawBackdrop physical sampling to support a colored thick frosted pill glass texture.
-        val glassModifier = Modifier.textureBlur(
-            backdrop = backdrop,
-            shape = shape,
-            blurRadius = 60f, // thick -> thick blur, providing excellent immersion
-            noiseCoefficient = 0.05f, // texture -> strong frosted noise texture
-            colors = BlurColors(
-                blendColors = listOf(
-                    BlendColorEntry(
-                        color = if (isDark) Color(0xFF2C2C2C).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.82f), // colored -> adaptive color blending
-                        mode = BlurBlendMode.SrcOver
-                    )
-                )
+        // Setup Glass Modifier (Apply Haze frosted glass effect) Use hazeChild instead of miuix textureBlur.
+        val glassModifier = Modifier
+            // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
+            // Clip snackbar shape before applying hazeChild
+            .clip(shape)
+            .hazeChild(
+                state = hazeState,
+                style = HazeMaterials.regular()
             )
-        )
-        // 3. Chain-overlay a specular glare layer (diagonal white physical sweep) to give the pill-shaped bar a micro-droplet 3D stereoscopic feel.
-        .background(
-            brush = Brush.linearGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = 0.12f),
-                    Color.White.copy(alpha = 0.03f),
-                    Color.Transparent,
-                    Color.White.copy(alpha = 0.06f)
-                )
-            ),
-            shape = shape
-        )
-        // 4. Chain-add a 1.dp extremely fine refracting gradient border (Refraction Edge) to prevent edge sticking on large variegated backgrounds.
-        .border(
-            width = 1.dp,
-            brush = Brush.linearGradient(
-                colors = if (isDark) {
-                    listOf(
-                        Color.White.copy(alpha = 0.18f),
-                        Color.White.copy(alpha = 0.02f),
-                        Color.Transparent,
-                        Color.White.copy(alpha = 0.08f)
-                    )
-                } else {
-                    listOf(
-                        Color.White.copy(alpha = 0.45f),
-                        Color.White.copy(alpha = 0.10f),
-                        Color.Transparent,
-                        Color.White.copy(alpha = 0.25f)
-                    )
-                }
-            ),
-            shape = shape
-        )
 
         // Custom shadowless Surface.
         //
         // Force shadow and tonal elevation to 0.dp to eliminate black edge projection artifacts.
-        // It draws the blurred background and adaptive light/dark semi-transparent base color by mounting miuix-blur, achieving a gorgeous, clear, and high-end frosted glass effect.
+        // It draws the blurred background and adaptive light/dark semi-transparent base color by mounting Haze, achieving a gorgeous, clear, and high-end frosted glass effect.
         Surface(
             modifier = constrainedModifier
                 .then(glassModifier),

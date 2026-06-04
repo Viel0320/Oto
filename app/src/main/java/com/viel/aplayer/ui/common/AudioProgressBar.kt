@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.common
 
+// Import Resolution (Brings Modifier.semantics extension into scope to build accessibility semantics tree)
+// Added semantics import to fix unresolved reference semantics error.
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -23,10 +25,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
-import androidx.compose.ui.semantics.setProgress
-// Import Resolution (Brings Modifier.semantics extension into scope to build accessibility semantics tree)
-// Added semantics import to fix unresolved reference semantics error.
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -54,7 +54,8 @@ fun AudioProgressBar(
     val markerRadiusPx = remember(density) { with(density) { 2.dp.toPx() } }
     val knobRadiusPx = remember(density) { with(density) { 8.dp.toPx() } }
     val isDark = isSystemInDarkTheme()
-    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
+    // Glass Effect Resolution (Resolve glass effect modes) Map MiuixBlur check to the Haze glass effect mode enum.
+    val isBlur = glassEffectMode == GlassEffectMode.Haze
     // Extract secondary and tertiary colors within the Composable context, caching them as local non-Composable variables.
     // This perfectly resolves compilation errors caused by calling @Composable properties directly inside DrawScope.
     val secondaryColor = MaterialTheme.colorScheme.secondary

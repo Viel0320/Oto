@@ -5,10 +5,10 @@ package com.viel.aplayer.data.store
  * Application Global Settings (Persistent configuration model DTO)
  */
 // Glass Effect Visual Mode (UI decoration options)
-// Material represents standard native containers, while MiuixBlur enables miuix-blur hardware frosted glass visuals.
+// Material represents standard native containers, while Haze enables haze-based Compose native frosted glass visuals.
 enum class GlassEffectMode {
     Material,
-    MiuixBlur
+    Haze
 }
 
 // Sleep Inactivity Modes (Timer termination policies)

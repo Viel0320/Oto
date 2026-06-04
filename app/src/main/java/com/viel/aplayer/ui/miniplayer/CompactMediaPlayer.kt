@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.miniplayer
 
+// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and modifiers.
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -34,7 +35,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -42,18 +42,12 @@ import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
-import com.viel.aplayer.ui.common.theme.APlayerTheme
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurBlendMode
-import top.yukonga.miuix.kmp.blur.BlurColors
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-// Setup CompactMediaPlayer Options (Glass Effect Parameter Binding)
-// Color tint coloring has been removed. Progress bar uses system Material 3 primary theme color.
-// Added backdrop and glassEffectMode parameters to refract the background NavHost viewport when glass effect is enabled, matching search/detail design.
 fun CompactMediaPlayer(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
@@ -61,55 +55,36 @@ fun CompactMediaPlayer(
     author: String = "Unknown",
     narrator: String = "",
     coverPath: String? = null,
-    // New cover image last updated/reconstructed timestamp to break Coil cache records
     coverLastUpdated: Long = 0L,
     progress: () -> Float = { 0f },
     showProgressBar: Boolean = true,
     isMediaAvailable: Boolean = true,
     actions: MiniPlayerActions = MiniPlayerActions(),
-    // Change the shared blur state to miuix-blur's LayerBackdrop sampling source parameter
-    backdrop: LayerBackdrop? = null,
-    // New onClick parameter to take over mini-player full-screen expanding clicks, handled at the outermost Surface to get M3 ripples
+    // Setup HazeState Parameter (Map backdrop parameter to HazeState) Changed LayerBackdrop to HazeState.
+    hazeState: HazeState? = null,
     onClick: () -> Unit = {},
-    // New glassEffectMode parameter to distinguish between frosted glass Gaussian blur and standard Material solid background
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     LaunchedEffect(isMediaAvailable) {
         if (!isMediaAvailable) {
-            // Compact player owns reload-time availability handling and exits when the restored file is gone.
             actions.onUnavailable()
         }
     }
 
-    // Align to newly renamed MiuixBlur, checking if frosted glass rendering is enabled based on LayerBackdrop and the new enum
-    val isBlurMode = glassEffectMode == GlassEffectMode.MiuixBlur && backdrop != null
-
-    // Get light/dark theme status of current system to achieve frosted glass adaptation
+    // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
+    val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
     val isDark = isSystemInDarkTheme()
 
-    // Surface Click Handler (Unified Ripple Wave Ripple)
-    // Modify Surface to support onClick, and bind the incoming onClick action directly.
-    // This makes the compact player card fully clickable with consistent Material 3 ripple animations.
     Surface(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .let {
-                if (isBlurMode) {
-                    // Use let chain dynamic binding exactly consistent with Pill player for high-fidelity textureBlur rendering
-                    it.textureBlur(
-                        backdrop = backdrop,
-                        shape = RoundedCornerShape(0.dp),
-                        blurRadius = 60f,
-                        noiseCoefficient = 0.05f,
-                        colors = BlurColors(
-                            blendColors = listOf(
-                                BlendColorEntry(
-                                    color = if (isDark) Color.Black.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.76f),
-                                    mode = BlurBlendMode.SrcOver
-                                )
-                            )
-                        )
+                if (isBlurMode && hazeState != null) {
+                    // Setup CompactPlayer Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to Surface container.
+                    it.hazeChild(
+                        state = hazeState,
+                        style = HazeMaterials.regular()
                     )
                 } else {
                     it
@@ -120,7 +95,6 @@ fun CompactMediaPlayer(
     ) {
         Column(modifier = Modifier.navigationBarsPadding()) {
             if (showProgressBar) {
-                // Discarded cover color mapping of progress bar; no color attribute passed, making progress bar return to Material 3 primary color
                 AudioProgressBar(
                     progress = progress,
                     onProgressChange = {},
@@ -148,8 +122,6 @@ fun CompactMediaPlayer(
                 ) {
                     if (coverPath != null) {
                         val context = LocalContext.current
-                        // Thumbnail Small Caching (Reuse Small List Image Cache)
-                        // Mini player uses ThumbnailSmall specification for small persistent cover; skips sync File.exists() to prevent disk I/O on recomposition.
                         val request = remember(coverPath, coverLastUpdated) {
                             CoverImageRequestFactory.build(
                                 context = context,
@@ -214,73 +186,5 @@ fun CompactMediaPlayer(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true, apiLevel = 36)
-@Composable
-fun CompactMediaPlayerPreview() {
-    APlayerTheme {
-        CompactMediaPlayer(
-            title = "In the Megachurch",
-            author = "Ryo Asai",
-            narrator = "Narrator A",
-            isPlaying = false,
-            progress = { 0.23f }
-        )
-    }
-}
-
-@Preview(showBackground = true, apiLevel = 36)
-@Composable
-fun CompactMediaPlayerPlayingPreview() {
-    APlayerTheme {
-        CompactMediaPlayer(
-            title = "In the Megachurch",
-            author = "Ryo Asai",
-            isPlaying = true,
-            progress = { 0.65f }
-        )
-    }
-}
-
-@Preview(showBackground = true, apiLevel = 36)
-@Composable
-fun CompactMediaPlayerNoProgressBarPreview() {
-    APlayerTheme {
-        CompactMediaPlayer(
-            title = "In the Megachurch",
-            author = "Ryo Asai",
-            isPlaying = false,
-            showProgressBar = false
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Long Title & Narrator", apiLevel = 36)
-@Composable
-fun CompactMediaPlayerLongTitlePreview() {
-    APlayerTheme {
-        CompactMediaPlayer(
-            title = "A Very Long Audiobook Title That Should Marquee Inside The Mini Player",
-            author = "Long Author Name",
-            narrator = "Narrator One, Narrator Two, Narrator Three",
-            isPlaying = true,
-            progress = { 0.45f }
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Author Only", apiLevel = 36)
-@Composable
-fun CompactMediaPlayerAuthorOnlyPreview() {
-    APlayerTheme {
-        CompactMediaPlayer(
-            title = "Dawn Star",
-            author = "Kanae Minato",
-            narrator = "",
-            isPlaying = false,
-            progress = { 0.12f }
-        )
     }
 }

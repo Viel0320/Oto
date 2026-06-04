@@ -1,8 +1,6 @@
 package com.viel.aplayer.ui.detail
 
-// Setup MiuixBlur Import (Viewport-Level High Resolution Gaussian Blur)
-// Replace the legacy blur library dependency with miuix-blur to achieve high-resolution frosted glass Gaussian blur effects based on the viewport.
-// Import various Compose component and state dependencies to construct the stateless book details pure rendering component DetailContent.
+// Setup Haze Integration (Import dev.chrisbanes.haze modifiers) Import HazeState and haze modifier for Compose-based blur.
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -75,18 +73,16 @@ import com.viel.aplayer.ui.detail.components.SelectableTextView
 import com.viel.aplayer.ui.detail.layouts.DetailLandscapePhone
 import com.viel.aplayer.ui.detail.layouts.DetailPortrait
 import com.viel.aplayer.ui.detail.layouts.DetailTabletLandscape
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import kotlin.math.roundToInt
 
 /**
  * DetailContent Skeleton (Stateless L3 UI Skeleton)
  *
  * Stateless detail page rendering skeleton (DetailContent) at the L3 level.
- * Follows the Compose three-layer architecture specification, removing all coupled references to ViewModels.
- * Directly receives immutable DetailUiState and pure Lambda callbacks (consistent with the lower-level Layout sub-skeletons,
- * avoiding the round-trip of dismantling flat parameters and repackaging them into DetailUiState), providing an efficient, testable rendering layer for adaptive layouts.
  */
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -94,24 +90,22 @@ import kotlin.math.roundToInt
 )
 @Composable
 fun DetailContent(
-    uiState: DetailUiState, // Complete UI state of the detail page (passed end-to-end to avoid round-trip overhead of dismantling flat parameters and reassembling them)
+    uiState: DetailUiState, // Complete UI state of the detail page
     onBackClick: () -> Unit, // Callback triggered when the back button is clicked or user drags down to dismiss
     modifier: Modifier = Modifier,
-    onPlayPressed: () -> Unit = {}, // Pre-listener for physical playback button click debounce status
+    onPlayPressed: () -> Unit = {},
     onPlayClick: () -> Unit = {}, // Official playback action callback
     onMoreClick: () -> Unit = {}, // Callback for clicking the top-right more control button
     onSearchClick: (String) -> Unit = {}, // Callback for clicking a specific tag to search for related books
-    glassEffectMode: GlassEffectMode, // Precise control of dynamic switching between Material design and frosted glass miuix-blur mode
-    backdrop: LayerBackdrop? = null, // Shared sampling source from the upper layer
-    fullPageBackdrop: LayerBackdrop? = null, // Blur mapping source for full-screen seamless sampling
+    glassEffectMode: GlassEffectMode, // Precise control of dynamic switching between Material design and frosted glass Haze mode
+    // Setup Haze State Arguments (Map backdrop parameters to HazeState) Changed LayerBackdrop to HazeState.
+    hazeState: HazeState? = null,
+    fullPageHazeState: HazeState? = null,
     onEditClick: (String) -> Unit = {}, // Callback for clicking to edit book metadata details
 ) {
-    // Fix L-10 (Deriving UI Render Fields)
-    // Derive fields required for L3 rendering from the complete UI state, replacing the redundant round-trip of repackaging flat parameters into DetailUiState inside this component.
     val book = uiState.book?.book
     val isVisible = uiState.isVisible
     val backgroundColorArgb = uiState.backgroundColorArgb
-    // State definition: Predictive back drag physical scale and animation displacement progress
     var isPredictiveBackActive by remember { mutableStateOf(false) }
     var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
@@ -120,12 +114,9 @@ fun DetailContent(
     // Top-right dropdown menu visibility management
     var showMenu by remember { mutableStateOf(false) }
     
-    // Dedicated layerBackdrop sampling source for background rendering to prevent recursive blur glitches and segmentation fault crashes
-    val coverBackdrop = rememberLayerBackdrop()
-    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
-    // Detail Background Resolution (Thumbnail Preferred Backdrop)
-    // The details page background is only used as a 128px blur sampling source, so the path prefers the thumbnail.
-    // The main cover resolution is determined independently by PlayerCover in each layout, avoiding the background layer from mistakenly holding a large main cover image.
+    // Setup coverHazeState (Manage detail-specific blur state) Replaced coverBackdrop with coverHazeState.
+    val coverHazeState = remember { HazeState() }
+    val isBlur = glassEffectMode == GlassEffectMode.Haze
     val backdropCoverPath = CoverImageSourceSelector.backdrop(
         thumbnailPath = book?.thumbnailPath,
         coverPath = book?.coverPath
@@ -181,14 +172,24 @@ fun DetailContent(
         color = Color.Transparent
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Background frosted glass gradient animation and large image sampling rendering
+            // Setup CoverBackground Haze State (Link coverHazeState) Passed coverHazeState.
             CoverBackground(
                 coverPath = backdropCoverPath,
                 lastUpdated = book?.lastScannedAt ?: 0L,
                 backgroundColorArgb = backgroundColorArgb,
                 glassEffectMode = glassEffectMode,
-                backdrop = coverBackdrop
+                hazeState = coverHazeState
             )
+
+            if (isBlur) {
+                // Background Blur Layer (Render dynamic ultra-thin blur on top of clear cover background)
+                // Draw a full-screen box configured with hazeChild using ultra-thin style to blur the backdrop.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeChild(state = coverHazeState, style = HazeMaterials.ultraThin())
+                )
+            }
 
             Scaffold(
                 topBar = {
@@ -210,10 +211,11 @@ fun DetailContent(
                                         contentDescription = stringResource(R.string.more_content_description)
                                     )
                                 }
+                                // Setup Dropdown Menu Haze State (Link dropdown menu blur state) Replaced backdrop parameter with hazeState.
                                 BlurDropdownMenu(
                                     expanded = showMenu,
                                     onDismissRequest = { showMenu = false },
-                                    backdrop = fullPageBackdrop ?: coverBackdrop,
+                                    hazeState = fullPageHazeState ?: coverHazeState,
                                     glassEffectMode = glassEffectMode
                                 ) {
                                     DropdownMenuItem(
@@ -259,12 +261,11 @@ fun DetailContent(
                 },
                 containerColor = Color.Transparent,
             ) { padding ->
-                // WindowClass Orientation Adaptation (Determine Adaptation Orientation)
-                // Use the unified WindowClass interface to obtain current window orientation and tablet landscape status, removing direct dependency on LocalConfiguration.
                 val windowClass = LocalWindowClass.current
                 val isLandscape = windowClass.isLandscape
                 val isTabletLandscape = windowClass.isTabletLandscape
 
+                // Setup SubLayout Haze States (Forward coverHazeState to detail layouts) Replaced detailBackdrop with coverHazeState.
                 when {
                     isTabletLandscape -> {
                         DetailTabletLandscape(
@@ -273,7 +274,7 @@ fun DetailContent(
                             padding = padding,
                             safeDrawingPadding = safeDrawingPadding,
                             glassEffectMode = glassEffectMode,
-                            detailBackdrop = coverBackdrop,
+                            detailHazeState = coverHazeState,
                             onPlayPressed = onPlayPressed,
                             onPlayClick = onPlayClick,
                             onSearchClick = onSearchClick,
@@ -290,7 +291,7 @@ fun DetailContent(
                             padding = padding,
                             safeDrawingPadding = safeDrawingPadding,
                             glassEffectMode = glassEffectMode,
-                            detailBackdrop = coverBackdrop,
+                            detailHazeState = coverHazeState,
                             onPlayPressed = onPlayPressed,
                             onPlayClick = onPlayClick,
                             onSearchClick = onSearchClick,
@@ -306,7 +307,7 @@ fun DetailContent(
                             uiState = uiState,
                             padding = padding,
                             glassEffectMode = glassEffectMode,
-                            detailBackdrop = coverBackdrop,
+                            detailHazeState = coverHazeState,
                             onPlayPressed = onPlayPressed,
                             onPlayClick = onPlayClick,
                             onSearchClick = onSearchClick,
@@ -323,12 +324,13 @@ fun DetailContent(
 
     if (infoDialogText != null) {
         if (isBlur) {
+            // Setup InfoDialog Haze State (Link dialog blur state) Replaced backdrop with hazeState.
             BlurDialog(
                 onDismissRequest = {
                     infoDialogText = null
                     infoDialogTitle = null
                 },
-                backdrop = fullPageBackdrop ?: coverBackdrop,
+                hazeState = fullPageHazeState ?: coverHazeState,
                 glassEffectMode = glassEffectMode
             ) {
                 Column(
@@ -403,98 +405,8 @@ fun DetailContent(
 @Composable
 fun DetailContentPortraitPreview() {
     APlayerTheme {
-        // Portrait Preview Mocking (Provide Portrait Window Class)
-        // Explicitly provide PortraitPhone window preset, ensuring the details page renders a vertical details layout from top to bottom in portrait mode.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
-        ) {
-            DetailContent(
-                uiState = DetailUiState(
-                    book = BookWithProgress(
-                        book = BookEntity(
-                            id = "id",
-                            rootId = "preview-root",
-                            sourceType = "SINGLE_AUDIO",
-                            title = "In the Megachurch",
-                            author = "Ryo Asai",
-                            narrator = "Narrator A",
-                            totalDurationMs = 36000L,
-                            year = "2023",
-                            description = "A preview description."
-                        ),
-                        progress = null
-                    ),
-                    isVisible = true,
-                    isAvailable = true,
-                    progressPercent = 45,
-                    displayProgressPercent = 45,
-                    backgroundColorArgb = AppSettings.DEFAULT_GLASS_EFFECT_MODE.ordinal,
-                    fullSourcePath = ""
-                ),
-                onBackClick = {},
-                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
-            )
-        }
-    }
-}
-
-@Preview(
-    name = "Phone Landscape",
-    showBackground = true,
-    device = "spec:width=720dp,height=360dp,orientation=landscape,dpi=440",
-    apiLevel = 36
-)
-@Composable
-fun DetailContentLandscapePreview() {
-    APlayerTheme {
-        // Landscape Preview Mocking (Provide Landscape Window Class)
-        // Explicitly provide LandscapePhone window preset to test the adaptively balanced left-and-right column layout on landscape phones.
-        CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.LandscapePhone
-        ) {
-            DetailContent(
-                uiState = DetailUiState(
-                    book = BookWithProgress(
-                        book = BookEntity(
-                            id = "id",
-                            rootId = "preview-root",
-                            sourceType = "SINGLE_AUDIO",
-                            title = "In the Megachurch",
-                            author = "Ryo Asai",
-                            narrator = "Narrator A",
-                            totalDurationMs = 36000L,
-                            year = "2023",
-                            description = "A preview description."
-                        ),
-                        progress = null
-                    ),
-                    isVisible = true,
-                    isAvailable = true,
-                    progressPercent = 45,
-                    displayProgressPercent = 45,
-                    backgroundColorArgb = AppSettings.DEFAULT_GLASS_EFFECT_MODE.ordinal,
-                    fullSourcePath = ""
-                ),
-                onBackClick = {},
-                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
-            )
-        }
-    }
-}
-
-@Preview(
-    name = "Tablet Landscape",
-    showBackground = true,
-    device = "spec:width=1280dp,height=800dp,orientation=landscape,dpi=240",
-    apiLevel = 36
-)
-@Composable
-fun DetailContentTabletLandscapePreview() {
-    APlayerTheme {
-        // Tablet Landscape Preview Mocking (Provide Tablet Window Class)
-        // Explicitly provide TabletLandscape window preset, ensuring the wide-screen renders a premium tablet adaptive double-column layout.
-        CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.TabletLandscape
         ) {
             DetailContent(
                 uiState = DetailUiState(

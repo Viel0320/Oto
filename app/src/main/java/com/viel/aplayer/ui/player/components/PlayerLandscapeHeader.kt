@@ -31,8 +31,7 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.settings.PlayerSettingsState
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import dev.chrisbanes.haze.HazeState
 
 // Landscape player header component.
 //
@@ -44,7 +43,8 @@ fun PlayerLandscapeHeader(
     settings: PlayerSettingsState,
     actions: PlayerActions,
     glassEffectMode: GlassEffectMode,
-    backdrop: LayerBackdrop,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -82,7 +82,7 @@ fun PlayerLandscapeHeader(
             BlurDropdownMenu(
                 expanded = showLandscapeMenu,
                 onDismissRequest = { showLandscapeMenu = false },
-                backdrop = backdrop,
+                hazeState = hazeState,
                 glassEffectMode = glassEffectMode
             ) {
                 DropdownMenuItem(
@@ -118,7 +118,7 @@ fun PlayerLandscapeHeaderPreview() {
                 settings = PlayerSettingsState(),
                 actions = PlayerActions(),
                 glassEffectMode = GlassEffectMode.Material,
-                backdrop = rememberLayerBackdrop(),
+                hazeState = null,
                 modifier = Modifier.padding(16.dp)
             )
         }

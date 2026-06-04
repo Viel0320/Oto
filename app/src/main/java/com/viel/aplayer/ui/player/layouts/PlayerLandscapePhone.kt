@@ -47,7 +47,7 @@ import com.viel.aplayer.ui.player.components.PlayerLandscapeHeader
 import com.viel.aplayer.ui.player.components.RelatedBooksView
 import com.viel.aplayer.ui.player.components.SubtitlesView
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import dev.chrisbanes.haze.HazeState
 
 /**
  * Landscape phone player layout (Component rendering dual-column layouts for horizontal phone screens)
@@ -80,7 +80,8 @@ fun PlayerLandscapePhone(
     onModeChange: (PlayerScreenMode) -> Unit,
     animatedBgColor: Color,
     glassEffectMode: GlassEffectMode,
-    chapterSheetBackdrop: LayerBackdrop,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    chapterSheetHazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
     // Resolve window dimensions (To query screen width and height coordinates without reading LocalConfiguration directly)
@@ -307,7 +308,7 @@ fun PlayerLandscapePhone(
                     settings = settings,
                     actions = actions,
                     glassEffectMode = glassEffectMode,
-                    backdrop = chapterSheetBackdrop
+                    hazeState = chapterSheetHazeState
                 )
 
                 // Push control panel down (To align controls at bottom boundaries)
@@ -327,7 +328,7 @@ fun PlayerLandscapePhone(
                     actions = actions,
                     buttonColor = animatedBgColor,
                     glassEffectMode = glassEffectMode,
-                    backdrop = chapterSheetBackdrop,
+                    hazeState = chapterSheetHazeState,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

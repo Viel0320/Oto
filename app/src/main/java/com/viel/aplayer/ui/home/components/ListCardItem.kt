@@ -47,10 +47,10 @@ import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import top.yukonga.miuix.kmp.blur.blur
-import top.yukonga.miuix.kmp.blur.drawBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -70,9 +70,10 @@ fun RecentlyItem(
     // New coverColorArgb optional parameter to pass the current book cover ARGB color extraction, used to blend text color with cover color
     coverColorArgb: Int? = null
 ) {
-    // Determine if miuix-blur visual effect is currently enabled, matching the newly named MiuixBlur enum type
-    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
-    val localBackdrop = rememberLayerBackdrop()
+    // Glass Effect Setup (Determine if Haze blur effect is enabled) Check if glassEffectMode is set to Haze.
+    val isBlur = glassEffectMode == GlassEffectMode.Haze
+    // Haze State Initialization (Haze State Allocation) Declare a local HazeState to coordinate background and badge blur.
+    val itemHazeState = remember { HazeState() }
 
     Column(
         modifier = modifier
@@ -92,17 +93,15 @@ fun RecentlyItem(
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            // Background Cover (Sampling Source Isolation)
-            // Wrap the cover image or placeholder in an independent background Box, and only register that background Box as the layerBackdrop sampling source.
-            // This makes the progress Badge (Surface) a sibling component of the background rather than a child component,
-            // completely preventing the Badge from being drawn into the blur source, achieving pure and physically correct frosted rendering.
+            // Restore Haze to Cover (Restore haze source modifier to background cover)
+            // Mount haze modifier directly on the inner cover box instead of the outer parent box.
+            // This matches Chris Banes' Haze layout requirement: haze source must be sibling to hazeChild to capture pixel frames properly.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
                         if (isBlur) {
-                            // Mount layerBackdrop so localBackdrop can capture background rendering pixels correctly
-                            Modifier.layerBackdrop(localBackdrop)
+                            Modifier.haze(itemHazeState)
                         } else {
                             Modifier
                         }
@@ -200,29 +199,19 @@ fun RecentlyItem(
                             Modifier
                                 // Clip corner radius at the very front of Modifier chain to prevent frosted glass overflow glitches
                                 .clip(RoundedCornerShape(12.dp))
-                                // Use drawBackdrop to render high-level frosted glass blur background
-                                .drawBackdrop(
-                                    backdrop = localBackdrop,
-                                    shape = { RoundedCornerShape(12.dp) },
-                                    effects = {
-                                        blur(20f)
-                                    }
+                                // Badge Glassmorphism (Apply Haze Child Blur) Replace miuix-blur with hazeChild regular style.
+                                .hazeChild(
+                                    state = itemHazeState,
+                                    style = HazeMaterials.ultraThin()
                                 )
-                                // Use background mask to blend base colors: translucent white in light mode, translucent black in dark mode, ensuring optimal contrast
-                                .background(
-                                    if (isDark) {
-                                        Color.Black.copy(alpha = 0.4f)
-                                    } else {
-                                        Color.White.copy(alpha = 0.8f)
-                                    }
-                                )
+
                         } else {
                             Modifier
                         }
                     ),
                 color = if (isBlur) {
                     // Opacity Setup (Prevent Double Alpha Stacking)
-                    // Under blur mode, since drawBackdrop has blended translucent background masks,
+                    // Under blur mode, since hazeChild has blended translucent background masks,
                     // Surface background should be completely transparent to avoid opacity stacking.
                     Color.Transparent
                 } else {
@@ -309,8 +298,8 @@ fun RecentlyItemProgressPreview() {
                 narrator = "Unknown",
                 progressText = "45%",
                 onClick = {},
-                // Explicitly enable frosted glass in preview, matching the renamed MiuixBlur enum
-                glassEffectMode = GlassEffectMode.MiuixBlur
+                // Preview Glass Mode Config (Configure Preview Glass Effect) Explicitly enable Haze frosted glass in preview.
+                glassEffectMode = GlassEffectMode.Haze
             )
         }
     }

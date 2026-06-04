@@ -21,10 +21,9 @@ import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
 import com.viel.aplayer.ui.settings.PlayerSettingsState
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 // Portrait top app bar component (To render the top app bar for portrait player screens)
 // Integrates the vertical drag gesture detection logic for pull-down minimization.
@@ -37,7 +36,8 @@ fun PlayerVerticalAppBar(
     navigationActions: PlayerNavigationActions,
     focusManager: FocusManager,
     glassEffectMode: GlassEffectMode,
-    backdrop: LayerBackdrop,
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState? = null,
     offsetY: Animatable<Float, AnimationVector1D>,
     scope: CoroutineScope,
     dismissThreshold: Float,
@@ -56,7 +56,7 @@ fun PlayerVerticalAppBar(
         onDeleteBook = actions.content.onDeleteBook,
         isChapterProgressMode = settings.isChapterProgressMode,
         glassEffectMode = glassEffectMode,
-        backdrop = backdrop,
+        hazeState = hazeState,
         modifier = modifier.pointerInput(Unit) {
             detectVerticalDragGestures(
                 onVerticalDrag = { change, dragAmount ->
@@ -96,7 +96,7 @@ fun PlayerVerticalAppBarPreview() {
                 navigationActions = PlayerNavigationActions(),
                 focusManager = LocalFocusManager.current,
                 glassEffectMode = GlassEffectMode.Material,
-                backdrop = rememberLayerBackdrop(),
+                hazeState = null,
                 offsetY = remember { Animatable(0f) },
                 scope = rememberCoroutineScope(),
                 dismissThreshold = 100f

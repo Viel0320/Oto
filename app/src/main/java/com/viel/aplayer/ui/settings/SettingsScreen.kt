@@ -705,7 +705,8 @@ private fun SettingsSegmentedItem(
     glassEffectMode: GlassEffectMode,
     onGlassEffectModeChange: (GlassEffectMode) -> Unit
 ) {
-    val modes = listOf(GlassEffectMode.Material, GlassEffectMode.MiuixBlur)
+    // Define Glass Effect Options (Configure Haze and Material modes) Declare modes list using renamed Haze option.
+    val modes = listOf(GlassEffectMode.Material, GlassEffectMode.Haze)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -734,7 +735,8 @@ private fun SettingsSegmentedItem(
                         onClick = { onGlassEffectModeChange(mode) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
                     ) {
-                        Text(text = if (mode == GlassEffectMode.Material) "Material" else "MiuixBlur")
+                        // Render Segment Option (Display descriptive label for selected mode) Display Haze instead of old MiuixBlur text.
+                        Text(text = if (mode == GlassEffectMode.Material) "Material" else "Haze")
                     }
                 }
             }

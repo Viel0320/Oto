@@ -3,7 +3,6 @@ package com.viel.aplayer.ui.player.components
 // Import fundamental background modifiers to resolve unresolved reference compilation errors on miuix-blur frosted glass big button background modifiers.
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +34,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -47,12 +45,10 @@ import androidx.compose.ui.unit.sp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.PlaybackControlActions
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurBlendMode
-import top.yukonga.miuix.kmp.blur.BlurColors
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -65,7 +61,8 @@ fun PlaybackControls(
     modifier: Modifier = Modifier,
     buttonColor: Color = MaterialTheme.colorScheme.primaryContainer,
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    backdrop: LayerBackdrop? = null
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState? = null
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -155,8 +152,8 @@ fun PlaybackControls(
             )
         }
 
-        // Detect whether the frosted Gaussian blur effect is enabled, aligning with MiuixBlur and unifying renamed logic references.
-        val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
+        // Detect whether the frosted Gaussian blur effect is enabled, aligning with Haze and unifying renamed logic references.
+        val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
         if (isBlur) {
             // Play/pause button upgrade for miuix-blur.
@@ -176,52 +173,13 @@ fun PlaybackControls(
             val glassModifier = Modifier
                 .size(80.dp)
                 .let { modifier ->
-                    if (backdrop != null) {
-                        modifier.textureBlur(
-                            backdrop = backdrop,
-                            shape = playPauseShape,
-                            blurRadius = 60f,
-                            noiseCoefficient = 0.05f,
-                            colors = BlurColors(
-                                blendColors = listOf(
-                                    BlendColorEntry(
-                                        color = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.65f),
-                                        mode = BlurBlendMode.SrcOver
-                                    )
-                                )
-                            )
-                        )
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.12f),
-                                    Color.White.copy(alpha = 0.03f),
-                                    Color.Transparent,
-                                    Color.White.copy(alpha = 0.06f)
-                                )
-                            ),
-                            shape = playPauseShape
-                        )
-                        .border(
-                            width = 1.dp,
-                            brush = Brush.linearGradient(
-                                colors = if (isDark) {
-                                    listOf(
-                                        Color.White.copy(alpha = 0.18f),
-                                        Color.White.copy(alpha = 0.02f),
-                                        Color.Transparent,
-                                        Color.White.copy(alpha = 0.08f)
-                                    )
-                                } else {
-                                    listOf(
-                                        Color.White.copy(alpha = 0.45f),
-                                        Color.White.copy(alpha = 0.10f),
-                                        Color.Transparent,
-                                        Color.White.copy(alpha = 0.25f)
-                                    )
-                                }
-                            ),
-                            shape = playPauseShape
+                    if (hazeState != null) {
+                        // Setup PlayPause Haze (Apply hazeChild modifier inside custom circular shape)
+                        // Clip PlayPause Shape (Apply clip to play/pause button container) Clip the button container shape to playPauseShape before applying hazeChild.
+                        // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
+                        modifier.clip(playPauseShape).hazeChild(
+                            state = hazeState,
+                            style = HazeMaterials.regular()
                         )
                     } else {
                         modifier

@@ -16,10 +16,10 @@ import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreen
 import com.viel.aplayer.ui.player.PlayerViewModel
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
  * Player overlay component (PlayerOverlay).
@@ -47,7 +47,8 @@ fun PlayerOverlay(
         // Instantiate the playerBackdrop sampling source dedicated to the full screen player itself,
         // mount it on the outermost wrapping Box to collect real-time layout data of the entire player (including foreground text and all control buttons),
         // and pass it through to PlayerScreen to allow the internal chapter list sheet component (ChapterListSheet) to achieve a truly clear blur effect.
-        val playerBackdrop = rememberLayerBackdrop()
+        // Setup Haze State (Manage overlay-wide blur capturing state)
+        val playerHazeState = remember { HazeState() }
         AnimatedVisibility(
             visible = isFullPlayerVisible,
             enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)),
@@ -57,8 +58,9 @@ fun PlayerOverlay(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
-                        if (glassEffectMode == GlassEffectMode.MiuixBlur) {
-                            Modifier.layerBackdrop(playerBackdrop)
+                        if (glassEffectMode == GlassEffectMode.Haze) {
+                            // Setup PlayerOverlay Haze (Apply haze modifier to container to make it a blur source)
+                            Modifier.haze(playerHazeState)
                         } else {
                             Modifier
                         }
@@ -70,8 +72,8 @@ fun PlayerOverlay(
                     navigationActions = playerNavigationActions,
                     // The full screen player internally manages creating the miuix-blur effect for the chapter list, so only the mode is passed through here.
                     glassEffectMode = glassEffectMode,
-                    // Pass the full-page sampling source of the player itself to achieve seamless, high-quality frosted glass blur.
-                    fullPageBackdrop = playerBackdrop
+                    // Setup dropdown menu blur (Pass HazeState to the drop-down menu to render glassmorphism)
+                    hazeState = playerHazeState
                 )
             }
         }

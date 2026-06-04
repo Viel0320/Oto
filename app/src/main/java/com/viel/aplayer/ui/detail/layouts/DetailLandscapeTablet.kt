@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.detail.layouts
 
+// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState class for layouts.
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,27 +15,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
-import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
-import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
 import com.viel.aplayer.ui.detail.components.DetailHeader
 import com.viel.aplayer.ui.detail.components.DetailSummary
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import dev.chrisbanes.haze.HazeState
 
 /**
  * Tablet Landscape Layout Specification (Responsive dual-pane for large/foldable landscape viewports)
@@ -50,16 +45,14 @@ fun DetailTabletLandscape(
     padding: PaddingValues, // Inner padding for Scaffold.
     safeDrawingPadding: PaddingValues, // The physical safe drawing area.
     glassEffectMode: GlassEffectMode, // Selected glass effect mode.
-    detailBackdrop: LayerBackdrop, // Background sampling source.
+    // Setup HazeState Parameter (Map detailBackdrop parameter to HazeState) Changed LayerBackdrop to HazeState.
+    detailHazeState: HazeState,
     onPlayPressed: () -> Unit, // Playback trigger debounce callback.
     onPlayClick: () -> Unit, // Confirm playback action callback.
     onSearchClick: (String) -> Unit, // Search callback.
     onShowInfo: (String, String) -> Unit, // Dialog detail display callback.
     modifier: Modifier = Modifier
 ) {
-    // Adaptive Parameter Extraction (Access screen dimensions via LocalWindowClass)
-    // Obtains screen logical width via the global `LocalWindowClass` composition local,
-    // avoiding direct dependency on the platform `LocalConfiguration` to improve component isolation.
     val windowClass = LocalWindowClass.current
     val layoutDirection = LocalLayoutDirection.current
     val screenWidthDp = windowClass.screenWidthDp
@@ -91,9 +84,6 @@ fun DetailTabletLandscape(
                 contentAlignment = Alignment.Center
             ) {
                 PlayerCover(
-                    // Cover Selection Priority (Prioritize high-definition raw images for primary detail viewport)
-                    // The tablet detail screen presents the largest cover view. Consequently, it must utilize the "Main1200" priority logic
-                    // to display the raw high-resolution image, keeping the thumbnail strictly as a fallback.
                     coverPath = CoverImageSourceSelector.main(
                         coverPath = book?.coverPath,
                         thumbnailPath = book?.thumbnailPath
@@ -138,11 +128,12 @@ fun DetailTabletLandscape(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+            // Setup DetailControlPanel Haze State (Link hazeState) Passed detailHazeState parameter to control panel.
             DetailControlPanel(
                 book = book,
                 uiState = uiState,
                 glassEffectMode = glassEffectMode,
-                backdrop = detailBackdrop,
+                hazeState = detailHazeState,
                 onPlayPressed = onPlayPressed,
                 onPlayClick = onPlayClick,
                 isLandscape = true
@@ -164,32 +155,6 @@ fun DetailTabletLandscape(
                 modifier = Modifier.weight(1f)
             )
             Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
-        }
-    }
-}
-
-@Preview(showBackground = true, apiLevel = 36, widthDp = 1280, heightDp = 800)
-@Composable
-fun DetailLandscapeTabletPreview() {
-    APlayerTheme {
-        // Preview Window Configuration (Verify landscape tablet rendering)
-        CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.TabletLandscape
-        ) {
-            Surface {
-                DetailTabletLandscape(
-                    book = BookEntity(id = "1", rootId = "root", sourceType = "LOCAL", title = "三体", author = "刘慈欣", narrator = "王明", description = "这是一部科幻巨著。"),
-                    uiState = DetailUiState(),
-                    padding = PaddingValues(24.dp),
-                    safeDrawingPadding = PaddingValues(0.dp),
-                    glassEffectMode = GlassEffectMode.Material,
-                    detailBackdrop = rememberLayerBackdrop(),
-                    onPlayPressed = {},
-                    onPlayClick = {},
-                    onSearchClick = {},
-                    onShowInfo = { _, _ -> }
-                )
-            }
         }
     }
 }

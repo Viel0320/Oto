@@ -2,6 +2,8 @@ package com.viel.aplayer.ui.player.components
 
 // Migrated to BlurModalBottomSheet, enabling native Window background blur (API 31+).
 
+// Import Resolution (Brings snapshotFlow into scope to observe Compose state changes in flows)
+// Added snapshotFlow import to fix unresolved reference snapshotFlow error.
 import android.widget.Toast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,8 +40,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-// Import Resolution (Brings snapshotFlow into scope to observe Compose state changes in flows)
-// Added snapshotFlow import to fix unresolved reference snapshotFlow error.
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,11 +64,10 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.settings.PlayerSettingsState
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import java.util.UUID
 
 // 5. Stateful local compartment for chapter list sheet (ChapterListSheetStateful).
@@ -84,8 +83,8 @@ fun ChapterListSheetStateful(
     settings: PlayerSettingsState,
     actions: PlayerActions,
     sheetState: SheetState,
-    // Replace the deprecated old blur state type with miuix-blur core's LayerBackdrop to ensure type delivery consistency of the top-level host component.
-    backdrop: LayerBackdrop,
+    // Haze State Config (Coordinate Sheet Blur Backdrop) Sourced from player backdrop sampling.
+    hazeState: HazeState? = null,
     // Receive the global glass effect mode and pass it to the actual ChapterListSheet.
     glassEffectMode: GlassEffectMode
 ) {
@@ -105,8 +104,8 @@ fun ChapterListSheetStateful(
                 actions.content.onDismissChapterList()
             },
             sheetState = sheetState,
-            // Pass the backdrop shared with the player background source to the chapter list panel effect.
-            backdrop = backdrop,
+            // Pass the hazeState shared with the player background source to the chapter list panel effect.
+            hazeState = hazeState,
             // Material mode will return the chapter list to the native BottomSheet container layer.
             glassEffectMode = glassEffectMode
         )
@@ -122,7 +121,7 @@ fun ChapterListSheet(
     totalDuration: Long,
     onDismissRequest: () -> Unit,
     onChapterClick: (Long) -> Unit,
-    backdrop: LayerBackdrop,
+    hazeState: HazeState? = null,
     // Glass effect mode must be explicitly passed from the settings state by the player page; the chapter BottomSheet no longer declares a Material default.
     glassEffectMode: GlassEffectMode,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
@@ -186,9 +185,9 @@ fun ChapterListSheet(
             BlurModalBottomSheet(
                 onDismissRequest = onDismissRequest,
                 sheetState = sheetState,
-                // Pass the LayerBackdrop sampling source shared with the player background to render a high-precision frosted glass effect on the BottomSheet overlay.
-                backdrop = backdrop,
-                // Pass the Material/miuix-blur selection into the general BottomSheet wrapper to unify control of whether internal drawBackdrop is enabled.
+                // Pass the HazeState sampling source shared with the player background to render a high-precision frosted glass effect on the BottomSheet overlay.
+                hazeState = hazeState,
+                // Pass the Material/Haze selection into the general BottomSheet wrapper to unify control of whether internal drawBackdrop is enabled.
                 glassEffectMode = glassEffectMode,
                 // The blur parameters of the chapter list are configured directly by BlurModalBottomSheet and are no longer passed separately here.
                 tonalElevation = 8.dp,
@@ -272,13 +271,13 @@ fun ChapterListContent(
                     val isMissing = bookFile?.status == com.viel.aplayer.data.db.AudiobookSchema.FileStatus.MISSING
                     val context = LocalContext.current
 
-                    // MiuixBlur mode uses a lighter rounded glass highlight, while Material mode retains a more distinct primaryContainer selection feedback. Modified references to MiuixBlur.
+                    // Haze Blur mode uses a lighter rounded glass highlight, while Material mode retains a more distinct primaryContainer selection feedback. Modified references to Haze.
                     val selectedContainerColor = when (glassEffectMode) {
-                        GlassEffectMode.MiuixBlur -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.22f)
+                        GlassEffectMode.Haze -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.22f)
                         GlassEffectMode.Material -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.36f)
                     }
-                    // MiuixBlur mode uses fine borders instead of large blue blocks, making the selected state more delicate on frosted glass and less distracting from the background. Modified references to MiuixBlur.
-                    val selectedBorderModifier = if (isCurrent && glassEffectMode == GlassEffectMode.MiuixBlur) {
+                    // Haze Blur mode uses fine borders instead of large blue blocks, making the selected state more delicate on frosted glass and less distracting from the background. Modified references to Haze.
+                    val selectedBorderModifier = if (isCurrent && glassEffectMode == GlassEffectMode.Haze) {
                         Modifier.border(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f),
@@ -382,7 +381,7 @@ fun ChapterListSheetStatefulPreview() {
                 settings = PlayerSettingsState(isChapterListVisible = true),
                 actions = PlayerActions(),
                 sheetState = rememberModalBottomSheetState(),
-                backdrop = rememberLayerBackdrop(),
+                hazeState = null,
                 glassEffectMode = GlassEffectMode.Material
             )
         }

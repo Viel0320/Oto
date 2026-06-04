@@ -71,9 +71,9 @@ import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.home.components.AudiobookActionDialogs
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.home.components.RecentlyAddedSection
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 /**
  * HomeScreenContent Setup (Stateless Home Main Content UI)
@@ -114,8 +114,8 @@ fun HomeScreenContent(
     // Use remember to listen to the currently long-pressed audiobook state, determining the rendering of the first-level dialog
     var activeBookForMenu by remember { mutableStateOf<BookWithProgress?>(null) }
 
-    // Create LayerBackdrop state machine for long-press operation dialog; Scaffold as sampling source, Dialog panel as blur rendering surface.
-    val actionDialogBackdrop = rememberLayerBackdrop()
+    // Create HazeState for long-press operation dialog; Scaffold as sampling source, Dialog panel as blur rendering surface.
+    val homeHazeState = remember { HazeState() }
     // Label mapping of Filter Chips, which is pure UI text and remains in the Composable
     val filters = listOf(
         HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
@@ -158,9 +158,10 @@ fun HomeScreenContent(
     // Migrate the scroll state remember from LazyListState to adaptive grid GridState to complete the base upgrade.
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-    // Only MiuixBlur mode registers the home page full content as sampling source; Material mode skips it to save rendering cost. Rename the legacy blur modifier to blurSourceModifier.
-    val blurSourceModifier = if (glassEffectMode == GlassEffectMode.MiuixBlur) {
-        Modifier.layerBackdrop(actionDialogBackdrop)
+    // Only Haze mode registers the home page full content as sampling source; Material mode skips it to save rendering cost.
+    val blurSourceModifier = if (glassEffectMode == GlassEffectMode.Haze) {
+        // Setup HomeScreen Haze (Apply haze modifier to container to make it a blur source)
+        Modifier.haze(homeHazeState)
     } else {
         Modifier
     }
@@ -374,7 +375,7 @@ fun HomeScreenContent(
     // Introduce independently encapsulated long-press operation dialogs to keep the home page UI layout clean and clear
     AudiobookActionDialogs(
         bookWithProgress = activeBookForMenu,
-        backdrop = actionDialogBackdrop,
+        hazeState = homeHazeState,
         glassEffectMode = glassEffectMode,
         onDismissRequest = { activeBookForMenu = null },
         onUpdateReadStatus = onUpdateReadStatus,

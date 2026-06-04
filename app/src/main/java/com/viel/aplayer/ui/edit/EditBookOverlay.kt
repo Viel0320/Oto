@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.edit
 
+// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState class for EditBook.
 import android.app.Application
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -16,10 +17,10 @@ import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
 /**
  * EditBookViewModel Setup (Lightweight Meta Editing ViewModel)
@@ -28,7 +29,6 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
  * Its lifecycle has been successfully decoupled from EditBookActivity and is now hosted in the Activity-level scope of the main App.
  */
 class EditBookViewModel(application: Application) : AndroidViewModel(application) {
-    // M6 Refactoring: Completely remove dependency on legacy repositories in EditBookViewModel, replacing it with the high-level business facade libraryFacade.
     private val libraryFacade = (application as APlayerApplication).container.libraryFacade
 
     private val _bookState = MutableStateFlow<BookEntity?>(null)
@@ -67,7 +67,6 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
      */
     fun loadBook(bookId: String) {
         viewModelScope.launch {
-            // Use libraryFacade high-level facade to asynchronously obtain book details
             _bookState.value = libraryFacade.getBookById(bookId)
         }
     }
@@ -90,7 +89,6 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     ) {
         val currentBook = _bookState.value ?: return
         viewModelScope.launch {
-            // Use libraryFacade to asynchronously persist modified text metadata fields into Room
             libraryFacade.updateBookDetails(
                 id = currentBook.id,
                 title = title.trim(),
@@ -99,7 +97,6 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
                 description = description.trim(),
                 year = year.trim()
             )
-            // If the cover is replaced, call libraryFacade cascade storage to physically clean up legacy cover remnants and refresh self-healing covers
             if (newCoverPath != null) {
                 libraryFacade.saveCustomCover(currentBook.id, newCoverPath)
             }
@@ -112,14 +109,11 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
  * EditBookOverlay Setup (Stateful Edit Book Overlay Wrapper)
  *
  * Stateful Composable book editing overlay wrapper component (Stateful Overlay).
- * Responsible for hosting and managing all business lifecycles and state subscription logic,
- * collecting `isVisible` and `bookState` data from ViewModel as needed,
- * and passing data and operations as Lambda callbacks to the underlying stateless rendering component `EditBookScreen` during smooth transition animations.
  *
  * @param editViewModel Associated lightweight book edit ViewModel instance
  * @param glassEffectMode Current glass effect mode config of the system
  * @param modifier External modifier
- * @param backdrop Shared blur sampling source rendered from the details page
+ * @param hazeState Shared HazeState blur sampling source rendered from the details page
  * @param onSaveSuccess Host-level event callback after successful book saving
  */
 @Composable
@@ -127,12 +121,11 @@ fun EditBookOverlay(
     editViewModel: EditBookViewModel,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // Add detailBackdrop parameter, receiving the blur sampling source rendered from the details page
-    backdrop: LayerBackdrop? = null,
+    // Setup HazeState Parameter (Map backdrop from LayerBackdrop to HazeState) Changed LayerBackdrop to HazeState.
+    hazeState: HazeState? = null,
     onSaveSuccess: () -> Unit = {}
 ) {
     val isVisible by editViewModel.isVisible.collectAsStateWithLifecycle()
-    // Subscribe to the stateful bookState data model here and pass it down, adhering to unidirectional data flow and separation of concerns
     val book by editViewModel.bookState.collectAsStateWithLifecycle()
 
     AnimatedVisibility(
@@ -142,6 +135,7 @@ fun EditBookOverlay(
         modifier = modifier
     ) {
         // Call the completely decoupled stateless EditBookScreen UI component
+        // Setup EditBookScreen Haze Parameter (Link details background hazeState) Replaced detailBackdrop with detailHazeState.
         EditBookScreen(
             book = book,
             onNavigationBack = { editViewModel.setVisible(false) },
@@ -160,7 +154,7 @@ fun EditBookOverlay(
                 )
             },
             glassEffectMode = glassEffectMode,
-            detailBackdrop = backdrop
+            detailHazeState = hazeState
         )
     }
 }

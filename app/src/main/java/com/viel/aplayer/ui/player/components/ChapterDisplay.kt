@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.player.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,7 +33,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 @Composable
 fun ChapterDisplay(
@@ -44,11 +45,13 @@ fun ChapterDisplay(
     modifier: Modifier = Modifier,
     title: String? = null,
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    backdrop: LayerBackdrop? = null
+    // Setup Haze State (Transition backdrop reference to HazeState)
+    hazeState: HazeState? = null
 ) {
     // Resolve backdrop configurations (To optimize performance under miuix-blur styles)
     // Avoids redundant blur computations by using pure mask overlays.
-    val isBlur = glassEffectMode == GlassEffectMode.MiuixBlur
+    // Determine Glass Blur Status (Enable blur only if in Haze mode and state is provided)
+    val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -74,43 +77,15 @@ fun ChapterDisplay(
             Box(
                 modifier = Modifier
                     .weight(1f, fill = false)
+                    // Setup Suggestion Chip Haze (Apply hazeChild to the chip container Box)
+                    // Clip Chip Shape (Apply clip to chip container) Pre-clip container shape before applying hazeChild to avoid rendering shape mismatch.
                     .clip(chipShape)
+                    .hazeChild(
+                        state = hazeState,
+                        style = HazeMaterials.regular()
+                    )
                     .background(maskBrush)
-                    // 2. Specular glare brush (To add micro-shimmer reflections for liquid glass styling)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.10f),
-                                Color.White.copy(alpha = 0.02f),
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.05f)
-                            )
-                        ),
-                        shape = chipShape
-                    )
                     .clickable(onClick = onChapterClick)
-                    // 3. Refraction edge border (To draw silver reflection stroke to prevent background colors bleed)
-                    .border(
-                        width = 0.8.dp,
-                        brush = Brush.linearGradient(
-                            colors = if (isDark) {
-                                listOf(
-                                    Color.White.copy(alpha = 0.18f),
-                                    Color.White.copy(alpha = 0.02f),
-                                    Color.Transparent,
-                                    Color.White.copy(alpha = 0.08f)
-                                )
-                            } else {
-                                listOf(
-                                    Color.White.copy(alpha = 0.45f),
-                                    Color.White.copy(alpha = 0.10f),
-                                    Color.Transparent,
-                                    Color.White.copy(alpha = 0.25f)
-                                )
-                            }
-                        ),
-                        shape = chipShape
-                    )
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Row(

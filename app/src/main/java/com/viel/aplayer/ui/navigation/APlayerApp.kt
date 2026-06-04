@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.navigation
 
 // Setup MiuixBlur Backdrop (Enhance Blur Visuals)
 // Import miuix-blur's backdrop mechanism API to completely replace the legacy blur library dependency, achieving a clearer viewport-level Gaussian blur refraction effect.
+// Setup Haze Core (Import dev.chrisbanes.haze modifiers) Import HazeState and haze modifier for Compose-based blur.
 import android.text.Layout
 import android.text.SpannableString
 import android.text.Spanned
@@ -17,15 +18,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.ScanResultDialog
 import com.viel.aplayer.ui.common.UiEvent
@@ -42,9 +40,8 @@ import com.viel.aplayer.ui.player.components.PlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.search.SearchOverlay
 import com.viel.aplayer.ui.search.SearchViewModel
-import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 
 @Composable
 fun APlayerApp(
@@ -52,9 +49,13 @@ fun APlayerApp(
     onOpenPlayerOverlayConsumed: () -> Unit = {}
 ) {
     APlayerTheme {
-        val navController = rememberNavController()
-        val navBackStackEntry by navController.currentBackStackEntryAsState()
-        val currentRoute = navBackStackEntry?.destination?.route
+        // Setup Navigation 3 Controller (Initialize state and navigator) Migrate from rememberNavController to custom NavigationState.
+        val navigationState = rememberNavigationState(
+            startRoute = HomeRoute,
+            topLevelRoutes = setOf(HomeRoute)
+        )
+        val navigator = remember { Navigator(navigationState) }
+        val currentRoute = navigationState.topLevelRoute
 
         val context = LocalContext.current
         val libraryViewModel: LibraryViewModel = viewModel()
@@ -83,13 +84,9 @@ fun APlayerApp(
 
         val canStartNavigation = rememberNavigationThrottle()
 
-        // Global App Backdrop (Live Backdrop Blur)
-        // Instantiate a globally shared LayerBackdrop sampling source. When the user globally enables the frosted glass effect, the entire APlayerNavHost container will be mounted as the sampling source, allowing the MiniPlayer (CompactMediaPlayer) and the non-independent SearchOverlay floating above it to directly and highly performantly blur the HomeScreen main page cards below, eliminating any system desktop leak risks caused by cross-activity blurs.
-        val appBackdrop = rememberLayerBackdrop()
-
-        // Detail Backdrop Source (Detail Page Blur Backdrop)
-        // Instantiate the detailBackdrop sampling source specifically for capturing the visual rendering of the entire details page (DetailOverlay). When the EditBookOverlay pops up over the details page, it can render a highly sophisticated frosted glass visual backdrop using detailBackdrop to blend the text, cover cards, and buttons on the details page.
-        val detailBackdrop = rememberLayerBackdrop()
+        // Setup HazeStates (Manage blur states using Haze library) Introduce global hazeState and detailHazeState for blurring backgrounds.
+        val hazeState = remember { HazeState() }
+        val detailHazeState = remember { HazeState() }
 
         LaunchedEffect(Unit) {
             playerViewModel.initialize(context)
@@ -159,10 +156,11 @@ fun APlayerApp(
             }
         }
 
-        val navigateBack: () -> Unit = remember(navController) {
+        // Setup Back Navigation (Hook up Nav3 back logic) Migrate back callback to use Navigation 3 Navigator's goBack API.
+        val navigateBack: () -> Unit = remember(navigator) {
             {
-                if (canStartNavigation() && navController.previousBackStackEntry != null) {
-                    navController.popBackStack()
+                if (canStartNavigation()) {
+                    navigator.goBack()
                 }
             }
         }
@@ -176,7 +174,8 @@ fun APlayerApp(
                 // Explicitly coordinate the cleanup of the details page state, keeping it consistent with the outer coordination mode of playerViewModel.closePlayback.
                 detailViewModel.dismissIfShowing(bookId)
                 libraryViewModel.deleteBook(bookId)
-                if (currentRoute != null && currentRoute != "home") {
+                // Evaluate Navigation Stack State (Check current route stack) Verify if current route is not HomeRoute before popping back.
+                if (currentRoute != HomeRoute) {
                     navigateBack()
                 }
             }
@@ -189,7 +188,8 @@ fun APlayerApp(
                 onUnavailable = { playerViewModel.closeCurrentPlayback() }
             )
         }
-        val playerNavigationActions = remember(navController, playerViewModel) {
+        // Build Player Navigation Actions (Migrate callback hooks) Removed unused NavController dependency in favor of direct visibility state toggles.
+        val playerNavigationActions = remember(playerViewModel) {
             PlayerNavigationActions(
                 onMinimize = { playerViewModel.setFullPlayerVisible(false) },
                 onClose = { playerViewModel.setFullPlayerVisible(false) },
@@ -220,15 +220,14 @@ fun APlayerApp(
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // NavHost Backdrop Mounting (Isolate Overlay Blur Source)
-                // Use a separate Box container specifically wrapping the bottom APlayerNavHost (where the HomeScreen main page cards reside), and mount Modifier.layerBackdrop(state = appBackdrop) on this Box. Thus, when the user enables the miuix-blur effect in global settings, the appBackdrop sampling source only captures the screen data of the main navigation page, while the DetailOverlay, PlayerOverlay, and SearchOverlay above exist as sibling nodes outside it. This achieves full Z-axis occlusion and Gaussian blur rendering while breaking the drawing deadlock caused by "child sampling parent", restoring the frosted glass effect perfectly.
+                // Mount Haze Backdrop (Isolate overlay blur source) Replace miuix-blur backdrop with native Haze modifier on bottom navigation Box.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(
-                            // Align to MiuixBlur settings mode
-                            if (libraryUiState.glassEffectMode == GlassEffectMode.MiuixBlur) {
-                                Modifier.layerBackdrop(appBackdrop)
+                            // Align to Haze settings mode
+                            if (libraryUiState.glassEffectMode == GlassEffectMode.Haze) {
+                                Modifier.haze(hazeState)
                             } else {
                                 Modifier
                             }
@@ -236,8 +235,10 @@ fun APlayerApp(
                 ) {
                     // System Navigation Container (Scaffold Insets Handling)
                     // The bottom-most system navigation management container, the main navigation page (HomeScreen contains its own local Scaffold to provide its own bottom insets avoidance).
+                    // Setup Navigation 3 Host (Inject Nav3 state parameters) Injected NavigationState and Navigator into APlayerNavHost.
                     APlayerNavHost(
-                        navController = navController,
+                        navigationState = navigationState,
+                        navigator = navigator,
                         libraryViewModel = libraryViewModel,
                         playerViewModel = playerViewModel,
                         detailViewModel = detailViewModel,
@@ -247,18 +248,13 @@ fun APlayerApp(
                     )
                 }
 
-                // DetailOverlay Mounting (Search overlay coupling and EditBook integration)
-                // The DetailOverlay is now mounted as a sibling node outside layerBackdrop to avoid blur deadlock issues. Completely deprecates the original intent-based contract for launching SearchActivity, using an in-memory Lambda synchronous bridge: when the search button on the book details page is clicked, the non-independent SearchOverlay is awakened without delay inside the same Activity, and the initial query is passed synchronously to quickly search for related authors/narrators.
+                // Mount DetailOverlay with HazeStates (Link background and overlay blur targets) Replaced App/Detail Backdrop with corresponding hazeState and detailHazeState parameters.
                 DetailOverlay(
                     detailViewModel = detailViewModel,
                     canStartNavigation = canStartNavigation,
                     glassEffectMode = libraryUiState.glassEffectMode,
-                    // Pass App Backdrop (Apply Glass Effect)
-                    // Pass the global appBackdrop to the detail page to achieve the same frosted glass refraction effect as the background.
-                    backdrop = appBackdrop,
-                    // Pass Detail Backdrop (Register Capture Source)
-                    // Pass the exclusive detailBackdrop to the detail page, letting it register as the source of that sampling source to capture the full detail page screen.
-                    detailBackdrop = detailBackdrop,
+                    hazeState = hazeState,
+                    detailHazeState = detailHazeState,
                     onPlayBook = { bookId ->
                         playerViewModel.loadBook(bookId)
                         playerViewModel.setFullPlayerVisible(true)
@@ -274,46 +270,25 @@ fun APlayerApp(
                     }
                 )
 
-                // Z-index Level Adjustments (Precise Overlay Draw Order)
-                // Precisely reorder the drawing sequence of all overlay components based on the physical hierarchy specification inside the main Activity window. In the Jetpack Compose Box container, components declared later have higher physical rendering and interaction priority (higher Z-index):
-                // 1. Bottom APlayerNavHost (declared above)
-                // 2. DetailOverlay (declared above)
-                // 3. MiniPlayerOverlay floating above the details page
-                // 4. EditBookOverlay (full-screen edit interface) completely covering the detail page and mini-player
-                // 5. PlayerOverlay (full-screen player) completely covering the mini-player, edit layer, and detail page when expanded
-                // 6. SearchOverlay (top layer) covering the full-screen player and all other content.
+                // Connect HazeState Source (Switch blur reference source for MiniPlayer)
+                // Dynamically select target HazeState depending on the visibility of the detail page.
+                // When DetailOverlay is visible, sample from detailHazeState, otherwise sample from home page hazeState.
+                val targetHazeState = if (detailUiState.isVisible) detailHazeState else hazeState
 
-                // MiniPlayer Backdrop Source (Adaptive Blur Source Strategy)
-                // Core blur sampling source adaptive repair and delay strategy:
-                // - When DetailOverlay is visible (detailUiState.isVisible is true), the physical layer below the mini-player is actually the details page, so we dynamically switch its backdrop to detailBackdrop, allowing the frosted glass to display the background color of the details page realistically.
-                // - When the details page is hidden, safely switch back to appBackdrop to sample the HomeScreen interface.
-                // Adaptive delay switching strategy for sampling source is used for the detail page visibility changes to smooth the transition animation.
-                val targetBackdrop = if (detailUiState.isVisible) detailBackdrop else appBackdrop
-                val delayedBackdropState = remember(appBackdrop, detailBackdrop) {
-                    mutableStateOf(targetBackdrop)
-                }
-                LaunchedEffect(targetBackdrop) {
-                    val delayMs = 401L
-                    delay(delayMs)
-                    delayedBackdropState.value = targetBackdrop
-                }
-
+                // Mount MiniPlayer with HazeState (Provide blur context to mini player overlay) Passed target HazeState value to match active background visuals.
                 MiniPlayerOverlay(
                     playerViewModel = playerViewModel,
                     miniPlayerActions = miniPlayerActions,
                     isSearchActive = isSearchVisible,
                     glassEffectMode = libraryUiState.glassEffectMode,
-                    // Use Delayed Backdrop (Avoid Transition Flicker)
-                    // Use the delayed sampling source to avoid transition animation persistence and flickering, enhancing the ultimate feeling of smoothness.
-                    backdrop = delayedBackdropState.value
+                    hazeState = targetHazeState
                 )
 
-                // EditBookOverlay Mounting (Frosted Glass Translucency)
-                // Core hierarchy change: To ensure the full-screen editing overlay is displayed above the mini-player (covering both the details page and the mini-player), it is declared after MiniPlayerOverlay in the Box container. Meanwhile, the dedicated detailBackdrop is used to provide an exquisite frosted glass translucent texture.
+                // Mount EditBookOverlay with HazeState (Provide detail background blur context to edit book overlay) Passed detailHazeState to EditBookOverlay.
                 EditBookOverlay(
                     editViewModel = editViewModel,
                     glassEffectMode = libraryUiState.glassEffectMode,
-                    backdrop = detailBackdrop,
+                    hazeState = detailHazeState,
                     onSaveSuccess = {
                         // Edit Save Success (Reactive Flow Refresh)
                         // After saving successfully, the responsive flow will automatically refresh and redraw the details page via the Room Flow, so there is no need to execute extra UI dirty operations to force a refresh.
@@ -329,11 +304,10 @@ fun APlayerApp(
                     glassEffectMode = libraryUiState.glassEffectMode
                 )
 
-                // SearchOverlay Mounting (Top-most Rendering Layer)
-                // Core hierarchy change: To ensure the search function runs as a global top-level container, covering the full-screen player and all other contents, we place it after PlayerOverlay in the physical Z-axis declaration, giving it the highest physical rendering level except for the scan results.
+                // Mount SearchOverlay with HazeState (Provide global background blur context to search overlay) Passed hazeState to SearchOverlay.
                 SearchOverlay(
                     searchViewModel = searchViewModel,
-                    backdrop = appBackdrop,
+                    hazeState = hazeState,
                     glassEffectMode = libraryUiState.glassEffectMode,
                     onNavigateToDetail = { bookId ->
                         searchViewModel.setVisible(false)
