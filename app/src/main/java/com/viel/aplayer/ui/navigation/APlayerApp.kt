@@ -304,10 +304,11 @@ fun APlayerApp(
                     glassEffectMode = libraryUiState.glassEffectMode
                 )
 
-                // Mount SearchOverlay with HazeState (Provide global background blur context to search overlay) Passed hazeState to SearchOverlay.
+                // Mount SearchOverlay with HazeState (Provide global background blur context to search overlay)
+                // Dynamically pass hazeState or detailHazeState to SearchOverlay depending on whether the detail screen is visible.
                 SearchOverlay(
                     searchViewModel = searchViewModel,
-                    hazeState = hazeState,
+                    hazeState = if (detailUiState.isVisible) detailHazeState else hazeState,
                     glassEffectMode = libraryUiState.glassEffectMode,
                     onNavigateToDetail = { bookId ->
                         searchViewModel.setVisible(false)

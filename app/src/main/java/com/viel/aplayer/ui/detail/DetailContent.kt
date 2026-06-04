@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -122,8 +123,10 @@ fun DetailContent(
         coverPath = book?.coverPath
     )
 
-    // Dynamically capture the most precise system status bar and physical safe area size
-    val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+    // Exclude Keyboard Insets (Avoid Detail Recomposition on IME change)
+    // Exclude WindowInsets.ime from safeDrawing to prevent the details page from unnecessary recompositions
+    // when the soft keyboard pops up or dismisses inside the overlapping SearchOverlay.
+    val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
 
     val scope = rememberCoroutineScope()
     val offsetY = remember { Animatable(0f) }
@@ -235,7 +238,9 @@ fun DetailContent(
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent
                         ),
-                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
+                        // Exclude Keyboard Insets (Keep Top Bar Stable on IME change)
+                        // Also exclude WindowInsets.ime from TopAppBar layout calculations to guarantee absolute header stability.
+                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                         modifier = Modifier.pointerInput(Unit) {
                             detectVerticalDragGestures(
                                 onVerticalDrag = { change, dragAmount ->

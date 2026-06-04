@@ -61,10 +61,10 @@ fun DetailOverlay(
                 onBackClick = { detailViewModel.setVisible(false) },
                 onPlayPressed = { detailViewModel.onPlayPressed() },
                 onSearchClick = { query ->
-                    detailViewModel.setVisible(false)
                     if (canStartNavigation()) {
-                        // Handle Search Callback (Notify External Host)
-                        // When the search keyword is clicked, notify the external components to perform search navigation and close the current detail overlay.
+                        // In-Place Search Activation (Do not close detail screen when searching tags)
+                        // Directly launch search overlay on top of the detail screen without setting details visibility to false,
+                        // keeping user context intact.
                         onNavigateToSearch(query)
                     }
                 },
