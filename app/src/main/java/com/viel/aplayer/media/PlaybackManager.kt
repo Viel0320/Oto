@@ -47,6 +47,7 @@ class PlaybackManager private constructor(context: Context) {
     private val bookQueryGateway = container.bookQueryGateway
     private val progressGateway = container.progressGateway
     private val absPlaybackSessionSyncer = container.absPlaybackSessionSyncer
+    private val playbackSourcePreflight = container.playbackSourcePreflight
 
     // Configuration Repository Reference (Access runtime settings such as cleartext HTTP configurations)
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
@@ -267,6 +268,17 @@ class PlaybackManager private constructor(context: Context) {
             val settingsReadCost = SystemClock.elapsedRealtime() - settingsReadStart
             // Bypass Interrupted Self-Healing (Bypassed since cold start restoration has been applied)
             val finalPlan = plan
+
+            // DB-Only Root Preflight (Reject media source creation when Room already marks the root inactive)
+            // This check deliberately avoids file opens, SAF traversal, WebDAV requests, and ABS API calls before MediaController receives media items.
+            when (val preflight = playbackSourcePreflight.check(finalPlan)) {
+                PlaybackSourcePreflightResult.Available -> Unit
+                is PlaybackSourcePreflightResult.Blocked -> {
+                    _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast(preflight.message))
+                    PlaybackWorkflowLogger.warn("playbackManager source preflight blocked: bookId=${plan.bookId}, message=${preflight.message}")
+                    return@launch
+                }
+            }
 
             com.viel.aplayer.logger.PlaybackTimingLogger.logSetPlanEntry(
                 bookId = plan.bookId,

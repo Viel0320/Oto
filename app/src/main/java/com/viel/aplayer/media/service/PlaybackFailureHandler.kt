@@ -104,6 +104,22 @@ class PlaybackFailureHandler(
     }
 
     /**
+     * Initial Media Load Failure (Reports source load failures before playback has ever started)
+     * Stops the player and shows a direct user-facing error without marking files missing, running remote availability retries, or triggering track-skip recovery.
+     */
+    fun handleInitialMediaLoadFailure(player: Player, error: PlaybackException) {
+        serviceScope.launch {
+            player.pause()
+            player.stop()
+            val message = error.localizedMessage?.takeIf { it.isNotBlank() }
+                ?: error.message?.takeIf { it.isNotBlank() }
+                ?: "未知错误"
+            Toast.makeText(appContext, "媒体源载入失败：$message", Toast.LENGTH_LONG).show()
+            Log.w("FailureHandler", "媒体源载入前失败，已跳过播放中恢复流程: code=${error.errorCode}, message=$message")
+        }
+    }
+
+    /**
      * Guard Reset Handler (Clears the active debounce recovery key once the player transitions to a valid item)
      */
     fun clearSkipGuard() {

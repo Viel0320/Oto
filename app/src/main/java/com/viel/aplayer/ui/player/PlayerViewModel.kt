@@ -63,6 +63,18 @@ class PlayerViewModel : ViewModel() {
 
     private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.ui.player.components.SubtitleLine>>(emptyList())
 
+    /**
+     * Restored Playback Snapshot (Stores visual-only cold-start progress without media source loading)
+     * Lets compact and full player surfaces render the last title, cover, and progress while keeping ExoPlayer untouched until the user explicitly starts playback.
+     */
+    private data class RestoredPlaybackSnapshot(
+        val bookId: String,
+        val positionMs: Long,
+        val durationMs: Long
+    )
+
+    private val _restoredPlaybackSnapshot = MutableStateFlow<RestoredPlaybackSnapshot?>(null)
+
     // Subtitle async job (To prevent overlapping coroutine threads when changing tracks)
     private var subtitleLoadJob: kotlinx.coroutines.Job? = null
 
@@ -236,9 +248,9 @@ class PlayerViewModel : ViewModel() {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val playbackState: StateFlow<PlaybackState> = _currentBookId
-        .flatMapLatest { _ ->
+        .flatMapLatest { id ->
             playbackManager?.let { manager ->
-                combine(
+                val engineState = combine(
                     manager.isPlaying,
                     manager.playbackState,
                     manager.currentPosition,
@@ -252,6 +264,25 @@ class PlayerViewModel : ViewModel() {
                         playbackSpeed = speed,
                         playWhenReady = isPlaying
                     )
+                }
+                combine(
+                    engineState,
+                    manager.currentMediaItem,
+                    _restoredPlaybackSnapshot
+                ) { engine, mediaItem, restored ->
+                    // Cold-Start Preview State (Prefer restored progress only while no media item has been prepared)
+                    // Once MediaController owns a MediaItem, engine state becomes authoritative and the preview snapshot is ignored.
+                    val snapshot = restored
+                    if (mediaItem == null && snapshot != null && snapshot.bookId == id) {
+                        engine.copy(
+                            isPlaying = false,
+                            playWhenReady = false,
+                            currentPosition = snapshot.positionMs,
+                            duration = snapshot.durationMs
+                        )
+                    } else {
+                        engine
+                    }
                 }
             } ?: flowOf(PlaybackState())
         }
@@ -397,12 +428,28 @@ class PlayerViewModel : ViewModel() {
             // Query persistent playback checkpoint (To restore previous audiobook track coordinates)
             val lastProgress = libraryFacade?.getLastPlayedProgressSync() ?: return@launch
             if (_currentBookId.value == null) {
-                loadBook(lastProgress.bookId, playWhenReady = false)
-                // Restore compact player UI (To reveal mini-player controls in bottom navigation area)
-                // Clears redundant visibility conditions to ensure proper layout hierarchy flow.
-                settingsManager.setMiniPlayerHidden(false)
+                restoreBookPreview(lastProgress.bookId, lastProgress.globalPositionMs)
             }
         }
+    }
+
+    /**
+     * Restore Book Preview (Loads only persisted UI metadata and progress snapshots)
+     * Updates the active book ID and visual progress from Room without building a playback plan, preparing MediaController, or opening VFS media streams.
+     */
+    private suspend fun restoreBookPreview(bookId: String, positionMs: Long) {
+        val book = libraryFacade?.getBookById(bookId) ?: return
+        subtitleLoadJob?.cancel()
+        _currentBookId.value = bookId
+        _currentSubtitles.value = emptyList()
+        _restoredPlaybackSnapshot.value = RestoredPlaybackSnapshot(
+            bookId = bookId,
+            positionMs = positionMs,
+            durationMs = book.totalDurationMs
+        )
+        // Compact Preview Visibility (Shows the last-played card without implying that media has been prepared)
+        // The next explicit play action will still run the normal load pipeline and root preflight before touching ExoPlayer.
+        settingsManager.setMiniPlayerHidden(false)
     }
 
     private fun observeSettings() {
@@ -442,6 +489,7 @@ class PlayerViewModel : ViewModel() {
                         // Uses trailing colon markers to avoid misparsing multi-colon identifiers.
                         val bookFileId = mediaParts.fileId
                         _currentBookId.value = bookId
+                        _restoredPlaybackSnapshot.value = null
                         settingsManager.setMiniPlayerHidden(false)
 
                         // Evict active track lyrics (To wipe previous subtitles lines when changing track selections)
@@ -491,7 +539,7 @@ class PlayerViewModel : ViewModel() {
         val loadBookRequestStart = SystemClock.elapsedRealtime()
         // Prevent loading duplicate tracks (To avoid interrupting active playback sessions)
         // Ignores load requests matching current book ID.
-        if (_currentBookId.value == id) {
+        if (_currentBookId.value == id && isMediaSourceLoadedFor(id)) {
             // Restore active playback (To resume paused sessions without reloading files)
             if (playWhenReady && !playbackState.value.isPlaying) {
                 play()
@@ -649,6 +697,7 @@ class PlayerViewModel : ViewModel() {
             // Clear subtitle tasks (To cancel active lyrics threads)
             subtitleLoadJob?.cancel()
             _currentBookId.value = null
+            _restoredPlaybackSnapshot.value = null
             _currentSubtitles.value = emptyList()
             playbackManager?.pause()
             settingsManager.setFullPlayerVisible(false)
@@ -662,8 +711,30 @@ class PlayerViewModel : ViewModel() {
     }
 
     fun togglePlayPause() = if (playbackState.value.isPlaying) pause() else play()
-    fun play() = playbackDelegate?.play()
+
+    /**
+     * Play Current Book (Promotes preview-only restore into real media loading on demand)
+     * If cold start restored only UI metadata, this routes through loadBook so root preflight and media preparation happen exactly once before playback.
+     */
+    fun play() {
+        val id = _currentBookId.value
+        if (id != null && !isMediaSourceLoadedFor(id)) {
+            loadBook(id, playWhenReady = true)
+        } else {
+            playbackDelegate?.play()
+        }
+    }
+
     fun pause() = playbackDelegate?.pause()
+
+    /**
+     * Media Source Loaded Check (Distinguishes visual selection from an ExoPlayer-backed queue)
+     * Reads the current MediaItem ID so duplicate-load protection does not suppress the first real play after cold-start preview restoration.
+     */
+    private fun isMediaSourceLoadedFor(bookId: String): Boolean {
+        val mediaId = playbackManager?.currentMediaItem?.value?.mediaId ?: return false
+        return PlaybackMediaId.parse(mediaId)?.bookId == bookId
+    }
 
     fun seekTo(positionMs: Long, allowUndo: Boolean = false) {
         if (allowUndo) {

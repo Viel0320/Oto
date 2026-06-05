@@ -83,6 +83,10 @@ class PlaybackService : MediaSessionService() {
     // Notification Segment Reference List (Maintains track schemas exclusively for timeline calculations)
     private var notificationFiles: List<BookFileEntity> = emptyList()
 
+    // Active Playback IO Boundary (Separates initial media loading from runtime stream interruptions)
+    // The flag becomes true only after ExoPlayer reports actual playback, so pre-play source failures can surface directly without retry or skip recovery.
+    private var currentItemHasPlayed = false
+
     private var exitJob: Job? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -123,10 +127,21 @@ class PlaybackService : MediaSessionService() {
              listener = object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
                     PlaybackWorkflowLogger.error("playbackService player error: code=${error.errorCode}, message=${error.message}", error)
+                    val activePlayer = this@PlaybackService.player
+                    if (!currentItemHasPlayed) {
+                        // Initial Load Failure Branch (Report any pre-playback source error without entering IO recovery)
+                        // Applies regardless of saved progress because the current MediaItem has not produced playback in this load session.
+                        activePlayer?.let { failureHandler.handleInitialMediaLoadFailure(it, error) }
+                        updateWidgetState()
+                        return
+                    }
                     // Error Recovery Delegation (Routes server exceptions to the disaster recovery handler for track skipping)
                     if (failureHandler.isUnavailableMediaError(error)) {
-                        // Interactive Error Broadcast (Passes the mediaSession to allow broadcasting EVENT_TRACK_UNAVAILABLE command to connected controllers)
-                        this@PlaybackService.player?.let { failureHandler.handleUnavailableMediaItem(it, mediaSession) }
+                        activePlayer?.let { player ->
+                            // Runtime IO Recovery (Keep existing retry and skip rules only after playback has actually started)
+                            // Prevents first-load failures from marking tracks missing or entering skip dialogs before the user hears any media.
+                            failureHandler.handleUnavailableMediaItem(player, mediaSession)
+                        }
                     }
                     if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED) {
                         val cause = error.cause
@@ -145,12 +160,18 @@ class PlaybackService : MediaSessionService() {
 
                     // Lock State Reset (Clears track-skipping transition guard to allow fresh recovery runs)
                     failureHandler.clearSkipGuard()
+                    currentItemHasPlayed = false
                     updateNotificationTimeline(mediaItem)
                     // Transition Widget Synchronization (Triggers immediate widget update during track transition to reflect current metadata)
                     updateWidgetState()
                 }
  
                 override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_READY && this@PlaybackService.player?.isPlaying == true) {
+                        // Continuous Playback Start Detection (Covers item transitions where isPlaying stays true)
+                        // Marks the current item as runtime playback so later stream IO failures may use recovery rules.
+                        currentItemHasPlayed = true
+                    }
                     if (playbackState == Player.STATE_ENDED) {
                         // Playback Queue Finished (Prompts the user and schedules a safe 5-second delayed shutdown of the service)
                         exitJob?.cancel()
@@ -170,6 +191,9 @@ class PlaybackService : MediaSessionService() {
                 }
  
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (isPlaying) {
+                        currentItemHasPlayed = true
+                    }
                     // Audio Focus Delegation (Routes the active player state updates to keep system focus tracking in sync)
                     audioFocusManager.handlePlayerPlayingStateChanged(isPlaying)
                     // Playback Status Widget Synchronization (Reflects the changes of user-initiated play/pause toggles directly onto the widget)

@@ -34,6 +34,7 @@ import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.RoomDirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.VfsRangeCache
 import com.viel.aplayer.media.PlaybackFileLookup
+import com.viel.aplayer.media.PlaybackSourcePreflight
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.media.parser.MetadataResolver
@@ -100,6 +101,12 @@ interface AppContainer : java.io.Closeable {
      * Playback File Resolver (Lookup utility to associate media IDs with physical files)
      */
     val playbackFileLookup: PlaybackFileLookup
+
+    /**
+     * Playback Source Preflight (DB-only root lifecycle gate before media source creation)
+     * Reads persisted library root rows without opening files or probing remote endpoints.
+     */
+    val playbackSourcePreflight: PlaybackSourcePreflight
 
     /**
      * Playback Manager Instance (Singleton registry for media controller coordination)
@@ -389,6 +396,12 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         com.viel.aplayer.media.DefaultPlaybackFileLookup(
             database.bookDao()
         )
+    }
+
+    override val playbackSourcePreflight: PlaybackSourcePreflight by lazy {
+        // DB-Only Playback Gate (Keeps root preflight limited to persisted lifecycle state)
+        // Avoids SAF traversal, WebDAV requests, and ABS API calls before MediaController receives a real play request.
+        PlaybackSourcePreflight(database.libraryRootDao())
     }
 
     override val absCatalogSynchronizer: AbsCatalogSynchronizer by lazy {
