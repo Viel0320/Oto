@@ -1,92 +1,948 @@
-## 通用在线来源多级缓存层物理实现方案 (高性能与开闭原则演进)
+# APlayer 缓存层实施任务表
 
-基于 APlayer 的实际代码与业务特点，在线来源（包括但不限于 WebDAV、网络音频流等）的高频网络请求是导致扫描缓慢、播放首帧卡顿及封面加载延迟的主要瓶颈。
+<!-- Document Purpose (Implementation task breakdown) This document converts the cache-layer review into executable tasks with fixed scope, target files, acceptance criteria, and regression checks. -->
 
-为了实现系统的高可扩展性，**缓存层被设计为在通用 VFS 底层（即 `VirtualFileSystem` 和 `VfsFileInterface`）全局闭环处理，属于所有在线来源通用的核心架构件**，而非与特定的 `WebDavSourceProvider` 深度耦合。这完美贯彻了面向对象设计中的**“开闭原则（OCP）”**：底层网络 Provider 只需要负责最纯粹的网络通信与 PROPFIND 交互，不需要管理缓存的生存状态、md5 文件指纹或磁盘回收，所有缓存逻辑对 Provider 而言完全透明。
+日期：2026-06-05
 
-通用多级细粒度缓存系统的具体架构设计如下：
+本文只定义缓存层实施任务，不包含离线下载。任务按可回归阶段拆分，每个阶段完成后都能独立编译、独立测试、独立回退。
 
-```mermaid
-graph TD
-    VFS[VirtualFileSystem] --> CacheRouter{读请求类型}
+## 0. 结论边界
 
-    %% 目录元数据缓存
-    CacheRouter -->|1. 目录列表 / Resolve| MetaCache{Room 元数据缓存}
-    MetaCache -->|命中且未过期| ReturnMeta[直接返回文件属性清单]
-    MetaCache -->|未命中 / TTL过期| NetworkPropfind[发起 Provider 探测]
-    NetworkPropfind --> WriteMetaDB[(写入 Room 目录缓存表)]
-    WriteMetaDB --> ReturnMeta
+<!-- Boundary Summary (Prevent broad cache managers) This section fixes the cache ownership boundaries before listing implementation tasks, so each task stays close to its domain model. -->
 
-    %% 区间数据块缓存 (针对 206 Range)
-    CacheRouter -->|2. 小片段数据 readRange| RangeCache{VFS 通用 Range 块缓存}
-    RangeCache -->|块 Key 命中| ReturnBlock[直接返回 ByteArray]
-    RangeCache -->|块 Key 未命中| NetworkRange[发起 Provider GET Range]
-    NetworkRange --> WriteDisk[写入本地 cache/vfs_blocks/ 目录]
-    WriteDisk --> ReturnBlock
+当前代码不需要新增统一 `CacheManager`。缓存能力按领域边界拆开落地：
 
-    %% 大文件音频流分块缓存 (拥抱手动整文件缓存)
-    CacheRouter -->|3. 音频流 open / Seek| LocalCheck{该有声书是否已手动下载完成?}
-    LocalCheck -->|是: 离线模式| ReadLocalFile[直接物理桥接读取本地完整音频文件]
-    LocalCheck -->|否: 在线模式| OnlineBuffer[OkHttp 滑动窗口内存预缓冲 512KB]
-    ReadLocalFile --> ReturnStream[直接播放: 0流量 0延迟 支持任意Seek]
-    OnlineBuffer --> ReturnStream
+| 缓存方向 | 落地边界 | 不合并的对象 |
+| --- | --- | --- |
+| 封面失效 | `CoverCacheInvalidationPolicy` | 不合并 `CoverImageRequestFactory` 和 `AbsCoverCache` |
+| 目录扫描缓存 | `library/vfs/cache` + Room 目录子项表 | 不合并 ABS catalog mirror |
+| 缓存清理 | `CacheEvictionCoordinator` | 不接管扫描、同步、播放状态 |
+| 缓存观测 | `CacheDiagnosticsLogger` | 不替换领域 logger |
+| 小范围 Range 缓存 | `VfsRangeCache` + VFS readRange 装饰 | 不接播放主音频流 |
+
+固定禁止项：
+
+- 不新增 `CacheManager`、`AbsCacheManager`、`PlaybackCacheProvider`。
+- 不把播放整轨音频写入磁盘缓存。
+- 不把 ABS REST DTO 暴露给 UI 或播放层。
+- 不让 `AvailabilityChecker` 读取缓存结果；可用性检查继续穿透真实 provider。
+- 不在日志、缓存 key、文件名中写入 token、完整本地路径、完整远程 URL。
+
+## 1. 阶段总览
+
+<!-- Phase Overview (Regression-friendly order) This section orders the work by risk and dependency so every phase has a clear completion point. -->
+
+| 阶段 | 目标 | 任务 | 完成标准 |
+| --- | --- | --- | --- |
+| P1 | 封面失效规则收口 | COV-01 到 COV-04 | 现有封面更新时间规则集中，ABS 路径不变但远程版本变化时能刷新 UI key |
+| P2 | 目录扫描缓存落地 | DIR-01 到 DIR-06 | WebDAV 目录重复扫描可命中本地 children 快照，SAF 和 ABS 不走该缓存 |
+| P3 | 缓存清理协调 | EVICT-01 到 EVICT-05 | 删除 root 时先收集缓存路径，再级联删除数据，再清理相关缓存文件 |
+| P4 | 缓存观测汇总 | DIAG-01 到 DIAG-04 | directory/range/cover/absMirror 事件使用统一字段输出 |
+| P5 | VFS 小范围 Range 缓存试点 | RANGE-01 到 RANGE-07 | metadata/cover 小范围重复读取命中磁盘块缓存，播放流直通 |
+
+第一轮执行顺序固定为 P1、P2。P3 在 P2 后执行。P4 在 P2 或 P3 后执行。P5 最后执行。
+
+## 2. P1 封面失效规则收口
+
+<!-- P1 Scope (Cover invalidation policy) This phase extracts cover invalidation decisions into a policy object while continuing to use the existing BookEntity.lastScannedAt cache-version field. -->
+
+### COV-01 新增封面失效策略类
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/cache/CoverCacheInvalidationPolicy.kt`
+
+实施动作：
+
+1. 新增 `object CoverCacheInvalidationPolicy`。
+2. 新增函数：
+
+```kotlin
+fun resolveLastScannedAt(
+    existing: BookEntity?,
+    nextCoverPath: String?,
+    nextThumbnailPath: String?,
+    syncedAt: Long,
+    remoteVersionChanged: Boolean = false
+): Long
 ```
 
-### 7.1 第一级：通用元数据缓存 (Room 驱动 —— 免表级深度复用设计)
+3. 函数规则固定为：
 
-项目已建有的 `directory_cache`（映射 `DirectoryCacheEntity`）与 `book_files` 表在字段上高度完备，因此 `VirtualFileSystem` 框架直接进行无表级复用，实现面向所有在线 Provider 的通用扫描拦截：
+| 输入状态 | 返回值 |
+| --- | --- |
+| `existing == null` 且 `nextCoverPath` 或 `nextThumbnailPath` 非空 | `syncedAt` |
+| `existing == null` 且两个路径都为空 | `0L` |
+| `existing != null` 且 `coverPath` 变化 | `syncedAt` |
+| `existing != null` 且 `thumbnailPath` 变化 | `syncedAt` |
+| `existing != null` 且 `remoteVersionChanged == true` | `syncedAt` |
+| 其他状态 | `existing.lastScannedAt` |
 
-1. **深度复用已有的 `directory_cache` (秒级扫描拦截)**：
-   - 在后台重扫引擎调用 `VirtualFileSystem.listChildren` 前，VFS 统一在框架层拦截：优先查询 `directory_cache` 获取该在线目录缓存的 `lastModified` 和 `etag` 状态。
-   - VFS 仅让具体的在线 Provider 发起单次 Depth=0 的极轻量属性探测。若发现远程时间戳/Etag 与本地缓存**完全一致**，则说明该目录**未发生任何变动**。
-   - **扫描秒级拦截**：立即宣告该目录下的所有子项扫描命中，直接跳过整个目录树的遍历与解析。**这能避免 95% 以上不必要的网络 PROPFIND 请求，使扫描速度提升数十倍。**
+验收条件：
 
-2. **深度复用已有的 `book_files` (零网络寻址开销)**：
-   - 在 `VfsFileInterface` 通用读取热路径上，对于在线来源已入库的文件，直接从 `BookFileEntity` 内存直构 `VfsNode`，并跳过 `resolve` 发送 PROPFIND 寻址的过程，达成 0 网络延迟启动。
+- 策略类不访问 Room。
+- 策略类不下载封面。
+- 策略类不创建 Coil `ImageRequest`。
+- 策略类只依赖 `BookEntity`。
 
-3. **一键穿透控制自愈机制 (Force Refresh Control)**：
-   - 为了让可用性校验永远反映当前真实的物理健康状态（不吃任何预处理缓存），在 `VirtualFileSystem.resolve` 中引入了 `forceRefresh: Boolean = false` 一键穿透标志。
-   - **物理连通性与存在性优先**：当 `forceRefresh == true` 时，VFS 框架强制绕过 SQLite 数据库中已入库的 `book_files` 元数据免表缓存，物理穿透到底层具体 Provider。
-   - **检测器强刷**：`AvailabilityChecker` 在 `checkBookFile` 寻址、`checkVfsBookFiles` 目录拦截中强制注入 `forceRefresh = true`。这完全解决了元数据免表级复用对检测连通性的影响，保障在网络失效、文件物理删除等突发边界场景下，物理自愈和检测状态机永远校验当前真实的物理状况。
+回归验证：
 
-4. **物理寻址接口的唯一独占宿主**：
-   - 再次重申，由于应用不提供未入库文件的直接物理浏览功能，未开启穿透的 VFS `resolve` 寻址在运行期只由后台同步引擎独占，业务层在一般读取时 100% 达成 0 网络寻址延迟与绝对闭环。
+- 新增 `app/src/test/java/com/viel/aplayer/data/cache/CoverCacheInvalidationPolicyTest.kt`。
+- 运行 `.\gradlew.bat compileDebugKotlin`。
+- 运行包含 `CoverCacheInvalidationPolicyTest` 的 unit test。
 
-### 7.2 第二级：通用区间数据块缓存 (针对 206 Range 通用磁盘拦截)
+### COV-02 替换 ABS 同步里的封面失效函数
 
-解析远程在线音频的元数据帧（如 CUE 解析、外置字幕及嵌入式封面提取）时，需要多次对文件头部或尾部进行随机的 Range 读取。由于 OkHttp 默认 Cache 不对 `206 Partial Content` 响应进行磁盘缓存，本方案设计由 **VFS 能力层统一管理 Range 缓存网关**：
+目标文件：
 
-1. **缓存定位指纹 (Generic Cache Key)**：
-   VFS 通用块缓存生成不绑定 any 特定 Provider 的指纹：
+- `app/src/main/java/com/viel/aplayer/abs/sync/AbsCatalogSynchronizer.kt`
+- `app/src/test/java/com/viel/aplayer/abs/AbsCoverInvalidationRuleTest.kt`
 
-   ```kotlin
-   val cacheKey = md5("${rootId}_${sourcePath}_${etag.orEmpty()}_${offset}_$length")
-   ```
+实施动作：
 
-2. **战役边界与通用物理拦截 (应该怎么写)**：
-   - **剔除技术误区 (防范同生共死)**：必须指出，我们**绝不把**“对抗系统清理缓存后的封面自愈”作为块缓存的核心场景。因为如果 Android 系统清理了 `cacheDir` 下的缩略图（`covers/`），处于同目录下的 VFS 块缓存（`vfs_blocks/`）也已 100% 一并物理阵亡，不存在单独留存的物理条件。
-   - **界定 4 大真实的物理战役场景**：通用区间 Range 缓存的核心定位是为了完美拦截和保护以下 4 个特定的“高频并发/重入微读取”阶段：
-     - **【针对 CUE / M3U8 小清单文件】**
-       - **场景一：后台同步引擎在“扫描导入阶段”的章节抽取**：扫描期 `.cue`/`.m3u8` 等小文件尚未完成扫描和解析入库，`SourceInventoryScanner` 和 `CueManifestParser` 在进行增量认领和导入决策校验时，短时间内需要多次重入读取该文本。通用区间缓存保障该远程小文件在扫描期只被网络请求一次，后续的并发认领和比对直接命中本地 `vfs_blocks/`，彻底消除扫描期的重复网络交互。
-       - **场景二：手动触发“强制元数据与章节重建”时的网络防御**：当用户手动触发 `forceRegenerateCoverAndMetadata(bookId)` 执行数据重构时，系统需要废弃现有的 `ChapterEntity` 并重新去远程 VFS 提取最新分轨。若文件 Etag/修改时间戳未变，VFS 层 Range 缓存直接本地返回，避免因用户手动强刷而高频穿透网络拉取相同文本的开销。
-     - **【针对大音频容器的数据帧】**
-       - **场景三：后台多组件并发/重入解析的流量防御**：在重扫、导入或强制刷新元数据时，`SourceInventoryScanner`（重扫遍历）、`MetadataResolver`（音频头标签探测）与 `CoverRecoveryHelper`（封面物理重建）等多个组件会在极短时间（毫秒级）内并发、重复地去读取同一个大音频轨的头部标签帧（如前 32KB 盒子）。VFS 层的 Range 块缓存确保此 32KB 只发起一次网络拉取，其余并发组件的重入全部在 VFS 被拦截并秒级获取，消除网络队列阻塞。
-       - **场景四：在线 Seeking 容器头帧（如 MP4/M4A 头部）的高频微寻址保护**：在线流式播放时，用户高频在进度条进行拖动 (Seeking)、或者播放器因网络抖动发起自愈重连时，ExoPlayer 为了重新寻轨，需要高频、反复去微寻址并读取远程音频容器的音视频头部盒子。VFS 通用块缓存为此提供了微秒级的磁盘读取保护，免去高频发起 Range 头请求的网络时延。
-   - **通用物理拦截实现**：
-     - 磁盘缓存目录统一设在 Android 系统 `context.cacheDir` 的 `vfs_blocks/` 目录下。
-     - 在 VFS 统一拦截网关 `VirtualFileSystem.readRange(file, offset, length)` 执行时：
-       - **命中**：VFS 直接读取本地 `vfs_blocks/cacheKey` 临时文件，**不穿透网络，极速响应（0 网络流量）**。
-       - **未命中**：VFS 驱动底层在线 Provider 发起 Range 网络流拉取，数据获取后在 VFS 层写入本地 `vfs_blocks/cacheKey`，再交回上层元数据解析器。
-       - **LRU 淘汰**：由 VFS 底层统一采用 LRU 淘汰限制该目录容量为 100MB，避免各 Provider 自行维护导致磁盘爆满。
+1. 删除或停止使用 `resolveAbsCoverLastScannedAt()`。
+2. 在 `AbsCatalogSynchronizer.upsertItem()` 中调用 `CoverCacheInvalidationPolicy.resolveLastScannedAt()`。
+3. 在调用前计算 `remoteVersionChanged`：
+   - 读取当前 item 的 `item.updatedAt`。
+   - 读取当前 remote item 对应的 `AbsItemMirrorEntity.remoteUpdatedAt`。
+   - 两者都非空且数值不相等时，`remoteVersionChanged = true`。
+   - 其他状态为 `false`。
+4. `upsertItem()` 增加 `existingMirror: AbsItemMirrorEntity?` 参数。
+5. `syncRootInternal()` 调用 `upsertItem()` 时传入 `existingMirrors[remoteItemId]`。
+6. `AbsCoverInvalidationRuleTest` 改为验证新策略类，测试包名保持可编译。
 
-### 7.3 第三级：大音频轨文件的「离线物理桥接 + 通用在线滑动预缓冲」极简高性能设计
+验收条件：
 
-从产品的核心业务逻辑出发，音频流同样不应该在具体的 Provider 内部编写私有的分块缓存。大音频大轨流的读取在 VFS 层面进行统一的路由控制：
+- ABS 首次同步有封面路径时，`lastScannedAt = syncedAt`。
+- ABS 首次同步无封面路径时，`lastScannedAt = 0L`。
+- ABS 封面路径不变且 `item.updatedAt == existingMirror.remoteUpdatedAt` 时，保留旧 `lastScannedAt`。
+- ABS 封面路径不变且 `item.updatedAt != existingMirror.remoteUpdatedAt` 时，刷新为 `syncedAt`。
+- ABS 封面路径变化时，刷新为 `syncedAt`。
 
-1. **通用离线模式：VFS 物理文件底层桥接**：
-   - 当用户手动触发下载将任何有声书缓存落盘到本地沙盒目录（如 `context.filesDir/downloads/`）后，VFS 在 `open` 读取热路径上统一智能判定。
-   - 只要确认文件已下载完成，VFS 底层**自动桥接本地物理文件流，不再向具体的在线 Provider 发起网络链接**，实现 0 网络流量与绝对离线的任意 Seek 体验。
+回归验证：
 
-2. **通用在线模式：滑动窗口预缓冲 (Generic Sliding Buffer)**：
-   - 若在线音频文件未下载，VFS 统一降级为通过 OkHttp 滑动预缓冲 `BufferedSource` 发起请求，并在内存中开辟 **`512 KB`** 的统一滑动窗口（提供约 10 - 30 秒的极佳网络抖动抵御力）。
-   - **随机 Seek 与 OCP 通用性**：当播放器 Seek 定位时，由 VFS 框架将新 offset 转换为通用的 `Range: bytes=offset-` 字段传给具体的在线 Provider，Provider 仅需最纯粹地返回区间网络流，并在 VFS 层滑动窗口中平滑抖动，这完美平衡了网络抖动容忍度、系统内存占用与整机闪存寿命。
+- `.\gradlew.bat compileDebugKotlin`
+- `AbsCoverInvalidationRuleTest`
+- `AbsIncrementalStage6Test`
+- `AbsCatalogStage2Test`
+
+### COV-03 收口本地封面写入的更新时间规则
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/service/CoverService.kt`
+- `app/src/main/java/com/viel/aplayer/media/parser/CoverRecoveryHelper.kt`
+- `app/src/main/java/com/viel/aplayer/data/dao/BookDao.kt`
+
+实施动作：
+
+1. 检查 `BookDao.updateCoverPaths()` 的所有调用点。
+2. 所有成功写入本地封面路径的调用都传入 `System.currentTimeMillis()`。
+3. 所有未产生新封面路径的调用不更新 `lastScannedAt`。
+4. `CoverRecoveryHelper` 保留短窗口检查 key：`bookId + coverPath + thumbnailPath + lastScannedAt`。
+5. 不改 `CoverImageRequestFactory.cacheKey()`。
+
+验收条件：
+
+- 用户自定义封面保存成功后，UI key 中的 `lastUpdated` 变化。
+- 封面恢复成功后，UI key 中的 `lastUpdated` 变化。
+- 封面恢复失败后，`lastScannedAt` 不变化。
+- `CoverImageCacheRuleTest` 继续通过。
+
+回归验证：
+
+- `.\gradlew.bat compileDebugKotlin`
+- `CoverImageCacheRuleTest`
+
+### COV-04 固定不新增 `coverVersion` 字段
+
+目标文件：
+
+- `docs/cache.md`
+
+实施动作：
+
+1. 本阶段继续使用 `BookEntity.lastScannedAt` 作为封面 UI 缓存版本。
+2. 不修改 `BookEntity` schema。
+3. 不提升 Room database version。
+4. 不新增 migration。
+
+验收条件：
+
+- `BookEntity.kt` 没有新增 `coverVersion` 字段。
+- `AppDatabase.version` 不因 P1 变化。
+- P1 完成后只改变策略类、调用点和测试。
+
+回归验证：
+
+- `git diff -- app/src/main/java/com/viel/aplayer/data/entity/BookEntity.kt app/src/main/java/com/viel/aplayer/data/db/AppDatabase.kt`
+
+## 3. P2 目录扫描缓存落地
+
+<!-- P2 Scope (Directory listing cache) This phase adds a real directory children snapshot because the existing directory_cache table only stores directory state and cannot return child listings by itself. -->
+
+### DIR-01 新增目录子项缓存实体
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/entity/DirectoryChildCacheEntity.kt`
+- `app/src/main/java/com/viel/aplayer/data/db/AppDatabase.kt`
+
+实施动作：
+
+1. 新增 Room entity，表名固定为 `directory_child_cache`。
+2. 字段固定为：
+
+```kotlin
+@PrimaryKey val cacheKey: String
+val rootId: String
+val parentSourcePath: String
+val sourcePath: String
+val identity: String
+val parentIdentity: String
+val displayName: String
+val isDirectory: Boolean
+val fileSize: Long
+val lastModified: Long
+val etag: String?
+val mimeType: String?
+val cachedAt: Long
+```
+
+3. `cacheKey` 格式固定为：
+
+```text
+<rootId>|<parentSourcePath>|<sourcePath>
+```
+
+4. 增加外键：
+   - `rootId` 指向 `LibraryRootEntity.id`。
+   - `onDelete = CASCADE`。
+5. 增加索引：
+   - `Index("rootId", "parentSourcePath")`
+   - `Index("rootId")`
+6. `AppDatabase.entities` 加入该 entity。
+7. `AppDatabase.version` 增加 1。
+
+验收条件：
+
+- KSP 生成 Room 代码成功。
+- 删除 library root 时，`directory_child_cache` 对应记录级联删除。
+
+回归验证：
+
+- `.\gradlew.bat compileDebugKotlin`
+
+### DIR-02 新增目录子项缓存 DAO
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/dao/DirectoryChildCacheDao.kt`
+- `app/src/main/java/com/viel/aplayer/data/db/AppDatabase.kt`
+
+实施动作：
+
+1. 新增 DAO。
+2. DAO 方法固定为：
+
+```kotlin
+@Query("SELECT * FROM directory_child_cache WHERE rootId = :rootId AND parentSourcePath = :parentSourcePath ORDER BY displayName ASC")
+suspend fun getChildren(rootId: String, parentSourcePath: String): List<DirectoryChildCacheEntity>
+
+@Query("DELETE FROM directory_child_cache WHERE rootId = :rootId AND parentSourcePath = :parentSourcePath")
+suspend fun deleteChildren(rootId: String, parentSourcePath: String)
+
+@Insert(onConflict = OnConflictStrategy.REPLACE)
+suspend fun insertChildren(children: List<DirectoryChildCacheEntity>)
+
+@Transaction
+open suspend fun replaceChildren(rootId: String, parentSourcePath: String, children: List<DirectoryChildCacheEntity>)
+
+@Query("DELETE FROM directory_child_cache WHERE rootId = :rootId")
+suspend fun deleteByRootId(rootId: String)
+```
+
+3. `replaceChildren()` 先删除 parent 下旧记录，再插入新记录。
+4. `AppDatabase` 暴露 `directoryChildCacheDao()`。
+
+验收条件：
+
+- DAO 不包含模糊查询。
+- DAO 查询只按 `rootId + parentSourcePath` 返回子项。
+- DAO 不读取 `books` 或 `book_files`。
+
+回归验证：
+
+- `.\gradlew.bat compileDebugKotlin`
+
+### DIR-03 新增目录缓存映射器
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/vfs/cache/DirectoryCacheMapper.kt`
+
+实施动作：
+
+1. 新增 `DirectoryCacheMapper`。
+2. 提供 `SourceFileMetadata -> DirectoryChildCacheEntity` 映射。
+3. 提供 `DirectoryChildCacheEntity -> SourceFileMetadata` 映射。
+4. `parentSourcePath` 使用当前目录 `VfsNode.metadata.sourcePath`。
+5. `cachedAt` 使用写入时的 `System.currentTimeMillis()`。
+
+验收条件：
+
+- 映射保留 `sourcePath`、`identity`、`displayName`、`isDirectory`、`fileSize`、`lastModified`、`etag`、`mimeType`。
+- 映射不持有 provider 原生对象。
+- 映射不保存 URL 或 token。
+
+回归验证：
+
+- 新增 `DirectoryCacheMapperTest`。
+
+### DIR-04 新增 `RoomDirectoryListingCache`
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/vfs/cache/DirectoryListingCache.kt`
+- `app/src/main/java/com/viel/aplayer/library/vfs/cache/RoomDirectoryListingCache.kt`
+
+实施动作：
+
+1. 新增接口：
+
+```kotlin
+interface DirectoryListingCache {
+    suspend fun getChildren(directory: VfsNode): List<SourceFileMetadata>?
+    suspend fun replaceChildren(directory: VfsNode, children: List<SourceFileMetadata>)
+    suspend fun evictRoot(rootId: String)
+}
+```
+
+2. 新增 `NoOpDirectoryListingCache`。
+3. 新增 `RoomDirectoryListingCache`。
+4. `getChildren()` 只对 `LibrarySourceKind.WEBDAV` 返回缓存。
+5. `getChildren()` 对 `SAF` 和 `ABS` 固定返回 `null`。
+6. `replaceChildren()` 只对 `WEBDAV` 写入缓存。
+7. `replaceChildren()` 对 `SAF` 和 `ABS` 固定 no-op。
+
+验收条件：
+
+- SAF 不命中目录 children 缓存。
+- ABS 不命中目录 children 缓存。
+- WebDAV 可读取已写入 children 快照。
+
+回归验证：
+
+- 新增 `RoomDirectoryListingCacheTest`。
+- `.\gradlew.bat compileDebugKotlin`
+
+### DIR-05 接入 `VirtualFileSystem.listChildren()`
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/vfs/VirtualFileSystem.kt`
+
+实施动作：
+
+1. `VirtualFileSystem` 构造函数增加参数：
+
+```kotlin
+private val directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache
+```
+
+2. `listChildren(directory)` 执行顺序固定为：
+   - 调用 `directoryListingCache.getChildren(directory)`。
+   - 缓存返回非空列表时，把每个 `SourceFileMetadata` 包装成 `VfsNode` 返回。
+   - 缓存返回 `null` 时，调用 provider `listChildren()`。
+   - provider 成功返回后调用 `directoryListingCache.replaceChildren(directory, childMetadata)`。
+   - 返回 provider 结果包装成的 `VfsNode`。
+3. `exists()`、`openInputStream()`、`readRange()` 不接入该缓存。
+4. `AvailabilityChecker` 构造的 `VirtualFileSystem` 使用默认 `NoOpDirectoryListingCache`。
+
+验收条件：
+
+- 目录 children 缓存只影响 `listChildren()`。
+- 播放和 Range 读取不受目录缓存影响。
+- 可用性检查不受目录缓存影响。
+
+回归验证：
+
+- 新增 `VirtualFileSystemDirectoryListingCacheTest`。
+- `.\gradlew.bat compileDebugKotlin`
+
+### DIR-06 在扫描链路注入目录缓存
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/SourceInventoryScanner.kt`
+- `app/src/main/java/com/viel/aplayer/library/orchestrator/ScanSessionRunner.kt`
+- `app/src/main/java/com/viel/aplayer/data/service/ScanService.kt`
+- `app/src/main/java/com/viel/aplayer/AppContainer.kt`
+
+实施动作：
+
+1. `SourceInventoryScanner` 构造函数增加 `directoryListingCache: DirectoryListingCache` 参数。
+2. `SourceInventoryScanner` 创建 `VirtualFileSystem` 时传入该 cache。
+3. `ScanSessionRunner` 接收并传递 `DirectoryListingCache`。
+4. `ScanService` 从构造函数接收 `DirectoryListingCache`。
+5. `DefaultAppContainer` 新增 `RoomDirectoryListingCache` lazy 实例，依赖：
+   - `database.directoryChildCacheDao()`
+   - `DirectoryCacheMapper`
+6. `DefaultAppContainer.scanScheduler` 构造 `ScanService` 时传入 `RoomDirectoryListingCache`。
+7. `AvailabilityChecker` 不变。
+
+验收条件：
+
+- 只有扫描链路使用 `RoomDirectoryListingCache`。
+- 播放链路的 `vfsFileInterface` 仍不读取目录 children 缓存。
+- `SourceInventoryScanner` 测试能注入 `NoOpDirectoryListingCache`。
+
+回归验证：
+
+- `.\gradlew.bat compileDebugKotlin`
+- 手动执行一次 WebDAV root 扫描，第二次扫描日志出现 directory cache hit。
+- 手动执行一次 SAF root 扫描，日志不出现 SAF directory cache hit。
+
+## 4. P3 缓存清理协调
+
+<!-- P3 Scope (Eviction coordination) This phase centralizes cache cleanup around root deletion without taking over scan, sync, or playback responsibilities. -->
+
+### EVICT-01 新增缓存清理协调器
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/cache/CacheEvictionCoordinator.kt`
+
+实施动作：
+
+1. 新增 `CacheEvictionCoordinator` class。
+2. 构造参数固定为：
+
+```kotlin
+context: Context
+bookDao: BookDao
+directoryCacheDao: DirectoryCacheDao
+directoryChildCacheDao: DirectoryChildCacheDao
+```
+
+3. 新增函数：
+
+```kotlin
+suspend fun evictBeforeRootDelete(root: LibraryRootEntity): CacheEvictionSummary
+```
+
+4. 新增 `CacheEvictionSummary`，字段固定为：
+
+```kotlin
+val rootId: String
+val coverFilesDeleted: Int
+val directoryRowsDeleted: Boolean
+val directoryChildRowsDeleted: Boolean
+```
+
+验收条件：
+
+- 协调器不调用扫描。
+- 协调器不调用 ABS 同步。
+- 协调器不读取或修改播放状态。
+
+回归验证：
+
+- `.\gradlew.bat compileDebugKotlin`
+
+### EVICT-02 增加 root 下封面路径查询
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/dao/BookDao.kt`
+
+实施动作：
+
+1. 新增投影 data class：
+
+```kotlin
+data class BookCoverCachePaths(
+    val coverPath: String?,
+    val thumbnailPath: String?
+)
+```
+
+2. 新增 DAO 方法：
+
+```kotlin
+@Query("SELECT coverPath, thumbnailPath FROM books WHERE rootId = :rootId")
+suspend fun getCoverCachePathsByRootId(rootId: String): List<BookCoverCachePaths>
+```
+
+验收条件：
+
+- 查询只返回 coverPath 和 thumbnailPath。
+- 查询不返回书籍正文数据。
+
+回归验证：
+
+- `.\gradlew.bat compileDebugKotlin`
+
+### EVICT-03 清理 root 关联封面文件
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/cache/CacheEvictionCoordinator.kt`
+
+实施动作：
+
+1. 在删除 root 前调用 `bookDao.getCoverCachePathsByRootId(root.id)`。
+2. 收集非空 `coverPath` 和 `thumbnailPath`。
+3. 只删除满足以下条件的文件：
+   - 文件路径位于 `context.cacheDir/covers` 目录下。
+   - 文件真实存在。
+   - 文件是普通文件。
+4. 不删除 `cacheDir/covers` 目录本身。
+5. 不删除不在 `cacheDir/covers` 下的路径。
+
+验收条件：
+
+- 删除 root 不影响其他 root 的封面文件。
+- 外部路径不会被删除。
+- 缩略图和原图都能被统计。
+
+回归验证：
+
+- 新增 `CacheEvictionCoordinatorTest`。
+
+### EVICT-04 清理目录缓存表
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/cache/CacheEvictionCoordinator.kt`
+
+实施动作：
+
+1. 调用 `directoryCacheDao.deleteByRootId(root.id)`。
+2. 调用 `directoryChildCacheDao.deleteByRootId(root.id)`。
+3. `CacheEvictionSummary.directoryRowsDeleted` 固定返回 `true`。
+4. `CacheEvictionSummary.directoryChildRowsDeleted` 固定返回 `true`。
+
+验收条件：
+
+- root 删除前调用时，缓存表被清理。
+- root 删除后 Room 外键级联仍保留兜底。
+
+回归验证：
+
+- `CacheEvictionCoordinatorTest`
+- `.\gradlew.bat compileDebugKotlin`
+
+### EVICT-05 接入 root 删除链路
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/service/LibraryRootService.kt`
+- `app/src/main/java/com/viel/aplayer/AppContainer.kt`
+
+实施动作：
+
+1. `LibraryRootService` 构造函数增加 `cacheEvictionCoordinator: CacheEvictionCoordinator`。
+2. `deleteLibraryRootDataOnly(root)` 第一行调用 `cacheEvictionCoordinator.evictBeforeRootDelete(root)`。
+3. 调用完成后继续执行现有 root 数据删除逻辑。
+4. `DefaultAppContainer` 创建并注入 `CacheEvictionCoordinator`。
+
+验收条件：
+
+- `deleteLibraryRootDataOnly()` 中缓存清理发生在 Room root 删除前。
+- `DeleteLibraryRootUseCase` 不增加缓存清理逻辑。
+- 播放停止逻辑仍由 `DeleteLibraryRootUseCase` 处理。
+
+回归验证：
+
+- `.\gradlew.bat compileDebugKotlin`
+- 删除一个 SAF root。
+- 删除一个 WebDAV root。
+- 删除一个 ABS root。
+
+## 5. P4 缓存观测汇总
+
+<!-- P4 Scope (Diagnostics) This phase adds a cache-focused logger while preserving existing domain loggers. -->
+
+### DIAG-01 新增缓存诊断 logger
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/logger/CacheDiagnosticsLogger.kt`
+
+实施动作：
+
+1. 新增 `object CacheDiagnosticsLogger`。
+2. 新增统一函数：
+
+```kotlin
+fun logCacheEvent(
+    cacheType: String,
+    operation: String,
+    hit: Boolean?,
+    costMs: Long?,
+    sourceHash: String?,
+    sizeBytes: Long?,
+    detail: String? = null
+)
+```
+
+3. `cacheType` 固定枚举字符串：
+   - `directory`
+   - `range`
+   - `cover`
+   - `abs_mirror`
+4. 日志 tag 固定为 `APlayerCache`。
+
+验收条件：
+
+- 日志不包含完整路径。
+- 日志不包含完整 URL。
+- 日志不包含 token。
+
+回归验证：
+
+- `.\gradlew.bat compileDebugKotlin`
+
+### DIAG-02 接入目录缓存事件
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/vfs/cache/RoomDirectoryListingCache.kt`
+
+实施动作：
+
+1. `getChildren()` 命中时输出：
+   - `cacheType = "directory"`
+   - `operation = "getChildren"`
+   - `hit = true`
+2. `getChildren()` 未命中时输出 `hit = false`。
+3. `replaceChildren()` 输出：
+   - `operation = "replaceChildren"`
+   - `sizeBytes = children.size.toLong()`
+
+验收条件：
+
+- WebDAV 第二次扫描能看到 directory hit。
+- SAF 扫描不输出 directory hit。
+
+回归验证：
+
+- WebDAV 手动扫描两次。
+
+### DIAG-03 接入 ABS mirror 复用事件
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/abs/sync/AbsCatalogSynchronizer.kt`
+
+实施动作：
+
+1. 在 `selectAbsDetailCandidateIds()` 后输出一条 `abs_mirror` 事件。
+2. `operation = "selectDetailCandidates"`。
+3. `sizeBytes` 写入复用数量：
+
+```text
+minifiedItems.size - detailCandidateIds.size
+```
+
+验收条件：
+
+- ABS 增量同步时能看到复用数量。
+- 日志不输出 remote item id 原文。
+
+回归验证：
+
+- `AbsIncrementalStage6Test`
+
+### DIAG-04 接入封面缓存事件
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/ui/common/CoverImageRequestFactory.kt`
+- `app/src/main/java/com/viel/aplayer/logger/CoverImageCacheLogger.kt`
+
+实施动作：
+
+1. 保留 `CoverImageCacheLogger` 现有日志。
+2. 在 request success 时增加一条 `CacheDiagnosticsLogger.logCacheEvent()`。
+3. `cacheType = "cover"`。
+4. `operation = "decode"`。
+5. `hit` 根据 `decodeSource` 映射：
+   - memory cache 或 disk cache 为 `true`。
+   - file decode 为 `false`。
+6. `sourceHash` 使用现有 hash，不使用原始路径。
+
+验收条件：
+
+- 封面展示日志保留原有字段。
+- 新增缓存汇总日志能判断 hit/miss。
+
+回归验证：
+
+- `CoverImageCacheRuleTest`
+- 手动进入首页、详情页、播放页。
+
+## 6. P5 VFS 小范围 Range 缓存试点
+
+<!-- P5 Scope (Range cache pilot) This phase adds a bounded disk cache for metadata-sized range reads and explicitly keeps playback streams outside the cache. -->
+
+### RANGE-01 新增 Range 缓存 key
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/vfs/cache/VfsRangeCacheKey.kt`
+
+实施动作：
+
+1. 新增 data class：
+
+```kotlin
+data class VfsRangeCacheKey(
+    val rootIdHash: String,
+    val sourcePathHash: String,
+    val version: String,
+    val offset: Long,
+    val length: Int
+)
+```
+
+2. 新增 `toFileName()`：
+
+```text
+<rootIdHash>_<sourcePathHash>_<version>_<offset>_<length>.bin
+```
+
+3. `version` 规则固定为：
+   - `etag` 非空时使用 `etag` 的 hash。
+   - `etag` 为空时使用 `"${lastModified}_${fileSize}"` 的 hash。
+4. `length <= 0` 不生成 key。
+5. `offset < 0` 不生成 key。
+
+验收条件：
+
+- key 不包含原始 rootId。
+- key 不包含原始 sourcePath。
+- key 不包含完整 etag。
+
+回归验证：
+
+- 新增 `VfsRangeCacheKeyTest`。
+
+### RANGE-02 新增 Range 缓存文件存储
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/vfs/cache/VfsRangeCache.kt`
+
+实施动作：
+
+1. 缓存目录固定为 `context.cacheDir/vfs_range_cache`。
+2. 单块上限固定为 `64 * 1024` bytes。
+3. 总容量上限固定为 `64 * 1024 * 1024` bytes。
+4. 新增函数：
+
+```kotlin
+suspend fun read(key: VfsRangeCacheKey): ByteArray?
+suspend fun write(key: VfsRangeCacheKey, bytes: ByteArray)
+suspend fun evictRoot(rootIdHash: String)
+suspend fun trimToSize()
+```
+
+5. `write()` 对超过单块上限的数据固定 no-op。
+6. `write()` 使用临时文件写入，再原子替换目标文件。
+7. `trimToSize()` 按最后修改时间删除最旧文件。
+
+验收条件：
+
+- 读取不存在 key 返回 null。
+- 写入后读取返回同一 ByteArray。
+- 大于 64KB 的数据不写入。
+- 总目录超过 64MB 后会删除旧文件。
+
+回归验证：
+
+- 新增 `VfsRangeCacheTest`。
+
+### RANGE-03 新增 Range 缓存装饰器
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/vfs/cache/CachedRangeReader.kt`
+
+实施动作：
+
+1. 新增 class `CachedRangeReader`。
+2. 构造参数：
+
+```kotlin
+rangeCache: VfsRangeCache
+readRange: suspend (offset: Long, length: Int) -> ByteArray?
+```
+
+3. 新增函数：
+
+```kotlin
+suspend fun read(file: VfsNode, offset: Long, length: Int): ByteArray?
+```
+
+4. 执行顺序：
+   - 校验 provider capability `supportsRangeRead == true`。
+   - 生成 `VfsRangeCacheKey`。
+   - 先读 cache。
+   - cache miss 后调用 delegate `readRange`。
+   - delegate 返回非空且长度小于等于 64KB 时写 cache。
+   - 返回 delegate 结果。
+
+验收条件：
+
+- 不处理 `openInputStream()`。
+- 不处理播放 offset stream。
+- provider 不支持 range 时直接调用 delegate。
+
+回归验证：
+
+- 新增 `CachedRangeReaderTest`。
+
+### RANGE-04 接入元数据读取链路
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/vfs/VfsFileInterface.kt`
+- `app/src/main/java/com/viel/aplayer/AppContainer.kt`
+
+实施动作：
+
+1. `VfsFileInterface` 构造函数增加可空 `rangeCache: VfsRangeCache? = null`。
+2. `readRange(FileRef, offset, length)` 使用 `rangeCache` 包装读取。
+3. `readRange(BookFileEntity, offset, length)` 使用 `rangeCache` 包装读取。
+4. `open()` 和 `open(offset)` 保持原样。
+5. `DefaultAppContainer.vfsFileInterface` 传入 `VfsRangeCache(context.applicationContext)`。
+
+验收条件：
+
+- MetadataResolver 和 CoverRecoveryHelper 通过现有 `vfsFileInterface` 获得 Range 缓存。
+- `VfsPlaybackDataSource` 调用的 `open(file, offset)` 不走 Range 缓存。
+
+回归验证：
+
+- `.\gradlew.bat compileDebugKotlin`
+- MP4 metadata 解析测试。
+- 播放 seek 手动验证。
+
+### RANGE-05 接入 Range 缓存日志
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/library/vfs/cache/CachedRangeReader.kt`
+
+实施动作：
+
+1. cache hit 输出：
+   - `cacheType = "range"`
+   - `operation = "readRange"`
+   - `hit = true`
+2. cache miss 输出 `hit = false`。
+3. 写入成功输出 `operation = "writeRange"`。
+
+验收条件：
+
+- 同一 metadata 读取第二次出现 range hit。
+- 日志不包含完整 sourcePath。
+
+回归验证：
+
+- `CachedRangeReaderTest`
+
+### RANGE-06 接入清理协调器
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/data/cache/CacheEvictionCoordinator.kt`
+- `app/src/main/java/com/viel/aplayer/library/vfs/cache/VfsRangeCache.kt`
+
+实施动作：
+
+1. `CacheEvictionCoordinator` 构造函数增加 `vfsRangeCache: VfsRangeCache?`。
+2. `evictBeforeRootDelete()` 计算 `rootIdHash`。
+3. 调用 `vfsRangeCache.evictRoot(rootIdHash)`。
+4. `CacheEvictionSummary` 增加 `rangeFilesDeleted: Int`。
+
+验收条件：
+
+- 删除 root 时删除该 root 的 Range 缓存文件。
+- 不删除其他 root 的 Range 缓存文件。
+
+回归验证：
+
+- `CacheEvictionCoordinatorTest`
+- `VfsRangeCacheTest`
+
+### RANGE-07 固定不接播放流
+
+目标文件：
+
+- `app/src/main/java/com/viel/aplayer/media/VfsPlaybackDataSource.kt`
+
+实施动作：
+
+1. 不修改 `VfsPlaybackDataSource.open()` 的读取策略。
+2. 不在 `VfsPlaybackDataSource` 中引用 `VfsRangeCache`。
+3. 不在 `AbsSourceProvider.openInputStream()` 中写 Range 缓存。
+4. 不在 `WebDavSourceProvider.openInputStream()` 中写 Range 缓存。
+
+验收条件：
+
+- `git diff -- app/src/main/java/com/viel/aplayer/media/VfsPlaybackDataSource.kt` 不包含 Range 缓存接入。
+- 播放 seek 仍由 provider 处理。
+
+回归验证：
+
+- 手动播放 WebDAV 书籍并 seek。
+- 手动播放 ABS 书籍并 seek。
+
+## 7. 全局回归清单
+
+<!-- Global Regression Checklist (Final verification) This section lists the commands and manual checks that must run after completing the full task set. -->
+
+命令回归：
+
+```powershell
+.\gradlew.bat compileDebugKotlin
+.\gradlew.bat testDebugUnitTest
+```
+
+重点单测：
+
+- `CoverCacheInvalidationPolicyTest`
+- `AbsCoverInvalidationRuleTest`
+- `CoverImageCacheRuleTest`
+- `DirectoryCacheMapperTest`
+- `RoomDirectoryListingCacheTest`
+- `VirtualFileSystemDirectoryListingCacheTest`
+- `CacheEvictionCoordinatorTest`
+- `VfsRangeCacheKeyTest`
+- `VfsRangeCacheTest`
+- `CachedRangeReaderTest`
+
+手动回归：
+
+| 场景 | 验证点 |
+| --- | --- |
+| SAF root 扫描 | 不出现 directory cache hit；扫描结果正常 |
+| WebDAV root 连续扫描两次 | 第二次出现 directory cache hit；扫描结果不丢书 |
+| ABS 同步两次 | 未变化 item 复用 mirror；未变化封面不刷新 key |
+| ABS item updatedAt 变化 | 路径不变时刷新 `lastScannedAt` |
+| 本地封面恢复 | 成功后 UI 封面 key 刷新 |
+| 删除 root | 目录缓存、目录子项缓存、root 关联封面、Range 缓存被清理 |
+| MP4 元数据重复读取 | 第二次读取出现 range cache hit |
+| WebDAV 播放 seek | 播放流仍由 provider Range 处理 |
+| ABS 播放 seek | 播放流仍由 provider Range 处理 |
+
+最终审查：
+
+```powershell
+rg -n "CacheManager|AbsCacheManager|PlaybackCacheProvider" app\src\main\java
+rg -n "VfsRangeCache" app\src\main\java\com\viel\aplayer\media app\src\main\java\com\viel\aplayer\abs\vfs app\src\main\java\com\viel\aplayer\library\vfs\sourceProvider\webdav
+rg -n "token|Bearer" app\src\main\java\com\viel\aplayer\library\vfs\cache app\src\main\java\com\viel\aplayer\logger\CacheDiagnosticsLogger.kt
+```
