@@ -64,6 +64,13 @@ internal object AbsPlaybackLogger {
         )
     }
 
+    fun logSyncSkipped(bookId: String, sessionId: String, reason: String) {
+        AbsLogEmitter.debug(
+            TAG,
+            "sync skipped: bookId=${AbsLogSanitizer.shortId(bookId)}, sessionId=${AbsLogSanitizer.shortId(sessionId)}, reason=${AbsLogSanitizer.compact(reason, 64)}"
+        )
+    }
+
     fun logSyncSuccess(bookId: String, sessionId: String, costMs: Long) {
         AbsLogEmitter.debug(
             TAG,
@@ -82,6 +89,13 @@ internal object AbsPlaybackLogger {
         AbsLogEmitter.debug(
             TAG,
             "close start: bookId=${AbsLogSanitizer.shortId(bookId)}, sessionId=${AbsLogSanitizer.shortId(sessionId)}, currentTimeSec=$currentTimeSec, durationSec=$durationSec"
+        )
+    }
+
+    fun logCloseSkipped(bookId: String, sessionId: String, reason: String) {
+        AbsLogEmitter.debug(
+            TAG,
+            "close skipped: bookId=${AbsLogSanitizer.shortId(bookId)}, sessionId=${AbsLogSanitizer.shortId(sessionId)}, reason=${AbsLogSanitizer.compact(reason, 64)}"
         )
     }
 

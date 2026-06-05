@@ -11,17 +11,30 @@ import com.viel.aplayer.abs.net.dto.AbsPlayRequestDto
 import com.viel.aplayer.abs.net.dto.AbsPlaybackSessionDto
 import com.viel.aplayer.abs.net.dto.AbsStatusDto
 import com.viel.aplayer.abs.net.dto.AbsTrackDto
+import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.abs.playback.AbsPendingProgressSyncDao
 import com.viel.aplayer.abs.playback.AbsPendingProgressSyncEntity
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionDao
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionEntity
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
+import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.abs.sync.AbsCatalogStore
 import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
 import com.viel.aplayer.abs.sync.AbsSyncStateEntity
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
+import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.entity.ChapterWithBookFile
+import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.media.BookPlaybackPlan
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -94,6 +107,86 @@ class AbsPlaybackSessionStage4Test {
     }
 
     @Test
+    fun `sync should skip upload when remote progress conflicts`() = kotlinx.coroutines.runBlocking {
+        // Remote Conflict Upload Guard (Verifies live sync does not overwrite a divergent ABS checkpoint)
+        // The server position is intentionally far ahead of the local position, so the sync call must be skipped instead of queued or sent.
+        val book = absBook()
+        val api = SuccessfulPlaybackApi(remoteProgress = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 3000L))
+        val playbackSessionDao = FakePlaybackSessionDao().apply {
+            saved[book.id] = AbsPlaybackSessionEntity(
+                bookId = book.id,
+                remoteItemId = "item-1",
+                sessionId = "session-1",
+                currentTimeSec = 0.0,
+                timeListenedSec = 0.0,
+                state = "OPEN"
+            )
+        }
+        val pendingDao = FakePendingSyncDao()
+        val coordinator = conflictCoordinator(
+            api = api,
+            book = book,
+            localProgress = BookProgressEntity(bookId = book.id, globalPositionMs = 12_500L, lastPlayedAt = 2_000L)
+        )
+        val syncer = AbsPlaybackSessionSyncer(
+            apiClient = api,
+            absPlaybackSessionDao = playbackSessionDao,
+            absPendingProgressSyncDao = pendingDao,
+            catalogStore = FakeCatalogStore(),
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            progressConflictCoordinator = coordinator
+        )
+
+        syncer.syncProgress(
+            book = book,
+            progress = BookProgressEntity(bookId = book.id, globalPositionMs = 12_500L, lastPlayedAt = 2_000L),
+            durationMs = 200_000L
+        )
+
+        assertEquals(0, api.syncCallCount)
+        assertNull(pendingDao.getByBookId(book.id))
+    }
+
+    @Test
+    fun `pending flush should discard stale retry when remote progress conflicts`() = kotlinx.coroutines.runBlocking {
+        // Pending Conflict Disposal (Prevents stale retry payloads from overwriting newer server progress)
+        // Opening a new session flushes pending rows, and this test confirms the retry row is deleted once a real remote conflict is detected.
+        val book = absBook()
+        val api = SuccessfulPlaybackApi(remoteProgress = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 3000L))
+        val playbackSessionDao = FakePlaybackSessionDao()
+        val pendingDao = FakePendingSyncDao().apply {
+            insertOrReplace(
+                AbsPendingProgressSyncEntity(
+                    bookId = book.id,
+                    remoteItemId = "item-1",
+                    currentTimeSec = 12.5,
+                    timeListenedSec = 12.5,
+                    durationSec = 200.0,
+                    updatedAt = 2_000L
+                )
+            )
+        }
+        val coordinator = conflictCoordinator(
+            api = api,
+            book = book,
+            localProgress = BookProgressEntity(bookId = book.id, globalPositionMs = 12_500L, lastPlayedAt = 2_000L)
+        )
+        val syncer = AbsPlaybackSessionSyncer(
+            apiClient = api,
+            absPlaybackSessionDao = playbackSessionDao,
+            absPendingProgressSyncDao = pendingDao,
+            catalogStore = FakeCatalogStore(),
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            progressConflictCoordinator = coordinator
+        )
+
+        syncer.openSession(book, remoteItemId = "item-1")
+
+        assertEquals(0, api.syncCallCount)
+        assertNull(pendingDao.getByBookId(book.id))
+    }
+
+    @Test
     fun `conflict resolver should prefer remote only when newer and not currently playing`() {
         val resolver = AbsProgressConflictResolver()
         val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 1000L, lastPlayedAt = 2000L)
@@ -105,6 +198,23 @@ class AbsPlaybackSessionStage4Test {
         assertFalse(resolver.shouldApplyRemoteProgress(local, remoteNew, isCurrentlyPlaying = true))
     }
 
+    @Test
+    fun `conflict resolver should tolerate thirty seconds of progress drift`() {
+        // Thirty-Second Drift Tolerance (Documents the maximum accepted local-vs-remote progress delta)
+        // Exactly thirty seconds is treated as in-sync, while any larger delta requires explicit conflict handling.
+        val resolver = AbsProgressConflictResolver()
+        val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 60_000L, lastPlayedAt = 2_000L)
+
+        assertEquals(
+            AbsProgressConflictResolver.Decision.InSync,
+            resolver.resolve(local, AbsUserProgressDto(currentTime = 90.0, lastUpdate = 3_000L))
+        )
+        assertEquals(
+            AbsProgressConflictResolver.Decision.Conflict,
+            resolver.resolve(local, AbsUserProgressDto(currentTime = 90.001, lastUpdate = 3_000L))
+        )
+    }
+
     private fun absBook() = BookEntity(
         id = "abs:server:item:item-1",
         rootId = "root-1",
@@ -113,7 +223,23 @@ class AbsPlaybackSessionStage4Test {
         title = "ABS Book"
     )
 
-    private class SuccessfulPlaybackApi : AbsApiClient {
+    private fun conflictCoordinator(
+        api: AbsApiClient,
+        book: BookEntity,
+        localProgress: BookProgressEntity?
+    ) = AbsProgressConflictCoordinator(
+        // Conflict Coordinator Fixture (Assembles the production arbitration service with minimal fake gateways)
+        // The fakes provide only the progress and book snapshots needed by upload and pending-flush decisions.
+        apiClient = api,
+        bookQueryGateway = FakeBookQueryGateway(book),
+        progressGateway = FakeProgressGateway(localProgress),
+        credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") }
+    )
+
+    private class SuccessfulPlaybackApi(
+        private val remoteProgress: AbsUserProgressDto? = null
+    ) : AbsApiClient {
+        var syncCallCount = 0
         override suspend fun status(baseUrl: String) = AbsStatusDto(serverVersion = "2.35.1", isInit = true)
         override suspend fun login(baseUrl: String, username: String, password: String) = throw UnsupportedOperationException()
         override suspend fun authorize(baseUrl: String, token: String) =
@@ -121,9 +247,12 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun getLibraries(baseUrl: String, token: String) = emptyList<AbsLibraryDto>()
         override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String) = AbsLibraryItemsResponseDto()
         override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>) = emptyList<AbsLibraryItemDto>()
+        override suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? = remoteProgress
         override suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto) =
             AbsPlaybackSessionDto(id = "session-1", libraryItemId = itemId, audioTracks = listOf(AbsTrackDto(index = 1, contentUrl = "/hls/session-1/output.m3u8")))
-        override suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) = Unit
+        override suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) {
+            syncCallCount += 1
+        }
         override suspend fun closeSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) = Unit
     }
 
@@ -170,6 +299,55 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun replaceMirrors(mirrors: List<AbsItemMirrorEntity>) = Unit
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) = Unit
         override suspend fun updateBookStatus(bookId: String, status: String) = Unit
+    }
+
+    private class FakeBookQueryGateway(
+        private var book: BookEntity
+    ) : BookQueryGateway {
+        override val audiobooks: Flow<List<BookWithProgress>> = flowOf(emptyList())
+        override suspend fun getBookById(id: String): BookEntity? = book.takeIf { it.id == id }
+        override fun observeBookById(id: String): Flow<BookEntity?> = flowOf(book.takeIf { it.id == id })
+        override fun searchAudiobooks(query: String): Flow<List<BookWithProgress>> = flowOf(emptyList())
+        override fun filterByYear(year: String): Flow<List<BookWithProgress>> = flowOf(emptyList())
+        override fun filterByAuthor(author: String): Flow<List<BookWithProgress>> = flowOf(emptyList())
+        override fun filterByAuthorLimited(author: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>> = flowOf(emptyList())
+        override fun filterByNarrator(narrator: String): Flow<List<BookWithProgress>> = flowOf(emptyList())
+        override fun filterByNarratorLimited(narrator: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>> = flowOf(emptyList())
+        override fun getRecentlyAdded(limit: Int): Flow<List<BookWithProgress>> = flowOf(emptyList())
+        override fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<BookWithProgress>> = flowOf(emptyList())
+        override suspend fun deleteBook(bookId: String) = Unit
+        override suspend fun updateBookReadStatus(bookId: String, readStatus: String) {
+            if (book.id == bookId) book = book.copy(readStatus = readStatus)
+        }
+        override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String) = Unit
+        override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()
+        override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()
+        override fun observeLatestScanSession(): Flow<ScanSessionEntity?> = flowOf(null)
+        override suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = null
+        override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
+        override fun getChapters(bookId: String): Flow<List<ChapterWithBookFile>> = flowOf(emptyList())
+        override suspend fun getChaptersForBookSync(bookId: String): List<ChapterWithBookFile> = emptyList()
+        override fun saveChapters(bookId: String, chapters: List<ChapterEntity>) = Unit
+        override fun getBookmarks(bookId: String): Flow<List<BookmarkEntity>> = flowOf(emptyList())
+        override suspend fun addBookmark(bookId: String, position: Long, title: String) = Unit
+        override suspend fun updateBookmark(bookmark: BookmarkEntity) = Unit
+        override suspend fun deleteBookmark(bookmark: BookmarkEntity) = Unit
+    }
+
+    private class FakeProgressGateway(
+        private val localProgress: BookProgressEntity?
+    ) : ProgressGateway {
+        var savedProgress: BookProgressEntity? = null
+        override fun updateProgress(bookId: String, position: Long) = Unit
+        override suspend fun saveProgress(progress: BookProgressEntity) {
+            savedProgress = progress
+        }
+        override suspend fun getLastPlayedProgressSync(): BookProgressEntity? = localProgress
+        override suspend fun getProgressForBookSync(bookId: String): BookProgressEntity? =
+            localProgress?.takeIf { it.bookId == bookId }
+        override suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = true
+        override suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) = Unit
+        override suspend fun findNextAvailablePlaybackFile(bookId: String, afterQueueIndex: Int): Pair<Int, BookFileEntity>? = null
     }
 
     private class FailingSyncPlaybackApi : AbsApiClient {

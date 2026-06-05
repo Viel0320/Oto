@@ -59,6 +59,12 @@ class ProgressService(
         bookDao.getLastPlayedProgressSync()
     }
 
+    override suspend fun getProgressForBookSync(bookId: String): BookProgressEntity? = withContext(Dispatchers.IO) {
+        // Targeted Progress Fetch (Single-book conflict resolution lookup)
+        // Reads the exact local checkpoint required by ABS progress arbitration without routing through broad catalog flows.
+        bookDao.getProgressForBookSync(bookId)
+    }
+
     override suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = withContext(Dispatchers.IO) {
         // Access-Control Authorization Verification (Physical reachability audit)
         // Delegates to the reachability manager to verify permissions and physical existences before starting playback.

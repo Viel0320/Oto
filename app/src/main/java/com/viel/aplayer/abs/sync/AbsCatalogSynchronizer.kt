@@ -2,6 +2,7 @@ package com.viel.aplayer.abs.sync
 
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.mapping.AbsCatalogMapper
+import com.viel.aplayer.abs.mapping.AbsProgressConflictResolver
 import com.viel.aplayer.abs.mapping.AbsProgressMapper
 import com.viel.aplayer.abs.mapping.AbsRemoteIdMapper
 import com.viel.aplayer.abs.net.AbsApiClient
@@ -20,6 +21,7 @@ class AbsCatalogSynchronizer(
     private val coverCache: AbsCoverStore? = null,
     private val idMapper: AbsRemoteIdMapper = AbsRemoteIdMapper(),
     private val progressMapper: AbsProgressMapper = AbsProgressMapper(),
+    private val progressConflictResolver: AbsProgressConflictResolver = AbsProgressConflictResolver(),
     private val catalogMapper: AbsCatalogMapper = AbsCatalogMapper(idMapper, progressMapper),
     private val batchSize: Int = 20
 ) {
@@ -324,7 +326,7 @@ class AbsCatalogSynchronizer(
             syncedAt = now,
             remoteVersionChanged = remoteVersionChanged
         )
-        val book = catalogMapper.toBook(
+        val initialBook = catalogMapper.toBook(
             root = root,
             serverKey = serverKey,
             item = item,
@@ -337,7 +339,25 @@ class AbsCatalogSynchronizer(
         )
         val files = catalogMapper.toFiles(root, serverKey, item)
         val chapters = catalogMapper.toChapters(serverKey, item, files)
-        val progress = progressMapper.toProgressOrNull(item, book, files, now)
+        val localProgress = catalogStore.getProgressByBookId(initialBook.id)
+        val shouldApplyRemoteProgress = progressConflictResolver.shouldApplyRemoteProgress(
+            local = localProgress,
+            remote = item.progress,
+            isCurrentlyPlaying = false,
+            localReadStatus = existingBookEntity?.readStatus
+        )
+        // Remote Progress Adoption Gate (Avoids silent overwrite of divergent device progress during catalog sync)
+        // Catalog metadata can refresh freely, but remote progress is inserted only after the shared conflict resolver permits it.
+        val progress = if (shouldApplyRemoteProgress) {
+            progressMapper.toProgressOrNull(item, initialBook, files, now)
+        } else {
+            null
+        }
+        val book = if (progress == null && item.progress != null && existingBookEntity != null) {
+            initialBook.copy(readStatus = existingBookEntity.readStatus)
+        } else {
+            initialBook
+        }
         val mirror = AbsItemMirrorEntity(
             localBookId = book.id,
             rootId = root.id,

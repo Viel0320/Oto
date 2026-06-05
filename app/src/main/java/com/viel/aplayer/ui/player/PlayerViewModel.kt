@@ -6,7 +6,9 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.media.AutoRewindManager
 import com.viel.aplayer.media.PlaybackManager
@@ -48,6 +50,7 @@ class PlayerViewModel : ViewModel() {
     private var libraryFacade: com.viel.aplayer.data.LibraryFacade? = null
     private var settingsRepository: AppSettingsRepository? = null
     private var getRelatedBooksUseCase: GetRelatedBooksUseCase? = null
+    private var absProgressConflictCoordinator: AbsProgressConflictCoordinator? = null
     private var audioManager: AudioManager? = null
     
     private val _currentBookId = MutableStateFlow<String?>(null)
@@ -134,6 +137,41 @@ class PlayerViewModel : ViewModel() {
     fun dismissTrackUnavailableDialog() {
         _trackUnavailableDialog.value = TrackUnavailableDialogState()
     }
+
+    // =====================================================================
+    // ABS progress conflict states (To coordinate local-vs-server resume choices)
+    // =====================================================================
+
+    /**
+     * ABS Progress Conflict Dialog State (UI-safe representation of competing playback checkpoints)
+     * Keeps the dialog layer independent from ABS DTOs while preserving the exact positions needed for an explicit user choice.
+     */
+    data class AbsProgressConflictDialogState(
+        val show: Boolean = false,
+        val bookTitle: String = "",
+        val localPositionMs: Long? = null,
+        val remotePositionMs: Long = 0L,
+        val localUpdatedAt: Long? = null,
+        val remoteUpdatedAt: Long? = null,
+        val localFinished: Boolean = false,
+        val remoteFinished: Boolean = false
+    )
+
+    /**
+     * Pending Playback Request (Stores the original load command while the user selects progress authority)
+     * The request is replayed after a choice so the caller does not need to resend the same play action.
+     */
+    private data class PendingAbsProgressLoadRequest(
+        val bookId: String,
+        val playWhenReady: Boolean,
+        val requestStartMs: Long
+    )
+
+    private val _absProgressConflictDialog = MutableStateFlow(AbsProgressConflictDialogState())
+    val absProgressConflictDialogState: StateFlow<AbsProgressConflictDialogState> = _absProgressConflictDialog.asStateFlow()
+
+    private var pendingAbsProgressConflict: AbsProgressConflictCoordinator.ProgressConflict? = null
+    private var pendingAbsProgressLoadRequest: PendingAbsProgressLoadRequest? = null
 
     private var _lastDominantColor = ImageProcessor.DEFAULT_BACKGROUND_ARGB
 
@@ -328,6 +366,7 @@ class PlayerViewModel : ViewModel() {
         libraryFacade = facade
         val queryGateway = container.bookQueryGateway
         settingsRepository = container.settingsRepository
+        absProgressConflictCoordinator = container.absProgressConflictCoordinator
 
         getRelatedBooksUseCase = GetRelatedBooksUseCase(queryGateway)
         audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -460,6 +499,48 @@ class PlayerViewModel : ViewModel() {
             return
         }
 
+        viewModelScope.launch {
+            if (!prepareAbsProgressBeforeLoad(id, playWhenReady, loadBookRequestStart)) {
+                return@launch
+            }
+            loadBookAfterProgressDecision(id, playWhenReady, loadBookRequestStart)
+        }
+    }
+
+    /**
+     * Prepare ABS Progress Before Loading (Checks remote progress before mutating the active player target)
+     * Returns false when playback must wait for a user decision, preventing premature current-book switching on cancel.
+     */
+    private suspend fun prepareAbsProgressBeforeLoad(
+        id: String,
+        playWhenReady: Boolean,
+        loadBookRequestStart: Long
+    ): Boolean {
+        val coordinator = absProgressConflictCoordinator ?: return true
+        return when (val decision = coordinator.preparePlayback(id)) {
+            AbsProgressConflictCoordinator.PlaybackDecision.ContinueLocal -> true
+            is AbsProgressConflictCoordinator.PlaybackDecision.ApplyRemote -> {
+                coordinator.acceptRemoteProgress(decision.conflict)
+                true
+            }
+            is AbsProgressConflictCoordinator.PlaybackDecision.AskUser -> {
+                pendingAbsProgressConflict = decision.conflict
+                pendingAbsProgressLoadRequest = PendingAbsProgressLoadRequest(id, playWhenReady, loadBookRequestStart)
+                _absProgressConflictDialog.value = decision.conflict.toDialogState()
+                false
+            }
+        }
+    }
+
+    /**
+     * Continue Load After Progress Decision (Builds and applies playback plans after conflict arbitration)
+     * This keeps the normal local playback pipeline unchanged once the selected checkpoint has been persisted.
+     */
+    private suspend fun loadBookAfterProgressDecision(
+        id: String,
+        playWhenReady: Boolean,
+        loadBookRequestStart: Long
+    ) {
         // Evict previous track metadata (To prepare views for subsequent loading session)
         subtitleLoadJob?.cancel()
         _currentBookId.value = id
@@ -468,34 +549,92 @@ class PlayerViewModel : ViewModel() {
         settingsManager.dismissChapterList()
         settingsManager.dismissBookmarkDialog()
 
-        viewModelScope.launch {
-            val playbackPlanStart = SystemClock.elapsedRealtime()
-            val plan = libraryFacade?.getPlaybackPlan(id)
-            val playbackPlanCost = SystemClock.elapsedRealtime() - playbackPlanStart
-            com.viel.aplayer.logger.PlaybackTimingLogger.logPlaybackPlanBuild(
+        val playbackPlanStart = SystemClock.elapsedRealtime()
+        val plan = libraryFacade?.getPlaybackPlan(id)
+        val playbackPlanCost = SystemClock.elapsedRealtime() - playbackPlanStart
+        com.viel.aplayer.logger.PlaybackTimingLogger.logPlaybackPlanBuild(
+            bookId = id,
+            costMs = playbackPlanCost,
+            planReady = plan != null,
+            playWhenReady = playWhenReady
+        )
+        if (plan != null) {
+            val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
+            com.viel.aplayer.logger.PlaybackTimingLogger.logLoadBookReady(
                 bookId = id,
-                costMs = playbackPlanCost,
-                planReady = plan != null,
-                playWhenReady = playWhenReady
+                totalMs = totalCost,
+                fileCount = plan.files.size,
+                startPosition = plan.startGlobalPositionMs
             )
-            if (plan != null) {
-                val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
-                com.viel.aplayer.logger.PlaybackTimingLogger.logLoadBookReady(
-                    bookId = id,
-                    totalMs = totalCost,
-                    fileCount = plan.files.size,
-                    startPosition = plan.startGlobalPositionMs
-                )
-                playbackDelegate?.loadBook(plan, playWhenReady) { updateCoverPath(it) }
-            } else {
-                val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
-                com.viel.aplayer.logger.PlaybackTimingLogger.logLoadBookNoPlan(
-                    bookId = id,
-                    totalMs = totalCost
-                )
+            playbackDelegate?.loadBook(plan, playWhenReady) { updateCoverPath(it) }
+        } else {
+            val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
+            com.viel.aplayer.logger.PlaybackTimingLogger.logLoadBookNoPlan(
+                bookId = id,
+                totalMs = totalCost
+            )
+        }
+    }
+
+    /**
+     * Accept Local ABS Progress (Authorizes the device checkpoint for the pending playback request)
+     * The selection marks only the current ABS playback window as locally authoritative before replaying the deferred load.
+     */
+    fun acceptLocalAbsProgressConflict() {
+        val conflict = pendingAbsProgressConflict ?: return
+        val request = pendingAbsProgressLoadRequest ?: return
+        absProgressConflictCoordinator?.acceptLocalProgress(conflict.book.id)
+        clearPendingAbsProgressConflict()
+        viewModelScope.launch {
+            loadBookAfterProgressDecision(request.bookId, request.playWhenReady, request.requestStartMs)
+        }
+    }
+
+    /**
+     * Accept Remote ABS Progress (Persists the server checkpoint and replays the pending playback request)
+     * Failing to save the server checkpoint leaves the dialog open so the user can choose another authority instead of silently playing stale data.
+     */
+    fun acceptRemoteAbsProgressConflict() {
+        val conflict = pendingAbsProgressConflict ?: return
+        val request = pendingAbsProgressLoadRequest ?: return
+        val coordinator = absProgressConflictCoordinator ?: return
+        viewModelScope.launch {
+            runCatching {
+                coordinator.acceptRemoteProgress(conflict)
+            }.onSuccess {
+                clearPendingAbsProgressConflict()
+                loadBookAfterProgressDecision(request.bookId, request.playWhenReady, request.requestStartMs)
+            }.onFailure { error ->
+                sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("服务器进度写入本机失败：${error.message ?: "未知错误"}"))
             }
         }
     }
+
+    /**
+     * Dismiss ABS Progress Conflict (Cancels the deferred playback request)
+     * Closing the dialog intentionally avoids starting playback so neither side is overwritten by an accidental default choice.
+     */
+    fun dismissAbsProgressConflictDialog() {
+        clearPendingAbsProgressConflict()
+    }
+
+    private fun clearPendingAbsProgressConflict() {
+        pendingAbsProgressConflict = null
+        pendingAbsProgressLoadRequest = null
+        _absProgressConflictDialog.value = AbsProgressConflictDialogState()
+    }
+
+    private fun AbsProgressConflictCoordinator.ProgressConflict.toDialogState(): AbsProgressConflictDialogState =
+        AbsProgressConflictDialogState(
+            show = true,
+            bookTitle = book.title,
+            localPositionMs = localProgress?.globalPositionMs,
+            remotePositionMs = remoteProgress.globalPositionMs,
+            localUpdatedAt = localProgress?.lastPlayedAt,
+            remoteUpdatedAt = remoteProgress.lastPlayedAt,
+            localFinished = book.readStatus == AudiobookSchema.ReadStatus.FINISHED,
+            remoteFinished = remoteIsFinished == true
+        )
 
     fun deleteBookmark(bookmark: BookmarkEntity) = bookmarkManager?.deleteBookmark(bookmark)
     fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) = bookmarkManager?.updateBookmark(bookmark, newTitle)

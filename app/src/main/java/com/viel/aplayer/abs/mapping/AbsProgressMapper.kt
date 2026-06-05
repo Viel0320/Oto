@@ -1,6 +1,7 @@
 package com.viel.aplayer.abs.mapping
 
 import com.viel.aplayer.abs.net.dto.AbsLibraryItemDto
+import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
@@ -15,6 +16,19 @@ class AbsProgressMapper {
         syncedAt: Long
     ): BookProgressEntity? {
         val remote = item.progress ?: return null
+        return toProgress(remote, book, files, syncedAt)
+    }
+
+    /**
+     * Remote Progress Mapping (Converts ABS user progress into the local Room progress model)
+     * This mapper is shared by catalog sync and direct progress probes so both flows use identical unit conversion and file anchoring.
+     */
+    fun toProgress(
+        remote: AbsUserProgressDto,
+        book: BookEntity,
+        files: List<BookFileEntity>,
+        syncedAt: Long
+    ): BookProgressEntity {
         val globalPositionMs = ((remote.currentTime ?: 0.0) * 1000.0).toLong().coerceAtLeast(0L)
         val anchor = if (files.isNotEmpty()) {
             val (fileIndex, posInFile) = PositionMapper.globalToFilePosition(globalPositionMs, files)

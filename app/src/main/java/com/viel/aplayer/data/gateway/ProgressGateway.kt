@@ -32,6 +32,12 @@ interface ProgressGateway {
     suspend fun getLastPlayedProgressSync(): BookProgressEntity?
 
     /**
+     * Fetch Book Progress (Targeted progress lookup for a single audiobook)
+     * Provides conflict-resolution flows with the current local checkpoint without expanding the gateway into catalog queries.
+     */
+    suspend fun getProgressForBookSync(bookId: String): BookProgressEntity?
+
+    /**
      * Check Playback File Availability (VFS file system verification)
      * Validates physical reachability of the currently active audiobook track via VFS.
      */

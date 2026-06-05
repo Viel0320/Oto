@@ -30,6 +30,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.ScanResultDialog
 import com.viel.aplayer.ui.common.UiEvent
+import com.viel.aplayer.ui.common.formatDate
+import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailOverlay
@@ -376,6 +378,50 @@ fun APlayerApp(
                 // Track Unavailable Confirm Dialog (Avoid Interruptions)
                 // Secondary confirmation dialog for track unavailability, shown only when the full-screen player is expanded (isFullPlayerVisible) to prevent interrupting user interaction on other screens.
                 val trackUnavailableState by playerViewModel.trackUnavailableDialogState.collectAsStateWithLifecycle()
+                // ABS Progress Conflict Dialog State (Surface server-vs-device resume choices at the app shell)
+                // The dialog remains hosted near other one-shot player dialogs while all conflict resolution commands stay inside PlayerViewModel.
+                val absProgressConflictState by playerViewModel.absProgressConflictDialogState.collectAsStateWithLifecycle()
+                if (absProgressConflictState.show) {
+                    AlertDialog(
+                        onDismissRequest = { playerViewModel.dismissAbsProgressConflictDialog() },
+                        title = { Text("选择播放进度") },
+                        text = {
+                            Text(
+                                buildString {
+                                    append(absProgressConflictState.bookTitle.ifBlank { "当前书籍" })
+                                    append("\n\n本机进度：")
+                                    append(absProgressConflictState.localPositionMs?.let(::formatTime) ?: "无")
+                                    append(absFinishedSuffix(absProgressConflictState.localFinished))
+                                    absProgressConflictState.localUpdatedAt?.let { updatedAt ->
+                                        append("\n本机更新：")
+                                        append(formatDate(updatedAt))
+                                    }
+                                    append("\n\n服务器进度：")
+                                    append(formatTime(absProgressConflictState.remotePositionMs))
+                                    append(absFinishedSuffix(absProgressConflictState.remoteFinished))
+                                    absProgressConflictState.remoteUpdatedAt?.let { updatedAt ->
+                                        append("\n服务器更新：")
+                                        append(formatDate(updatedAt))
+                                    }
+                                }
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = { playerViewModel.acceptRemoteAbsProgressConflict() }
+                            ) {
+                                Text("使用服务器")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = { playerViewModel.acceptLocalAbsProgressConflict() }
+                            ) {
+                                Text("使用本机")
+                            }
+                        }
+                    )
+                }
                 if (trackUnavailableState.show && playerUiState.isFullPlayerVisible) {
                     AlertDialog(
                         onDismissRequest = { playerViewModel.dismissTrackUnavailableDialog() },
@@ -411,3 +457,10 @@ fun APlayerApp(
 }
 }
 }
+
+/**
+ * ABS Finished Label (Adds a compact semantic marker beside progress positions)
+ * Keeps the dialog text construction readable while making completed-vs-incomplete conflicts visible to users.
+ */
+private fun absFinishedSuffix(isFinished: Boolean): String =
+    if (isFinished) "（已完成）" else ""

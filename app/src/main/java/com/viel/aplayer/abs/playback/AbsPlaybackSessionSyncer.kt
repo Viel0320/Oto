@@ -14,7 +14,8 @@ class AbsPlaybackSessionSyncer(
     private val absPlaybackSessionDao: AbsPlaybackSessionDao,
     private val absPendingProgressSyncDao: AbsPendingProgressSyncDao,
     private val catalogStore: AbsCatalogStore,
-    private val credentialProvider: suspend (BookEntity) -> CredentialSnapshot?
+    private val credentialProvider: suspend (BookEntity) -> CredentialSnapshot?,
+    private val progressConflictCoordinator: AbsProgressConflictCoordinator? = null
 ) {
     suspend fun openSession(book: BookEntity, remoteItemId: String) {
         if (book.sourceType != AudiobookSchema.SourceType.ABS_REMOTE) {
@@ -52,7 +53,7 @@ class AbsPlaybackSessionSyncer(
             sessionId = requireNotNull(response.id),
             costMs = AbsPlaybackLogger.elapsedMs(start)
         )
-        flushPendingIfAny(book.id, credential)
+        flushPendingIfAny(book, credential)
     }
 
     suspend fun syncProgress(book: BookEntity, progress: BookProgressEntity, durationMs: Long) {
@@ -68,6 +69,36 @@ class AbsPlaybackSessionSyncer(
             currentTimeSec = currentTimeSec,
             durationSec = durationMs / 1000.0
         )
+        when (progressConflictCoordinator?.resolveUploadDecision(
+            book = book,
+            localProgress = progress,
+            credential = credential
+        ) ?: AbsProgressConflictCoordinator.UploadDecision.Allow) {
+            AbsProgressConflictCoordinator.UploadDecision.Allow -> Unit
+            AbsProgressConflictCoordinator.UploadDecision.Conflict -> {
+                AbsPlaybackLogger.logSyncSkipped(
+                    bookId = book.id,
+                    sessionId = session.sessionId,
+                    reason = "REMOTE_PROGRESS_CONFLICT"
+                )
+                return
+            }
+            AbsProgressConflictCoordinator.UploadDecision.RemoteProbeFailed -> {
+                insertPendingProgress(
+                    bookId = book.id,
+                    remoteItemId = session.remoteItemId,
+                    currentTimeSec = currentTimeSec,
+                    timeListenedSec = timeListenedSec,
+                    durationSec = durationMs / 1000.0
+                )
+                AbsPlaybackLogger.logSyncSkipped(
+                    bookId = book.id,
+                    sessionId = session.sessionId,
+                    reason = "REMOTE_PROGRESS_PROBE_FAILED"
+                )
+                return
+            }
+        }
         runCatching {
             apiClient.syncSession(
                 baseUrl = credential.baseUrl,
@@ -90,15 +121,12 @@ class AbsPlaybackSessionSyncer(
                 costMs = AbsPlaybackLogger.elapsedMs(start)
             )
         }.onFailure {
-            absPendingProgressSyncDao.insertOrReplace(
-                AbsPendingProgressSyncEntity(
-                    bookId = book.id,
-                    remoteItemId = session.remoteItemId,
-                    currentTimeSec = currentTimeSec,
-                    timeListenedSec = timeListenedSec,
-                    durationSec = durationMs / 1000.0,
-                    updatedAt = System.currentTimeMillis()
-                )
+            insertPendingProgress(
+                bookId = book.id,
+                remoteItemId = session.remoteItemId,
+                currentTimeSec = currentTimeSec,
+                timeListenedSec = timeListenedSec,
+                durationSec = durationMs / 1000.0
             )
             // Local Progress Truth (Log sync state as pending on network failure)
             // When remote synchronization fails, the local playback progress remains the single source of truth.
@@ -126,6 +154,42 @@ class AbsPlaybackSessionSyncer(
             currentTimeSec = currentTimeSec,
             durationSec = durationMs / 1000.0
         )
+        when (progress?.let { localProgress ->
+            progressConflictCoordinator?.resolveUploadDecision(
+                book = book,
+                localProgress = localProgress,
+                credential = credential
+            )
+        } ?: AbsProgressConflictCoordinator.UploadDecision.Allow) {
+            AbsProgressConflictCoordinator.UploadDecision.Allow -> Unit
+            AbsProgressConflictCoordinator.UploadDecision.Conflict -> {
+                AbsPlaybackLogger.logCloseSkipped(
+                    bookId = book.id,
+                    sessionId = session.sessionId,
+                    reason = "REMOTE_PROGRESS_CONFLICT"
+                )
+                absPlaybackSessionDao.deleteByBookId(book.id)
+                progressConflictCoordinator?.clearLocalOverride(book.id)
+                return
+            }
+            AbsProgressConflictCoordinator.UploadDecision.RemoteProbeFailed -> {
+                insertPendingProgress(
+                    bookId = book.id,
+                    remoteItemId = session.remoteItemId,
+                    currentTimeSec = currentTimeSec,
+                    timeListenedSec = timeListenedSec,
+                    durationSec = durationMs / 1000.0
+                )
+                AbsPlaybackLogger.logCloseSkipped(
+                    bookId = book.id,
+                    sessionId = session.sessionId,
+                    reason = "REMOTE_PROGRESS_PROBE_FAILED"
+                )
+                absPlaybackSessionDao.deleteByBookId(book.id)
+                progressConflictCoordinator?.clearLocalOverride(book.id)
+                return
+            }
+        }
         runCatching {
             apiClient.closeSession(
                 baseUrl = credential.baseUrl,
@@ -141,15 +205,12 @@ class AbsPlaybackSessionSyncer(
                 costMs = AbsPlaybackLogger.elapsedMs(start)
             )
         }.onFailure {
-            absPendingProgressSyncDao.insertOrReplace(
-                AbsPendingProgressSyncEntity(
-                    bookId = book.id,
-                    remoteItemId = session.remoteItemId,
-                    currentTimeSec = currentTimeSec,
-                    timeListenedSec = timeListenedSec,
-                    durationSec = durationMs / 1000.0,
-                    updatedAt = System.currentTimeMillis()
-                )
+            insertPendingProgress(
+                bookId = book.id,
+                remoteItemId = session.remoteItemId,
+                currentTimeSec = currentTimeSec,
+                timeListenedSec = timeListenedSec,
+                durationSec = durationMs / 1000.0
             )
             AbsPlaybackLogger.logClosePending(
                 bookId = book.id,
@@ -160,9 +221,11 @@ class AbsPlaybackSessionSyncer(
             )
         }
         absPlaybackSessionDao.deleteByBookId(book.id)
+        progressConflictCoordinator?.clearLocalOverride(book.id)
     }
 
-    private suspend fun flushPendingIfAny(bookId: String, credential: CredentialSnapshot) {
+    private suspend fun flushPendingIfAny(book: BookEntity, credential: CredentialSnapshot) {
+        val bookId = book.id
         val pending = absPendingProgressSyncDao.getByBookId(bookId)
         if (pending == null) {
             AbsPlaybackLogger.logFlushPendingSkipped(bookId = bookId, reason = "NO_PENDING")
@@ -172,6 +235,24 @@ class AbsPlaybackSessionSyncer(
         if (session == null) {
             AbsPlaybackLogger.logFlushPendingSkipped(bookId = bookId, reason = "NO_SESSION")
             return
+        }
+        when (val decision = progressConflictCoordinator?.resolveUploadDecision(
+            book = book,
+            localProgress = pending.toProgressEntity(),
+            credential = credential
+        ) ?: AbsProgressConflictCoordinator.UploadDecision.Allow) {
+            AbsProgressConflictCoordinator.UploadDecision.Allow -> Unit
+            AbsProgressConflictCoordinator.UploadDecision.Conflict -> {
+                // Pending Conflict Disposal (Drops stale retry data after confirming the server has diverged)
+                // A pending upload represents an old automatic retry, so once a conflict is known it must not overwrite newer server progress.
+                absPendingProgressSyncDao.deleteByBookId(bookId)
+                AbsPlaybackLogger.logFlushPendingSkipped(bookId = bookId, reason = "REMOTE_PROGRESS_CONFLICT")
+                return
+            }
+            AbsProgressConflictCoordinator.UploadDecision.RemoteProbeFailed -> {
+                AbsPlaybackLogger.logFlushPendingSkipped(bookId = bookId, reason = "REMOTE_PROGRESS_PROBE_FAILED")
+                return
+            }
         }
         val start = AbsPlaybackLogger.mark()
         AbsPlaybackLogger.logFlushPendingStart(bookId = bookId, sessionId = session.sessionId)
@@ -200,6 +281,40 @@ class AbsPlaybackSessionSyncer(
             )
         }
     }
+
+    /**
+     * Pending Progress Insert (Persists local upload attempts that could not be safely sent)
+     * This helper keeps sync, close, and probe-failure paths writing identical retry payloads.
+     */
+    private suspend fun insertPendingProgress(
+        bookId: String,
+        remoteItemId: String,
+        currentTimeSec: Double,
+        timeListenedSec: Double,
+        durationSec: Double
+    ) {
+        absPendingProgressSyncDao.insertOrReplace(
+            AbsPendingProgressSyncEntity(
+                bookId = bookId,
+                remoteItemId = remoteItemId,
+                currentTimeSec = currentTimeSec,
+                timeListenedSec = timeListenedSec,
+                durationSec = durationSec,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    /**
+     * Pending Progress Projection (Reconstructs a local checkpoint for retry arbitration)
+     * Pending rows only store ABS seconds, so the conflict coordinator receives a minimal progress entity in local millisecond units.
+     */
+    private fun AbsPendingProgressSyncEntity.toProgressEntity(): BookProgressEntity =
+        BookProgressEntity(
+            bookId = bookId,
+            globalPositionMs = (currentTimeSec * 1000.0).toLong().coerceAtLeast(0L),
+            lastPlayedAt = updatedAt
+        )
 
     data class CredentialSnapshot(
         val baseUrl: String,

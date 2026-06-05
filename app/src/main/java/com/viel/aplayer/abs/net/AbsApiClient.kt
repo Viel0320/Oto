@@ -13,6 +13,7 @@ import com.viel.aplayer.abs.net.dto.AbsLoginResponseDto
 import com.viel.aplayer.abs.net.dto.AbsPlayRequestDto
 import com.viel.aplayer.abs.net.dto.AbsPlaybackSessionDto
 import com.viel.aplayer.abs.net.dto.AbsStatusDto
+import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.logger.AbsAuthLogger
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +42,11 @@ interface AbsApiClient {
     suspend fun getLibraries(baseUrl: String, token: String): List<AbsLibraryDto>
     suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String): AbsLibraryItemsResponseDto
     suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>): List<AbsLibraryItemDto>
+    /**
+     * Remote Progress Probe (Reads the user's item progress without mutating playback session state)
+     * Implementations should return null for ABS 404 responses because a missing remote progress record is a valid no-progress state.
+     */
+    suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? = null
     suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto): AbsPlaybackSessionDto
     suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double)
     suspend fun closeSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double)
@@ -59,6 +65,7 @@ class RealAbsApiClient(
     private val librariesAdapter: JsonAdapter<AbsLibrariesResponseDto> = moshi.adapter(AbsLibrariesResponseDto::class.java)
     private val libraryItemsAdapter: JsonAdapter<AbsLibraryItemsResponseDto> = moshi.adapter(AbsLibraryItemsResponseDto::class.java)
     private val batchGetItemsAdapter: JsonAdapter<AbsBatchGetItemsResponseDto> = moshi.adapter(AbsBatchGetItemsResponseDto::class.java)
+    private val progressAdapter: JsonAdapter<AbsUserProgressDto> = moshi.adapter(AbsUserProgressDto::class.java)
     private val playbackSessionAdapter: JsonAdapter<AbsPlaybackSessionDto> = moshi.adapter(AbsPlaybackSessionDto::class.java)
     private val playRequestAdapter: JsonAdapter<AbsPlayRequestDto> = moshi.adapter(AbsPlayRequestDto::class.java)
 
@@ -154,6 +161,31 @@ class RealAbsApiClient(
                 .build(),
             adapter = batchGetItemsAdapter
         ).libraryItems.orEmpty()
+    }
+
+    override suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? {
+        return runCatching {
+            executeJson(
+                request = Request.Builder()
+                    .url(
+                        resolveApiUrl(baseUrl, "me")
+                            .newBuilder()
+                            .addPathSegment("progress")
+                            .addPathSegment(itemId)
+                            .build()
+                    )
+                    .get()
+                    .header("Authorization", bearer(token))
+                    .build(),
+                adapter = progressAdapter
+            )
+        }.getOrElse { error ->
+            if (error is AbsApiError && error.httpStatus == 404) {
+                null
+            } else {
+                throw error
+            }
+        }
     }
 
     override suspend fun openPlaybackSession(

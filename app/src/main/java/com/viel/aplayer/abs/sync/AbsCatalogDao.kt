@@ -12,6 +12,11 @@ import com.viel.aplayer.data.entity.ChapterEntity
 
 interface AbsCatalogStore {
     suspend fun getBookById(bookId: String): BookEntity?
+    /**
+     * Local Progress Lookup (Reads the current device checkpoint for ABS conflict checks)
+     * Defaulting to null keeps lightweight test stores compatible while the Room DAO provides the real implementation.
+     */
+    suspend fun getProgressByBookId(bookId: String): BookProgressEntity? = null
     suspend fun getMirrorsByRootId(rootId: String): List<AbsItemMirrorEntity>
     suspend fun getSyncState(rootId: String): AbsSyncStateEntity?
     suspend fun upsertCatalogMirror(
@@ -31,6 +36,9 @@ interface AbsCatalogStore {
 abstract class AbsCatalogDao : AbsCatalogStore {
     @Query("SELECT * FROM books WHERE id = :bookId")
     abstract override suspend fun getBookById(bookId: String): BookEntity?
+
+    @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
+    abstract override suspend fun getProgressByBookId(bookId: String): BookProgressEntity?
 
     @Query("SELECT * FROM abs_item_mirror WHERE rootId = :rootId")
     abstract override suspend fun getMirrorsByRootId(rootId: String): List<AbsItemMirrorEntity>

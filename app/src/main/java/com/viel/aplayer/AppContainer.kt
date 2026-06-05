@@ -6,6 +6,7 @@ import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.RealAbsApiClient
 import com.viel.aplayer.abs.playback.AbsPlaybackCredentialResolver
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
+import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsCoverCache
 import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
@@ -127,6 +128,12 @@ interface AppContainer : java.io.Closeable {
      * Restricts operations to play/sync/close events, keeping local database records as the source of truth.
      */
     val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer
+
+    /**
+     * ABS Progress Conflict Coordinator (Remote/local progress arbitration service)
+     * Provides playback prompts and upload guards without leaking ABS protocol details into generic progress services.
+     */
+    val absProgressConflictCoordinator: AbsProgressConflictCoordinator
 
     /**
      * Application-Level ABS Sync Coordinator (Coordinates background server synchronization)
@@ -393,13 +400,23 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
+    override val absProgressConflictCoordinator: AbsProgressConflictCoordinator by lazy {
+        AbsProgressConflictCoordinator(
+            apiClient = absApiClient,
+            bookQueryGateway = bookQueryGateway,
+            progressGateway = progressGateway,
+            credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) }
+        )
+    }
+
     override val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer by lazy {
         AbsPlaybackSessionSyncer(
             apiClient = absApiClient,
             absPlaybackSessionDao = database.absPlaybackSessionDao(),
             absPendingProgressSyncDao = database.absPendingProgressSyncDao(),
             catalogStore = database.absCatalogDao(),
-            credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) }
+            credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) },
+            progressConflictCoordinator = absProgressConflictCoordinator
         )
     }
 

@@ -22,7 +22,8 @@ class AbsCatalogMapper(
         lastScannedAt: Long = existing?.lastScannedAt ?: 0L,
         coverPath: String? = existing?.coverPath,
         thumbnailPath: String? = existing?.thumbnailPath,
-        backgroundColorArgb: Int? = existing?.backgroundColorArgb
+        backgroundColorArgb: Int? = existing?.backgroundColorArgb,
+        readStatusOverride: String? = null
     ): BookEntity {
         val title = item.media?.metadata?.title
             ?: item.title
@@ -58,7 +59,9 @@ class AbsCatalogMapper(
             // If no changes have occurred, the existing timestamp is retained, avoiding invalidation of the local cover image cache.
             lastScannedAt = lastScannedAt,
             status = AudiobookSchema.BookStatus.READY,
-            readStatus = progressMapper.toReadStatus(item, existing)
+            // Remote Progress Read Status Gate (Keeps catalog metadata sync from silently accepting divergent server progress)
+            // Callers may override readStatus with the existing local state when progress conflict resolution rejects the remote candidate.
+            readStatus = readStatusOverride ?: progressMapper.toReadStatus(item, existing)
         )
     }
 
