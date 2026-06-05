@@ -68,11 +68,13 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
+import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.home.components.AudiobookActionDialogs
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.home.components.RecentlyAddedSection
+import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 
 /**
@@ -92,6 +94,20 @@ fun HomeScreenContent(
     selectedFilter: HomeFilter? = null,
     groupedByAuthor: Map<String, List<BookWithProgress>> = emptyMap(),
     recentBooks: List<BookWithProgress> = emptyList(),
+    /*
+     * Active Recent Detail Book Id (Recent-card source visibility selector)
+     *
+     * Carries only the visible detail target opened from Recent so the horizontal card source
+     * exits independently from the main Home list thumbnail for the same book.
+     */
+    activeRecentDetailBookId: String? = null,
+    /*
+     * Active List Detail Book Id (Main-list source visibility selector)
+     *
+     * Carries only the visible detail target opened from the main catalog list so list cover
+     * animation never hides or binds the Recent card for the same audiobook.
+     */
+    activeListDetailBookId: String? = null,
     shouldShowRecentBooks: Boolean = false,
     @StringRes recentTitleRes: Int = 0,
     glassEffectMode: GlassEffectMode,
@@ -100,7 +116,7 @@ fun HomeScreenContent(
     onFilterSelected: (HomeFilter) -> Unit = {},
     onNavigateToSearch: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToDetail: (String) -> Unit = {},
+    onNavigateToDetail: (String, DetailEntrySource) -> Unit = { _, _ -> },
     onNavigateToPlayer: () -> Unit = {},
     onLoadBook: (String) -> Unit = {},
     onLibraryRootSelected: (Uri) -> Unit = {},
@@ -161,7 +177,7 @@ fun HomeScreenContent(
     // Only Haze mode registers the home page full content as sampling source; Material mode skips it to save rendering cost.
     val blurSourceModifier = if (glassEffectMode == GlassEffectMode.Haze) {
         // Setup HomeScreen Haze (Apply haze modifier to container to make it a blur source)
-        Modifier.haze(homeHazeState)
+        Modifier.hazeSource(homeHazeState)
     } else {
         Modifier
     }
@@ -308,10 +324,19 @@ fun HomeScreenContent(
                         RecentlyAddedSection(
                             recentTitle = recentTitle,
                             recentBooks = recentBooks,
+                            activeDetailBookId = activeRecentDetailBookId,
                             recentListState = recentListState,
                             glassEffectMode = glassEffectMode,
                             screenHorizontalPadding = screenHorizontalPadding,
-                            onNavigateToDetail = onNavigateToDetail,
+                            /*
+                             * Recent Detail Entry Routing (Recent motion source tagging)
+                             *
+                             * Marks this click as a Recent-origin detail entry so only the horizontal
+                             * recent-card shared-element channel becomes active.
+                             */
+                            onNavigateToDetail = { bookId ->
+                                onNavigateToDetail(bookId, DetailEntrySource.HomeRecent)
+                            },
                             onBookLongClick = { activeBookForMenu = it }
                         )
                     }
@@ -346,6 +371,7 @@ fun HomeScreenContent(
                         }
 
                         ListItem(
+                            bookId = book.book.id,
                             title = book.book.title,
                             author = book.book.author,
                             narrator = book.book.narrator,
@@ -358,7 +384,21 @@ fun HomeScreenContent(
                             ),
                             coverLastUpdated = book.book.lastScannedAt, // Bridge scan/self-healing milliseconds timestamp in Room layer, using declarative design to force synchronous image refreshing
                             progressPercent = book.progressPercent,
-                            onClick = { onNavigateToDetail(book.book.id) },
+                            /*
+                             * List Detail Source Activity (Main-list source visibility trigger)
+                             *
+                             * Activates only when this book was opened from the main Home list,
+                             * keeping matching Recent cards visible and out of this transition.
+                             */
+                            isDetailTargetActive = book.book.id == activeListDetailBookId,
+                            /*
+                             * List Detail Shared Element Key (Main-list channel binding)
+                             *
+                             * Uses the list-specific key so Home list artwork cannot pair with
+                             * Recent cards that may show the same book ID.
+                             */
+                            sharedElementKey = SharedElementKeys.homeList2DetailCover(book.book.id),
+                            onClick = { onNavigateToDetail(book.book.id, DetailEntrySource.HomeList) },
                             // Long-press book item records current book state to activeBookForMenu to invoke action Dialog menu
                             onLongClick = { activeBookForMenu = book },
                             modifier = itemModifier

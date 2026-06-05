@@ -97,7 +97,6 @@ fun DetailContent(
     modifier: Modifier = Modifier,
     onPlayPressed: () -> Unit = {},
     onPlayClick: () -> Unit = {}, // Official playback action callback
-    onMoreClick: () -> Unit = {}, // Callback for clicking the top-right more control button
     onSearchClick: (String) -> Unit = {}, // Callback for clicking a specific tag to search for related books
     glassEffectMode: GlassEffectMode, // Precise control of dynamic switching between Material design and frosted glass Haze mode
     // Setup Haze State Arguments (Map backdrop parameters to HazeState) Changed LayerBackdrop to HazeState.

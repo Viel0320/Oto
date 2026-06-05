@@ -48,8 +48,9 @@ import coil.compose.AsyncImage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
-import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
+import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -80,7 +81,7 @@ fun PillCompactMediaPlayer(
     }
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
-    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+    val mini2PlayerSourceScope = LocalMini2PlayerSourceScope.current
 
     /*
      * Pill Bounds Corner Radius Transition (Dynamic stadium shape morphing)
@@ -88,16 +89,13 @@ fun PillCompactMediaPlayer(
      * Prevents flat shapes or straight corners during intermediate animation frames.
      */
     // Align transition durations: Set pill outer stadium bounds corner radius transition to 300ms.
-    val animatedCornerRadius by if (animatedVisibilityScope != null) {
-        animatedVisibilityScope.transition.animateDp(
-            label = "pill_bounds_corner_radius",
-            transitionSpec = { tween(300) }
-        ) { enterExitState ->
-            if (enterExitState == EnterExitState.Visible) 100.dp else 28.dp
-        }
-    } else {
-        remember { androidx.compose.runtime.mutableStateOf(100.dp) }
+    val animatedCornerRadius by mini2PlayerSourceScope?.transition?.animateDp(
+        label = "pill_bounds_corner_radius",
+        transitionSpec = { tween(300) }
+    ) { enterExitState ->
+        if (enterExitState == EnterExitState.Visible) 100.dp else 28.dp
     }
+        ?: remember { androidx.compose.runtime.mutableStateOf(100.dp) }
 
     /*
      * Pill Cover Corner Radius Transition (Stretches disk shapes into squares)
@@ -105,22 +103,25 @@ fun PillCompactMediaPlayer(
      * down to the full screen's rounded square artwork corner radius (24.dp).
      */
     // Align transition durations: Set rotating disk cover corner radius transition to 300ms.
-    val animatedCoverCornerRadius by if (animatedVisibilityScope != null) {
-        animatedVisibilityScope.transition.animateDp(
-            label = "pill_cover_corner_radius",
-            transitionSpec = { tween(300) }
-        ) { enterExitState ->
-            if (enterExitState == EnterExitState.Visible) 100.dp else 24.dp
-        }
-    } else {
-        remember { androidx.compose.runtime.mutableStateOf(100.dp) }
+    val animatedCoverCornerRadius by mini2PlayerSourceScope?.transition?.animateDp(
+        label = "pill_cover_corner_radius",
+        transitionSpec = { tween(300) }
+    ) { enterExitState ->
+        if (enterExitState == EnterExitState.Visible) 100.dp else 24.dp
     }
+        ?: remember { androidx.compose.runtime.mutableStateOf(100.dp) }
 
-    val boundsModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+    val boundsModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
         with(sharedTransitionScope) {
             Modifier.sharedBounds(
-                sharedContentState = rememberSharedContentState(key = "bounds_player"),
-                animatedVisibilityScope = animatedVisibilityScope,
+                /*
+                 * Pill Player Bounds Key (Centralized shared bounds identity)
+                 *
+                 * Resolves the wide-screen pill mini-player bounds key through SharedElementKeys
+                 * with the current book ID, matching the book-scoped mini-to-full player transition.
+                */
+                sharedContentState = rememberSharedContentState(key = SharedElementKeys.playerBounds()),
+                animatedVisibilityScope = mini2PlayerSourceScope,
                 clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
             )
         }
@@ -191,11 +192,17 @@ fun PillCompactMediaPlayer(
                     .align(Alignment.Center),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val coverModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+                val coverModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
                     with(sharedTransitionScope) {
                         Modifier.sharedElement(
-                            rememberSharedContentState(key = "cover_player"),
-                            animatedVisibilityScope = animatedVisibilityScope
+                            /*
+                             * Pill Player Cover Key (Centralized artwork identity)
+                             *
+                             * Resolves the pill artwork key through SharedElementKeys so it stays
+                             * aligned with full-player MainCoverView key generation.
+                            */
+                            rememberSharedContentState(key = SharedElementKeys.mini2playerCover(bookId)),
+                            animatedVisibilityScope = mini2PlayerSourceScope
                         )
                     }
                 } else {

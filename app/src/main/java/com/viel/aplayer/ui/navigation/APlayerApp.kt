@@ -8,6 +8,8 @@ import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.AlignmentSpan
 import android.widget.Toast
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
@@ -16,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -28,6 +31,7 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.ScanResultDialog
 import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailOverlay
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.edit.EditBookOverlay
@@ -35,6 +39,7 @@ import com.viel.aplayer.ui.edit.EditBookViewModel
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.miniplayer.MiniPlayerActions
 import com.viel.aplayer.ui.miniplayer.MiniPlayerOverlay
+import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.PlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
@@ -42,10 +47,6 @@ import com.viel.aplayer.ui.search.SearchOverlay
 import com.viel.aplayer.ui.search.SearchViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
-import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
-import androidx.compose.runtime.CompositionLocalProvider
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -326,10 +327,33 @@ fun APlayerApp(
                     searchViewModel = searchViewModel,
                     hazeState = if (detailUiState.isVisible) detailHazeState else hazeState,
                     glassEffectMode = libraryUiState.glassEffectMode,
+                    /*
+                     * Search Detail Source Selector (Search-result source handoff)
+                     *
+                     * Activates only when Detail was opened from Search so the selected search
+                     * result thumbnail can exit without touching Home recent or Home list sources.
+                     */
+                    activeSearchDetailBookId = if (
+                        detailUiState.isVisible &&
+                        detailUiState.entrySource == DetailEntrySource.Search
+                    ) {
+                        detailUiState.book?.book?.id
+                    } else {
+                        null
+                    },
                     onNavigateToDetail = { bookId ->
                         searchViewModel.setVisible(false)
                         val book = libraryUiState.audiobooks.find { it.book.id == bookId }
-                        detailViewModel.selectBook(book)
+                        detailViewModel.selectBook(
+                            book = book,
+                            /*
+                             * Search Detail Entry Source (Search motion channel tagging)
+                             *
+                             * Marks this selection as Search-originated so Detail binds to the
+                             * search2detail cover key instead of any Home artwork channel.
+                             */
+                            entrySource = DetailEntrySource.Search
+                        )
                     },
                     onLoadBook = { bookId ->
                         searchViewModel.setVisible(false)

@@ -56,8 +56,9 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
-import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
+import com.viel.aplayer.ui.motion.SharedElementKeys
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterListSheetStateful
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkDialog
@@ -285,7 +286,7 @@ fun PlayerScreen(
         val bgColor = MaterialTheme.colorScheme.background
 
         val sharedTransitionScope = LocalSharedTransitionScope.current
-        val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+        val mini2PlayerTargetScope = LocalMini2PlayerTargetScope.current
 
         // Determine starting corner radius depending on widescreen pill style versus standard bottom bar style
         val startCornerRadius = if (windowClass.isWideScreen) 100.dp else 0.dp
@@ -297,22 +298,25 @@ fun PlayerScreen(
          * up to the target full screen's corner radius, preventing straight corner overflow.
          */
         // Align transition durations: Set full bounds corner radius transition spec to 300ms to align with other page transitions.
-        val animatedCornerRadius by if (animatedVisibilityScope != null) {
-            animatedVisibilityScope.transition.animateDp(
-                label = "full_bounds_corner_radius",
-                transitionSpec = { tween(300) }
-            ) { enterExitState ->
-                if (enterExitState == EnterExitState.Visible) endCornerRadius else startCornerRadius
-            }
-        } else {
-            remember(endCornerRadius) { mutableStateOf(endCornerRadius) }
+        val animatedCornerRadius by mini2PlayerTargetScope?.transition?.animateDp(
+            label = "full_bounds_corner_radius",
+            transitionSpec = { tween(300) }
+        ) { enterExitState ->
+            if (enterExitState == EnterExitState.Visible) endCornerRadius else startCornerRadius
         }
+            ?: remember(endCornerRadius) { mutableStateOf(endCornerRadius) }
 
-        val boundsModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        val boundsModifier = if (sharedTransitionScope != null && mini2PlayerTargetScope != null) {
             with(sharedTransitionScope) {
                 Modifier.sharedBounds(
-                    sharedContentState = rememberSharedContentState(key = "bounds_${metadata.id}"),
-                    animatedVisibilityScope = animatedVisibilityScope,
+                    /*
+                     * Full Player Bounds Key (Centralized shared bounds identity)
+                     *
+                     * Resolves the full-player surface key through SharedElementKeys so it stays
+                     * aligned with compact bottom-bar player bounds without duplicating key strings.
+                     */
+                    sharedContentState = rememberSharedContentState(key = SharedElementKeys.playerBounds()),
+                    animatedVisibilityScope = mini2PlayerTargetScope,
                     clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
                 )
             }

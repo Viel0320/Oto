@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.settings.SettingsActivity
@@ -50,6 +51,7 @@ fun HomeScreen(
 ) {
     val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
+    val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Manage Horizontal Scroll State (State Loss Prevention)
@@ -65,6 +67,34 @@ fun HomeScreen(
     var shouldScrollToStart by remember { mutableStateOf(false) }
 
     val recentBooks = libraryUiState.recentBooks
+    /*
+     * Active Recent Detail Book Id (Recent source handoff selector)
+     *
+     * Activates only the Home recent source when the detail overlay was opened from Recent,
+     * preventing the main list thumbnail for the same book from joining the same transition.
+     */
+    val activeRecentDetailBookId = if (
+        detailUiState.isVisible &&
+        detailUiState.entrySource == DetailEntrySource.HomeRecent
+    ) {
+        detailUiState.book?.book?.id
+    } else {
+        null
+    }
+    /*
+     * Active List Detail Book Id (Main-list source handoff selector)
+     *
+     * Activates only the Home list source when the detail overlay was opened from the main
+     * catalog list, leaving the Recent section stable even if it contains the same book.
+     */
+    val activeListDetailBookId = if (
+        detailUiState.isVisible &&
+        detailUiState.entrySource == DetailEntrySource.HomeList
+    ) {
+        detailUiState.book?.book?.id
+    } else {
+        null
+    }
     val firstBookId = recentBooks.firstOrNull()?.book?.id
     if (firstBookId != prevFirstBookId) {
         // Data source first item changed (new book imported or filter switched)
@@ -90,15 +120,20 @@ fun HomeScreen(
         selectedFilter = libraryUiState.selectedFilter,
         groupedByAuthor = libraryUiState.groupedByAuthor,
         recentBooks = recentBooks,
+        activeRecentDetailBookId = activeRecentDetailBookId,
+        activeListDetailBookId = activeListDetailBookId,
         shouldShowRecentBooks = libraryUiState.shouldShowRecentBooks,
         recentTitleRes = libraryUiState.recentTitleRes,
         glassEffectMode = libraryUiState.glassEffectMode,
         isMiniPlayerVisible = playerUiState.hasActiveTrack,
         recentListState = recentListState,
         onFilterSelected = { libraryViewModel.setFilter(it) },
-        onNavigateToDetail = { id: String ->
+        onNavigateToDetail = { id: String, entrySource: DetailEntrySource ->
             val book = libraryUiState.audiobooks.find { it.book.id == id }
-            detailViewModel.selectBook(book)
+            detailViewModel.selectBook(
+                book = book,
+                entrySource = entrySource
+            )
         },
         onNavigateToSearch = {
             if (canStartNavigation()) {

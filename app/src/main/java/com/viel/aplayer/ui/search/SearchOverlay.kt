@@ -36,6 +36,13 @@ fun SearchOverlay(
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
+    /*
+     * Active Search Detail Book Id (Search result source visibility selector)
+     *
+     * Carries only the detail target opened from Search so the selected result thumbnail can
+     * exit as the shared-element source while Home recent and list channels remain untouched.
+     */
+    activeSearchDetailBookId: String? = null,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit
@@ -80,6 +87,7 @@ fun SearchOverlay(
         ) {
             SearchScreen(
                 onBack = { searchViewModel.setVisible(false) },
+                activeSearchDetailBookId = activeSearchDetailBookId,
                 onNavigateToDetail = onNavigateToDetail,
                 onLoadBook = onLoadBook,
                 onNavigateToPlayer = onNavigateToPlayer,
@@ -103,6 +111,13 @@ fun SearchOverlay(
 fun SearchScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
+    /*
+     * Active Search Detail Book Id (Search result source visibility selector)
+     *
+     * Forwarded from the overlay host so stateless SearchContent can hide only the selected
+     * search-result cover during the Search -> Detail shared-element handoff.
+     */
+    activeSearchDetailBookId: String? = null,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
@@ -131,6 +146,7 @@ fun SearchScreen(
         onDeleteHistory = { viewModel.deleteHistory(it) },
         onClearHistory = { viewModel.clearHistory() },
         onBack = onBack,
+        activeSearchDetailBookId = activeSearchDetailBookId,
         onNavigateToDetail = { id ->
             viewModel.saveSearchHistory(query.text)
             onNavigateToDetail(id)

@@ -26,10 +26,13 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
 import com.viel.aplayer.ui.detail.components.DetailHeader
 import com.viel.aplayer.ui.detail.components.DetailSummary
+import com.viel.aplayer.ui.motion.LocalHomeRecent2DetailTargetScope
+import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -55,6 +58,38 @@ fun DetailLandscapePhone(
 ) {
     val windowClass = LocalWindowClass.current
     val layoutDirection = LocalLayoutDirection.current
+    val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
+    /*
+     * Landscape Detail Motion Channel (Entry-source based target binding)
+     *
+     * Selects the matching shared-element key only for the opening source, keeping Recent,
+     * main-list, and Search thumbnails on separate transition channels.
+     */
+    val detailSharedElementKey = book?.id?.let { bookId ->
+        when (uiState.entrySource) {
+            DetailEntrySource.HomeRecent -> SharedElementKeys.home2DetailCover(bookId)
+            DetailEntrySource.HomeList -> SharedElementKeys.homeList2DetailCover(bookId)
+            DetailEntrySource.Search -> SharedElementKeys.search2detailCover(bookId)
+            DetailEntrySource.None -> null
+        }
+    }
+    /*
+     * Landscape Detail Source Corner (Entry-source shape alignment)
+     *
+     * Uses 16.dp for Recent card entries and 8.dp for main-list/Search thumbnail entries so
+     * the first Detail frame matches the real source instead of a reused player shape.
+     */
+    val detailSharedElementStartCornerRadius = when (uiState.entrySource) {
+        DetailEntrySource.HomeRecent -> 16.dp
+        DetailEntrySource.HomeList -> 8.dp
+        DetailEntrySource.Search -> 8.dp
+        DetailEntrySource.None -> null
+    }
+    val detailSharedElementVisibilityScope = if (detailSharedElementKey != null) {
+        home2DetailTargetScope
+    } else {
+        null
+    }
     val screenWidthDp = windowClass.screenWidthDp
     
     val sidePadding = screenWidthDp * 0.04f
@@ -84,6 +119,7 @@ fun DetailLandscapePhone(
                 contentAlignment = Alignment.Center
             ) {
                 PlayerCover(
+                    bookId = book?.id ?: "",
                     coverPath = CoverImageSourceSelector.main(
                         coverPath = book?.coverPath,
                         thumbnailPath = book?.thumbnailPath
@@ -96,6 +132,21 @@ fun DetailLandscapePhone(
                     onPreviousChapter = {},
                     sizeRatio = 1f,
                     gesturesEnabled = false,
+                    /*
+                     * Landscape Detail Cover Shared Element Key (Destination artwork endpoint)
+                     *
+                     * Keeps the landscape phone cover on the same Home recent-card motion key,
+                     * preserving the cover morph when the layout switches to the split detail view.
+                    */
+                    sharedElementKey = detailSharedElementKey,
+                    sharedElementVisibilityScope = detailSharedElementVisibilityScope,
+                    /*
+                     * Landscape Detail Source Corner (Home recent card shape alignment)
+                     *
+                     * Matches the selected recent-card cover radius so the target cover does not
+                     * begin from the mini-player's 8.dp playback radius during overlay entry.
+                     */
+                    sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

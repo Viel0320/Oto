@@ -50,8 +50,9 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.animateDp
+import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
-import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.SharedElementKeys
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -80,7 +81,7 @@ fun CompactMediaPlayer(
     }
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
-    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+    val mini2PlayerSourceScope = LocalMini2PlayerSourceScope.current
 
     /*
      * Outer Card Corner Radius Transition (Dynamic bounds shape interpolation)
@@ -88,16 +89,13 @@ fun CompactMediaPlayer(
      * Use target state checking to apply rounded corners when fully morphed, preventing straight corner overflow.
      */
     // Align transition durations: Set compact outer bounds corner radius transition to 300ms.
-    val animatedCornerRadius by if (animatedVisibilityScope != null) {
-        animatedVisibilityScope.transition.animateDp(
-            label = "compact_bounds_corner_radius",
-            transitionSpec = { tween(300) }
-        ) { enterExitState ->
-            if (enterExitState == EnterExitState.Visible) 0.dp else 28.dp
-        }
-    } else {
-        remember { androidx.compose.runtime.mutableStateOf(0.dp) }
+    val animatedCornerRadius by mini2PlayerSourceScope?.transition?.animateDp(
+        label = "compact_bounds_corner_radius",
+        transitionSpec = { tween(300) }
+    ) { enterExitState ->
+        if (enterExitState == EnterExitState.Visible) 0.dp else 28.dp
     }
+        ?: remember { androidx.compose.runtime.mutableStateOf(0.dp) }
 
     /*
      * Thumbnail Cover Corner Radius Transition (Smooth inner artwork morphing)
@@ -105,22 +103,25 @@ fun CompactMediaPlayer(
      * the full screen player's 24.dp, ensuring no visual pixel steps occur.
      */
     // Align transition durations: Set compact artwork cover corner radius transition to 300ms.
-    val animatedCoverCornerRadius by if (animatedVisibilityScope != null) {
-        animatedVisibilityScope.transition.animateDp(
-            label = "compact_cover_corner_radius",
-            transitionSpec = { tween(300) }
-        ) { enterExitState ->
-            if (enterExitState == EnterExitState.Visible) 8.dp else 24.dp
-        }
-    } else {
-        remember { androidx.compose.runtime.mutableStateOf(8.dp) }
+    val animatedCoverCornerRadius by mini2PlayerSourceScope?.transition?.animateDp(
+        label = "compact_cover_corner_radius",
+        transitionSpec = { tween(300) }
+    ) { enterExitState ->
+        if (enterExitState == EnterExitState.Visible) 8.dp else 24.dp
     }
+        ?: remember { androidx.compose.runtime.mutableStateOf(8.dp) }
 
-    val boundsModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+    val boundsModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
         with(sharedTransitionScope) {
             Modifier.sharedBounds(
-                sharedContentState = rememberSharedContentState(key = "bounds_${bookId}"),
-                animatedVisibilityScope = animatedVisibilityScope,
+                /*
+                 * Compact Player Bounds Key (Centralized shared bounds identity)
+                 *
+                 * Resolves the bottom-bar mini-player bounds key through SharedElementKeys while
+                 * preserving the existing bounds_<bookId> transition identity.
+                */
+                sharedContentState = rememberSharedContentState(key = SharedElementKeys.playerBounds()),
+                animatedVisibilityScope = mini2PlayerSourceScope,
                 clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
             )
         }
@@ -168,11 +169,17 @@ fun CompactMediaPlayer(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val coverModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+                val coverModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
                     with(sharedTransitionScope) {
                         Modifier.sharedElement(
-                            rememberSharedContentState(key = "cover_${bookId}"),
-                            animatedVisibilityScope = animatedVisibilityScope
+                            /*
+                             * Compact Player Cover Key (Centralized artwork identity)
+                             *
+                             * Resolves the mini-player artwork key through SharedElementKeys so it
+                             * stays aligned with the full-player MainCoverView key generation.
+                            */
+                            rememberSharedContentState(key = SharedElementKeys.mini2playerCover(bookId)),
+                            animatedVisibilityScope = mini2PlayerSourceScope
                         )
                     }
                 } else {

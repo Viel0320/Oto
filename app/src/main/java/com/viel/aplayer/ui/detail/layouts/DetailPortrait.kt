@@ -22,10 +22,13 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
 import com.viel.aplayer.ui.detail.components.DetailHeader
 import com.viel.aplayer.ui.detail.components.DetailSummary
+import com.viel.aplayer.ui.motion.LocalHomeRecent2DetailTargetScope
+import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -47,6 +50,39 @@ fun DetailPortrait(
     onShowInfo: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
+    /*
+     * Detail Cover Motion Channel (Entry-source based target binding)
+     *
+     * Selects the matching shared-element key only for the opening source so Recent, List,
+     * and Search thumbnails cannot bind to the same Detail cover at the same time.
+     */
+    val detailSharedElementKey = book?.id?.let { bookId ->
+        when (uiState.entrySource) {
+            DetailEntrySource.HomeRecent -> SharedElementKeys.home2DetailCover(bookId)
+            DetailEntrySource.HomeList -> SharedElementKeys.homeList2DetailCover(bookId)
+            DetailEntrySource.Search -> SharedElementKeys.search2detailCover(bookId)
+            DetailEntrySource.None -> null
+        }
+    }
+    /*
+     * Detail Cover Source Corner (Entry-source shape alignment)
+     *
+     * Matches Detail's first transition frame to the real source thumbnail shape: 16.dp for
+     * Recent cards, 8.dp for main-list and Search thumbnails, and no override without a source.
+     */
+    val detailSharedElementStartCornerRadius = when (uiState.entrySource) {
+        DetailEntrySource.HomeRecent -> 16.dp
+        DetailEntrySource.HomeList -> 8.dp
+        DetailEntrySource.Search -> 8.dp
+        DetailEntrySource.None -> null
+    }
+    val detailSharedElementVisibilityScope = if (detailSharedElementKey != null) {
+        home2DetailTargetScope
+    } else {
+        null
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -56,6 +92,7 @@ fun DetailPortrait(
     ) {
         // Primary Cover (Renders the album cover with dominant ratio)
         PlayerCover(
+            bookId = book?.id ?: "",
             coverPath = CoverImageSourceSelector.main(
                 coverPath = book?.coverPath,
                 thumbnailPath = book?.thumbnailPath
@@ -68,6 +105,21 @@ fun DetailPortrait(
             onPreviousChapter = {},
             sizeRatio = 0.9f,  //todo too big
             gesturesEnabled = false,
+            /*
+             * Detail Cover Shared Element Key (Destination artwork endpoint)
+             *
+             * Binds the portrait detail cover to the same Home recent-card key so the selected
+             * artwork morphs across the overlay boundary instead of fading independently.
+            */
+            sharedElementKey = detailSharedElementKey,
+            sharedElementVisibilityScope = detailSharedElementVisibilityScope,
+            /*
+             * Detail Cover Source Corner (Home recent card shape alignment)
+             *
+             * Matches the selected recent-card cover radius so the target cover does not flash
+             * through the mini-player's 8.dp start radius on the first overlay frame.
+             */
+            sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
             modifier = Modifier.fillMaxWidth().aspectRatio(1f)
         )
 

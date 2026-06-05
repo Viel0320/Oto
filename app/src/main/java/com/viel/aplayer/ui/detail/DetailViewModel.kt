@@ -75,8 +75,12 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
      * physical track availability via VFS and retrieve dominant cover colors.
      *
      * @param book The target audiobook with progress. Pass `null` to close the details pane.
+     * @param entrySource The UI surface that triggered this detail selection, used only for motion channel routing.
      */
-    fun selectBook(book: BookWithProgress?) {
+    fun selectBook(
+        book: BookWithProgress?,
+        entrySource: DetailEntrySource = DetailEntrySource.None
+    ) {
         // Resource Cleanup (Cancel active database flow subscription to avoid leakage and crosstalk)
         bookObserveJob?.cancel()
         bookObserveJob = null
@@ -88,6 +92,13 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             _playbackStartedAt.value = null
             _uiState.value = current.copy(
                 book = book,
+                /*
+                 * Entry Source Capture (Shared-element route identity)
+                 *
+                 * Stores the opening surface together with the selected book so Home recent and
+                 * Home list artwork never subscribe to the same detail target at the same time.
+                 */
+                entrySource = entrySource,
                 isVisible = true,
                 // Optimistic Accessibility (Assume available initially to prevent blocking play during VFS evaluation)
                 isAvailable = true,
@@ -185,7 +196,17 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             // Reset Layout variables (Clear screen attributes and disable visibility state)
             _playbackStartedAt.value = null
             _uiState.update { state ->
-                state.copy(isVisible = false, fullSourcePath = "")
+                state.copy(
+                    isVisible = false,
+                    /*
+                     * Entry Source Reset (Closed detail source cleanup)
+                     *
+                     * Clears motion origin when callers close by selecting null, preventing the
+                     * next non-Home detail opening from inheriting a stale Home source.
+                     */
+                    entrySource = DetailEntrySource.None,
+                    fullSourcePath = ""
+                )
             }
         }
 
@@ -223,6 +244,13 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.update { state ->
             state.copy(
                 book = null,
+                /*
+                 * Entry Source Clear (Overlay disposal cleanup)
+                 *
+                 * Drops the source marker after exit animation disposal so a future detail entry
+                 * must declare its own source instead of reusing a completed transition.
+                 */
+                entrySource = DetailEntrySource.None,
                 isAvailable = true,
                 progressPercent = 0,
                 displayProgressPercent = 0,
@@ -240,7 +268,19 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun dismissIfShowing(bookId: String) {
         if (_uiState.value.book?.book?.id == bookId) {
-            _uiState.update { it.copy(isVisible = false, book = null) }
+            _uiState.update {
+                it.copy(
+                    isVisible = false,
+                    book = null,
+                    /*
+                     * Entry Source Delete Cleanup (Deleted selection isolation)
+                     *
+                     * Clears the motion origin with the deleted book so hidden Home sources do
+                     * not keep targeting a detail item that no longer exists.
+                     */
+                    entrySource = DetailEntrySource.None
+                )
+            }
         }
     }
 

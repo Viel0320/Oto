@@ -40,6 +40,12 @@ fun APlayerNavHost(
     val provider = remember(libraryViewModel, playerViewModel, detailViewModel, searchViewModel, canStartNavigation, navigateBack) {
         entryProvider<NavKey> {
             entry<HomeRoute> {
+                /*
+                 * Home Route Content (Shared source scopes stay item-local)
+                 *
+                 * Renders Home directly so Home->Detail shared-element sources are owned by the
+                 * selected recent item instead of a route-wide scope that never exits.
+                 */
                 HomeScreen(
                     libraryViewModel = libraryViewModel,
                     playerViewModel = playerViewModel,

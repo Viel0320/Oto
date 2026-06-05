@@ -35,7 +35,6 @@ fun DetailScreen(
         modifier = modifier,
         onPlayPressed = onPlayPressed,
         onPlayClick = onPlayClick,
-        onMoreClick = onMoreClick,
         onSearchClick = onSearchClick,
         glassEffectMode = glassEffectMode,
         fullPageHazeState = fullPageHazeState,

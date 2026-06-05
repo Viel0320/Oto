@@ -58,6 +58,7 @@ import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
+import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -85,6 +86,13 @@ fun SearchContent(
     onDeleteHistory: (SearchHistoryEntry) -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
+    /*
+     * Active Search Detail Book Id (Search-result source visibility selector)
+     *
+     * Hides only the selected search-result thumbnail during Search -> Detail motion, keeping
+     * Home recent and Home list sources independent even when they contain the same audiobook.
+     */
+    activeSearchDetailBookId: String? = null,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
@@ -412,6 +420,7 @@ fun SearchContent(
                             ) { index ->
                                 val result = searchResults[index]
                                 ListItem(
+                                    bookId = result.book.id,
                                     title = result.book.title,
                                     author = result.book.author,
                                     narrator = result.book.narrator,
@@ -425,6 +434,20 @@ fun SearchContent(
                                     ),
                                     coverLastUpdated = result.book.lastScannedAt, 
                                     progressPercent = result.progressPercent,
+                                    /*
+                                     * Search Detail Source Activity (Search-result source trigger)
+                                     *
+                                     * Activates only for the result opened from Search so the
+                                     * selected thumbnail exits without affecting Home channels.
+                                     */
+                                    isDetailTargetActive = result.book.id == activeSearchDetailBookId,
+                                    /*
+                                     * Search Detail Shared Element Key (Search channel binding)
+                                     *
+                                     * Uses the search-specific key so Search result artwork cannot
+                                     * pair with Home recent or Home list covers for the same book.
+                                     */
+                                    sharedElementKey = SharedElementKeys.search2detailCover(result.book.id),
                                     onClick = { 
                                         focusManager.clearFocus()
                                         onNavigateToDetail(result.book.id) 

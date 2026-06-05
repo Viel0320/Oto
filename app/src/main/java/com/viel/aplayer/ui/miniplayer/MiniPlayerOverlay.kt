@@ -21,6 +21,7 @@ import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.player.PlayerViewModel
 import androidx.compose.runtime.CompositionLocalProvider
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -86,8 +87,15 @@ fun MiniPlayerOverlay(
                  * Propagate Visibility Scope (Local animation scope binding)
                  * Expose the local AnimatedVisibilityScope using LocalAnimatedVisibilityScope CompositionLocal
                  * so that nested CompactMediaPlayer layouts can apply shared element transformations.
-                 */
+                */
                 CompositionLocalProvider(
+                    /*
+                     * Mini To Player Source Scope Provider (Mini-player source isolation)
+                     *
+                     * Publishes only the mini-player visibility scope for mini2player cover and
+                     * bounds sources, keeping playback motion separate from Home->Detail motion.
+                     */
+                    LocalMini2PlayerSourceScope provides this@AnimatedVisibility,
                     LocalAnimatedVisibilityScope provides this@AnimatedVisibility
                 ) {
                     // Component Isolation (Scope Down Recomposition)

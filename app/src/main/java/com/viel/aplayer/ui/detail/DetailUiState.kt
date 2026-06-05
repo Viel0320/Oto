@@ -4,6 +4,23 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.media.parser.ImageProcessor
 
 /**
+ * Detail Entry Source (Detail overlay motion origin)
+ *
+ * Records the UI surface that opened the current detail overlay so shared-element artwork
+ * transitions can bind only to the matching source and avoid cross-activation between Home sections.
+ */
+enum class DetailEntrySource {
+    /** No shared-element source is active for the current detail entry. */
+    None,
+    /** The current detail entry was opened from the horizontal Home recent section. */
+    HomeRecent,
+    /** The current detail entry was opened from the vertical/adaptive Home list section. */
+    HomeList,
+    /** The current detail entry was opened from Search or another non-Home surface. */
+    Search
+}
+
+/**
  * DetailUiState Model (Detail Screen UI State)
  *
  * UI State for the book details page.
@@ -11,6 +28,13 @@ import com.viel.aplayer.media.parser.ImageProcessor
 data class DetailUiState(
     /** Currently selected book entity */
     val book: BookWithProgress? = null,
+    /*
+     * Detail Entry Source (Shared-element source selector)
+     *
+     * Keeps the entry origin with the selected book so Home recent and Home list covers can
+     * use independent motion channels without both reacting to the same visible detail book.
+     */
+    val entrySource: DetailEntrySource = DetailEntrySource.None,
     /** Whether to show the details page */
     val isVisible: Boolean = false,
     /** Whether the book files are available locally */

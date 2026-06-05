@@ -4,12 +4,19 @@ package com.viel.aplayer.ui.home.components
 // Added combinedClickable import to respond to list item long press.
 // Added ExperimentalFoundationApi import to shield compilation defects of experimental APIs.
 // Added getValue and setValue import extensions to support Composable property delegation.
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -44,10 +51,14 @@ import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatCompactDuration
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
+import com.viel.aplayer.ui.motion.SharedElementKeys
+import androidx.compose.animation.AnimatedVisibility as ListSourceVisibility
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ListItem(
+    bookId: String = "",
     title: String,
     author: String,
     narrator: String,
@@ -57,6 +68,20 @@ fun ListItem(
     coverPath: String? = null,
     coverLastUpdated: Long = 0L, // Used to pass cover file self-healing milliseconds timestamp to trigger responsive cache breaking
     progressPercent: Int? = null,
+    /*
+     * Detail Target Activity Flag (Home-list source visibility control)
+     *
+     * Hides only the list thumbnail that opened the current detail overlay, preventing the
+     * Home recent card for the same book from joining this list-specific transition channel.
+     */
+    isDetailTargetActive: Boolean = false,
+    /*
+     * Shared Element Key (Home list cover transition identity)
+     *
+     * Supplies the list-specific shared-element key so main-list artwork can animate into
+     * Detail without sharing the Recent section's Home-to-detail key.
+     */
+    sharedElementKey: String? = null,
     // New onLongClick parameter to receive long-press events callback
     onLongClick: () -> Unit = {},
     onPlayClick: () -> Unit = {}
@@ -115,9 +140,100 @@ fun ListItem(
             }
         },
         leadingContent = {
+            ListCoverSharedSource(
+                bookId = bookId,
+                coverPath = coverPath,
+                coverLastUpdated = coverLastUpdated,
+                isDetailTargetActive = isDetailTargetActive,
+                sharedElementKey = sharedElementKey,
+                modifier = Modifier.size(56.dp)
+            )
+        },
+        trailingContent = {
+            IconButton(
+                onClick = onPlayClick,
+                modifier = Modifier.offset(x = 8.dp)
+            ) {
+                Icon(Icons.Rounded.PlayArrow, contentDescription = "Play")
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
+}
+
+@Composable
+@OptIn(ExperimentalSharedTransitionApi::class)
+private fun ListCoverSharedSource(
+    bookId: String,
+    coverPath: String?,
+    coverLastUpdated: Long,
+    isDetailTargetActive: Boolean,
+    sharedElementKey: String?,
+    modifier: Modifier = Modifier
+) {
+    val sharedTransitionScope = LocalSharedTransitionScope.current
+    /*
+     * List Cover Key Resolution (List-only fallback motion identity)
+     *
+     * Keeps list thumbnails on the homeList2DetailCover channel, which is separate from the
+     * Recent section's home2DetailCover channel even when both sections show the same book.
+     */
+    val resolvedSharedElementKey = sharedElementKey
+        ?: bookId.takeIf { it.isNotBlank() }?.let { SharedElementKeys.homeList2DetailCover(it) }
+
+    Box(modifier = modifier) {
+        ListSourceVisibility(
+            visible = !isDetailTargetActive,
+            /*
+             * List Source Visibility Clock (Keep exiting list source measurable)
+             *
+             * Uses a short fade transition so the selected list thumbnail remains in the tree
+             * long enough for SharedTransitionLayout to pair it with the Detail target.
+             */
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(300)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            val list2DetailSourceScope = this@ListSourceVisibility
+            /*
+             * List Cover Corner Radius Transition (Source shape interpolation)
+             *
+             * Animates the compact list thumbnail from its 8.dp source shape to Detail's 24.dp
+             * cover shape, without reusing the Recent section's 16.dp card radius.
+             */
+            val animatedCoverCornerRadius by list2DetailSourceScope.transition.animateDp(
+                label = "home_list_cover_corner_radius",
+                transitionSpec = { tween(300) }
+            ) { enterExitState ->
+                if (enterExitState == EnterExitState.Visible) 8.dp else 24.dp
+            }
+            val animatedCoverShape = RoundedCornerShape(animatedCoverCornerRadius)
+            /*
+             * List Cover Shared Element Binding (Source cover motion endpoint)
+             *
+             * Applies the shared-element modifier only to the selected list thumbnail channel,
+             * leaving Recent cards and player artwork on their own independent keys.
+             */
+            val coverSharedElementModifier = if (
+                sharedTransitionScope != null &&
+                resolvedSharedElementKey != null
+            ) {
+                with(sharedTransitionScope) {
+                    Modifier.sharedElement(
+                        rememberSharedContentState(key = resolvedSharedElementKey),
+                        animatedVisibilityScope = list2DetailSourceScope,
+                        clipInOverlayDuringTransition = OverlayClip(animatedCoverShape)
+                    )
+                }
+            } else {
+                Modifier
+            }
+
             Surface(
-                modifier = Modifier.size(56.dp),
-                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(coverSharedElementModifier),
+                shape = animatedCoverShape,
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 val isPreview = LocalInspectionMode.current
@@ -140,6 +256,7 @@ fun ListItem(
                     AsyncImage(
                         model = request,
                         contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                         onError = {
                             // Log Metric Handling (Decoupled Image Metrics Logging)
@@ -148,22 +265,20 @@ fun ListItem(
                         }
                     )
                 } else {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
-        },
-        trailingContent = {
-            IconButton(
-                onClick = onPlayClick,
-                modifier = Modifier.offset(x = 8.dp)
-            ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = "Play")
-            }
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
+        }
+    }
 }
 
 @Preview(showBackground = true, name = "New Book", apiLevel = 36)

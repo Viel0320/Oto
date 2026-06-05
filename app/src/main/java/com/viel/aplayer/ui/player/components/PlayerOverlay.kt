@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreen
@@ -61,8 +62,15 @@ fun PlayerOverlay(
              * Propagate Full Visibility Scope (Local visibility tracking)
              * Bind this AnimatedVisibilityScope to LocalAnimatedVisibilityScope CompositionLocal
              * to let PlayerScreen match shared elements and perform dynamic corner radius morphing.
-             */
+            */
             CompositionLocalProvider(
+                /*
+                 * Mini To Player Target Scope Provider (Full-player target isolation)
+                 *
+                 * Publishes the full-player visibility scope through the mini2player-specific
+                 * target local so PlayerScreen shared elements do not consume route/detail scopes.
+                 */
+                LocalMini2PlayerTargetScope provides this@AnimatedVisibility,
                 LocalAnimatedVisibilityScope provides this@AnimatedVisibility
             ) {
                 Box(

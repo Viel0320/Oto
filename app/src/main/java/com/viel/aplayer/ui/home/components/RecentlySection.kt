@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
+import com.viel.aplayer.ui.motion.SharedElementKeys
 
 /**
  * RecentlyAddedSection Setup (Recently Played/Added Horizontal List)
@@ -28,6 +29,7 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
  *
  * @param recentTitle Main title text of the horizontal block (e.g., Recently Added, Recently Played).
  * @param recentBooks Audiobook data collection of recent items.
+ * @param activeDetailBookId Currently visible Detail book ID, used to hide the matching source cover during shared-element handoff.
  * @param recentListState Horizontal scroll LazyListState handler, used to preserve scroll position when grid scrolls vertically.
  * @param glassEffectMode Global frosted glass visual effect mode.
  * @param screenHorizontalPadding Dynamically calculated visual alignment left margin.
@@ -38,6 +40,7 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
 fun RecentlyAddedSection(
     recentTitle: String,
     recentBooks: List<BookWithProgress>,
+    activeDetailBookId: String?,
     recentListState: LazyListState,
     glassEffectMode: GlassEffectMode,
     screenHorizontalPadding: Dp,
@@ -67,11 +70,19 @@ fun RecentlyAddedSection(
             // M-20 Fix: Use unique book.id as LazyList stable key to prevent card covers from flickering or shifting due to frequent reloads
             items(recentBooks, key = { it.book.id }) { book ->
                 RecentlyItem(
+                    bookId = book.book.id,
                     title = book.book.title,
                     author = book.book.author,
                     narrator = book.book.narrator,
                     // If the audiobook has a specific reading progress, fill the badge with progress percentage, otherwise fill "NEW" indicating newly imported
                     progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
+                    /*
+                     * Recent Item Visibility Handoff (Selected source exit trigger)
+                     *
+                     * Passes whether this card is the active Detail target so the card cover can
+                     * leave through its own AnimatedVisibility and form a valid source-target pair.
+                     */
+                    isDetailTargetActive = book.book.id == activeDetailBookId,
                     // Thumbnail Medium Caching (Optimize Memory and Cache Reuse)
                     // Recently played cards use medium cover specification, preferring local thumbnails.
                     // This allows 360px requests to hit thumbnail cache directly, avoiding decoding large covers.
@@ -85,7 +96,14 @@ fun RecentlyAddedSection(
                     onLongClick = { onBookLongClick(book) },
                     glassEffectMode = glassEffectMode,
                     // Pass ARGB main color tone physically extracted and persisted in database to card, rendering ambiance background
-                    coverColorArgb = book.book.backgroundColorArgb
+                    coverColorArgb = book.book.backgroundColorArgb,
+                    /*
+                     * Recent To Detail Shared Element Key (Bind source artwork endpoint)
+                     *
+                     * Uses the selected book ID to align this recent card cover with the detail
+                     * page cover endpoint under the app-level SharedTransitionLayout.
+                     */
+                    sharedElementKey = SharedElementKeys.home2DetailCover(book.book.id)
                 )
             }
         }

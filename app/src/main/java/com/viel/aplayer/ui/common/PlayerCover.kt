@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.common
 
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateDp
@@ -33,11 +34,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
+import com.viel.aplayer.ui.motion.SharedElementKeys
 import kotlin.math.abs
 
 /**
@@ -70,7 +73,28 @@ fun PlayerCover(
     onPreviousChapter: () -> Unit,
     sizeRatio: Float = 0.8f,
     gesturesEnabled: Boolean = true,
-    coverScene: String = "main-cover"
+    coverScene: String = "main-cover",
+    /*
+     * Shared Element Key Override (Route-specific artwork transition identity)
+     *
+     * Allows callers such as Home -> Detail to bind the same cover image to a route-specific
+     * shared-element key without changing the player and mini-player artwork transition contract.
+     */
+    sharedElementKey: String? = null,
+    /*
+     * Shared Element Visibility Scope Override (Route-specific animation boundary)
+     *
+     * Lets route transitions pass their own destination AnimatedVisibilityScope so detail covers
+     * do not accidentally reuse the mini-to-player target scope owned by PlayerOverlay.
+     */
+    sharedElementVisibilityScope: AnimatedVisibilityScope? = null,
+    /*
+     * Shared Element Start Corner Override (Route-specific source shape)
+     *
+     * Lets non-player transitions provide their own source corner radius so Home recent covers
+     * start from 16.dp instead of falling back to the mini-player's 8.dp playback shape.
+     */
+    sharedElementStartCornerRadius: Dp? = null
 ) {
     // Use BoxWithConstraints to dynamically capture the maximum available width and height of the parent container, ensuring perfect adaptivity in portrait, landscape, or split-screen modes.
     BoxWithConstraints(
@@ -133,6 +157,9 @@ fun PlayerCover(
             isPlaying = isPlaying,
             coverLastUpdated = coverLastUpdated,
             coverScene = coverScene,
+            sharedElementKey = sharedElementKey,
+            sharedElementVisibilityScope = sharedElementVisibilityScope,
+            sharedElementStartCornerRadius = sharedElementStartCornerRadius,
             modifier = Modifier
                 .size(coverSize)
                 .then(gestureModifier)
@@ -159,13 +186,40 @@ fun MainCoverView(
     coverPath: String?,
     isPlaying: Boolean,
     coverLastUpdated: Long = 0L,
-    coverScene: String = "main-cover"
+    coverScene: String = "main-cover",
+    /*
+     * Shared Element Key Override (Independent motion channel selection)
+     *
+     * Uses an optional explicit key so detail artwork can participate in Home -> Detail motion
+     * while the full player keeps using the existing cover_<bookId> transition key.
+     */
+    sharedElementKey: String? = null,
+    /*
+     * Shared Element Visibility Scope Override (Independent motion boundary selection)
+     *
+     * Uses an optional explicit visibility scope for route-owned transitions, while player covers
+     * default only to the Mini->Player target scope provided by the full-player overlay.
+     */
+    sharedElementVisibilityScope: AnimatedVisibilityScope? = null,
+    /*
+     * Shared Element Start Corner Override (Source shape alignment)
+     *
+     * Allows route-owned artwork transitions to match their real source card radius while
+     * keeping mini-player playback transitions on the existing 8.dp or 100.dp start radius.
+     */
+    sharedElementStartCornerRadius: Dp? = null
 ) {
     val sharedTransitionScope = LocalSharedTransitionScope.current
-    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+    val animatedVisibilityScope = sharedElementVisibilityScope
+        ?: LocalMini2PlayerTargetScope.current
 
-    // Determine starting cover corner radius depending on widescreen pill style versus standard bottom bar style
-    val startCoverCorner = if (isWideScreen) 100.dp else 8.dp
+    /*
+     * Start Cover Corner Resolution (Transition source shape selection)
+     *
+     * Uses a route-specific override when supplied, otherwise preserves the playback-specific
+     * mini-player start radius chosen from compact bar or wide pill layout.
+     */
+    val startCoverCorner = sharedElementStartCornerRadius ?: if (isWideScreen) 100.dp else 8.dp
 
     /*
      * Artwork Cover Corner Radius Transition (Dynamic round corner interpolation)
@@ -184,7 +238,13 @@ fun MainCoverView(
     val sharedElementModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
         with(sharedTransitionScope) {
             Modifier.sharedElement(
-                rememberSharedContentState(key = "cover_player"),
+                /*
+                 * Player Cover Key Resolution (Centralized fallback identity)
+                 *
+                 * Uses SharedElementKeys for the default player artwork key while still allowing
+                 * route-specific callers, such as Home -> Detail, to pass an explicit override.
+                 */
+                rememberSharedContentState(key = sharedElementKey ?: SharedElementKeys.mini2playerCover(bookId)),
                 animatedVisibilityScope = animatedVisibilityScope
             )
         }
