@@ -24,6 +24,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
@@ -39,6 +41,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  * @param scrollable Enables vertical scrolling in the content area if configured as true
  * @param content Composable slot representing the dialog body content
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurDialog(
     onDismissRequest: () -> Unit,
@@ -82,7 +85,7 @@ fun BlurDialog(
                 Modifier
                     // Clip dialog shape before applying hazeChild
                     .clip(dialogShape)
-                    .hazeChild(
+                    .hazeEffect(
                         state = hazeState,
                         style = HazeMaterials.regular()
                     )

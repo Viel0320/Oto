@@ -6,10 +6,11 @@ import com.viel.aplayer.abs.mapping.AbsProgressMapper
 import com.viel.aplayer.abs.mapping.AbsRemoteIdMapper
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.dto.AbsLibraryItemDto
+import com.viel.aplayer.data.cache.CoverCacheInvalidationPolicy
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.logger.AbsSyncLogger
+import com.viel.aplayer.logger.CacheDiagnosticsLogger
 import java.util.UUID
 
 class AbsCatalogSynchronizer(
@@ -116,6 +117,17 @@ class AbsCatalogSynchronizer(
             reusedItems = (minifiedItems.size - detailCandidateIds.size).coerceAtLeast(0),
             fingerprintUnchanged = existingSync?.fullListFingerprint == currentFingerprint
         )
+        // ABS Mirror Cache Diagnostics (Records reused mirror counts without exposing remote item identifiers)
+        // The unified cache log needs only aggregate reuse size and a hashed root source to correlate incremental sync behavior safely.
+        CacheDiagnosticsLogger.logCacheEvent(
+            cacheType = "abs_mirror",
+            operation = "selectDetailCandidates",
+            hit = null,
+            costMs = null,
+            sourceHash = CacheDiagnosticsLogger.hashIdentifier(root.id),
+            sizeBytes = (minifiedItems.size - detailCandidateIds.size).coerceAtLeast(0).toLong(),
+            detail = "total=${minifiedItems.size}, detailCandidates=${detailCandidateIds.size}"
+        )
         var hadBatchFailure = false
         val unresolvedDetailFailures = linkedMapOf<String, String>()
         // Summary Increment Logic (Tracks newly resolved items only, preventing already stored records from skewing counts)
@@ -127,7 +139,8 @@ class AbsCatalogSynchronizer(
             AbsSyncLogger.logBatchRequest(rootId = root.id, batchIndex = batchIndex, batchSize = ids.size, itemIds = ids)
             runCatching {
                 apiClient.batchGetItems(credential.baseUrl, credential.token, ids)
-            }.onSuccess { items ->
+            }.fold(
+                onSuccess = { items ->
                 AbsSyncLogger.logBatchSuccess(
                     rootId = root.id,
                     batchIndex = batchIndex,
@@ -140,6 +153,9 @@ class AbsCatalogSynchronizer(
                 if (missingIds.isEmpty()) {
                     items
                 } else {
+                    // Partial Batch Recovery Merge (Returns individual retry details to the sync pipeline)
+                    // Result.onSuccess cannot transform the batch payload, so this fold branch explicitly appends recovered
+                    // item details to prevent partial batch gaps from being treated as reusable stale mirrors.
                     val retryResult = fetchItemsIndividuallyWithRetry(
                         root = root,
                         baseUrl = credential.baseUrl,
@@ -150,7 +166,8 @@ class AbsCatalogSynchronizer(
                     unresolvedDetailFailures.putAll(retryResult.failures)
                     items + retryResult.items
                 }
-            }.getOrElse { error ->
+                },
+                onFailure = { error ->
                 AbsSyncLogger.logBatchFailure(
                     rootId = root.id,
                     batchIndex = batchIndex,
@@ -168,7 +185,8 @@ class AbsCatalogSynchronizer(
                 hadBatchFailure = hadBatchFailure || retryResult.failures.isNotEmpty()
                 unresolvedDetailFailures.putAll(retryResult.failures)
                 retryResult.items
-            }
+                }
+            )
         }
         val detailById = detailItems.associateBy { item -> item.id }
         val reusedMirrors = mutableListOf<AbsItemMirrorEntity>()
@@ -186,6 +204,7 @@ class AbsCatalogSynchronizer(
                     item = detail,
                     now = now,
                     syncRunId = syncRunId,
+                    existingMirror = existingMirrors[remoteItemId],
                     existingSync = existingSync,
                     serverVersion = status.serverVersion,
                     fullListFingerprint = currentFingerprint
@@ -280,6 +299,7 @@ class AbsCatalogSynchronizer(
         item: AbsLibraryItemDto,
         now: Long,
         syncRunId: String,
+        existingMirror: AbsItemMirrorEntity?,
         existingSync: AbsSyncStateEntity?,
         serverVersion: String?,
         fullListFingerprint: String
@@ -292,11 +312,17 @@ class AbsCatalogSynchronizer(
         // Returns fresh syncedAt values only for new books or if paths shift; otherwise returns cached stamps.
         val resolvedCoverPath = cachedCover?.originalPath ?: existingBookEntity?.coverPath
         val resolvedThumbnailPath = cachedCover?.thumbnailPath ?: existingBookEntity?.thumbnailPath
-        val resolvedLastScannedAt = resolveAbsCoverLastScannedAt(
+        // Remote Version Invalidation (Propagates catalog-level cover changes even when cached file paths are stable)
+        // ABS may update cover bytes behind the same local cache paths, so matching updatedAt against the existing mirror supplies a safe UI-key refresh signal.
+        val remoteVersionChanged = item.updatedAt != null &&
+            existingMirror?.remoteUpdatedAt != null &&
+            item.updatedAt != existingMirror.remoteUpdatedAt
+        val resolvedLastScannedAt = CoverCacheInvalidationPolicy.resolveLastScannedAt(
             existing = existingBookEntity,
             nextCoverPath = resolvedCoverPath,
             nextThumbnailPath = resolvedThumbnailPath,
-            syncedAt = now
+            syncedAt = now,
+            remoteVersionChanged = remoteVersionChanged
         )
         val book = catalogMapper.toBook(
             root = root,
@@ -483,24 +509,6 @@ class AbsCatalogSynchronizer(
     companion object {
         private const val MAX_DETAIL_RETRY_ATTEMPTS = 3
     }
-}
-
-/**
- * Cover Expiration Strategy (Aligns syncedAt parameters with true layout changes to secure UI image caches)
- * Returns fresh syncedAt values only for new books or if paths shift; otherwise returns cached stamps.
- */
-internal fun resolveAbsCoverLastScannedAt(
-    existing: BookEntity?,
-    nextCoverPath: String?,
-    nextThumbnailPath: String?,
-    syncedAt: Long
-): Long {
-    if (existing == null) {
-        return if (nextCoverPath != null || nextThumbnailPath != null) syncedAt else 0L
-    }
-    val coverPathChanged = existing.coverPath != nextCoverPath
-    val thumbnailPathChanged = existing.thumbnailPath != nextThumbnailPath
-    return if (coverPathChanged || thumbnailPathChanged) syncedAt else existing.lastScannedAt
 }
 
 /**

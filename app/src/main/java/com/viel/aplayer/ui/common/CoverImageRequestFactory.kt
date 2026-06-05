@@ -5,6 +5,7 @@ import android.os.SystemClock
 import coil.request.ErrorResult
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import com.viel.aplayer.logger.CacheDiagnosticsLogger
 import com.viel.aplayer.logger.CoverImageCacheLogger
 import java.io.File
 
@@ -74,17 +75,29 @@ object CoverImageRequestFactory {
                     variant = variant.keySegment,
                     decodeSource = decodeSource
                 )
+                val decodeCostMs = SystemClock.elapsedRealtime() - startedAtElapsedMs
                 CoverImageCacheLogger.logPipelineSuccess(
                     scene = scene,
                     variant = variant.keySegment,
                     cacheKey = cacheKey,
                     source = sourcePath,
                     decodeSource = decodeSource,
-                    decodeCostMs = SystemClock.elapsedRealtime() - startedAtElapsedMs,
+                    decodeCostMs = decodeCostMs,
                     width = result.drawable.intrinsicWidth,
                     height = result.drawable.intrinsicHeight,
                     bitmapByteCount = CoverImageCacheLogger.bitmapByteCount(result.drawable),
                     metricsSnapshot = metricsSnapshot
+                )
+                // Cover Decode Cache Diagnostics (Adds a normalized cache event beside existing cover pipeline logs)
+                // Uses the existing source hash and decode source classification so summary logs can detect cache hits without printing local cover paths.
+                CacheDiagnosticsLogger.logCacheEvent(
+                    cacheType = "cover",
+                    operation = "decode",
+                    hit = decodeSource.toCoverCacheHit(),
+                    costMs = decodeCostMs,
+                    sourceHash = CoverImageCacheLogger.hashSource(sourcePath),
+                    sizeBytes = CoverImageCacheLogger.bitmapByteCount(result.drawable),
+                    detail = "scene=$scene, variant=${variant.keySegment}, decodeSource=$decodeSource"
                 )
             }
 
@@ -142,6 +155,13 @@ object CoverImageRequestFactory {
     fun cacheKey(sourcePath: String, lastUpdated: Long, variant: CoverImageVariant): String =
         "cover:${variant.keySegment}:${CoverImageCacheLogger.hashSource(sourcePath)}:$lastUpdated"
 }
+
+private fun String.toCoverCacheHit(): Boolean? =
+    when (this) {
+        "memory_hit", "disk_hit" -> true
+        "file_decode", "network" -> false
+        else -> null
+    }
 
 /**
  * Cover path selection rules.

@@ -11,6 +11,7 @@ import com.viel.aplayer.abs.sync.AbsCoverCache
 import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryFacade
+import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.CoverGateway
@@ -29,6 +30,8 @@ import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.library.availability.DetailAvailabilityChecker
 import com.viel.aplayer.library.availability.PlaybackReachabilityManager
 import com.viel.aplayer.library.vfs.VfsFileInterface
+import com.viel.aplayer.library.vfs.cache.RoomDirectoryListingCache
+import com.viel.aplayer.library.vfs.cache.VfsRangeCache
 import com.viel.aplayer.media.PlaybackFileLookup
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
@@ -163,6 +166,32 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         AbsCoverCache(context.applicationContext)
     }
 
+    // Scanner Directory Listing Cache (Lazily creates the Room-backed WebDAV child snapshot cache)
+    // Injected only into ScanService so playback, metadata reading, and availability checks keep direct provider behavior.
+    private val directoryListingCache by lazy {
+        RoomDirectoryListingCache(
+            directoryChildCacheDao = database.directoryChildCacheDao()
+        )
+    }
+
+    // Metadata Range Cache (Stores only bounded readRange blocks for metadata and cover extraction)
+    // This cache is injected into VfsFileInterface and never into playback stream data sources, preserving provider-owned seek behavior.
+    private val vfsRangeCache by lazy {
+        VfsRangeCache(context.applicationContext)
+    }
+
+    // Root Cache Eviction Coordinator (Lazily creates data-domain cleanup for root deletion)
+    // Clears cover files and directory cache rows before Room cascades remove source records, without owning playback or scan behavior.
+    private val cacheEvictionCoordinator by lazy {
+        CacheEvictionCoordinator(
+            context = context.applicationContext,
+            bookDao = database.bookDao(),
+            directoryCacheDao = database.directoryCacheDao(),
+            directoryChildCacheDao = database.directoryChildCacheDao(),
+            vfsRangeCache = vfsRangeCache
+        )
+    }
+
     private val absPlaybackCredentialResolver by lazy {
         AbsPlaybackCredentialResolver(
             libraryRootDao = database.libraryRootDao(),
@@ -274,6 +303,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             context = context,
             coverRecoveryHelper = coverRecoveryHelper,
             vfsFileInterface = vfsFileInterface,
+            directoryListingCache = directoryListingCache,
             playbackManager = playbackManager
         )
     }
@@ -285,7 +315,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             context = context,
             libraryRootDao = database.libraryRootDao(),
             bookDao = database.bookDao(),
-            scanScheduler = scanScheduler
+            scanScheduler = scanScheduler,
+            cacheEvictionCoordinator = cacheEvictionCoordinator
         )
     }
 
@@ -339,7 +370,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     override val vfsFileInterface: VfsFileInterface by lazy {
         VfsFileInterface(
             context.applicationContext,
-            libraryRootDao = database.libraryRootDao()
+            libraryRootDao = database.libraryRootDao(),
+            rangeCache = vfsRangeCache
         )
     }
 

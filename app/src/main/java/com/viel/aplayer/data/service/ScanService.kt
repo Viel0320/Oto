@@ -9,6 +9,8 @@ import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.orchestrator.RescanType
 import com.viel.aplayer.library.orchestrator.ScanSessionRunner
 import com.viel.aplayer.library.vfs.VfsFileInterface
+import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
+import com.viel.aplayer.library.vfs.cache.NoOpDirectoryListingCache
 import com.viel.aplayer.logger.ScanWorkflowLogger
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -35,6 +37,9 @@ class ScanService(
     // Shared VFS Facade (Dependency injection reference)
     // Reference to the module's single VFS reader, avoiding internal self-initialization.
     private val vfsFileInterface: VfsFileInterface,
+    // Scanner Directory Cache (Injects scanner-only directory child snapshots)
+    // Keeps WebDAV listing reuse inside ingestion flows while playback and availability checks continue using direct VFS providers.
+    private val directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache,
     private val playbackManager: com.viel.aplayer.media.PlaybackManager
 ) : ScanScheduler, java.io.Closeable {
 
@@ -94,6 +99,7 @@ class ScanService(
         val session = ScanSessionRunner(
             context = appContext,
             vfsFileInterface = vfsFileInterface,
+            directoryListingCache = directoryListingCache,
             triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
         ).rescan(type)
 

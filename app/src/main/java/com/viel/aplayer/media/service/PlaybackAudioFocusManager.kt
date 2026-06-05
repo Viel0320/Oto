@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 // Import alignment: Add delay utility to support timer offsets for notification avoidance.
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Audio Focus & Notification Ducking Coordinator (Manages system-level audio focus states and handles ducking dynamics)
@@ -68,7 +69,7 @@ class PlaybackAudioFocusManager(
                             }
                             // Start a fixed 3s delay job before executing automatic recovery.
                             avoidanceJob = serviceScope.launch {
-                                delay(3000)
+                                delay(3000.milliseconds)
                                 if (isPausedByLossOfFocus) {
                                     isPausedByLossOfFocus = false
                                     playerProvider()?.play()

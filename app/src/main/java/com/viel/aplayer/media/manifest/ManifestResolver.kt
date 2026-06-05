@@ -22,7 +22,7 @@ object ManifestResolver {
     private fun decodeManifestEntryPath(manifestEntryPath: String): String =
         try {
             URLDecoder.decode(manifestEntryPath, "UTF-8")
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             manifestEntryPath
         }
 }

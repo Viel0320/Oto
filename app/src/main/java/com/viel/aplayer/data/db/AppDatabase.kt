@@ -18,6 +18,7 @@ import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookmarkDao
 import com.viel.aplayer.data.dao.ChapterDao
 import com.viel.aplayer.data.dao.DirectoryCacheDao
+import com.viel.aplayer.data.dao.DirectoryChildCacheDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.dao.ScanSessionDao
 import com.viel.aplayer.data.entity.BookEntity
@@ -25,6 +26,7 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.entity.DirectoryChildCacheEntity
 import com.viel.aplayer.data.entity.DirectoryCacheEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.PendingScanActionEntity
@@ -42,13 +44,15 @@ import java.io.File
         ScanSessionEntity::class,
         PendingScanActionEntity::class,
         DirectoryCacheEntity::class,
+        DirectoryChildCacheEntity::class,
         AbsSyncStateEntity::class,
         AbsItemMirrorEntity::class,
         AbsPlaybackSessionEntity::class,
         AbsPendingProgressSyncEntity::class
     ],
-    // Database Schema Design (Upgraded schema targets VFS-only structures after removing legacy BookFile uri column)
-    version = 35,
+    // Database Schema Design (Adds WebDAV directory child snapshots for scanner-only listing cache reuse)
+    // Version 36 introduces directory_child_cache while leaving BookEntity cover-version fields and playback schemas unchanged.
+    version = 36,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -59,6 +63,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scanSessionDao(): ScanSessionDao
     // Directory Cache DAO (Expose query interfaces for scanning timestamps of local directories)
     abstract fun directoryCacheDao(): DirectoryCacheDao
+    // Directory Children Cache DAO (Expose direct directory listing snapshots for WebDAV scan reuse)
+    abstract fun directoryChildCacheDao(): DirectoryChildCacheDao
     abstract fun absSyncStateDao(): AbsSyncStateDao
     abstract fun absItemMirrorDao(): AbsItemMirrorDao
     abstract fun absCatalogDao(): AbsCatalogDao
@@ -78,7 +84,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 // Destructive Migration Strategy (Wipe databases and rebuild layout if schema versions mismatch)
                 .fallbackToDestructiveMigration(true)
-                .addCallback(object : RoomDatabase.Callback() {
+                .addCallback(object : Callback() {
                     override fun onDestructiveMigration(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         super.onDestructiveMigration(db)
                         // Cache Eviction Coordinator (Purge cached cover art and thumbnails upon destructive migrations)

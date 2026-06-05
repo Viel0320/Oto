@@ -11,6 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Progress Synchronization Tracker (Helper class decoupled from PlaybackManager singletons)
@@ -55,7 +56,7 @@ class ProgressSyncTracker(
                 }
                 // Dynamic Polling Interval (Delay 500ms during playback to keep UI precise; throttle to 2s when paused to save CPU)
                 val delayTime = if (getController()?.isPlaying == true) 500L else 2000L
-                delay(delayTime)
+                delay(delayTime.milliseconds)
             }
         }
     }

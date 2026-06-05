@@ -17,6 +17,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
@@ -27,6 +28,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  * - Material mode only uses the native [DropdownMenu] and does not enable the frosted glass rendering pipeline.
  * - Haze mode attaches hazeChild to the content modifier of the DropdownMenu itself.
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurDropdownMenu(
     modifier: Modifier = Modifier,

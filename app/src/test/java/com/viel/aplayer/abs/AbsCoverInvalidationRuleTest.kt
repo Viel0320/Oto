@@ -1,6 +1,6 @@
 package com.viel.aplayer.abs
 
-import com.viel.aplayer.abs.sync.resolveAbsCoverLastScannedAt
+import com.viel.aplayer.data.cache.CoverCacheInvalidationPolicy
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import org.junit.Assert.assertEquals
@@ -10,7 +10,7 @@ class AbsCoverInvalidationRuleTest {
 
     @Test
     fun `new abs book should use synced time when cover cache path exists`() {
-        val resolved = resolveAbsCoverLastScannedAt(
+        val resolved = CoverCacheInvalidationPolicy.resolveLastScannedAt(
             existing = null,
             nextCoverPath = "/cache/cover.jpg",
             nextThumbnailPath = "/cache/thumb.jpg",
@@ -24,7 +24,7 @@ class AbsCoverInvalidationRuleTest {
 
     @Test
     fun `new abs book without cover cache should keep zero last scanned time`() {
-        val resolved = resolveAbsCoverLastScannedAt(
+        val resolved = CoverCacheInvalidationPolicy.resolveLastScannedAt(
             existing = null,
             nextCoverPath = null,
             nextThumbnailPath = null,
@@ -44,7 +44,7 @@ class AbsCoverInvalidationRuleTest {
             lastScannedAt = 1000L
         )
 
-        val resolved = resolveAbsCoverLastScannedAt(
+        val resolved = CoverCacheInvalidationPolicy.resolveLastScannedAt(
             existing = existing,
             nextCoverPath = "/cache/cover.jpg",
             nextThumbnailPath = "/cache/thumb.jpg",
@@ -64,13 +64,13 @@ class AbsCoverInvalidationRuleTest {
             lastScannedAt = 1000L
         )
 
-        val changedCover = resolveAbsCoverLastScannedAt(
+        val changedCover = CoverCacheInvalidationPolicy.resolveLastScannedAt(
             existing = existing,
             nextCoverPath = "/cache/new-cover.jpg",
             nextThumbnailPath = "/cache/old-thumb.jpg",
             syncedAt = 2000L
         )
-        val changedThumbnail = resolveAbsCoverLastScannedAt(
+        val changedThumbnail = CoverCacheInvalidationPolicy.resolveLastScannedAt(
             existing = existing,
             nextCoverPath = "/cache/old-cover.jpg",
             nextThumbnailPath = "/cache/new-thumb.jpg",
@@ -80,6 +80,26 @@ class AbsCoverInvalidationRuleTest {
         // Cover path variation invalidation. Any modification in the original or thumbnail cover paths indicates that the UI must generate a new key to load the updated image.
         assertEquals(2000L, changedCover)
         assertEquals(3000L, changedThumbnail)
+    }
+
+    @Test
+    fun `unchanged abs cover paths should refresh when remote version changes`() {
+        val existing = sampleAbsBook(
+            coverPath = "/cache/cover.jpg",
+            thumbnailPath = "/cache/thumb.jpg",
+            lastScannedAt = 1000L
+        )
+
+        val resolved = CoverCacheInvalidationPolicy.resolveLastScannedAt(
+            existing = existing,
+            nextCoverPath = "/cache/cover.jpg",
+            nextThumbnailPath = "/cache/thumb.jpg",
+            syncedAt = 4000L,
+            remoteVersionChanged = true
+        )
+
+        // Remote version invalidation. ABS can replace cover bytes while retaining stable local cache paths, so a changed remote version must refresh the UI cache key.
+        assertEquals(4000L, resolved)
     }
 
     private fun sampleAbsBook(

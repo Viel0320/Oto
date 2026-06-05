@@ -236,10 +236,10 @@ internal object HeuristicAudioAggregator {
         data class Number(val value: Long) : NaturalSortPart
 
         override fun compareTo(other: NaturalSortPart): Int =
-            when {
-                this is Number && other is Number -> value.compareTo(other.value)
-                this is Text && other is Text -> value.compareTo(other.value)
-                this is Number -> -1
+            when (this) {
+                is Number if other is Number -> value.compareTo(other.value)
+                is Text if other is Text -> value.compareTo(other.value)
+                is Number -> -1
                 else -> 1
             }
     }

@@ -14,6 +14,15 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.media.PositionMapper
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Book Cover Cache Paths Projection (Reads only cover file coordinates for root cache eviction)
+ * Keeps root-deletion cleanup from loading full BookEntity rows when it only needs sandboxed cover and thumbnail paths.
+ */
+data class BookCoverCachePaths(
+    val coverPath: String?,
+    val thumbnailPath: String?
+)
+
 @Dao
 interface BookDao {
     // UI lists hide soft-deleted books while their BookFile claims stay reserved.
@@ -217,6 +226,12 @@ interface BookDao {
     // This avoids piling up orphaned thumbnail files in sandboxed application caches.
     @Query("SELECT * FROM books WHERE rootId = :rootId")
     suspend fun getBooksByRootId(rootId: String): List<BookEntity>
+
+    // Root Cover Cache Projection (Retrieves only cache file paths belonging to one root)
+    // Used by CacheEvictionCoordinator before root deletion so cleanup avoids reading metadata, progress, or file ownership columns.
+    @Query("SELECT coverPath, thumbnailPath FROM books WHERE rootId = :rootId")
+    suspend fun getCoverCachePathsByRootId(rootId: String): List<BookCoverCachePaths>
+
     @Query("UPDATE books SET readStatus = :readStatus WHERE id = :id")
     suspend fun updateBookReadStatus(id: String, readStatus: String)
 

@@ -428,7 +428,7 @@ class PlaybackManager private constructor(context: Context) {
         }
         mediaController = null
         // Singleton Cleanup Lock (Perform cleanup within companion lock to maintain concurrency safety)
-        synchronized(PlaybackManager.Companion) {
+        synchronized(Companion) {
             INSTANCE = null
         }
     }

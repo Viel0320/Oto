@@ -2,6 +2,8 @@ package com.viel.aplayer.library.vfs
 
 import android.os.ParcelFileDescriptor
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
+import com.viel.aplayer.library.vfs.cache.NoOpDirectoryListingCache
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProviderFactory
 import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
@@ -41,24 +43,55 @@ object NoOpVfsMetadataCache : VfsMetadataCache {
 }
 
 // VirtualFileSystem encapsulates provider access; scanner components depend on VFS instead of coupling to SAF or WebDAV directly.
-class VirtualFileSystem(
-    private val providerFactory: LibrarySourceProviderFactory,
-    private val metadataCache: VfsMetadataCache = NoOpVfsMetadataCache
+class VirtualFileSystem private constructor(
+    private val providerResolver: (LibraryRootEntity) -> LibrarySourceProvider,
+    private val metadataCache: VfsMetadataCache = NoOpVfsMetadataCache,
+    private val directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache
 ) {
+    constructor(
+        providerFactory: LibrarySourceProviderFactory,
+        metadataCache: VfsMetadataCache = NoOpVfsMetadataCache,
+        directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache
+    ) : this(
+        providerResolver = { root -> providerFactory.providerFor(root) },
+        metadataCache = metadataCache,
+        directoryListingCache = directoryListingCache
+    )
+
+    internal constructor(
+        providerResolver: (LibraryRootEntity) -> LibrarySourceProvider,
+        directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache
+    ) : this(
+        providerResolver = providerResolver,
+        metadataCache = NoOpVfsMetadataCache,
+        directoryListingCache = directoryListingCache
+    )
+
     suspend fun root(root: LibraryRootEntity): VfsNode? {
-        val provider = providerFactory.providerFor(root)
+        val provider = providerResolver(root)
         return provider.rootDirectory(root)?.toVfsNode()
     }
 
     suspend fun resolve(root: LibraryRootEntity, path: VfsPath): VfsNode? {
         // Relocate node using rootId and sourcePath, replacing manual reconstruction of native provider file references in the business layer.
-        val provider = providerFactory.providerFor(root)
+        val provider = providerResolver(root)
         return provider.resolve(root, path.value)?.toVfsNode()
     }
 
     suspend fun listChildren(directory: VfsNode): List<VfsNode> {
-        val provider = providerFactory.providerFor(directory.root)
-        return provider.listChildren(directory.sourceNode).map { child ->
+        // Directory Listing Cache Read (Scopes reusable child snapshots to listChildren only)
+        // Cached metadata is wrapped back into VfsNode values without provider handles, keeping playback streams, exists(), and range reads on their live provider paths.
+        directoryListingCache.getChildren(directory)?.let { cachedChildren ->
+            return cachedChildren.map { metadata -> metadata.toCachedVfsNode(directory.root) }
+        }
+
+        val provider = providerResolver(directory.root)
+        val providerChildren = provider.listChildren(directory.sourceNode)
+        val childMetadata = providerChildren.map { child -> child.metadata }
+        // Directory Listing Cache Write (Stores only provider-successful direct child metadata)
+        // The cache is refreshed after a successful provider listing so scanner retries never consume partial or failed directory states.
+        directoryListingCache.replaceChildren(directory, childMetadata)
+        return providerChildren.map { child ->
             metadataCache.put(directory.root.id, child.metadata)
             child.toVfsNode()
         }
@@ -82,6 +115,14 @@ class VirtualFileSystem(
         // Metadata frame parsing requires propagating length to the provider, allowing WebDAV to specify bytes=start-end instead of start-.
         providerFor(file).readRange(file.sourceNode, offset, length)
 
+    /**
+     * Supports Range Read (Exposes provider capability without leaking provider instances)
+     * Lets metadata-only cache decorators decide whether a bounded read can be cached while playback offset streams keep using
+     * provider openInputStream paths directly.
+     */
+    fun supportsRangeRead(file: VfsNode): Boolean =
+        providerFor(file).capabilities.supportsRangeRead
+
     suspend fun readRange(root: LibraryRootEntity, path: VfsPath, offset: Long, length: Int): ByteArray? =
         // Performs bounded range reads on root/path to prevent metadata reading from consuming open-ended offset playback streams.
         resolve(root, path)?.let { readRange(it, offset, length) }
@@ -96,7 +137,7 @@ class VirtualFileSystem(
         providerFor(node).exists(node.sourceNode)
 
     private fun providerFor(node: VfsNode): LibrarySourceProvider =
-        providerFactory.providerFor(node.root)
+        providerResolver(node.root)
 
     private fun SourceNode.toVfsNode(): VfsNode =
         VfsNode(
@@ -105,4 +146,16 @@ class VirtualFileSystem(
             metadata = metadata,
             sourceNode = this
         )
+
+    private fun SourceFileMetadata.toCachedVfsNode(root: LibraryRootEntity): VfsNode {
+        // Cached Source Node Reconstruction (Rebuilds the minimal VFS node needed for scanner traversal)
+        // Provider handles are intentionally omitted because WebDAV directory operations can resolve from root plus sourcePath metadata.
+        val cachedSourceNode = SourceNode(root = root, metadata = this)
+        return VfsNode(
+            root = root,
+            path = VfsPath(sourcePath),
+            metadata = this,
+            sourceNode = cachedSourceNode
+        )
+    }
 }

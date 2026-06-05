@@ -4,6 +4,8 @@ import android.content.Context
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.vfs.VfsNode
 import com.viel.aplayer.library.vfs.VirtualFileSystem
+import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
+import com.viel.aplayer.library.vfs.cache.NoOpDirectoryListingCache
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProviderFactory
 import com.viel.aplayer.logger.ImportTimingLogger
 import kotlinx.coroutines.Dispatchers
@@ -14,8 +16,14 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 
 // VFS-aligned Scanner (SAF Provider supplies data in Phase 1; WebDavProvider shares the same pipeline in later phases)
-class SourceInventoryScanner(context: Context) {
-    private val vfs = VirtualFileSystem(LibrarySourceProviderFactory(context.applicationContext))
+class SourceInventoryScanner(
+    context: Context,
+    directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache
+) {
+    private val vfs = VirtualFileSystem(
+        providerFactory = LibrarySourceProviderFactory(context.applicationContext),
+        directoryListingCache = directoryListingCache
+    )
 
     suspend fun scan(roots: List<LibraryRootEntity>): FileInventory = withContext(Dispatchers.IO) {
         val inventories = roots.mapNotNull { root ->

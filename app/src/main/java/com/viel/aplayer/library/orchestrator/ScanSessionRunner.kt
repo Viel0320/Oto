@@ -11,6 +11,8 @@ import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryResult
 import com.viel.aplayer.library.orchestrator.draftmodels.ImportRunResult
 import com.viel.aplayer.library.vfs.VfsFileInterface
+import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
+import com.viel.aplayer.library.vfs.cache.NoOpDirectoryListingCache
 import com.viel.aplayer.media.parser.MetadataResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,6 +47,9 @@ class ScanSessionRunner(
     // Inject VFS Facade Singleton (Dependency Decoupling)
     // Ensures file operations refer to a single virtual file system to prevent raw resource creation.
     vfsFileInterface: VfsFileInterface,
+    // Directory Listing Cache Injection (Scanner-only listing reuse boundary)
+    // Supplies WebDAV child snapshots to SourceInventoryScanner without changing playback, availability, or metadata range readers.
+    directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache,
     // Cover Image Caching Hook (Decoupled Callback)
     // Forwards cover reconstruction triggers to higher layers rather than managing extraction directly.
     private val triggerCoverRegeneration: (BookEntity) -> Unit = {}
@@ -53,7 +58,10 @@ class ScanSessionRunner(
     private val rootDao = database.libraryRootDao()
     private val bookDao = database.bookDao()
     private val scanSessionDao = database.scanSessionDao()
-    private val scanner = SourceInventoryScanner(context)
+    private val scanner = SourceInventoryScanner(
+        context = context,
+        directoryListingCache = directoryListingCache
+    )
     
     private val metadataResolver = MetadataResolver(vfsFileInterface)
     private val pipeline = ImportPipeline(context, metadataResolver)

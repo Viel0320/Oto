@@ -28,7 +28,7 @@ class SubtitleFileResolver(
     private val fileReader: VfsFileInterface
 ) {
     // Supported Subtitle Formats (The set of file extensions recognized by this resolver)
-    private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "lrc")
+    private val subtitleExtension = setOf("srt", "ass", "ssa", "vtt", "lrc")
 
     /**
      * Subtitle Loading Entrypoint (Queries, locates, and parses subtitles for a specific database book file)
@@ -97,7 +97,7 @@ class SubtitleFileResolver(
             val extension = name.substringAfterLast('.', missingDelimiterValue = "").lowercase(
                 Locale.ROOT)
             val sameBaseName = name.substringBeforeLast('.', missingDelimiterValue = name).equals(baseName, ignoreCase = true)
-            if (sameBaseName && SUBTITLE_EXTENSIONS.contains(extension)) {
+            if (sameBaseName && subtitleExtension.contains(extension)) {
                 SubtitleFileRef(
                     sourceId = "${node.root.id}:${node.metadata.sourcePath}",
                     extension = extension,

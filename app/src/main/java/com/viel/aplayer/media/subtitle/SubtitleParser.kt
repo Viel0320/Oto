@@ -60,10 +60,10 @@ object SubtitleParser {
             }
 
             // Convert point-in-time LRC to duration-based SubtitleLine
-            for (i in 0 until lrcList.size) {
-                val startTime = lrcList[i].first
+            for ((i, element) in lrcList.withIndex()) {
+                val startTime = element.first
                 val endTime = if (i < lrcList.size - 1) lrcList[i + 1].first else startTime + 10000
-                lines.add(SubtitleLine(startTime, endTime, lrcList[i].second))
+                lines.add(SubtitleLine(startTime, endTime, element.second))
             }
         } catch (e: Exception) {
             e.printStackTrace()

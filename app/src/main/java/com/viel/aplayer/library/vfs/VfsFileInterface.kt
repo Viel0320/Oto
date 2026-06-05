@@ -5,6 +5,8 @@ import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.FileRef
+import com.viel.aplayer.library.vfs.cache.CachedRangeReader
+import com.viel.aplayer.library.vfs.cache.VfsRangeCache
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProviderFactory
 import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.aplayer.library.vfs.sourceProvider.SourceNode
@@ -24,9 +26,19 @@ import java.util.concurrent.ConcurrentHashMap
 class VfsFileInterface(
     context: Context,
     private val libraryRootDao: LibraryRootDao? = null,
-    private val rootsById: Map<String, LibraryRootEntity> = emptyMap()
+    private val rootsById: Map<String, LibraryRootEntity> = emptyMap(),
+    rangeCache: VfsRangeCache? = null
 ) {
     private val vfs = VirtualFileSystem(LibrarySourceProviderFactory(context.applicationContext))
+    private val cachedRangeReader = rangeCache?.let { cache ->
+        // Metadata Range Cache Decorator (Wraps only bounded readRange calls)
+        // The playback open/open(offset) methods continue to call VirtualFileSystem.openInputStream directly, keeping seek streams uncached.
+        CachedRangeReader(
+            rangeCache = cache,
+            supportsRangeRead = { node -> vfs.supportsRangeRead(node) },
+            readRange = { node, offset, length -> vfs.readRange(node, offset, length) }
+        )
+    }
     private val rootCache = ConcurrentHashMap<String, LibraryRootEntity>()
 
     suspend fun open(file: FileRef): InputStream? {
@@ -70,14 +82,14 @@ class VfsFileInterface(
         val root = rootFor(file.rootId) ?: return null
         // Prefers directRangeNode when stable coordinates exist, avoiding triggering VirtualFileSystem.resolve().
         val node = directRangeNode(root, file)
-        return vfs.readRange(node, offset, length)
+        return cachedRangeReader?.read(node, offset, length) ?: vfs.readRange(node, offset, length)
     }
 
     suspend fun readRange(file: BookFileEntity, offset: Long, length: Int): ByteArray? {
         val root = rootFor(file.rootId) ?: return null
         // DB-persisted files use directRangeNode to share fast-path structures with recovery and re-parsing.
         val node = directRangeNode(root, file)
-        return vfs.readRange(node, offset, length)
+        return cachedRangeReader?.read(node, offset, length) ?: vfs.readRange(node, offset, length)
     }
 
     private fun directOpenNode(root: LibraryRootEntity, file: FileRef): VfsNode =

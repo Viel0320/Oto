@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
 import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -22,7 +23,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
  * Library Roots Management Application Service (Implements LibraryRootGateway)
@@ -36,6 +36,7 @@ class LibraryRootService(
     private val libraryRootDao: LibraryRootDao,
     private val bookDao: BookDao,
     private val scanScheduler: ScanScheduler,
+    private val cacheEvictionCoordinator: CacheEvictionCoordinator,
     private val rootStoreOverride: LibraryRootStore? = null,
     private val webDavCredentialStoreOverride: WebDavCredentialStore? = null,
     private val absCredentialStoreOverride: AbsCredentialStore? = null
@@ -163,27 +164,12 @@ class LibraryRootService(
     }
 
     override suspend fun deleteLibraryRootDataOnly(root: LibraryRootEntity): Unit = withContext(Dispatchers.IO) {
-        // 1. Recursive cover cache purge: Deletes cover files from storage to prevent leaks before SQLite cascade deletes.
+        // Pre-Delete Cache Eviction (Clears root-owned cache artifacts while source rows still exist)
+        // Runs before root deletion so cover paths and directory cache rows can be collected without moving playback or sync logic into this service.
         try {
-            val books = bookDao.getBooksByRootId(root.id)
-            books.forEach { book ->
-                book.coverPath?.let { path ->
-                    val file = File(path)
-                    if (file.exists()) {
-                        val deleted = file.delete()
-                        com.viel.aplayer.logger.LibraryLogger.logCoverDeleted(book.id, path, deleted)
-                    }
-                }
-                book.thumbnailPath?.let { path ->
-                    val file = File(path)
-                    if (file.exists()) {
-                        val deleted = file.delete()
-                        com.viel.aplayer.logger.LibraryLogger.logThumbnailDeleted(book.id, path, deleted)
-                    }
-                }
-            }
+            cacheEvictionCoordinator.evictBeforeRootDelete(root)
         } catch (e: Exception) {
-            ScanWorkflowLogger.error("libraryRootService clear cover cache failed: rootId=${root.id}", e)
+            ScanWorkflowLogger.error("libraryRootService cache eviction failed: rootId=${root.id}", e)
         }
 
         // 2. Revoke permissions or remove secrets based on the root type (SAF tree release, or credential purge).

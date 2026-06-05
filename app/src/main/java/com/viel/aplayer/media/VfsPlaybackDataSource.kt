@@ -19,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.io.InputStream
 import kotlin.math.min
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(UnstableApi::class)
 class VfsPlaybackDataSource private constructor(
@@ -64,7 +65,7 @@ class VfsPlaybackDataSource private constructor(
                             )
                             break
                         }
-                        delay(50)
+                        delay(50.milliseconds)
                     }
                 }
                 try {
@@ -113,7 +114,7 @@ class VfsPlaybackDataSource private constructor(
                             )
                           break
                         }
-                        delay(50)
+                        delay(50.milliseconds)
                     }
                 }
                 try {
