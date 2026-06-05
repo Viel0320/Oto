@@ -117,7 +117,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                     }
                     com.viel.aplayer.data.db.AudiobookSchema.SourceType.GENERATED_M3U8 -> {
                         // Aggregated Book source (Sort tracks and default to the first sorted track name)
-                        files.sortedBy { it.index }.firstOrNull()?.displayName.orEmpty()
+                        files.minByOrNull { it.index }?.displayName.orEmpty()
                     }
                     else -> ""
                 }
@@ -213,6 +213,25 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     fun setVisible(visible: Boolean) {
         _uiState.update { it.copy(isVisible = visible) }
     }
+
+    // Clear Detail State (Reset selection and cancel database flow subscription on overlay dispose)
+    // Resets the selected book metadata, cancels active database flow observers, and flushes progress parameters when closed.
+    fun clearDetails() {
+        bookObserveJob?.cancel()
+        bookObserveJob = null
+        _playbackStartedAt.value = null
+        _uiState.update { state ->
+            state.copy(
+                book = null,
+                isAvailable = true,
+                progressPercent = 0,
+                displayProgressPercent = 0,
+                backgroundColorArgb = ImageProcessor.DEFAULT_BACKGROUND_ARGB,
+                fullSourcePath = ""
+            )
+        }
+    }
+
 
     /**
      * Dismiss Selection on Delete: Closes the details panel immediately if the currently viewed book is deleted.

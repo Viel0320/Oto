@@ -14,6 +14,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,6 +65,14 @@ fun SearchOverlay(
         },
         modifier = modifier
     ) {
+        // Reset Search Query (Wipe search text input and results on overlay dispose)
+        // Resets the input query text field to empty when the search overlay is completely disposed from composition.
+        DisposableEffect(Unit) {
+            onDispose {
+                searchViewModel.clearQuery()
+            }
+        }
+
         Surface(
             modifier = Modifier.fillMaxSize(),
             // If newly named MiuixBlur is enabled, set the outer Surface container background to transparent so rendering engine can reveal underlying content
