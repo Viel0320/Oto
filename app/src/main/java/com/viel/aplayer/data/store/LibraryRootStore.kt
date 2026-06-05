@@ -8,6 +8,7 @@ import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.availability.AvailabilityChecker
+import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import kotlinx.coroutines.Dispatchers
@@ -150,29 +151,54 @@ class LibraryRootStore(
         root
     }
 
-    suspend fun refreshPermissionStatuses() = withContext(Dispatchers.IO) {
+    /**
+     * Refresh All Root Statuses (Updates every registered root before global synchronization)
+     * Returns refreshed snapshots so sync callers can skip unavailable roots immediately after the persisted status has been reconciled.
+     */
+    suspend fun refreshPermissionStatuses(): List<LibraryRootAvailabilityUpdate> = withContext(Dispatchers.IO) {
         // Startup and settings entry both reconcile persisted SAF grants with stored root status.
-        rootDao.getAllRootsOnce().forEach { root ->
-            val availability = availabilityChecker.checkRoot(root)
-            val status = if (availability.isAvailable) {
-                AudiobookSchema.LibraryRootStatus.ACTIVE
-            } else if (LibrarySourceKind.from(root.sourceType) == LibrarySourceKind.SAF) {
-                AudiobookSchema.LibraryRootStatus.REVOKED
-            } else {
-                // Remote Error Flagging (Diagnostics routing policy)
-                // Maps remote checkouts to ERROR states, enabling UI lists to separate network timeouts from local permission revocations.
-                AudiobookSchema.LibraryRootStatus.ERROR
-            }
-            if (root.status != status) {
-                rootDao.updateRootStatus(root.id, status)
-            }
-            rootDao.updateRootAvailability(
-                id = root.id,
-                availabilityStatus = availability.status,
-                checkedAt = availability.checkedAt,
-                errorCode = availability.errorCode
-            )
+        rootDao.getAllRootsOnce().map { root -> refreshRootStatusInternal(root) }
+    }
+
+    /**
+     * Refresh Single Root Status (Updates one root before a targeted synchronization)
+     * Re-reads the root from Room and persists availability fields before returning the fresh model used by ABS sync tasks.
+     */
+    suspend fun refreshRootStatus(rootId: String): LibraryRootAvailabilityUpdate? = withContext(Dispatchers.IO) {
+        rootDao.getRootById(rootId)?.let { root -> refreshRootStatusInternal(root) }
+    }
+
+    /**
+     * Persist Availability Snapshot (Maps protocol reachability into root status columns)
+     * Keeps LibraryRootStatus and detailed AvailabilityStatus synchronized so UI rows and sync guards observe the same source-of-truth state.
+     */
+    private suspend fun refreshRootStatusInternal(root: LibraryRootEntity): LibraryRootAvailabilityUpdate {
+        val availability = availabilityChecker.checkRoot(root)
+        val status = if (availability.isAvailable) {
+            AudiobookSchema.LibraryRootStatus.ACTIVE
+        } else if (LibrarySourceKind.from(root.sourceType) == LibrarySourceKind.SAF) {
+            AudiobookSchema.LibraryRootStatus.REVOKED
+        } else {
+            // Remote Error Flagging (Diagnostics routing policy)
+            // Maps remote checkouts to ERROR states, enabling UI lists to separate network timeouts from local permission revocations.
+            AudiobookSchema.LibraryRootStatus.ERROR
         }
+        if (root.status != status) {
+            rootDao.updateRootStatus(root.id, status)
+        }
+        rootDao.updateRootAvailability(
+            id = root.id,
+            availabilityStatus = availability.status,
+            checkedAt = availability.checkedAt,
+            errorCode = availability.errorCode
+        )
+        val updatedRoot = root.copy(
+            status = status,
+            availabilityStatus = availability.status,
+            lastAvailabilityCheckedAt = availability.checkedAt,
+            lastAvailabilityErrorCode = availability.errorCode
+        )
+        return LibraryRootAvailabilityUpdate(root = updatedRoot, availability = availability)
     }
 
     private fun LibraryRootEntity.isSameRoot(candidateTreeUri: String): Boolean =

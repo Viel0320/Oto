@@ -160,7 +160,16 @@ class LibraryRootService(
     }
 
     override suspend fun refreshLibraryRootStatuses() = withContext(Dispatchers.IO) {
+        // Bulk Root Status Refresh (Keeps gateway command semantics unchanged)
+        // Discards detailed snapshots here because settings screens observe persisted root rows rather than consuming direct return payloads.
         rootStore.refreshPermissionStatuses()
+        Unit
+    }
+
+    override suspend fun refreshLibraryRootStatus(rootId: String) = withContext(Dispatchers.IO) {
+        // Targeted Root Status Refresh (Supports root-scoped sync preflight checks)
+        // Updates the selected root before manual ABS synchronization or other focused tasks decide whether execution may proceed.
+        rootStore.refreshRootStatus(rootId)
     }
 
     override suspend fun deleteLibraryRootDataOnly(root: LibraryRootEntity): Unit = withContext(Dispatchers.IO) {

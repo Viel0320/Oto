@@ -426,7 +426,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         AbsSyncTaskCoordinator(
             libraryRootDao = database.libraryRootDao(),
             synchronizer = absCatalogSynchronizer,
-            playbackManager = playbackManager
+            playbackManager = playbackManager,
+            rootPreflight = libraryRootGateway::refreshLibraryRootStatus
         )
     }
 

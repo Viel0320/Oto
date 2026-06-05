@@ -6,6 +6,9 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.library.LibraryRootStore
+import com.viel.aplayer.library.availability.buildUnavailableRootsSyncMessage
+import com.viel.aplayer.library.availability.isDirectorySyncRoot
+import com.viel.aplayer.library.availability.isSyncAvailable
 import com.viel.aplayer.library.orchestrator.RescanType
 import com.viel.aplayer.library.orchestrator.ScanSessionRunner
 import com.viel.aplayer.library.vfs.VfsFileInterface
@@ -84,8 +87,28 @@ class ScanService(
      * Dispatches reachability checks, scans folders, and launches cover self-healing procedures.
      */
     private suspend fun runSyncLibrary(trigger: String) = withContext(Dispatchers.IO) {
-        // 1. Validate and refresh permission/connection states for SAF and WebDAV.
-        rootStore.refreshPermissionStatuses()
+        // Sync Preflight Status Refresh (Updates root reachability before any scan session starts)
+        // Persists current availability for all roots and separates directory-scannable roots from unavailable or non-enumerable sources.
+        val availabilityUpdates = rootStore.refreshPermissionStatuses()
+        val directoryRootUpdates = availabilityUpdates.filter { update -> update.root.isDirectorySyncRoot() }
+        val unavailableDirectoryUpdates = directoryRootUpdates.filterNot { update -> update.isSyncAvailable }
+        val availableDirectoryRootIds = directoryRootUpdates
+            .filter { update -> update.isSyncAvailable }
+            .map { update -> update.root.id }
+            .toSet()
+        if (unavailableDirectoryUpdates.isNotEmpty()) {
+            ScanWorkflowLogger.warn("scanService skipped unavailable roots: trigger=$trigger, count=${unavailableDirectoryUpdates.size}")
+            playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(buildUnavailableRootsSyncMessage(unavailableDirectoryUpdates)))
+        }
+        if (availableDirectoryRootIds.isEmpty()) {
+            // Empty Sync Guard (Avoids creating scan sessions when no reachable directory root can be traversed)
+            // Reports the blocked condition and returns before ScanSessionRunner allocation so unavailable roots cannot start background work.
+            ScanWorkflowLogger.warn("scanService skipped: trigger=$trigger, no available directory roots")
+            if (unavailableDirectoryUpdates.isEmpty()) {
+                playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("没有可同步的本地或 WebDAV 库根"))
+            }
+            return@withContext
+        }
         
         // 2. Classify rescan type (shallow/light for COLD_START, deep for active USER request).
         val type = if (trigger == AudiobookSchema.ScanTrigger.COLD_START) {
@@ -101,7 +124,7 @@ class ScanService(
             vfsFileInterface = vfsFileInterface,
             directoryListingCache = directoryListingCache,
             triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
-        ).rescan(type)
+        ).rescan(type, allowedRootIds = availableDirectoryRootIds)
 
         ScanWorkflowLogger.info("scanService success: trigger=$trigger, discovered=${session.discoveredBookCount}, pending=${session.pendingActionCount}")
 

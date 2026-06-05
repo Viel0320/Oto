@@ -2,6 +2,7 @@ package com.viel.aplayer.data.gateway
 
 import android.net.Uri
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -100,6 +101,12 @@ interface LibraryRootGateway {
      * Asynchronously checks active access permissions for SAF or credentials validation for remote roots.
      */
     suspend fun refreshLibraryRootStatuses()
+
+    /**
+     * Refresh Single Root Status (Targeted synchronization preflight)
+     * Updates one registered root before a root-scoped sync and returns the persisted availability snapshot used for skip decisions.
+     */
+    suspend fun refreshLibraryRootStatus(rootId: String): LibraryRootAvailabilityUpdate?
 
     /**
      * Pure Data Deletion Cleanups (Cascaded cleanup transaction)

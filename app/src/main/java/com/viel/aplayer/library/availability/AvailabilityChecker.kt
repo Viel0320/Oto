@@ -2,7 +2,11 @@ package com.viel.aplayer.library.availability
 
 import android.content.Context
 import androidx.core.net.toUri
+import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.AbsApiError
+import com.viel.aplayer.abs.net.RealAbsApiClient
+import com.viel.aplayer.abs.sync.AbsConnectionTester
 import com.viel.aplayer.abs.vfs.AbsSourceProvider
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -27,10 +31,19 @@ data class AvailabilityResult(
 
 // Verify Remote and Local Storage Availability (Infrastructure Interface)
 // Serves as the central component for validating root directories and book files across SAF, WebDAV, and ABS.
-class AvailabilityChecker(private val context: Context) {
+class AvailabilityChecker(
+    private val context: Context,
+    // ABS Credential Lookup (Supports protocol-level root preflight checks)
+    // Injects the credential store so ABS roots can be validated through server APIs instead of the non-directory VFS placeholder.
+    private val absCredentialStore: AbsCredentialStore = AbsCredentialStore.getInstance(context.applicationContext),
+    // ABS API Probe Client (Supports lightweight server and library checks)
+    // Keeps ABS root availability checks in the infrastructure boundary while allowing tests to inject deterministic transport fakes.
+    private val absApiClient: AbsApiClient = RealAbsApiClient()
+) {
     private val database = AppDatabase.getInstance(context.applicationContext)
     private val libraryRootDao = database.libraryRootDao()
     private val vfs = VirtualFileSystem(LibrarySourceProviderFactory(context.applicationContext))
+    private val absConnectionTester = AbsConnectionTester(absApiClient)
 
     suspend fun checkRoot(root: LibraryRootEntity): AvailabilityResult =
         when (LibrarySourceKind.from(root.sourceType)) {
@@ -38,9 +51,9 @@ class AvailabilityChecker(private val context: Context) {
             // Resolve WebDAV Roots Via VFS (Network Decoupling)
             // Relies on VFS/Provider checking; OkHttp and network errors map to unified availability states.
             LibrarySourceKind.WEBDAV -> checkVfsRoot(root)
-            // ABS Root Availability Placeholder (Temporary Interface Binding)
-            // Redirect ABS root checks to the virtual file system provider.
-            LibrarySourceKind.ABS -> checkVfsRoot(root)
+            // ABS Root Protocol Check (Uses catalog authentication instead of directory traversal)
+            // ABS roots do not expose a browsable directory root, so availability is defined by reachable credentials and a still-existing book library.
+            LibrarySourceKind.ABS -> checkAbsRoot(root)
             null -> AvailabilityResult(
                 status = AudiobookSchema.AvailabilityStatus.UNSUPPORTED,
                 errorCode = "UNSUPPORTED_SOURCE_TYPE"
@@ -186,6 +199,30 @@ class AvailabilityChecker(private val context: Context) {
             )
         }
     }
+
+    /**
+     * ABS Root Availability Check (Validates server credentials and selected library membership)
+     * Confirms the saved token still authorizes successfully and that the configured book library ID is still returned by the server.
+     */
+    private suspend fun checkAbsRoot(root: LibraryRootEntity): AvailabilityResult =
+        runCatching {
+            val credential = absCredentialStore.get(root.credentialId)
+                ?: return AvailabilityResult(
+                    status = AudiobookSchema.AvailabilityStatus.AUTH_FAILED,
+                    errorCode = "MISSING_ABS_CREDENTIAL"
+                )
+            val connection = absConnectionTester.testConnection(credential.baseUrl, credential.token)
+            val libraryStillExists = connection.bookLibraries.any { library -> library.id == root.basePath }
+            if (libraryStillExists) {
+                AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
+            } else {
+                AvailabilityResult(
+                    status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
+                    errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
+                    message = "ABS library not found"
+                )
+            }
+        }.getOrElse { throwable -> throwable.toAvailabilityResult() }
 
     private fun notFoundResult(): AvailabilityResult =
         AvailabilityResult(

@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.library.LibraryRootStore
+import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
+import com.viel.aplayer.library.availability.isSyncAvailable
 import com.viel.aplayer.logger.AbsSyncLogger
+import com.viel.aplayer.ui.common.UiEvent
 
 class AbsSyncWorker(
     context: Context,
@@ -13,14 +16,25 @@ class AbsSyncWorker(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val rootId = inputData.getString(KEY_ROOT_ID) ?: return Result.failure()
-        // Worker Execution Logging (Distinguish worker lifecycle states)
-        // Log the worker startup event independently in the sync logger.
-        // This helps verify if a scheduled task was actually picked up by WorkManager and executed,
-        // distinguishing between "queued but not run" and "run but failed" states.
+        // Worker Execution Logging (Distinguishes worker lifecycle states)
+        // Logs startup separately so diagnostics can tell queued work from actually executed work.
         AbsSyncLogger.logWorkerStart(rootId)
         val container = APlayerApplication.getContainer(applicationContext)
-        val root = AppDatabase.getInstance(applicationContext).libraryRootDao().getRootById(rootId)
+        val preflight = LibraryRootStore(applicationContext).refreshRootStatus(rootId)
             ?: return Result.failure()
+        if (!preflight.isSyncAvailable) {
+            // Worker Root Preflight Guard (Blocks background ABS sync when the target root is unavailable)
+            // Refreshes persisted root status and reports the skipped sync before catalog requests are attempted.
+            val message = buildRootUnavailableSyncMessage(preflight)
+            AbsSyncLogger.logWorkerFailure(
+                rootId = rootId,
+                errorClass = "RootUnavailable",
+                message = message
+            )
+            container.playbackManager.sendUiEvent(UiEvent.ShowToast(message))
+            return Result.failure()
+        }
+        val root = preflight.root
         return runCatching {
             container.absCatalogSynchronizer.syncRoot(root)
             AbsSyncLogger.logWorkerSuccess(rootId)

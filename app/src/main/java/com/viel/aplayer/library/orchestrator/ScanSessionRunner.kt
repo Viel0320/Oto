@@ -9,6 +9,7 @@ import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.library.SourceInventoryScanner
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryResult
+import com.viel.aplayer.library.availability.isDirectorySyncRoot
 import com.viel.aplayer.library.orchestrator.draftmodels.ImportRunResult
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
@@ -94,7 +95,11 @@ class ScanSessionRunner(
      * Registers a new scan session in the database, delegates import processing to ScopeOrchestrator,
      * updates system status, recalculates missing counts, and returns the final session model.
      */
-    suspend fun rescan(type: RescanType, rootId: String? = null): ScanSessionEntity = withContext(Dispatchers.IO) {
+    suspend fun rescan(
+        type: RescanType,
+        rootId: String? = null,
+        allowedRootIds: Set<String>? = null
+    ): ScanSessionEntity = withContext(Dispatchers.IO) {
         val scanId = UUID.randomUUID().toString()
         val trigger = when (type) {
             RescanType.COLD_START_LIGHT -> AudiobookSchema.ScanTrigger.COLD_START
@@ -117,6 +122,8 @@ class ScanSessionRunner(
                 RescanType.NEW_LIBRARY_ROOT -> rootId?.let { rootDao.getRootById(it) }?.let(::listOf).orEmpty()
                 else -> rootDao.getActiveRootsOnce()
             }
+                .filter { root -> root.isDirectorySyncRoot() }
+                .filter { root -> allowedRootIds == null || root.id in allowedRootIds }
             val existingIndex = ExistingClaimIndex.from(bookDao.getAllBookFilesOnce())
             
             // Delegate Import Pipeline (Pipeline Execution)

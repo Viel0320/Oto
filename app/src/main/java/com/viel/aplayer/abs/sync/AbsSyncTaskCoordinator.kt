@@ -1,6 +1,10 @@
 package com.viel.aplayer.abs.sync
 
 import com.viel.aplayer.data.dao.LibraryRootDao
+import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
+import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
+import com.viel.aplayer.library.availability.isSyncAvailable
+import com.viel.aplayer.ui.common.UiEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -10,21 +14,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 /**
- * ABS Sync Task Coordinator: Manages application-scoped ABS catalog synchronization.
- *
- * Design Objectives:
- * 1. Ensure that both manual synchronization and automatic synchronization (triggered upon adding a server)
- *    run within an application-scoped coroutine scope. This prevents interruption when `SettingsActivity` or
- *    `SettingsViewModel` is destroyed.
- * 2. Decouple the ViewModel so that it only initiates tasks and consumes result events without hosting the
- *    actual synchronization lifecycle.
- * 3. Restrict concurrent synchronization executions per server root, permitting only one active sync task
- *    per `rootId` to avoid write conflicts in the local database.
+ * ABS Sync Task Coordinator (Manages application-scoped ABS catalog synchronization)
+ * Coordinates manual and automatic ABS catalog sync jobs outside SettingsViewModel lifetimes while preventing concurrent writes for the same root.
  */
 class AbsSyncTaskCoordinator(
     private val libraryRootDao: LibraryRootDao,
     private val synchronizer: AbsCatalogSynchronizer,
     private val playbackManager: com.viel.aplayer.media.PlaybackManager,
+    // Root Preflight Refresh (Updates root state before ABS catalog synchronization)
+    // Injects the application-service boundary so the coordinator can block unavailable roots without owning protocol-specific availability logic.
+    private val rootPreflight: (suspend (String) -> LibraryRootAvailabilityUpdate?)? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 ) {
     private val lock = Any()
@@ -33,14 +32,8 @@ class AbsSyncTaskCoordinator(
     val events: SharedFlow<AbsSyncTaskResult> = _events.asSharedFlow()
 
     /**
-     * Start Sync Task: Launches an application-level background synchronization job.
-     *
-     * Initiates the catalog sync for the specified root. If a synchronization task for the given `rootId`
-     * is already active, this method immediately returns `false` so the caller can display a "sync in progress" message.
-     *
-     * @param rootId The unique identifier of the library root.
-     * @param origin The trigger source of this synchronization task.
-     * @return `true` if the synchronization task was successfully queued; `false` if it was already running.
+     * Start Sync Task (Launches an application-level background synchronization job)
+     * Returns false when the selected root is already running; otherwise starts a guarded sync task that validates root availability first.
      */
     fun start(rootId: String, origin: AbsSyncTaskOrigin): Boolean {
         synchronized(lock) {
@@ -51,7 +44,8 @@ class AbsSyncTaskCoordinator(
         }
         scope.launch {
             try {
-                val root = libraryRootDao.getRootById(rootId)
+                val preflight = rootPreflight?.invoke(rootId)
+                val root = preflight?.root ?: libraryRootDao.getRootById(rootId)
                 if (root == null) {
                     val errMsg = "找不到对应的 ABS 书库根"
                     _events.emit(
@@ -63,7 +57,23 @@ class AbsSyncTaskCoordinator(
                             errorMessage = errMsg
                         )
                     )
-                    playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("ABS 后台同步失败：$errMsg"))
+                    playbackManager.sendUiEvent(UiEvent.ShowToast("ABS 后台同步失败：$errMsg"))
+                    return@launch
+                }
+                if (preflight != null && !preflight.isSyncAvailable) {
+                    // Unavailable Root Short-Circuit (Stops ABS sync before remote catalog requests begin)
+                    // Emits the same result channel and toast path as failures while preserving the refreshed root status in Room.
+                    val errMsg = buildRootUnavailableSyncMessage(preflight)
+                    _events.emit(
+                        AbsSyncTaskResult(
+                            rootId = root.id,
+                            displayName = root.displayName,
+                            origin = origin,
+                            summary = null,
+                            errorMessage = errMsg
+                        )
+                    )
+                    playbackManager.sendUiEvent(UiEvent.ShowToast(errMsg))
                     return@launch
                 }
                 val summary = synchronizer.syncRootWithSummary(root)
@@ -77,7 +87,7 @@ class AbsSyncTaskCoordinator(
                     )
                 )
                 val toastMsg = "ABS 后台同步完成：成功添加 ${summary.addedBooks} 本，失败 ${summary.failedItems} 本"
-                playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(toastMsg))
+                playbackManager.sendUiEvent(UiEvent.ShowToast(toastMsg))
             } catch (error: Exception) {
                 val errMsg = error.message ?: "ABS 后台同步失败"
                 _events.emit(
@@ -86,11 +96,10 @@ class AbsSyncTaskCoordinator(
                         displayName = rootId,
                         origin = origin,
                         summary = null,
-                        errorMessage = error.message
+                        errorMessage = errMsg.redactAbsError()
                     )
                 )
-                val toastMsg = "ABS 后台同步失败：${errMsg.redactAbsError()}"
-                playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(toastMsg))
+                playbackManager.sendUiEvent(UiEvent.ShowToast("ABS 后台同步失败：${errMsg.redactAbsError()}"))
             } finally {
                 synchronized(lock) {
                     runningRootIds -= rootId
@@ -105,10 +114,8 @@ class AbsSyncTaskCoordinator(
 }
 
 /**
- * Sync Task Origin: Categorizes the source of the synchronization trigger.
- *
- * Classified to enable the UI to distinguish between user-initiated manual synchronization
- * and automated background synchronization following server addition.
+ * Sync Task Origin (Categorizes the source of the synchronization trigger)
+ * Allows UI consumers to distinguish user-initiated manual synchronization from automatic synchronization following server registration.
  */
 enum class AbsSyncTaskOrigin {
     MANUAL,
@@ -116,10 +123,8 @@ enum class AbsSyncTaskOrigin {
 }
 
 /**
- * Sync Task Result: Represents the lightweight result event dispatched to the UI.
- *
- * Contains synchronization details upon completion. A non-null `summary` denotes a successful
- * execution, whereas a non-null `errorMessage` indicates a failure.
+ * Sync Task Result (Represents the lightweight result event dispatched to the UI)
+ * Contains synchronization details on success and a compact user-facing error message when execution is blocked or fails.
  */
 data class AbsSyncTaskResult(
     val rootId: String,

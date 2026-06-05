@@ -14,6 +14,8 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
+import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
+import com.viel.aplayer.library.availability.isSyncAvailable
 import com.viel.aplayer.logger.AbsSettingsLogger
 import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.common.formatDate
@@ -524,7 +526,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun syncAbsRoot(rootId: String) {
         viewModelScope.launch {
-            val root = libraryRootGateway.getCachedLibraryRoots().firstOrNull { it.id == rootId } ?: return@launch
+            val preflight = libraryRootGateway.refreshLibraryRootStatus(rootId) ?: return@launch
+            if (!preflight.isSyncAvailable) {
+                // Manual ABS Sync Preflight (Blocks plan inspection when the selected root is unavailable)
+                // Plan inspection talks to the remote server, so the root status must be refreshed and validated before any preview request is sent.
+                _uiEvents.tryEmit(UiEvent.ShowToast(buildRootUnavailableSyncMessage(preflight)))
+                return@launch
+            }
+            val root = preflight.root
             // Log manual sync (To trace trigger events initiated from settings panel)
             // Routes synchronization initialization to settings diagnostic logs.
             val start = AbsSettingsLogger.mark()
@@ -674,10 +683,14 @@ private fun resolveLibraryRootTitle(root: LibraryRootEntity): String =
 
 /**
  * Library Root Status Formatter (Normalizes storage availability and ABS sync error state)
- * Elevates ABS sync errors into the visible row status while keeping SAF/WebDAV statuses tied to root reachability.
+ * Prioritizes unavailable root reachability over stale ABS sync timestamps so previously synced servers cannot appear healthy after a failed preflight.
  */
 private fun resolveLibraryRootStatusText(root: LibraryRootEntity, absLastError: String?, absLastFullSyncAt: Long?): String =
     when {
+        root.status != AudiobookSchema.LibraryRootStatus.ACTIVE ->
+            root.availabilityStatus.takeIf { status -> status != AudiobookSchema.AvailabilityStatus.UNKNOWN } ?: root.status
+        root.availabilityStatus != AudiobookSchema.AvailabilityStatus.UNKNOWN &&
+            root.availabilityStatus != AudiobookSchema.AvailabilityStatus.AVAILABLE -> root.availabilityStatus
         root.sourceType == AudiobookSchema.LibrarySourceType.ABS && absLastError?.isNotBlank() == true -> "ERROR"
         root.sourceType == AudiobookSchema.LibrarySourceType.ABS && absLastFullSyncAt != null -> "SYNCED"
         root.sourceType == AudiobookSchema.LibrarySourceType.ABS -> "IDLE"
