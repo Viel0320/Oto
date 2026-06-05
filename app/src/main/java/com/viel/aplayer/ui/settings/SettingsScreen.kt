@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.settings
 
+// Import alignment: Add IME insets mapping extension to perform exclude filter during keyboard state changes.
+// Import alignment: Add coroutines launch import for async credential loading
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,11 +20,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-// Import alignment: Add IME insets mapping extension to perform exclude filter during keyboard state changes.
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,13 +55,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import com.viel.aplayer.abs.auth.AbsCredential
-import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -72,16 +72,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-// Import alignment: Add coroutines launch import for async credential loading
-import kotlinx.coroutines.launch
+import com.viel.aplayer.abs.auth.AbsCredential
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
+import kotlinx.coroutines.launch
 
 /**
  * Stateless settings view (Stateless composable rendering settings configurations)
@@ -111,12 +112,8 @@ fun SettingsScreen(
     getWebDavCredentials: (credentialId: String) -> WebDavCredential?,
     getAbsCredential: suspend (credentialId: String) -> AbsCredential?,
     onAbsSync: (rootId: String) -> Unit,
-    onAbsBackgroundSync: (rootId: String) -> Unit,
-    absSyncConfirmationState: AbsSyncConfirmationState?,
-    onDismissLargeAbsSync: () -> Unit,
     onRescan: () -> Unit,
-    libraryRoots: List<LibraryRootEntity>,
-    absServers: List<AbsServerSettingsState>,
+    libraryRootDisplays: List<LibraryRootDisplayState>,
     absConnectionState: AbsConnectionUiState,
     isChapterProgressMode: Boolean,
     onChapterProgressModeChange: (Boolean) -> Unit,
@@ -294,6 +291,14 @@ fun SettingsScreen(
     }
 
     if (showAbsDialog) {
+        // ABS Edit Auto-Test (Automatically validates an existing server as soon as the edit dialog opens)
+        // Uses the already-loaded root ID and stored token path so the dialog can fetch book library options without forcing the user to press the test button first.
+        LaunchedEffect(editingRootId) {
+            if (editingRootId != null) {
+                onAbsConnectionTest(absBaseUrl.trim(), absUsername.trim(), absPassword, editingRootId)
+            }
+        }
+
         AbsServerDialog(
             baseUrl = absBaseUrl,
             username = absUsername,
@@ -417,36 +422,17 @@ fun SettingsScreen(
                         )
                     }
 
-                    // Configure list key (To assign sourceUri as stable key identifier)
-                    // Prevents recycling errors or misplaced widget states in LazyColumn list.
-                    items(libraryRoots.size, key = { libraryRoots[it].sourceUri }) { index ->
-                        val root = libraryRoots[index]
+                    // Library Display Keying (Uses stable root IDs for all registered source rows)
+                    // This keeps multiple ABS libraries from the same server distinct even when they share the same source URL.
+                    items(libraryRootDisplays.size, key = { libraryRootDisplays[it].root.id }) { index ->
+                        val display = libraryRootDisplays[index]
+                        val root = display.root
                         val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
                         val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
-                        val rootTitle = if (isWebDavRoot) {
-                            root.displayName.ifBlank { "${root.sourceUri}${root.basePath}" }
-                        } else if (isAbsRoot) {
-                            root.displayName.ifBlank { "ABS ${root.basePath}" }
-                        } else {
-                            // Parse local tree URI (To display human-readable terminal folder name)
-                            // Trims structural URI prefixes to avoid confusing users with absolute paths.
-                            try {
-                                Uri.decode(root.sourceUri).substringAfterLast(":")
-                            } catch (_: Exception) {
-                                root.sourceUri
-                            }
-                        }
-                        val rootSubtitle = if (isWebDavRoot) {
-                            // WebDAV status information (To display remote url parameters and connection state)
-                            // Informs users of connection state to isolate network issues from permission issues.
-                            "WebDAV: ${root.sourceUri}${root.basePath} · 可用性: ${root.availabilityStatus}"
-                        } else if (isAbsRoot) {
-                            val sync = absServers.firstOrNull { it.rootId == root.id }
-                            val lastSyncText = sync?.lastFullSyncAt?.let { " · 最近同步: $it" } ?: ""
-                            "ABS: ${root.sourceUri} · Library=${root.displayName} · 状态=${sync?.syncStatus ?: "IDLE"}$lastSyncText"
-                        } else {
-                            "状态: ${root.status}"
-                        }
+                        val locationLine = display.selectedLibraryText
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { libraryName -> "位置：${display.locationText} · 当前书库：$libraryName" }
+                            ?: "位置：${display.locationText}"
                         
                         // Render directory layout card (To combine detail metadata labels with click actions)
                         // Captures user clicks on row item to open action popup.
@@ -465,22 +451,40 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(text = rootTitle, style = MaterialTheme.typography.titleMedium)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = display.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = display.statusText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = rootSubtitle,
+                                    text = locationLine,
                                     style = MaterialTheme.typography.bodySmall, 
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                if (isAbsRoot) {
-                                    val sync = absServers.firstOrNull { it.rootId == root.id }
-                                    if (sync != null && sync.lastError?.isNotBlank() == true) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "错误: ${sync.lastError}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.error
-                                        )
-                                    }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "最近同步：${display.lastSyncText} · 已导入：${display.importedBookCount} 本",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (isAbsRoot && display.lastError?.isNotBlank() == true) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "错误：${display.lastError}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
                         }
@@ -788,24 +792,7 @@ fun SettingsScreen(
                     ) {
                         Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text(if (isAbsRoot) "手动同步" else "重新扫描", style = MaterialTheme.typography.bodyLarge)
-                    }
-
-                    if (isAbsRoot) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onAbsBackgroundSync(root.id)
-                                    rootForAction = null
-                                }
-                                .padding(vertical = 12.dp, horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Rounded.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("后台同步", style = MaterialTheme.typography.bodyLarge)
-                        }
+                        Text(if (isAbsRoot) "同步" else "重新扫描", style = MaterialTheme.typography.bodyLarge)
                     }
 
                     Row(
@@ -1318,12 +1305,8 @@ fun SettingsScreenPreview() {
                 getWebDavCredentials = { _ -> null },
                 getAbsCredential = { _ -> null },
                 onAbsSync = {},
-                onAbsBackgroundSync = {},
-                absSyncConfirmationState = null,
-                onDismissLargeAbsSync = {},
                 onRescan = {},
-                libraryRoots = emptyList(),
-                absServers = emptyList(),
+                libraryRootDisplays = emptyList(),
                 absConnectionState = AbsConnectionUiState(),
                 isChapterProgressMode = false,
                 onChapterProgressModeChange = {},

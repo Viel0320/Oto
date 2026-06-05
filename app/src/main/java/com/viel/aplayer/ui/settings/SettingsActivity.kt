@@ -53,8 +53,7 @@ class SettingsActivity : ComponentActivity() {
                 ) {
                     val settingsViewModel: SettingsViewModel = viewModel()
                     val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
-                    val libraryRoots by settingsViewModel.libraryRoots.collectAsStateWithLifecycle()
-                    val absServers by settingsViewModel.absServers.collectAsStateWithLifecycle()
+                    val libraryRootDisplays by settingsViewModel.libraryRootDisplays.collectAsStateWithLifecycle()
                     val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
                     // Settings screen mapping logic: Observe WebDAV connection state using lifecycle-aware state collectors.
                     val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
@@ -143,16 +142,8 @@ class SettingsActivity : ComponentActivity() {
                                 onAbsSync = { rootId ->
                                     settingsViewModel.syncAbsRoot(rootId)
                                 },
-                                onAbsBackgroundSync = { rootId ->
-                                    settingsViewModel.scheduleAbsRootSync(rootId)
-                                },
-                                absSyncConfirmationState = absSyncConfirmationState,
-                                onDismissLargeAbsSync = {
-                                    settingsViewModel.dismissLargeAbsSyncConfirmation()
-                                },
                                 onRescan = { settingsViewModel.triggerRescan() },
-                                libraryRoots = libraryRoots,
-                                absServers = absServers,
+                                libraryRootDisplays = libraryRootDisplays,
                                 absConnectionState = absConnectionState,
                                 isChapterProgressMode = settingsState.isChapterProgressMode,
                                 onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },

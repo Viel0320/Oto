@@ -1,17 +1,23 @@
 package com.viel.aplayer.ui.settings
 
+// Import alignment: Add java.util.UUID import for random ID generation during credential fallback
+// Import alignment: Add WebDAV client okhttp dependencies for remote host availability check
 import android.app.Application
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.logger.AbsSettingsLogger
 import com.viel.aplayer.ui.common.UiEvent
+import com.viel.aplayer.ui.common.formatDate
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -22,18 +28,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
-// Import alignment: Add java.util.UUID import for random ID generation during credential fallback
-import java.util.UUID
-// Import alignment: Add WebDAV client okhttp dependencies for remote host availability check
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Credentials
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.Dispatchers
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Settings view model (Handler for configuration persistence interactions)
@@ -43,14 +46,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val container = (application as APlayerApplication).container
     private val settingsRepository = container.settingsRepository
     private val absCatalogSynchronizer = container.absCatalogSynchronizer
-    private val absPlaybackSessionSyncer = container.absPlaybackSessionSyncer
     private val absSyncTaskCoordinator = container.absSyncTaskCoordinator
     private val absCredentialStore = AbsCredentialStore.getInstance(application.applicationContext)
     // Shared client instance (To avoid redundant authentication requests)
     // Reuses a single API client instance across connection tests and registration flows.
     private val absApiClient = com.viel.aplayer.abs.net.RealAbsApiClient()
     private val absConnectionTester = com.viel.aplayer.abs.sync.AbsConnectionTester(absApiClient)
-    private val absSyncWorkScheduler = com.viel.aplayer.abs.sync.AbsSyncWorkScheduler(application.applicationContext)
     private val database = com.viel.aplayer.data.db.AppDatabase.getInstance(application.applicationContext)
     // Cache connection snapshot (To speed up registration directly after a successful test)
     // Temporarily retains connection metadata in memory without writing to database or exposing it to UI.
@@ -86,38 +87,31 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = AppSettings()
         )
 
-    /** Exposed library roots (To display registered directories) */
-    // Subscribes to library root state flow and initializes with cached values to mitigate frame flickers.
-    val libraryRoots: StateFlow<List<LibraryRootEntity>> = libraryRootGateway.observeLibraryRoots()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = libraryRootGateway.getCachedLibraryRoots()
-        )
-
-    val absServers: StateFlow<List<AbsServerSettingsState>> = combine(
+    val libraryRootDisplays: StateFlow<List<LibraryRootDisplayState>> = combine(
         libraryRootGateway.observeLibraryRoots(),
-        database.absSyncStateDao().observeAll()
-    ) { roots, syncStates ->
+        database.absSyncStateDao().observeAll(),
+        database.bookDao().getAllBooks()
+    ) { roots, syncStates, books ->
+        // Library Root Book Counts (Aggregates imported titles per root without introducing another persistence table)
+        // Counts active BookEntity records by rootId so the settings list can display the imported-book total for SAF, WebDAV, and ABS roots uniformly.
+        val bookCountsByRootId = books.groupingBy { book -> book.rootId }.eachCount()
         val syncByRootId = syncStates.associateBy { state -> state.rootId }
-        roots.filter { root -> root.sourceType == com.viel.aplayer.data.db.AudiobookSchema.LibrarySourceType.ABS }
-            .map { root ->
-                val sync = syncByRootId[root.id]
-                AbsServerSettingsState(
-                    rootId = root.id,
-                    displayName = root.displayName,
-                    baseUrl = root.sourceUri,
-                    libraryId = root.basePath,
-                    syncStatus = when {
-                        sync?.lastError?.isNotBlank() == true -> "ERROR"
-                        sync?.lastFullSyncAt != null -> "SYNCED"
-                        else -> "IDLE"
-                    },
-                    lastFullSyncAt = sync?.lastFullSyncAt,
-                    serverVersion = sync?.serverVersion,
-                    lastError = sync?.lastError?.redactAbsError()
-                )
-            }
+        roots.map { root ->
+            val sync = syncByRootId[root.id]
+            val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
+            LibraryRootDisplayState(
+                root = root,
+                title = resolveLibraryRootTitle(root),
+                statusText = resolveLibraryRootStatusText(root, sync?.lastError, sync?.lastFullSyncAt),
+                locationText = resolveLibraryRootLocation(root),
+                selectedLibraryText = if (isAbsRoot) root.displayName.ifBlank { root.basePath } else null,
+                lastSyncText = formatLibraryRootSyncTime(
+                    if (isAbsRoot) sync?.lastFullSyncAt else root.lastScannedAt.takeIf { it > 0L }
+                ),
+                importedBookCount = bookCountsByRootId[root.id] ?: 0,
+                lastError = sync?.lastError?.redactAbsError()
+            )
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -146,16 +140,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun refreshLibraryRootStatuses() {
-        viewModelScope.launch {
-            // Manually refresh root status (To update folder accessibility statuses via async validation)
-            // Dispatches status verification routine in a coroutine block using libraryRootGateway.
-            libraryRootGateway.refreshLibraryRootStatuses()
-        }
-    }
-
-    // Handle SAF registry callback (To register new storage authority and trigger background scan)
-    // Separates settings-scoped SAF requests to isolate navigation lifecycle and decouple LibraryViewModel.
     fun onLibraryRootSelected(uri: Uri) {
         // Persist local library directory (To registers new SAF path and schedules import sync)
         // Dispatches the folder registration to libraryRootGateway.
@@ -320,7 +304,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun normalizeWebDavEndpoint(url: String): String {
-        val parsed = Uri.parse(url.trim())
+        val parsed = url.trim().toUri()
         val scheme = parsed.scheme?.lowercase() ?: throw IllegalArgumentException("WebDAV URL 缺少协议")
         val authority = parsed.encodedAuthority ?: throw IllegalArgumentException("WebDAV URL 缺少主机")
         require(scheme == "http" || scheme == "https") { "WebDAV URL 仅支持 http/https" }
@@ -328,7 +312,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun normalizeWebDavBasePath(basePath: String, url: String): String {
-        val parsed = Uri.parse(url.trim())
+        val parsed = url.trim().toUri()
         val rawPath = basePath.ifBlank { parsed.path.orEmpty() }
         return Uri.decode(rawPath)
             .replace('\\', '/')
@@ -437,7 +421,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }.onSuccess { (root, snapshot) ->
                 lastSuccessfulAbsConnection = snapshot
                 AbsSettingsLogger.logAddServerSuccess(baseUrl, username, libraryId, root.id)
-                val msg = if (editingRootId != null) "ABS server 已更新，开始同步" else "ABS server 已添加，开始后台同步"
+                val msg = if (editingRootId != null) "ABS server 已更新，开始同步" else "ABS server 已添加，开始同步"
                 _uiEvents.tryEmit(UiEvent.ShowToast(msg))
                 _absConnectionState.value = AbsConnectionUiState()
                 launchAutoAbsSync(root)
@@ -561,17 +545,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun dismissLargeAbsSyncConfirmation() {
-        _absSyncConfirmationState.value = null
-    }
-
-    fun scheduleAbsRootSync(rootId: String) {
-        // Log background sync queue (To track work enqueue actions before execution)
-        // Writes task scheduling information to settings logger.
-        AbsSettingsLogger.logScheduleBackgroundSync(rootId)
-        absSyncWorkScheduler.enqueue(rootId)
-    }
-
     fun triggerRescan() {
         // Trigger manual scan (To check file updates on registered roots)
         // Dispatches scan scheduler request in asynchronous scope.
@@ -682,6 +655,63 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
 private fun String.redactAbsError(): String =
     replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
+
+/**
+ * Library Root Title Formatter (Builds the first-line label for each registered library source)
+ * Uses provider-specific fallback names so local, WebDAV, and ABS rows remain readable even when the custom display name is empty.
+ */
+private fun resolveLibraryRootTitle(root: LibraryRootEntity): String =
+    when (root.sourceType) {
+        AudiobookSchema.LibrarySourceType.WEBDAV ->
+            root.displayName.ifBlank { "${root.sourceUri}${root.basePath}" }
+        AudiobookSchema.LibrarySourceType.ABS ->
+            root.displayName.ifBlank { "ABS ${root.basePath}" }
+        else -> root.displayName.ifBlank {
+            runCatching { Uri.decode(root.sourceUri).substringAfterLast(":") }
+                .getOrDefault(root.sourceUri)
+        }
+    }
+
+/**
+ * Library Root Status Formatter (Normalizes storage availability and ABS sync error state)
+ * Elevates ABS sync errors into the visible row status while keeping SAF/WebDAV statuses tied to root reachability.
+ */
+private fun resolveLibraryRootStatusText(root: LibraryRootEntity, absLastError: String?, absLastFullSyncAt: Long?): String =
+    when {
+        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && absLastError?.isNotBlank() == true -> "ERROR"
+        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && absLastFullSyncAt != null -> "SYNCED"
+        root.sourceType == AudiobookSchema.LibrarySourceType.ABS -> "IDLE"
+        root.availabilityStatus != AudiobookSchema.AvailabilityStatus.UNKNOWN -> root.availabilityStatus
+        else -> root.status
+    }
+
+/**
+ * Library Root Location Formatter (Builds the second-line physical or remote address)
+ * Separates the provider location from display names so ABS library selection can be shown as a distinct field.
+ */
+private fun resolveLibraryRootLocation(root: LibraryRootEntity): String =
+    when (root.sourceType) {
+        AudiobookSchema.LibrarySourceType.WEBDAV -> "${root.sourceUri}${root.basePath}"
+        AudiobookSchema.LibrarySourceType.ABS -> root.sourceUri
+        else -> formatSafDisplayPath(root.sourceUri)
+    }
+
+/**
+ * SAF Display Path Formatter (Shows the human-readable storage path segment)
+ * Decodes Android tree URIs and trims everything before `primary:` so settings rows show paths such as `primary:Audiobooks` instead of the full document-provider URI.
+ */
+private fun formatSafDisplayPath(sourceUri: String): String {
+    val decoded = runCatching { Uri.decode(sourceUri) }.getOrDefault(sourceUri)
+    val primaryIndex = decoded.indexOf("primary:")
+    return if (primaryIndex >= 0) decoded.substring(primaryIndex) else decoded
+}
+
+/**
+ * Library Root Sync Time Formatter (Converts persisted millisecond timestamps into standard local time text)
+ * Returns a stable placeholder when a source has not completed a scan or ABS full sync yet.
+ */
+private fun formatLibraryRootSyncTime(timestampMs: Long?): String =
+    timestampMs?.takeIf { it > 0L }?.let(::formatDate) ?: "未同步"
 
 /**
  * Connection reuse data snapshot (To cache successful testing credentials)
