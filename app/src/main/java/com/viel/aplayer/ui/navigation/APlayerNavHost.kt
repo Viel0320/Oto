@@ -32,12 +32,15 @@ fun APlayerNavHost(
     detailViewModel: DetailViewModel,
     canStartNavigation: () -> Boolean,
     navigateBack: () -> Unit,
-    searchViewModel: com.viel.aplayer.ui.search.SearchViewModel
+    searchViewModel: com.viel.aplayer.ui.search.SearchViewModel,
+    // Settings Navigation Event (To delegate settings launch routing to upper controller)
+    // Abstract callback parameter to notify parent overlay scope when user requests setting screen.
+    onNavigateToSettings: () -> Unit
 ) {
     // Setup Entry Provider (Resolve NavKeys to Screen composables)
     // Declares the mapping of serializable NavKey to their respective Compose screen contents.
     // Explicit NavKey Provider (Fix Nav3 type parameter matching issue) Explicitly parameterize entryProvider with NavKey to bypass Kotlin contravariance compile errors.
-    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, searchViewModel, canStartNavigation, navigateBack) {
+    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, searchViewModel, canStartNavigation, navigateBack, onNavigateToSettings) {
         entryProvider<NavKey> {
             entry<HomeRoute> {
                 /*
@@ -52,7 +55,8 @@ fun APlayerNavHost(
                     detailViewModel = detailViewModel,
                     searchViewModel = searchViewModel,
                     canStartNavigation = canStartNavigation,
-                    navigateBack = navigateBack
+                    navigateBack = navigateBack,
+                    onNavigateToSettings = onNavigateToSettings
                 )
             }
         }

@@ -63,13 +63,7 @@
         </activity>
 
 
-        <!-- Settings Activity Registration (Declare the dedicated Settings screen activity)
-             Does not configure animation styles at the Manifest level; transition effects are managed by the caller via ActivityOptions for consistency. -->
-        <activity
-            android:name=".ui.settings.SettingsActivity"
-            android:exported="false"
-            android:label="设置"
-            android:theme="@style/Theme.APlayer" />
+
 
         <!-- Widget Broadcast Receiver (Register PlayerWidgetReceiver for handling system-triggered desktop widget updates)
              All custom media control actions are detached to prevent malicious external processes from hijacking playback or forcing service starts. -->

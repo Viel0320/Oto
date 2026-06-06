@@ -55,6 +55,8 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 
 /**
  * Pill Compact Media Player: A floating stadium-shaped mini player that overlays at the bottom of the screen.
@@ -148,7 +150,8 @@ fun PillCompactMediaPlayer(
     }
 
     val currentRotation = rotation.value
-    val isDark = isSystemInDarkTheme()
+    // Theme Aware Rotation Border (Use LocalDarkTheme to resolve active theme state instead of system defaults) Read theme preference state.
+    val isDark = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
 
     Surface(
         onClick = onClick,
@@ -162,12 +165,15 @@ fun PillCompactMediaPlayer(
             .let {
                 if (isBlurMode) {
                     it
-                        // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
-                        // Clip pill shape before applying hazeChild
                         .clip(pillShape)
-                        .hazeEffect(
+                        .liquidGlassCompatEffect(
                             state = hazeState,
-                            style = HazeMaterials.regular()
+                            style = LiquidGlassStyle(
+                                // Adaptive Glass Tint: Fallback to theme-based 12% tint (White in Dark, Black in Light) by leaving it Unspecified.
+                                specularIntensity = 0.4f,
+                                ambientResponse = 0.5f,
+                                shape = pillShape
+                            )
                         )
                 } else {
                     it

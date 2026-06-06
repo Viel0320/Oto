@@ -158,7 +158,7 @@ fun DetailPortrait(
             onPlayPressed = onPlayPressed,
             onPlayClick = onPlayClick,
             isLandscape = false,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
         )
 
         if (uiState.fullSourcePath.isEmpty()) {

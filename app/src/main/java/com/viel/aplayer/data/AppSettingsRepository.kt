@@ -12,6 +12,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
+// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
+import com.viel.aplayer.data.store.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -23,6 +25,8 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class AppSettingsRepository private constructor(private val dataStore: DataStore<Preferences>) {
 
     private object PreferencesKeys {
+        // Theme Mode Storage Key (Key tracking theme preference, e.g. System, Light, or Dark) Added string preference key for theme mode.
+        val THEME_MODE = stringPreferencesKey("theme_mode")
         val HOME_FILTER = stringPreferencesKey("home_filter")
         val IS_GLOBAL_SPEED_ENABLED = booleanPreferencesKey("is_global_speed_enabled")
         val GLOBAL_PLAYBACK_SPEED = floatPreferencesKey("global_playback_speed")
@@ -55,6 +59,10 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
      */
     val settingsFlow: Flow<AppSettings> = dataStore.data.map { preferences ->
         AppSettings(
+            // Read Theme Mode (Parse active theme mode, defaulting to System if empty or invalid) Reads theme mode configuration.
+            themeMode = preferences[PreferencesKeys.THEME_MODE]
+                ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
+                ?: ThemeMode.System,
             homeFilter = preferences[PreferencesKeys.HOME_FILTER] ?: "NotStarted",
             isGlobalSpeedEnabled = preferences[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] ?: false,
             globalPlaybackSpeed = preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] ?: 1.0f,
@@ -148,6 +156,11 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     // Write Ducking Avoidance (Persist notification avoidance configurations for audio focus loss)
     suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] = enabled }
+    }
+
+    // Write Theme Mode (Persist user selected theme mode into local DataStore) Helper function to save theme mode configuration.
+    suspend fun updateThemeMode(mode: ThemeMode) {
+        dataStore.edit { it[PreferencesKeys.THEME_MODE] = mode.name }
     }
 
     companion object {

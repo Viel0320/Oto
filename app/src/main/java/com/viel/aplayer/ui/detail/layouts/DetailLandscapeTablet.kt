@@ -187,7 +187,7 @@ fun DetailTabletLandscape(
                 hazeState = detailHazeState,
                 onPlayPressed = onPlayPressed,
                 onPlayClick = onPlayClick,
-                isLandscape = true
+                isLandscape = true,
             )
             Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
         }

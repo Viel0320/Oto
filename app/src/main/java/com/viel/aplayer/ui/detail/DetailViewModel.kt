@@ -238,18 +238,14 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     // Clear Detail State (Reset selection and cancel database flow subscription on overlay dispose)
     // Resets the selected book metadata, cancels active database flow observers, and flushes progress parameters when closed.
     fun clearDetails() {
+        // Disabled Auto-Clear: Commented out the active state flushing logic to prevent clearing the selected book state when the detail view is closed.
+        /*
         bookObserveJob?.cancel()
         bookObserveJob = null
         _playbackStartedAt.value = null
         _uiState.update { state ->
             state.copy(
                 book = null,
-                /*
-                 * Entry Source Clear (Overlay disposal cleanup)
-                 *
-                 * Drops the source marker after exit animation disposal so a future detail entry
-                 * must declare its own source instead of reusing a completed transition.
-                 */
                 entrySource = DetailEntrySource.None,
                 isAvailable = true,
                 progressPercent = 0,
@@ -258,6 +254,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 fullSourcePath = ""
             )
         }
+        */
     }
 
 

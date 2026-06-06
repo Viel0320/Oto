@@ -14,7 +14,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.player.PlayerViewModel
-import com.viel.aplayer.ui.settings.SettingsActivity
 
 /**
  * HomeFilter Enum (Home Library Filter Options)
@@ -47,7 +46,10 @@ fun HomeScreen(
     detailViewModel: DetailViewModel,
     searchViewModel: com.viel.aplayer.ui.search.SearchViewModel,
     canStartNavigation: () -> Boolean,
-    navigateBack: () -> Unit
+    navigateBack: () -> Unit,
+    // Settings Navigation Event (To delegate settings launch routing to parent controller)
+    // Abstract callback parameter to notify parent overlay scope when user requests setting screen.
+    onNavigateToSettings: () -> Unit
 ) {
     val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
@@ -147,10 +149,11 @@ fun HomeScreen(
             playerViewModel.setFullPlayerVisible(true)
         },
         onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
+        // Settings Navigation Callback (To delegate settings launch routing to upper overlay controller)
+        // Invokes abstract settings navigation trigger callback instead of hardcoding intent startup.
         onNavigateToSettings = {
             if (canStartNavigation()) {
-                val intent = SettingsActivity.createIntent(context)
-                context.startActivity(intent)
+                onNavigateToSettings()
             }
         },
         onUpdateReadStatus = { bookId, status ->

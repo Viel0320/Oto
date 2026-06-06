@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
@@ -57,27 +58,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     ) { audiobooks, userSelection, appSettings ->
         // Centralized Filter Resolution (Dispatches final filter state once all input streams are ready)
         // Prevents intermediate visual state jumps in home filter chips.
-        // Priority hierarchy: Explicit User Selection > First-Load Auto-Detection > Persisted Cache Settings > NotStarted Default.
+        // Priority hierarchy: Explicit User Selection > Persisted Cache Settings > NotStarted Default.
         val activeFilter = if (userSelection != null) {
             // Priority 1: Direct user selection took precedence.
             userSelection
-        } else if (isFirstLoad && audiobooks.isNotEmpty()) {
-            // Priority 2: Automatically select optimal filter on first load based on existing audiobooks.
-            // Chooses `InProgress` if ongoing items are found, otherwise defaults to `NotStarted`.
-            // Persistence is triggered here to secure consistency on subsequent launches.
-            isFirstLoad = false
-            val autoFilter = if (audiobooks.any { it.isInProgress }) {
-                HomeFilter.InProgress
-            } else {
-                HomeFilter.NotStarted
-            }
-            viewModelScope.launch {
-                settingsRepository.updateHomeFilter(autoFilter.name)
-            }
-            autoFilter
         } else {
-            // Priority 3: Restore previous state from cache. Falls back to `NotStarted` on failure.
-            isFirstLoad = false
+            // Priority 2: Restore previous state from cache. Falls back to `NotStarted` on failure.
             try {
                 HomeFilter.valueOf(appSettings.homeFilter)
             } catch (_: Exception) {
@@ -124,7 +110,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             recentTitleRes = recentTitleRes,
             shouldShowRecentBooks = shouldShowRecentBooks,
             // Pass down glassmorphic mode properties to synchronize theme rendering across pages.
-            glassEffectMode = appSettings.glassEffectMode
+            glassEffectMode = appSettings.glassEffectMode,
+            // Pass down themeMode properties (Synchronize app settings theme configuration down to LibraryUiState) Populate themeMode parameter.
+            themeMode = appSettings.themeMode
         )
     }.stateIn(
         scope = viewModelScope,
@@ -150,6 +138,25 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         // Cold start scan queue (Submitted to LibraryFacade to keep VM isolated from WorkManager configurations)
         libraryFacade.scheduleLibrarySync("COLD_START")
         observeScanSessions()
+
+        viewModelScope.launch {
+            // Optimize First Load Filter (Determine and persist optimal home filter on first load asynchronously)
+            // Monitors book updates and triggers home filter auto-selection only when new filter state diverges from cached preferences.
+            libraryFacade.audiobooks.collect { books ->
+                if (books.isNotEmpty() && isFirstLoad) {
+                    isFirstLoad = false
+                    val autoFilter = if (books.any { it.isInProgress }) {
+                        HomeFilter.InProgress
+                    } else {
+                        HomeFilter.NotStarted
+                    }
+                    val currentSettings = settingsRepository.settingsFlow.first()
+                    if (currentSettings.homeFilter != autoFilter.name) {
+                        settingsRepository.updateHomeFilter(autoFilter.name)
+                    }
+                }
+            }
+        }
     }
 
     private fun observeScanSessions() {

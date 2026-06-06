@@ -21,7 +21,16 @@ enum class SleepMode {
     SleepTracking
 }
 
+// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode enum to support System, Light, and Dark mode selections.
+enum class ThemeMode {
+    System,
+    Light,
+    Dark
+}
+
 data class AppSettings(
+    // Theme Mode Setting (Expose themeMode configurations, defaulting to System) Binds active theme configuration.
+    val themeMode: ThemeMode = ThemeMode.System,
     /** Filter state on the home screen */
     val homeFilter: String = "NotStarted",
     /** Determines if the playback speed configuration is stored globally */

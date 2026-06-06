@@ -326,7 +326,8 @@ private fun RecentCoverProgressBadge(
     // Progress Badge Styling (Frosted Glass/Material Adaptive)
     // Refactor the progress Badge container into an elegant frosted glass Surface supporting miuix-blur.
     // When frosted glass is enabled, introduce custom adjustable opacity blur materials and translucent 0.5.dp border; fall back to native high-saturation Material container in traditional mode.
-    val isDark = isSystemInDarkTheme()
+    // Theme Aware Progress Badge (Use LocalDarkTheme to resolve active theme state instead of system defaults) Read theme preference state for contrast calculation.
+    val isDark = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
 
     // Contrast Stretching Algorithm (Luminance Contrast Tuning)
     // Upgrade to contrast-stretching algorithm based on luminance checking (RGB 65% physical channel color blending):

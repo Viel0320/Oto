@@ -47,6 +47,8 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.animateDp
@@ -139,11 +141,18 @@ fun CompactMediaPlayer(
             .fillMaxWidth()
             .let {
                 if (isBlurMode) {
-                    // Setup CompactPlayer Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to Surface container.
-                    it.hazeEffect(
-                        state = hazeState,
-                        style = HazeMaterials.regular()
-                    )
+                    val compactShape = RoundedCornerShape(animatedCornerRadius)
+                    it
+                        .clip(compactShape)
+                        .liquidGlassCompatEffect(
+                            state = hazeState,
+                            style = LiquidGlassStyle(
+                                // Adaptive Glass Tint: Fallback to theme-based 12% tint (White in Dark, Black in Light) by leaving it Unspecified.
+                                specularIntensity = 0.4f,
+                                ambientResponse = 0.5f,
+                                shape = compactShape
+                            )
+                        )
                 } else {
                     it
                 }

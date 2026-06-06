@@ -76,6 +76,9 @@ private val LightColorScheme = lightColorScheme(
     outline = OutlineLight
 )
 
+// Dark Theme Context (CompositionLocal to expose active dark mode state globally) StaticCompositionLocalOf holds boolean state.
+val LocalDarkTheme = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 @Composable
 fun APlayerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -110,7 +113,8 @@ fun APlayerTheme(
     // Use CompositionLocalProvider to provide this instance as a global LocalWindowClass, allowing all sub-Composables under the UI tree and all Compose Previews to share adaptive logic seamlessly.
     val windowClass = rememberWindowClass()
     CompositionLocalProvider(
-        LocalWindowClass provides windowClass
+        LocalWindowClass provides windowClass,
+        LocalDarkTheme provides darkTheme
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

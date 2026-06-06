@@ -28,6 +28,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.data.store.GlassEffectMode
+// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
+import com.viel.aplayer.data.store.ThemeMode
+import kotlinx.coroutines.flow.first
 import com.viel.aplayer.ui.common.ScanResultDialog
 import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.common.formatDate
@@ -47,6 +50,8 @@ import com.viel.aplayer.ui.player.components.PlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.search.SearchOverlay
 import com.viel.aplayer.ui.search.SearchViewModel
+import com.viel.aplayer.ui.settings.SettingsOverlay
+import com.viel.aplayer.ui.settings.SettingsViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
@@ -56,8 +61,45 @@ fun APlayerApp(
     openPlayerOverlayRequest: Boolean = false,
     onOpenPlayerOverlayConsumed: () -> Unit = {}
 ) {
-    APlayerTheme {
-        // Setup Navigation 3 Controller (Initialize state and navigator) Migrate from rememberNavController to custom NavigationState.
+    val libraryViewModel: LibraryViewModel = viewModel()
+    val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    // Sync Load Settings (Pre-load settings synchronously on the main thread during initialization)
+    // Runs blocking read once to obtain the theme settings flow's initial value, avoiding theme flickers during cold start.
+    val initialSettings = remember {
+        kotlinx.coroutines.runBlocking {
+            com.viel.aplayer.data.AppSettingsRepository.getInstance(context).settingsFlow.first()
+        }
+    }
+
+    val activeGlassEffectMode = if (libraryUiState.selectedFilter != null) {
+        libraryUiState.glassEffectMode
+    } else {
+        initialSettings.glassEffectMode
+    }
+
+    val activeThemeMode = if (libraryUiState.selectedFilter != null) {
+        libraryUiState.themeMode
+    } else {
+        initialSettings.themeMode
+    }
+
+    // Resolve Theme Selection (Calculate target darkTheme state based on setting and glass effect mode)
+    // Compute active dark theme state dynamically. If Haze mode is active, override and force dark theme.
+    val isDarkTheme = if (activeGlassEffectMode == GlassEffectMode.Haze) {
+        true
+    } else {
+        when (activeThemeMode) {
+            ThemeMode.System -> androidx.compose.foundation.isSystemInDarkTheme()
+            ThemeMode.Light -> false
+            ThemeMode.Dark -> true
+        }
+    }
+
+    APlayerTheme(darkTheme = isDarkTheme) {
+        // Setup Navigation 3
+        // Controller (Initialize state and navigator) Migrate from rememberNavController to custom NavigationState.
         val navigationState = rememberNavigationState(
             startRoute = HomeRoute,
             topLevelRoutes = setOf(HomeRoute)
@@ -65,8 +107,6 @@ fun APlayerApp(
         val navigator = remember { Navigator(navigationState) }
         val currentRoute = navigationState.topLevelRoute
 
-        val context = LocalContext.current
-        val libraryViewModel: LibraryViewModel = viewModel()
         val playerViewModel: PlayerViewModel = viewModel()
         // Separation of DetailViewModel (Single Responsibility)
         // Independent ViewModel for the audiobook details page, split from LibraryViewModel to make each ViewModel have a single responsibility.
@@ -79,8 +119,11 @@ fun APlayerApp(
         // Instantiate the non-independent SearchViewModel, hosted and destroyed by the current Activity.
         val searchViewModel: SearchViewModel = viewModel()
 
+        // SettingsViewModel Lifecycle (Host Lifecycle Management)
+        // Instantiate the settings ViewModel hosted and destroyed by MainActivity.
+        val settingsViewModel: SettingsViewModel = viewModel()
+
         val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
-        val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
         val scanResult by libraryViewModel.scanResultDialogState.collectAsStateWithLifecycle()
         // Collect Detail UI State (Adapt MiuixBlur Sampling Source)
         // Collect the detailUiState from detailViewModel here. This is used when rendering the MiniPlayer overlay to perceive whether the details page is visible, so as to dynamically map the miuix-blur sampling source.
@@ -263,7 +306,12 @@ fun APlayerApp(
                         detailViewModel = detailViewModel,
                         canStartNavigation = canStartNavigation,
                         navigateBack = navigateBack,
-                        searchViewModel = searchViewModel
+                        searchViewModel = searchViewModel,
+                        // Settings Navigation Callback (To open settings overlay on request)
+                        // Binds setting launch request event to change settings overlay visibility.
+                        onNavigateToSettings = {
+                            settingsViewModel.setVisible(true)
+                        }
                     )
                 }
 
@@ -364,6 +412,13 @@ fun APlayerApp(
                     onNavigateToPlayer = {
                         playerViewModel.setFullPlayerVisible(true)
                     }
+                )
+
+                // Mount SettingsOverlay without HazeState (Prevent sharing conflicts with SearchOverlay)
+                // Positioned after SearchOverlay to guarantee settings overlay rendered on top of search overlay.
+                SettingsOverlay(
+                    settingsViewModel = settingsViewModel,
+                    glassEffectMode = libraryUiState.glassEffectMode
                 )
 
                 // Scan Result Dialog (Display Scan Summary)

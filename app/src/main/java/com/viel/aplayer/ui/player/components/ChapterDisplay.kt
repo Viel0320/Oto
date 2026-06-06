@@ -64,8 +64,8 @@ fun ChapterDisplay(
             // Render custom glassmorphism pill (To achieve homocentric layouts and precise roundings)
             // Wraps items inside basic Box container with chained clips, backgrounds, clickables, and borders.
             val chipShape = RoundedCornerShape(12.dp)
-            // Query active theme properties (To load adaptive styling boundaries based on dark/light theme state)
-            val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+            // Query active theme properties (To load adaptive styling boundaries based on dark/light theme state) Read theme preference.
+            val isDark = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
             
             // 1. Shaded mask brush (To enforce proper contrast ratios across active theme modes)
             val maskBrush = Brush.linearGradient(

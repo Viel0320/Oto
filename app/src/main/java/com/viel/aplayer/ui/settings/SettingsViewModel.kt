@@ -14,6 +14,8 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
+// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
+import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
 import com.viel.aplayer.logger.AbsSettingsLogger
@@ -71,6 +73,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Replaces direct facade repository calls with clean domain-level service triggers.
      */
     private val deleteLibraryRootUseCase = container.deleteLibraryRootUseCase
+
+    // Settings Overlay Visibility State (To control settings overlay visibility in single-activity architecture)
+    // Manages the show/hide status of the settings overlay inside MainActivity, providing reactive flow signals.
+    private val _isVisible = MutableStateFlow(false)
+    val isVisible: StateFlow<Boolean> = _isVisible.asStateFlow()
+
+    // Modify settings overlay visibility (To dynamically trigger settings overlay display state changes)
+    // Exposes a public modifier function to toggle the settings overlay visibility flag.
+    fun setVisible(visible: Boolean) {
+        _isVisible.value = visible
+    }
+
     private val _uiEvents = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
     val uiEvents: SharedFlow<UiEvent> = _uiEvents.asSharedFlow()
     private val _absConnectionState = MutableStateFlow(AbsConnectionUiState())
@@ -122,23 +136,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch {
-            // Postpone SAF status refresh (To avoid interfering with Activity transitions and initial frame draws)
-            // Delays for 500ms before validating SAF storage permissions to ensure smooth UI animation rendering.
-            kotlinx.coroutines.delay(500.milliseconds)
-            // Verify folder accessibility (To update status indicators for library root cards)
-            // Triggers directory verification flow through libraryRootGateway.
-            libraryRootGateway.refreshLibraryRootStatuses()
-        }
-    }
-
-    init {
-        viewModelScope.launch {
-            // Postpone SAF status refresh (To avoid interfering with Activity transitions and initial frame draws)
-            // Delays for 500ms before validating SAF storage permissions to ensure smooth UI animation rendering.
-            kotlinx.coroutines.delay(500.milliseconds)
-            // Verify folder accessibility (To update status indicators for library root cards)
-            // Triggers directory verification flow through libraryRootGateway.
-            libraryRootGateway.refreshLibraryRootStatuses()
+            // Optimize Settings Status Refresh (Refresh statuses only when settings overlay becomes visible to prevent heavy checks on cold start)
+            // Obtains the visibility flow and updates the registered library directories once overlay shows up.
+            isVisible.collect { visible ->
+                if (visible) {
+                    libraryRootGateway.refreshLibraryRootStatuses()
+                }
+            }
         }
     }
 
@@ -630,6 +634,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateGlassEffectMode(mode: GlassEffectMode) {
         viewModelScope.launch {
             settingsRepository.updateGlassEffectMode(mode)
+        }
+    }
+
+    // Update theme mode (To modify the active theme mode preference) Persists user chosen theme mode to local repository.
+    fun updateThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            settingsRepository.updateThemeMode(mode)
         }
     }
 

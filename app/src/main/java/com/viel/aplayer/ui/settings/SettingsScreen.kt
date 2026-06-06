@@ -78,6 +78,8 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
+// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
+import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
@@ -140,6 +142,10 @@ fun SettingsScreen(
     sleepMode: SleepMode,
     // Change sleep mode (To notify sleep mode adjustments to controller)
     onSleepModeChange: (SleepMode) -> Unit,
+    // Theme Mode Config (Configure active theme mode) Binds theme mode state.
+    themeMode: ThemeMode,
+    // Change theme mode (To notify theme mode updates to controller) Binds theme mode change callback.
+    onThemeModeChange: (ThemeMode) -> Unit,
     // Backdrop effect configuration (To dictate visual containers style between Material and miuix-blur styles)
     glassEffectMode: GlassEffectMode,
     // Toggle backdrop style (To delegate blur adjustments to controller)
@@ -413,14 +419,6 @@ fun SettingsScreen(
                     item {
                         SettingsSectionHeader(title = "媒体库管理")
                     }
-                    item {
-                        SettingsItem(
-                            title = "添加媒体库",
-                            subtitle = "支持本地 (SAF)、WebDAV、Audiobookshelf 服务器",
-                            icon = Icons.Rounded.FolderOpen,
-                            onClick = { showAddLibraryTypeDialog = true }
-                        )
-                    }
 
                     // Library Display Keying (Uses stable root IDs for all registered source rows)
                     // This keeps multiple ABS libraries from the same server distinct even when they share the same source URL.
@@ -490,15 +488,37 @@ fun SettingsScreen(
                         }
                     }
 
+                    item {
+                        SettingsItem(
+                            title = "添加媒体库",
+                            subtitle = "支持本地 (SAF)、WebDAV、Audiobookshelf 服务器",
+                            icon = Icons.Rounded.FolderOpen,
+                            onClick = { showAddLibraryTypeDialog = true }
+                        )
+                    }
                     // === Section 2: Interface Settings ===
                     item {
                         SettingsSectionHeader(title = "界面效果")
                     }
                     item {
+                        // Theme Mode UI Item (Add theme mode segmented selection row to SettingsScreen layout) Insert SettingsSegmentedThemeModeItem.
+                        val isHaze = glassEffectMode == GlassEffectMode.Haze
+                        SettingsSegmentedThemeModeItem(
+                            title = "夜间模式",
+                            subtitle = "选择界面配色（跟随系统: 自动切换；浅色: 始终使用亮色调；深色: 始终使用暗色调）",
+                            icon = Icons.Rounded.LinearScale,
+                            selectedMode = if (isHaze) ThemeMode.Dark else themeMode,
+                            onModeSelected = { selectedMode ->
+                                onThemeModeChange(selectedMode)
+                            },
+                            enabled = !isHaze
+                        )
+                    }
+                    item {
                         // Visual effect settings: Change layout controller from segment choice to switch button for experimental blur effect.
                         SettingsToggleItem(
                             title = "实验性模糊效果",
-                            subtitle = "控制章节列表和书籍操作弹窗的背景效果",
+                            subtitle = "实验性支持部分界面的背景模糊效果",
                             icon = Icons.Rounded.LinearScale,
                             checked = glassEffectMode == GlassEffectMode.Haze,
                             onCheckedChange = { isChecked ->
@@ -1022,6 +1042,68 @@ private fun SettingsSegmentedSleepModeItem(
 }
 
 /**
+ * Segmented selection setting item for theme mode.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsSegmentedThemeModeItem(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    selectedMode: ThemeMode,
+    onModeSelected: (ThemeMode) -> Unit,
+    // Add interaction control parameter (To toggle theme selection row availability under experimental blur)
+    // Allows disabling theme segmented selector when Haze blur is active, indicating setting limitation.
+    enabled: Boolean = true
+) {
+    val modes = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark)
+    // Theme Selection Component (Private segmented button selection row for ThemeMode preference) Added SettingsSegmentedThemeModeItem to render selection controls.
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (enabled) Modifier else Modifier.alpha(0.38f))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = if (enabled) subtitle else "开启模糊效果时强制为深色",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                modes.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = selectedMode == mode,
+                        onClick = { onModeSelected(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                        enabled = enabled
+                    ) {
+                        Text(
+                            text = when (mode) {
+                                ThemeMode.System -> "跟随系统"
+                                ThemeMode.Light -> "浅色"
+                                ThemeMode.Dark -> "深色"
+                            },
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Switch toggle component (To render settings item containing toggle switch)
  */
 @Composable
@@ -1321,6 +1403,9 @@ fun SettingsScreenPreview() {
                 onShakeToResetEnabledChange = {},
                 sleepMode = SleepMode.Regular,
                 onSleepModeChange = {},
+                // Preview layout alignment (Inject mock theme settings parameters) Align preview parameters to match new theme selection layout.
+                themeMode = ThemeMode.System,
+                onThemeModeChange = {},
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
                 onGlassEffectModeChange = {},
                 autoRewindSeconds = 0,

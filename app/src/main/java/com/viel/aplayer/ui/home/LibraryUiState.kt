@@ -4,6 +4,8 @@ import androidx.annotation.StringRes
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
+import com.viel.aplayer.data.store.ThemeMode
 
 /**
  * LibraryUiState Model (Library Main Screen UI State)
@@ -41,5 +43,8 @@ data class LibraryUiState(
 
     /** Current floating layer glass effect mode, shared by homepage Dialog and player BottomSheet */
     // Default value of UiState first frame references settings model default value, avoiding hardcoded Material in UI state layer.
-    val glassEffectMode: GlassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+    val glassEffectMode: GlassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
+
+    // Theme Mode Config (Active theme configuration preference, e.g. System, Light, or Dark) Added theme mode field to home library UI state.
+    val themeMode: ThemeMode = ThemeMode.System
 )

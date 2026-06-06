@@ -57,6 +57,7 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
@@ -150,8 +151,10 @@ fun SearchContent(
                         )
                         // Chain background to append a translucent mask color (light/dark adaptive) to prevent search screen contents from blending with home page text
                         .background(
-                            if (androidx.compose.foundation.isSystemInDarkTheme()) {
-                                Color.Black.copy(alpha = 0.6f)
+                            // Theme Aware Translucent Mask (Use LocalDarkTheme to resolve background mask color instead of system theme defaults) Read dark mode status.
+                            if (LocalDarkTheme.current) {
+                                // Preserve Search Backdrop Blur Visibility (Reduce the forced-dark Haze mask opacity) Keep enough dark contrast while allowing the sampled background texture to remain visible.
+                                Color.Black.copy(alpha = 0.32f)
                             } else {
                                 Color.White.copy(alpha = 0.6f)
                             }

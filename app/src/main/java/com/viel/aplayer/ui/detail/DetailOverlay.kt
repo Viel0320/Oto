@@ -49,13 +49,12 @@ fun DetailOverlay(
         exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)),
         modifier = modifier
     ) {
-        // Clear Detail Selection (Trigger cleanup when overlay is disposed from composition tree)
-        // Invokes clearDetails() on the ViewModel when the animated content is completely removed.
-        DisposableEffect(Unit) {
-            onDispose {
-                detailViewModel.clearDetails()
-            }
-        }
+        // Disable Auto-Clear Trigger: Removed the DisposableEffect that triggered clearDetails() on dispose to prevent clearing the details selection state.
+        // DisposableEffect(Unit) {
+        //     onDispose {
+        //         detailViewModel.clearDetails()
+        //     }
+        // }
 
         /*
          * Detail Animated Visibility Scope (Destination shared-element scope)

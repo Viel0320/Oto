@@ -4,7 +4,7 @@ package com.viel.aplayer.ui.common
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -41,7 +41,8 @@ fun CoverBackground(
 ) {
     // Setup Glass Effect Flag (Check active theme style) Check if Haze mode is configured.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
-    val isDark = isSystemInDarkTheme()
+    // Theme Aware Contrast Check (Query active theme state via LocalDarkTheme instead of system defaults) Use LocalDarkTheme.current.
+    val isDark = LocalDarkTheme.current
     val bgColor = MaterialTheme.colorScheme.background
 
     // Smoothly transition the background dominant color to ensure a seamless visual connection when switching books.
@@ -51,39 +52,22 @@ fun CoverBackground(
         label = "bg_color"
     )
 
-    // Calculate the background gradient brush depending on whether the frosted glass mode is enabled.
-    val backgroundBrush by remember(animatedBgColor, bgColor, isBlur) {
-        derivedStateOf {
-            if (isBlur) {
-                Brush.verticalGradient(
-                    colors = listOf(
-                        animatedBgColor.copy(alpha = 0.35f),
-                        bgColor.copy(alpha = 0.5f)
-                    )
-                )
-            } else {
-                Brush.verticalGradient(
-                    colors = listOf(
-                        animatedBgColor.copy(alpha = 0.9f),
-                        bgColor.copy(alpha = 0.95f)
-                    )
-                )
-            }
-        }
+    // Calculate the background gradient brush when frosted glass mode is disabled.
+    val backgroundBrush = remember(animatedBgColor, bgColor) {
+        Brush.verticalGradient(
+            colors = listOf(
+                animatedBgColor.copy(alpha = 0.9f),
+                bgColor.copy(alpha = 0.95f)
+            )
+        )
     }
 
     // Setup Layout Modifier (Apply haze to background Box) Link haze modifier to background container if in Haze mode.
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(backgroundBrush)
-            .then(
-                if (isBlur && hazeState != null) {
-                    Modifier.hazeSource(hazeState)
-                } else {
-                    Modifier
-                }
-            )
+            .then(if (!isBlur) Modifier.background(backgroundBrush) else Modifier)
+            .then(if (isBlur && hazeState != null) Modifier.hazeSource(hazeState) else Modifier)
     ) {
         // Render the full-screen cover blurred background only when in Haze mode.
         if (isBlur && coverPath != null) {
@@ -108,31 +92,36 @@ fun CoverBackground(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        scaleX = 1.12f
-                        scaleY = 1.12f
+                        scaleX = 1.02f
+                        scaleY = 1.02f
                     }
             )
 
-            // Overlay an adaptive theme mask layer.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(bgColor.copy(alpha = if (isDark) 0.62f else 0.74f))
+                    .background(bgColor.copy(alpha = if (isDark) 0.46f else 0.24f))
             )
+            // Overlay an adaptive theme mask layer.
+//            Box(
+//                modifier = Modifier
+//                    .fillMaxSize()
+//                    .background(bgColor.copy(alpha = if (isDark) 0.62f else 0.74f))
+//            )
 
             // Bottom gradient deepening layer.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                bgColor.copy(alpha = if (isDark) 0.46f else 0.34f)
-                            )
-                        )
-                    )
-            )
+//            Box(
+//                modifier = Modifier
+//                    .fillMaxSize()
+//                    .background(
+//                        Brush.verticalGradient(
+//                            colors = listOf(
+//                                Color.Transparent,
+//                                bgColor.copy(alpha = if (isDark) 0.46f else 0.34f)
+//                            )
+//                        )
+//                    )
+//            )
         }
     }
 }

@@ -234,7 +234,8 @@ fun PlayerScreen(
     }
 
     // System theme synchronization (To align player styling options with active dark/light parameters)
-    APlayerTheme {
+    // Pass LocalDarkTheme value into theme container wrapper to bypass default system dark mode detection.
+    APlayerTheme(darkTheme = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current) {
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         

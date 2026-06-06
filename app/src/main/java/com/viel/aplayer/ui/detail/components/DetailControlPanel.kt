@@ -40,8 +40,11 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.formatFileSize
 import com.viel.aplayer.ui.common.formatTime
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.detail.DetailUiState
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -121,9 +124,14 @@ fun DetailControlPanel(
                             // Setup Play Button Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to button when in Haze mode.
                             it
                                 .clip(RoundedCornerShape(cornerRadius))
-                                .hazeEffect(
+                                .liquidGlassCompatEffect(
                                     state = hazeState,
-                                    style = HazeMaterials.regular()
+                                    style = LiquidGlassStyle(
+                                        //tint = Color.White.copy(alpha = 0.15f), // 玻璃色调
+                                        specularIntensity = 0.6f,              // 高光反射强度
+                                        ambientResponse = 0.5f,                // 边缘漫反射反射强度
+                                        shape = RoundedCornerShape(cornerRadius)       // 玻璃形状（会自动适应边框绘制）
+                                    )
                                 )
                         } else {
                             it
@@ -238,12 +246,17 @@ fun DetailInfoChip(
         modifier = modifier
             .let {
                 if (isBlur) {
-                    // Setup Chip Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to metadata chip.
+                    val chipShape = RoundedCornerShape(12.dp)
                     it
-                        .clip(RoundedCornerShape(12.dp))
-                        .hazeEffect(
+                        .clip(chipShape)
+                        .liquidGlassCompatEffect(
                             state = hazeState,
-                            style = HazeMaterials.regular()
+                            style = LiquidGlassStyle(
+                                // Adaptive Glass Tint: Fallback to theme-based 12% tint (White in Dark, Black in Light) by leaving it Unspecified.
+                                specularIntensity = 0.4f,
+                                ambientResponse = 0.5f,
+                                shape = chipShape
+                            )
                         )
                 } else {
                     it

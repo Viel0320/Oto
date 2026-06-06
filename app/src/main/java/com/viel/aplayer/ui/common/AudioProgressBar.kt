@@ -53,7 +53,8 @@ fun AudioProgressBar(
     // Added the radius parameter of the chapter marker ball, allowing it to embed perfectly and delicately in the track.
     val markerRadiusPx = remember(density) { with(density) { 2.dp.toPx() } }
     val knobRadiusPx = remember(density) { with(density) { 8.dp.toPx() } }
-    val isDark = isSystemInDarkTheme()
+    // Theme Aware Progress Bar (Use LocalDarkTheme to resolve active theme state instead of system defaults) Read theme preference state for canvas rendering.
+    val isDark = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
     // Glass Effect Resolution (Resolve glass effect modes) Map MiuixBlur check to the Haze glass effect mode enum.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     // Extract secondary and tertiary colors within the Composable context, caching them as local non-Composable variables.
