@@ -86,7 +86,7 @@ class CoverService(
                 id = bookId,
                 coverPath = result.originalPath,
                 thumbnailPath = result.thumbnailPath,
-                backgroundColorArgb = result.backgroundColor,
+                // Deprecated: backgroundColorArgb is removed from parameter list
                 lastScannedAt = System.currentTimeMillis()
             )
         }
@@ -146,13 +146,7 @@ class CoverService(
         }
     }
 
-    override fun updateBackgroundColor(id: String, color: Int) {
-        // Asynchronous Color Updates (Non-blocking UI adjustments)
-        // Offloads palette updates to a background task, keeping the details transition fluid.
-        scope.launch {
-            bookDao.updateBackgroundColor(id, color)
-        }
-    }
+    // Deprecated: updateBackgroundColor is fully deprecated and removed
 
     override suspend fun checkDetailAvailability(bookId: String): Boolean = withContext(Dispatchers.IO) {
         // Verify Details Availability (Ingestion reachability checks)

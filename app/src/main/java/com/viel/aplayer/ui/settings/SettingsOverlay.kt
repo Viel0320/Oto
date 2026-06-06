@@ -169,6 +169,9 @@ fun SettingsOverlay(
                         onSleepModeChange = { settingsViewModel.updateSleepMode(it) },
                         themeMode = settingsState.themeMode,
                         onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
+                        // Pipe Dynamic Color Settings (Forward dynamic color configuration parameters to downstream SettingsScreen) Binds dynamic color state and callback.
+                        isDynamicColorEnabled = settingsState.isDynamicColorEnabled,
+                        onDynamicColorEnabledChange = { settingsViewModel.toggleDynamicColorEnabled(it) },
                         glassEffectMode = settingsState.glassEffectMode,
                         settingsDialogHazeState = if (isBlur) settingsHazeState else null,
                         onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },

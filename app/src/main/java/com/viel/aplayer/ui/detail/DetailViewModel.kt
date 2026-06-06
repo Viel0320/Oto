@@ -210,20 +210,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
 
-        // Dominant Color Optimization (Fetch cached values or run bitmap extractor asynchronously)
-        if (book != null && (book.book.coverPath != current.book?.book?.coverPath
-                    || current.backgroundColorArgb == ImageProcessor.DEFAULT_BACKGROUND_ARGB)) {
-            viewModelScope.launch(Dispatchers.Default) {
-                val cachedColor = libraryFacade.getBookById(book.book.id)?.backgroundColorArgb
-                val backgroundColor = cachedColor ?: ImageProcessor.getDominantColor(book.book.coverPath)
-                _uiState.value = _uiState.value.copy(backgroundColorArgb = backgroundColor)
-
-                // Cache Dominant Color (Save computed colors back to database for future lookups)
-                if (cachedColor == null) {
-                    libraryFacade.updateBackgroundColor(book.book.id, backgroundColor)
-                }
-            }
-        }
+        // Deprecated: Color extraction was completely removed from ViewModel since it is handled by the UI layer
     }
 
     /**

@@ -127,7 +127,7 @@ class CoverRecoveryHelper(
             id = bookId,
             coverPath = finalCoverResult.originalPath,
             thumbnailPath = finalCoverResult.thumbnailPath,
-            backgroundColorArgb = finalCoverResult.backgroundColor,
+            // Deprecated: backgroundColorArgb is removed from parameter list
             lastScannedAt = System.currentTimeMillis()
         )
         return true

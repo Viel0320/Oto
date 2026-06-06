@@ -32,7 +32,8 @@ import dev.chrisbanes.haze.hazeSource
 fun CoverBackground(
     coverPath: String?,
     lastUpdated: Long,
-    backgroundColorArgb: Int,
+    // Adapt to local coverColor (Support passing Color type directly, bypassing deprecated database integer fields)
+    coverColor: Color?,
     glassEffectMode: GlassEffectMode,
     // Setup HazeState Parameter (Map backdrop from LayerBackdrop to HazeState) Changed backdrop to hazeState.
     hazeState: HazeState?,
@@ -44,9 +45,12 @@ fun CoverBackground(
     val isDark = LocalDarkTheme.current
     val bgColor = MaterialTheme.colorScheme.background
 
+    val fallbackColor = MaterialTheme.colorScheme.primaryContainer
+    val finalColor = coverColor ?: fallbackColor
+
     // Smoothly transition the background dominant color to ensure a seamless visual connection when switching books.
     val animatedBgColor by animateColorAsState(
-        targetValue = Color(backgroundColorArgb),
+        targetValue = finalColor,
         animationSpec = tween(300),
         label = "bg_color"
     )

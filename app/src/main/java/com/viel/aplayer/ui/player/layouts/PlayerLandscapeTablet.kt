@@ -86,6 +86,9 @@ fun PlayerTabletLandscape(
     glassEffectMode: GlassEffectMode,
     // Setup Haze State (Transition backdrop reference to HazeState)
     chapterSheetHazeState: HazeState?,
+    // Color Extracted Callback (Pass color callback to downstream PlayerCover)
+    // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
+    onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Resolve window dimensions (To query device width coordinates without reading LocalConfiguration parameters directly)
@@ -256,7 +259,8 @@ fun PlayerTabletLandscape(
                                             coverScene = "player-main-cover",
                                             onAdjustVolume = { actions.playback.onAdjustVolume(it) },
                                             onNextChapter = { actions.playback.onNextChapter() },
-                                            onPreviousChapter = { actions.playback.onPreviousChapter() }
+                                            onPreviousChapter = { actions.playback.onPreviousChapter() },
+                                            onColorExtracted = onColorExtracted
                                         )
                                     }
                                 }

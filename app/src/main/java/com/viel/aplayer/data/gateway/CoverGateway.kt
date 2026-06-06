@@ -29,7 +29,7 @@ interface CoverGateway {
      * Cache Theme Accent Color (UI palette persistence)
      * Updates and persists the primary ARGB color value extracted from the cover to match the UI theme.
      */
-    fun updateBackgroundColor(id: String, color: Int)
+    // Deprecated: updateBackgroundColor is fully deprecated and removed
 
     /**
      * Validate Ingestion Availability (Detail view validation)

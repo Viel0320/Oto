@@ -32,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -89,8 +90,6 @@ fun RecentlyItem(
     onLongClick: () -> Unit = {},
     // New glassEffectMode parameter to make RecentlyItem respond to global frosted glass blur mode, defaulting to traditional opaque mode
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    // New coverColorArgb optional parameter to pass the current book cover ARGB color extraction, used to blend text color with cover color
-    coverColorArgb: Int? = null,
     /*
      * Shared Element Key (Home recent cover transition identity)
      *
@@ -99,6 +98,11 @@ fun RecentlyItem(
      */
     sharedElementKey: String? = null
 ) {
+    // Reset Color State on Cover Path Changes: Re-initialize coverColor state whenever the coverPath changes using remember(coverPath) and load the cached color synchronously if available.
+    var coverColor by remember(coverPath) {
+        mutableStateOf<Color?>(com.viel.aplayer.media.parser.ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
+    }
+
     Column(
         modifier = modifier
             .width(160.dp)
@@ -116,9 +120,10 @@ fun RecentlyItem(
             coverPath = coverPath,
             coverLastUpdated = coverLastUpdated,
             glassEffectMode = glassEffectMode,
-            coverColorArgb = coverColorArgb,
+            coverColor = coverColor,
             isDetailTargetActive = isDetailTargetActive,
             sharedElementKey = sharedElementKey,
+            onColorExtracted = { coverColor = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
@@ -154,9 +159,10 @@ private fun RecentCoverSharedSource(
     coverPath: String?,
     coverLastUpdated: Long,
     glassEffectMode: GlassEffectMode,
-    coverColorArgb: Int?,
+    coverColor: Color?,
     isDetailTargetActive: Boolean,
     sharedElementKey: String?,
+    onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Haze State Initialization (Haze State Allocation) Declare a local HazeState to coordinate background and badge blur.
@@ -278,6 +284,12 @@ private fun RecentCoverSharedSource(
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
+                                onSuccess = { successResult ->
+                                    val colorInt = com.viel.aplayer.media.parser.ImageProcessor.getDominantColorFromDrawable(successResult.result.drawable)
+                                    // Cache Calculated Color: Write the extracted dominant color into the main process LruCache to speed up future renders.
+                                    com.viel.aplayer.media.parser.ImageProcessor.putColorToCache(coverPath, colorInt)
+                                    onColorExtracted(Color(colorInt))
+                                },
                                 onError = {
                                     // Log Metric Handling (Decoupled Image Metrics Logging)
                                     // Card component only handles display degradation; success, failure, cancel, and hit rate logging are handled uniformly by image request listener, preventing duplicate logs.
@@ -301,7 +313,7 @@ private fun RecentCoverSharedSource(
 
                     RecentCoverProgressBadge(
                         progressText = progressText,
-                        coverColorArgb = coverColorArgb,
+                        coverColor = coverColor,
                         isBlur = isBlur,
                         itemHazeState = itemHazeState,
                         modifier = Modifier
@@ -318,7 +330,7 @@ private fun RecentCoverSharedSource(
 @OptIn(ExperimentalHazeMaterialsApi::class)
 private fun RecentCoverProgressBadge(
     progressText: String,
-    coverColorArgb: Int?,
+    coverColor: Color?,
     isBlur: Boolean,
     itemHazeState: HazeState,
     modifier: Modifier = Modifier
@@ -333,9 +345,8 @@ private fun RecentCoverProgressBadge(
     // Upgrade to contrast-stretching algorithm based on luminance checking (RGB 65% physical channel color blending):
     // - Dark mode: If cover color extraction is dark (luminance < 0.5f), blend with pure white at 65% ratio (0.35f * rawColor + 0.65f), allowing text to shine warm-glow on dark frosted glass background.
     // - Light mode: If cover color extraction is light (luminance > 0.5f), blend with pure black at 65% ratio (0.35f * rawColor), suppressing brightness to prevent text from melting on milky semi-translucent glass.
-    val coverColor = remember(coverColorArgb, isDark, isBlur) {
-        coverColorArgb?.let { argb ->
-            val rawColor = Color(argb)
+    val resolvedColor = remember(coverColor, isDark, isBlur) {
+        coverColor?.let { rawColor ->
             val lum = rawColor.luminance()
             // Haze Contrast Optimization (Force light tint processing in haze mode or dark theme to keep badge content clean and visible on frosted layouts) Perform white channel contrast stretching for low-luminance values.
             if (isDark || isBlur) {
@@ -413,7 +424,7 @@ private fun RecentCoverProgressBadge(
                 // Badge text uses cover color and smart contrast stretching:
                 // - Light mode: use native primary theme color on fallback.
                 // - Dark mode: use pure white (Color.White) to achieve 100% optimal contrast and premium frosted glass look.
-                coverColor ?: if (isDark) {
+                resolvedColor ?: if (isDark) {
                     Color.White
                 } else {
                     MaterialTheme.colorScheme.primary

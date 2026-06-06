@@ -185,7 +185,7 @@ class PlayerViewModel : ViewModel() {
     private var pendingAbsProgressConflict: AbsProgressConflictCoordinator.ProgressConflict? = null
     private var pendingAbsProgressLoadRequest: PendingAbsProgressLoadRequest? = null
 
-    private var _lastDominantColor = ImageProcessor.DEFAULT_BACKGROUND_ARGB
+    // Deprecated: _lastDominantColor is removed
 
     val settingsState: StateFlow<PlayerSettingsState> = settingsManager.settingsState
     val sleepTimerMillis: StateFlow<Long> = settingsManager.sleepTimerMillis
@@ -214,7 +214,7 @@ class PlayerViewModel : ViewModel() {
                     chapters = chapters,
                     bookmarks = bookmarks,
                     subtitles = subtitles,
-                    backgroundColorArgb = entity?.backgroundColorArgb ?: _lastDominantColor
+                    // Deprecated: backgroundColorArgb is removed
                 )
             }
         }
@@ -835,20 +835,9 @@ class PlayerViewModel : ViewModel() {
         playbackManager?.skipToNextAvailableTrack(bookId, queueIndex)
     }
 
+    // Keep cover path update triggers (Notify downstream state listeners without calculating or saving dominant color fields)
     fun updateCoverPath(path: String?) {
-        val id = _currentBookId.value ?: return
-        path?.let { p ->
-            viewModelScope.launch(Dispatchers.Default) {
-                val entity = libraryFacade?.getBookById(id)
-                if (entity?.backgroundColorArgb != null) {
-                    _lastDominantColor = entity.backgroundColorArgb
-                } else {
-                    val color = ImageProcessor.getDominantColor(p)
-                    _lastDominantColor = color
-                    libraryFacade?.updateBackgroundColor(id, color)
-                }
-                settingsManager.setSelectedContentTab(settingsState.value.selectedContentTab)
-            }
-        }
+        // Since we retrieve colors dynamically via ImageProcessor inside Composable, database-persisted backgroundColorArgb is fully deprecated.
+        settingsManager.setSelectedContentTab(settingsState.value.selectedContentTab)
     }
 }

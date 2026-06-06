@@ -78,6 +78,13 @@ fun APlayerApp(
         initialSettings.themeMode
     }
 
+    // Resolve Dynamic Color Preference (Calculate active dynamic color state based on setting and system configuration) Load dynamic color setting state dynamically.
+    val isDynamicColorEnabled = if (libraryUiState.selectedFilter != null) {
+        libraryUiState.isDynamicColorEnabled
+    } else {
+        initialSettings.isDynamicColorEnabled
+    }
+
     // Resolve Theme Selection (Calculate target darkTheme state based on setting and glass effect mode)
     // Compute active dark theme state dynamically. If Haze mode is active, override and force dark theme.
     val isDarkTheme = if (activeGlassEffectMode == GlassEffectMode.Haze) {
@@ -90,7 +97,11 @@ fun APlayerApp(
         }
     }
 
-    APlayerTheme(darkTheme = isDarkTheme) {
+    // Apply App Theme (Pass active dark theme and dynamic color states down to the customized theme container) Wraps the layout in APlayerTheme.
+    APlayerTheme(
+        darkTheme = isDarkTheme,
+        dynamicColor = isDynamicColorEnabled
+    ) {
         // Setup Navigation 3
         // Controller (Initialize state and navigator) Migrate from rememberNavController to custom NavigationState.
         val navigationState = rememberNavigationState(

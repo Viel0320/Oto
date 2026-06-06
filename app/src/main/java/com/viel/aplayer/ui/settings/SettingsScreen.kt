@@ -161,6 +161,9 @@ fun SettingsScreen(
     themeMode: ThemeMode,
     // Change theme mode (To notify theme mode updates to controller) Binds theme mode change callback.
     onThemeModeChange: (ThemeMode) -> Unit,
+    // Monet Color Toggle Parameters (Receive dynamic color parameters for UI representation) Added isDynamicColorEnabled and callback.
+    isDynamicColorEnabled: Boolean,
+    onDynamicColorEnabledChange: (Boolean) -> Unit,
     // Backdrop effect configuration (To dictate visual containers style between Material and Haze styles)
     glassEffectMode: GlassEffectMode,
     // Settings Dialog Backdrop Source (Optional settings-local sampling source)
@@ -533,6 +536,18 @@ fun SettingsScreen(
                                 onThemeModeChange(selectedMode)
                             },
                             enabled = !isHaze
+                        )
+                    }
+                    item {
+                        // Monet Color Toggle (Add custom HSL Monet Dynamic Color switch to SettingsScreen layout) Lowers API constraint to Android 8.0 (API 26) and updates description.
+                        val isDynamicColorSupported = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
+                        SettingsToggleItem(
+                            title = "Monet 动态取色",
+                            subtitle = if (isDynamicColorSupported) "开启后，应用主题配色将自动从您的系统壁纸中提取" else "Monet 动态取色需要 Android 8.0 及以上系统版本",
+                            icon = Icons.Rounded.LinearScale,
+                            checked = isDynamicColorEnabled,
+                            onCheckedChange = onDynamicColorEnabledChange,
+                            enabled = isDynamicColorSupported
                         )
                     }
                     item {
@@ -1474,6 +1489,9 @@ fun SettingsScreenPreview() {
                 // Preview layout alignment (Inject mock theme settings parameters) Align preview parameters to match new theme selection layout.
                 themeMode = ThemeMode.System,
                 onThemeModeChange = {},
+                // Preview dynamic color (Inject mock theme settings parameters) Align preview parameters to match new theme selection layout.
+                isDynamicColorEnabled = true,
+                onDynamicColorEnabledChange = {},
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
                 onGlassEffectModeChange = {},
                 autoRewindSeconds = 0,

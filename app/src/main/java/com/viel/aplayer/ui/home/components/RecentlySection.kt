@@ -95,8 +95,7 @@ fun RecentlyAddedSection(
                     onClick = { onNavigateToDetail(book.book.id) },
                     onLongClick = { onBookLongClick(book) },
                     glassEffectMode = glassEffectMode,
-                    // Pass ARGB main color tone physically extracted and persisted in database to card, rendering ambiance background
-                    coverColorArgb = book.book.backgroundColorArgb,
+                    // Deprecated: coverColorArgb is no longer passed from database
                     /*
                      * Recent To Detail Shared Element Key (Bind source artwork endpoint)
                      *

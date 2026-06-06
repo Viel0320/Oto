@@ -73,6 +73,9 @@ fun CompactMediaPlayer(
     hazeState: HazeState? = null,
     onClick: () -> Unit = {},
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    // Color Extracted Callback (Pass color callback to upstream MiniPlayerOverlay)
+    // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
+    onColorExtracted: ((Color) -> Unit)? = null,
 ) {
     LaunchedEffect(isMediaAvailable) {
         if (!isMediaAvailable) {
@@ -220,7 +223,13 @@ fun CompactMediaPlayer(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
+                            onSuccess = { successResult ->
+                                val colorInt = com.viel.aplayer.media.parser.ImageProcessor.getDominantColorFromDrawable(successResult.result.drawable)
+                                // Cache Calculated Color: Write the extracted dominant color into the main process LruCache to speed up future renders.
+                                com.viel.aplayer.media.parser.ImageProcessor.putColorToCache(coverPath, colorInt)
+                                onColorExtracted?.invoke(Color(colorInt))
+                            }
                         )
                     } else {
                         Box(

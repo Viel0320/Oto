@@ -335,7 +335,7 @@ class AbsCatalogSynchronizer(
             lastScannedAt = resolvedLastScannedAt,
             coverPath = resolvedCoverPath,
             thumbnailPath = resolvedThumbnailPath,
-            backgroundColorArgb = cachedCover?.backgroundColor ?: existingBookEntity?.backgroundColorArgb
+            // Deprecated: backgroundColorArgb is no longer passed during book upsert
         )
         val files = catalogMapper.toFiles(root, serverKey, item)
         val chapters = catalogMapper.toChapters(serverKey, item, files)

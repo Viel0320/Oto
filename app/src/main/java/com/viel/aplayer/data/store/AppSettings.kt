@@ -31,6 +31,8 @@ enum class ThemeMode {
 data class AppSettings(
     // Theme Mode Setting (Expose themeMode configurations, defaulting to System) Binds active theme configuration.
     val themeMode: ThemeMode = ThemeMode.System,
+    // Dynamic Color Option (Enable wallpaper-based color theme extraction) Adds isDynamicColorEnabled field to AppSettings with a default value of true to support Monet dynamic coloring.
+    val isDynamicColorEnabled: Boolean = true,
     /** Filter state on the home screen */
     val homeFilter: String = "NotStarted",
     /** Determines if the playback speed configuration is stored globally */

@@ -86,14 +86,31 @@ fun APlayerTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val context = LocalContext.current
+    // Resolve Color Scheme (Retrieve either system-derived wallpaper scheme or static fallback schemes)
+    // Dynamically queries wallpaper seed color on API 26+ and constructs custom ColorScheme via HSL space scaling, falling back to static themes on failure.
+    val colorScheme = androidx.compose.runtime.remember(darkTheme, dynamicColor) {
+        val fallback = if (darkTheme) DarkColorScheme else LightColorScheme
+        if (dynamicColor) {
+            val seed = DynamicColorSchemeHelper.getWallpaperSeedColor(context)
+            if (seed != null) {
+                DynamicColorSchemeHelper.generateColorSchemeFromSeed(seed, darkTheme, fallback)
+            } else {
+                fallback
+            }
+        } else {
+            fallback
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
     }
+
+    // Theme Color Diagnostics (Log active theme properties and extracted key colors for debugging)
+    // Logs the darkTheme, dynamicColor states, and hex values of the primary and background colors to help diagnose Monet dynamic tinting issues.
+    android.util.Log.d(
+        "APlayerTheme",
+        "APlayerTheme applied: darkTheme=$darkTheme, dynamicColor=$dynamicColor, systemSdk=${android.os.Build.VERSION.SDK_INT}, " +
+                "primary=#${java.lang.Long.toHexString(colorScheme.primary.value.toLong())}, " +
+                "background=#${java.lang.Long.toHexString(colorScheme.background.value.toLong())}"
+    )
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {

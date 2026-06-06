@@ -30,8 +30,7 @@ data class BookMetadataState(
     val subtitles: List<SubtitleLine> = emptyList(),
     /** User saved bookmarks (To store custom bookmark positions) */
     val bookmarks: List<BookmarkEntity> = emptyList(),
-    /** Backdrop dominant color (To store calculated backdrop ARGB color for layout styling) */
-    val backgroundColorArgb: Int = ImageProcessor.DEFAULT_BACKGROUND_ARGB
+    // Deprecated: backgroundColorArgb is removed
 ) {
     /** Active track validator (To verify if track metadata is loaded and valid) */
     val hasActiveTrack: Boolean

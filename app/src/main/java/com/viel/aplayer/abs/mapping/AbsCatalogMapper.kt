@@ -22,7 +22,7 @@ class AbsCatalogMapper(
         lastScannedAt: Long = existing?.lastScannedAt ?: 0L,
         coverPath: String? = existing?.coverPath,
         thumbnailPath: String? = existing?.thumbnailPath,
-        backgroundColorArgb: Int? = existing?.backgroundColorArgb,
+        // Deprecated: backgroundColorArgb is removed
         readStatusOverride: String? = null
     ): BookEntity {
         val title = item.media?.metadata?.title
@@ -54,7 +54,7 @@ class AbsCatalogMapper(
             totalFileSize = totalFileSize,
             coverPath = coverPath,
             thumbnailPath = thumbnailPath,
-            backgroundColorArgb = backgroundColorArgb,
+            // Deprecated: backgroundColorArgb is removed
             series = series,
             addedAt = existing?.addedAt ?: syncedAt,
             // Cover Cache Invalidation (Prevent unnecessary UI image reload cycles)

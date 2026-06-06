@@ -37,7 +37,7 @@ data class PlayerUiState(
     val currentNarrator get() = metadata.narrator
     val currentCoverPath get() = metadata.coverPath
     val currentThumbnailPath get() = metadata.thumbnailPath
-    val backgroundColorArgb get() = metadata.backgroundColorArgb
+    // Deprecated: backgroundColorArgb get delegate is removed
     
     /** Position timing getters (To expose playback position coordinates) */
     val currentPosition get() = playback.currentPosition

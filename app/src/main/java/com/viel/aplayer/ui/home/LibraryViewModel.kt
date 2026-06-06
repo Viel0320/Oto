@@ -112,7 +112,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             // Pass down glassmorphic mode properties to synchronize theme rendering across pages.
             glassEffectMode = appSettings.glassEffectMode,
             // Pass down themeMode properties (Synchronize app settings theme configuration down to LibraryUiState) Populate themeMode parameter.
-            themeMode = appSettings.themeMode
+            themeMode = appSettings.themeMode,
+            // Pass down Dynamic Color Setting (Synchronize app settings dynamic color selection to LibraryUiState) Populate isDynamicColorEnabled parameter.
+            isDynamicColorEnabled = appSettings.isDynamicColorEnabled
         )
     }.stateIn(
         scope = viewModelScope,

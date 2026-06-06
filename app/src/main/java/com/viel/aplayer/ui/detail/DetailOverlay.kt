@@ -11,11 +11,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalHomeRecent2DetailTargetScope
+import com.viel.aplayer.ui.common.theme.LocalDarkTheme
+import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
+import com.viel.aplayer.media.parser.ImageProcessor
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
@@ -60,7 +69,7 @@ fun DetailOverlay(
          *
          * Exposes this overlay's AnimatedVisibilityScope to nested detail artwork so the
          * Home recent cover can morph into the detail cover during overlay enter and exit.
-        */
+         */
         CompositionLocalProvider(
             /*
              * Home To Detail Target Scope Provider (Detail cover target isolation)
@@ -71,44 +80,72 @@ fun DetailOverlay(
             LocalHomeRecent2DetailTargetScope provides this@AnimatedVisibility,
             LocalAnimatedVisibilityScope provides this@AnimatedVisibility
         ) {
-            // Setup Box Modifier (Mount Haze state modifier on details container Box) Apply Haze modifier conditionally on the container Box.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (glassEffectMode == GlassEffectMode.Haze && detailHazeState != null) {
-                            Modifier.hazeSource(detailHazeState)
-                        } else {
-                            Modifier
-                        }
+            val darkTheme = LocalDarkTheme.current
+            val currentColorScheme = MaterialTheme.colorScheme
+            val coverPath = detailUiState.book?.book?.coverPath
+
+            // Reset Color State on Cover Path Changes: Re-initialize coverColor state whenever the coverPath changes using remember(coverPath) and load the cached color synchronously if available.
+            var coverColor by remember(coverPath) {
+                mutableStateOf<Color?>(ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
+            }
+
+            val detailColorScheme = remember(coverColor, darkTheme) {
+                if (coverColor != null) {
+                    DynamicColorSchemeHelper.generateColorSchemeFromSeed(coverColor!!, darkTheme, currentColorScheme)
+                } else {
+                    null
+                }
+            }
+
+            val contentBlock = @Composable {
+                // Setup Box Modifier (Mount Haze state modifier on details container Box) Apply Haze modifier conditionally on the container Box.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (glassEffectMode == GlassEffectMode.Haze && detailHazeState != null) {
+                                Modifier.hazeSource(detailHazeState)
+                            } else {
+                                Modifier
+                            }
+                        )
+                ) {
+                    DetailScreen(
+                        uiState = detailUiState,
+                        onBackClick = { detailViewModel.setVisible(false) },
+                        onPlayPressed = { detailViewModel.onPlayPressed() },
+                        onSearchClick = { query ->
+                            if (canStartNavigation()) {
+                                // In-Place Search Activation (Do not close detail screen when searching tags)
+                                // Directly launch search overlay on top of the detail screen without setting details visibility to false,
+                                // keeping user context intact.
+                                onNavigateToSearch(query)
+                            }
+                        },
+                        onPlayClick = {
+                            detailUiState.book?.let { bookWithProgress ->
+                                // Click to play passes the book ID upwards through lambda, handled uniformly by PlayerViewModel in the host App container.
+                                onPlayBook(bookWithProgress.book.id)
+                            }
+                        },
+                        // Details page dropdown menu and other overlays uniformly follow the Material/Haze settings.
+                        glassEffectMode = glassEffectMode,
+                        // Setup DetailScreen Haze Parameters (Map details background and full-page blur sources) Replaced backdrop with hazeState and detailHazeState.
+                        hazeState = hazeState,
+                        fullPageHazeState = detailHazeState,
+                        // Pass down the in-memory lambda callback for editing book metadata
+                        onEditClick = onEditClick,
+                        coverColor = coverColor,
+                        onColorExtracted = { coverColor = it }
                     )
-            ) {
-                DetailScreen(
-                    uiState = detailUiState,
-                    onBackClick = { detailViewModel.setVisible(false) },
-                    onPlayPressed = { detailViewModel.onPlayPressed() },
-                    onSearchClick = { query ->
-                        if (canStartNavigation()) {
-                            // In-Place Search Activation (Do not close detail screen when searching tags)
-                            // Directly launch search overlay on top of the detail screen without setting details visibility to false,
-                            // keeping user context intact.
-                            onNavigateToSearch(query)
-                        }
-                    },
-                    onPlayClick = {
-                        detailUiState.book?.let { bookWithProgress ->
-                            // Click to play passes the book ID upwards through lambda, handled uniformly by PlayerViewModel in the host App container.
-                            onPlayBook(bookWithProgress.book.id)
-                        }
-                    },
-                    // Details page dropdown menu and other overlays uniformly follow the Material/Haze settings.
-                    glassEffectMode = glassEffectMode,
-                    // Setup DetailScreen Haze Parameters (Map details background and full-page blur sources) Replaced backdrop with hazeState and detailHazeState.
-                    hazeState = hazeState,
-                    fullPageHazeState = detailHazeState,
-                    // Pass down the in-memory lambda callback for editing book metadata
-                    onEditClick = onEditClick
-                )
+                }
+            }
+
+            // Apply Local Theme (Nests the Composable content within the book-specific dynamic theme) Wraps DetailScreen inside MaterialTheme if seed color exists.
+            if (detailColorScheme != null) {
+                MaterialTheme(colorScheme = detailColorScheme, content = contentBlock)
+            } else {
+                contentBlock()
             }
         }
     }

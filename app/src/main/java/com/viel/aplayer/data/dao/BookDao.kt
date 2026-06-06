@@ -72,8 +72,7 @@ interface BookDao {
     @Delete
     suspend fun deleteBook(book: BookEntity)
 
-    @Query("UPDATE books SET backgroundColorArgb = :color WHERE id = :id")
-    suspend fun updateBackgroundColor(id: String, color: Int)
+    // Remove updateBackgroundColor (Deprecate database cover color writes) Clean SQL queries to align with field removal.
 
     @Transaction
     @Query("""
@@ -218,10 +217,10 @@ interface BookDao {
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, year = :year, series = :series WHERE id = :id")
     suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String)
 
-    // Partial Cover Path Resolution (Re-persists cover location, palette color, and scan timestamps after cache clearance)
+    // Partial Cover Path Resolution (Re-persists cover location and scan timestamps after cache clearance)
     // Updates specific columns to prevent overwrite race conditions and triggers Flow emissions for UI redraws.
-    @Query("UPDATE books SET coverPath = :coverPath, thumbnailPath = :thumbnailPath, backgroundColorArgb = :backgroundColorArgb, lastScannedAt = :lastScannedAt WHERE id = :id")
-    suspend fun updateCoverPaths(id: String, coverPath: String?, thumbnailPath: String?, backgroundColorArgb: Int?, lastScannedAt: Long)
+    @Query("UPDATE books SET coverPath = :coverPath, thumbnailPath = :thumbnailPath, lastScannedAt = :lastScannedAt WHERE id = :id")
+    suspend fun updateCoverPaths(id: String, coverPath: String?, thumbnailPath: String?, lastScannedAt: Long)
 
     // Root Directory Teardown Helper (Retrieves books associated with a target root ID to safely delete cached cover files)
     // This avoids piling up orphaned thumbnail files in sandboxed application caches.

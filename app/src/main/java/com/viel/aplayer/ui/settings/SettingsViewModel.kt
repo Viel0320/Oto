@@ -657,6 +657,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // Toggle Dynamic Color (Persist dynamic color option changes to local repository) Updates dynamic color setting configuration.
+    fun toggleDynamicColorEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateDynamicColorEnabled(enabled)
+        }
+    }
+
     /**
      * Start automated catalog sync (To sync items immediately after server registration)
      * Initiates non-blocking synchronization process in background coroutine scope.

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,9 @@ fun DetailTabletLandscape(
     onPlayClick: () -> Unit, // Confirm playback action callback.
     onSearchClick: (String) -> Unit, // Search callback.
     onShowInfo: (String, String) -> Unit, // Dialog detail display callback.
+    // Color Extracted Callback (Pass color callback to downstream PlayerCover)
+    // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
+    onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val windowClass = LocalWindowClass.current
@@ -147,6 +151,7 @@ fun DetailTabletLandscape(
                      * begin from the mini-player's 8.dp playback radius during overlay entry.
                      */
                     sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
+                    onColorExtracted = onColorExtracted,
                     modifier = Modifier
                         .fillMaxHeight()
                         .aspectRatio(1f)

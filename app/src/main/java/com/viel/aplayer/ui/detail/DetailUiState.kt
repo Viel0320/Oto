@@ -48,8 +48,7 @@ data class DetailUiState(
     // preventing the button icon/text from high-frequency flashing between "Start Listening" and "Continue at X%".
     // Controlled by DetailViewModel.onPlayPressed, and preserved through configuration changes.
     val displayProgressPercent: Int = 0,
-    /** Background adaptation color (ARGB) */
-    val backgroundColorArgb: Int = ImageProcessor.DEFAULT_BACKGROUND_ARGB,
+    // Deprecated: backgroundColorArgb is removed
     // Added fullSourcePath field to store the complete physical source file path processed at the ViewModel level (after SAF decoding, 'primary:' filtering, and concatenation with the filename), ensuring purity and high performance in the UI rendering layer.
     val fullSourcePath: String = ""
 )

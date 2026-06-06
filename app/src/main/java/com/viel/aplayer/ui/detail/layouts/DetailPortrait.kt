@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
@@ -48,6 +49,9 @@ fun DetailPortrait(
     onPlayClick: () -> Unit,
     onSearchClick: (String) -> Unit,
     onShowInfo: (String, String) -> Unit,
+    // Color Extracted Callback (Pass color callback to downstream PlayerCover)
+    // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
+    onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
@@ -120,6 +124,7 @@ fun DetailPortrait(
              * through the mini-player's 8.dp start radius on the first overlay frame.
              */
             sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
+            onColorExtracted = onColorExtracted,
             modifier = Modifier.fillMaxWidth().aspectRatio(1f)
         )
 

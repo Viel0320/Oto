@@ -46,5 +46,7 @@ data class LibraryUiState(
     val glassEffectMode: GlassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
 
     // Theme Mode Config (Active theme configuration preference, e.g. System, Light, or Dark) Added theme mode field to home library UI state.
-    val themeMode: ThemeMode = ThemeMode.System
+    val themeMode: ThemeMode = ThemeMode.System,
+    // Dynamic Color State Flag (Track theme color selection preference) Holds dynamic color setting state.
+    val isDynamicColorEnabled: Boolean = true
 )

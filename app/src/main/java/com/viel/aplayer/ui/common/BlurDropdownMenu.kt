@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,14 +45,18 @@ fun BlurDropdownMenu(
     properties: PopupProperties = PopupProperties(focusable = true),
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val currentColorScheme = MaterialTheme.colorScheme
+    val currentTypography = MaterialTheme.typography
+    val currentShapes = MaterialTheme.shapes
+
     // Reuse the Material3 default menu shape to ensure the blur layer and the outer Surface of DropdownMenu share the same rounded corner boundaries.
     val menuShape = MenuDefaults.shape
     // Set the outer Surface to transparent in Haze mode to avoid overlap rendering conflicts between the Surface background.
-    // Determine Container Color (Use transparent only if Haze blur is active)
+    // Determine Container Color (Use transparent only if Haze blur is active, otherwise inherit currentColorScheme.surfaceContainer to prevent popup theme fallback)
     val menuContainerColor = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         Color.Transparent
     } else {
-        MenuDefaults.containerColor
+        currentColorScheme.surfaceContainer
     }
 
     val menuModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
@@ -82,7 +87,13 @@ fun BlurDropdownMenu(
         // Adaptively zero out elevation to completely eliminate potential Android system-level hardware shadow ghosting under transparent viewports.
         shadowElevation = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) 0.dp else MenuDefaults.ShadowElevation
     ) {
-        // Pass through original DropdownMenuItem content; the business layer only needs to replace the container component.
-        content()
+        // Apply Local Theme Inside Popup: Re-wrap the dropdown menu items in the parent dynamic theme to prevent colors from falling back to default styling inside popups.
+        MaterialTheme(
+            colorScheme = currentColorScheme,
+            typography = currentTypography,
+            shapes = currentShapes
+        ) {
+            content()
+        }
     }
 }

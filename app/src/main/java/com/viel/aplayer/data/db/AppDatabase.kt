@@ -52,7 +52,8 @@ import java.io.File
     ],
     // Database Schema Design (Adds WebDAV directory child snapshots for scanner-only listing cache reuse)
     // Version 37 introduces series column to the books table.
-    version = 37,
+    // Upgrade database version to 38 due to deprecation of backgroundColorArgb field. Room will automatically wipe DB for local developer devices.
+    version = 38,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {

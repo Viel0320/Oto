@@ -33,6 +33,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -95,10 +96,16 @@ fun DetailContent(
     // Setup Haze State Arguments (Map backdrop parameters to HazeState) Changed LayerBackdrop to HazeState.
     fullPageHazeState: HazeState? = null,
     onEditClick: (String) -> Unit = {}, // Callback for clicking to edit book metadata details
+    // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
+    // Accepts the active cover color extracted from Coil bitmap memory.
+    coverColor: Color?,
+    // Color Extracted Callback (Notify parent overlay about extracted cover color)
+    // Callback triggered when Coil successfully loads the cover and extracts its dominant color.
+    onColorExtracted: (Color) -> Unit,
 ) {
     val book = uiState.book?.book
     val isVisible = uiState.isVisible
-    val backgroundColorArgb = uiState.backgroundColorArgb
+    // Deprecated: backgroundColorArgb is removed
     var isPredictiveBackActive by remember { mutableStateOf(false) }
     var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
@@ -107,13 +114,14 @@ fun DetailContent(
     // Top-right dropdown menu visibility management
     var showMenu by remember { mutableStateOf(false) }
     
-    // Setup coverHazeState (Manage detail-specific blur state) Replaced coverBackdrop with coverHazeState.
-    val coverHazeState = remember { HazeState() }
-    val isBlur = glassEffectMode == GlassEffectMode.Haze
     val backdropCoverPath = CoverImageSourceSelector.backdrop(
         thumbnailPath = book?.thumbnailPath,
         coverPath = book?.coverPath
     )
+    // Setup coverHazeState (Manage detail-specific blur state) Replaced coverBackdrop with coverHazeState.
+    val coverHazeState = remember { HazeState() }
+
+    val isBlur = glassEffectMode == GlassEffectMode.Haze
 
     // Exclude Keyboard Insets (Avoid Detail Recomposition on IME change)
     // Exclude WindowInsets.ime from safeDrawing to prevent the details page from unnecessary recompositions
@@ -171,7 +179,7 @@ fun DetailContent(
             CoverBackground(
                 coverPath = backdropCoverPath,
                 lastUpdated = book?.lastScannedAt ?: 0L,
-                backgroundColorArgb = backgroundColorArgb,
+                coverColor = coverColor,
                 glassEffectMode = glassEffectMode,
                 hazeState = coverHazeState
             )
@@ -280,7 +288,8 @@ fun DetailContent(
                             onShowInfo = { title, text ->
                                 infoDialogTitle = title
                                 infoDialogText = text
-                            }
+                            },
+                            onColorExtracted = onColorExtracted
                         )
                     }
                     isLandscape -> {
@@ -297,7 +306,8 @@ fun DetailContent(
                             onShowInfo = { title, text ->
                                 infoDialogTitle = title
                                 infoDialogText = text
-                            }
+                            },
+                            onColorExtracted = onColorExtracted
                         )
                     }
                     else -> {
@@ -313,7 +323,8 @@ fun DetailContent(
                             onShowInfo = { title, text ->
                                 infoDialogTitle = title
                                 infoDialogText = text
-                            }
+                            },
+                            onColorExtracted = onColorExtracted
                         )
                     }
                 }
@@ -394,11 +405,13 @@ fun DetailContentPortraitPreview() {
                     isAvailable = true,
                     progressPercent = 45,
                     displayProgressPercent = 45,
-                    backgroundColorArgb = AppSettings.DEFAULT_GLASS_EFFECT_MODE.ordinal,
+                    // Deprecated: backgroundColorArgb is removed
                     fullSourcePath = ""
                 ),
                 onBackClick = {},
-                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
+                coverColor = null,
+                onColorExtracted = {}
             )
         }
     }

@@ -3,9 +3,14 @@ package com.viel.aplayer.media.parser
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.LayerDrawable
+import android.os.Build
 import android.util.Log
 import android.util.LruCache
 import androidx.core.graphics.scale
+import androidx.core.graphics.drawable.toBitmap
 import androidx.palette.graphics.Palette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -170,6 +175,192 @@ object ImageProcessor {
             Log.e(TAG, "提取主色失败: $path", e)
             return@withContext DEFAULT_BACKGROUND_ARGB
         }
+    }
+
+    /**
+     * 将主色存入内存缓存。
+     */
+    fun putColorToCache(path: String?, color: Int) {
+        // Cache Dominant Color: Store calculated color into LRU cache for high-speed synchronous retrieval on subsequent composition rounds.
+        if (path != null) {
+            Log.d(TAG, "putColorToCache: path=$path, color=${Integer.toHexString(color)}")
+            colorCache.put(path, color)
+        }
+    }
+
+    /**
+     * 从内存缓存中同步获取主色。
+     */
+    fun getCachedColor(path: String?): Int? {
+        // Query Cached Color: Retrieve cached color synchronously to prevent layout jump or color flashing during initial composable creation.
+        if (path == null) return null
+        val cached = colorCache.get(path)
+        Log.d(TAG, "getCachedColor: path=$path, result=${cached?.let { Integer.toHexString(it) }}")
+        return cached
+    }
+
+    /**
+     * 从内存 Bitmap 提取主色。
+     */
+    fun getDominantColorFromBitmap(bitmap: Bitmap?): Int {
+        // Add getDominantColorFromBitmap (Extract dominant color directly from memory-based Bitmap) Enable immediate, sync color calculations bypassing disk reads.
+        if (bitmap == null) return DEFAULT_BACKGROUND_ARGB
+        return try {
+            Palette.from(bitmap).generate().getDominantColor(DEFAULT_BACKGROUND_ARGB)
+        } catch (e: Exception) {
+            Log.e(TAG, "从 Bitmap 提取主色失败", e)
+            DEFAULT_BACKGROUND_ARGB
+        }
+    }
+
+    /**
+     * 从 Drawable 提取主色。
+     *
+     * 针对 Coil 的 Drawable 进行了深度优化，兼容各种包装类 (CrossfadeDrawable 等) 以及硬件位图 (Hardware Bitmap)。
+     */
+    fun getDominantColorFromDrawable(drawable: Drawable?): Int {
+        // Safe Drawable Extraction: Unpack wrappers and restrict bounds to 100x100 ARGB_8888 to guarantee Palette performance and prevent OOM or Hardware Bitmap crashes.
+        if (drawable == null) return DEFAULT_BACKGROUND_ARGB
+        return try {
+            val unwrapped = unwrapDrawable(drawable) ?: drawable
+            Log.d(TAG, "getDominantColorFromDrawable: unwrappedClass=${unwrapped.javaClass.name}")
+
+            // Target Dimensions Calculation: Scale the target width and height to a max of 100x100 to optimize execution times and guard against 0 or negative dimensions.
+            var targetWidth = unwrapped.intrinsicWidth
+            var targetHeight = unwrapped.intrinsicHeight
+            if (targetWidth <= 0 || targetHeight <= 0) {
+                targetWidth = 100
+                targetHeight = 100
+            } else {
+                val maxSide = 100
+                if (targetWidth > maxSide || targetHeight > maxSide) {
+                    val ratio = targetWidth.toFloat() / targetHeight.toFloat()
+                    if (targetWidth > targetHeight) {
+                        targetWidth = maxSide
+                        targetHeight = (maxSide / ratio).toInt().coerceAtLeast(1)
+                    } else {
+                        targetHeight = maxSide
+                        targetWidth = (maxSide * ratio).toInt().coerceAtLeast(1)
+                    }
+                }
+            }
+
+            // ARGB_8888 Drawing Execution: Safely unpack BitmapDrawable and copy hardware bitmap if needed to avoid Software Canvas Hardware Bitmap rendering exceptions.
+            val bitmap = try {
+                if (unwrapped is BitmapDrawable) {
+                    val origBitmap = unwrapped.bitmap
+                    if (origBitmap != null) {
+                        val isHardware = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                                origBitmap.config == Bitmap.Config.HARDWARE
+                        val softwareBitmap = if (isHardware) {
+                            origBitmap.copy(Bitmap.Config.ARGB_8888, false)
+                        } else {
+                            origBitmap
+                        }
+
+                        if (softwareBitmap != null) {
+                            if (softwareBitmap.width > targetWidth || softwareBitmap.height > targetHeight) {
+                                val scaled = Bitmap.createScaledBitmap(softwareBitmap, targetWidth, targetHeight, true)
+                                if (scaled != softwareBitmap && softwareBitmap != origBitmap) {
+                                    softwareBitmap.recycle()
+                                }
+                                scaled
+                            } else {
+                                softwareBitmap
+                            }
+                        } else {
+                            null
+                        }
+                    } else {
+                        null
+                    }
+                } else {
+                    unwrapped.toBitmap(
+                        width = targetWidth,
+                        height = targetHeight,
+                        config = Bitmap.Config.ARGB_8888
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Drawable 转换 Bitmap 异常", e)
+                null
+            } ?: return DEFAULT_BACKGROUND_ARGB
+
+            val color = Palette.from(bitmap).generate().getDominantColor(DEFAULT_BACKGROUND_ARGB)
+            Log.d(TAG, "getDominantColorFromDrawable: extractedColor=${Integer.toHexString(color)}")
+
+            // Safe Bitmap Recycling: Only recycle the bitmap if it is a newly allocated instance and not the backing instance of the underlying BitmapDrawable.
+            val originalBitmap = (unwrapped as? BitmapDrawable)?.bitmap
+            if (bitmap != originalBitmap) {
+                bitmap.recycle()
+            }
+
+            color
+        } catch (e: Exception) {
+            Log.e(TAG, "从 Drawable 提取主色失败", e)
+            DEFAULT_BACKGROUND_ARGB
+        }
+    }
+
+    /**
+     * 递归解包包装的 Drawable，如 Coil 的 CrossfadeDrawable 或 LayerDrawable。
+     */
+    private fun unwrapDrawable(drawable: Drawable?): Drawable? {
+        // Recursive Wrapper Unwrapping: Drill down into LayerDrawable, SDK DrawableWrapper, Coil CrossfadeDrawable, or support-library wrappers using a local immutable reference to guarantee smart casts.
+        if (drawable == null) return null
+        var current = drawable
+        while (true) {
+            val curr = current ?: break
+            when {
+                curr is BitmapDrawable -> {
+                    return curr
+                }
+                curr is LayerDrawable -> {
+                    if (curr.numberOfLayers > 0) {
+                        current = curr.getDrawable(curr.numberOfLayers - 1)
+                    } else {
+                        break
+                    }
+                }
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && curr is android.graphics.drawable.DrawableWrapper -> {
+                    current = curr.drawable
+                }
+                curr.javaClass.name == "coil.drawable.CrossfadeDrawable" -> {
+                    try {
+                        val getEndMethod = curr.javaClass.getMethod("getEnd")
+                        val endDrawable = getEndMethod.invoke(curr) as? Drawable
+                        if (endDrawable != null) {
+                            current = endDrawable
+                        } else {
+                            val endField = curr.javaClass.getDeclaredField("end")
+                            endField.isAccessible = true
+                            val endDrawableField = endField.get(curr) as? Drawable
+                            if (endDrawableField != null) {
+                                current = endDrawableField
+                            } else {
+                                break
+                            }
+                        }
+                    } catch (e: Exception) {
+                        break
+                    }
+                }
+                else -> {
+                    try {
+                        val getWrappedDrawableMethod = curr.javaClass.getMethod("getWrappedDrawable")
+                        val wrapped = getWrappedDrawableMethod.invoke(curr) as? Drawable
+                        if (wrapped != null) {
+                            current = wrapped
+                        } else {
+                            break
+                        }
+                    } catch (e: Exception) {
+                        break
+                    }
+                }
+            }
+        }
+        return current
     }
 
     // -------------------------------------------------------------------------

@@ -27,6 +27,8 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     private object PreferencesKeys {
         // Theme Mode Storage Key (Key tracking theme preference, e.g. System, Light, or Dark) Added string preference key for theme mode.
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        // Dynamic Color Storage Key (Preference key to track whether dynamic Monet coloring is enabled) Adds preferences key for dynamic color option.
+        val IS_DYNAMIC_COLOR_ENABLED = booleanPreferencesKey("is_dynamic_color_enabled")
         val HOME_FILTER = stringPreferencesKey("home_filter")
         val IS_GLOBAL_SPEED_ENABLED = booleanPreferencesKey("is_global_speed_enabled")
         val GLOBAL_PLAYBACK_SPEED = floatPreferencesKey("global_playback_speed")
@@ -63,6 +65,8 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             themeMode = preferences[PreferencesKeys.THEME_MODE]
                 ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: ThemeMode.System,
+            // Read Dynamic Color Setting (Load persisted dynamic color option, defaulting to true) Reads dynamic color setting from DataStore.
+            isDynamicColorEnabled = preferences[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] ?: true,
             homeFilter = preferences[PreferencesKeys.HOME_FILTER] ?: "NotStarted",
             isGlobalSpeedEnabled = preferences[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] ?: false,
             globalPlaybackSpeed = preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] ?: 1.0f,
@@ -161,6 +165,11 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     // Write Theme Mode (Persist user selected theme mode into local DataStore) Helper function to save theme mode configuration.
     suspend fun updateThemeMode(mode: ThemeMode) {
         dataStore.edit { it[PreferencesKeys.THEME_MODE] = mode.name }
+    }
+
+    // Write Dynamic Color Setting (Persist dynamic color option to DataStore) Saves dynamic color preference changes.
+    suspend fun updateDynamicColorEnabled(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] = enabled }
     }
 
     companion object {

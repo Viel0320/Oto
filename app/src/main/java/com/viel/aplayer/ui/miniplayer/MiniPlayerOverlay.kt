@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.miniplayer
 
-// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState class for mini player.
+// Import system themes and utils (Import dynamic color rendering components) Added Jetpack Compose runtime hooks, local dark theme properties, and dynamic color utilities for book cover theming.
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -9,15 +9,23 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
+import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
+import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
@@ -112,6 +120,7 @@ fun MiniPlayerOverlay(
         }
     }
 }
+// Remove duplicate declaration (Clean up layout structure to fix build error) Consolidate imports at file level and delete duplicated MiniPlayerOverlay definition.
 
 /**
  * MiniPlayerContent Setup (Scope-limited Playback Content Container)
@@ -143,36 +152,64 @@ private fun MiniPlayerContent(
         coverPath = metadata.coverPath
     )
 
-    Box {
-        // Setup Haze State Parameters (Pass hazeState down to child player views) Map backdrop to hazeState.
-        if (usePillPlayer) {
-            PillCompactMediaPlayer(
-                bookId = metadata.id,
-                isPlaying = playback.isPlaying,
-                coverPath = miniPlayerCoverPath,
-                coverLastUpdated = metadata.coverLastUpdated,
-                isMediaAvailable = isMediaAvailable,
-                actions = actions,
-                hazeState = hazeState,
-                onClick = { viewModel.setFullPlayerVisible(true) },
-                glassEffectMode = glassEffectMode
-            )
+    val darkTheme = LocalDarkTheme.current
+    val currentColorScheme = MaterialTheme.colorScheme
+    val coverPath = metadata.coverPath
+
+    // Reset Color State on Cover Path Changes: Re-initialize coverColor state whenever the coverPath changes using remember(coverPath) and load the cached color synchronously if available.
+    var coverColor by remember(coverPath) {
+        mutableStateOf<Color?>(com.viel.aplayer.media.parser.ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
+    }
+
+    val miniColorScheme = remember(coverColor, darkTheme) {
+        if (coverColor != null) {
+            DynamicColorSchemeHelper.generateColorSchemeFromSeed(coverColor!!, darkTheme, currentColorScheme)
         } else {
-            CompactMediaPlayer(
-                bookId = metadata.id,
-                isPlaying = playback.isPlaying,
-                title = metadata.title,
-                author = metadata.author,
-                narrator = metadata.narrator,
-                coverPath = miniPlayerCoverPath,
-                coverLastUpdated = metadata.coverLastUpdated,
-                progress = { displayProgress },
-                isMediaAvailable = isMediaAvailable,
-                actions = actions,
-                hazeState = hazeState,
-                onClick = { viewModel.setFullPlayerVisible(true) },
-                glassEffectMode = glassEffectMode
-            )
+            null
         }
+    }
+
+    val contentBlock = @Composable {
+        Box {
+            // Setup Haze State Parameters (Pass hazeState down to child player views) Map backdrop to hazeState.
+            if (usePillPlayer) {
+                PillCompactMediaPlayer(
+                    bookId = metadata.id,
+                    isPlaying = playback.isPlaying,
+                    coverPath = miniPlayerCoverPath,
+                    coverLastUpdated = metadata.coverLastUpdated,
+                    isMediaAvailable = isMediaAvailable,
+                    actions = actions,
+                    hazeState = hazeState,
+                    onClick = { viewModel.setFullPlayerVisible(true) },
+                    glassEffectMode = glassEffectMode,
+                    onColorExtracted = { coverColor = it }
+                )
+            } else {
+                CompactMediaPlayer(
+                    bookId = metadata.id,
+                    isPlaying = playback.isPlaying,
+                    title = metadata.title,
+                    author = metadata.author,
+                    narrator = metadata.narrator,
+                    coverPath = miniPlayerCoverPath,
+                    coverLastUpdated = metadata.coverLastUpdated,
+                    progress = { displayProgress },
+                    isMediaAvailable = isMediaAvailable,
+                    actions = actions,
+                    hazeState = hazeState,
+                    onClick = { viewModel.setFullPlayerVisible(true) },
+                    glassEffectMode = glassEffectMode,
+                    onColorExtracted = { coverColor = it }
+                )
+            }
+        }
+    }
+
+    // Apply Local Theme (Nests the Composable content within the book-specific dynamic theme) Wraps media player inside MaterialTheme if seed color exists.
+    if (miniColorScheme != null) {
+        MaterialTheme(colorScheme = miniColorScheme, content = contentBlock)
+    } else {
+        contentBlock()
     }
 }

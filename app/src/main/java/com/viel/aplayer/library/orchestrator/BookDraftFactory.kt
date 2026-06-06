@@ -63,7 +63,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = audio.file.fileSize,
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
-            backgroundColorArgb = cover?.backgroundColor,
+            // Deprecated: backgroundColorArgb field is fully deprecated
             series = series
         )
         val file = audio.toBookFile(bookId, fileId, 0, AudiobookSchema.FileStatus.READY)
@@ -174,7 +174,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = audioBookFiles.sumOf { it.fileSize } + manifestFile.fileSize,
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
-            backgroundColorArgb = cover?.backgroundColor,
+            // Deprecated: backgroundColorArgb field is fully deprecated
             // Manifest Series Mapping (Map the series parameter into BookEntity)
             series = series
         )
@@ -235,7 +235,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = bookFiles.sumOf { it.fileSize },
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
-            backgroundColorArgb = cover?.backgroundColor,
+            // Deprecated: backgroundColorArgb field is fully deprecated
             series = series
         )
         Log.i(TAG, "Generated audiobook draft: title=${plan.title.logValue()}, source=${source.displayName.logValue()}, files=${orderedFiles.size}")

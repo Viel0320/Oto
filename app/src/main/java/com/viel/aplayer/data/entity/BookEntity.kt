@@ -40,7 +40,7 @@ data class BookEntity(
     val totalFileSize: Long = 0L,
     val coverPath: String? = null,
     val thumbnailPath: String? = null,
-    val backgroundColorArgb: Int? = null,
+    // Remove backgroundColorArgb (Eradicate database persistence of cover dominant color field) Delete the column to support fully dynamic UI coloring.
     val addedAt: Long = System.currentTimeMillis(),
     val lastScannedAt: Long = 0L,
     val status: String = AudiobookSchema.BookStatus.READY,

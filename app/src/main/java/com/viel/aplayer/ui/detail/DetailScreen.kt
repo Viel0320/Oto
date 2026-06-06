@@ -27,6 +27,12 @@ fun DetailScreen(
     fullPageHazeState: HazeState? = null,
     // Callback for launching edit metadata overlay
     onEditClick: (String) -> Unit = {},
+    // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
+    // Accepts the active cover color extracted from Coil bitmap memory.
+    coverColor: androidx.compose.ui.graphics.Color?,
+    // Color Extracted Callback (Notify parent overlay about extracted cover color)
+    // Callback triggered when Coil successfully loads the cover and extracts its dominant color.
+    onColorExtracted: (androidx.compose.ui.graphics.Color) -> Unit,
 ) {
     // Pass Complete Parameters to L3 content (Forward layout modifiers) Bridges states to DetailContent view.
     DetailContent(
@@ -38,6 +44,8 @@ fun DetailScreen(
         onSearchClick = onSearchClick,
         glassEffectMode = glassEffectMode,
         fullPageHazeState = fullPageHazeState,
-        onEditClick = onEditClick
+        onEditClick = onEditClick,
+        coverColor = coverColor,
+        onColorExtracted = onColorExtracted
     )
 }

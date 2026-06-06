@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -99,6 +100,9 @@ fun PlayerPortrait(
     // Clean FocusManager import (To bypass platform package compilation symbols drift)
     focusManager: FocusManager,
     navigationActions: com.viel.aplayer.ui.navigation.PlayerNavigationActions,
+    // Color Extracted Callback (Pass color callback to downstream PlayerCover)
+    // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
+    onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -254,7 +258,8 @@ fun PlayerPortrait(
                                             coverScene = "player-main-cover",
                                             onAdjustVolume = { actions.playback.onAdjustVolume(it) },
                                             onNextChapter = { actions.playback.onNextChapter() },
-                                            onPreviousChapter = { actions.playback.onPreviousChapter() }
+                                            onPreviousChapter = { actions.playback.onPreviousChapter() },
+                                            onColorExtracted = onColorExtracted
                                         )
                                     }
                                 }

@@ -94,6 +94,12 @@ fun PlayerScreen(
     // Setup Haze State Parameter (Map fullPageBackdrop parameter to HazeState)
     // Accept a nullable parent/global HazeState to support popup dialog/sheet blur.
     hazeState: HazeState? = null,
+    // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
+    // Accepts the active cover color extracted from Coil bitmap memory.
+    coverColor: Color?,
+    // Color Extracted Callback (Notify parent overlay about extracted cover color)
+    // Callback triggered when Coil successfully loads the cover and extracts its dominant color.
+    onColorExtracted: (Color) -> Unit,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
@@ -147,7 +153,7 @@ fun PlayerScreen(
             coverPath = null,
             thumbnailPath = null,
             coverLastUpdated = 0L,
-            backgroundColorArgb = "#FF1E293B".toColorInt(),
+            // Deprecated: backgroundColorArgb is removed
             // Wrapped in ChapterWithBookFile relation model (To align chapter schemas with Room relation setups)
             chapters = listOf(
                 com.viel.aplayer.data.entity.ChapterWithBookFile(
@@ -235,7 +241,10 @@ fun PlayerScreen(
 
     // System theme synchronization (To align player styling options with active dark/light parameters)
     // Pass LocalDarkTheme value into theme container wrapper to bypass default system dark mode detection.
-    APlayerTheme(darkTheme = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current) {
+        // Keep local dark theme (Use current theme value to prevent APlayerTheme from overriding the book-cover dynamic color scheme)
+        CompositionLocalProvider(
+            com.viel.aplayer.ui.common.theme.LocalDarkTheme provides com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
+        ) {
         val focusManager = LocalFocusManager.current
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         
@@ -246,6 +255,8 @@ fun PlayerScreen(
         // Sync Player Haze State: Initialize a separate HazeState to sample the entire player (including foreground controls).
         // This avoids recursive rendering loops and lets the snackbar blur everything behind it.
         val playerHazeState = remember { HazeState() }
+
+
 
         // Panel sheet back handler (To slide back to player main view using system back gesture)
         PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
@@ -278,9 +289,11 @@ fun PlayerScreen(
             }
         }
 
+        val fallbackColor = MaterialTheme.colorScheme.primaryContainer
+        val finalCoverColor = coverColor ?: fallbackColor
         // Animated color transitions (To blend cover dominant color gradients smoothly)
         val animatedBgColor by animateColorAsState(
-            targetValue = Color(metadata.backgroundColorArgb),
+            targetValue = finalCoverColor,
             animationSpec = tween(300),
             label = "bg_color"
         )
@@ -372,7 +385,7 @@ fun PlayerScreen(
                 CoverBackground(
                     coverPath = playerBackdropCoverPath,
                     lastUpdated = metadata.coverLastUpdated,
-                    backgroundColorArgb = metadata.backgroundColorArgb,
+                    coverColor = coverColor,
                     glassEffectMode = glassEffectMode,
                     hazeState = coverHazeState
                 )
@@ -435,7 +448,8 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetHazeState = coverHazeState
+                                chapterSheetHazeState = coverHazeState,
+                                onColorExtracted = onColorExtracted
                             )
                         }
                         isLandscape -> {
@@ -477,7 +491,8 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetHazeState = coverHazeState
+                                chapterSheetHazeState = coverHazeState,
+                                onColorExtracted = onColorExtracted
                             )
                         }
                         else -> {
@@ -524,7 +539,8 @@ fun PlayerScreen(
                                 scope = scope,
                                 dismissThreshold = dismissThreshold,
                                 focusManager = focusManager,
-                                navigationActions = navigationActions
+                                navigationActions = navigationActions,
+                                onColorExtracted = onColorExtracted
                             )
                         }
                     }
@@ -620,7 +636,9 @@ fun PlayerScreenPreview() {
                     viewModel = PlayerViewModel(),
                     actions = PlayerActions(),
                     navigationActions = PlayerNavigationActions(),
-                    glassEffectMode = GlassEffectMode.Material
+                    glassEffectMode = GlassEffectMode.Material,
+                    coverColor = null,
+                    onColorExtracted = {}
                 )
             }
         }
@@ -646,7 +664,9 @@ fun PlayerScreenLandscapePreview() {
                     viewModel = PlayerViewModel(),
                     actions = PlayerActions(),
                     navigationActions = PlayerNavigationActions(),
-                    glassEffectMode = GlassEffectMode.Haze
+                    glassEffectMode = GlassEffectMode.Haze,
+                    coverColor = null,
+                    onColorExtracted = {}
                 )
             }
         }
