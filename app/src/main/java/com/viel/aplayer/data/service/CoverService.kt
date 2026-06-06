@@ -119,13 +119,16 @@ class CoverService(
                     description = metadata.description,
                     duration = metadata.durationMs.takeIf { it > 0 } ?: book.totalDurationMs
                 )
+                // CoverService Metadata Details Update (Update details with resolved series property)
+                // Resolves series field from metadata album and title tags with fallback, forwarding it to BookDao.
                 bookDao.updateBookDetails(
                     id = bookId,
                     title = metadata.album.trim().ifBlank { metadata.title.trim() }.ifBlank { book.title },
                     author = metadata.author,
                     narrator = metadata.narrator,
                     description = metadata.description,
-                    year = metadata.year
+                    year = metadata.year,
+                    series = metadata.album.trim().ifBlank { metadata.title.trim() }.ifBlank { book.series }
                 )
 
                 // 4. Update Chapters: Purges legacy chapter schemas and batch inserts newly parsed entries.

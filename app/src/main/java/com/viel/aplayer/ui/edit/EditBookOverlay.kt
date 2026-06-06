@@ -78,12 +78,15 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
      * @param newCoverPath Absolute physical path of the temporary cover file generated after custom cropping; null if cover is unchanged.
      * @param onComplete Callback after save and persistence success, typically used to close the floating overlay.
      */
+    // EditBookViewModel Save Contract (Accepts series parameter for metadata updates)
+    // Updates book details with series name.
     fun saveBook(
         title: String,
         author: String,
         narrator: String,
         year: String,
         description: String,
+        series: String,
         newCoverPath: String?,
         onComplete: () -> Unit
     ) {
@@ -95,7 +98,8 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
                 author = author.trim(),
                 narrator = narrator.trim(),
                 description = description.trim(),
-                year = year.trim()
+                year = year.trim(),
+                series = series.trim()
             )
             if (newCoverPath != null) {
                 libraryFacade.saveCustomCover(currentBook.id, newCoverPath)
@@ -140,13 +144,16 @@ fun EditBookOverlay(
         EditBookScreen(
             book = book,
             onNavigationBack = { editViewModel.setVisible(false) },
-            onSave = { title, author, narrator, year, description, newCoverPath ->
+            // EditBookOverlay Save Adapter (Receive series from screen and pass to viewModel)
+            // Adapts save call parameters to forward series metadata field up to the repository facade.
+            onSave = { title, author, narrator, year, description, series, newCoverPath ->
                 editViewModel.saveBook(
                     title = title,
                     author = author,
                     narrator = narrator,
                     year = year,
                     description = description,
+                    series = series,
                     newCoverPath = newCoverPath,
                     onComplete = {
                         onSaveSuccess()

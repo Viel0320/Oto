@@ -145,6 +145,8 @@ fun DetailPortrait(
                 }
             },
             modifier = Modifier.padding(horizontal = 24.dp),
+            // DetailPortrait Reversion (Remove series parameter pass per user instruction)
+            // Reverts series visualization to align with design decision of not displaying series on the details page.
             isLandscape = false
         )
 

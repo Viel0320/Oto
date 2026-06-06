@@ -95,7 +95,9 @@ import java.io.File
 fun EditBookScreen(
     book: BookEntity?,
     onNavigationBack: () -> Unit,
-    onSave: (title: String, author: String, narrator: String, year: String, description: String, newCoverPath: String?) -> Unit,
+    // EditBookScreen Save Signature (Adds series parameter to save callback)
+    // Passes series name along with other text metadata to the overlay controller.
+    onSave: (title: String, author: String, narrator: String, year: String, description: String, series: String, newCoverPath: String?) -> Unit,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     // Setup Haze State (Transition backdrop reference to HazeState)
@@ -304,6 +306,9 @@ fun EditBookScreen(
                     var author by remember(book) { mutableStateOf(book.author) }
                     var narrator by remember(book) { mutableStateOf(book.narrator) }
                     var year by remember(book) { mutableStateOf(book.year) }
+                    // EditBookScreen Series State (Local series text value holder)
+                    // Holds the editing series name state locally to prevent full screen recompositions.
+                    var series by remember(book) { mutableStateOf(book.series) }
                     var description by remember(book) { mutableStateOf(book.description) }
 
                     // Input styling (Apply translucent background elements under blur mode to enhance visual contrast)
@@ -375,6 +380,21 @@ fun EditBookScreen(
                         )
                     }
 
+                    // EditBookScreen Series Field Composable (OutlinedTextField input for series)
+                    // Input component for updating the book's series meta field.
+                    val seriesField = @Composable { modifier: Modifier ->
+                        OutlinedTextField(
+                            value = series,
+                            onValueChange = { series = it },
+                            label = { Text("系列") },
+                            placeholder = { Text("请输入所属系列") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = textFieldColors,
+                            modifier = modifier
+                        )
+                    }
+
                     val descriptionField = @Composable {
                         OutlinedTextField(
                             value = description,
@@ -439,6 +459,7 @@ fun EditBookScreen(
                                         narrator,
                                         year,
                                         description,
+                                        series,
                                         tempCoverPath
                                     )
                                 },
@@ -492,6 +513,7 @@ fun EditBookScreen(
                                         narrator,
                                         year,
                                         description,
+                                        series,
                                         tempCoverPath
                                     )
                                 },
@@ -580,6 +602,8 @@ fun EditBookScreen(
                                     authorField(Modifier.fillMaxWidth())
                                     narratorField(Modifier.fillMaxWidth())
                                     yearField(Modifier.fillMaxWidth())
+                                    // EditBookScreen Series Field Insertion (Render series input in wide layouts)
+                                    seriesField(Modifier.fillMaxWidth())
                                     descriptionField()
                                     Spacer(modifier = Modifier.height(8.dp))
                                     saveButton()
@@ -613,6 +637,8 @@ fun EditBookScreen(
                             authorField(Modifier.fillMaxWidth())
                             narratorField(Modifier.fillMaxWidth())
                             yearField(Modifier.fillMaxWidth())
+                            // EditBookScreen Series Field Insertion (Render series input in portrait layouts)
+                            seriesField(Modifier.fillMaxWidth())
                             descriptionField()
                             Spacer(modifier = Modifier.height(16.dp))
                             saveButton()
@@ -721,10 +747,12 @@ fun EditBookScreenPortraitPreview() {
                     narrator = "Narrator A",
                     totalDurationMs = 36000L,
                     year = "2023",
-                    description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata."
+                    description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata.",
+                    // Preview Series Field (Define dummy series for previews)
+                    series = "preview-series"
                 ),
                 onNavigationBack = {},
-                onSave = { _, _, _, _, _, _ -> },
+                onSave = { _, _, _, _, _, _, _ -> },
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
             )
         }
@@ -754,10 +782,12 @@ fun EditBookScreenLandscapePreview() {
                     narrator = "Narrator A",
                     totalDurationMs = 36000L,
                     year = "2023",
-                    description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata."
+                    description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata.",
+                    // Preview Series Field (Define dummy series for previews)
+                    series = "preview-series"
                 ),
                 onNavigationBack = {},
-                onSave = { _, _, _, _, _, _ -> },
+                onSave = { _, _, _, _, _, _, _ -> },
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
             )
         }
@@ -787,10 +817,12 @@ fun EditBookScreenTabletLandscapePreview() {
                     narrator = "Narrator A",
                     totalDurationMs = 36000L,
                     year = "2023",
-                    description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata."
+                    description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata.",
+                    // Preview Series Field (Define dummy series for previews)
+                    series = "preview-series"
                 ),
                 onNavigationBack = {},
-                onSave = { _, _, _, _, _, _ -> },
+                onSave = { _, _, _, _, _, _, _ -> },
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
             )
         }

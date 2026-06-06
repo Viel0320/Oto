@@ -107,13 +107,16 @@ interface BookQueryGateway {
      * Update Text Metadata (Manual editor override)
      * Overwrites text attributes of the audiobook (title, author, narrator, etc.) in the database.
      */
+    // Metadata Detail Updater Contract (Declares details update interface including series name)
+    // Updates book details with series support.
     suspend fun updateBookDetails(
         id: String,
         title: String,
         author: String,
         narrator: String,
         description: String,
-        year: String
+        year: String,
+        series: String
     )
 
     /**

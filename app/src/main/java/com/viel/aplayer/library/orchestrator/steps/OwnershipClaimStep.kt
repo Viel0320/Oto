@@ -105,6 +105,8 @@ internal class OwnershipClaimStep(
                 entryToKey[chapter.fileKey]?.let { chapter.copy(fileKey = it) }
             }
 
+            // Manifest CUE Series Assignment (Forward series metadata during CUE draft assembly)
+            // Adds the series metadata parameter extracted from the first audio track to the draft constructor.
             val draft = draftFactory.buildManifestDraft(
                 bookId = cueBook.bookId,
                 sourceType = AudiobookSchema.SourceType.CUE,
@@ -118,6 +120,7 @@ internal class OwnershipClaimStep(
                 narrator = mergedMeta.narrator,
                 year = mergedMeta.year,
                 description = mergedMeta.description,
+                series = mergedMeta.series,
                 // Parameter Correction (Fixes parameter name misalignment from coverResult to cover)
                 cover = cueBook.coverResult
             )
@@ -170,6 +173,8 @@ internal class OwnershipClaimStep(
             val fileTitles = resolved.mapNotNull { (item, fileKey) -> item.title?.let { fileKey to it } }.toMap()
             val fileDurations = resolved.mapNotNull { (item, fileKey) -> item.durationMs?.let { fileKey to it } }.toMap()
 
+            // Manifest M3U8 Series Assignment (Forward series metadata during M3U8 draft assembly)
+            // Adds the series metadata parameter extracted from the first audio track to the draft constructor.
             val draft = draftFactory.buildManifestDraft(
                 bookId = m3u8Book.bookId,
                 sourceType = AudiobookSchema.SourceType.M3U8,
@@ -183,6 +188,7 @@ internal class OwnershipClaimStep(
                 narrator = mergedMeta.narrator,
                 year = mergedMeta.year,
                 description = mergedMeta.description,
+                series = mergedMeta.series,
                 // Parameter Correction (Fixes parameter name misalignment from coverResult to cover)
                 cover = m3u8Book.coverResult
             )

@@ -45,5 +45,8 @@ data class BookEntity(
     val lastScannedAt: Long = 0L,
     val status: String = AudiobookSchema.BookStatus.READY,
     // Playback Progress State Property (Tracks the user read/playback state (NOT_STARTED, IN_PROGRESS, FINISHED), defaulting to NOT_STARTED)
-    val readStatus: String = AudiobookSchema.ReadStatus.NOT_STARTED
+    val readStatus: String = AudiobookSchema.ReadStatus.NOT_STARTED,
+    // Series Metadata Property (Tracks the literary collection or series name, defaulting to empty)
+    // Represents the series group information associated with the audiobook.
+    val series: String = ""
 )

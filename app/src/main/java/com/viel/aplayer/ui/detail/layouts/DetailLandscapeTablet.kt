@@ -175,6 +175,8 @@ fun DetailTabletLandscape(
                         onShowInfo("Narrator", book.narrator)
                     }
                 },
+                // DetailLandscapeTablet Reversion (Remove series parameter pass per user instruction)
+                // Reverts series visualization to align with design decision of not displaying series on the details page.
                 isLandscape = true
             )
 

@@ -173,6 +173,8 @@ fun DetailLandscapePhone(
                         onShowInfo("Narrator", book.narrator)
                     }
                 },
+                // DetailLandscapePhone Reversion (Remove series parameter pass per user instruction)
+                // Reverts series visualization to align with design decision of not displaying series on the details page.
                 isLandscape = true
             )
             Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))

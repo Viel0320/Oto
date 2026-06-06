@@ -165,6 +165,7 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
             
             val currentTitle = currentBook.title
             val currentYear = currentBook.year
+            val currentSeries = currentBook.series
             
             // Calculate candidate recommendation scores
             val scoredBooks = allBooks.filter { it.book.id != currentId }
@@ -197,15 +198,21 @@ class GetRelatedBooksUseCase(private val repository: BookQueryGateway) {
                         }
                     }
 
-                    //
-                    // Natural sequence sorting decay (To demote previous parts/chapters of the same series)
-                    // Deducts points from candidate books with sequence numbers smaller than the current book.
+                    // Related Heuristic Score Sequence Decay Adjustment (Deduct 50 points if candidate index is smaller)
+                    // Deducts 50.0 points from the recommendation score of candidate books with sequence numbers smaller than the current book to prioritize subsequent chapters.
                     if (isTitleMatched) {
                         val currentIndex = extractSequenceIndex(currentTitle)
                         val candidateIndex = extractSequenceIndex(book.title)
                         if (currentIndex != null && candidateIndex != null && candidateIndex < currentIndex) {
-                            score = (score - 25.0).coerceAtLeast(1.0)
+                            score = (score - 50.0).coerceAtLeast(1.0)
                         }
+                    }
+                    
+                    // Related Heuristic Score Series Match (Add score boost if books belong to the same series)
+                    // If both the current book and candidate book have a matching non-empty series, boost the score by 35.0 to prioritize series-level related items.
+                    if (currentSeries.isNotBlank() && book.series.isNotBlank() &&
+                        currentSeries.trim().equals(book.series.trim(), ignoreCase = true)) {
+                        score += 35.0
                     }
                     
                     // B. Author matched score: +10.0

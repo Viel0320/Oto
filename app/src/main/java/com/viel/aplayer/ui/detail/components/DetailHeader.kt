@@ -69,6 +69,8 @@ fun DetailHeader(
     onNarratorClick: () -> Unit,
     onNarratorLongClick: () -> Unit,
     modifier: Modifier = Modifier,
+    // DetailHeader Reversion (Remove series parameter and layout display per user instruction)
+    // Reverts series visualization to align with design decision of not displaying series on the details page.
     isLandscape: Boolean = false
 ) {
     Column(

@@ -319,7 +319,8 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun updateBookReadStatus(bookId: String, readStatus: String) {
             if (book.id == bookId) book = book.copy(readStatus = readStatus)
         }
-        override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String) = Unit
+        // Mock Update Book Details (Mock interface matching including series parameter)
+        override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit
         override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()
         override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()
         override fun observeLatestScanSession(): Flow<ScanSessionEntity?> = flowOf(null)

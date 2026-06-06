@@ -32,6 +32,9 @@ class AbsCatalogMapper(
         val narrator = item.media?.metadata?.narratorName.orEmpty()
         val year = item.media?.metadata?.publishedYear.orEmpty()
         val description = item.media?.metadata?.description.orEmpty()
+        // ABS Series Metadata Extraction (Map the seriesName from metadata if available)
+        // Extracts the series metadata name from the remote payload.
+        val series = item.media?.metadata?.seriesName.orEmpty()
         val totalDurationMs = ((item.media?.duration ?: item.media?.tracks.orEmpty().sumOf { it.duration ?: 0.0 }) * 1000.0).toLong()
         val totalFileSize = item.media?.tracks.orEmpty().sumOf { track ->
             track.metadata?.size ?: 0L
@@ -52,6 +55,7 @@ class AbsCatalogMapper(
             coverPath = coverPath,
             thumbnailPath = thumbnailPath,
             backgroundColorArgb = backgroundColorArgb,
+            series = series,
             addedAt = existing?.addedAt ?: syncedAt,
             // Cover Cache Invalidation (Prevent unnecessary UI image reload cycles)
             // Allow callers to supply an updated scan timestamp explicitly.

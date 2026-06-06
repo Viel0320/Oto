@@ -45,6 +45,9 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
     ): BookDraft {
         val fileId = UUID.randomUUID().toString()
         val title = singleAudioBookTitle(audio.metadata, audio.file.displayName)
+        // Single-File Series Extraction (Extract series using album -> title -> filename priority)
+        // Resolves the series name prioritizing album over title, with the filename as a fallback.
+        val series = resolveSeries(audio.metadata.album, audio.metadata.title, audio.file.displayName)
 
         val book = BookEntity(
             id = bookId,
@@ -60,7 +63,8 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = audio.file.fileSize,
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
-            backgroundColorArgb = cover?.backgroundColor
+            backgroundColorArgb = cover?.backgroundColor,
+            series = series
         )
         val file = audio.toBookFile(bookId, fileId, 0, AudiobookSchema.FileStatus.READY)
         val chapters = if (audio.metadata.chapters.isNotEmpty()) {
@@ -99,6 +103,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         narrator: String = "",
         year: String = "",
         description: String = "",
+        series: String = "",
         cover: CoverExtractor.CoverResult?
     ): BookDraft {
         val durationByKey = audioFiles
@@ -169,7 +174,9 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = audioBookFiles.sumOf { it.fileSize } + manifestFile.fileSize,
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
-            backgroundColorArgb = cover?.backgroundColor
+            backgroundColorArgb = cover?.backgroundColor,
+            // Manifest Series Mapping (Map the series parameter into BookEntity)
+            series = series
         )
         return BookDraft(book, listOf(manifestFile) + audioBookFiles, chapters)
     }
@@ -208,6 +215,10 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             chapterStart += file.durationMs
             chapter
         }
+        // Heuristic Series Extraction (Extract series using album -> title -> filename priority)
+        // Resolves the series name prioritizing first chapter's album over title, with filename as fallback.
+        val series = resolveSeries(firstChapterMetadata.album, firstChapterMetadata.title, orderedFiles.first().file.displayName)
+
         val book = BookEntity(
             id = bookId,
             rootId = orderedFiles.first().file.rootId,
@@ -224,7 +235,8 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = bookFiles.sumOf { it.fileSize },
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
-            backgroundColorArgb = cover?.backgroundColor
+            backgroundColorArgb = cover?.backgroundColor,
+            series = series
         )
         Log.i(TAG, "Generated audiobook draft: title=${plan.title.logValue()}, source=${source.displayName.logValue()}, files=${orderedFiles.size}")
         return BookDraft(book, bookFiles, chapters)
@@ -263,7 +275,14 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             author = firstNonBlank(manifestMetadata.author, firstAudio?.metadata?.author),
             narrator = firstNonBlank(manifestMetadata.narrator, firstAudio?.metadata?.narrator),
             year = firstNonBlank(manifestMetadata.year, firstAudio?.metadata?.year),
-            description = firstNonBlank(manifestMetadata.description, sidecarDescription, firstAudio?.metadata?.description)
+            description = firstNonBlank(manifestMetadata.description, sidecarDescription, firstAudio?.metadata?.description),
+            // Manifest Series Precedence (Prioritize album name over track title, falling back to file name)
+            // Resolves the series field prioritizing album over title, with the filename as a fallback.
+            series = resolveSeries(
+                firstAudio?.metadata?.album.orEmpty(),
+                firstAudio?.metadata?.title.orEmpty(),
+                sourceFile.displayName
+            )
         )
 
     private fun FileRef.toManifestBookFile(bookId: String, id: String): BookFileEntity =
@@ -337,9 +356,19 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         return chapters.drop(index + 1).firstOrNull { it.fileKey == current.fileKey }?.fileOffsetMs?.minus(current.fileOffsetMs)
     }
 
+    // Heuristic Series Resolver (Prioritize album over title, falling back to file name)
+    // Extracts the series property hierarchy: metadata.album takes highest priority, 
+    // followed by metadata.title, and lastly defaulting to the file's base display name.
+    private fun resolveSeries(album: String, title: String, displayName: String): String =
+        album.trim()
+            .ifBlank { title.trim() }
+            .ifBlank { displayName.substringBeforeLast('.') }
+
+    // Single-File Title Precedence (Prioritize song title over album, falling back to file name)
+    // Adjusts title resolution hierarchy for single audiobooks to prioritize metadata.title over metadata.album, with filename as final fallback.
     private fun singleAudioBookTitle(metadata: AudiobookMetadata, displayName: String): String =
-        metadata.album.trim()
-            .ifBlank { metadata.title.trim() }
+        metadata.title.trim()
+            .ifBlank { metadata.album.trim() }
             .ifBlank { displayName.substringBeforeLast('.') }
 
     private fun firstNonBlank(vararg values: String?): String =
@@ -369,7 +398,9 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         val author: String,
         val narrator: String,
         val year: String,
-        val description: String
+        val description: String,
+        // Manifest Series Property (Tracks the series name mapped during manifest parsing)
+        val series: String
     )
 
     companion object {

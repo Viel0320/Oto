@@ -213,9 +213,10 @@ interface BookDao {
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, totalDurationMs = :duration WHERE id = :id")
     suspend fun updateMetadata(id: String, title: String, author: String, narrator: String, description: String, duration: Long)
 
-    // Save Metadata Edits (Updates logical book details including title, creator, narrator, and release year)
-    @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, year = :year WHERE id = :id")
-    suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String)
+    // Save Metadata Edits (Updates logical book details including title, creator, narrator, release year, and series name)
+    // Updates the series field along with other editable metadata in books table.
+    @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, year = :year, series = :series WHERE id = :id")
+    suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String)
 
     // Partial Cover Path Resolution (Re-persists cover location, palette color, and scan timestamps after cache clearance)
     // Updates specific columns to prevent overwrite race conditions and triggers Flow emissions for UI redraws.

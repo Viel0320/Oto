@@ -51,8 +51,8 @@ import java.io.File
         AbsPendingProgressSyncEntity::class
     ],
     // Database Schema Design (Adds WebDAV directory child snapshots for scanner-only listing cache reuse)
-    // Version 36 introduces directory_child_cache while leaving BookEntity cover-version fields and playback schemas unchanged.
-    version = 36,
+    // Version 37 introduces series column to the books table.
+    version = 37,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -75,6 +75,14 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        // Schema Migration 36 to 37 (Adds series column to the books table)
+        // Enforces table structural upgrade, preventing data loss by declaring a migration path.
+        private val MIGRATION_36_37 = object : androidx.room.migration.Migration(36, 37) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE books ADD COLUMN series TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -82,6 +90,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
+                .addMigrations(MIGRATION_36_37)
                 // Destructive Migration Strategy (Wipe databases and rebuild layout if schema versions mismatch)
                 .fallbackToDestructiveMigration(true)
                 .addCallback(object : Callback() {

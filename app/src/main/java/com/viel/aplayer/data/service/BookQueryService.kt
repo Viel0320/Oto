@@ -146,15 +146,18 @@ class BookQueryService(
         bookDao.updateBookReadStatus(bookId, readStatus)
     }
 
+    // Metadata Update Implementation (Implements update details with series field support)
+    // Forwards the series field to the BookDao to write changes to SQLite.
     override suspend fun updateBookDetails(
         id: String,
         title: String,
         author: String,
         narrator: String,
         description: String,
-        year: String
+        year: String,
+        series: String
     ) = withContext(Dispatchers.IO) {
-        bookDao.updateBookDetails(id, title, author, narrator, description, year)
+        bookDao.updateBookDetails(id, title, author, narrator, description, year, series)
     }
 
     override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = withContext(Dispatchers.IO) {
