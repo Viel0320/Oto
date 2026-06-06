@@ -198,7 +198,12 @@ fun PillCompactMediaPlayer(
                     .align(Alignment.Center),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val coverModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
+                // Transition Key Consistency Validation (Prevent invalid or empty shared transition keys)
+                // Ensures that the bookId is non-blank before attempting to apply the shared element transition.
+                // If the bookId is empty, falls back to a normal transition.
+                val isKeyConsistent = bookId.isNotBlank()
+
+                val coverModifier = if (isKeyConsistent && sharedTransitionScope != null && mini2PlayerSourceScope != null) {
                     with(sharedTransitionScope) {
                         Modifier.sharedElement(
                             /*

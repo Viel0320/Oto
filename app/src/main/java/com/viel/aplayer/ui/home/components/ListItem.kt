@@ -214,9 +214,16 @@ private fun ListCoverSharedSource(
              * Applies the shared-element modifier only to the selected list thumbnail channel,
              * leaving Recent cards and player artwork on their own independent keys.
              */
+            // Transition Key Consistency Validation (Prevent mismatching shared transition keys)
+            // Validates that the resolved transition key is non-null, the bookId is valid, and the key
+            // is indeed associated with this bookId. If validation fails, falls back to a normal transition.
+            val isKeyConsistent = resolvedSharedElementKey != null &&
+                bookId.isNotBlank() &&
+                resolvedSharedElementKey.contains(bookId)
+
             val coverSharedElementModifier = if (
-                sharedTransitionScope != null &&
-                resolvedSharedElementKey != null
+                isKeyConsistent &&
+                sharedTransitionScope != null
             ) {
                 with(sharedTransitionScope) {
                     Modifier.sharedElement(

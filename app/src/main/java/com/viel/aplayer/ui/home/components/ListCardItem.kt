@@ -218,9 +218,16 @@ private fun RecentCoverSharedSource(
              * Applies the shared-element modifier only when the app shared scope, item-level source
              * scope, and route key are available. This keeps Home->Detail independent from player scopes.
              */
+            // Transition Key Consistency Validation (Prevent mismatching shared transition keys)
+            // Validates that the resolved transition key is non-null, the bookId is valid, and the key
+            // is indeed associated with this bookId. If validation fails, falls back to a normal transition.
+            val isKeyConsistent = resolvedSharedElementKey != null &&
+                bookId.isNotBlank() &&
+                resolvedSharedElementKey.contains(bookId)
+
             val coverSharedElementModifier = if (
-                sharedTransitionScope != null &&
-                resolvedSharedElementKey != null
+                isKeyConsistent &&
+                sharedTransitionScope != null
             ) {
                 with(sharedTransitionScope) {
                     Modifier.sharedElement(

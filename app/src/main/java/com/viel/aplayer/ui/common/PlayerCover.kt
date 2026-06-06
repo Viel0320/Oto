@@ -242,7 +242,21 @@ fun MainCoverView(
     }
         ?: remember { mutableStateOf(24.dp) }
 
-    val sharedElementModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+    // Transition Key Consistency Validation (Safeguard cover transitions against mismatched keys)
+    // Compares the dynamic sharedElementKey against the current bookId. If the bookId is blank or
+    // the provided transition key does not contain the target bookId, it bypasses the shared element modifier
+    // to cleanly fall back to a normal animated transition.
+    val isKeyConsistent = remember(sharedElementKey, bookId) {
+        if (bookId.isBlank()) {
+            false
+        } else if (sharedElementKey != null) {
+            sharedElementKey.contains(bookId)
+        } else {
+            true
+        }
+    }
+
+    val sharedElementModifier = if (isKeyConsistent && sharedTransitionScope != null && animatedVisibilityScope != null) {
         with(sharedTransitionScope) {
             Modifier.sharedElement(
                 /*
