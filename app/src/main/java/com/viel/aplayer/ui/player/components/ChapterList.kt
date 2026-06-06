@@ -176,7 +176,7 @@ fun ChapterListSheet(
                 glassEffectMode = glassEffectMode
             )
         } else {
-            // Use the miuix-blur version of BlurModalBottomSheet to replace the original Window-blur-based wrapper.
+            // Use the Haze-based version of BlurModalBottomSheet to replace the original Window-blur-based wrapper.
             // The backdrop is sourced from the player Surface's sampling, allowing the chapter list to sample the player screen to form a frosted glass effect.
             // All original parameters (sheetState, custom drag handle, zero inner padding, etc.) are preserved.
             BlurModalBottomSheet(
@@ -209,7 +209,7 @@ fun ChapterListSheet(
                     },
                     listState = listState,
                     bottomSpacerHeight = dynamicSpacerHeight,
-                    // The chapter list content selects different current chapter highlight styles according to the Material/miuix-blur mode.
+                    // The chapter list content selects different current chapter highlight styles according to the Material/Haze mode.
                     glassEffectMode = glassEffectMode
                 )
             }
@@ -283,7 +283,7 @@ fun ChapterListContent(
                     } else {
                         Modifier
                     }
-                    // Uniformly add rounded corners to the current chapter row to avoid sharp rectangular highlights on the miuix-blur background.
+                    // Uniformly add rounded corners to the current chapter row to avoid sharp rectangular highlights on the Haze-based background.
                     val rowShape = RoundedCornerShape(8.dp)
                     ListItem(
                         headlineContent = {

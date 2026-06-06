@@ -1,5 +1,6 @@
 package com.viel.aplayer.media.service
 
+// Import alignment: Add delay utility to support timer offsets for notification avoidance.
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -8,10 +9,9 @@ import androidx.media3.common.Player
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.media.AutoRewindManager
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-// Import alignment: Add delay utility to support timer offsets for notification avoidance.
-import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
 /**

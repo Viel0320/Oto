@@ -13,7 +13,6 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,11 +26,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.data.store.GlassEffectMode
+import dev.chrisbanes.haze.HazeState
 import org.json.JSONObject
 
 @Composable
 fun ScanResultDialog(
     session: ScanSessionEntity,
+    // Scan Result Backdrop Source (Receive the page host's resolved dialog sampling state)
+    // HomeDialogHost passes the app-level HazeState here so scan results use the same glass source as other Home dialogs.
+    hazeState: HazeState? = null,
+    // Scan Result Glass Mode (Respect the current app visual setting)
+    // The concrete scan dialog stays derived from the common template and delegates blur-vs-material rendering to the shared shell.
+    glassEffectMode: GlassEffectMode,
     onDismiss: () -> Unit
 ) {
     // The dialog now renders persisted counts from the completed ScanSession.
@@ -44,8 +51,13 @@ fun ScanResultDialog(
         hasPending
     val summary = ScanSummaryItems.from(session.summaryJson)
 
-    AlertDialog(
+    APlayerDialogTemplate(
         onDismissRequest = onDismiss,
+        hazeState = hazeState,
+        glassEffectMode = glassEffectMode,
+        scrollable = true,
+        headerAlignment = Alignment.CenterHorizontally,
+        sectionSpacing = 0.dp,
         icon = {
             Icon(
                 if (hasFailures || hasPending) Icons.Rounded.Warning else Icons.Rounded.CheckCircle,
@@ -55,9 +67,17 @@ fun ScanResultDialog(
             )
         },
         title = {
-            Text(text = "Scan Complete")
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Scan Complete",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
         },
-        text = {
+        body = {
+            // Scan Summary Body (Reuse the shared dialog rhythm while preserving scan result details)
+            // The content remains local to the scan result dialog, but chrome, blur, padding, and actions are provided by APlayerDialogTemplate.
+            Spacer(modifier = Modifier.height(16.dp))
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = if (hasChanges) {
@@ -135,7 +155,7 @@ fun ScanResultDialog(
                 }
             }
         },
-        confirmButton = {
+        actions = {
             TextButton(onClick = onDismiss) {
                 Text("Got it")
             }

@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,16 @@ enum class ChromaticAberrationMode {
 }
 
 /**
+ * LiquidGlassBorderMode definition for component edge highlight rendering.
+ *
+ * Controls whether the liquid glass renderer draws a full shape outline or only the lower divider edge for toolbar-like surfaces.
+ */
+enum class LiquidGlassBorderMode {
+    Outline,
+    BottomEdge
+}
+
+/**
  * LiquidGlassStyle configuration data class.
  *
  * Configures refraction, depth, specular highlight, and light position parameters to mimic the Liquid Glass design language.
@@ -59,7 +70,8 @@ data class LiquidGlassStyle(
     val surfaceProfile: SurfaceProfile = SurfaceProfile.Squircle,
     val lightPosition: Offset? = null,
     val chromaticAberrationStrength: Float = 0f,
-    val chromaticAberrationMode: ChromaticAberrationMode = ChromaticAberrationMode.Full
+    val chromaticAberrationMode: ChromaticAberrationMode = ChromaticAberrationMode.Full,
+    val borderMode: LiquidGlassBorderMode = LiquidGlassBorderMode.Outline
 )
 
 /**
@@ -139,11 +151,36 @@ fun Modifier.liquidGlassCompatEffect(
                 end = endOffset
             )
 
-            // Render fine 1.dp bezel outer boundary highlights
-            drawOutline(
-                outline = outline,
-                brush = borderBrush,
-                style = Stroke(width = 2.dp.toPx())
-            )
+            when (resolvedStyle.borderMode) {
+                LiquidGlassBorderMode.Outline -> {
+                    // Render fine 1.dp bezel outer boundary highlights
+                    drawOutline(
+                        outline = outline,
+                        brush = borderBrush,
+                        style = Stroke(width = 2.dp.toPx())
+                    )
+                }
+                LiquidGlassBorderMode.BottomEdge -> {
+                    // Render Bottom Edge Highlight (Limit toolbar glass definition to the lower boundary)
+                    // Toolbar glass already spans the full screen width, so drawing only the lower edge avoids visible side and top outlines while preserving the liquid glass separator.
+                    drawLiquidGlassBottomEdge(borderBrush)
+                }
+            }
         }
+}
+
+/**
+ * Draw Liquid Glass Bottom Edge (Render toolbar-only border highlight)
+ *
+ * Draws a single lower horizontal stroke using the same gradient brush as the full outline mode so toolbar surfaces keep the shared liquid glass optical language.
+ */
+private fun DrawScope.drawLiquidGlassBottomEdge(borderBrush: Brush) {
+    val strokeWidth = 2.dp.toPx()
+    val y = size.height - strokeWidth / 2f
+    drawLine(
+        brush = borderBrush,
+        start = Offset(0f, y),
+        end = Offset(size.width, y),
+        strokeWidth = strokeWidth
+    )
 }

@@ -9,11 +9,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailViewModel
+import com.viel.aplayer.ui.home.components.HomeDialogHost
 import com.viel.aplayer.ui.player.PlayerViewModel
+import dev.chrisbanes.haze.HazeState
 
 /**
  * HomeFilter Enum (Home Library Filter Options)
@@ -44,17 +45,44 @@ fun HomeScreen(
     libraryViewModel: LibraryViewModel,
     playerViewModel: PlayerViewModel,
     detailViewModel: DetailViewModel,
-    searchViewModel: com.viel.aplayer.ui.search.SearchViewModel,
-    canStartNavigation: () -> Boolean,
-    navigateBack: () -> Unit,
-    // Settings Navigation Event (To delegate settings launch routing to parent controller)
-    // Abstract callback parameter to notify parent overlay scope when user requests setting screen.
-    onNavigateToSettings: () -> Unit
+    // Home Dialog Backdrop Source (Allow app shell to provide the cross-layer blur source)
+    // Dialogs are rendered above the page content, so they should sample the app-level backdrop when one is available instead of the LazyGrid-local fallback source.
+    homeDialogHazeState: HazeState? = null,
+    // Home Top Bar Height (Reserve space for the NavHost-owned overlay header)
+    // APlayerNavHost measures the extracted HomeAppBar and passes its height back so Home content can keep stable top padding without owning the chrome component.
+    homeTopBarHeightPx: Int = 0,
+    // Home Top Bar Scroll Request (Consume title double-tap events from the NavHost-owned header)
+    // The header lives outside Home content, so scroll-to-top is bridged as an incrementing event instead of sharing LazyGridState upward.
+    homeTopBarScrollToTopRequest: Int = 0,
 ) {
     val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val scanResult by libraryViewModel.scanResultDialogState.collectAsStateWithLifecycle()
+
+    // Home Dialog State (Page-level modal event holder)
+    // Keeps dialog selection in the Home container so the content renderer reports clicks without owning concrete dialog implementations.
+    var homeDialogState by remember { mutableStateOf<HomeDialogState>(HomeDialogState.None) }
+    // Home Content Haze State (Keep page-local sampling limited to the bookshelf surface)
+    // The LazyGrid registers this state for page-local content blur and isolated previews while app chrome and Dialog windows prefer shell-provided sources.
+    val homeContentHazeState = remember { HazeState() }
+    // Home Dialog Haze Selection (Prefer the app-level backdrop for dialog windows)
+    // Falls back to the page-local source only when previews or isolated hosts do not provide the outer app sampling state.
+    val resolvedHomeDialogHazeState = homeDialogHazeState ?: homeContentHazeState
+
+    // Home Scan Result Dialog Sync (Route completed import feedback into the page dialog host)
+    // Scan completion originates in LibraryViewModel, but the concrete dialog is mounted by HomeDialogHost so Home-owned dialogs share the same template and app-level blur source.
+    LaunchedEffect(scanResult, homeDialogState) {
+        val session = scanResult
+        when {
+            session != null && homeDialogState == HomeDialogState.None -> {
+                homeDialogState = HomeDialogState.ScanResult(session)
+            }
+            session == null && homeDialogState is HomeDialogState.ScanResult -> {
+                homeDialogState = HomeDialogState.None
+            }
+        }
+    }
 
     // Manage Horizontal Scroll State (State Loss Prevention)
     // Maintain independent scroll state for home page "recent" horizontal scrolling list, placed at the outermost layer.
@@ -127,6 +155,9 @@ fun HomeScreen(
         shouldShowRecentBooks = libraryUiState.shouldShowRecentBooks,
         recentTitleRes = libraryUiState.recentTitleRes,
         glassEffectMode = libraryUiState.glassEffectMode,
+        homeHazeState = homeContentHazeState,
+        homeTopBarHeightPx = homeTopBarHeightPx,
+        homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest,
         isMiniPlayerVisible = playerUiState.hasActiveTrack,
         recentListState = recentListState,
         onFilterSelected = { libraryViewModel.setFilter(it) },
@@ -137,11 +168,6 @@ fun HomeScreen(
                 entrySource = entrySource
             )
         },
-        onNavigateToSearch = {
-            if (canStartNavigation()) {
-                searchViewModel.setVisible(true)
-            }
-        },
         onLoadBook = { id: String ->
             playerViewModel.loadBook(id)
         },
@@ -149,12 +175,27 @@ fun HomeScreen(
             playerViewModel.setFullPlayerVisible(true)
         },
         onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
-        // Settings Navigation Callback (To delegate settings launch routing to upper overlay controller)
-        // Invokes abstract settings navigation trigger callback instead of hardcoding intent startup.
-        onNavigateToSettings = {
-            if (canStartNavigation()) {
-                onNavigateToSettings()
-            }
+        onBookActionsRequested = { bookWithProgress ->
+            // Home Dialog Request (Route long-press actions to the page dialog host)
+            // Stores only the selected audiobook payload and lets HomeDialogHost derive the concrete dialog tree.
+            homeDialogState = HomeDialogState.AudiobookActions(bookWithProgress)
+        }
+    )
+
+    HomeDialogHost(
+        state = homeDialogState,
+        hazeState = resolvedHomeDialogHazeState,
+        glassEffectMode = libraryUiState.glassEffectMode,
+        onDismissRequest = {
+            // Home Dialog Dismissal (Return the page dialog host to idle)
+            // Centralizes dismissal so first-level and nested confirmation dialogs clear through the same page-owned state.
+            homeDialogState = HomeDialogState.None
+        },
+        onDismissScanResult = {
+            // Scan Result Dismissal (Clear both host state and source ViewModel state)
+            // Keeps the derived dialog host and LibraryViewModel event state synchronized so the completed scan summary does not reopen.
+            homeDialogState = HomeDialogState.None
+            libraryViewModel.dismissScanResultDialog()
         },
         onUpdateReadStatus = { bookId, status ->
             libraryViewModel.updateBookReadStatus(bookId, status)

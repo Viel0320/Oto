@@ -21,7 +21,7 @@ android {
     defaultConfig {
         applicationId = "com.viel.aplayer"
         // SDK Level Bump (Raise minSdk to 33 to support hardware-level blur effects)
-        // This targets Android 13 (API 33) to allow hardware-accelerated window blur rendering using miuix-blur.
+        // This targets Android 13 (API 33) to allow hardware-accelerated window blur rendering.
         minSdk = 32
         //noinspection OldTargetApi
         targetSdk = 36
@@ -105,7 +105,7 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.datastore.preferences)
 
-    // Introduce Haze Blur (Transition backdrop blur from miuix-blur to dev.chrisbanes.haze) Replaced miuix-blur dependency with haze and haze-materials.
+    // Introduce Haze Blur (Transition backdrop blur to dev.chrisbanes.haze) Replaced backdrop blur dependency with Haze libraries.
     implementation(libs.haze)
     implementation(libs.haze.materials)
 

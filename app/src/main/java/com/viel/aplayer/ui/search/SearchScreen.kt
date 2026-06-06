@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -57,15 +58,13 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import androidx.compose.ui.graphics.RectangleShape
 
 /**
  * SearchContent Setup (Stateless Search Content UI)
@@ -131,15 +130,15 @@ fun SearchContent(
         }
     }
 
-    // Detect whether MiuixBlur frosted glass mode is enabled and sampling source is not null
+    // Detect whether Haze frosted glass mode is enabled and sampling source is not null
     // Determine Glass Blur Status (Enable blur only if in Haze mode and state is provided)
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
     Scaffold(
-        // Apply MiuixBlur Background (Frosted Glass Mask Setup)
-        // If miuix-blur mode is enabled, set Scaffold container base color to transparent, and mount drawBackdrop modifier with background translucent blend.
+        // Apply Haze Background (Frosted Glass Mask Setup)
+        // If Haze mode is enabled, set Scaffold container base color to transparent, and mount drawBackdrop modifier with background translucent blend.
         // This makes the entire search interface refract underlying APlayerNavHost content, forming a beautiful frosted texture.
-        // Fall back to native M3 background color in non-miuix-blur mode.
+        // Fall back to native M3 background color in non-Haze mode.
         modifier = modifier
             .fillMaxSize()
             .then(
@@ -226,7 +225,7 @@ fun SearchContent(
                 onExpandedChange = {
                     if (!it) handleBack()
                 },
-                // Search bar also participates in frosting. If miuix-blur is enabled, search box uses transparent/light mask, otherwise falls back to SearchBar native color.
+                // Search bar also participates in frosting. If Haze is enabled, search box uses transparent/light mask, otherwise falls back to SearchBar native color.
                 colors = SearchBarDefaults.colors(
                     containerColor = if (isBlur) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh
                 ),

@@ -547,7 +547,7 @@ fun PlayerScreen(
                         // Offset snackbar margins (To avoid overlapping seek undo bar over bottom controls area)
                         .padding(horizontal = 16.dp, vertical = 96.dp)
                 ) {
-                    // Render blur snackbar (To support blur sampling overlays under miuix-blur styles)
+                    // Render blur snackbar (To support blur sampling overlays under Haze styles)
                     BlurSnackbar(
                         hazeState = playerHazeState,
                         glassEffectMode = glassEffectMode,
@@ -590,6 +590,8 @@ fun PlayerScreen(
         BookmarkDialog(
             isVisible = settings.isBookmarkDialogVisible,
             defaultTitle = settings.bookmarkTitle,
+            hazeState = hazeState ?: coverHazeState,
+            glassEffectMode = glassEffectMode,
             onSave = { localTitle ->
                 actions.bookmarks.onTitleChange(localTitle)
                 actions.bookmarks.onSave()

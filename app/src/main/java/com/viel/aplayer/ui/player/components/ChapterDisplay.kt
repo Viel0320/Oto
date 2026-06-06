@@ -33,11 +33,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -51,7 +50,7 @@ fun ChapterDisplay(
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null
 ) {
-    // Resolve backdrop configurations (To optimize performance under miuix-blur styles)
+    // Resolve backdrop configurations (To optimize performance under Haze styles)
     // Avoids redundant blur computations by using pure mask overlays.
     // Determine Glass Blur Status (Enable blur only if in Haze mode and state is provided)
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null

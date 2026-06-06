@@ -34,7 +34,7 @@ import dev.chrisbanes.haze.HazeState
  * @param settings The player UI settings state.
  * @param actions Aggregated player actions callback.
  * @param buttonColor The dominant color of the control buttons (the transition-animated dominant color of the book cover).
- * @param glassEffectMode The current glass effect mode (Material/miuix-blur) for the player.
+ * @param glassEffectMode The current glass effect mode (Material/Haze) for the player.
  * @param modifier The layout modifier passed from outside to elastically control width and alignment layout.
  */
 @Composable

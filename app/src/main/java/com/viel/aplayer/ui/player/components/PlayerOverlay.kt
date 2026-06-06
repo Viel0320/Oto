@@ -89,7 +89,7 @@ fun PlayerOverlay(
                         viewModel = playerViewModel,
                         actions = playerActions,
                         navigationActions = playerNavigationActions,
-                        // The full screen player internally manages creating the miuix-blur effect for the chapter list, so only the mode is passed through here.
+                        // The full screen player internally manages creating the Haze blur effect for the chapter list, so only the mode is passed through here.
                         glassEffectMode = glassEffectMode,
                         // Setup dropdown menu blur (Pass HazeState to the drop-down menu to render glassmorphism)
                         hazeState = playerHazeState

@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.common
 
-// Setup Haze Menu Integration (Replace miuix-blur with dev.chrisbanes.haze) Replaced miuix backdrop APIs with HazeState, hazeChild, and HazeMaterials.
+// Setup Haze Menu Integration (Replace old blur implementation with dev.chrisbanes.haze) Replaced backdrop APIs with HazeState, hazeChild, and HazeMaterials.
 // Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.ColumnScope
@@ -15,11 +15,10 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.viel.aplayer.data.store.GlassEffectMode
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
 /**
  * BlurDropdownMenu — A generic DropdownMenu wrapper supporting switching between Material native menu and Haze frosted glass menu.

@@ -37,7 +37,6 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LinearScale
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -81,10 +80,26 @@ import com.viel.aplayer.data.store.SleepMode
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
+import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
+
+/**
+ * Settings Dialog State (Page-owned dialog event model)
+ *
+ * Keeps SettingsScreen click handlers reporting dialog intent through one state object instead of scattering independent boolean flags.
+ */
+private sealed interface SettingsDialogState {
+    data object None : SettingsDialogState
+    data object AddLibraryType : SettingsDialogState
+    data object WebDavRoot : SettingsDialogState
+    data object AbsServer : SettingsDialogState
+    data class RootActions(val root: LibraryRootEntity) : SettingsDialogState
+    data class DeleteRoot(val root: LibraryRootEntity) : SettingsDialogState
+}
 
 /**
  * Stateless settings view (Stateless composable rendering settings configurations)
@@ -146,8 +161,11 @@ fun SettingsScreen(
     themeMode: ThemeMode,
     // Change theme mode (To notify theme mode updates to controller) Binds theme mode change callback.
     onThemeModeChange: (ThemeMode) -> Unit,
-    // Backdrop effect configuration (To dictate visual containers style between Material and miuix-blur styles)
+    // Backdrop effect configuration (To dictate visual containers style between Material and Haze styles)
     glassEffectMode: GlassEffectMode,
+    // Settings Dialog Backdrop Source (Optional settings-local sampling source)
+    // SettingsOverlay can provide a HazeState when the settings surface is registered as a backdrop source; null keeps dialogs in Material fallback.
+    settingsDialogHazeState: HazeState? = null,
     // Toggle backdrop style (To delegate blur adjustments to controller)
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
     // Active auto-rewind seconds (To indicate rollback offset values)
@@ -176,27 +194,26 @@ fun SettingsScreen(
         }
     }
 
-    // Delete dialog selection state (To hold current library root scheduled for deletion check)
-    // Triggers confirmation alert dialog showing risk details to prevent user accidents.
-    var rootToDelete by remember { mutableStateOf<LibraryRootEntity?>(null) }
-    // WebDAV panel visibility state (To toggle display of the dialog popup locally)
-    // Delegates network requests and persistence routines to ViewModel upon confirmation.
-    var showWebDavDialog by remember { mutableStateOf(false) }
+    // Settings Dialog State (Own page-level dialog routing)
+    // Replaces independent boolean flags with a single event model so dialog rendering can be hosted consistently.
+    var dialogState by remember { mutableStateOf<SettingsDialogState>(SettingsDialogState.None) }
+    val rootToDelete = (dialogState as? SettingsDialogState.DeleteRoot)?.root
+    val showWebDavDialog = dialogState == SettingsDialogState.WebDavRoot
+    val showAbsDialog = dialogState == SettingsDialogState.AbsServer
+    val showAddLibraryTypeDialog = dialogState == SettingsDialogState.AddLibraryType
+    val rootForAction = (dialogState as? SettingsDialogState.RootActions)?.root
+
     var webDavUrl by remember { mutableStateOf("") }
     var webDavUsername by remember { mutableStateOf("") }
     var webDavPassword by remember { mutableStateOf("") }
     var webDavDisplayName by remember { mutableStateOf("") }
     var webDavBasePath by remember { mutableStateOf("") }
-    var showAbsDialog by remember { mutableStateOf(false) }
     var absBaseUrl by remember { mutableStateOf("") }
     var absUsername by remember { mutableStateOf("") }
     var absPassword by remember { mutableStateOf("") }
     var absLibraryId by remember { mutableStateOf("") }
     var absLibraryName by remember { mutableStateOf("") }
     var absDisplayName by remember { mutableStateOf("") }
-
-    var showAddLibraryTypeDialog by remember { mutableStateOf(false) }
-    var rootForAction by remember { mutableStateOf<LibraryRootEntity?>(null) }
     var editingRootId by remember { mutableStateOf<String?>(null) }
 
     // Load window parameters (To adapt layout proportions for wide displays)
@@ -224,6 +241,8 @@ fun SettingsScreen(
             displayName = webDavDisplayName,
             basePath = webDavBasePath,
             editingRootId = editingRootId,
+            hazeState = settingsDialogHazeState,
+            glassEffectMode = glassEffectMode,
             connectionState = webDavConnectionState,
             // WebDAV connection tester: Reset connection verification status immediately if any core connection details change.
             onUrlChange = { 
@@ -254,7 +273,7 @@ fun SettingsScreen(
                 )
             },
             onDismiss = {
-                showWebDavDialog = false
+                dialogState = SettingsDialogState.None
                 // WebDAV dialog reset: Clear WebDAV fields on confirm or dismiss.
                 webDavUrl = ""
                 webDavUsername = ""
@@ -283,7 +302,7 @@ fun SettingsScreen(
                         webDavBasePath.trim()
                     )
                 }
-                showWebDavDialog = false
+                dialogState = SettingsDialogState.None
                 // WebDAV dialog reset: Clear WebDAV fields on confirm or dismiss.
                 webDavUrl = ""
                 webDavUsername = ""
@@ -311,6 +330,8 @@ fun SettingsScreen(
             password = absPassword,
             displayName = absDisplayName,
             editingRootId = editingRootId,
+            hazeState = settingsDialogHazeState,
+            glassEffectMode = glassEffectMode,
             connectionState = absConnectionState,
             selectedLibraryId = absLibraryId,
             selectedLibraryName = absLibraryName,
@@ -335,7 +356,7 @@ fun SettingsScreen(
             // ABS testing integration: Forward current editingRootId in test connections inside dialog.
             onTestConnection = { onAbsConnectionTest(absBaseUrl.trim(), absUsername.trim(), absPassword, editingRootId) },
             onDismiss = {
-                showAbsDialog = false
+                dialogState = SettingsDialogState.None
                 // ABS dialog reset: Clear ABS fields on confirm or dismiss.
                 absBaseUrl = ""
                 absUsername = ""
@@ -355,7 +376,7 @@ fun SettingsScreen(
                     absLibraryName.trim(),
                     editingRootId
                 )
-                showAbsDialog = false
+                dialogState = SettingsDialogState.None
                 // ABS dialog reset: Clear ABS fields on confirm or dismiss.
                 absBaseUrl = ""
                 absUsername = ""
@@ -437,7 +458,7 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { rootForAction = root }
+                                .clickable { dialogState = SettingsDialogState.RootActions(root) }
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -493,7 +514,7 @@ fun SettingsScreen(
                             title = "添加媒体库",
                             subtitle = "支持本地 (SAF)、WebDAV、Audiobookshelf 服务器",
                             icon = Icons.Rounded.FolderOpen,
-                            onClick = { showAddLibraryTypeDialog = true }
+                            onClick = { dialogState = SettingsDialogState.AddLibraryType }
                         )
                     }
                     // === Section 2: Interface Settings ===
@@ -651,23 +672,23 @@ fun SettingsScreen(
     // Render deletion confirmation (To warn users about library root deletion risks)
     // Ensures database records will be erased while preserving physical storage files.
     if (rootToDelete != null) {
-        val root = rootToDelete!!
-        AlertDialog(
-            onDismissRequest = { rootToDelete = null },
+        val root = rootToDelete
+        SettingsTemplateDialog(
+            onDismissRequest = { dialogState = SettingsDialogState.None },
             title = { Text("移除媒体库根目录") },
             text = { Text("移除此媒体库根目录将使应用失去对该目录的物理文件访问权限，所有相关的书籍记录将会从库中移除，但不会删除您存储卡中的物理音频文件。您确定要移除该目录并释放物理授权吗？") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onDeleteLibraryRoot(root)
-                        rootToDelete = null
+                        dialogState = SettingsDialogState.None
                     }
                 ) {
                     Text("确定", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { rootToDelete = null }) {
+                TextButton(onClick = { dialogState = SettingsDialogState.None }) {
                     Text("取消")
                 }
             }
@@ -675,8 +696,8 @@ fun SettingsScreen(
     }
 
     if (showAddLibraryTypeDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddLibraryTypeDialog = false },
+        SettingsTemplateDialog(
+            onDismissRequest = { dialogState = SettingsDialogState.None },
             title = { Text("选择媒体库类别") },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -684,7 +705,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                showAddLibraryTypeDialog = false
+                                dialogState = SettingsDialogState.None
                                 editingSafRootId = null
                                 launcher.launch(null)
                             }
@@ -699,14 +720,14 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                showAddLibraryTypeDialog = false
+                                dialogState = SettingsDialogState.None
                                 webDavUrl = ""
                                 webDavDisplayName = ""
                                 webDavBasePath = ""
                                 webDavUsername = ""
                                 webDavPassword = ""
                                 editingRootId = null
-                                showWebDavDialog = true
+                                dialogState = SettingsDialogState.WebDavRoot
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -719,7 +740,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                showAddLibraryTypeDialog = false
+                                dialogState = SettingsDialogState.None
                                 absBaseUrl = ""
                                 absUsername = ""
                                 absPassword = ""
@@ -727,7 +748,7 @@ fun SettingsScreen(
                                 absLibraryName = ""
                                 absDisplayName = ""
                                 editingRootId = null
-                                showAbsDialog = true
+                                dialogState = SettingsDialogState.AbsServer
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -740,7 +761,7 @@ fun SettingsScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showAddLibraryTypeDialog = false }) {
+                TextButton(onClick = { dialogState = SettingsDialogState.None }) {
                     Text("取消")
                 }
             }
@@ -748,12 +769,12 @@ fun SettingsScreen(
     }
 
     if (rootForAction != null) {
-        val root = rootForAction!!
+        val root = rootForAction
         val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
         val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
         val scope = rememberCoroutineScope()
-        AlertDialog(
-            onDismissRequest = { rootForAction = null },
+        SettingsTemplateDialog(
+            onDismissRequest = { dialogState = SettingsDialogState.None },
             title = { Text(root.displayName.ifBlank { "媒体库操作" }) },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -763,6 +784,7 @@ fun SettingsScreen(
                             .clickable {
                                 if (root.sourceType == AudiobookSchema.LibrarySourceType.SAF) {
                                     editingSafRootId = root.id
+                                    dialogState = SettingsDialogState.None
                                     launcher.launch(null)
                                 } else if (isWebDavRoot) {
                                     val creds = getWebDavCredentials(root.credentialId ?: "")
@@ -772,7 +794,7 @@ fun SettingsScreen(
                                     webDavUsername = creds?.username ?: ""
                                     webDavPassword = creds?.password ?: ""
                                     editingRootId = root.id
-                                    showWebDavDialog = true
+                                    dialogState = SettingsDialogState.WebDavRoot
                                 } else if (isAbsRoot) {
                                     scope.launch {
                                         val creds = getAbsCredential(root.credentialId ?: "")
@@ -783,10 +805,9 @@ fun SettingsScreen(
                                         absLibraryName = root.displayName
                                         absDisplayName = root.displayName
                                         editingRootId = root.id
-                                        showAbsDialog = true
+                                        dialogState = SettingsDialogState.AbsServer
                                     }
                                 }
-                                rootForAction = null
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -805,7 +826,7 @@ fun SettingsScreen(
                                 } else {
                                     onRescan()
                                 }
-                                rootForAction = null
+                                dialogState = SettingsDialogState.None
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -819,8 +840,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                rootToDelete = root
-                                rootForAction = null
+                                dialogState = SettingsDialogState.DeleteRoot(root)
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -833,12 +853,52 @@ fun SettingsScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { rootForAction = null }) {
+                TextButton(onClick = { dialogState = SettingsDialogState.None }) {
                     Text("取消")
                 }
             }
         )
     }
+}
+
+/**
+ * Settings Template Dialog (Adapts legacy settings dialog slots to APlayerDialogTemplate)
+ *
+ * Keeps the existing SettingsScreen form content and button wiring intact while routing every settings dialog through the shared application dialog shell.
+ */
+@Composable
+private fun SettingsTemplateDialog(
+    onDismissRequest: () -> Unit,
+    hazeState: HazeState? = null,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    title: (@Composable () -> Unit)? = null,
+    text: (@Composable () -> Unit)? = null,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: (@Composable () -> Unit)? = null,
+    properties: androidx.compose.ui.window.DialogProperties = androidx.compose.ui.window.DialogProperties()
+) {
+    APlayerDialogTemplate(
+        onDismissRequest = onDismissRequest,
+        // Settings Dialog Material Fallback (SettingsOverlay does not yet register a local haze source)
+        // Use Material mode here so dialogs remain opaque and legible while still deriving their chrome from the common template.
+        hazeState = hazeState,
+        glassEffectMode = if (hazeState != null) glassEffectMode else GlassEffectMode.Material,
+        dismissOnBackPress = properties.dismissOnBackPress,
+        dismissOnClickOutside = properties.dismissOnClickOutside,
+        scrollable = true,
+        title = title,
+        body = text?.let { content ->
+            {
+                // Settings Dialog Body Slot (Bridge legacy AlertDialog text content)
+                // Preserves existing settings form composition while centralizing padding, chrome, and action row layout in APlayerDialogTemplate.
+                content()
+            }
+        },
+        actions = {
+            dismissButton?.invoke()
+            confirmButton()
+        }
+    )
 }
 
 @Composable
@@ -848,6 +908,8 @@ private fun AbsServerDialog(
     password: String,
     displayName: String,
     editingRootId: String?,
+    hazeState: HazeState? = null,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     connectionState: AbsConnectionUiState,
     selectedLibraryId: String,
     selectedLibraryName: String,
@@ -860,8 +922,10 @@ private fun AbsServerDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
+    SettingsTemplateDialog(
         onDismissRequest = onDismiss,
+        hazeState = hazeState,
+        glassEffectMode = glassEffectMode,
         // ABS dialog properties: Force clicking explicit confirm/cancel buttons to dismiss instead of clicking outside.
         properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
         // ABS dialog adjustments: Update title dynamically depending on whether it is in editing mode.
@@ -1194,6 +1258,8 @@ private fun WebDavRootDialog(
     displayName: String,
     basePath: String,
     editingRootId: String? = null,
+    hazeState: HazeState? = null,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     connectionState: WebDavConnectionUiState,
     onUrlChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
@@ -1204,8 +1270,10 @@ private fun WebDavRootDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
+    SettingsTemplateDialog(
         onDismissRequest = onDismiss,
+        hazeState = hazeState,
+        glassEffectMode = glassEffectMode,
         // WebDAV dialog properties: Force clicking explicit confirm/cancel buttons to dismiss instead of clicking outside.
         properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
         // WebDAV dialog adjustments: Support dynamically displaying editing titles and placeholder fields.

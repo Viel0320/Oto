@@ -38,20 +38,15 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.BlurDialog
+import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import dev.chrisbanes.haze.HazeState
 
 /**
- * AudiobookActionDialogs Setup (Long-press Audiobook Action Dialogs)
+ * AudiobookActionDialogs Setup (Derived Home long-press dialogs)
  *
- * Independently encapsulated Audiobook action dialog component group.
- * Packs and encapsulates the first-level management panel Dialog and the second-level soft delete confirmation Dialog,
- * isolating visibility logic inside and slimming down the main HomeScreenState.kt file.
- *
- * Migration details (miuix-blur frosted glass):
- * Replaces window-level blurBehindRadius with miuix-blur rendering inside [BlurDialog].
- * Callers pass the shared [LayerBackdrop] to make the Dialog panel sample home page content directly, forming a clear, high-density frosted glass effect.
+ * Derives the Home audiobook action menu and its delete confirmation dialog from the shared dialog template.
+ * The parent HomeDialogHost owns the page dialog state, while this component only owns the nested confirmation step inside the active audiobook flow.
  */
 @Composable
 fun AudiobookActionDialogs(
@@ -73,26 +68,21 @@ fun AudiobookActionDialogs(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // First-Level Management Dialog (Miuix-Blur Frosted Glass Effect)
-    // Uses BlurDialog + miuix-blur to implement frosted glass effect sampling home page content.
+    // First-Level Management Dialog (Haze Frosted Glass Effect)
+    // Uses BlurDialog + Haze to implement frosted glass effect sampling home page content.
     // ─────────────────────────────────────────────────────────────────────────
     if (!showDeleteConfirm) {
-        BlurDialog(
+        APlayerDialogTemplate(
             onDismissRequest = onDismissRequest,
             // Pass the shared HazeState of the home page to ensure the first-level operations panel can sample current bookshelf background.
             hazeState = hazeState,
-            // Pass user settings to BlurDialog; Material mode will skip internal miuix-blur related textureBlur modifiers.
+            // Pass user settings to BlurDialog; Material mode will skip internal Haze related textureBlur modifiers.
             glassEffectMode = glassEffectMode,
             // Blur radius, background color, and tint are adaptively configured inside BlurDialog, no longer passed from the call point.
-            scrollable = true
-        ) {
-            // Dialog main content area, using Column to vertically align functional blocks
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
+            scrollable = true,
+            headerAlignment = Alignment.CenterHorizontally,
+            sectionSpacing = 0.dp,
+            icon = {
                 // Icon area, displaying the Tune management icon centered
                 Icon(
                     imageVector = Icons.Rounded.Tune,
@@ -100,9 +90,9 @@ fun AudiobookActionDialogs(
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .size(28.dp)
-                        .align(Alignment.CenterHorizontally)
                 )
-
+            },
+            title = {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Book title, centered and bolded, up to two lines, ellipsis on overflow
@@ -128,6 +118,8 @@ fun AudiobookActionDialogs(
                         textAlign = TextAlign.Center
                     )
                 }
+            },
+            body = {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -275,40 +267,33 @@ fun AudiobookActionDialogs(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Bottom "Cancel" button, right-aligned
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismissRequest) {
-                        Text("取消")
-                    }
+            },
+            actions = {
+                // Cancel Action (Close the action menu without mutating the selected audiobook)
+                // Keeps command placement inside the shared template action row while the actual dismissal remains a page-owned callback.
+                TextButton(onClick = onDismissRequest) {
+                    Text("取消")
                 }
             }
-        }
+        )
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Second-Level Delete Confirm Dialog (Miuix-Blur Warning Dialog)
-    // Secondary soft delete confirmation Dialog (also uses BlurDialog + miuix-blur with slightly deeper blur to reinforce warning).
+    // Second-Level Delete Confirm Dialog (Haze Warning Dialog)
+    // Secondary soft delete confirmation Dialog (also uses BlurDialog + Haze with slightly deeper blur to reinforce warning).
     // ─────────────────────────────────────────────────────────────────────────
     if (showDeleteConfirm) {
-        BlurDialog(
+        APlayerDialogTemplate(
             onDismissRequest = { showDeleteConfirm = false },
             // Secondary confirmation panel reuses the home page shared backdrop, keeping background sampling source consistent with first-level panel.
             hazeState = hazeState,
             // Delete confirmation Dialog follows user-selected glass effect mode.
             glassEffectMode = glassEffectMode,
             // Delete confirmation Dialog config is also handled by BlurDialog, avoiding hard-coded secondary blur parameters.
-            scrollable = false
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
+            scrollable = false,
+            headerAlignment = Alignment.CenterHorizontally,
+            sectionSpacing = 0.dp,
+            icon = {
                 // Delete confirmation icon, centered, using error tint to warn user
                 Icon(
                     imageVector = Icons.Rounded.Delete,
@@ -316,9 +301,9 @@ fun AudiobookActionDialogs(
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .size(28.dp)
-                        .align(Alignment.CenterHorizontally)
                 )
-
+            },
+            title = {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Confirmation Dialog title
@@ -329,7 +314,8 @@ fun AudiobookActionDialogs(
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
-
+            },
+            body = {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Soft delete explanation text, reminding user that it only removes from playlist without deleting physical files
@@ -339,32 +325,27 @@ fun AudiobookActionDialogs(
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
-
-                // Confirm/Cancel button row, right-aligned layout
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+            },
+            actions = {
+                TextButton(
+                    onClick = { showDeleteConfirm = false }
                 ) {
-                    TextButton(
-                        onClick = { showDeleteConfirm = false }
-                    ) {
-                        Text("取消")
-                    }
-                    Button(
-                        onClick = {
-                            onDeleteBook(book.id)
-                            showDeleteConfirm = false
-                            onDismissRequest()
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        )
-                    ) {
-                        Text("确认删除")
-                    }
+                    Text("取消")
+                }
+                Button(
+                    onClick = {
+                        onDeleteBook(book.id)
+                        showDeleteConfirm = false
+                        onDismissRequest()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("确认删除")
                 }
             }
-        }
+        )
     }
 }

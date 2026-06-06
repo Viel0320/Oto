@@ -40,12 +40,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -63,14 +59,11 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.detail.DetailEntrySource
-import com.viel.aplayer.ui.home.components.AudiobookActionDialogs
-import com.viel.aplayer.ui.home.components.HomeAppBar
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.home.components.RecentlyAddedSection
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import kotlinx.coroutines.launch
 
 /**
  * HomeScreenContent Setup (Stateless Home Main Content UI)
@@ -105,27 +98,26 @@ fun HomeScreenContent(
     shouldShowRecentBooks: Boolean = false,
     @StringRes recentTitleRes: Int = 0,
     glassEffectMode: GlassEffectMode,
+    // Home Content Haze State (Register the bookshelf surface for the overlay app bar)
+    // The scrolling bookshelf still registers a local source so page content remains available for component-level blur and preview fallback.
+    homeHazeState: HazeState,
+    // Home Top Bar Height (Reserve space for the NavHost-owned overlay header)
+    // HomeContent no longer renders the header, but it still needs the measured chrome height to keep the first grid item from sitting under it.
+    homeTopBarHeightPx: Int = 0,
+    // Home Top Bar Scroll Request (React to the NavHost-owned title double-tap gesture)
+    // Each increment represents one scroll-to-top command emitted by HomeAppBar outside this content tree.
+    homeTopBarScrollToTopRequest: Int = 0,
     isMiniPlayerVisible: Boolean = false,
     recentListState: LazyListState,
     onFilterSelected: (HomeFilter) -> Unit = {},
-    onNavigateToSearch: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
     onNavigateToDetail: (String, DetailEntrySource) -> Unit = { _, _ -> },
     onNavigateToPlayer: () -> Unit = {},
     onLoadBook: (String) -> Unit = {},
     onLibraryRootSelected: (Uri) -> Unit = {},
-    // New callback for updating reading status, responding to marking actions in the long-press dialog menu
-    onUpdateReadStatus: (String, String) -> Unit = { _, _ -> },
-    // New callback for forcing regeneration of cover and metadata, triggered from the long-press menu
-    onForceRegenerate: (String) -> Unit = {},
-    // New callback for deleting books, triggered from the long-press menu's secondary confirmation soft deletion
-    onDeleteBook: (String) -> Unit = {},
+    // Book Actions Request Event (Report long-press user intent to the Home dialog host)
+    // The content layer no longer owns dialog visibility or dialog rendering, keeping bookshelf layout independent from concrete modal implementations.
+    onBookActionsRequested: (BookWithProgress) -> Unit = {},
 ) {
-    // Use remember to listen to the currently long-pressed audiobook state, determining the rendering of the first-level dialog
-    var activeBookForMenu by remember { mutableStateOf<BookWithProgress?>(null) }
-
-    // Create HazeState for long-press operation dialog; Scaffold as sampling source, Dialog panel as blur rendering surface.
-    val homeHazeState = remember { HazeState() }
     // Create dedicated HazeState for homepage chips to fetch clean background colors without self-sampling nested loops.
     val chipHazeState = remember { HazeState() }
     // Label mapping of Filter Chips, which is pure UI text and remains in the Composable
@@ -149,12 +141,6 @@ fun HomeScreenContent(
     val columnsCount = windowClass.columnsCount
     val screenHorizontalPadding = windowClass.screenHorizontalPadding
 
-    // TopAppBar Compensation Padding (Align Top Bar Icons)
-    // Calculate the compensation padding for TopAppBar icons.
-    // The default start margin of M3 top bar icons is 16dp (4dp container margin + 12dp button centering offset).
-    // When the business margin increases to 24dp, an extra 8dp needs to be compensated to align front and back.
-    val appBarIconPadding = (screenHorizontalPadding - 16.dp).coerceAtLeast(0.dp)
-
     // Exclude Keyboard Insets (Decouple Keyboard from Safe Area)
     // Use WindowInsets.safeDrawing to dynamically obtain current status bar, navigation bar, and physical cutout, and explicitly call exclude(WindowInsets.ime).
     // This cuts off physical impact of the software keyboard (IME) on home page's perceived safe area padding, preventing unnecessary recombinations of HomeScreen due to changes in safe area heights.
@@ -170,14 +156,20 @@ fun HomeScreenContent(
 
     // Migrate the scroll state remember from LazyListState to adaptive grid GridState to complete the base upgrade.
     val gridState = rememberLazyGridState()
-    val scope = rememberCoroutineScope()
     val isBlur = glassEffectMode == GlassEffectMode.Haze
-    // Top Bar Height Cache (Reserve scroll content space from the measured overlay top bar) Keeps first-frame padding stable while the top bar is drawn outside Scaffold.
-    var topBarHeightPx by remember { mutableIntStateOf(0) }
-    val measuredTopBarHeight = if (topBarHeightPx > 0) {
-        with(density) { topBarHeightPx.toDp() }
+    // Top Bar Height Resolution (Use the NavHost-owned header measurement)
+    // A fallback keeps the first frame and previews stable before the external HomeAppBar reports its measured height.
+    val measuredTopBarHeight = if (homeTopBarHeightPx > 0) {
+        with(density) { homeTopBarHeightPx.toDp() }
     } else {
         safeDrawingPadding.calculateTopPadding() + 64.dp
+    }
+    LaunchedEffect(homeTopBarScrollToTopRequest) {
+        if (homeTopBarScrollToTopRequest > 0) {
+            // Home Grid Scroll Reset (Consume the external top bar gesture event)
+            // The Home grid keeps ownership of its scroll state while accepting an incrementing command from the NavHost-hosted header.
+            gridState.scrollToItem(0)
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -303,7 +295,7 @@ fun HomeScreenContent(
                             onNavigateToDetail = { bookId ->
                                 onNavigateToDetail(bookId, DetailEntrySource.HomeRecent)
                             },
-                            onBookLongClick = { activeBookForMenu = it }
+                            onBookLongClick = onBookActionsRequested
                         )
                     }
                 }
@@ -365,8 +357,9 @@ fun HomeScreenContent(
                              */
                             sharedElementKey = SharedElementKeys.homeList2DetailCover(book.book.id),
                             onClick = { onNavigateToDetail(book.book.id, DetailEntrySource.HomeList) },
-                            // Long-press book item records current book state to activeBookForMenu to invoke action Dialog menu
-                            onLongClick = { activeBookForMenu = book },
+                            // Book Actions Request (Forward long-press intent to the parent Home dialog host)
+                            // HomeScreenContent reports the selected audiobook without deciding which dialog should render.
+                            onLongClick = { onBookActionsRequested(book) },
                             modifier = itemModifier
                         ) {
                             onLoadBook(book.book.id)
@@ -378,32 +371,6 @@ fun HomeScreenContent(
         }
     }
 
-    HomeAppBar(
-        glassEffectMode = glassEffectMode,
-        hazeState = homeHazeState,
-        appBarIconPadding = appBarIconPadding,
-        onNavigateToSearch = onNavigateToSearch,
-        onNavigateToSettings = onNavigateToSettings,
-        onTitleDoubleTap = {
-            scope.launch {
-                // Home Grid Scroll Reset (Keep the app bar gesture mapped to the parent-owned grid state)
-                // The extracted app bar delegates the gesture while HomeScreenContent keeps ownership of the adaptive grid scroll model.
-                gridState.scrollToItem(0)
-            }
-        },
-        onHeightChanged = { topBarHeightPx = it }
-    )
-
-    // Introduce independently encapsulated long-press operation dialogs to keep the home page UI layout clean and clear
-    AudiobookActionDialogs(
-        bookWithProgress = activeBookForMenu,
-        hazeState = homeHazeState,
-        glassEffectMode = glassEffectMode,
-        onDismissRequest = { activeBookForMenu = null },
-        onUpdateReadStatus = onUpdateReadStatus,
-        onForceRegenerate = onForceRegenerate,
-        onDeleteBook = onDeleteBook
-    )
     }
 }
 
@@ -429,6 +396,9 @@ fun HomeScreenNotStartedPreview() {
 
     APlayerTheme {
         val mockListState = rememberLazyListState()
+        // Preview Shared Haze Source (Mirror the isolated Home fallback path)
+        // The production top bar is hosted by APlayerNavHost, while preview keeps a local grid source for content-level blur.
+        val previewHomeHazeState = remember { HazeState() }
         // Use CompositionLocalProvider to inject PortraitPhone window preset for Previews, ensuring portrait list layout is rendered with high fidelity.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
@@ -443,7 +413,10 @@ fun HomeScreenNotStartedPreview() {
                 isMiniPlayerVisible = false,
                 recentListState = mockListState,
                 // Preview explicitly references setting model default glass effect
-                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
+                // Preview Home Content Haze State (Match the local app bar sampling contract)
+                // Production receives top bar measurements from APlayerNavHost, while preview only needs the local grid sampling source.
+                homeHazeState = previewHomeHazeState
             )
         }
     }

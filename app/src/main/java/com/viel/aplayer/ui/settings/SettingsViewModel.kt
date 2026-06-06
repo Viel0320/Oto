@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.settings
 
 // Import alignment: Add java.util.UUID import for random ID generation during credential fallback
 // Import alignment: Add WebDAV client okhttp dependencies for remote host availability check
+// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
@@ -14,7 +15,6 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
-// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
@@ -40,7 +40,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Settings view model (Handler for configuration persistence interactions)

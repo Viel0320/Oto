@@ -22,6 +22,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
@@ -30,10 +31,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.theme.LiquidGlassBorderMode
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * Home App Bar Component (Overlay header rendering for the library home screen)
@@ -41,7 +42,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  * Encapsulates the home header's glass surface, icon alignment, Material top app bar wiring, and title double-tap gesture.
  * The parent screen still owns scroll state and measured height storage, so this component stays focused on rendering and header-level interactions.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeAppBar(
     glassEffectMode: GlassEffectMode,
@@ -60,9 +61,14 @@ fun HomeAppBar(
         modifier
             .fillMaxWidth()
             .onSizeChanged { onHeightChanged(it.height) }
-            .hazeEffect(
+            .liquidGlassCompatEffect(
                 state = hazeState,
-                style = HazeMaterials.ultraThick()
+                style = LiquidGlassStyle(
+                    shape = RectangleShape,
+                    // Home Top Bar Bottom Edge (Limit liquid glass chrome to a single lower separator)
+                    // The top bar occupies the full screen width and system inset edge, so only the bottom boundary should draw a visible liquid glass stroke.
+                    borderMode = LiquidGlassBorderMode.BottomEdge
+                )
             )
     } else {
         // Home App Bar Static Surface (Measure the non-glass header with the same bounds contract)

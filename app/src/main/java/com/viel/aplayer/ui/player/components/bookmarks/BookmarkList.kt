@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,9 +31,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.formatDate
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import dev.chrisbanes.haze.HazeState
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -58,15 +60,31 @@ fun BookmarkListView(
     onConfirmUpdate: () -> Unit = {},
     // Clear dialog states (To invoke dialogs dismissal callbacks)
     onDismissDialogs: () -> Unit = {},
+    // Bookmark List Dialog Backdrop Source (Use the active player content haze source)
+    // Layout variants pass their chapter/player HazeState so edit and delete dialogs sample the same visible player surface.
+    hazeState: HazeState? = null,
+    // Bookmark List Dialog Glass Mode (Render edit/delete confirmations through the shared dialog shell)
+    // Defaults to Material for previews while production callers pass the current player glass setting.
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     currentPosition: Long = 0L
 ) {
     // Deletion confirmation overlay (To show alert layout using primitive variables passed from container)
     if (bookmarkToDelete != null) {
-        AlertDialog(
+        APlayerDialogTemplate(
             onDismissRequest = onDismissDialogs,
+            hazeState = hazeState,
+            glassEffectMode = glassEffectMode,
+            scrollable = false,
             title = { Text("Delete Bookmark") },
-            text = { Text("Are you sure you want to delete this bookmark?") },
-            confirmButton = {
+            body = {
+                // Bookmark Delete Body (Confirm destructive bookmark removal)
+                // The selected bookmark entity remains owned by PlayerViewModel while this component only renders the confirmation step.
+                Text("Are you sure you want to delete this bookmark?")
+            },
+            actions = {
+                TextButton(onClick = onDismissDialogs) {
+                    Text("Cancel")
+                }
                 TextButton(
                     onClick = {
                         onConfirmDelete()
@@ -75,21 +93,21 @@ fun BookmarkListView(
                 ) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismissDialogs) {
-                    Text("Cancel")
-                }
             }
         )
     }
 
     // Modification dialog overlay (To preserve active drafts titles during configuration changes)
     if (bookmarkToEdit != null) {
-        AlertDialog(
+        APlayerDialogTemplate(
             onDismissRequest = onDismissDialogs,
+            hazeState = hazeState,
+            glassEffectMode = glassEffectMode,
+            scrollable = false,
             title = { Text("Edit Bookmark") },
-            text = {
+            body = {
+                // Bookmark Edit Body (Expose ViewModel-owned draft title to the shared dialog shell)
+                // Title changes are forwarded immediately so rotation and layout changes preserve the active edit draft.
                 Column {
                     Text("Update bookmark:")
                     Spacer(Modifier.height(8.dp))
@@ -101,7 +119,10 @@ fun BookmarkListView(
                     )
                 }
             },
-            confirmButton = {
+            actions = {
+                TextButton(onClick = onDismissDialogs) {
+                    Text("Cancel")
+                }
                 TextButton(
                     onClick = {
                         onConfirmUpdate()
@@ -109,11 +130,6 @@ fun BookmarkListView(
                     }
                 ) {
                     Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismissDialogs) {
-                    Text("Cancel")
                 }
             }
         )

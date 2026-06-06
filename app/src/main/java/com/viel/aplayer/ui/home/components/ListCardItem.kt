@@ -1,8 +1,8 @@
 package com.viel.aplayer.ui.home.components
 
-// Setup ListCardItem Imports (Coil & MiuixBlur Integration)
+// Setup ListCardItem Imports (Coil & Haze Integration)
 // Added getValue and setValue import extensions to perfectly support Composable's 'by' property delegation logic.
-// Introduce miuix-blur related dependencies to draw high-performance frosted glass effects.
+// Introduce Haze related dependencies to draw high-performance frosted glass effects.
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateDp
@@ -12,7 +12,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -54,14 +54,14 @@ import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.motion.LocalHomeRecent2DetailSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 import androidx.compose.animation.AnimatedVisibility as SharedSourceVisibility
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class,
@@ -324,7 +324,7 @@ private fun RecentCoverProgressBadge(
     modifier: Modifier = Modifier
 ) {
     // Progress Badge Styling (Frosted Glass/Material Adaptive)
-    // Refactor the progress Badge container into an elegant frosted glass Surface supporting miuix-blur.
+    // Refactor the progress Badge container into an elegant frosted glass Surface supporting Haze.
     // When frosted glass is enabled, introduce custom adjustable opacity blur materials and translucent 0.5.dp border; fall back to native high-saturation Material container in traditional mode.
     // Theme Aware Progress Badge (Use LocalDarkTheme to resolve active theme state instead of system defaults) Read theme preference state for contrast calculation.
     val isDark = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
@@ -333,13 +333,14 @@ private fun RecentCoverProgressBadge(
     // Upgrade to contrast-stretching algorithm based on luminance checking (RGB 65% physical channel color blending):
     // - Dark mode: If cover color extraction is dark (luminance < 0.5f), blend with pure white at 65% ratio (0.35f * rawColor + 0.65f), allowing text to shine warm-glow on dark frosted glass background.
     // - Light mode: If cover color extraction is light (luminance > 0.5f), blend with pure black at 65% ratio (0.35f * rawColor), suppressing brightness to prevent text from melting on milky semi-translucent glass.
-    val coverColor = remember(coverColorArgb, isDark) {
+    val coverColor = remember(coverColorArgb, isDark, isBlur) {
         coverColorArgb?.let { argb ->
             val rawColor = Color(argb)
             val lum = rawColor.luminance()
-            if (isDark) {
+            // Haze Contrast Optimization (Force light tint processing in haze mode or dark theme to keep badge content clean and visible on frosted layouts) Perform white channel contrast stretching for low-luminance values.
+            if (isDark || isBlur) {
                 if (lum < 0.5f) {
-                    // In dark mode and cover color is dark, apply 65% white enhancement stretch to guarantee contrast (0.35 * rawColor + 0.65)
+                    // In dark mode or haze mode and cover color is dark, apply 65% white enhancement stretch to guarantee contrast (0.35 * rawColor + 0.65)
                     Color(
                         red = rawColor.red * 0.35f + 0.65f,
                         green = rawColor.green * 0.35f + 0.65f,
@@ -371,10 +372,14 @@ private fun RecentCoverProgressBadge(
                 Modifier
                     // Clip corner radius at the very front of Modifier chain to prevent frosted glass overflow glitches
                     .clip(RoundedCornerShape(12.dp))
-                    // Badge Glassmorphism (Apply Haze Child Blur) Replace miuix-blur with hazeChild regular style.
-                    .hazeEffect(
+                    // Badge Glassmorphism (Apply Haze Child Blur) Replace old blur with hazeChild regular style.
+                    .liquidGlassCompatEffect(
                         state = itemHazeState,
-                        style = HazeMaterials.ultraThin()
+                        style = LiquidGlassStyle(
+                            // Badge Circular Shape (Use Compose shape instead of the liquid glass surface profile enum)
+                            // LiquidGlassStyle.shape expects a Shape implementation, so CircleShape keeps the badge round while avoiding the unresolved Circle symbol.
+                            shape = CircleShape
+                        )
                     )
             } else {
                 Modifier

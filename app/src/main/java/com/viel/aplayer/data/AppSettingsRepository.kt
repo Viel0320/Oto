@@ -44,7 +44,7 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         val IS_SHAKE_TO_RESET_ENABLED = booleanPreferencesKey("is_shake_to_reset_enabled")
         // Sleep Timer Target Mode (Preferences key storing the target sleep duration behavior, e.g. Regular or EndOfChapter)
         val SLEEP_MODE = stringPreferencesKey("sleep_mode")
-        // Glassmorphic Rendering Mode (Preferences key tracking dialog blur style: MiuixBlur vs Material)
+        // Glassmorphic Rendering Mode (Preferences key tracking dialog blur style: Haze vs Material)
         val GLASS_EFFECT_MODE = stringPreferencesKey("glass_effect_mode")
         // Post-Interrupt Auto Rewind (Preferences key storing rewind offset in seconds; 0 disables the feature)
         val AUTO_REWIND_SECONDS = intPreferencesKey("auto_rewind_seconds")

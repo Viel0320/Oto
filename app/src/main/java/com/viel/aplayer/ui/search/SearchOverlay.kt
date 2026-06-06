@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.search
 
-// Setup SearchOverlay Imports (Lifecycles & MiuixBlur)
+// Setup SearchOverlay Imports (Lifecycles & Haze)
 // Import lifecycle-aware collectAsStateWithLifecycle extension to replace collectAsState,
 // ensuring data observation is automatically blocked when the Activity is in STOPPED background state, preventing useless background calculations.
 import androidx.compose.animation.AnimatedVisibility
@@ -52,9 +52,9 @@ fun SearchOverlay(
     val isVisible by searchViewModel.isVisible.collectAsStateWithLifecycle()
 
     // Adjust Animations (Adapt for Frosted Glass Visuals)
-    // When the global setting has enabled MiuixBlur mode, we limit the overlay's entrance/exit animations to pure fade-in/fade-out.
+    // When the global setting has enabled Haze glass mode, we limit the overlay's entrance/exit animations to pure fade-in/fade-out.
     // This effectively avoids edge clipping or rendering flicker of the Gaussian blur sampling layer during fast slide-in/slide-out transitions.
-    // In regular non-miuix-blur mode, continue using original slide-in/slide-out animations.
+    // In regular non-glass mode, continue using original slide-in/slide-out animations.
     // Determine Glass Blur Status (Enable blur only if in Haze mode and state is provided)
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
     // Align transition durations: Set all SearchOverlay slide and fade enter/exit animations to 300ms for UI consistency.
@@ -82,7 +82,7 @@ fun SearchOverlay(
 
         Surface(
             modifier = Modifier.fillMaxSize(),
-            // If newly named MiuixBlur is enabled, set the outer Surface container background to transparent so rendering engine can reveal underlying content
+            // If Haze is enabled, set the outer Surface container background to transparent so rendering engine can reveal underlying content
             color = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) Color.Transparent else MaterialTheme.colorScheme.background
         ) {
             SearchScreen(

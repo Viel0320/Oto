@@ -294,6 +294,10 @@ fun PlayerPortrait(
                                     onConfirmDelete = onConfirmDeleteBookmark,
                                     onConfirmUpdate = onConfirmUpdateBookmark,
                                     onDismissDialogs = onDismissBookmarkDialogs,
+                                    // Bookmark Dialog Haze Routing (Reuse the active player content source)
+                                    // Edit/delete bookmark dialogs should sample the same surface as chapter and bookmark panels in portrait layout.
+                                    hazeState = chapterSheetHazeState,
+                                    glassEffectMode = glassEffectMode,
                                     currentPosition = currentPosition,
                                     modifier = Modifier.fillMaxSize()
                                 )

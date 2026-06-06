@@ -1,8 +1,9 @@
 package com.viel.aplayer.ui.navigation
 
-// Setup MiuixBlur Backdrop (Enhance Blur Visuals)
-// Import miuix-blur's backdrop mechanism API to completely replace the legacy blur library dependency, achieving a clearer viewport-level Gaussian blur refraction effect.
+// Setup Haze Backdrop (Enhance Blur Visuals)
+// Import Haze's backdrop mechanism API to completely replace the legacy blur library dependency, achieving a clearer viewport-level Gaussian blur refraction effect.
 // Setup Haze Core (Import dev.chrisbanes.haze modifiers) Import HazeState and haze modifier for Compose-based blur.
+// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import android.text.Layout
 import android.text.SpannableString
 import android.text.Spanned
@@ -12,11 +13,8 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -28,13 +26,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.data.store.GlassEffectMode
-// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import com.viel.aplayer.data.store.ThemeMode
-import kotlinx.coroutines.flow.first
-import com.viel.aplayer.ui.common.ScanResultDialog
 import com.viel.aplayer.ui.common.UiEvent
-import com.viel.aplayer.ui.common.formatDate
-import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailOverlay
@@ -53,7 +46,7 @@ import com.viel.aplayer.ui.search.SearchViewModel
 import com.viel.aplayer.ui.settings.SettingsOverlay
 import com.viel.aplayer.ui.settings.SettingsViewModel
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -124,9 +117,8 @@ fun APlayerApp(
         val settingsViewModel: SettingsViewModel = viewModel()
 
         val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
-        val scanResult by libraryViewModel.scanResultDialogState.collectAsStateWithLifecycle()
-        // Collect Detail UI State (Adapt MiuixBlur Sampling Source)
-        // Collect the detailUiState from detailViewModel here. This is used when rendering the MiniPlayer overlay to perceive whether the details page is visible, so as to dynamically map the miuix-blur sampling source.
+        // Collect Detail UI State (Adapt Haze Sampling Source)
+        // Collect the detailUiState from detailViewModel here. This is used when rendering the MiniPlayer overlay to perceive whether the details page is visible, so as to dynamically map the Haze sampling source.
         val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
         // Collect Search Visibility State (Control MiniPlayer Rendering)
@@ -282,18 +274,11 @@ fun APlayerApp(
                     Box(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                // Mount Haze Backdrop (Isolate overlay blur source) Replace miuix-blur backdrop with native Haze modifier on bottom navigation Box.
+                // Navigation Host Layer (Delegate route-level haze source ownership)
+                // APlayerNavHost mounts the active route content as the Haze source so HomeAppBar can be rendered as a sibling overlay above that source.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(
-                            // Align to Haze settings mode
-                            if (libraryUiState.glassEffectMode == GlassEffectMode.Haze) {
-                                Modifier.hazeSource(hazeState)
-                            } else {
-                                Modifier
-                            }
-                        )
                 ) {
                     // System Navigation Container (Scaffold Insets Handling)
                     // The bottom-most system navigation management container, the main navigation page (HomeScreen contains its own local Scaffold to provide its own bottom insets avoidance).
@@ -305,8 +290,14 @@ fun APlayerApp(
                         playerViewModel = playerViewModel,
                         detailViewModel = detailViewModel,
                         canStartNavigation = canStartNavigation,
-                        navigateBack = navigateBack,
                         searchViewModel = searchViewModel,
+                        // NavHost Haze Source Mount (Let the navigation host own route-level sampling)
+                        // This lets HomeAppBar live as a sibling overlay above NavDisplay while still sampling the route content.
+                        appHazeState = hazeState,
+                        glassEffectMode = libraryUiState.glassEffectMode,
+                        // Home Dialog Haze Routing (Use the same app backdrop source as SearchOverlay)
+                        // Passing the top-level source prevents Home dialogs from sampling the clipped LazyGrid-local fallback source.
+                        homeDialogHazeState = hazeState,
                         // Settings Navigation Callback (To open settings overlay on request)
                         // Binds setting launch request event to change settings overlay visibility.
                         onNavigateToSettings = {
@@ -421,91 +412,28 @@ fun APlayerApp(
                     glassEffectMode = libraryUiState.glassEffectMode
                 )
 
-                // Scan Result Dialog (Display Scan Summary)
-                // Dialog panel for showing QR/barcode scanning results.
-                scanResult?.let { session ->
-                    ScanResultDialog(
-                        session = session,
-                        onDismiss = { libraryViewModel.dismissScanResultDialog() }
-                    )
-                }
-
                 // Track Unavailable Confirm Dialog (Avoid Interruptions)
                 // Secondary confirmation dialog for track unavailability, shown only when the full-screen player is expanded (isFullPlayerVisible) to prevent interrupting user interaction on other screens.
                 val trackUnavailableState by playerViewModel.trackUnavailableDialogState.collectAsStateWithLifecycle()
                 // ABS Progress Conflict Dialog State (Surface server-vs-device resume choices at the app shell)
                 // The dialog remains hosted near other one-shot player dialogs while all conflict resolution commands stay inside PlayerViewModel.
                 val absProgressConflictState by playerViewModel.absProgressConflictDialogState.collectAsStateWithLifecycle()
-                if (absProgressConflictState.show) {
-                    AlertDialog(
-                        onDismissRequest = { playerViewModel.dismissAbsProgressConflictDialog() },
-                        title = { Text("选择播放进度") },
-                        text = {
-                            Text(
-                                buildString {
-                                    append(absProgressConflictState.bookTitle.ifBlank { "当前书籍" })
-                                    append("\n\n本机进度：")
-                                    append(absProgressConflictState.localPositionMs?.let(::formatTime) ?: "无")
-                                    append(absFinishedSuffix(absProgressConflictState.localFinished))
-                                    absProgressConflictState.localUpdatedAt?.let { updatedAt ->
-                                        append("\n本机更新：")
-                                        append(formatDate(updatedAt))
-                                    }
-                                    append("\n\n服务器进度：")
-                                    append(formatTime(absProgressConflictState.remotePositionMs))
-                                    append(absFinishedSuffix(absProgressConflictState.remoteFinished))
-                                    absProgressConflictState.remoteUpdatedAt?.let { updatedAt ->
-                                        append("\n服务器更新：")
-                                        append(formatDate(updatedAt))
-                                    }
-                                }
-                            )
-                        },
-                        confirmButton = {
-                            TextButton(
-                                onClick = { playerViewModel.acceptRemoteAbsProgressConflict() }
-                            ) {
-                                Text("使用服务器")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(
-                                onClick = { playerViewModel.acceptLocalAbsProgressConflict() }
-                            ) {
-                                Text("使用本机")
-                            }
-                        }
-                    )
-                }
-                if (trackUnavailableState.show && playerUiState.isFullPlayerVisible) {
-                    AlertDialog(
-                        onDismissRequest = { playerViewModel.dismissTrackUnavailableDialog() },
-                        title = { Text("分轨文件不可用") },
-                        text = { Text("当前收听的分轨物理文件不存在或损坏。是否跳过该分轨并播放下一首可用分轨？\n\n（注意：强制跳轨可能会打乱您原本预定的收听进度）") },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    // Skip to Next Available (Trigger ViewModel Self-Healing)
-                                    // The user confirms skipping the current unavailable track, calling the ViewModel interface to trigger self-healing.
-                                    playerViewModel.skipToNextAvailableTrack(
-                                        trackUnavailableState.bookId,
-                                        trackUnavailableState.queueIndex
-                                    )
-                                    playerViewModel.dismissTrackUnavailableDialog()
-                                }
-                            ) {
-                                Text("确认跳过", color = MaterialTheme.colorScheme.error)
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(
-                                onClick = { playerViewModel.dismissTrackUnavailableDialog() }
-                            ) {
-                                Text("取消")
-                            }
-                        }
-                    )
-                }
+                APlayerAppDialogHost(
+                    hazeState = hazeState,
+                    glassEffectMode = libraryUiState.glassEffectMode,
+                    isFullPlayerVisible = playerUiState.isFullPlayerVisible,
+                    absProgressConflictState = absProgressConflictState,
+                    trackUnavailableState = trackUnavailableState,
+                    onDismissAbsProgressConflict = { playerViewModel.dismissAbsProgressConflictDialog() },
+                    onAcceptRemoteAbsProgressConflict = { playerViewModel.acceptRemoteAbsProgressConflict() },
+                    onAcceptLocalAbsProgressConflict = { playerViewModel.acceptLocalAbsProgressConflict() },
+                    onDismissTrackUnavailable = { playerViewModel.dismissTrackUnavailableDialog() },
+                    onSkipToNextAvailableTrack = { bookId, queueIndex ->
+                        // Skip to Next Available (Trigger ViewModel self-healing from the app-level dialog host)
+                        // Keeps the concrete playback mutation in PlayerViewModel while APlayerAppDialogHost owns the confirmation UI.
+                        playerViewModel.skipToNextAvailableTrack(bookId, queueIndex)
+                    }
+                )
             }
         }
     }
@@ -513,9 +441,3 @@ fun APlayerApp(
 }
 }
 
-/**
- * ABS Finished Label (Adds a compact semantic marker beside progress positions)
- * Keeps the dialog text construction readable while making completed-vs-incomplete conflicts visible to users.
- */
-private fun absFinishedSuffix(isFinished: Boolean): String =
-    if (isFinished) "（已完成）" else ""

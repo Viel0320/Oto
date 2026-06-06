@@ -70,10 +70,10 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.library.vfs.VfsExternalInputReader
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import dev.chrisbanes.haze.HazeState
 import java.io.File
 

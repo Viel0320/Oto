@@ -117,7 +117,7 @@ fun PlayerAppBar(
                     onDismissRequest = { showMenu = false },
                     // Setup dropdown menu blur (Pass HazeState to the drop-down menu to render glassmorphism)
                     hazeState = hazeState,
-                    // The player's "more" menu switches between Material and miuix-blur depending on the selection in the settings page.
+                    // The player's "more" menu switches between Material and Haze depending on the selection in the settings page.
                     glassEffectMode = glassEffectMode
                 ) {
                     // 1. Toggle progress mode

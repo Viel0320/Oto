@@ -47,7 +47,7 @@
         <!-- 
              Soft Keyboard Window Mode (Configure MainActivity windowSoftInputMode to adjustNothing)
          This prevents the system from resizing the root window when the IME keyboard appears, keeping the underlying HomeScreen stable.
-         This avoids visual glitches or flickers in the real-time MiuixBlur frosted sampling, while layout padding adjustments are handled via Compose insets. -->
+         This avoids visual glitches or flickers in the real-time frosted glass backdrop sampling, while layout padding adjustments are handled via Compose insets. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

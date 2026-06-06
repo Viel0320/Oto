@@ -118,7 +118,7 @@ private val openSourceLibraries = listOf(
         licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
     OpenSourceLibrary(
-        // Open Source Haze (Update Open Source License Library) Replace old Miuix Blur license details with Chris Banes' Haze.
+        // Open Source Haze (Update Open Source License Library) Replace old blur license details with Chris Banes' Haze.
         name = "Haze",
         developer = "Chris Banes",
         license = "Apache License 2.0",

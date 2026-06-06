@@ -5,7 +5,6 @@ package com.viel.aplayer.ui.common
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -55,7 +54,7 @@ fun AudioProgressBar(
     val knobRadiusPx = remember(density) { with(density) { 8.dp.toPx() } }
     // Theme Aware Progress Bar (Use LocalDarkTheme to resolve active theme state instead of system defaults) Read theme preference state for canvas rendering.
     val isDark = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
-    // Glass Effect Resolution (Resolve glass effect modes) Map MiuixBlur check to the Haze glass effect mode enum.
+    // Glass Effect Resolution (Resolve glass effect modes) Map blur check to the Haze glass effect mode enum.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     // Extract secondary and tertiary colors within the Composable context, caching them as local non-Composable variables.
     // This perfectly resolves compilation errors caused by calling @Composable properties directly inside DrawScope.
@@ -139,7 +138,7 @@ fun AudioProgressBar(
         markers.forEach { marker ->
             if (marker > 0f && marker < 1f) {
                 val markerX = width * marker
-                // The chapter markers are upgraded to adaptive "micro-carved refractive crystal balls" in the miuix-blur state, embedded in the center of the 6.dp track.
+                // The chapter markers are upgraded to adaptive "micro-carved refractive crystal balls" in the Haze glass state, embedded in the center of the 6.dp track.
                 // It draws 35% crystal white in dark mode and 20% semi-transparent black in light mode, achieving a realistic look that coordinates beautifully with the Knob size.
                 val currentMarkerColor = if (isBlur) {
                     if (isDark) Color.White.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.20f)
@@ -216,7 +215,7 @@ fun AudioProgressBar(
         // 4. Draw progress handle (Knob)
         if (showKnob) {
             if (isBlur) {
-                // In miuix-blur mode, the progress knob is refactored into a glass micro-bead effect:
+                // In Haze mode, the progress knob is refactored into a glass micro-bead effect:
                 // (a) Draw a radial gradient semi-transparent frosted base for the knob.
                 val knobBgBrush = Brush.radialGradient(
                     colors = if (isDark) {

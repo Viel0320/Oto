@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.common
 
-// Setup Haze Dialog Integration (Replace miuix-blur with dev.chrisbanes.haze) Replaced miuix backdrop APIs with HazeState, hazeChild, and HazeMaterials.
+// Setup Haze Dialog Integration (Replace old blur implementation with dev.chrisbanes.haze) Replaced backdrop APIs with HazeState, hazeChild, and HazeMaterials.
 // Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,12 +22,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.viel.aplayer.data.store.GlassEffectMode
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
 /**
  * BlurDialog (A common glassmorphic overlay dialog rewritten using Haze)
@@ -51,6 +49,12 @@ fun BlurDialog(
     hazeState: HazeState? = null,
     // Parameter Injection Guard (The glass effect mode must be explicitly provided by the caller to avoid declaring implicit defaults)
     glassEffectMode: GlassEffectMode,
+    // Dismiss Policy Control (Allow form dialogs to preserve drafts)
+    // Keeps the previous default dismiss behavior while giving WebDAV, ABS, and other input-heavy dialogs a way to block accidental back dismissal.
+    dismissOnBackPress: Boolean = true,
+    // Outside Tap Policy Control (Allow explicit-confirm dialogs to consume outside taps)
+    // Keeps click-outside dismissal enabled by default but lets derived dialog templates consume outside taps without closing critical workflows.
+    dismissOnClickOutside: Boolean = true,
     scrollable: Boolean = true,
     content: @Composable () -> Unit
 ) {
@@ -58,6 +62,8 @@ fun BlurDialog(
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
+            dismissOnBackPress = dismissOnBackPress,
+            dismissOnClickOutside = dismissOnClickOutside,
             // Disable Platform Width Bounds (Bypasses system default dialog widths to enforce widthIn layout constraints)
             usePlatformDefaultWidth = false,
             // Window Edge Extension (Allows dialog contents to layout under system status and navigation bar insets)
@@ -74,7 +80,11 @@ fun BlurDialog(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
-                    onDismissRequest()
+                    // Outside Tap Dismiss Gate (Separate gesture consumption from dismissal)
+                    // The full-screen scrim still consumes taps, but only dialogs that opt in to outside dismissal will close from this path.
+                    if (dismissOnClickOutside) {
+                        onDismissRequest()
+                    }
                 }
                 .padding(horizontal = 24.dp, vertical = 48.dp),
             contentAlignment = Alignment.Center

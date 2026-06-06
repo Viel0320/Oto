@@ -20,12 +20,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 
 /**
  * SettingsOverlay Composable (Stateless Settings Overlay Shell)
@@ -43,9 +43,10 @@ fun SettingsOverlay(
     // Synchronizes the show/hide state from SettingsViewModel to drive AnimatedVisibility scope.
     val isVisible by settingsViewModel.isVisible.collectAsStateWithLifecycle()
 
-    // Disable Haze Blur in Settings (SettingsOverlay does not consume HazeState to avoid conflict)
-    // Disables background blur rendering, relying entirely on standard Material background.
-    val isBlur = false
+    // Settings Haze Source (Provide a local backdrop for settings-owned dialogs)
+    // Registers the settings surface itself as the blur source so Settings dialogs do not sample stale Home/Search content behind the overlay.
+    val settingsHazeState = remember { HazeState() }
+    val isBlur = glassEffectMode == GlassEffectMode.Haze
 
     AnimatedVisibility(
         visible = isVisible,
@@ -77,7 +78,15 @@ fun SettingsOverlay(
         }
 
         Surface(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (isBlur) {
+                        Modifier.hazeSource(settingsHazeState)
+                    } else {
+                        Modifier
+                    }
+                ),
             color = MaterialTheme.colorScheme.background
         ) {
             // Apply horizontal navigation transitions (To switch settings sub-screens fluidly)
@@ -161,6 +170,7 @@ fun SettingsOverlay(
                         themeMode = settingsState.themeMode,
                         onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
                         glassEffectMode = settingsState.glassEffectMode,
+                        settingsDialogHazeState = if (isBlur) settingsHazeState else null,
                         onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },
                         autoRewindSeconds = settingsState.autoRewindSeconds,
                         onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) },

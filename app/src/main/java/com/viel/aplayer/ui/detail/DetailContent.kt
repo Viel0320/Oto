@@ -6,27 +6,20 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -63,7 +56,7 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.BlurDialog
+import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
@@ -329,81 +322,48 @@ fun DetailContent(
     }
 
     if (infoDialogText != null) {
-        if (isBlur) {
-            // Setup InfoDialog Haze State (Link dialog blur state) Replaced backdrop with hazeState.
-            BlurDialog(
-                onDismissRequest = {
-                    infoDialogText = null
-                    infoDialogTitle = null
-                },
-                hazeState = fullPageHazeState ?: coverHazeState,
-                glassEffectMode = glassEffectMode
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp)
-                ) {
-                    infoDialogTitle?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                    infoDialogText?.let { dialogText ->
-                        SelectableTextView(
-                            text = dialogText,
-                            modifier = Modifier.fillMaxWidth(),
-                            textColor = MaterialTheme.colorScheme.onSurface,
-                            textSizeSp = 16f,
-                            lineSpacingExtraSp = 4f
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(
-                            onClick = {
-                                infoDialogText = null
-                                infoDialogTitle = null
-                            }
-                        ) {
-                            Text("OK")
-                        }
-                    }
+        APlayerDialogTemplate(
+            onDismissRequest = {
+                infoDialogText = null
+                infoDialogTitle = null
+            },
+            hazeState = fullPageHazeState ?: coverHazeState,
+            glassEffectMode = glassEffectMode,
+            scrollable = true,
+            title = {
+                infoDialogTitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-            }
-        } else {
-            AlertDialog(
-                onDismissRequest = {
-                    infoDialogText = null
-                    infoDialogTitle = null
-                },
-                confirmButton = {
-                    TextButton(onClick = {
+            },
+            body = {
+                // Detail Info Dialog Body (Keep selectable metadata text inside the shared dialog shell)
+                // The detail page owns the selected text payload while APlayerDialogTemplate owns the common chrome, blur source, and action row.
+                infoDialogText?.let { dialogText ->
+                    SelectableTextView(
+                        text = dialogText,
+                        modifier = Modifier.fillMaxWidth(),
+                        textColor = MaterialTheme.colorScheme.onSurface,
+                        textSizeSp = 16f,
+                        lineSpacingExtraSp = 4f
+                    )
+                }
+            },
+            actions = {
+                TextButton(
+                    onClick = {
                         infoDialogText = null
                         infoDialogTitle = null
-                    }) {
-                        Text("OK")
                     }
-                },
-                title = { infoDialogTitle?.let { Text(it) } },
-                text = {
-                    infoDialogText?.let { dialogText ->
-                        SelectableTextView(
-                            text = dialogText,
-                            modifier = Modifier.fillMaxWidth(),
-                            textColor = MaterialTheme.colorScheme.onSurface,
-                            textSizeSp = 16f,
-                            lineSpacingExtraSp = 4f
-                        )
-                    }
+                ) {
+                    Text("OK")
                 }
-            )
-        }
+            }
+        )
     }
 }
 

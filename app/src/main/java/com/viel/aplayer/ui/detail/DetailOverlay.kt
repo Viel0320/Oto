@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -104,7 +103,7 @@ fun DetailOverlay(
                     },
                     // Details page dropdown menu and other overlays uniformly follow the Material/Haze settings.
                     glassEffectMode = glassEffectMode,
-                    // Setup DetailScreen Haze Parameters (Map details background and full-page blur sources) Replaced Miuix backdrop with hazeState and detailHazeState.
+                    // Setup DetailScreen Haze Parameters (Map details background and full-page blur sources) Replaced backdrop with hazeState and detailHazeState.
                     hazeState = hazeState,
                     fullPageHazeState = detailHazeState,
                     // Pass down the in-memory lambda callback for editing book metadata

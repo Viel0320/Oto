@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.common
 
-// Setup Haze Snackbar Integration (Replace miuix-blur with dev.chrisbanes.haze) Replaced miuix backdrop APIs with HazeState, hazeChild, and HazeMaterials.
+// Setup Haze Snackbar Integration (Replace old blur implementation with dev.chrisbanes.haze) Replaced backdrop APIs with HazeState, hazeChild, and HazeMaterials.
 // Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

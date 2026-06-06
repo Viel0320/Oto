@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.player.components
 
-// Import fundamental background modifiers to resolve unresolved reference compilation errors on miuix-blur frosted glass big button background modifiers.
+// Import fundamental background modifiers to resolve unresolved reference compilation errors on frosted glass big button background modifiers.
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,12 +43,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.player.PlaybackControlActions
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -158,9 +157,9 @@ fun PlaybackControls(
         val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
         if (isBlur) {
-            // Play/pause button upgrade for miuix-blur.
+            // Play/pause button upgrade for Haze glass effect.
             //
-            // Upgrade the play/pause button to a clear and dynamic frosted glass big button Surface when miuix-blur is active.
+            // Upgrade the play/pause button to a clear and dynamic frosted glass big button Surface when Haze is active.
             // Completely strip the physical dependency on real-time backdrop sampling, cascading an adaptive light/dark semi-transparent circular mask color,
             // and combining it with an adaptive locally-declared 0.5.dp shimmering silver stroke on top of the player's built-in large-radius blur(64.dp) background.
             // This constructs an iOS-grade outline lighting breathing visual effect and completely eliminates Feedback Loop crashes on Qualcomm Vulkan drivers during translation animations.
