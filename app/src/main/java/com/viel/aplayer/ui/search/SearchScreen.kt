@@ -63,7 +63,9 @@ import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import androidx.compose.ui.graphics.RectangleShape
 
 /**
  * SearchContent Setup (Stateless Search Content UI)
@@ -143,11 +145,10 @@ fun SearchContent(
             .then(
                 if (isBlur) {
                     Modifier
-                        // Setup SearchContent Haze (Apply hazeChild to Scaffold to blur underlying home screen contents)
-                        // Remove Search Haze Shape (Use default shape matching host) Haze 1.x hazeChild does not take shape parameter.
-                        .hazeEffect(
+                        // Liquid Glass Search Overlay (Use custom liquidGlassCompatEffect for full screen blurring and refraction highlight border) Apply liquidGlassCompatEffect with RectangleShape constraint.
+                        .liquidGlassCompatEffect(
                             state = hazeState,
-                            style = HazeMaterials.regular()
+                            style = LiquidGlassStyle(shape = RectangleShape)
                         )
                         // Chain background to append a translucent mask color (light/dark adaptive) to prevent search screen contents from blending with home page text
                         .background(

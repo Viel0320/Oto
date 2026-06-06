@@ -26,7 +26,8 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeChild
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 
 /**
  * BlurDialog (A common glassmorphic overlay dialog rewritten using Haze)
@@ -81,13 +82,13 @@ fun BlurDialog(
             // Setup Glass Modifier (Apply Haze frosted glass effect) Conditionally apply hazeChild modifier if GlassEffectMode.Haze is selected and hazeState is available.
             val glassModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
                 val dialogShape = MaterialTheme.shapes.extraLarge
-                // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
                 Modifier
                     // Clip dialog shape before applying hazeChild
                     .clip(dialogShape)
-                    .hazeEffect(
+                    // Liquid Glass Dialog Integration (Replace regular haze blur with custom liquid glass effect to add border highlight) Apply liquidGlassCompatEffect to dialog container with the dialog's corner shape.
+                    .liquidGlassCompatEffect(
                         state = hazeState,
-                        style = HazeMaterials.regular()
+                        style = LiquidGlassStyle(shape = dialogShape)
                     )
             } else {
                 Modifier

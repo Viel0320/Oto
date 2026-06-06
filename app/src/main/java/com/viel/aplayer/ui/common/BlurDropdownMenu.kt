@@ -18,7 +18,8 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 
 /**
  * BlurDropdownMenu — A generic DropdownMenu wrapper supporting switching between Material native menu and Haze frosted glass menu.
@@ -55,13 +56,13 @@ fun BlurDropdownMenu(
     }
 
     val menuModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
-        // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
         Modifier
             // Clip menu shape before applying hazeChild
             .clip(menuShape)
-            .hazeEffect(
+            // Liquid Glass Menu Integration (Replace regular haze blur with custom liquid glass effect to add border highlight) Apply liquidGlassCompatEffect to DropdownMenu using the menu shape profile.
+            .liquidGlassCompatEffect(
                 state = hazeState,
-                style = HazeMaterials.regular()
+                style = LiquidGlassStyle(shape = menuShape)
             )
     } else {
         Modifier

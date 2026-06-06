@@ -4,8 +4,9 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -33,31 +33,25 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
@@ -70,6 +64,7 @@ import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.home.components.AudiobookActionDialogs
+import com.viel.aplayer.ui.home.components.HomeAppBar
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.home.components.RecentlyAddedSection
 import com.viel.aplayer.ui.motion.SharedElementKeys
@@ -84,7 +79,6 @@ import kotlinx.coroutines.launch
  * Through decoupling and refactoring, HomeScreenContent has achieved complete statelessness, no longer holding any ViewModel or context reference.
  * All interactions and data delivery are performed entirely through pure declarative parameters and Lambda callbacks, greatly improving the unit testability and preview flexibility of the component.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreenContent(
     modifier: Modifier = Modifier,
@@ -132,6 +126,8 @@ fun HomeScreenContent(
 
     // Create HazeState for long-press operation dialog; Scaffold as sampling source, Dialog panel as blur rendering surface.
     val homeHazeState = remember { HazeState() }
+    // Create dedicated HazeState for homepage chips to fetch clean background colors without self-sampling nested loops.
+    val chipHazeState = remember { HazeState() }
     // Label mapping of Filter Chips, which is pure UI text and remains in the Composable
     val filters = listOf(
         HomeFilter.NotStarted to stringResource(R.string.filter_not_started),
@@ -164,6 +160,7 @@ fun HomeScreenContent(
     // This cuts off physical impact of the software keyboard (IME) on home page's perceived safe area padding, preventing unnecessary recombinations of HomeScreen due to changes in safe area heights.
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
+    val density = LocalDensity.current
     // Edge-to-Edge Grid Padding (Exquisite Edge Visual Style)
     // Refactor grid padding strategy: gridStart/EndPadding here only retains physical safe areas (e.g., cutout, side navigation bar).
     // Strip 16dp/24dp business margins from Grid container layer, sinking it into specific titles and list items.
@@ -174,79 +171,33 @@ fun HomeScreenContent(
     // Migrate the scroll state remember from LazyListState to adaptive grid GridState to complete the base upgrade.
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-    // Only Haze mode registers the home page full content as sampling source; Material mode skips it to save rendering cost.
-    val blurSourceModifier = if (glassEffectMode == GlassEffectMode.Haze) {
-        // Setup HomeScreen Haze (Apply haze modifier to container to make it a blur source)
-        Modifier.hazeSource(homeHazeState)
+    val isBlur = glassEffectMode == GlassEffectMode.Haze
+    // Top Bar Height Cache (Reserve scroll content space from the measured overlay top bar) Keeps first-frame padding stable while the top bar is drawn outside Scaffold.
+    var topBarHeightPx by remember { mutableIntStateOf(0) }
+    val measuredTopBarHeight = if (topBarHeightPx > 0) {
+        with(density) { topBarHeightPx.toDp() }
     } else {
-        Modifier
+        safeDrawingPadding.calculateTopPadding() + 64.dp
     }
 
-    Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            // Home page full content as the miuix-blur background sampling source of AudiobookActionDialogs.
-            .then(blurSourceModifier),
-        // Exclude Keyboard Insets (Prevent Layout Re-measurement)
-        // Explicitly exclude the software keyboard (IME) from default contentWindowInsets.
-        // This cuts off layout re-measurement and unnecessary home page recombinations caused by innerPadding changes from software keyboard popups.
-        contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
-        topBar = {
-            CenterAlignedTopAppBar(
-                // Restore default modifier without adding padding outside the container, allowing top bar background or frosted refraction surface to stretch to screen physical edges
-                modifier = Modifier,
-                // Exclude Keyboard Insets (Prevent Title Bar Recombination)
-                // Explicitly exclude WindowInsets.ime in addition to safeDrawing.exclude(navigationBars) to ensure the top bar is unaffected by keyboard height, avoiding unnecessary recombinations.
-                windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
-                title = {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp
-                        ),
-                        modifier = Modifier.pointerInput(Unit) {
-                            detectTapGestures(
-                                onDoubleTap = {
-                                    scope.launch {
-                                        // Double-click TopAppBar to scroll to top, mapped to adaptive gridState to achieve perfect compatibility.
-                                        gridState.scrollToItem(0)
-                                    }
-                                }
-                            )
-                        }
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onNavigateToSearch,
-                        // Apply appBarIconPadding compensation to align search icon precisely with bottom contents in landscape/large screen modes
-                        modifier = Modifier.padding(start = appBarIconPadding)
-                    ) {
-                        Icon(
-                            Icons.Rounded.Search,
-                            contentDescription = stringResource(R.string.search_content_description)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = onNavigateToSettings,
-                        // Apply appBarIconPadding compensation to keep setting icon symmetrically aligned on the right boundary
-                        modifier = Modifier.padding(end = appBarIconPadding)
-                    ) {
-                        Icon(
-                            Icons.Rounded.Tune,
-                            contentDescription = stringResource(R.string.settings_content_description)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background
-                )
+    Box(modifier = modifier.fillMaxSize()) {
+        if (isBlur) {
+            // Dedicated Background Layer for Chip Haze (Sample a clean background color using chipHazeState to decouple filter chips from self-sampling deadlocks) Apply hazeSource to sibling background.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(chipHazeState)
+                    .background(MaterialTheme.colorScheme.background)
             )
-        },
+        }
+
+        Scaffold(
+            modifier = Modifier
+                .fillMaxSize(),
+            // Exclude Keyboard Insets (Prevent Layout Re-measurement)
+            // Explicitly exclude the software keyboard (IME) from default contentWindowInsets.
+            // This cuts off layout re-measurement and unnecessary home page recombinations caused by innerPadding changes from software keyboard popups.
+            contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { 
@@ -268,24 +219,34 @@ fun HomeScreenContent(
             }
         }
     ) { innerPadding ->
+        // Overlay Top Bar Padding (Use measured top bar height because top bar is no longer a Scaffold slot) Lets scroll content move behind the glass bar after the initial reserved space scrolls away.
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding())
+            modifier = Modifier.fillMaxSize()
         ) {
             // LazyVerticalGrid Setup (Adaptive Card Grid)
             // Upgrade and refactor the single-column LazyColumn to a new and powerful LazyVerticalGrid.
             // Using columns Fixed(columnsCount) to adaptively partition multiple columns in wide screens, tablets, and landscape phones.
             // All non-main lists (such as FilterChipRow, RecentlyAdded Row, Author Headers, etc.) use span GridItemSpan(maxLineSpan) to span full width,
             // building a fluid adaptive card grid with a premium appearance.
+            // Home Grid Haze Source (Register the real scrolling bookshelf content as the backdrop source) Allows the top bar to blur books and section content after they scroll underneath it.
+
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columnsCount),
                 state = gridState,
-                modifier = Modifier.fillMaxSize(),
-                // Inject dynamically calculated left/right physical safe area paddings into grid container as unified scroll boundary, eliminating hard-coded occlusion risks
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (isBlur) {
+                            Modifier.hazeSource(homeHazeState)
+                        } else {
+                            Modifier
+                        }
+                    ),
+                // Overlay Top Bar Padding (Reserve measured overlay top bar height in grid content padding) Keeps first content aligned while preserving under-bar scrolling during list movement.
                 contentPadding = PaddingValues(
                     start = gridStartPadding,
                     end = gridEndPadding,
+                    top = measuredTopBarHeight + 12.dp,
                     bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
                 )
             ) {
@@ -298,7 +259,9 @@ fun HomeScreenContent(
                         // Use APlayerFilterChip to build horizontal scrolling filter row.
                         LazyRow(
                             modifier = Modifier
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                // Chip Bottom Spacing (Add extra bottom padding to separate filter chips from underneath lists) Ensure layout breathing distance.
+                                .padding(bottom = 8.dp),
                             // Align Filter Row (Apply Horizontal Margins)
                             // Filter row needs to manually compensate screenHorizontalPadding to align with the safety line, allowing scrolling to penetrate margins.
                             contentPadding = PaddingValues(
@@ -308,10 +271,13 @@ fun HomeScreenContent(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(filters, key = { (filter, _) -> filter.name }) { (filter, label) ->
+                                // Pass Glass Mode to Filter Chips (Deliver active glass effect mode and hazeState properties to filter chips) Support Haze rendering for homepage categories.
                                 APlayerFilterChip(
                                     selected = filter == selectedFilter,
                                     onClick = { onFilterSelected(filter) },
-                                    label = label
+                                    label = label,
+                                    glassEffectMode = glassEffectMode,
+                                    hazeState = chipHazeState
                                 )
                             }
                         }
@@ -412,6 +378,22 @@ fun HomeScreenContent(
         }
     }
 
+    HomeAppBar(
+        glassEffectMode = glassEffectMode,
+        hazeState = homeHazeState,
+        appBarIconPadding = appBarIconPadding,
+        onNavigateToSearch = onNavigateToSearch,
+        onNavigateToSettings = onNavigateToSettings,
+        onTitleDoubleTap = {
+            scope.launch {
+                // Home Grid Scroll Reset (Keep the app bar gesture mapped to the parent-owned grid state)
+                // The extracted app bar delegates the gesture while HomeScreenContent keeps ownership of the adaptive grid scroll model.
+                gridState.scrollToItem(0)
+            }
+        },
+        onHeightChanged = { topBarHeightPx = it }
+    )
+
     // Introduce independently encapsulated long-press operation dialogs to keep the home page UI layout clean and clear
     AudiobookActionDialogs(
         bookWithProgress = activeBookForMenu,
@@ -422,6 +404,7 @@ fun HomeScreenContent(
         onForceRegenerate = onForceRegenerate,
         onDeleteBook = onDeleteBook
     )
+    }
 }
 
 @Preview(showBackground = true, apiLevel = 36)

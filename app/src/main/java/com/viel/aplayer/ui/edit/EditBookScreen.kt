@@ -72,10 +72,9 @@ import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 import java.io.File
 
 /**
@@ -91,7 +90,7 @@ import java.io.File
  * @param glassEffectMode Specifies the glassmorphic rendering style.
  * @param modifier The modifier layout chain.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditBookScreen(
     book: BookEntity?,
@@ -226,11 +225,10 @@ fun EditBookScreen(
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
             .then(
                 if (isBlur) {
-                    // Setup EditBook Haze (Apply hazeChild to main sheet container Box)
-                    // Remove EditBook Haze Shape (Use default shape matching host) Haze 1.x hazeChild does not take shape parameter.
-                    Modifier.hazeEffect(
+                    // Liquid Glass Edit Sheet (Use custom liquidGlassCompatEffect to apply fluid glass highlight borders on the sheet background) Apply custom glass effect with screen corner profile shape.
+                    Modifier.liquidGlassCompatEffect(
                         state = detailHazeState,
-                        style = HazeMaterials.regular()
+                        style = LiquidGlassStyle(shape = RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
                     )
                 } else {
                     Modifier
@@ -451,9 +449,10 @@ fun EditBookScreen(
                                     .then(
                                         Modifier
                                             .clip(RoundedCornerShape(16.dp))
-                                            .hazeEffect(
+                                            // Liquid Glass Save Button (Use custom liquidGlassCompatEffect to render the button border with liquid glass highlights) Apply custom glass effect with 16.dp rounding shape.
+                                            .liquidGlassCompatEffect(
                                                 state = detailHazeState,
-                                                style = HazeMaterials.regular()
+                                                style = LiquidGlassStyle(shape = RoundedCornerShape(16.dp))
                                             )
                                     ),
                                 shape = RoundedCornerShape(16.dp),

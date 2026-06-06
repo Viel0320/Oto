@@ -47,7 +47,8 @@ import com.viel.aplayer.ui.player.PlaybackControlActions
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -170,11 +171,13 @@ fun PlaybackControls(
             // 2. Chain-overlay a specular glare layer with diagonal linear gradient to form a sparkling droplet reflective surface.
             // 3. Chain-append a 1.dp ultra-fine adaptive refraction edge gradient border to reshape the 3D delicate outline.
             // 4. If null, elegantly and safely degrade back to a semi-transparent material background without strokes to maintain ultimate stability.
+            // Liquid Glass Play/Pause (Use custom liquidGlassCompatEffect to apply fluid glass highlight and border details) Apply custom glass effect with playPauseShape profile.
             val glassModifier = Modifier
-                .size(80.dp).clip(playPauseShape)
-                .hazeEffect(
+                .size(80.dp)
+                .clip(playPauseShape)
+                .liquidGlassCompatEffect(
                     state = hazeState,
-                    style = HazeMaterials.regular()
+                    style = LiquidGlassStyle(shape = playPauseShape)
                 )
             Surface(
                 onClick = actions.onPlayPauseClick,
