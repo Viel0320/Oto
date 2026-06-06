@@ -23,6 +23,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.LocalHazeState
 import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -89,15 +90,18 @@ fun BlurDialog(
                 .padding(horizontal = 24.dp, vertical = 48.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Setup Glass Modifier (Apply Haze frosted glass effect) Conditionally apply hazeChild modifier if GlassEffectMode.Haze is selected and hazeState is available.
-            val glassModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
+            // Resolve Dialog Haze State: Fallback to LocalHazeState if no explicit hazeState is passed.
+            // Details: Query LocalHazeState.current composition local to obtain the top-level app-level hazeState automatically when hazeState parameter is null.
+            val resolvedHazeState = hazeState ?: LocalHazeState.current
+            // Setup Glass Modifier (Apply Haze frosted glass effect) Conditionally apply hazeChild modifier if GlassEffectMode.Haze is selected and resolvedHazeState is available.
+            val glassModifier = if (glassEffectMode == GlassEffectMode.Haze && resolvedHazeState != null) {
                 val dialogShape = MaterialTheme.shapes.extraLarge
                 Modifier
                     // Clip dialog shape before applying hazeChild
                     .clip(dialogShape)
                     // Liquid Glass Dialog Integration (Replace regular haze blur with custom liquid glass effect to add border highlight) Apply liquidGlassCompatEffect to dialog container with the dialog's corner shape.
                     .liquidGlassCompatEffect(
-                        state = hazeState,
+                        state = resolvedHazeState,
                         style = LiquidGlassStyle(shape = dialogShape)
                     )
             } else {

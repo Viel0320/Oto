@@ -110,7 +110,8 @@ fun Modifier.liquidGlassCompatEffect(
             style.tint
         } else {
             // Theme-Aware Adaptive Glass Tint: Resolves unspecified glass tint color dynamically based on system dark theme setting (White 12% alpha for Dark mode, Black 12% alpha for Light mode) to ensure optimal visual contrast.
-            if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.12f)
+            //if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.12f)
+            Color.Black.copy(alpha = 0.25f)
         }
     }
     val resolvedStyle = remember(style, resolvedTint) {

@@ -278,7 +278,10 @@ fun APlayerApp(
                 modifier = Modifier.fillMaxSize()
             ) {
                 CompositionLocalProvider(
-                    LocalSharedTransitionScope provides this@SharedTransitionLayout
+                    LocalSharedTransitionScope provides this@SharedTransitionLayout,
+                    // Global Haze State Provider: Provide hazeState via LocalHazeState CompositionLocal.
+                    // Details: Expose the app-level hazeState globally so all nested dialogs can sample from it without explicit parameter prop drilling.
+                    com.viel.aplayer.ui.common.theme.LocalHazeState provides hazeState
                 ) {
                     // Box Layer Decoupling (Prevent Recursive Deadlock Rendering)
                     // Use a full-screen top-level Box container at the outermost layer without mounting layerBackdrop, solely as a coordinate alignment and sibling node layout container for all overlays. This completely isolates the layerBackdrop sampling source layer, avoiding infinite recursion deadlock rendering failure due to overlays using textureBlur to sample their own parent containers internally.
@@ -339,10 +342,9 @@ fun APlayerApp(
                     }
                 )
 
-                // Connect HazeState Source (Switch blur reference source for MiniPlayer)
-                // Dynamically select target HazeState depending on the visibility of the detail page.
-                // When DetailOverlay is visible, sample from detailHazeState, otherwise sample from home page hazeState.
-                val targetHazeState = if (detailUiState.isVisible) detailHazeState else hazeState
+                // MiniPlayer Haze Source Alignment: Align the mini player's blur sampling source to the NavDisplay container.
+                // Details: Direct the mini player's hazeState reference always to the top-level hazeState, which is registered on the outer Box wrapping NavDisplay in APlayerNavHost.kt, ensuring stable blur rendering.
+                val targetHazeState = hazeState
 
                 // Mount MiniPlayer with HazeState (Provide blur context to mini player overlay) Passed target HazeState value to match active background visuals.
                 MiniPlayerOverlay(

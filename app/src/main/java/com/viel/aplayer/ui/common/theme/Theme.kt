@@ -79,6 +79,10 @@ private val LightColorScheme = lightColorScheme(
 // Dark Theme Context (CompositionLocal to expose active dark mode state globally) StaticCompositionLocalOf holds boolean state.
 val LocalDarkTheme = androidx.compose.runtime.staticCompositionLocalOf { false }
 
+// Haze State Context: CompositionLocal to expose global hazeState for blur overlays.
+// Details: Declare LocalHazeState static CompositionLocal to hold the top-level HazeState reference.
+val LocalHazeState = androidx.compose.runtime.staticCompositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
+
 @Composable
 fun APlayerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
