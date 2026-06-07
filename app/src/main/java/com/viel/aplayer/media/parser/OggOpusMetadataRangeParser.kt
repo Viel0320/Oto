@@ -1,5 +1,6 @@
 package com.viel.aplayer.media.parser
 
+import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -129,7 +130,7 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
     }
 
     private fun decodeBase64Picture(value: String): EmbeddedCoverBytes? =
-        runCatching {
+        runCatchingCancellable {
             parseFlacPictureBlock(Base64.getDecoder().decode(value))
         }.getOrNull()
 

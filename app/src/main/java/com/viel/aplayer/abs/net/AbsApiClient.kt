@@ -2,7 +2,6 @@ package com.viel.aplayer.abs.net
 
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.viel.aplayer.abs.net.dto.AbsAuthorizeResponseDto
 import com.viel.aplayer.abs.net.dto.AbsBatchGetItemsResponseDto
 import com.viel.aplayer.abs.net.dto.AbsLibrariesResponseDto
@@ -14,6 +13,7 @@ import com.viel.aplayer.abs.net.dto.AbsPlayRequestDto
 import com.viel.aplayer.abs.net.dto.AbsPlaybackSessionDto
 import com.viel.aplayer.abs.net.dto.AbsStatusDto
 import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.logger.AbsAuthLogger
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +26,13 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.net.SocketTimeoutException
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 /**
  * Server Version Constraints (First ABS integration only supports server versions greater than or equal to 2.35.1)
@@ -57,8 +63,39 @@ interface AbsApiClient {
  */
 class RealAbsApiClient(
     private val client: OkHttpClient = defaultClient(),
-    private val moshi: Moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private val appSettingsRepository: AppSettingsRepository? = null,
+    // Pure Codegen: Instantiate Moshi without reflection support since all DTOs have generated adapters.
+    private val moshi: Moshi = Moshi.Builder().build()
 ) : AbsApiClient {
+
+    // Unsafe Trust Manager: Custom trust manager that bypasses certificate path validation checks for self-signed servers.
+    private val unsafeTrustManager = object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+    }
+
+    // Unsafe SSL Socket Factory: SSL context initialization bypassing active validation routines using the unsafe trust manager.
+    private val unsafeSslSocketFactory = run {
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, arrayOf<TrustManager>(unsafeTrustManager), SecureRandom())
+        sslContext.socketFactory
+    }
+
+    // Unsafe Hostname Verifier: Null hostname verifier accepting any server hostname.
+    private val unsafeHostnameVerifier = HostnameVerifier { _, _ -> true }
+
+    // Unsafe OkHttpClient: Reconfigured OkHttpClient using client.newBuilder() to share the connection pool but bypass SSL checks.
+    private val unsafeClient = client.newBuilder()
+        .sslSocketFactory(unsafeSslSocketFactory, unsafeTrustManager)
+        .hostnameVerifier(unsafeHostnameVerifier)
+        .build()
+
+    // Resolve client instance: Dynamically return client or unsafeClient depending on global settings.
+    private fun getClient(): OkHttpClient {
+        val allowInsecure = appSettingsRepository?.cachedSettings?.isAllowInsecureTls == true
+        return if (allowInsecure) unsafeClient else client
+    }
     private val statusAdapter: JsonAdapter<AbsStatusDto> = moshi.adapter(AbsStatusDto::class.java)
     private val loginAdapter: JsonAdapter<AbsLoginResponseDto> = moshi.adapter(AbsLoginResponseDto::class.java)
     private val authorizeAdapter: JsonAdapter<AbsAuthorizeResponseDto> = moshi.adapter(AbsAuthorizeResponseDto::class.java)
@@ -249,7 +286,8 @@ class RealAbsApiClient(
     private suspend fun <T> executeJson(request: Request, adapter: JsonAdapter<T>): T {
         return withContext(Dispatchers.IO) {
                 val response = try {
-                    client.newCall(request).execute()
+                    // Execute Call: Run client matching SSL certificate checks settings.
+                    getClient().newCall(request).execute()
                 } catch (error: SocketTimeoutException) {
                     throw AbsApiError(
                         code = "TIMEOUT",
@@ -292,7 +330,8 @@ class RealAbsApiClient(
     private suspend fun executeUnit(request: Request) {
         withContext(Dispatchers.IO) {
                 val response = try {
-                    client.newCall(request).execute()
+                    // Execute Call: Run client matching SSL certificate checks settings.
+                    getClient().newCall(request).execute()
                 } catch (error: SocketTimeoutException) {
                     throw AbsApiError(
                         code = "TIMEOUT",

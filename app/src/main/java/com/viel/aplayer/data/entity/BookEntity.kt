@@ -8,7 +8,17 @@ import com.viel.aplayer.data.db.AudiobookSchema
 // New model: Book is the logical title; file ownership lives in BookFileEntity.
 @Entity(
     tableName = "books",
-    indices = [Index("rootId"), Index("status")],
+    // Book Search Indexes: Establish index structures for high-frequency filtering fields (readStatus, series, author, narrator) and sorting fields (title, addedAt) to speed up query performance.
+    indices = [
+        Index("rootId"),
+        Index("status"),
+        Index("readStatus"),
+        Index("series"),
+        Index("author"),
+        Index("narrator"),
+        Index("title"),
+        Index("addedAt")
+    ],
     foreignKeys = [
         // Library Root Cascade Foreign Key (Establish a cascade delete relationship with LibraryRootEntity)
         // Ensures that when a root directory is removed/revoked, all associated books are wiped from the DB automatically.

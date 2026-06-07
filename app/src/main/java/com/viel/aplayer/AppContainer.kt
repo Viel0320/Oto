@@ -14,19 +14,27 @@ import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.CoverGateway
+import com.viel.aplayer.data.gateway.CoverUriResolver
 import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.data.gateway.SearchHistoryGateway
+import com.viel.aplayer.data.service.AndroidCoverUriResolver
 import com.viel.aplayer.data.service.BookQueryService
 import com.viel.aplayer.data.service.CoverService
 import com.viel.aplayer.data.service.LibraryRootService
 import com.viel.aplayer.data.service.ProgressService
 import com.viel.aplayer.data.service.ScanService
 import com.viel.aplayer.data.service.SearchService
-import com.viel.aplayer.data.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.domain.usecase.DeleteBookUseCase
+import com.viel.aplayer.domain.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.library.availability.DetailAvailabilityChecker
 import com.viel.aplayer.library.availability.PlaybackReachabilityManager
@@ -42,6 +50,8 @@ import com.viel.aplayer.media.subtitle.SubtitleFileResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import java.nio.charset.StandardCharsets
+import java.util.UUID
 
 /**
  * Global Dependency Container (Manages lifecycle and instantiation of core gateway services)
@@ -55,6 +65,11 @@ interface AppContainer : java.io.Closeable {
      * Coordinates active playback teardown and background physical data cleanup.
      */
     val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
+
+    /**
+     * Delete Book Use Case (Delete audiobook, chapters, bookmarks, and physical cache files)
+     */
+    val deleteBookUseCase: DeleteBookUseCase
 
     /**
      * High-Level Library Facade (Unified entry point aggregating core domain services)
@@ -150,223 +165,215 @@ interface AppContainer : java.io.Closeable {
 }
 
 @UnstableApi
-class DefaultAppContainer(private val context: Context) : AppContainer {
-
-    private val database: AppDatabase by lazy {
+internal class CoreContainer(val context: Context) {
+    val database: AppDatabase by lazy {
+        // Database Initialization: Instantiates the single room database coordinator safely.
         AppDatabase.getInstance(context)
     }
 
-    override val playbackManager: com.viel.aplayer.media.PlaybackManager by lazy {
+    val playbackManager: com.viel.aplayer.media.PlaybackManager by lazy {
+        // Playback Singleton Initialization: Connects media lifecycle events across system interfaces.
         com.viel.aplayer.media.PlaybackManager.getInstance(context)
     }
 
-    override val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore by lazy {
+    val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore by lazy {
+        // Search Store Initialization: Prepares the settings lookup and search logs DataStore.
         com.viel.aplayer.data.store.SearchHistoryStore.getInstance(context)
     }
 
-    override val autoRewindManager: com.viel.aplayer.media.AutoRewindManager by lazy {
+    val autoRewindManager: com.viel.aplayer.media.AutoRewindManager by lazy {
+        // Rewind Manager Initialization: Orchestrates the self-healing progress tracking logic.
         com.viel.aplayer.media.AutoRewindManager.getInstance(context)
     }
 
-    private val absCredentialStore by lazy {
-        AbsCredentialStore.getInstance(context.applicationContext)
+    val settingsRepository: AppSettingsRepository by lazy {
+        // App Settings Repository: Accesses the application configuration options.
+        AppSettingsRepository.getInstance(context)
     }
+}
 
-    private val absApiClient by lazy {
-        RealAbsApiClient()
-    }
-
-    private val absCoverCache by lazy {
-        AbsCoverCache(context.applicationContext)
-    }
-
-    // Scanner Directory Listing Cache (Lazily creates the Room-backed WebDAV child snapshot cache)
-    // Injected only into ScanService so playback, metadata reading, and availability checks keep direct provider behavior.
-    private val directoryListingCache by lazy {
-        RoomDirectoryListingCache(
-            directoryChildCacheDao = database.directoryChildCacheDao()
-        )
-    }
-
-    // Metadata Range Cache (Stores only bounded readRange blocks for metadata and cover extraction)
-    // This cache is injected into VfsFileInterface and never into playback stream data sources, preserving provider-owned seek behavior.
-    private val vfsRangeCache by lazy {
+@UnstableApi
+internal class VfsContainer(
+    val context: Context,
+    val core: CoreContainer
+) {
+    val vfsRangeCache by lazy {
+        // Range Cache Initialization: Prepares a dedicated cache registry for metadata extraction blocks.
         VfsRangeCache(context.applicationContext)
     }
 
-    // Root Cache Eviction Coordinator (Lazily creates data-domain cleanup for root deletion)
-    // Clears cover files and directory cache rows before Room cascades remove source records, without owning playback or scan behavior.
-    private val cacheEvictionCoordinator by lazy {
-        CacheEvictionCoordinator(
-            context = context.applicationContext,
-            bookDao = database.bookDao(),
-            directoryCacheDao = database.directoryCacheDao(),
-            directoryChildCacheDao = database.directoryChildCacheDao(),
-            vfsRangeCache = vfsRangeCache
+    val directoryListingCache by lazy {
+        // Directory Listing Cache: Cache for directory child folders to optimize scan latency.
+        RoomDirectoryListingCache(
+            directoryChildCacheDao = core.database.directoryChildCacheDao()
         )
     }
 
-    private val absPlaybackCredentialResolver by lazy {
-        AbsPlaybackCredentialResolver(
-            libraryRootDao = database.libraryRootDao(),
-            credentialStore = absCredentialStore
+    val vfsFileInterface: VfsFileInterface by lazy {
+        // Vfs File Interface: Interconnects local files and remote directories with unified VFS logic.
+        VfsFileInterface(
+            context.applicationContext,
+            libraryRootDao = core.database.libraryRootDao(),
+            rangeCache = vfsRangeCache
         )
     }
 
-    // Playback Reachability Monitor (Lazily instantiates the reachability controller to verify tracks and handle skips)
-    private val playbackReachabilityManager: PlaybackReachabilityManager by lazy {
-        PlaybackReachabilityManager(
-            context,
-            database.bookDao(),
-            database.libraryRootDao()
+    val playbackFileLookup: PlaybackFileLookup by lazy {
+        // Playback File Lookup: Associates book identifiers to their respective audio files.
+        com.viel.aplayer.media.DefaultPlaybackFileLookup(
+            core.database.bookDao()
         )
     }
 
-    override val settingsRepository: AppSettingsRepository by lazy {
-        AppSettingsRepository.getInstance(context)
+    val playbackSourcePreflight: PlaybackSourcePreflight by lazy {
+        // Playback Preflight Guard: Evaluates book root availability before constructing media sources.
+        PlaybackSourcePreflight(core.database.libraryRootDao())
     }
+}
 
-    /**
-     * Root Library Deletion Service (Lazily instantiates root deletion orchestrator)
-     * Injects PlaybackManager, BookQueryGateway, and LibraryRootGateway, removing legacy repository dependencies.
-     */
-    override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
-        DeleteLibraryRootUseCase(
-            playbackManager = playbackManager,
-            bookQueryGateway = bookQueryGateway,
-            libraryRootGateway = libraryRootGateway
-        )
-    }
-
-    // Sandboxed Cover Extractor (Lazily instantiates helper to parse cover art and apply graphics crops)
-    private val coverExtractor: CoverExtractor by lazy {
+@UnstableApi
+internal class LocalLibraryContainer(
+    val context: Context,
+    val core: CoreContainer,
+    val vfs: VfsContainer
+) : java.io.Closeable {
+    val coverExtractor: CoverExtractor by lazy {
+        // Cover Extractor: Parses image headers to extract embedded cover artwork files.
         CoverExtractor(context.applicationContext)
     }
 
-    // Audio Metadata Resolver (Lazily instantiates tag parser, injecting the VFS instance to avoid direct DB accesses)
-    private val metadataResolver: MetadataResolver by lazy {
-        MetadataResolver(vfsFileInterface)
+    val metadataResolver: MetadataResolver by lazy {
+        // Metadata Resolver: Extracts tag structures and timeline configurations from media files.
+        MetadataResolver(vfs.vfsFileInterface)
     }
 
-    // Detail Availability Verifier (Lazily instantiates component verifying audiobook accessibility)
-    private val detailAvailabilityChecker: DetailAvailabilityChecker by lazy {
+    val detailAvailabilityChecker: DetailAvailabilityChecker by lazy {
+        // Detail Checker: Performs robust connection checks for books in detail displays.
         DetailAvailabilityChecker(context.applicationContext)
     }
 
-    // Single Track Checker (Lazily instantiates reachability checker for individual media files)
-    private val availabilityChecker: AvailabilityChecker by lazy {
+    val availabilityChecker: AvailabilityChecker by lazy {
+        // Availability Checker: Evaluates if file handles are reachable before launching players.
         AvailabilityChecker(context.applicationContext)
     }
 
-    // Subtitle Resolver Facade (Lazily instantiates subtitle locator and file reader utility)
-    private val subtitleFileResolver: SubtitleFileResolver by lazy {
+    val subtitleFileResolver: SubtitleFileResolver by lazy {
+        // Subtitle Resolver: Searches local directories to resolve matching lyrics and captions.
         SubtitleFileResolver(
             context = context.applicationContext,
-            bookDao = database.bookDao(),
-            fileReader = vfsFileInterface
+            bookDao = core.database.bookDao(),
+            fileReader = vfs.vfsFileInterface
         )
     }
 
-    // Cover Self-Healing Agent (Lazily instantiates the self-healing utility restoring missing covers)
-    // Creates a dedicated IO CoroutineScope internally to prevent blocking UI main threads.
-    private val coverRecoveryHelper: CoverRecoveryHelper by lazy {
+    val playbackReachabilityManager: PlaybackReachabilityManager by lazy {
+        // Reachability Monitor: Verifies accessibility of next files during play lists loop.
+        PlaybackReachabilityManager(
+            context,
+            core.database.bookDao(),
+            core.database.libraryRootDao()
+        )
+    }
+
+    val coverUriResolver: CoverUriResolver by lazy {
+        // Cover Uri Resolver: Bridges raw filesystem paths to application provider URIs.
+        AndroidCoverUriResolver(context.applicationContext)
+    }
+
+    var coverRecoveryScope: CoroutineScope? = null
+        private set
+
+    val coverRecoveryHelper: CoverRecoveryHelper by lazy {
+        // Recovery Scope Allocation: Instantiates supervisor job for background cover recovery.
+        val s = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        coverRecoveryScope = s
         CoverRecoveryHelper(
             context = context.applicationContext,
-            bookDao = database.bookDao(),
-            libraryRootDao = database.libraryRootDao(),
+            bookDao = core.database.bookDao(),
+            libraryRootDao = core.database.libraryRootDao(),
             coverExtractor = coverExtractor,
-            scope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
-            fileReader = vfsFileInterface
+            scope = s,
+            fileReader = vfs.vfsFileInterface
         )
     }
 
-    /**
-     * Book Query Service (Lazily instantiates the read-write gateway service for audiobooks)
-     * Injects specific DAO interfaces and the cover self-healing helper, decoupling legacy repository logic.
-     */
-    override val bookQueryGateway: BookQueryGateway by lazy {
-        // Safe Content URI Resolution (Inject the global ApplicationContext into BookQueryService constructor)
-        // Enables FileProvider to map absolute cached image paths to content:// schemes when constructing PlaybackPlans.
+    val bookQueryGateway: BookQueryGateway by lazy {
+        // Book Query Service: Interconnects library UI workflows to the room backend.
         BookQueryService(
-            context = context.applicationContext,
-            bookDao = database.bookDao(),
-            chapterDao = database.chapterDao(),
-            bookmarkDao = database.bookmarkDao(),
-            scanSessionDao = database.scanSessionDao(),
+            coverUriResolver = coverUriResolver,
+            bookDao = core.database.bookDao(),
+            chapterDao = core.database.chapterDao(),
+            bookmarkDao = core.database.bookmarkDao(),
+            scanSessionDao = core.database.scanSessionDao(),
             coverRecoveryHelper = coverRecoveryHelper
         )
     }
 
-    /**
-     * Playback Progress Service (Lazily instantiates progress storage gateway)
-     * Injects database.bookDao() and the reachability manager to bypass legacy history repository dependencies.
-     */
-    override val progressGateway: ProgressGateway by lazy {
+    val progressGateway: ProgressGateway by lazy {
+        // Progress Sync Service: Stores listening checkpoints into the local sqlite instance.
         ProgressService(
-            bookDao = database.bookDao(),
+            bookDao = core.database.bookDao(),
             reachabilityManager = playbackReachabilityManager
         )
     }
 
-    /**
-     * Background Scanner Service (Lazily instantiates background media scanner service)
-     * Injects context, cover healing agent, and PlaybackManager bus, replacing legacy library repositories.
-     */
-    override val scanScheduler: ScanScheduler by lazy {
+    val scanScheduler: ScanScheduler by lazy {
+        // Media Scanner Service: Runs directory crawl passes to locate added/deleted books.
         ScanService(
             context = context,
             coverRecoveryHelper = coverRecoveryHelper,
-            vfsFileInterface = vfsFileInterface,
-            directoryListingCache = directoryListingCache,
-            playbackManager = playbackManager
+            vfsFileInterface = vfs.vfsFileInterface,
+            directoryListingCache = vfs.directoryListingCache,
+            playbackManager = core.playbackManager
         )
     }
 
-    // Library Root Service (Lazily instantiates root directory maintenance gateway)
-    // Injects database DAOs and ScanScheduler, avoiding thin delegator patterns in legacy repositories.
-    override val libraryRootGateway: LibraryRootGateway by lazy {
+    val cacheEvictionCoordinator by lazy {
+        // Cache Evictor: Deletes redundant cached artwork and folders during library resets.
+        CacheEvictionCoordinator(
+            context = context.applicationContext,
+            bookDao = core.database.bookDao(),
+            directoryCacheDao = core.database.directoryCacheDao(),
+            directoryChildCacheDao = core.database.directoryChildCacheDao(),
+            vfsRangeCache = vfs.vfsRangeCache
+        )
+    }
+
+    val libraryRootGateway: LibraryRootGateway by lazy {
+        // Library Root Gateway: Manages directory registrations and coordinates folder purging.
         LibraryRootService(
             context = context,
-            libraryRootDao = database.libraryRootDao(),
-            bookDao = database.bookDao(),
+            libraryRootDao = core.database.libraryRootDao(),
+            bookDao = core.database.bookDao(),
             scanScheduler = scanScheduler,
             cacheEvictionCoordinator = cacheEvictionCoordinator
         )
     }
 
-    /**
-     * Cover Service Orchestrator (Lazily instantiates covers and subtitles resolving gateway)
-     * Aggregates bookDao, chapterDao, and the six decoupled helper singletons to clean up legacy dependencies.
-     */
-    override val coverGateway: CoverGateway by lazy {
+    val coverGateway: CoverGateway by lazy {
+        // Cover Gateway Service: Handles batch image extractions and metadata queries.
         CoverService(
-            bookDao = database.bookDao(),
-            chapterDao = database.chapterDao(),
+            bookDao = core.database.bookDao(),
+            chapterDao = core.database.chapterDao(),
             coverRecoveryHelper = coverRecoveryHelper,
             coverExtractor = coverExtractor,
             metadataResolver = metadataResolver,
             subtitleResolver = subtitleFileResolver,
             detailAvailabilityChecker = detailAvailabilityChecker,
             availabilityChecker = availabilityChecker,
-            database = database
+            database = core.database
         )
     }
 
-    /**
-     * Search History Service (Lazily instantiates search queries storage gateway)
-     * Injects SearchHistoryStore directly, decoupling search logic from the legacy repository.
-     */
-    override val searchHistoryGateway: SearchHistoryGateway by lazy {
+    val searchHistoryGateway: SearchHistoryGateway by lazy {
+        // Search Service Gateway: Persists history terms to data store profiles.
         SearchService(
-            searchHistoryStore = searchHistoryStore
+            searchHistoryStore = core.searchHistoryStore
         )
     }
 
-    /**
-     * Unified Media Library Facade (Composes the six domain-specific gateways under one unified facade)
-     * Avoids passing any legacy repositories, completing the decoupling of core storage operations.
-     */
-    override val libraryFacade: LibraryFacade by lazy {
+    val libraryFacade: LibraryFacade by lazy {
+        // Library Domain Facade: Combines the query, scanner, roots, progress, and cover adapters.
         LibraryFacade(
             bookQueryGateway = bookQueryGateway,
             progressGateway = progressGateway,
@@ -377,80 +384,273 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
-    /**
-     * Virtual File System Channel (Lazily instantiates the VfsFileInterface singleton)
-     * Serves as the single channel for virtual audio path mapping across playback and scan workflows.
-     */
-    override val vfsFileInterface: VfsFileInterface by lazy {
-        VfsFileInterface(
-            context.applicationContext,
-            libraryRootDao = database.libraryRootDao(),
-            rangeCache = vfsRangeCache
-        )
-    }
-
-    /**
-     * Playback File Lookup Service (Lazily instantiates default database lookup service)
-     */
-    override val playbackFileLookup: PlaybackFileLookup by lazy {
-        com.viel.aplayer.media.DefaultPlaybackFileLookup(
-            database.bookDao()
-        )
-    }
-
-    override val playbackSourcePreflight: PlaybackSourcePreflight by lazy {
-        // DB-Only Playback Gate (Keeps root preflight limited to persisted lifecycle state)
-        // Avoids SAF traversal, WebDAV requests, and ABS API calls before MediaController receives a real play request.
-        PlaybackSourcePreflight(database.libraryRootDao())
-    }
-
-    override val absCatalogSynchronizer: AbsCatalogSynchronizer by lazy {
-        AbsCatalogSynchronizer(
-            apiClient = absApiClient,
-            credentialStore = absCredentialStore,
-            catalogStore = database.absCatalogDao(),
-            coverCache = absCoverCache
-        )
-    }
-
-    override val absProgressConflictCoordinator: AbsProgressConflictCoordinator by lazy {
-        AbsProgressConflictCoordinator(
-            apiClient = absApiClient,
+    val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
+        // Library Deletion Use Case: Teardown logic for removing library roots.
+        DeleteLibraryRootUseCase(
+            playbackManager = core.playbackManager,
             bookQueryGateway = bookQueryGateway,
-            progressGateway = progressGateway,
-            credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) }
+            libraryRootGateway = libraryRootGateway
         )
     }
 
-    override val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer by lazy {
-        AbsPlaybackSessionSyncer(
-            apiClient = absApiClient,
-            absPlaybackSessionDao = database.absPlaybackSessionDao(),
-            absPendingProgressSyncDao = database.absPendingProgressSyncDao(),
-            catalogStore = database.absCatalogDao(),
-            credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) },
-            progressConflictCoordinator = absProgressConflictCoordinator
-        )
-    }
-
-    override val absSyncTaskCoordinator: AbsSyncTaskCoordinator by lazy {
-        // Decoupled Background Toast Dispatcher (Inject PlaybackManager into AbsSyncTaskCoordinator to handle toast events)
-        // Dispatches UiEvent.ShowToast via the global event bus, eliminating direct dependencies on UI Activity contexts.
-        AbsSyncTaskCoordinator(
-            libraryRootDao = database.libraryRootDao(),
-            synchronizer = absCatalogSynchronizer,
-            playbackManager = playbackManager,
-            rootPreflight = libraryRootGateway::refreshLibraryRootStatus
+    val deleteBookUseCase: DeleteBookUseCase by lazy {
+        // Delete Book Use Case: Removes library references and covers of a target audiobook.
+        DeleteBookUseCase(
+            playbackManager = core.playbackManager,
+            libraryFacade = libraryFacade
         )
     }
 
     override fun close() {
-        // Resource Cleanup Coordinator (Coordinate teardown across domain services during container release)
-        // Cancels active coroutine jobs and tears down listeners on Room, VFS, and file observers to prevent memory leaks.
+        // Recovery Scope Cancel: Cancels the recovery coroutine context safely to avoid runtime memory leaks.
+        coverRecoveryScope?.let { s ->
+            runCatching { s.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
+        }
+        // Gateway Disposal: Triggers release logic across closeable local library gateways.
         (bookQueryGateway as? java.io.Closeable)?.close()
         (progressGateway as? java.io.Closeable)?.close()
         (scanScheduler as? java.io.Closeable)?.close()
         (libraryRootGateway as? java.io.Closeable)?.close()
         (coverGateway as? java.io.Closeable)?.close()
+        (searchHistoryGateway as? java.io.Closeable)?.close()
+    }
+}
+
+@UnstableApi
+internal class AbsContainer(
+    val context: Context,
+    val core: CoreContainer,
+    val vfs: VfsContainer,
+    val local: LocalLibraryContainer
+) : java.io.Closeable {
+    val absCredentialStore by lazy {
+        // ABS Credential Store: Securely manages credentials for Audiobookshelf.
+        AbsCredentialStore.getInstance(context.applicationContext)
+    }
+
+    val absApiClient by lazy {
+        // ABS Client Client: Sends REST calls to Audiobookshelf endpoints.
+        RealAbsApiClient(appSettingsRepository = core.settingsRepository)
+    }
+
+    val absCoverCache by lazy {
+        // ABS Cover Cache: Caches downloaded covers from Audiobookshelf servers locally.
+        AbsCoverCache(context.applicationContext)
+    }
+
+    val absPlaybackCredentialResolver by lazy {
+        // ABS Credential Resolver: Resolves credential details for remote playback.
+        AbsPlaybackCredentialResolver(
+            libraryRootDao = core.database.libraryRootDao(),
+            credentialStore = absCredentialStore
+        )
+    }
+
+    val absCatalogSynchronizer: AbsCatalogSynchronizer by lazy {
+        // ABS Catalog Synchronizer: Mirrors server library catalogs to local room tables.
+        AbsCatalogSynchronizer(
+            apiClient = absApiClient,
+            credentialStore = absCredentialStore,
+            catalogStore = core.database.absCatalogDao(),
+            coverCache = absCoverCache
+        )
+    }
+
+    val absProgressConflictCoordinator: AbsProgressConflictCoordinator by lazy {
+        // Progress Conflict Coordinator: Arbitrates conflicting play timestamps.
+        AbsProgressConflictCoordinator(
+            apiClient = absApiClient,
+            bookQueryGateway = local.bookQueryGateway,
+            progressGateway = local.progressGateway,
+            credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) }
+        )
+    }
+
+    val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer by lazy {
+        // Playback Session Syncer: Submits media play progress intervals to servers.
+        AbsPlaybackSessionSyncer(
+            apiClient = absApiClient,
+            absPlaybackSessionDao = core.database.absPlaybackSessionDao(),
+            absPendingProgressSyncDao = core.database.absPendingProgressSyncDao(),
+            catalogStore = core.database.absCatalogDao(),
+            credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) },
+            progressConflictCoordinator = absProgressConflictCoordinator
+        )
+    }
+
+    val absSyncTaskCoordinator: AbsSyncTaskCoordinator by lazy {
+        // Sync Task Coordinator: Coordinates background Audiobookshelf catalog runs.
+        AbsSyncTaskCoordinator(
+            libraryRootDao = core.database.libraryRootDao(),
+            synchronizer = absCatalogSynchronizer,
+            playbackManager = core.playbackManager,
+            rootPreflight = local.libraryRootGateway::refreshLibraryRootStatus
+        )
+    }
+
+    override fun close() {
+        // ABS Resources Disposal: Releases remote coordination modules and sync tasks safely.
+        absSyncTaskCoordinator.close()
+    }
+}
+
+@UnstableApi
+class DefaultAppContainer(private val context: Context) : AppContainer {
+
+    internal val core = CoreContainer(context)
+    internal val vfs = VfsContainer(context, core)
+    internal val local = LocalLibraryContainer(context, core, vfs)
+    internal val abs = AbsContainer(context, core, vfs, local)
+
+    override val settingsRepository: AppSettingsRepository
+        get() = core.settingsRepository
+
+    override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
+        get() = local.deleteLibraryRootUseCase
+
+    override val deleteBookUseCase: DeleteBookUseCase
+        get() = local.deleteBookUseCase
+
+    override val libraryFacade: LibraryFacade
+        get() = local.libraryFacade
+
+    override val bookQueryGateway: BookQueryGateway
+        get() = local.bookQueryGateway
+
+    override val progressGateway: ProgressGateway
+        get() = local.progressGateway
+
+    override val scanScheduler: ScanScheduler
+        get() = local.scanScheduler
+
+    override val libraryRootGateway: LibraryRootGateway
+        get() = local.libraryRootGateway
+
+    override val coverGateway: CoverGateway
+        get() = local.coverGateway
+
+    override val searchHistoryGateway: SearchHistoryGateway
+        get() = local.searchHistoryGateway
+
+    override val vfsFileInterface: VfsFileInterface
+        get() = vfs.vfsFileInterface
+
+    override val playbackFileLookup: PlaybackFileLookup
+        get() = vfs.playbackFileLookup
+
+    override val playbackSourcePreflight: PlaybackSourcePreflight
+        get() = vfs.playbackSourcePreflight
+
+    override val playbackManager: com.viel.aplayer.media.PlaybackManager
+        get() = core.playbackManager
+
+    override val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore
+        get() = core.searchHistoryStore
+
+    override val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
+        get() = core.autoRewindManager
+
+    override val absCatalogSynchronizer: AbsCatalogSynchronizer
+        get() = abs.absCatalogSynchronizer
+
+    override val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer
+        get() = abs.absPlaybackSessionSyncer
+
+    override val absProgressConflictCoordinator: AbsProgressConflictCoordinator
+        get() = abs.absProgressConflictCoordinator
+
+    override val absSyncTaskCoordinator: AbsSyncTaskCoordinator
+        get() = abs.absSyncTaskCoordinator
+
+    override fun close() {
+        // Sub-container Teardown Delegation: Dispatches teardown operations directly to the respective domain containers.
+        runCatching { local.close() }
+        runCatching { abs.close() }
+    }
+}
+
+/**
+ * Unified Query-Time Chapters Projection Rules (Dynamic fallback mapping logic)
+ * 
+ * Rules:
+ * 1. Preserves existing parsed database chapters; does not override authentic tags.
+ * 2. Dynamically builds a single track fallback chapter if database chapter schemas are empty.
+ * 3. Retains projection models strictly in-memory, avoiding persisting dummy entries to database tables.
+ */
+internal fun projectChaptersWithTrackFallback(
+    book: BookEntity?,
+    files: List<BookFileEntity>,
+    chapters: List<ChapterWithBookFile>
+): List<ChapterWithBookFile> {
+    // Skip override: Returns database chapters directly to prevent altering real parsed content.
+    if (chapters.isNotEmpty()) {
+        return chapters
+    }
+    // Sanity reference checks: Avoids synthesizing chapters if the target book does not exist in cache records.
+    if (book == null) {
+        return chapters
+    }
+    // Files existence check: Requires valid audio track mappings to execute projection loops.
+    val sortedFiles = files.sortedBy { file -> file.index }
+    if (sortedFiles.isEmpty()) {
+        return chapters
+    }
+    var runningStartMs = 0L
+    return sortedFiles.mapIndexed { trackIndex, file ->
+        val safeDurationMs = when {
+            file.durationMs > 0L -> file.durationMs
+            // Duration Fallback: Recovers duration from global book records if individual track duration is missing.
+            sortedFiles.size == 1 && book.totalDurationMs > 0L -> book.totalDurationMs
+            else -> 0L
+        }.coerceAtLeast(0L)
+        val chapter = ChapterEntity(
+            // Stable Synthetic ID: Computes a name-based UUID using bookId and fileId parameters.
+            // Prevents Compose UI list flickers and notification track updates from unstable random values.
+            id = syntheticTrackProjectionChapterId(book.id, file.id),
+            bookId = book.id,
+            // Primary Key Bindings: Associates the dynamic chapter with the real BookFileEntity ID.
+            // Ensures seek commands and chapters completion checks map correctly onto physical file entities.
+            bookFileId = file.id,
+            index = trackIndex,
+            title = projectedTrackChapterTitle(book, file, trackIndex, sortedFiles.size),
+            startPositionMs = runningStartMs,
+            durationMs = safeDurationMs,
+            fileOffsetMs = 0L,
+            source = AudiobookSchema.ChapterSource.GENERATED
+        )
+        // Accumulative Timelines: Increases relative start offsets with accumulated durations.
+        // Maps multi-file tracks onto unified timeline structures across local and remote sources.
+        runningStartMs += safeDurationMs
+        ChapterWithBookFile(
+            chapter = chapter,
+            bookFile = file
+        )
+    }
+}
+
+/**
+ * Stable Synthetic ID Generation (In-memory UUID builder)
+ * Generates a stable name-based UUID for virtual track-chapter projection schemas.
+ * Isolates in-memory structures to prevent primary key pollution in persistent tables.
+ */
+internal fun syntheticTrackProjectionChapterId(bookId: String, fileId: String): String =
+    UUID.nameUUIDFromBytes("track-projection:$bookId:$fileId".toByteArray(StandardCharsets.UTF_8)).toString()
+
+/**
+ * Resolve Dynamic Chapter Title (Label generation priorities)
+ * Prioritizes the book's title for single-file track representations, and individual track display names for multi-file systems.
+ */
+internal fun projectedTrackChapterTitle(
+    book: BookEntity,
+    file: BookFileEntity,
+    trackIndex: Int,
+    totalTracks: Int
+): String {
+    val displayName = file.displayName.substringBeforeLast('.', file.displayName).ifBlank { file.displayName }
+    return when {
+        totalTracks == 1 && book.title.isNotBlank() -> book.title
+        displayName.isNotBlank() -> displayName
+        book.title.isNotBlank() -> "${book.title} ${trackIndex + 1}"
+        else -> "Track ${trackIndex + 1}"
     }
 }

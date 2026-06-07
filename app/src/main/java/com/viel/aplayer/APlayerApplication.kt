@@ -2,6 +2,7 @@ package com.viel.aplayer
 
 import android.app.Application
 import android.content.Context
+import android.os.StrictMode
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import coil.ImageLoader
@@ -18,6 +19,10 @@ import kotlinx.coroutines.launch
  * Application class responsible for initializing the global dependency container.
  */
 class APlayerApplication : Application(), ImageLoaderFactory {
+
+    // Application Coroutine Scope (Provides a centralized coroutine lifecycle scope managed by the application process)
+    // App Scope Visibility: Expose appScope internally to allow background tasks (like widget cleanups during service destruction) to launch on a persistent scope.
+    internal val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     /** 
      * Dependency Container Interface (Provide backward compatibility and safe container retrieval)
@@ -31,15 +36,26 @@ class APlayerApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // StrictMode Setup: Enable VM Policy checking to detect closeable leaks on debug builds without depending on BuildConfig class.
+        val isDebuggable = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (isDebuggable) {
+            StrictMode.setVmPolicy(
+                StrictMode.VmPolicy.Builder()
+                    .detectLeakedClosableObjects()
+                    .penaltyLog()
+                    .build()
+            )
+        }
+
         // Early Container Initialization (Trigger AppContainer instantiation on the main thread during onCreate)
         // This ensures all dependency components are fully initialized before any activities or background services connect.
-        getContainer(this)
-
-        // Progress Recovery Self-Healing (Initiate cold start self-healing for playback progress asynchronously)
-        // Dispatches the self-healing routine via autoRewindManager within a background IO coroutine.
-        // This avoids bypassing the DI container to call static singletons directly, preserving testability.
-        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-            container.autoRewindManager.performColdStartSelfHealing()
+        val appContainer = getContainer(this)
+        
+        // Async Warmup (Warm up database/settings components on background thread during application startup)
+        // Dispatches the pre-caching of preferences and progress recovery self-healing to a dedicated background thread.
+        appScope.launch {
+            appContainer.settingsRepository
+            appContainer.autoRewindManager.performColdStartSelfHealing()
         }
     }
 

@@ -1,4 +1,5 @@
-package com.viel.aplayer.ui.player.components.relatedsection
+// Package Relocation: Move RelatedSection to the domain model package as it is a pure data structure representing a related sections domain model.
+package com.viel.aplayer.domain.model
 
 import com.viel.aplayer.data.entity.BookWithProgress
 

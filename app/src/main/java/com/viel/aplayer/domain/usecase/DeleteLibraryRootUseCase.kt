@@ -1,4 +1,5 @@
-package com.viel.aplayer.data.usecase
+// Package Relocation: Relocate components to the unified domain usecase package to keep architecture consistent.
+package com.viel.aplayer.domain.usecase
 
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.logger.LibraryWorkflowLogger

@@ -53,7 +53,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val absCredentialStore = AbsCredentialStore.getInstance(application.applicationContext)
     // Shared client instance (To avoid redundant authentication requests)
     // Reuses a single API client instance across connection tests and registration flows.
-    private val absApiClient = com.viel.aplayer.abs.net.RealAbsApiClient()
+    private val absApiClient = com.viel.aplayer.abs.net.RealAbsApiClient(appSettingsRepository = settingsRepository)
     private val absConnectionTester = com.viel.aplayer.abs.sync.AbsConnectionTester(absApiClient)
     private val database = com.viel.aplayer.data.db.AppDatabase.getInstance(application.applicationContext)
     // Cache connection snapshot (To speed up registration directly after a successful test)
@@ -255,10 +255,24 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     password
                 }
 
-                val client = OkHttpClient.Builder()
+                // Create client builder for connection test, applying unsafe SSL/TLS configurations if enabled globally.
+                val clientBuilder = OkHttpClient.Builder()
                     .connectTimeout(10, TimeUnit.SECONDS)
                     .readTimeout(15, TimeUnit.SECONDS)
-                    .build()
+
+                if (settingsRepository.cachedSettings.isAllowInsecureTls) {
+                    val unsafeTrustManager = object : javax.net.ssl.X509TrustManager {
+                        override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                        override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                        override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = emptyArray()
+                    }
+                    val sslContext = javax.net.ssl.SSLContext.getInstance("TLS")
+                    sslContext.init(null, arrayOf<javax.net.ssl.TrustManager>(unsafeTrustManager), java.security.SecureRandom())
+                    clientBuilder.sslSocketFactory(sslContext.socketFactory, unsafeTrustManager)
+                    clientBuilder.hostnameVerifier { _, _ -> true }
+                }
+
+                val client = clientBuilder.build()
 
                 val mediaType = "application/xml; charset=utf-8".toMediaType()
                 val requestBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><D:propfind xmlns:D=\"DAV:\"><D:allprop/></D:propfind>".toRequestBody(mediaType)
@@ -296,8 +310,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiEvents.tryEmit(UiEvent.ShowToast("WebDAV 测试连接成功"))
             }.onFailure { error ->
                 lastSuccessfulWebDavConnection = null
-                _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = false, lastError = error.message ?: "连接失败")
-                _uiEvents.tryEmit(UiEvent.ShowToast("WebDAV 测试连接失败: ${error.message}"))
+                // User Friendly SSL Error: Handle SSL/TLS trust path verify exceptions specifically and offer hints.
+                val friendlyMessage = when (error) {
+                    is javax.net.ssl.SSLHandshakeException -> "SSL/TLS 证书校验失败，证书链不可信。"
+                    is javax.net.ssl.SSLPeerUnverifiedException -> "SSL/TLS 主机名校验失败，域名与证书不匹配。"
+                    else -> error.message ?: "连接失败"
+                }
+                _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = false, lastError = friendlyMessage)
+                _uiEvents.tryEmit(UiEvent.ShowToast("WebDAV 测试连接失败: $friendlyMessage"))
             }
         }
     }
@@ -503,21 +523,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 // Evict cached credentials (To avoid reusing stale or invalid tokens)
                 // Discards the snapshot when a subsequent test check fails or returns an error.
                 lastSuccessfulAbsConnection = null
+                // User Friendly SSL Error: Handle SSL/TLS trust path verify exceptions specifically and offer hints.
+                val friendlyMessage = when (error) {
+                    is javax.net.ssl.SSLHandshakeException -> "SSL/TLS 证书校验失败，证书链不可信。"
+                    is javax.net.ssl.SSLPeerUnverifiedException -> "SSL/TLS 主机名校验失败，域名与证书不匹配。"
+                    else -> (error.message ?: "连接失败").redactAbsError()
+                }
                 _absConnectionState.value = AbsConnectionUiState(
                     isTesting = false,
                     baseUrl = baseUrl,
                     username = username,
                     loginSucceeded = false,
-                    lastError = (error.message ?: "连接失败").redactAbsError()
+                    lastError = friendlyMessage
                 )
                 AbsSettingsLogger.logTestConnectionFailure(
                     baseUrl = baseUrl,
                     username = username,
                     costMs = AbsSettingsLogger.elapsedMs(start),
                     errorClass = error::class.java.simpleName,
-                    message = _absConnectionState.value.lastError
+                    message = friendlyMessage
                 )
-                _uiEvents.tryEmit(UiEvent.ShowToast("连接失败：${_absConnectionState.value.lastError}"))
+                _uiEvents.tryEmit(UiEvent.ShowToast("连接失败：$friendlyMessage"))
             }
         }
     }
@@ -566,6 +592,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun toggleChapterProgressMode(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateChapterProgressMode(enabled)
+        }
+    }
+
+    // Toggle Insecure TLS: Update the global settings regarding whether self-signed/untrusted SSL certificates are accepted.
+    fun toggleAllowInsecureTls(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateAllowInsecureTls(enabled)
         }
     }
 

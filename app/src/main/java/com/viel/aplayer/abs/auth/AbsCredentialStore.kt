@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.viel.aplayer.logger.AbsAuthLogger
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -24,7 +23,8 @@ private val Context.absCredentialDataStore: DataStore<Preferences> by preference
  */
 class AbsCredentialStore private constructor(
     private val dataStore: DataStore<Preferences>,
-    private val moshi: Moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    // Pure Codegen: Instantiate Moshi without reflection support since all DTOs have generated adapters.
+    private val moshi: Moshi = Moshi.Builder().build()
 ) {
     private val adapter = moshi.adapter(AbsCredential::class.java)
 

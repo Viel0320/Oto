@@ -10,6 +10,7 @@ import com.viel.aplayer.abs.net.dto.AbsLibraryItemDto
 import com.viel.aplayer.data.cache.CoverCacheInvalidationPolicy
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.logger.AbsSyncLogger
 import com.viel.aplayer.logger.CacheDiagnosticsLogger
 import java.util.UUID
@@ -135,6 +136,7 @@ class AbsCatalogSynchronizer(
         // Summary Increment Logic (Tracks newly resolved items only, preventing already stored records from skewing counts)
         var addedBookCount = 0
         var syncedBookCount = 0
+        var failedBookCount = 0
         val detailItems = detailCandidateIds.chunked(batchSize).flatMapIndexed { batchIndex, ids ->
             val batchStart = AbsSyncLogger.mark()
             // Logging Batch Transports (Logs batch-level parameters to identify transport issues during batch queries)
@@ -200,22 +202,31 @@ class AbsCatalogSynchronizer(
                     AbsSyncLogger.logSkipUnplayableItem(rootId = root.id, itemId = detail.id, mediaType = detail.mediaType)
                     continue
                 }
-                upsertItem(
-                    root = root,
-                    serverKey = serverKey,
-                    item = detail,
-                    now = now,
-                    syncRunId = syncRunId,
-                    existingMirror = existingMirrors[remoteItemId],
-                    existingSync = existingSync,
-                    serverVersion = status.serverVersion,
-                    fullListFingerprint = currentFingerprint
+                runCatching {
+                    upsertItem(
+                        root = root,
+                        serverKey = serverKey,
+                        item = detail,
+                        now = now,
+                        syncRunId = syncRunId,
+                        existingMirror = existingMirrors[remoteItemId],
+                        existingSync = existingSync,
+                        serverVersion = status.serverVersion,
+                        fullListFingerprint = currentFingerprint
+                    )
+                }.fold(
+                    onSuccess = {
+                        syncedBookCount += 1
+                        if (existingMirrors[remoteItemId] == null) {
+                            addedBookCount += 1
+                        }
+                    },
+                    onFailure = { error ->
+                        // Single Item Sync Failure: Log the parsing/upsert exception and increment failedBookCount instead of breaking the entire sync run.
+                        android.util.Log.w("AbsSync", "Failed to upsert ABS item: itemId=${detail.id}, error=${error.message}", error)
+                        failedBookCount += 1
+                    }
                 )
-                syncedBookCount += 1
-                if (existingMirrors[remoteItemId] == null) {
-                    // New Mirror Increment (Increments new book counters only when no mirroring entity exists in the schema)
-                    addedBookCount += 1
-                }
                 continue
             }
             val existingMirror = existingMirrors[remoteItemId] ?: continue
@@ -290,7 +301,7 @@ class AbsCatalogSynchronizer(
             totalItems = minifiedItems.size,
             addedBooks = addedBookCount,
             syncedBooks = syncedBookCount,
-            failedItems = unresolvedDetailFailures.size,
+            failedItems = unresolvedDetailFailures.size + failedBookCount,
             reusedBooks = reusedMirrors.size
         )
     }
@@ -307,7 +318,7 @@ class AbsCatalogSynchronizer(
         fullListFingerprint: String
     ) {
         val existingBookEntity = catalogStore.getBookById(idMapper.bookId(serverKey, requireNotNull(item.id)))
-        val cachedCover = runCatching {
+        val cachedCover = runCatchingCancellable {
             coverCache?.downloadCover(root, requireNotNull(item.id))
         }.getOrNull()
         // Cover Expiration Strategy (Aligns syncedAt parameters with true layout changes to secure UI image caches)

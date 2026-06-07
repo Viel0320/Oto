@@ -14,8 +14,12 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import com.viel.aplayer.data.store.ThemeMode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
 
@@ -23,6 +27,22 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
  * App Settings Storage (Manages persistence of user configuration via Jetpack DataStore)
  */
 class AppSettingsRepository private constructor(private val dataStore: DataStore<Preferences>) {
+
+    // Pre-Cached AppSettings (Provides instant sync access to current settings to avoid main thread I/O or runBlocking calls)
+    @Volatile
+    private var _cachedSettings = AppSettings()
+    val cachedSettings: AppSettings get() = _cachedSettings
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    init {
+        // Collect Settings Flow Asynchronously (Continuously cache newly persisted settings in the background)
+        scope.launch {
+            settingsFlow.collect {
+                _cachedSettings = it
+            }
+        }
+    }
 
     private object PreferencesKeys {
         // Theme Mode Storage Key (Key tracking theme preference, e.g. System, Light, or Dark) Added string preference key for theme mode.
@@ -33,6 +53,8 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         val IS_GLOBAL_SPEED_ENABLED = booleanPreferencesKey("is_global_speed_enabled")
         val GLOBAL_PLAYBACK_SPEED = floatPreferencesKey("global_playback_speed")
         val IS_CHAPTER_PROGRESS_MODE = booleanPreferencesKey("is_chapter_progress_mode")
+        // Insecure TLS Storage Key: Add a Datastore preference key to store whether insecure TLS connections are permitted.
+        val IS_ALLOW_INSECURE_TLS = booleanPreferencesKey("is_allow_insecure_tls")
         // Cleartext HTTP Switch (Preferences key indicating if cleartext HTTP traffic is permitted for WebDAV/remote servers)
         val IS_CLEARTEXT_TRAFFIC_ALLOWED = booleanPreferencesKey("is_cleartext_traffic_allowed")
         /**
@@ -71,6 +93,8 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             isGlobalSpeedEnabled = preferences[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] ?: false,
             globalPlaybackSpeed = preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] ?: 1.0f,
             isChapterProgressMode = preferences[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] ?: false,
+            // Read Insecure TLS Option: Load insecure TLS bypass configuration from preferences, defaulting to false.
+            isAllowInsecureTls = preferences[PreferencesKeys.IS_ALLOW_INSECURE_TLS] ?: false,
             // Read HTTP Policy (Resolve cleartext connection permission, falling back to true for initial WebDAV onboarding)
             isCleartextTrafficAllowed = preferences[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] ?: true,
             /**
@@ -112,6 +136,11 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
 
     suspend fun updateChapterProgressMode(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] = enabled }
+    }
+
+    // Write Insecure TLS Option: Save insecure TLS bypass configuration to the local preferences store.
+    suspend fun updateAllowInsecureTls(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.IS_ALLOW_INSECURE_TLS] = enabled }
     }
 
     // Write HTTP Policy (Persist user permission settings regarding cleartext HTTP connections)

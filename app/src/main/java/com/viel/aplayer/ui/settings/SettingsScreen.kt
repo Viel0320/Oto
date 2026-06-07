@@ -1,7 +1,5 @@
 package com.viel.aplayer.ui.settings
 
-// Import alignment: Add IME insets mapping extension to perform exclude filter during keyboard state changes.
-// Import alignment: Add coroutines launch import for async credential loading
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,42 +17,30 @@ import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.LinearScale
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,12 +48,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
@@ -77,10 +58,8 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
-// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
-import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
@@ -88,24 +67,7 @@ import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
 
 /**
- * Settings Dialog State (Page-owned dialog event model)
- *
- * Keeps SettingsScreen click handlers reporting dialog intent through one state object instead of scattering independent boolean flags.
- */
-private sealed interface SettingsDialogState {
-    data object None : SettingsDialogState
-    data object AddLibraryType : SettingsDialogState
-    data object WebDavRoot : SettingsDialogState
-    data object AbsServer : SettingsDialogState
-    data class RootActions(val root: LibraryRootEntity) : SettingsDialogState
-    data class DeleteRoot(val root: LibraryRootEntity) : SettingsDialogState
-}
-
-/**
- * Stateless settings view (Stateless composable rendering settings configurations)
- * Represents the main settings layout. Separated from SettingsActivity to enforce stateless design.
- * Passes interaction callbacks such as updates, additions, and deletions up to the container.
- * Supports adaptivity across multi-size screens during layout rendering.
+ * SettingsScreen Composable: Defines the top-level settings controller view, handling local inputs, dialog visibility, and composing setting sections.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,17 +75,12 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onLibraryRootSelected: (Uri) -> Unit,
     onSafRootRelocated: (String, Uri) -> Unit,
-    // WebDAV submission callback (To delegate credential routing to state container)
-    // Passes connection attributes up instead of performing DB transactions locally.
     onWebDavRootSubmitted: (url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
     onWebDavRootUpdated: (id: String, url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
-    // WebDAV connection interface: Add callback endpoints to support verification before persisting credentials.
     webDavConnectionState: WebDavConnectionUiState,
     onWebDavConnectionTest: (url: String, username: String, password: String, basePath: String, editingRootId: String?) -> Unit,
     onResetWebDavConnectionState: () -> Unit,
-    // ABS connection status callback: Link status resetting hooks to track input changes.
     onResetAbsConnectionState: () -> Unit,
-    // ABS connection testing enhancement: Support forwarding editingRootId to prevent validation errors when password is empty.
     onAbsConnectionTest: (baseUrl: String, username: String, password: String, editingRootId: String?) -> Unit,
     onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String, editingRootId: String?) -> Unit,
     getWebDavCredentials: (credentialId: String) -> WebDavCredential?,
@@ -134,52 +91,31 @@ fun SettingsScreen(
     absConnectionState: AbsConnectionUiState,
     isChapterProgressMode: Boolean,
     onChapterProgressModeChange: (Boolean) -> Unit,
-    // Cleartext allowance flag (To stream network security preferences)
     isCleartextTrafficAllowed: Boolean,
     onCleartextTrafficAllowedChange: (Boolean) -> Unit,
-    // Deregister callback (To handle physical directory authorization removals)
+    // Insecure TLS Config: Expose insecure TLS parameter flag and its status modification callback.
+    isAllowInsecureTls: Boolean,
+    onAllowInsecureTlsChange: (Boolean) -> Unit,
     onDeleteLibraryRoot: (LibraryRootEntity) -> Unit,
-    /**
-     * Skip silence configuration (To toggle audio silence stripping preference)
-     * Tracks the global skip silence setting and its state-transition callbacks.
-     */
     isSkipSilenceEnabled: Boolean,
     onSkipSilenceEnabledChange: (Boolean) -> Unit,
-    // Sleep fade-out configuration (To verify if volume decay is globally enabled)
     isSleepFadeOutEnabled: Boolean,
-    // Toggle volume decay (To delegate sleep volume decay preferences to caller)
     onSleepFadeOutEnabledChange: (Boolean) -> Unit,
-    // Shake reset configuration (To verify if motion reset triggers are enabled)
     isShakeToResetEnabled: Boolean,
-    // Toggle motion resetting (To delegate shake resetting preference to container)
     onShakeToResetEnabledChange: (Boolean) -> Unit,
-    // Active sleep mode (To indicate sleep countdown strategies)
     sleepMode: SleepMode,
-    // Change sleep mode (To notify sleep mode adjustments to controller)
     onSleepModeChange: (SleepMode) -> Unit,
-    // Theme Mode Config (Configure active theme mode) Binds theme mode state.
     themeMode: ThemeMode,
-    // Change theme mode (To notify theme mode updates to controller) Binds theme mode change callback.
     onThemeModeChange: (ThemeMode) -> Unit,
-    // Monet Color Toggle Parameters (Receive dynamic color parameters for UI representation) Added isDynamicColorEnabled and callback.
     isDynamicColorEnabled: Boolean,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
-    // Backdrop effect configuration (To dictate visual containers style between Material and Haze styles)
     glassEffectMode: GlassEffectMode,
-    // Settings Dialog Backdrop Source (Optional settings-local sampling source)
-    // SettingsOverlay can provide a HazeState when the settings surface is registered as a backdrop source; null keeps dialogs in Material fallback.
     settingsDialogHazeState: HazeState? = null,
-    // Toggle backdrop style (To delegate blur adjustments to controller)
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
-    // Active auto-rewind seconds (To indicate rollback offset values)
     autoRewindSeconds: Int,
-    // Change rewind duration (To notify auto-rollback parameter updates)
     onAutoRewindSecondsChange: (Int) -> Unit,
-    // Notification avoidance toggle (To cache playback avoidance settings)
     isNotificationAvoidanceEnabled: Boolean,
-    // Change avoidance toggle (To notify notification avoidance preferences to caller)
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
-    // Licenses trigger (To route navigation events to AboutLibrariesScreen)
     onAboutLibrariesClick: () -> Unit
 ) {
     var editingSafRootId by remember { mutableStateOf<String?>(null) }
@@ -197,8 +133,6 @@ fun SettingsScreen(
         }
     }
 
-    // Settings Dialog State (Own page-level dialog routing)
-    // Replaces independent boolean flags with a single event model so dialog rendering can be hosted consistently.
     var dialogState by remember { mutableStateOf<SettingsDialogState>(SettingsDialogState.None) }
     val rootToDelete = (dialogState as? SettingsDialogState.DeleteRoot)?.root
     val showWebDavDialog = dialogState == SettingsDialogState.WebDavRoot
@@ -219,24 +153,15 @@ fun SettingsScreen(
     var absDisplayName by remember { mutableStateOf("") }
     var editingRootId by remember { mutableStateOf<String?>(null) }
 
-    // Load window parameters (To adapt layout proportions for wide displays)
-    // Avoids reading LocalConfiguration attributes directly by subscribing to WindowClass values.
     val windowClass = LocalWindowClass.current
-    val isLandscape = windowClass.isLandscape
-    val isWideScreen = windowClass.isTablet
     val useWideLayout = windowClass.isWideScreen
 
-    // Safe drawing insets (To avoid hardcoded display margin constants on notched displays)
-    // Reads WindowInsets.safeDrawing boundaries to offset items.
-    // Window insets performance tuning: Exclude IME insets from safe drawing values to prevent redundant background recomposition when keyboard opens.
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     val settingsStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val settingsEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
 
     if (showWebDavDialog) {
-        // WebDAV input layout (To collect connection information)
-        // Defers credentials checking to Provider scan routines.
         WebDavRootDialog(
             url = webDavUrl,
             username = webDavUsername,
@@ -247,7 +172,6 @@ fun SettingsScreen(
             hazeState = settingsDialogHazeState,
             glassEffectMode = glassEffectMode,
             connectionState = webDavConnectionState,
-            // WebDAV connection tester: Reset connection verification status immediately if any core connection details change.
             onUrlChange = { 
                 webDavUrl = it
                 onResetWebDavConnectionState()
@@ -265,7 +189,6 @@ fun SettingsScreen(
                 webDavBasePath = it
                 onResetWebDavConnectionState()
             },
-            // WebDAV connection test integration: Link UI interactions to test callbacks and reset states.
             onTestConnection = {
                 onWebDavConnectionTest(
                     webDavUrl.trim(),
@@ -277,7 +200,6 @@ fun SettingsScreen(
             },
             onDismiss = {
                 dialogState = SettingsDialogState.None
-                // WebDAV dialog reset: Clear WebDAV fields on confirm or dismiss.
                 webDavUrl = ""
                 webDavUsername = ""
                 webDavPassword = ""
@@ -306,7 +228,6 @@ fun SettingsScreen(
                     )
                 }
                 dialogState = SettingsDialogState.None
-                // WebDAV dialog reset: Clear WebDAV fields on confirm or dismiss.
                 webDavUrl = ""
                 webDavUsername = ""
                 webDavPassword = ""
@@ -319,14 +240,6 @@ fun SettingsScreen(
     }
 
     if (showAbsDialog) {
-        // ABS Edit Auto-Test (Automatically validates an existing server as soon as the edit dialog opens)
-        // Uses the already-loaded root ID and stored token path so the dialog can fetch book library options without forcing the user to press the test button first.
-        LaunchedEffect(editingRootId) {
-            if (editingRootId != null) {
-                onAbsConnectionTest(absBaseUrl.trim(), absUsername.trim(), absPassword, editingRootId)
-            }
-        }
-
         AbsServerDialog(
             baseUrl = absBaseUrl,
             username = absUsername,
@@ -338,7 +251,6 @@ fun SettingsScreen(
             connectionState = absConnectionState,
             selectedLibraryId = absLibraryId,
             selectedLibraryName = absLibraryName,
-            // ABS connection tester: Reset testing states when dialog closes or fields modify.
             onBaseUrlChange = { 
                 absBaseUrl = it
                 onResetAbsConnectionState()
@@ -356,11 +268,9 @@ fun SettingsScreen(
                 absLibraryId = id
                 absLibraryName = name
             },
-            // ABS testing integration: Forward current editingRootId in test connections inside dialog.
             onTestConnection = { onAbsConnectionTest(absBaseUrl.trim(), absUsername.trim(), absPassword, editingRootId) },
             onDismiss = {
                 dialogState = SettingsDialogState.None
-                // ABS dialog reset: Clear ABS fields on confirm or dismiss.
                 absBaseUrl = ""
                 absUsername = ""
                 absPassword = ""
@@ -380,7 +290,6 @@ fun SettingsScreen(
                     editingRootId
                 )
                 dialogState = SettingsDialogState.None
-                // ABS dialog reset: Clear ABS fields on confirm or dismiss.
                 absBaseUrl = ""
                 absUsername = ""
                 absPassword = ""
@@ -392,7 +301,6 @@ fun SettingsScreen(
             }
         )
     }
-
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -406,12 +314,7 @@ fun SettingsScreen(
             Scaffold(
                 topBar = {
                     CenterAlignedTopAppBar(
-                        // Adjust visual boundaries (To render app bar background color fully to margins)
-                        // Bypasses container spacing padding configurations.
                         modifier = Modifier,
-                        // Calculate top bar margins (To exclude system navigation bars on rotated layouts)
-                        // Uses exclude calculations rather than manual padding values.
-                        // Window insets performance tuning: Exclude both navigationBars and IME insets from topBar safe drawing values.
                         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                         title = { Text(stringResource(R.string.settings_title)) },
                         navigationIcon = {
@@ -432,251 +335,66 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding),
-                    // Apply insets padding (To secure text and buttons visibility from notches or overlays)
-                    // Configures lazy column margins using landscape insets calculations.
                     contentPadding = PaddingValues(
                         start = settingsStartPadding,
                         end = settingsEndPadding
                     )
                 ) {
-                    // === Section 1: Library Directories ===
                     item {
-                        SettingsSectionHeader(title = "媒体库管理")
-                    }
-
-                    // Library Display Keying (Uses stable root IDs for all registered source rows)
-                    // This keeps multiple ABS libraries from the same server distinct even when they share the same source URL.
-                    items(libraryRootDisplays.size, key = { libraryRootDisplays[it].root.id }) { index ->
-                        val display = libraryRootDisplays[index]
-                        val root = display.root
-                        val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
-                        val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
-                        val locationLine = display.selectedLibraryText
-                            ?.takeIf { it.isNotBlank() }
-                            ?.let { libraryName -> "位置：${display.locationText} · 当前书库：$libraryName" }
-                            ?: "位置：${display.locationText}"
-                        
-                        // Render directory layout card (To combine detail metadata labels with click actions)
-                        // Captures user clicks on row item to open action popup.
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { dialogState = SettingsDialogState.RootActions(root) }
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (isWebDavRoot || isAbsRoot) Icons.Rounded.Cloud else Icons.Rounded.FolderOpen,
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = display.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text(
-                                        text = display.statusText,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = locationLine,
-                                    style = MaterialTheme.typography.bodySmall, 
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "最近同步：${display.lastSyncText} · 已导入：${display.importedBookCount} 本",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (isAbsRoot && display.lastError?.isNotBlank() == true) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "错误：${display.lastError}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    item {
-                        SettingsItem(
-                            title = "添加媒体库",
-                            subtitle = "支持本地 (SAF)、WebDAV、Audiobookshelf 服务器",
-                            icon = Icons.Rounded.FolderOpen,
-                            onClick = { dialogState = SettingsDialogState.AddLibraryType }
-                        )
-                    }
-                    // === Section 2: Interface Settings ===
-                    item {
-                        SettingsSectionHeader(title = "界面效果")
-                    }
-                    item {
-                        // Theme Mode UI Item (Add theme mode segmented selection row to SettingsScreen layout) Insert SettingsSegmentedThemeModeItem.
-                        val isHaze = glassEffectMode == GlassEffectMode.Haze
-                        SettingsSegmentedThemeModeItem(
-                            title = "夜间模式",
-                            subtitle = "选择界面配色（跟随系统: 自动切换；浅色: 始终使用亮色调；深色: 始终使用暗色调）",
-                            icon = Icons.Rounded.LinearScale,
-                            selectedMode = if (isHaze) ThemeMode.Dark else themeMode,
-                            onModeSelected = { selectedMode ->
-                                onThemeModeChange(selectedMode)
-                            },
-                            enabled = !isHaze
+                        LibraryDirectoriesSection(
+                            libraryRootDisplays = libraryRootDisplays,
+                            onRootClick = { dialogState = SettingsDialogState.RootActions(it) },
+                            onAddLibraryClick = { dialogState = SettingsDialogState.AddLibraryType }
                         )
                     }
                     item {
-                        // Monet Color Toggle (Add custom HSL Monet Dynamic Color switch to SettingsScreen layout) Lowers API constraint to Android 8.0 (API 26) and updates description.
-                        val isDynamicColorSupported = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
-                        SettingsToggleItem(
-                            title = "Monet 动态取色",
-                            subtitle = if (isDynamicColorSupported) "开启后，应用主题配色将自动从您的系统壁纸中提取" else "Monet 动态取色需要 Android 8.0 及以上系统版本",
-                            icon = Icons.Rounded.LinearScale,
-                            checked = isDynamicColorEnabled,
-                            onCheckedChange = onDynamicColorEnabledChange,
-                            enabled = isDynamicColorSupported
+                        InterfaceSettingsSection(
+                            themeMode = themeMode,
+                            onThemeModeChange = onThemeModeChange,
+                            isDynamicColorEnabled = isDynamicColorEnabled,
+                            onDynamicColorEnabledChange = onDynamicColorEnabledChange,
+                            glassEffectMode = glassEffectMode,
+                            onGlassEffectModeChange = onGlassEffectModeChange
                         )
                     }
                     item {
-                        // Visual effect settings: Change layout controller from segment choice to switch button for experimental blur effect.
-                        SettingsToggleItem(
-                            title = "实验性模糊效果",
-                            subtitle = "实验性支持部分界面的背景模糊效果",
-                            icon = Icons.Rounded.LinearScale,
-                            checked = glassEffectMode == GlassEffectMode.Haze,
-                            onCheckedChange = { isChecked ->
-                                val newMode = if (isChecked) GlassEffectMode.Haze else GlassEffectMode.Material
-                                onGlassEffectModeChange(newMode)
-                            }
-                        )
-                    }
-
-                    // === Section 3: Playback and Network ===
-                    item {
-                        SettingsSectionHeader(title = "播放与网络")
-                    }
-                    item {
-                        SettingsToggleItem(
-                            title = stringResource(R.string.chapter_progress_title),
-                            subtitle = stringResource(R.string.chapter_progress_subtitle),
-                            icon = Icons.Rounded.LinearScale,
-                            checked = isChapterProgressMode,
-                            onCheckedChange = onChapterProgressModeChange
+                        PlaybackNetworkSection(
+                            isChapterProgressMode = isChapterProgressMode,
+                            onChapterProgressModeChange = onChapterProgressModeChange,
+                            isCleartextTrafficAllowed = isCleartextTrafficAllowed,
+                            onCleartextTrafficAllowedChange = onCleartextTrafficAllowedChange,
+                            // Insecure TLS Callback: Forward isAllowInsecureTls configuration and its toggler downstream.
+                            isAllowInsecureTls = isAllowInsecureTls,
+                            onAllowInsecureTlsChange = onAllowInsecureTlsChange,
+                            isNotificationAvoidanceEnabled = isNotificationAvoidanceEnabled,
+                            onNotificationAvoidanceEnabledChange = onNotificationAvoidanceEnabledChange
                         )
                     }
                     item {
-                        // Cleartext permission toggle (To toggle http network streaming permission)
-                        // Warns about security standards when http sources are used.
-                        SettingsToggleItem(
-                            title = "允许明文 HTTP 流量",
-                            subtitle = "允许应用播放和加载不安全的 http:// 网络有声书源。建议保持关闭以维持最高安全边界。",
-                            icon = Icons.Rounded.LinearScale,
-                            checked = isCleartextTrafficAllowed,
-                            onCheckedChange = onCleartextTrafficAllowedChange
+                        SkipSilenceSection(
+                            isSkipSilenceEnabled = isSkipSilenceEnabled,
+                            onSkipSilenceEnabledChange = onSkipSilenceEnabledChange
                         )
                     }
                     item {
-                        // Avoidance preference toggle (To coordinate audio pause behavior during focus losses)
-                        SettingsToggleItem(
-                            title = "通知避让",
-                            subtitle = "开启后，播留在失去焦点（如收到通知、导航播报、来电等）时暂停，重获焦点时恢复，避免降音避让时漏听内容。",
-                            icon = Icons.Rounded.LinearScale,
-                            checked = isNotificationAvoidanceEnabled,
-                            onCheckedChange = onNotificationAvoidanceEnabledChange
-                        )
-                    }
-
-                    // === Section 4: Skip Silence ===
-                    item {
-                        SettingsSectionHeader(title = "自动跳过静音")
-                    }
-                    item {
-                        SettingsToggleItem(
-                            title = "自动跳过静音期",
-                            subtitle = "在播放有声书时，自动跳过主播停顿、换气及章节末尾等无声片段以提高收听效率。",
-                            icon = Icons.Rounded.LinearScale,
-                            checked = isSkipSilenceEnabled,
-                            onCheckedChange = onSkipSilenceEnabledChange
-                        )
-                    }
-
-                    // === Section 5: Sleep Timer ===
-                    item {
-                        SettingsSectionHeader(title = "睡眠定时器")
-                    }
-                    item {
-                        SettingsSegmentedSleepModeItem(
-                            title = "睡眠模式",
-                            subtitle = "选择计时触发机制（常规: 设定时间即计时；运动跟踪: 静止才计时，运动则暂停；睡眠跟踪: 熟睡才计时）",
-                            icon = Icons.Rounded.LinearScale,
-                            selectedMode = sleepMode,
-                            onModeSelected = { selectedMode ->
-                                onSleepModeChange(selectedMode)
-                            }
+                        SleepTimerSection(
+                            sleepMode = sleepMode,
+                            onSleepModeChange = onSleepModeChange,
+                            isSleepFadeOutEnabled = isSleepFadeOutEnabled,
+                            onSleepFadeOutEnabledChange = onSleepFadeOutEnabledChange,
+                            isShakeToResetEnabled = isShakeToResetEnabled,
+                            onShakeToResetEnabledChange = onShakeToResetEnabledChange
                         )
                     }
                     item {
-                        SettingsToggleItem(
-                            title = "睡眠倒计时音量渐隐",
-                            subtitle = "当倒计时走到最后 10 秒（或章节快结束前 10 秒）时，音量将柔和对数式递减到静音，避免突然的无声惊醒您。",
-                            icon = Icons.Rounded.LinearScale,
-                            checked = isSleepFadeOutEnabled,
-                            onCheckedChange = onSleepFadeOutEnabledChange
+                        AutoRewindSection(
+                            autoRewindSeconds = autoRewindSeconds,
+                            onAutoRewindSecondsChange = onAutoRewindSecondsChange
                         )
                     }
                     item {
-                        SettingsToggleItem(
-                            title = "摇晃手机重置睡眠定时器",
-                            subtitle = "当进入睡眠定时器最后 10 秒音量渐隐阶段时，轻轻摇晃手机即可触发轻微震动反馈并重置定时器。若为“章节结束停止模式”，摇晃重置时若有下一章将自动顺延为 15 分钟常规倒计时并顺延至下一个章节继续播放，免去夜间亮屏解锁的繁琐。",
-                            icon = Icons.Rounded.LinearScale,
-                            checked = isShakeToResetEnabled,
-                            onCheckedChange = onShakeToResetEnabledChange
-                        )
-                    }
-
-                    // === Section 6: Auto Rewind ===
-                    item {
-                        SettingsSectionHeader(title = "自动回放")
-                    }
-                    item {
-                        SettingsSliderItem(
-                            title = "暂停自动回放",
-                            subtitle = "暂停或以任何方式（通知避让除外）停止播放时自动回退的时长",
-                            icon = Icons.Rounded.LinearScale,
-                            value = autoRewindSeconds.toFloat(),
-                            onValueChange = { onAutoRewindSecondsChange(it.toInt()) },
-                            valueRange = 0f..30f,
-                            steps = 29, // Subtract endpoints from 31 distinct tick steps between 0s and 30s.
-                            valueFormatter = {
-                                if (it.toInt() == 0) "已关闭" else String.format(java.util.Locale.US, "%d 秒", it.toInt())
-                            },
-                            enabled = true
-                        )
-                    }
-
-                    // === Section 7: About Information ===
-                    item {
-                        SettingsSectionHeader(title = "关于")
-                    }
-                    item {
-                        SettingsItem(
-                            title = "开源许可",
-                            subtitle = "查看应用使用的开源库及许可协议",
-                            icon = Icons.Rounded.Info,
-                            onClick = onAboutLibrariesClick
+                        AboutSection(
+                            onAboutLibrariesClick = onAboutLibrariesClick
                         )
                     }
                 }
@@ -684,8 +402,6 @@ fun SettingsScreen(
         }
     }
 
-    // Render deletion confirmation (To warn users about library root deletion risks)
-    // Ensures database records will be erased while preserving physical storage files.
     if (rootToDelete != null) {
         val root = rootToDelete
         SettingsTemplateDialog(
@@ -877,593 +593,24 @@ fun SettingsScreen(
 }
 
 /**
- * Settings Template Dialog (Adapts legacy settings dialog slots to APlayerDialogTemplate)
- *
- * Keeps the existing SettingsScreen form content and button wiring intact while routing every settings dialog through the shared application dialog shell.
+ * SettingsScreenPreview Composable: Renders a preview display of SettingsScreen within standard PortraitPhone window bounds.
  */
-@Composable
-private fun SettingsTemplateDialog(
-    onDismissRequest: () -> Unit,
-    hazeState: HazeState? = null,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    title: (@Composable () -> Unit)? = null,
-    text: (@Composable () -> Unit)? = null,
-    confirmButton: @Composable () -> Unit,
-    dismissButton: (@Composable () -> Unit)? = null,
-    properties: androidx.compose.ui.window.DialogProperties = androidx.compose.ui.window.DialogProperties()
-) {
-    APlayerDialogTemplate(
-        onDismissRequest = onDismissRequest,
-        // Settings Dialog Material Fallback (SettingsOverlay does not yet register a local haze source)
-        // Use Material mode here so dialogs remain opaque and legible while still deriving their chrome from the common template.
-        hazeState = hazeState,
-        glassEffectMode = if (hazeState != null) glassEffectMode else GlassEffectMode.Material,
-        dismissOnBackPress = properties.dismissOnBackPress,
-        dismissOnClickOutside = properties.dismissOnClickOutside,
-        scrollable = true,
-        title = title,
-        body = text?.let { content ->
-            {
-                // Settings Dialog Body Slot (Bridge legacy AlertDialog text content)
-                // Preserves existing settings form composition while centralizing padding, chrome, and action row layout in APlayerDialogTemplate.
-                content()
-            }
-        },
-        actions = {
-            dismissButton?.invoke()
-            confirmButton()
-        }
-    )
-}
-
-@Composable
-private fun AbsServerDialog(
-    baseUrl: String,
-    username: String,
-    password: String,
-    displayName: String,
-    editingRootId: String?,
-    hazeState: HazeState? = null,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    connectionState: AbsConnectionUiState,
-    selectedLibraryId: String,
-    selectedLibraryName: String,
-    onBaseUrlChange: (String) -> Unit,
-    onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onDisplayNameChange: (String) -> Unit,
-    onLibrarySelected: (String, String) -> Unit,
-    onTestConnection: () -> Unit,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    SettingsTemplateDialog(
-        onDismissRequest = onDismiss,
-        hazeState = hazeState,
-        glassEffectMode = glassEffectMode,
-        // ABS dialog properties: Force clicking explicit confirm/cancel buttons to dismiss instead of clicking outside.
-        properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
-        // ABS dialog adjustments: Update title dynamically depending on whether it is in editing mode.
-        title = { Text(if (editingRootId != null) "编辑 ABS Server" else "添加 ABS Server") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = baseUrl,
-                    onValueChange = onBaseUrlChange,
-                    label = { Text("Base URL") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = onUsernameChange,
-                    label = { Text("用户名") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = onPasswordChange,
-                    label = { Text(if (editingRootId != null) "密码（留空则不修改）" else "密码") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onTestConnection,
-                    // ABS dialog adjustments: Allow testing without re-entering password if we are editing an existing server.
-                    enabled = baseUrl.isNotBlank() && username.isNotBlank() && (password.isNotBlank() || editingRootId != null)
-                ) {
-                    Text(if (connectionState.isTesting) "连接中..." else "测试连接")
-                }
-                if (connectionState.loginSucceeded) {
-                     Spacer(modifier = Modifier.height(8.dp))
-                     Text(
-                        text = "登录成功，请选择一个 book library 再点击确认",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                     )
-                }
-                if (connectionState.serverVersion != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Server Version: ${connectionState.serverVersion}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (selectedLibraryName.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "已选 Library: $selectedLibraryName",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                connectionState.lastError?.takeIf { it.isNotBlank() }?.let { error ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                if (connectionState.libraries.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("选择 Book Library", style = MaterialTheme.typography.titleSmall)
-                    connectionState.libraries.forEach { library ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onLibrarySelected(library.id, library.name) }
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            androidx.compose.material3.RadioButton(
-                                selected = selectedLibraryId == library.id,
-                                onClick = { onLibrarySelected(library.id, library.name) }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("${library.name} (${library.id})")
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                // ABS dialog adjustments: Require password only when creating a new server configuration.
-                enabled = baseUrl.isNotBlank() && username.isNotBlank() && (password.isNotBlank() || editingRootId != null) &&
-                    selectedLibraryId.isNotBlank() && selectedLibraryName.isNotBlank()
-            ) {
-                Text(if (editingRootId != null) "保存" else "添加")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}
-
-// Refactor: Remove unused SettingsSegmentedItem component after changing layout controller to Toggle switch.
-
-/**
- * Segmented selection setting item for sleep mode.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SettingsSegmentedSleepModeItem(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    selectedMode: SleepMode,
-    onModeSelected: (SleepMode) -> Unit
-) {
-    val modes = listOf(SleepMode.Regular, SleepMode.MotionTracking, SleepMode.SleepTracking)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                modes.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = selectedMode == mode,
-                        onClick = { onModeSelected(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
-                    ) {
-                        Text(
-                            text = when (mode) {
-                                SleepMode.Regular -> "常规模式"
-                                SleepMode.MotionTracking -> "运动跟踪"
-                                SleepMode.SleepTracking -> "睡眠检测"
-                            },
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = when (selectedMode) {
-                    SleepMode.Regular -> "说明：倒计时启动后持续计时，并在倒计时结束时暂停播放。"
-                    SleepMode.MotionTracking -> "说明：设备静止时才扣减时间，一旦移动手机则自动暂停倒计时一分钟。"
-                    SleepMode.SleepTracking -> "说明：设备接近静止 10 分钟（判定入睡，保留微小动作容错）后，启动倒计时。"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
-            )
-        }
-    }
-}
-
-/**
- * Segmented selection setting item for theme mode.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SettingsSegmentedThemeModeItem(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    selectedMode: ThemeMode,
-    onModeSelected: (ThemeMode) -> Unit,
-    // Add interaction control parameter (To toggle theme selection row availability under experimental blur)
-    // Allows disabling theme segmented selector when Haze blur is active, indicating setting limitation.
-    enabled: Boolean = true
-) {
-    val modes = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark)
-    // Theme Selection Component (Private segmented button selection row for ThemeMode preference) Added SettingsSegmentedThemeModeItem to render selection controls.
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (enabled) Modifier else Modifier.alpha(0.38f))
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = if (enabled) subtitle else "开启模糊效果时强制为深色",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                modes.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = selectedMode == mode,
-                        onClick = { onModeSelected(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                        enabled = enabled
-                    ) {
-                        Text(
-                            text = when (mode) {
-                                ThemeMode.System -> "跟随系统"
-                                ThemeMode.Light -> "浅色"
-                                ThemeMode.Dark -> "深色"
-                            },
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Switch toggle component (To render settings item containing toggle switch)
- */
-@Composable
-private fun SettingsToggleItem(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
-            .then(if (enabled) Modifier else Modifier.alpha(0.38f))
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = subtitle, 
-                style = MaterialTheme.typography.bodySmall, 
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled
-        )
-    }
-}
-
-/**
- * Clickable settings item (To render settings item acting as trigger button)
- */
-@Composable
-private fun SettingsItem(
-    title: String,
-    icon: ImageVector,
-    subtitle: String? = null,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle, 
-                    style = MaterialTheme.typography.bodySmall, 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-/**
- * WebDAV dialog collector (To display form inputs for remote directory parameters)
- */
-@Composable
-private fun WebDavRootDialog(
-    url: String,
-    username: String,
-    password: String,
-    displayName: String,
-    basePath: String,
-    editingRootId: String? = null,
-    hazeState: HazeState? = null,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    connectionState: WebDavConnectionUiState,
-    onUrlChange: (String) -> Unit,
-    onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onDisplayNameChange: (String) -> Unit,
-    onBasePathChange: (String) -> Unit,
-    onTestConnection: () -> Unit,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    SettingsTemplateDialog(
-        onDismissRequest = onDismiss,
-        hazeState = hazeState,
-        glassEffectMode = glassEffectMode,
-        // WebDAV dialog properties: Force clicking explicit confirm/cancel buttons to dismiss instead of clicking outside.
-        properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
-        // WebDAV dialog adjustments: Support dynamically displaying editing titles and placeholder fields.
-        title = { Text(if (editingRootId != null) "编辑 WebDAV 媒体库" else "添加 WebDAV 媒体库") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = onUrlChange,
-                    label = { Text("服务器 URL") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = displayName,
-                    onValueChange = onDisplayNameChange,
-                    label = { Text("显示名") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = basePath,
-                    onValueChange = onBasePathChange,
-                    label = { Text("库内路径") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = onUsernameChange,
-                    label = { Text("用户名") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = onPasswordChange,
-                    label = { Text(if (editingRootId != null) "密码（留空则不修改）" else "密码") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                // WebDAV connection tester UI: Add a test connection button and restrict confirmation availability until the test completes successfully.
-                Button(
-                    onClick = onTestConnection,
-                    enabled = url.isNotBlank() && !connectionState.isTesting
-                ) {
-                    Text(if (connectionState.isTesting) "测试连接中..." else "测试连接")
-                }
-                if (connectionState.testSucceeded) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "连接测试成功，可以保存媒体库",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                connectionState.lastError?.takeIf { it.isNotBlank() }?.let { error ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                // WebDAV dialog adjustments: Require connectivity test to pass before adding or updating.
-                enabled = url.isNotBlank() && connectionState.testSucceeded
-            ) {
-                Text(if (editingRootId != null) "保存" else "添加")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}
-
-/**
- * Slider settings item (To adjust float settings values in a formatted range)
- */
-@Composable
-private fun SettingsSliderItem(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int,
-    valueFormatter: (Float) -> String,
-    enabled: Boolean = true
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (enabled) Modifier else Modifier.alpha(0.38f))
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = "$subtitle: ${valueFormatter(value)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Slider(
-                value = value,
-                onValueChange = onValueChange,
-                valueRange = valueRange,
-                steps = steps,
-                enabled = enabled,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
-
-/**
- * Section title header (To display category dividers in settings list)
- */
-@Composable
-private fun SettingsSectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 8.dp)
-    )
-}
-
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun SettingsScreenPreview() {
     APlayerTheme {
-        // Portrait phone template (To preview settings layout under vertical screens)
-        // Uses CompositionLocalProvider to inject standard PortraitPhone window parameters.
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {
             SettingsScreen(
                 onBack = {},
                 onLibraryRootSelected = {},
-                // Preview layout alignment: Align preview invocation parameters with new WebDAV connectivity test settings.
                 onSafRootRelocated = { _, _ -> },
                 onWebDavRootSubmitted = { _, _, _, _, _ -> },
                 onWebDavRootUpdated = { _, _, _, _, _, _ -> },
                 webDavConnectionState = WebDavConnectionUiState(),
                 onWebDavConnectionTest = { _, _, _, _, _ -> },
                 onResetWebDavConnectionState = {},
-                // Preview layout alignment: Inject resetting callbacks to fit SettingsScreen parameter layout.
                 onResetAbsConnectionState = {},
                 onAbsConnectionTest = { _, _, _, _ -> },
                 onAbsRootSubmitted = { _, _, _, _, _, _ -> },
@@ -1477,6 +624,9 @@ fun SettingsScreenPreview() {
                 onChapterProgressModeChange = {},
                 isCleartextTrafficAllowed = false,
                 onCleartextTrafficAllowedChange = {},
+                // Preview Bypass Parameter: Provide dummy values for isAllowInsecureTls settings fields.
+                isAllowInsecureTls = false,
+                onAllowInsecureTlsChange = {},
                 onDeleteLibraryRoot = {},
                 isSkipSilenceEnabled = false,
                 onSkipSilenceEnabledChange = {},
@@ -1486,10 +636,8 @@ fun SettingsScreenPreview() {
                 onShakeToResetEnabledChange = {},
                 sleepMode = SleepMode.Regular,
                 onSleepModeChange = {},
-                // Preview layout alignment (Inject mock theme settings parameters) Align preview parameters to match new theme selection layout.
                 themeMode = ThemeMode.System,
                 onThemeModeChange = {},
-                // Preview dynamic color (Inject mock theme settings parameters) Align preview parameters to match new theme selection layout.
                 isDynamicColorEnabled = true,
                 onDynamicColorEnabledChange = {},
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,

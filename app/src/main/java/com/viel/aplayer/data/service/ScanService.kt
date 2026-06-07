@@ -3,6 +3,10 @@ package com.viel.aplayer.data.service
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.library.LibraryRootStore
@@ -11,6 +15,7 @@ import com.viel.aplayer.library.availability.isDirectorySyncRoot
 import com.viel.aplayer.library.availability.isSyncAvailable
 import com.viel.aplayer.library.orchestrator.RescanType
 import com.viel.aplayer.library.orchestrator.ScanSessionRunner
+import com.viel.aplayer.library.sync.LibrarySyncWorker
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.NoOpDirectoryListingCache
@@ -21,7 +26,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -75,11 +79,20 @@ class ScanService(
     }
 
     override fun scheduleLibrarySync(trigger: String) {
-        // Asynchronous Ingest Invoker (WorkManager dispatch bridge)
-        // Dispatches a non-blocking job to run the scanner asynchronously inside the private scope.
-        scope.launch {
-            syncLibrary(trigger)
-        }
+        // Enqueue Unique Work: Schedule LibrarySyncWorker via WorkManager using ExistingWorkPolicy.KEEP to prevent redundant scan runs.
+        val workManager = WorkManager.getInstance(appContext)
+        val request = OneTimeWorkRequestBuilder<LibrarySyncWorker>()
+            .setInputData(
+                Data.Builder()
+                    .putString("trigger", trigger)
+                    .build()
+            )
+            .build()
+        workManager.enqueueUniqueWork(
+            "LibrarySyncWork",
+            ExistingWorkPolicy.KEEP,
+            request
+        )
     }
 
     /**

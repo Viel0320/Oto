@@ -25,8 +25,11 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.SET_NULL
         )
     ],
-    // Progress keeps a nullable file anchor so source updates can remap position safely.
-    indices = [Index("bookFileId")]
+    // Progress Search Indexes: Establish index structures for progress tracking anchors (bookFileId) and last played timestamps (lastPlayedAt).
+    indices = [
+        Index("bookFileId"),
+        Index("lastPlayedAt")
+    ]
 )
 data class BookProgressEntity(
     @PrimaryKey

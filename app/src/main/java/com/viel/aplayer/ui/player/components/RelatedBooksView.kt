@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.player.components
 
+// Import Model: Import the RelatedSection model class from the relocated domain model package.
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -15,10 +16,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.domain.model.RelatedSection
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
-import com.viel.aplayer.ui.player.components.relatedsection.RelatedSection
 
 @Composable
 fun RelatedBooksView(

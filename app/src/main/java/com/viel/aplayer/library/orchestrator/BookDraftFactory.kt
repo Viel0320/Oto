@@ -7,6 +7,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.library.ChapterCandidate
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.MetadataSuggestion
@@ -248,7 +249,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
      */
     suspend fun firstManifestAudioMetadata(audioRefs: List<FileRef>): ManifestAudioMetadata? {
         val firstAudio = audioRefs.firstOrNull() ?: return null
-        return runCatching {
+        return runCatchingCancellable {
             ManifestAudioMetadata(firstAudio, metadataResolver.extract(firstAudio))
         }.onFailure { error ->
             Log.w(TAG, "Failed to read manifest fallback metadata: ${firstAudio.vfsDisplayId()}", error)
@@ -342,12 +343,12 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         )
 
     private suspend fun readDuration(file: FileRef): Long =
-        runCatching {
+        runCatchingCancellable {
             val metadataDuration = metadataResolver.extract(file).durationMs
             if (Mp4MetadataFrameReader.supports(file.displayName)) {
-                return@runCatching metadataDuration
+                return@runCatchingCancellable metadataDuration
             }
-            metadataDuration.takeIf { it > 0L }?.let { return@runCatching it }
+            metadataDuration.takeIf { it > 0L }?.let { return@runCatchingCancellable it }
             metadataDuration
         }.getOrDefault(0L)
 

@@ -1,6 +1,7 @@
 package com.viel.aplayer.library.vfs.cache
 
 import android.content.Context
+import com.viel.aplayer.data.runCatchingCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -32,7 +33,7 @@ class VfsRangeCache(
     suspend fun read(key: VfsRangeCacheKey): ByteArray? = withContext(Dispatchers.IO) {
         val file = key.toCacheFile()
         if (!file.exists() || !file.isFile) return@withContext null
-        runCatching {
+        runCatchingCancellable {
             file.setLastModified(System.currentTimeMillis())
             file.readBytes()
         }.getOrNull()
@@ -44,7 +45,7 @@ class VfsRangeCache(
      */
     suspend fun write(key: VfsRangeCacheKey, bytes: ByteArray): Unit = withContext(Dispatchers.IO) {
         if (bytes.isEmpty() || bytes.size > maxBlockBytes) return@withContext
-        runCatching {
+        runCatchingCancellable {
             cacheDir.mkdirs()
             val target = key.toCacheFile()
             val temp = File(cacheDir, "${target.name}.tmp")

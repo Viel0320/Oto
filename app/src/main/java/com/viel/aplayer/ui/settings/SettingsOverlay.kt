@@ -158,6 +158,9 @@ fun SettingsOverlay(
                         onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },
                         isCleartextTrafficAllowed = settingsState.isCleartextTrafficAllowed,
                         onCleartextTrafficAllowedChange = { settingsViewModel.toggleCleartextTrafficAllowed(it) },
+                        // Insecure TLS Config Link: Bind local settings state for allowing insecure TLS connections and its callback trigger.
+                        isAllowInsecureTls = settingsState.isAllowInsecureTls,
+                        onAllowInsecureTlsChange = { settingsViewModel.toggleAllowInsecureTls(it) },
                         onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
                         isSkipSilenceEnabled = settingsState.isSkipSilenceEnabled,
                         onSkipSilenceEnabledChange = { settingsViewModel.toggleSkipSilenceEnabled(it) },

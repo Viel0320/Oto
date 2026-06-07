@@ -1,7 +1,10 @@
-package com.viel.aplayer.ui.player.components.relatedsection
+// Package Relocation: Relocate components to the unified domain usecase package to keep architecture consistent.
+package com.viel.aplayer.domain.usecase
 
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.gateway.BookQueryGateway
+// Import Model: Import the RelatedSection model class from the relocated domain model package.
+import com.viel.aplayer.domain.model.RelatedSection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf

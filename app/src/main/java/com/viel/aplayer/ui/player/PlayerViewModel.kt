@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.player
 
+// UseCase Import Update: Align imports with the standardized domain usecase layer package.
 import android.content.Context
 import android.media.AudioManager
 import android.os.SystemClock
@@ -10,13 +11,12 @@ import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.domain.usecase.GetRelatedBooksUseCase
+import com.viel.aplayer.domain.usecase.RelatedData
 import com.viel.aplayer.media.AutoRewindManager
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.media.PlaybackMediaId
-import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
-import com.viel.aplayer.ui.player.components.relatedsection.GetRelatedBooksUseCase
-import com.viel.aplayer.ui.player.components.relatedsection.RelatedData
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import kotlinx.coroutines.Dispatchers

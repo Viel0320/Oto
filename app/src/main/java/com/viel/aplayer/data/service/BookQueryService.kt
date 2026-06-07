@@ -1,9 +1,9 @@
 package com.viel.aplayer.data.service
 
+// UseCase Import Update: Align imports with decoupled CoverUriResolver interface definition.
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
-import androidx.core.content.FileProvider
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookmarkDao
@@ -18,6 +18,7 @@ import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.CoverUriResolver
 import com.viel.aplayer.media.BookPlaybackPlan
 import com.viel.aplayer.media.PositionMapper
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
@@ -32,7 +33,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
@@ -45,7 +45,7 @@ import java.util.UUID
  */
 @OptIn(UnstableApi::class)
 class BookQueryService(
-    private val context: android.content.Context,
+    private val coverUriResolver: CoverUriResolver,
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val bookmarkDao: BookmarkDao,
@@ -203,14 +203,9 @@ class BookQueryService(
         }
         
         val artworkPath = book.coverPath
-        // FileProvider URI Encapsulation (Sandboxed storage security guard)
-        // Wraps absolute file paths into content:// URIs with transient read privileges via FileProvider.
-        // Prevents ENOENT crashes when external processes (like SystemUI) attempt to read files under sandbox storage restrictions.
+        // Decouple Platform URI Resolution: Delegate the content:// URI creation to the CoverUriResolver interface to keep platform logic out of data services.
         val artworkUri = if (!artworkPath.isNullOrBlank()) {
-            val file = File(artworkPath)
-            if (file.exists()) {
-                FileProvider.getUriForFile(context, "com.viel.aplayer.fileprovider", file)
-            } else null
+            coverUriResolver.toContentUri(artworkPath)?.let { android.net.Uri.parse(it) }
         } else null
 
         val plan = BookPlaybackPlan(

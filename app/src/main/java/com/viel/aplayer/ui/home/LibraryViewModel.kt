@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.home
 
 // Import globally defined one-off UI feedback events to decouple module-specific LibraryUiEvents.
+// UseCase Import Update: Align imports with the domain usecase package for DeleteBookUseCase.
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -31,6 +32,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
      * Library Root Deletion UseCase (Cross-domain coordinator to handle clean removal of library roots)
      */
     private val deleteLibraryRootUseCase = container.deleteLibraryRootUseCase
+
+    /**
+     * Book Deletion UseCase (Cross-domain coordinator to handle safe removal of individual books)
+     */
+    private val deleteBookUseCase = container.deleteBookUseCase
 
     private val _scanResultDialogState = MutableStateFlow<ScanSessionEntity?>(null)
     val scanResultDialogState: StateFlow<ScanSessionEntity?> = _scanResultDialogState.asStateFlow()
@@ -186,17 +192,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteBook(bookId: String) {
         viewModelScope.launch {
-            // Playback Termination Intercept (Stop active stream service if viewed item is deleted)
-            val playbackManager = com.viel.aplayer.media.PlaybackManager.getInstance(getApplication())
-            val currentPlayingId = playbackManager.getCurrentBookId()
-            if (currentPlayingId == bookId) {
-                playbackManager.stopPlayback()
-            }
-
-            // Query file existence and erase database reference via LibraryFacade gateway
-            val fileExists = libraryFacade.checkPrimaryAudioFileExists(bookId)
-
-            libraryFacade.deleteBook(bookId)
+            // Coordinate Book Deletion: Use the unified domain DeleteBookUseCase to cleanly remove the book and stop playback.
+            val fileExists = deleteBookUseCase.invoke(bookId)
 
             // Dispatch feedback toast via the global `UiEvent` stream
             val fileStatus = if (fileExists) "源文件已保留" else "源文件已丢失或不存在"

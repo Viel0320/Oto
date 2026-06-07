@@ -41,6 +41,8 @@ data class AppSettings(
     val globalPlaybackSpeed: Float = 1.0f,
     /** If true, the progress bar bounds represent individual chapter durations rather than total length */
     val isChapterProgressMode: Boolean = false,
+    // Insecure TLS Config: Add a configuration flag to allow bypassing SSL certificate checks for self-signed remote servers.
+    val isAllowInsecureTls: Boolean = false,
     // Cleartext Network Permission (Insecure server compatibility flag)
     // Permits unencrypted HTTP network connections; enabled by default for easier initial WebDAV setups.
     val isCleartextTrafficAllowed: Boolean = true,

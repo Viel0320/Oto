@@ -46,7 +46,6 @@ import com.viel.aplayer.ui.search.SearchViewModel
 import com.viel.aplayer.ui.settings.SettingsOverlay
 import com.viel.aplayer.ui.settings.SettingsViewModel
 import dev.chrisbanes.haze.HazeState
-import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -58,13 +57,14 @@ fun APlayerApp(
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-    // Sync Load Settings (Pre-load settings synchronously on the main thread during initialization)
-    // Runs blocking read once to obtain the theme settings flow's initial value, avoiding theme flickers during cold start.
-    val initialSettings = remember {
-        kotlinx.coroutines.runBlocking {
-            com.viel.aplayer.data.AppSettingsRepository.getInstance(context).settingsFlow.first()
-        }
+    val settingsRepository = remember {
+        com.viel.aplayer.APlayerApplication.getContainer(context).settingsRepository
     }
+    // Async Settings Load (Use collectAsStateWithLifecycle to load AppSettings, seeding it with the pre-cached value)
+    // Avoids running a blocking runBlocking read on the main thread during cold start, preventing thread lock/ANR.
+    val initialSettings by settingsRepository.settingsFlow.collectAsStateWithLifecycle(
+        initialValue = settingsRepository.cachedSettings
+    )
 
     val activeGlassEffectMode = if (libraryUiState.selectedFilter != null) {
         libraryUiState.glassEffectMode

@@ -7,6 +7,7 @@ import com.viel.aplayer.abs.sync.AbsCatalogStore
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
+import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.logger.AbsPlaybackLogger
 
 class AbsPlaybackSessionSyncer(
@@ -99,7 +100,7 @@ class AbsPlaybackSessionSyncer(
                 return
             }
         }
-        runCatching {
+        runCatchingCancellable {
             apiClient.syncSession(
                 baseUrl = credential.baseUrl,
                 token = credential.token,
@@ -190,7 +191,7 @@ class AbsPlaybackSessionSyncer(
                 return
             }
         }
-        runCatching {
+        runCatchingCancellable {
             apiClient.closeSession(
                 baseUrl = credential.baseUrl,
                 token = credential.token,
@@ -256,7 +257,7 @@ class AbsPlaybackSessionSyncer(
         }
         val start = AbsPlaybackLogger.mark()
         AbsPlaybackLogger.logFlushPendingStart(bookId = bookId, sessionId = session.sessionId)
-        runCatching {
+        runCatchingCancellable {
             apiClient.syncSession(
                 baseUrl = credential.baseUrl,
                 token = credential.token,

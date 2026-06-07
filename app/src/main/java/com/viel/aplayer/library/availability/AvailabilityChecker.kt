@@ -8,10 +8,12 @@ import com.viel.aplayer.abs.net.AbsApiError
 import com.viel.aplayer.abs.net.RealAbsApiClient
 import com.viel.aplayer.abs.sync.AbsConnectionTester
 import com.viel.aplayer.abs.vfs.AbsSourceProvider
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.library.vfs.VfsPath
 import com.viel.aplayer.library.vfs.VirtualFileSystem
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
@@ -38,7 +40,7 @@ class AvailabilityChecker(
     private val absCredentialStore: AbsCredentialStore = AbsCredentialStore.getInstance(context.applicationContext),
     // ABS API Probe Client (Supports lightweight server and library checks)
     // Keeps ABS root availability checks in the infrastructure boundary while allowing tests to inject deterministic transport fakes.
-    private val absApiClient: AbsApiClient = RealAbsApiClient()
+    private val absApiClient: AbsApiClient = RealAbsApiClient(appSettingsRepository = AppSettingsRepository.getInstance(context.applicationContext))
 ) {
     private val database = AppDatabase.getInstance(context.applicationContext)
     private val libraryRootDao = database.libraryRootDao()
@@ -61,7 +63,7 @@ class AvailabilityChecker(
         }
 
     suspend fun checkBookFile(file: BookFileEntity): AvailabilityResult =
-        runCatching {
+        runCatchingCancellable {
             val root = libraryRootDao.getRootById(file.rootId)
                 ?: return AvailabilityResult(
                     status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
@@ -69,7 +71,7 @@ class AvailabilityChecker(
                 )
             if (LibrarySourceKind.from(root.sourceType) == LibrarySourceKind.ABS) {
                 val provider = LibrarySourceProviderFactory(context.applicationContext).providerFor(root) as AbsSourceProvider
-                return@runCatching if (provider.checkReadable(root, file.sourcePath)) {
+                return@runCatchingCancellable if (provider.checkReadable(root, file.sourcePath)) {
                     AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
                 } else {
                     AvailabilityResult(
@@ -124,7 +126,7 @@ class AvailabilityChecker(
         files: List<BookFileEntity>,
         results: MutableMap<String, AvailabilityResult>
     ) {
-        runCatching {
+        runCatchingCancellable {
             files.groupBy { it.sourcePath.substringBeforeLast('/', missingDelimiterValue = "") }
                 .forEach { (parentPath, siblings) ->
                     val directory = vfs.resolve(root, VfsPath(parentPath))
@@ -167,7 +169,7 @@ class AvailabilityChecker(
     }
 
     private suspend fun checkVfsRoot(root: LibraryRootEntity): AvailabilityResult =
-        runCatching {
+        runCatchingCancellable {
             // Query VFS Root Existence (Network Decoupling)
             // Determines existence using the VFS layer to avoid raw, unmanaged HTTP requests in core logic.
             val exists = vfs.root(root)?.let { vfs.exists(it) } == true
@@ -205,7 +207,7 @@ class AvailabilityChecker(
      * Confirms the saved token still authorizes successfully and that the configured book library ID is still returned by the server.
      */
     private suspend fun checkAbsRoot(root: LibraryRootEntity): AvailabilityResult =
-        runCatching {
+        runCatchingCancellable {
             val credential = absCredentialStore.get(root.credentialId)
                 ?: return AvailabilityResult(
                     status = AudiobookSchema.AvailabilityStatus.AUTH_FAILED,

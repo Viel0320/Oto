@@ -21,7 +21,8 @@ class LibrarySyncWorker(
             val container = com.viel.aplayer.APlayerApplication.getContainer(applicationContext)
             val scanScheduler = container.scanScheduler
             
-            scanScheduler.scheduleLibrarySync(trigger)
+            // Execute Ingestion: Call suspend syncLibrary directly to perform the sync within WorkManager's execution scope.
+            scanScheduler.syncLibrary(trigger)
             Result.success()
         } catch (e: java.io.IOException) {
             // Transient Exception Handler (Intercepts temporary physical failures such as network drops, timeouts, or SQLite lock contentions)

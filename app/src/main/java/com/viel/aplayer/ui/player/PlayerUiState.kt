@@ -1,7 +1,8 @@
 package com.viel.aplayer.ui.player
 
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.ui.player.components.relatedsection.RelatedSection
+// Import Model: Import the RelatedSection model class from the relocated domain model package.
+import com.viel.aplayer.domain.model.RelatedSection
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 
 /**

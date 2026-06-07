@@ -21,6 +21,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 import com.viel.aplayer.data.AppSettingsRepository
@@ -309,12 +310,12 @@ class PlaybackService : MediaSessionService() {
     private fun grantArtworkPermission(uri: Uri?) {
         if (uri == null || uri.scheme != "content") return
 
-        // Target Process Packages (Defines System UI and Core OS frameworks as target packages for permission delegation)
-        val targetPackages = mutableSetOf("com.android.systemui", "android")
-
-        // Client Authority Extension (Grants read access to currently connected controllers dynamically)
-        mediaSession?.connectedControllers?.forEach { targetPackages.add(it.packageName) }
-        notificationSession?.connectedControllers?.forEach { targetPackages.add(it.packageName) }
+        // Artwork Permission Targets: Define the minimal set of package names for artwork permission delegation, removing broad "android" system package.
+        val targetPackages = buildSet {
+            add("com.android.systemui")
+            mediaSession?.connectedControllers?.forEach { add(it.packageName) }
+            notificationSession?.connectedControllers?.forEach { add(it.packageName) }
+        }
 
         for (pkg in targetPackages) {
             try {
@@ -427,6 +428,58 @@ class PlaybackService : MediaSessionService() {
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
+
+        override fun onPlaybackResumption(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            beginPlayback: Boolean
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            // Playback Resumption Setup: Resolves the last played audiobook progress and timeline asynchronously to restore playback session seamlessly when triggered by system media button events.
+            val future = com.google.common.util.concurrent.SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
+            serviceScope.launch(Dispatchers.IO) {
+                try {
+                    val lastProgress = libraryFacade.getLastPlayedProgressSync()
+                    if (lastProgress == null) {
+                        future.setException(UnsupportedOperationException("No last played book found"))
+                        return@launch
+                    }
+                    val plan = libraryFacade.getPlaybackPlan(lastProgress.bookId)
+                    if (plan == null || plan.files.isEmpty()) {
+                        future.setException(UnsupportedOperationException("Playback plan is empty for book: ${lastProgress.bookId}"))
+                        return@launch
+                    }
+                    val mediaItems = com.viel.aplayer.media.PlaybackPlanBuilder.buildMediaItems(plan)
+                    val chapters = libraryFacade.getChaptersForBookSync(lastProgress.bookId)
+                    val startIndex = if (lastProgress.currentFileIndex in mediaItems.indices) {
+                        lastProgress.currentFileIndex
+                    } else {
+                        0
+                    }
+                    val startPositionMs = if (lastProgress.currentFileIndex in mediaItems.indices) {
+                        lastProgress.positionInFileMs
+                    } else {
+                        0L
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        // Media Resumption Setup (Initialize player configuration and notification timeline before resuming)
+                        notificationBookId = plan.bookId
+                        notificationFiles = plan.files
+                        notificationPlayer.updateBookTimeline(plan.bookId, plan.files, chapters.map { it.chapter })
+
+                        val resumptionData = MediaSession.MediaItemsWithStartPosition(
+                            mediaItems,
+                            startIndex,
+                            startPositionMs
+                        )
+                        future.set(resumptionData)
+                    }
+                } catch (e: Exception) {
+                    future.setException(e)
+                }
+            }
+            return future
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -517,8 +570,8 @@ class PlaybackService : MediaSessionService() {
         // Job Cancellation (Discards pending debounced widget updates to prevent memory leaks during service shutdown)
         widgetUpdateJob?.cancel()
 
-        // Clear Widget State (Enforces a clean idle update to the widget data store to prevent lingering notification displays)
-        serviceScope.launch {
+        // Non-blocking Widget Cleanup: Dispatches the widget state cleanup to the application scope, ensuring it runs to completion on an IO dispatcher without blocking the main thread during onDestroy.
+        (applicationContext as? APlayerApplication)?.appScope?.launch {
             PlayerWidgetStateHelper.updateWidgetState(
                 context = this@PlaybackService,
                 isPlaying = false,

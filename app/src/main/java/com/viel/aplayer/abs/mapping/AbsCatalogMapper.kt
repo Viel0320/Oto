@@ -25,6 +25,8 @@ class AbsCatalogMapper(
         // Deprecated: backgroundColorArgb is removed
         readStatusOverride: String? = null
     ): BookEntity {
+        // ID Presence Validation: Enforce that the remote item possesses a valid identifier to prevent database primary key collisions.
+        val itemId = item.id ?: throw com.viel.aplayer.abs.net.AbsApiError(code = "MALFORMED_ITEM", message = "item.id missing")
         val title = item.media?.metadata?.title
             ?: item.title
             ?: "Unknown"
@@ -41,7 +43,7 @@ class AbsCatalogMapper(
         }.takeIf { it > 0L }
             ?: item.media?.audioFiles.orEmpty().sumOf { it.size ?: 0L }
         return BookEntity(
-            id = idMapper.bookId(serverKey, requireNotNull(item.id)),
+            id = idMapper.bookId(serverKey, itemId),
             rootId = root.id,
             sourceType = AudiobookSchema.SourceType.ABS_REMOTE,
             sourceRoot = root.sourceUri,
@@ -70,21 +72,24 @@ class AbsCatalogMapper(
     }
 
     fun toFiles(root: LibraryRootEntity, serverKey: String, item: AbsLibraryItemDto): List<BookFileEntity> {
-        val itemId = requireNotNull(item.id)
+        // ID Presence Validation: Enforce that the remote item possesses a valid identifier to prevent database primary key collisions.
+        val itemId = item.id ?: throw com.viel.aplayer.abs.net.AbsApiError(code = "MALFORMED_ITEM", message = "item.id missing")
         val bookId = idMapper.bookId(serverKey, itemId)
         return item.media?.tracks.orEmpty()
             .sortedBy { it.index ?: Int.MAX_VALUE }
             .mapIndexed { fallbackIndex, track ->
                 val trackIndex = track.index ?: (fallbackIndex + 1)
                 val audioFile = item.media?.audioFiles.orEmpty().firstOrNull { audio -> audio.index == track.index }
+                // Track URL Validation: Enforce that each track contains a non-null playback URL to avoid downstream player load failures.
+                val contentUrl = track.contentUrl ?: throw com.viel.aplayer.abs.net.AbsApiError(code = "MALFORMED_ITEM", message = "track.contentUrl missing")
                 BookFileEntity(
                     id = idMapper.bookFileId(serverKey, itemId, trackIndex),
                     bookId = bookId,
                     fileRole = AudiobookSchema.FileRole.AUDIO,
                     rootId = root.id,
                     index = fallbackIndex,
-                    sourcePath = requireNotNull(track.contentUrl),
-                    sourceIdentity = "$itemId:$trackIndex:${track.contentUrl}",
+                    sourcePath = contentUrl,
+                    sourceIdentity = "$itemId:$trackIndex:${contentUrl}",
                     etag = null,
                     manifestEntryPath = null,
                     displayName = track.metadata?.filename
@@ -105,7 +110,9 @@ class AbsCatalogMapper(
         if (files.isEmpty()) return emptyList()
         val tracks = item.media?.tracks.orEmpty().sortedBy { it.index ?: Int.MAX_VALUE }
         if (tracks.isEmpty()) return emptyList()
-        val bookId = idMapper.bookId(serverKey, requireNotNull(item.id))
+        // ID Presence Validation: Enforce that the remote item possesses a valid identifier to prevent database primary key collisions.
+        val itemId = item.id ?: throw com.viel.aplayer.abs.net.AbsApiError(code = "MALFORMED_ITEM", message = "item.id missing")
+        val bookId = idMapper.bookId(serverKey, itemId)
         val trackSpans = tracks.mapIndexed { listIndex, track ->
             val startMs = ((track.startOffset ?: trackSpanStart(tracks, listIndex)) * 1000.0).toLong()
             val durationMs = ((track.duration ?: 0.0) * 1000.0).toLong()

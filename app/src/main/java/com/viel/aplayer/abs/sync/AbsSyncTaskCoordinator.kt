@@ -1,5 +1,6 @@
 package com.viel.aplayer.abs.sync
 
+// Resource Cleanup Support: Import Closeable and cancel extensions for proper background scope lifecycle management.
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
@@ -8,10 +9,12 @@ import com.viel.aplayer.ui.common.UiEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import java.io.Closeable
 
 /**
  * ABS Sync Task Coordinator (Manages application-scoped ABS catalog synchronization)
@@ -25,7 +28,15 @@ class AbsSyncTaskCoordinator(
     // Injects the application-service boundary so the coordinator can block unavailable roots without owning protocol-specific availability logic.
     private val rootPreflight: (suspend (String) -> LibraryRootAvailabilityUpdate?)? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-) {
+) : Closeable {
+
+    /**
+     * Release running scopes (To terminate pending sync task events on teardown)
+     */
+    override fun close() {
+        scope.cancel()
+    }
+
     private val lock = Any()
     private val runningRootIds = linkedSetOf<String>()
     private val _events = MutableSharedFlow<AbsSyncTaskResult>(extraBufferCapacity = 16)

@@ -7,6 +7,7 @@ import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.aplayer.library.vfs.sourceProvider.SourceCapabilities
@@ -78,7 +79,7 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
         // Records elapsed time for path reconstruction and input stream opening.
         // Provides diagnostics to track SAF overhead in regular reading sequences.
         val openStart = SystemClock.elapsedRealtime()
-        val stream = runCatching {
+        val stream = runCatchingCancellable {
             context.contentResolver.openInputStream(buildDocumentUriFromPath(file.root, file.metadata.sourcePath))
         }.getOrNull()
         val openCost = SystemClock.elapsedRealtime() - openStart
@@ -96,7 +97,7 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
         // Offsets trigger critical random-access queries during seeks, resume playbacks, and container parsing.
         // Profiles aggregate openFileDescriptor and channel positioning costs.
         val openStart = SystemClock.elapsedRealtime()
-        val pfd = runCatching {
+        val pfd = runCatchingCancellable {
             context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
         }.getOrNull() ?: run {
             val openCost = SystemClock.elapsedRealtime() - openStart
@@ -159,7 +160,7 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? {
         // Profile openFileDescriptor overhead to isolate connection setup from random seeking costs.
         val openStart = SystemClock.elapsedRealtime()
-        val descriptor = runCatching {
+        val descriptor = runCatchingCancellable {
             context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
         }.getOrNull()
         val openCost = SystemClock.elapsedRealtime() - openStart
@@ -172,7 +173,7 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     }
 
     override suspend fun exists(node: SourceNode): Boolean =
-        runCatching {
+        runCatchingCancellable {
             DocumentFile.fromSingleUri(context, buildDocumentUriFromPath(node.root, node.metadata.sourcePath))?.exists() == true
         }.getOrDefault(false)
 
