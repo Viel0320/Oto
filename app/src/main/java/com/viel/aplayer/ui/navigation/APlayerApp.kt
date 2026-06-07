@@ -128,8 +128,8 @@ fun APlayerApp(
         val settingsViewModel: SettingsViewModel = viewModel()
 
         val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
-        // Collect Detail UI State (Adapt Haze Sampling Source)
-        // Collect the detailUiState from detailViewModel here. This is used when rendering the MiniPlayer overlay to perceive whether the details page is visible, so as to dynamically map the Haze sampling source.
+        // Collect Detail UI State (Coordinate overlay routing without rebinding mini player glass)
+        // Detail visibility still drives SearchOverlay routing and shared transition source handoff, while MiniPlayerOverlay intentionally keeps the stable app-level HazeState to avoid effect flashes.
         val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
         // Collect Search Visibility State (Control MiniPlayer Rendering)
@@ -309,6 +309,10 @@ fun APlayerApp(
                         // This lets HomeAppBar live as a sibling overlay above NavDisplay while still sampling the route content.
                         appHazeState = hazeState,
                         glassEffectMode = libraryUiState.glassEffectMode,
+                        // Home View Preference State (Route current renderer and sort selections to the NavHost-owned top bar dialog)
+                        // HomeScreen still renders the catalog from LibraryUiState, while the app bar dialog only edits these persisted preferences.
+                        homeViewStyle = libraryUiState.homeViewStyle,
+                        homeSortRule = libraryUiState.homeSortRule,
                         // Home Dialog Haze Routing (Use the same app backdrop source as SearchOverlay)
                         // Passing the top-level source prevents Home dialogs from sampling the clipped LazyGrid-local fallback source.
                         homeDialogHazeState = hazeState,
@@ -316,7 +320,9 @@ fun APlayerApp(
                         // Binds setting launch request event to change settings overlay visibility.
                         onNavigateToSettings = {
                             settingsViewModel.setVisible(true)
-                        }
+                        },
+                        onHomeViewStyleSelected = libraryViewModel::setHomeViewStyle,
+                        onHomeSortRuleSelected = libraryViewModel::setHomeSortRule
                     )
                 }
 
@@ -342,8 +348,8 @@ fun APlayerApp(
                     }
                 )
 
-                // MiniPlayer Haze Source Alignment: Align the mini player's blur sampling source to the NavDisplay container.
-                // Details: Direct the mini player's hazeState reference always to the top-level hazeState, which is registered on the outer Box wrapping NavDisplay in APlayerNavHost.kt, ensuring stable blur rendering.
+                // MiniPlayer Stable Haze Target (Keep the effect state constant across overlays)
+                // DetailOverlay registers its visible content into this same app-level source, so the mini player can sample Detail without rebinding its own HazeEffect and flashing during transitions.
                 val targetHazeState = hazeState
 
                 // Mount MiniPlayer with HazeState (Provide blur context to mini player overlay) Passed target HazeState value to match active background visuals.

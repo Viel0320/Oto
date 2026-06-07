@@ -69,7 +69,7 @@ fun RecentlyAddedSection(
         ) {
             // M-20 Fix: Use unique book.id as LazyList stable key to prevent card covers from flickering or shifting due to frequent reloads
             items(recentBooks, key = { it.book.id }) { book ->
-                RecentlyItem(
+                cardgroup(
                     bookId = book.book.id,
                     title = book.book.title,
                     author = book.book.author,

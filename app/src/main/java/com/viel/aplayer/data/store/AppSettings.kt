@@ -28,6 +28,21 @@ enum class ThemeMode {
     Dark
 }
 
+// Home View Style Preference (Controls the catalog item renderer on the Home screen)
+// List keeps adaptive listgroup columns as the default reading model, while Grid switches the catalog to single-line cardgroup carousels.
+enum class HomeViewStyle {
+    List,
+    Grid
+}
+
+// Home Sort Rule Preference (Controls the primary grouping and descending pinyin order on the Home screen)
+// Author remains the default catalog organization, while Narrator and Series let users pivot the same library without changing the underlying book domain model.
+enum class HomeSortRule {
+    Author,
+    Narrator,
+    Series
+}
+
 data class AppSettings(
     // Theme Mode Setting (Expose themeMode configurations, defaulting to System) Binds active theme configuration.
     val themeMode: ThemeMode = ThemeMode.System,
@@ -35,6 +50,12 @@ data class AppSettings(
     val isDynamicColorEnabled: Boolean = true,
     /** Filter state on the home screen */
     val homeFilter: String = "NotStarted",
+    // Home View Style Setting (Persist the selected Home catalog renderer)
+    // Defaults to List so existing users keep the current listgroup-based home layout until they explicitly switch to cardgroup rows.
+    val homeViewStyle: HomeViewStyle = HomeViewStyle.List,
+    // Home Sort Rule Setting (Persist the selected Home catalog grouping and order)
+    // Defaults to Author to preserve the current author-centered browsing model while allowing narrator and series pivots.
+    val homeSortRule: HomeSortRule = HomeSortRule.Author,
     /** Determines if the playback speed configuration is stored globally */
     val isGlobalSpeedEnabled: Boolean = false,
     /** Global speed scale value */

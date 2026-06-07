@@ -32,7 +32,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -69,7 +69,7 @@ import androidx.compose.animation.AnimatedVisibility as SharedSourceVisibility
     ExperimentalHazeMaterialsApi::class
 )
 @Composable
-fun RecentlyItem(
+fun cardgroup(
     bookId: String,
     title: String,
     author: String,
@@ -88,7 +88,8 @@ fun RecentlyItem(
     isDetailTargetActive: Boolean = false,
     // New long-press callback to support the long-press shortcut menu in the recently added/played section
     onLongClick: () -> Unit = {},
-    // New glassEffectMode parameter to make RecentlyItem respond to global frosted glass blur mode, defaulting to traditional opaque mode
+    // cardgroup Glass Mode Parameter (Allow the card renderer to follow global frosted glass mode)
+    // Defaults to Material so previews and callers outside Home can render without needing settings state.
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     /*
      * Shared Element Key (Home recent cover transition identity)
@@ -96,7 +97,11 @@ fun RecentlyItem(
      * Supplies a route-level shared-element key so the recent-card artwork can animate into
      * the matching detail-page artwork when the selected book opens.
      */
-    sharedElementKey: String? = null
+    sharedElementKey: String? = null,
+    // cardgroup Width Mode (Allow specialized callers to override the standard horizontal-row width)
+    // Home cardgroup rows keep the fixed 160.dp width so every section remains a single horizontal carousel.
+    fillAvailableWidth: Boolean = false,
+    preferredWidth: Dp = 160.dp
 ) {
     // Reset Color State on Cover Path Changes: Re-initialize coverColor state whenever the coverPath changes using remember(coverPath) and load the cached color synchronously if available.
     var coverColor by remember(coverPath) {
@@ -105,7 +110,7 @@ fun RecentlyItem(
 
     Column(
         modifier = modifier
-            .width(160.dp)
+            .then(if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier.width(preferredWidth))
             .clip(RoundedCornerShape(16.dp))
             // Use combinedClickable gesture listener instead to handle click and long-press events
             .combinedClickable(
@@ -274,8 +279,8 @@ private fun RecentCoverSharedSource(
                         var isImageError by remember(coverPath) { mutableStateOf(false) }
                         if ((coverPath != null) && !isImageError) {
                             val context = LocalContext.current
-                            // Thumbnail Resizing Strategy (Cache Reuse Optimization)
-                            // Recently played cards strictly use ThumbnailMedium specification, matching the 360px thumbnail output.
+                            // cardgroup Thumbnail Strategy (Reuse the medium thumbnail size for cover-card layouts)
+                            // Recently played cards and Home grid cards both match the 360px thumbnail output, keeping cache behavior shared across card surfaces.
                             // This ensures medium cards hit local thumbnails and the same Coil cache specifications, avoiding bringing large covers into the list.
                             val request = remember(coverPath, coverLastUpdated) {
                                 CoverImageRequestFactory.build(
@@ -445,10 +450,10 @@ private fun RecentCoverProgressBadge(
 
 @Preview(showBackground = true, name = "Recently Item NEW")
 @Composable
-fun RecentlyItemNewPreview() {
+fun cardgroupNewPreview() {
     APlayerTheme {
         Surface(modifier = Modifier.padding(16.dp)) {
-            RecentlyItem(
+            cardgroup(
                 bookId = "preview",
                 title = "The Great Adventure",
                 author = "John Doe",
@@ -462,10 +467,10 @@ fun RecentlyItemNewPreview() {
 
 @Preview(showBackground = true, name = "Recently Item Progress")
 @Composable
-fun RecentlyItemProgressPreview() {
+fun cardgroupProgressPreview() {
     APlayerTheme {
         Surface(modifier = Modifier.padding(16.dp)) {
-            RecentlyItem(
+            cardgroup(
                 bookId = "preview",
                 title = "In the Megachurch",
                 author = "Ryo Asai",

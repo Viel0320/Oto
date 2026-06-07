@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -13,11 +14,14 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeSortRule
+import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.home.components.HomeAppBar
+import com.viel.aplayer.ui.home.components.HomeViewPreferenceDialog
 import com.viel.aplayer.ui.player.PlayerViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -49,12 +53,24 @@ fun APlayerNavHost(
     // App Glass Mode (Gate Haze source registration from the active settings state)
     // APlayerNavHost needs the same glass mode as the app shell so source registration and Home chrome rendering stay synchronized.
     glassEffectMode: GlassEffectMode,
+    // Home View Style Selection (Current catalog renderer preference for the Home app bar dialog)
+    // The navigation host owns the Home top bar, so it also receives the selected value needed by the adjacent display-preference dialog.
+    homeViewStyle: HomeViewStyle,
+    // Home Sort Rule Selection (Current catalog grouping and pinyin-descending order for the Home app bar dialog)
+    // Passing this value keeps the dialog stateless and leaves preference mutation in LibraryViewModel.
+    homeSortRule: HomeSortRule,
     // Home Dialog Backdrop Source (Route app-level sampling into Home dialogs)
     // Dialog windows need the same app-level backdrop used by Search and mini-player overlays so their blur is not clipped by Home's page-local scrolling source.
     homeDialogHazeState: HazeState? = null,
     // Settings Navigation Event (To delegate settings launch routing to upper controller)
     // Abstract callback parameter to notify parent overlay scope when user requests setting screen.
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    // Home View Style Selection Callback (Persist display renderer changes through the parent ViewModel)
+    // APlayerNavHost only hosts the top-bar dialog and delegates actual preference writes upward.
+    onHomeViewStyleSelected: (HomeViewStyle) -> Unit,
+    // Home Sort Rule Selection Callback (Persist grouping/order changes through the parent ViewModel)
+    // The ViewModel recalculates sorted sections after DataStore emits the updated rule.
+    onHomeSortRuleSelected: (HomeSortRule) -> Unit
 ) {
     val isHomeRoute = navigationState.topLevelRoute == HomeRoute
     val isHazeMode = glassEffectMode == GlassEffectMode.Haze
@@ -64,6 +80,9 @@ fun APlayerNavHost(
     val resolvedHomeTopBarHazeState = appHazeState ?: fallbackHomeTopBarHazeState
     var homeTopBarHeightPx by remember { mutableIntStateOf(0) }
     var homeTopBarScrollToTopRequest by remember { mutableIntStateOf(0) }
+    // Home View Dialog Visibility (Local chrome state for the top-bar display preferences entry)
+    // This state belongs to the navigation host because HomeAppBar is mounted here rather than inside HomeScreenContent.
+    var isHomeViewPreferenceDialogVisible by remember { mutableStateOf(false) }
 
     // Setup Entry Provider (Resolve NavKeys to Screen composables)
     // Declares the mapping of serializable NavKey to their respective Compose screen contents.
@@ -122,6 +141,11 @@ fun APlayerNavHost(
                         searchViewModel.setVisible(true)
                     }
                 },
+                onHomeViewOptionsClick = {
+                    if (canStartNavigation()) {
+                        isHomeViewPreferenceDialogVisible = true
+                    }
+                },
                 onNavigateToSettings = {
                     if (canStartNavigation()) {
                         onNavigateToSettings()
@@ -133,6 +157,22 @@ fun APlayerNavHost(
                     homeTopBarScrollToTopRequest += 1
                 },
                 onHeightChanged = { homeTopBarHeightPx = it }
+            )
+        }
+
+        if (isHomeRoute && isHomeViewPreferenceDialogVisible) {
+            HomeViewPreferenceDialog(
+                selectedViewStyle = homeViewStyle,
+                selectedSortRule = homeSortRule,
+                // Home View Dialog Backdrop (Prefer the app-level Home dialog haze source)
+                // Falls back to the top-bar haze state in isolated hosts so previews and tests can still render the dialog safely.
+                hazeState = homeDialogHazeState ?: resolvedHomeTopBarHazeState,
+                glassEffectMode = glassEffectMode,
+                onViewStyleSelected = onHomeViewStyleSelected,
+                onSortRuleSelected = onHomeSortRuleSelected,
+                onDismissRequest = {
+                    isHomeViewPreferenceDialogVisible = false
+                }
             )
         }
     }

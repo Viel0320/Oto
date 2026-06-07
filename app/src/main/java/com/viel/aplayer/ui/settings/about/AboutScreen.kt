@@ -21,12 +21,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -41,7 +39,6 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -71,9 +70,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 
 /**
  * Open-source library entity (Model representing open source dependency info)
@@ -176,10 +179,13 @@ private val openSourceLibraries = listOf(
 @Composable
 fun AboutLibrariesScreen(
     onBack: () -> Unit,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    aboutHazeState: HazeState? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val layoutDirection = LocalLayoutDirection.current
+    val density = LocalDensity.current
 
     // Resolve window proportions (To adapt widths dynamically across diverse display configurations)
     // Employs unified WindowClass instead of reading LocalConfiguration directly.
@@ -192,6 +198,15 @@ fun AboutLibrariesScreen(
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val startPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val endPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
+    var aboutTopBarHeightPx by remember { mutableIntStateOf(0) }
+    val resolvedAboutHazeState = aboutHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
+    // About Top Bar Height Resolution (Reserve space for shared overlay chrome)
+    // The measured top bar height preserves the previous Scaffold topBar spacing while allowing license content to scroll beneath the glass layer.
+    val measuredAboutTopBarHeight = if (aboutTopBarHeightPx > 0) {
+        with(density) { aboutTopBarHeightPx.toDp() }
+    } else {
+        safeDrawingPadding.calculateTopPadding() + 64.dp
+    }
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -203,37 +218,31 @@ fun AboutLibrariesScreen(
                 .fillMaxWidth(if (useWideLayout) 0.8f else 1f)
         ) {
             Scaffold(
-                topBar = {
-                    CenterAlignedTopAppBar(
-                        // Adjust status bar overlap (To align content properly under status bars)
-                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
-                        title = {
-                            Text(
-                                text = "开源许可",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = onBack) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                    contentDescription = "返回"
-                                )
-                            }
+                modifier = Modifier
+                    // About Content Surface Bounds (Keep the sampled license panel full size)
+                    // The shared glass top bar needs a complete backdrop across the centered about panel, including the blank background above the first list row.
+                    .fillMaxSize()
+                    .then(
+                        if (resolvedAboutHazeState != null) {
+                            // About Content Haze Source (Expose license content to overlay chrome)
+                            // Registering the Scaffold content layer lets the shared top bar blur the About page without sampling its own toolbar.
+                            Modifier.hazeSource(resolvedAboutHazeState)
+                        } else {
+                            Modifier
                         }
-                    )
-                }
+                    ),
+                // About Content Insets (Let overlay top bar own top spacing)
+                // The list keeps bottom safe-area padding while the measured shared top bar supplies the top content offset.
+                contentWindowInsets = WindowInsets.safeDrawing
             ) { innerPadding ->
                 LazyColumn(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
+                        .fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = startPadding + 16.dp,
                         end = endPadding + 16.dp,
-                        top = 16.dp,
-                        bottom = safeDrawingPadding.calculateBottomPadding() + 24.dp
+                        top = measuredAboutTopBarHeight + 16.dp,
+                        bottom = innerPadding.calculateBottomPadding() + 24.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -258,6 +267,29 @@ fun AboutLibrariesScreen(
                     }
                 }
             }
+            APlayerGlassTopBar(
+                glassEffectMode = glassEffectMode,
+                hazeState = resolvedAboutHazeState,
+                onHeightChanged = { aboutTopBarHeightPx = it },
+                // About Top Bar Overlay Placement (Reuse Home's extracted glass chrome)
+                // Drawing the license header above Scaffold content keeps About visually aligned with Settings while preserving independent screen content ownership.
+                modifier = Modifier.align(Alignment.TopCenter),
+                title = {
+                    Text(
+                        text = "开源许可",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "返回"
+                        )
+                    }
+                }
+            )
         }
     }
 }

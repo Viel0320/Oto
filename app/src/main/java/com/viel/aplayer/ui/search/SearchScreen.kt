@@ -192,7 +192,13 @@ fun SearchContent(
                                 onClick = handleBack,
                                 modifier = Modifier.padding(start = 4.dp)
                             ) {
-                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                                // Search Top Bar Navigation Icon Color (Surface contrast alignment)
+                                // Explicitly tint the custom SearchBar back icon with onSurface so it matches standard TopAppBar navigation icons.
+                                Icon(
+                                    Icons.AutoMirrored.Rounded.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
                             }
                         },
                         trailingIcon = {
@@ -201,7 +207,13 @@ fun SearchContent(
                                     onClick = onClearQuery,
                                     modifier = Modifier.padding(end = 4.dp)
                                 ) {
-                                    Icon(Icons.Rounded.Clear, contentDescription = "Clear")
+                                    // Search Top Bar Action Icon Color (Surface contrast alignment)
+                                    // Explicitly tint the custom SearchBar clear icon with onSurface so it remains consistent with other top bar action icons.
+                                    Icon(
+                                        Icons.Rounded.Clear,
+                                        contentDescription = "Clear",
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
                             }
                         },

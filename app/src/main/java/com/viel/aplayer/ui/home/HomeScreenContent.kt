@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
@@ -53,6 +54,7 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.APlayerFilterChip
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -61,6 +63,7 @@ import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.home.components.RecentlyAddedSection
+import com.viel.aplayer.ui.home.components.cardgroup
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -79,7 +82,7 @@ fun HomeScreenContent(
     // The following are pre-calculated fields dismantled and passed from LibraryUiState, so the Composable does not need to perform remember operations anymore.
     // When selectedFilter is null, it means the combine pipeline of the ViewModel has not yet produced the first final decision. At this time, the FilterChip row is not rendered to avoid jumping animations.
     selectedFilter: HomeFilter? = null,
-    groupedByAuthor: Map<String, List<BookWithProgress>> = emptyMap(),
+    groupedAudiobooks: Map<String, List<BookWithProgress>> = emptyMap(),
     recentBooks: List<BookWithProgress> = emptyList(),
     /*
      * Active Recent Detail Book Id (Recent-card source visibility selector)
@@ -101,6 +104,9 @@ fun HomeScreenContent(
     // Home Content Haze State (Register the bookshelf surface for the overlay app bar)
     // The scrolling bookshelf still registers a local source so page content remains available for component-level blur and preview fallback.
     homeHazeState: HazeState,
+    // Home View Style (Select the renderer for the main catalog sections)
+    // List renders listgroup items inside the adaptive vertical grid, while Grid renders cardgroup rows as single-line horizontal carousels.
+    homeViewStyle: HomeViewStyle = HomeViewStyle.List,
     // Home Top Bar Height (Reserve space for the NavHost-owned overlay header)
     // HomeContent no longer renders the header, but it still needs the measured chrome height to keep the first grid item from sitting under it.
     homeTopBarHeightPx: Int = 0,
@@ -140,6 +146,9 @@ fun HomeScreenContent(
     val windowClass = LocalWindowClass.current
     val columnsCount = windowClass.columnsCount
     val screenHorizontalPadding = windowClass.screenHorizontalPadding
+    // listgroup Column Count (Bind listgroup columns to the active responsive layout)
+    // cardgroup sections span the full grid width and manage their own horizontal row, so only listgroup items consume these adaptive grid columns.
+    val listgroupColumnsCount = columnsCount
 
     // Exclude Keyboard Insets (Decouple Keyboard from Safe Area)
     // Use WindowInsets.safeDrawing to dynamically obtain current status bar, navigation bar, and physical cutout, and explicitly call exclude(WindowInsets.ime).
@@ -215,15 +224,12 @@ fun HomeScreenContent(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // LazyVerticalGrid Setup (Adaptive Card Grid)
-            // Upgrade and refactor the single-column LazyColumn to a new and powerful LazyVerticalGrid.
-            // Using columns Fixed(columnsCount) to adaptively partition multiple columns in wide screens, tablets, and landscape phones.
-            // All non-main lists (such as FilterChipRow, RecentlyAdded Row, Author Headers, etc.) use span GridItemSpan(maxLineSpan) to span full width,
-            // building a fluid adaptive card grid with a premium appearance.
+            // LazyVerticalGrid Setup (Adaptive listgroup host with cardgroup row slots)
+            // listgroup items consume the responsive grid columns, while cardgroup sections are inserted as full-span horizontal rows.
             // Home Grid Haze Source (Register the real scrolling bookshelf content as the backdrop source) Allows the top bar to blur books and section content after they scroll underneath it.
 
             LazyVerticalGrid(
-                columns = GridCells.Fixed(columnsCount),
+                columns = GridCells.Fixed(listgroupColumnsCount),
                 state = gridState,
                 modifier = Modifier
                     .fillMaxSize()
@@ -300,15 +306,20 @@ fun HomeScreenContent(
                     }
                 }
 
-                groupedByAuthor.forEach { (author, books) ->
-                    // Author section header spans full width.
+                groupedAudiobooks.forEach { (groupTitle, books) ->
+                    // Home Group Header (Render the active sort-rule section label)
+                    // The ViewModel already maps blank metadata to Unknown and orders sections by descending pinyin, so the UI only displays the provided label.
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
-                            text = author.takeIf { it.isNotBlank() } ?: "Unknown",
+                            text = groupTitle,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            // Align Author Header (Apply Horizontal Margins)
-                            // Explicitly inject screenHorizontalPadding to ensure author group names align vertically with the page main title.
+                            // Group Title Line Clamp (Prevent long author, narrator, or series names from pushing layout vertically)
+                            // Keeps each Home group header to one line and truncates overflow with an ellipsis so cardgroup rows and listgroup columns stay visually aligned.
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            // Align Group Header (Apply Horizontal Margins)
+                            // Explicitly inject screenHorizontalPadding to ensure active group names align vertically with the page main title.
                             modifier = Modifier.padding(
                                 start = screenHorizontalPadding,
                                 end = screenHorizontalPadding,
@@ -318,52 +329,91 @@ fun HomeScreenContent(
                         )
                     }
 
-                    // M-20 Fix: Use book.id as a stable key to prevent item state dislocation after book list sorting
-                    items(books, key = { it.book.id }) { book ->
-                        // Grid Layout Mode (Extreme Simplicity Style)
-                        // When columnsCount > 1 (landscape or tablet mode), inject moderate padding inside without card background or corners, keeping the clean and minimal aesthetic.
-                        val itemModifier = if (columnsCount > 1) {
-                            Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        } else {
-                            Modifier
+                    when (homeViewStyle) {
+                        HomeViewStyle.List -> {
+                            // M-20 Fix: Use book.id as a stable key to prevent item state dislocation after book list sorting
+                            items(books, key = { it.book.id }) { book ->
+                                // listgroup Adaptive Cell Padding (Preserve roomy spacing when responsive layouts create multiple columns)
+                                // Compact portrait keeps the edge-to-edge list feel, while wider layouts add inner spacing between parallel listgroup columns.
+                                val itemModifier = if (listgroupColumnsCount > 1) {
+                                    Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                } else {
+                                    Modifier
+                                }
+                                ListItem(
+                                    bookId = book.book.id,
+                                    title = book.book.title,
+                                    author = book.book.author,
+                                    narrator = book.book.narrator,
+                                    duration = book.book.totalDurationMs,
+                                    // Small Thumbnail Selection (thumbnail Preferred)
+                                    // Main page common list uses small cover size, delegated to CoverImageSourceSelector.small to choose "thumbnail preferred, original fallback" path, avoiding custom hand-written Elvis rules.
+                                    coverPath = CoverImageSourceSelector.small(
+                                        thumbnailPath = book.book.thumbnailPath,
+                                        coverPath = book.book.coverPath
+                                    ),
+                                    coverLastUpdated = book.book.lastScannedAt, // Bridge scan/self-healing milliseconds timestamp in Room layer, using declarative design to force synchronous image refreshing
+                                    progressPercent = book.progressPercent,
+                                    /*
+                                     * List Detail Source Activity (Main-list source visibility trigger)
+                                     *
+                                     * Activates only when this book was opened from the main Home list,
+                                     * keeping matching Recent cards visible and out of this transition.
+                                     */
+                                    isDetailTargetActive = book.book.id == activeListDetailBookId,
+                                    /*
+                                     * List Detail Shared Element Key (Main-list channel binding)
+                                     *
+                                     * Uses the list-specific key so Home list artwork cannot pair with
+                                     * Recent cards that may show the same book ID.
+                                    */
+                                    sharedElementKey = SharedElementKeys.homeList2DetailCover(book.book.id),
+                                    onClick = { onNavigateToDetail(book.book.id, DetailEntrySource.HomeList) },
+                                    // Book Actions Request (Forward long-press intent to the parent Home dialog host)
+                                    // HomeScreenContent reports the selected audiobook without deciding which dialog should render.
+                                    onLongClick = { onBookActionsRequested(book) },
+                                    modifier = itemModifier
+                                ) {
+                                    onLoadBook(book.book.id)
+                                    onNavigateToPlayer()
+                                }
+                            }
                         }
-
-                        ListItem(
-                            bookId = book.book.id,
-                            title = book.book.title,
-                            author = book.book.author,
-                            narrator = book.book.narrator,
-                            duration = book.book.totalDurationMs,
-                            // Small Thumbnail Selection (thumbnail Preferred)
-                            // Main page common list uses small cover size, delegated to CoverImageSourceSelector.small to choose "thumbnail preferred, original fallback" path, avoiding custom hand-written Elvis rules.
-                            coverPath = CoverImageSourceSelector.small(
-                                thumbnailPath = book.book.thumbnailPath,
-                                coverPath = book.book.coverPath
-                            ),
-                            coverLastUpdated = book.book.lastScannedAt, // Bridge scan/self-healing milliseconds timestamp in Room layer, using declarative design to force synchronous image refreshing
-                            progressPercent = book.progressPercent,
-                            /*
-                             * List Detail Source Activity (Main-list source visibility trigger)
-                             *
-                             * Activates only when this book was opened from the main Home list,
-                             * keeping matching Recent cards visible and out of this transition.
-                             */
-                            isDetailTargetActive = book.book.id == activeListDetailBookId,
-                            /*
-                             * List Detail Shared Element Key (Main-list channel binding)
-                             *
-                             * Uses the list-specific key so Home list artwork cannot pair with
-                             * Recent cards that may show the same book ID.
-                             */
-                            sharedElementKey = SharedElementKeys.homeList2DetailCover(book.book.id),
-                            onClick = { onNavigateToDetail(book.book.id, DetailEntrySource.HomeList) },
-                            // Book Actions Request (Forward long-press intent to the parent Home dialog host)
-                            // HomeScreenContent reports the selected audiobook without deciding which dialog should render.
-                            onLongClick = { onBookActionsRequested(book) },
-                            modifier = itemModifier
-                        ) {
-                            onLoadBook(book.book.id)
-                            onNavigateToPlayer()
+                        HomeViewStyle.Grid -> {
+                            // cardgroup Horizontal Group Row (Keep every sorted section to one horizontal swipe line)
+                            // The row spans the full responsive grid width so cardgroup never wraps into vertical multi-column grids.
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(
+                                        start = screenHorizontalPadding - 8.dp,
+                                        end = screenHorizontalPadding - 8.dp
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(books, key = { it.book.id }) { book ->
+                                        // cardgroup Row Item Rendering (Reuse the fixed-width cover card inside a horizontal carousel)
+                                        // Uses the Home-list shared element key so card taps still transition through the catalog-origin detail channel.
+                                        cardgroup(
+                                            bookId = book.book.id,
+                                            title = book.book.title,
+                                            author = book.book.author,
+                                            narrator = book.book.narrator,
+                                            progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
+                                            coverPath = CoverImageSourceSelector.medium(
+                                                thumbnailPath = book.book.thumbnailPath,
+                                                coverPath = book.book.coverPath
+                                            ),
+                                            coverLastUpdated = book.book.lastScannedAt,
+                                            isDetailTargetActive = book.book.id == activeListDetailBookId,
+                                            onClick = { onNavigateToDetail(book.book.id, DetailEntrySource.HomeList) },
+                                            onLongClick = { onBookActionsRequested(book) },
+                                            glassEffectMode = glassEffectMode,
+                                            sharedElementKey = SharedElementKeys.homeList2DetailCover(book.book.id)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -406,7 +456,7 @@ fun HomeScreenNotStartedPreview() {
             HomeScreenContent(
                 // Preview simulated data pre-calculated from ViewModel
                 selectedFilter = HomeFilter.NotStarted,
-                groupedByAuthor = mockBooks.groupBy { it.book.author },
+                groupedAudiobooks = mockBooks.groupBy { it.book.author },
                 recentBooks = mockBooks,
                 shouldShowRecentBooks = true,
                 recentTitleRes = R.string.recently_added_title,

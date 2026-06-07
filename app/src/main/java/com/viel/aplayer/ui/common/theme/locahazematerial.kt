@@ -48,6 +48,7 @@ enum class ChromaticAberrationMode {
  * Controls whether the liquid glass renderer draws a full shape outline or only the lower divider edge for toolbar-like surfaces.
  */
 enum class LiquidGlassBorderMode {
+    None,
     Outline,
     BottomEdge
 }
@@ -153,6 +154,10 @@ fun Modifier.liquidGlassCompatEffect(
             )
 
             when (resolvedStyle.borderMode) {
+                LiquidGlassBorderMode.None -> {
+                    // Liquid Glass Border Suppression (Allow borderless blurred surfaces)
+                    // Some full-width chrome surfaces need Haze blur and tint without a decorative outline, so this mode intentionally skips all edge drawing.
+                }
                 LiquidGlassBorderMode.Outline -> {
                     // Render fine 1.dp bezel outer boundary highlights
                     drawOutline(

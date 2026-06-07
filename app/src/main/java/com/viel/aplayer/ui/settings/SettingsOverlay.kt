@@ -25,7 +25,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
 
 /**
  * SettingsOverlay Composable (Stateless Settings Overlay Shell)
@@ -43,23 +42,22 @@ fun SettingsOverlay(
     // Synchronizes the show/hide state from SettingsViewModel to drive AnimatedVisibility scope.
     val isVisible by settingsViewModel.isVisible.collectAsStateWithLifecycle()
 
-    // Settings Haze Source (Provide a local backdrop for settings-owned dialogs)
-    // Registers the settings surface itself as the blur source so Settings dialogs do not sample stale Home/Search content behind the overlay.
+    // Settings Haze Source (Provide a local backdrop for settings chrome and dialogs)
+    // SettingsScreen registers its content layer with this state so its shared glass top bar and settings-owned dialogs sample the settings page instead of stale app content behind the overlay.
     val settingsHazeState = remember { HazeState() }
+    // About Haze Source (Separate license-page sampling from settings-page transitions)
+    // AnimatedContent can keep Settings and About composed briefly at the same time, so About uses its own source to avoid competing registrations on one HazeState.
+    val aboutHazeState = remember { HazeState() }
     val isBlur = glassEffectMode == GlassEffectMode.Haze
 
     AnimatedVisibility(
         visible = isVisible,
-        enter = if (isBlur) {
-            fadeIn(animationSpec = tween(300))
-        } else {
-            slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300))
-        },
-        exit = if (isBlur) {
-            fadeOut(animationSpec = tween(300))
-        } else {
-            slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
-        },
+        // Settings Overlay Enter Motion (Unify Material and Haze presentation)
+        // The settings page always slides upward from the bottom while fading in over 300ms, so switching glass mode no longer changes navigation feel.
+        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+        // Settings Overlay Exit Motion (Mirror enter with downward slide and fade)
+        // The page exits toward the bottom over the same 300ms duration to keep close behavior consistent across visual modes.
+        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)),
         modifier = modifier
     ) {
         // Track interior navigation state (To switch between settings main menu and licenses panel)
@@ -78,15 +76,9 @@ fun SettingsOverlay(
         }
 
         Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(
-                    if (isBlur) {
-                        Modifier.hazeSource(settingsHazeState)
-                    } else {
-                        Modifier
-                    }
-                ),
+            // Settings Overlay Surface Boundary (Leave Haze source ownership to screen content)
+            // SettingsScreen now registers its content Scaffold as the blur source so the overlay top bar samples settings content without capturing its own chrome.
+            modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
             // Apply horizontal navigation transitions (To switch settings sub-screens fluidly)
@@ -106,7 +98,9 @@ fun SettingsOverlay(
             ) { showAbout ->
                 if (showAbout) {
                     AboutLibrariesScreen(
-                        onBack = { showAboutLibraries = false }
+                        onBack = { showAboutLibraries = false },
+                        glassEffectMode = glassEffectMode,
+                        aboutHazeState = if (isBlur) aboutHazeState else null
                     )
                 } else {
                     // Collect settings business data (To populate settings menu and capture actions)
@@ -176,7 +170,7 @@ fun SettingsOverlay(
                         isDynamicColorEnabled = settingsState.isDynamicColorEnabled,
                         onDynamicColorEnabledChange = { settingsViewModel.toggleDynamicColorEnabled(it) },
                         glassEffectMode = settingsState.glassEffectMode,
-                        settingsDialogHazeState = if (isBlur) settingsHazeState else null,
+                        settingsHazeState = if (isBlur) settingsHazeState else null,
                         onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },
                         autoRewindSeconds = settingsState.autoRewindSeconds,
                         onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) },

@@ -98,7 +98,9 @@ fun PlayerAppBar(
                 Icon(
                     painter = rememberVectorPainter(navIcon),
                     contentDescription = "Back",
-                    tint = contentColor
+                    // Player Top Bar Navigation Icon Color (Use app-wide top-bar icon color)
+                    // Keeps the navigation icon aligned with other top bars instead of inheriting the player title content color.
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
         },
@@ -108,7 +110,9 @@ fun PlayerAppBar(
                     Icon(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = "More",
-                        tint = contentColor
+                        // Player Top Bar Action Icon Color (Use app-wide top-bar icon color)
+                        // Keeps the action icon aligned with navigation icons and other app chrome.
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 
@@ -150,9 +154,11 @@ fun PlayerAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = containerColor,
             scrolledContainerColor = Color.Unspecified,
-            navigationIconContentColor = Color.Unspecified,
+            // Player Top Bar Slot Color Unification (Override Material3 navigation/action defaults)
+            // The icons also set explicit tint, but slot colors stay onSurface for future icon additions.
+            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
             titleContentColor = Color.Unspecified,
-            actionIconContentColor = Color.Unspecified
+            actionIconContentColor = MaterialTheme.colorScheme.onSurface
         )
     )
 }

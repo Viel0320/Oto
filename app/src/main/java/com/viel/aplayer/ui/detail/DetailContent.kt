@@ -33,7 +33,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -236,7 +235,11 @@ fun DetailContent(
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent
+                            containerColor = Color.Transparent,
+                            // Detail Top Bar Icon Color Unification (Override Material3 navigation/action defaults)
+                            // Material3 uses different defaults for navigation and action icons; forcing onSurface keeps both sides visually consistent.
+                            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                            actionIconContentColor = MaterialTheme.colorScheme.onSurface
                         ),
                         // Exclude Keyboard Insets (Keep Top Bar Stable on IME change)
                         // Also exclude WindowInsets.ime from TopAppBar layout calculations to guarantee absolute header stability.

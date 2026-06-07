@@ -104,10 +104,12 @@ class AvailabilityChecker(
                 rootFiles.forEach { file -> results[file.id] = notFoundResult() }
             } else {
                 when (LibrarySourceKind.from(root.sourceType)) {
-                    // Optimize Bulk Checks via VFS (Unified Performance Path)
-                    // Performs bulk availability tests by listChildren queries on parent paths, shared by SAF and WebDAV.
+                    // File-Tree Bulk Checks (Preserve directory-source availability semantics)
+                    // Routes SAF and WebDAV files through parent directory listings so local libraries and remote file-tree sources avoid per-file probes during recovery and detail refresh.
                     LibrarySourceKind.SAF,
-                    LibrarySourceKind.WEBDAV,
+                    LibrarySourceKind.WEBDAV -> checkVfsBookFiles(root, rootFiles, results)
+                    // ABS Track Checks (Preserve catalog-source availability semantics)
+                    // Keeps ABS on individual readable probes because ABS track paths are catalog stream URLs rather than enumerable VFS directory children.
                     LibrarySourceKind.ABS -> checkAbsBookFiles(rootFiles, results)
                     null -> rootFiles.forEach { file ->
                         results[file.id] = AvailabilityResult(

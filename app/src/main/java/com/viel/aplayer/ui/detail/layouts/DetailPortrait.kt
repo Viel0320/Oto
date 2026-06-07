@@ -1,23 +1,24 @@
 package com.viel.aplayer.ui.detail.layouts
 
 // Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState class for layouts.
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -94,39 +95,52 @@ fun DetailPortrait(
             .padding(padding),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Primary Cover (Renders the album cover with dominant ratio)
-        PlayerCover(
-            bookId = book?.id ?: "",
-            coverPath = CoverImageSourceSelector.main(
-                coverPath = book?.coverPath,
-                thumbnailPath = book?.thumbnailPath
-            ),
-            isPlaying = false,
-            coverLastUpdated = book?.lastScannedAt ?: 0L,
-            coverScene = "detail-main-cover",
-            onAdjustVolume = {},
-            onNextChapter = {},
-            onPreviousChapter = {},
-            sizeRatio = 0.9f,  //todo too big
-            gesturesEnabled = false,
-            /*
-             * Detail Cover Shared Element Key (Destination artwork endpoint)
-             *
-             * Binds the portrait detail cover to the same Home recent-card key so the selected
-             * artwork morphs across the overlay boundary instead of fading independently.
-            */
-            sharedElementKey = detailSharedElementKey,
-            sharedElementVisibilityScope = detailSharedElementVisibilityScope,
-            /*
-             * Detail Cover Source Corner (Home recent card shape alignment)
-             *
-             * Matches the selected recent-card cover radius so the target cover does not flash
-             * through the mini-player's 8.dp start radius on the first overlay frame.
-             */
-            sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
-            onColorExtracted = onColorExtracted,
-            modifier = Modifier.fillMaxWidth().aspectRatio(1f)
-        )
+        // Portrait Cover Adaptive Slot (Constrain cover by window width class instead of phone-only assumptions)
+        // DetailPortrait can run on phones, foldables, and portrait tablets, so the parent slot computes a bounded square target while PlayerCover remains unchanged.
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            // Portrait Cover Size Policy (Use one calm width ratio across portrait form factors)
+            // A uniform 60% slot keeps phones, foldables, and portrait tablets visually consistent while max-size caps still prevent large screens from dominating the page.
+            val coverWidthFraction = 0.6f
+
+            val coverSlotSize = (maxWidth * coverWidthFraction)
+
+            // Primary Cover (Renders the album cover with adaptive portrait constraints)
+            PlayerCover(
+                bookId = book?.id ?: "",
+                coverPath = CoverImageSourceSelector.main(
+                    coverPath = book?.coverPath,
+                    thumbnailPath = book?.thumbnailPath
+                ),
+                isPlaying = false,
+                coverLastUpdated = book?.lastScannedAt ?: 0L,
+                coverScene = "detail-main-cover",
+                onAdjustVolume = {},
+                onNextChapter = {},
+                onPreviousChapter = {},
+                sizeRatio = 1f,
+                gesturesEnabled = false,
+                /*
+                 * Detail Cover Shared Element Key (Destination artwork endpoint)
+                 *
+                 * Binds the portrait detail cover to the same Home recent-card key so the selected
+                 * artwork morphs across the overlay boundary instead of fading independently.
+                */
+                sharedElementKey = detailSharedElementKey,
+                sharedElementVisibilityScope = detailSharedElementVisibilityScope,
+                /*
+                 * Detail Cover Source Corner (Home recent card shape alignment)
+                 *
+                 * Matches the selected recent-card cover radius so the target cover does not flash
+                 * through the mini-player's 8.dp start radius on the first overlay frame.
+                 */
+                sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
+                onColorExtracted = onColorExtracted,
+                modifier = Modifier.size(coverSlotSize)
+            )
+        }
 
         // Metadata Area (Displays title, author, and narrator details)
         DetailHeader(

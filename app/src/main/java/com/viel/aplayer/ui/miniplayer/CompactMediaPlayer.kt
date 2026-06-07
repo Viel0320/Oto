@@ -46,6 +46,7 @@ import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
+import com.viel.aplayer.ui.common.theme.LiquidGlassBorderMode
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
@@ -151,7 +152,10 @@ fun CompactMediaPlayer(
                                 // Adaptive Glass Tint: Fallback to theme-based 12% tint (White in Dark, Black in Light) by leaving it Unspecified.
                                 specularIntensity = 0.4f,
                                 ambientResponse = 0.5f,
-                                shape = compactShape
+                                shape = compactShape,
+                                // Compact Player Borderless Haze (Remove only the full-width compact player's glass outline)
+                                // The pill mini-player keeps its circular cover border and glass outline, while this bottom compact bar uses blur without an edge stroke.
+                                borderMode = LiquidGlassBorderMode.None
                             )
                         )
                 } else {

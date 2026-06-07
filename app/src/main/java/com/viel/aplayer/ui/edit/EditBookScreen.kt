@@ -285,7 +285,11 @@ fun EditBookScreen(
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent,
-                            titleContentColor = MaterialTheme.colorScheme.onBackground
+                            titleContentColor = MaterialTheme.colorScheme.onBackground,
+                            // Edit Top Bar Icon Color Unification (Override Material3 navigation/action defaults)
+                            // The edit page currently exposes a navigation icon only, but the action slot is set too for consistent future chrome.
+                            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                            actionIconContentColor = MaterialTheme.colorScheme.onSurface
                         )
                     )
                 },

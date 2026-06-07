@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
@@ -31,7 +30,6 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,12 +40,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -60,10 +60,12 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
+import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 
 /**
@@ -110,7 +112,7 @@ fun SettingsScreen(
     isDynamicColorEnabled: Boolean,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
     glassEffectMode: GlassEffectMode,
-    settingsDialogHazeState: HazeState? = null,
+    settingsHazeState: HazeState? = null,
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
     autoRewindSeconds: Int,
     onAutoRewindSecondsChange: (Int) -> Unit,
@@ -160,6 +162,16 @@ fun SettingsScreen(
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     val settingsStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val settingsEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
+    val density = LocalDensity.current
+    var settingsTopBarHeightPx by remember { mutableIntStateOf(0) }
+    val resolvedSettingsHazeState = settingsHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
+    // Settings Top Bar Height Resolution (Reserve space for overlay chrome)
+    // A measured value keeps the list aligned with the real header, while the fallback protects first-frame and preview layouts before measurement arrives.
+    val measuredSettingsTopBarHeight = if (settingsTopBarHeightPx > 0) {
+        with(density) { settingsTopBarHeightPx.toDp() }
+    } else {
+        safeDrawingPadding.calculateTopPadding() + 64.dp
+    }
 
     if (showWebDavDialog) {
         WebDavRootDialog(
@@ -169,7 +181,7 @@ fun SettingsScreen(
             displayName = webDavDisplayName,
             basePath = webDavBasePath,
             editingRootId = editingRootId,
-            hazeState = settingsDialogHazeState,
+            hazeState = settingsHazeState,
             glassEffectMode = glassEffectMode,
             connectionState = webDavConnectionState,
             onUrlChange = { 
@@ -246,7 +258,7 @@ fun SettingsScreen(
             password = absPassword,
             displayName = absDisplayName,
             editingRootId = editingRootId,
-            hazeState = settingsDialogHazeState,
+            hazeState = settingsHazeState,
             glassEffectMode = glassEffectMode,
             connectionState = absConnectionState,
             selectedLibraryId = absLibraryId,
@@ -312,32 +324,31 @@ fun SettingsScreen(
                 .fillMaxWidth(if (useWideLayout) 0.8f else 1f)
         ) {
             Scaffold(
-                topBar = {
-                    CenterAlignedTopAppBar(
-                        modifier = Modifier,
-                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
-                        title = { Text(stringResource(R.string.settings_title)) },
-                        navigationIcon = {
-                            IconButton(
-                                onClick = onBack,
-                                modifier = Modifier
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Rounded.ArrowBack,
-                                    contentDescription = stringResource(R.string.back_content_description)
-                                )
-                            }
+                modifier = Modifier
+                    // Settings Content Surface Bounds (Keep the sampled content layer full size)
+                    // The Haze source must cover the whole settings panel so the overlay top bar always has a complete backdrop to sample.
+                    .fillMaxSize()
+                    .then(
+                        if (resolvedSettingsHazeState != null) {
+                            // Settings Content Haze Source (Expose the full settings content surface to overlay chrome)
+                            // Registering the Scaffold content layer preserves background sampling behind the top bar while keeping the top bar itself outside the source.
+                            Modifier.hazeSource(resolvedSettingsHazeState)
+                        } else {
+                            Modifier
                         }
-                    )
-                }
+                    ),
+                // Settings Content Insets (Let overlay top bar own top spacing)
+                // The list reads bottom system padding from Scaffold, while the measured overlay header supplies its own top content padding.
+                contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
             ) { innerPadding ->
                 LazyColumn(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
+                        .fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = settingsStartPadding,
-                        end = settingsEndPadding
+                        end = settingsEndPadding,
+                        top = measuredSettingsTopBarHeight,
+                        bottom = innerPadding.calculateBottomPadding()
                     )
                 ) {
                     item {
@@ -399,6 +410,23 @@ fun SettingsScreen(
                     }
                 }
             }
+            APlayerGlassTopBar(
+                glassEffectMode = glassEffectMode,
+                hazeState = resolvedSettingsHazeState,
+                onHeightChanged = { settingsTopBarHeightPx = it },
+                // Settings Top Bar Overlay Placement (Match Home's chrome layering)
+                // Drawing the header above Scaffold content lets settings rows scroll beneath the glass surface instead of being clipped below a Scaffold topBar slot.
+                modifier = Modifier.align(Alignment.TopCenter),
+                title = { Text(stringResource(R.string.settings_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = stringResource(R.string.back_content_description)
+                        )
+                    }
+                }
+            )
         }
     }
 

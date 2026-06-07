@@ -11,6 +11,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeSortRule
+import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.data.store.SleepMode
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import com.viel.aplayer.data.store.ThemeMode
@@ -50,6 +52,12 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         // Dynamic Color Storage Key (Preference key to track whether dynamic Monet coloring is enabled) Adds preferences key for dynamic color option.
         val IS_DYNAMIC_COLOR_ENABLED = booleanPreferencesKey("is_dynamic_color_enabled")
         val HOME_FILTER = stringPreferencesKey("home_filter")
+        // Home View Style Storage Key (Tracks the user's catalog renderer preference)
+        // Stores enum names instead of localized labels so preference data stays stable across language changes.
+        val HOME_VIEW_STYLE = stringPreferencesKey("home_view_style")
+        // Home Sort Rule Storage Key (Tracks the user's catalog grouping and pinyin-descending sort preference)
+        // Stores enum names so author, narrator, and series sorting can be restored without coupling DataStore to UI text.
+        val HOME_SORT_RULE = stringPreferencesKey("home_sort_rule")
         val IS_GLOBAL_SPEED_ENABLED = booleanPreferencesKey("is_global_speed_enabled")
         val GLOBAL_PLAYBACK_SPEED = floatPreferencesKey("global_playback_speed")
         val IS_CHAPTER_PROGRESS_MODE = booleanPreferencesKey("is_chapter_progress_mode")
@@ -90,6 +98,16 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             // Read Dynamic Color Setting (Load persisted dynamic color option, defaulting to true) Reads dynamic color setting from DataStore.
             isDynamicColorEnabled = preferences[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] ?: true,
             homeFilter = preferences[PreferencesKeys.HOME_FILTER] ?: "NotStarted",
+            // Read Home View Style (Parse persisted catalog renderer, defaulting to List for backward-compatible first launch behavior)
+            // Invalid values are ignored so stale preference names cannot break Home screen rendering after enum changes.
+            homeViewStyle = preferences[PreferencesKeys.HOME_VIEW_STYLE]
+                ?.let { runCatching { HomeViewStyle.valueOf(it) }.getOrNull() }
+                ?: HomeViewStyle.List,
+            // Read Home Sort Rule (Parse persisted grouping rule, defaulting to Author to preserve the existing catalog organization)
+            // Invalid values are ignored so older cached preferences safely fall back to the established author view.
+            homeSortRule = preferences[PreferencesKeys.HOME_SORT_RULE]
+                ?.let { runCatching { HomeSortRule.valueOf(it) }.getOrNull() }
+                ?: HomeSortRule.Author,
             isGlobalSpeedEnabled = preferences[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] ?: false,
             globalPlaybackSpeed = preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] ?: 1.0f,
             isChapterProgressMode = preferences[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] ?: false,
@@ -124,6 +142,18 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     }
     suspend fun updateHomeFilter(filter: String) {
         dataStore.edit { it[PreferencesKeys.HOME_FILTER] = filter }
+    }
+
+    // Write Home View Style (Persist the selected Home catalog renderer)
+    // Saves enum names directly so the UI can switch between adaptive listgroup columns and cardgroup carousel rows after the DataStore flow emits.
+    suspend fun updateHomeViewStyle(style: HomeViewStyle) {
+        dataStore.edit { it[PreferencesKeys.HOME_VIEW_STYLE] = style.name }
+    }
+
+    // Write Home Sort Rule (Persist the selected Home catalog grouping and ordering rule)
+    // Saves enum names directly so the ViewModel can rebuild grouped audiobook sections from the canonical settings stream.
+    suspend fun updateHomeSortRule(rule: HomeSortRule) {
+        dataStore.edit { it[PreferencesKeys.HOME_SORT_RULE] = rule.name }
     }
 
     suspend fun updateGlobalSpeedEnabled(enabled: Boolean) {

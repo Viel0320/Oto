@@ -9,8 +9,8 @@ import android.graphics.drawable.LayerDrawable
 import android.os.Build
 import android.util.Log
 import android.util.LruCache
-import androidx.core.graphics.scale
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.scale
 import androidx.palette.graphics.Palette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,8 +34,8 @@ import java.io.InputStream
  */
 object ImageProcessor {
     private const val TAG = "ImageProcessor"
-    // 详尽注释：缩略图最大边提升到 360px，与 RecentlyItem / 中等封面卡片的 ThumbnailMedium 规格对齐。
-    // 这样中等卡片可以优先从本地缩略图和同规格 Coil 缓存读取，减少从原图二次解码的概率。
+    // cardgroup Thumbnail Size Alignment (Keep medium cover cards and generated thumbnails on the same 360px contract)
+    // This lets cardgroup surfaces prefer local thumbnails and matching Coil cache entries, reducing repeated full-size cover decoding.
     private const val DEFAULT_THUMBNAIL_MAX_SIZE = 360
 
     // 主色提取代价较高，这里保留路径级 LRU 缓存，避免同一张封面重复跑 Palette。
