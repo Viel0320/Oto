@@ -28,6 +28,12 @@ interface LibraryRootGateway {
     fun getCachedLibraryRoots(): List<LibraryRootEntity>
 
     /**
+     * Get Persistent Roots Snapshot (Reads the current root list directly from storage)
+     * Startup synchronization uses this suspend query instead of the asynchronous cache so cold-start workers see registered roots deterministically.
+     */
+    suspend fun getAllRootsOnce(): List<LibraryRootEntity>
+
+    /**
      * Register Local Storage Root (SAF directory mapping)
      * Persists a local SAF authorized tree directory as a library root.
      * 

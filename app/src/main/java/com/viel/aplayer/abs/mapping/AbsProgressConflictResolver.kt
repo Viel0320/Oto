@@ -33,10 +33,9 @@ class AbsProgressConflictResolver {
         remote: AbsUserProgressDto?,
         localReadStatus: String? = null
     ): Decision {
-        if (remote == null || remote.currentTime == null) return Decision.RemoteMissing
+        val remotePositionMs = remote?.resolvedPositionMs() ?: return Decision.RemoteMissing
         if (local == null) return Decision.LocalMissing
         if (hasFinishedConflict(localReadStatus, remote.isFinished)) return Decision.Conflict
-        val remotePositionMs = (remote.currentTime * 1000.0).toLong().coerceAtLeast(0L)
         return resolvePositions(local, remotePositionMs)
     }
 
@@ -90,8 +89,46 @@ class AbsProgressConflictResolver {
                 val localUpdatedAt = local?.lastPlayedAt ?: return true
                 remoteUpdatedAt > localUpdatedAt
             }
-            Decision.RemoteMissing,
-            Decision.Conflict -> false
+            Decision.Conflict -> isRemoteNewerThanLocal(local, remote)
+            Decision.RemoteMissing -> false
         }
+    }
+
+    /**
+     * Local Upload Freshness Gate (Lets newer device checkpoints overwrite stale server progress)
+     * A large position delta alone is not a conflict when the local save happened after the last known ABS checkpoint.
+     */
+    fun shouldUploadLocalProgress(
+        local: BookProgressEntity,
+        remote: AbsUserProgressDto?,
+        localReadStatus: String? = null
+    ): Boolean =
+        when (resolve(local, remote, localReadStatus)) {
+            Decision.Conflict -> isLocalNewerThanRemote(local, remote)
+            Decision.RemoteMissing,
+            Decision.InSync,
+            Decision.LocalMissing -> true
+        }
+
+    /**
+     * Remote Position Normalization (Supports both absolute seconds and ratio-duration ABS payloads)
+     * authorize.user.mediaProgress can be the startup sync source, so conflict checks must understand the same progress shapes as the mapper.
+     */
+    private fun AbsUserProgressDto.resolvedPositionMs(): Long? {
+        val currentTimeSec = currentTime ?: progress?.let { ratio ->
+            duration?.let { totalDurationSec -> ratio * totalDurationSec }
+        } ?: return null
+        return (currentTimeSec * 1000.0).toLong().coerceAtLeast(0L)
+    }
+
+    private fun isRemoteNewerThanLocal(local: BookProgressEntity?, remote: AbsUserProgressDto?): Boolean {
+        val remoteUpdatedAt = remote?.lastUpdate ?: return false
+        val localUpdatedAt = local?.lastPlayedAt ?: return true
+        return remoteUpdatedAt > localUpdatedAt
+    }
+
+    private fun isLocalNewerThanRemote(local: BookProgressEntity, remote: AbsUserProgressDto?): Boolean {
+        val remoteUpdatedAt = remote?.lastUpdate ?: return true
+        return local.lastPlayedAt > remoteUpdatedAt
     }
 }

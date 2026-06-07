@@ -145,15 +145,10 @@ class AbsProgressConflictCoordinator(
         }.getOrElse {
             return UploadDecision.RemoteProbeFailed
         }
-        val decision = conflictResolver.resolve(
-            local = localProgress,
-            remote = remote,
-            localReadStatus = book.readStatus
-        )
-        return if (decision == AbsProgressConflictResolver.Decision.Conflict) {
-            UploadDecision.Conflict
-        } else {
+        return if (conflictResolver.shouldUploadLocalProgress(localProgress, remote, book.readStatus)) {
             UploadDecision.Allow
+        } else {
+            UploadDecision.Conflict
         }
     }
 

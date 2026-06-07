@@ -21,6 +21,7 @@ import com.viel.aplayer.abs.net.dto.AbsStatusDto
 import com.viel.aplayer.abs.net.dto.AbsTrackDto
 import com.viel.aplayer.abs.net.dto.AbsTrackMetadataDto
 import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
+import com.viel.aplayer.abs.sync.AbsAuthorizedProgressSynchronizer
 import com.viel.aplayer.abs.sync.AbsCatalogStore
 import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
@@ -32,6 +33,11 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.media.BookPlaybackPlan
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -158,6 +164,126 @@ class AbsCatalogStage2Test {
         val noProgressBook = catalogMapper.toBook(root, serverKey, itemWithoutProgress, existing = null, syncedAt = 1000L)
         val noProgressFiles = catalogMapper.toFiles(root, serverKey, itemWithoutProgress)
         assertNull(progressMapper.toProgressOrNull(itemWithoutProgress, noProgressBook, noProgressFiles, 1000L))
+    }
+
+    @Test
+    fun `catalog sync should apply authorize media progress when item detail omits progress`() = runBlocking {
+        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val root = LibraryRootEntity(
+            id = idMapper.rootId(serverKey, "lib-1"),
+            sourceType = AudiobookSchema.LibrarySourceType.ABS,
+            sourceUri = "https://example.com/audiobookshelf",
+            basePath = "lib-1",
+            credentialId = "cred-1",
+            displayName = "Audiobooks"
+        )
+        val itemWithoutInlineProgress = sampleItem(itemId = "item-1", libraryId = "lib-1", progress = null)
+        val catalogStore = FakeAbsCatalogStore()
+        val credentialStore = createCredentialStore(token = "token-1", baseUrl = "https://example.com/audiobookshelf")
+        val synchronizer = AbsCatalogSynchronizer(
+            apiClient = FakeAbsApiClient(
+                minified = AbsLibraryItemsResponseDto(results = listOf(itemWithoutInlineProgress), total = 1, limit = 1, page = 0),
+                details = listOf(itemWithoutInlineProgress),
+                mediaProgress = listOf(
+                    AbsUserProgressDto(
+                        libraryItemId = "item-1",
+                        currentTime = 12.5,
+                        isFinished = false,
+                        lastUpdate = 999L
+                    )
+                )
+            ),
+            credentialStore = credentialStore,
+            catalogStore = catalogStore,
+            batchSize = 10
+        )
+
+        synchronizer.syncRootWithSummary(root)
+
+        val bookId = idMapper.bookId(serverKey, "item-1")
+        // Authorize Media Progress Adoption (Locks the real ABS 2.35.x payload shape)
+        // Library item detail responses can omit progress, so catalog sync must merge user.mediaProgress before mapping readStatus and BookProgress.
+        assertEquals(AudiobookSchema.ReadStatus.IN_PROGRESS, catalogStore.books[bookId]?.readStatus)
+        assertEquals(12_500L, catalogStore.progress[bookId]?.globalPositionMs)
+        assertEquals(999L, catalogStore.progress[bookId]?.lastPlayedAt)
+    }
+
+    @Test
+    fun `catalog sync should route reused mirrors through authorized progress synchronizer`() = runBlocking {
+        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val root = LibraryRootEntity(
+            id = idMapper.rootId(serverKey, "lib-1"),
+            sourceType = AudiobookSchema.LibrarySourceType.ABS,
+            sourceUri = "https://example.com/audiobookshelf",
+            basePath = "lib-1",
+            credentialId = "cred-1",
+            displayName = "Audiobooks"
+        )
+        val existingItem = sampleItem(itemId = "item-1", libraryId = "lib-1", progress = null, updatedAt = 5_000L)
+        val existingBook = catalogMapper.toBook(root, serverKey, existingItem, existing = null, syncedAt = 1_000L)
+        val existingFiles = catalogMapper.toFiles(root, serverKey, existingItem)
+        val catalogStore = FakeAbsCatalogStore(
+            books = mutableMapOf(existingBook.id to existingBook),
+            progress = mutableMapOf(
+                existingBook.id to BookProgressEntity(bookId = existingBook.id, globalPositionMs = 1_000L, lastPlayedAt = 1_000L)
+            ),
+            mirrors = mutableMapOf(
+                "item-1" to AbsItemMirrorEntity(
+                    localBookId = existingBook.id,
+                    rootId = root.id,
+                    serverKey = serverKey,
+                    remoteItemId = "item-1",
+                    remoteUpdatedAt = existingItem.updatedAt,
+                    state = AudiobookSchema.AbsMirrorState.ACTIVE
+                )
+            ),
+            syncState = AbsSyncStateEntity(
+                rootId = root.id,
+                serverKey = serverKey,
+                libraryId = "lib-1",
+                fullListFingerprint = "item-1:${existingItem.updatedAt}"
+            )
+        )
+        val credentialStore = createCredentialStore(token = "token-1", baseUrl = "https://example.com/audiobookshelf")
+        val progressGateway = FakeProgressGateway(catalogStore.progress)
+        val authorizedProgressSynchronizer = AbsAuthorizedProgressSynchronizer(
+            apiClient = FakeAbsApiClient(
+                minified = AbsLibraryItemsResponseDto(results = listOf(existingItem), total = 1, limit = 1, page = 0),
+                details = emptyList()
+            ),
+            credentialProvider = { AbsAuthorizedProgressSynchronizer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            bookQueryGateway = FakeBookQueryGateway(catalogStore.books, mapOf(existingBook.id to existingFiles)),
+            progressGateway = progressGateway
+        )
+        val synchronizer = AbsCatalogSynchronizer(
+            apiClient = FakeAbsApiClient(
+                minified = AbsLibraryItemsResponseDto(results = listOf(existingItem), total = 1, limit = 1, page = 0),
+                details = emptyList(),
+                mediaProgress = listOf(
+                    AbsUserProgressDto(
+                        libraryItemId = "item-1",
+                        currentTime = 45.0,
+                        isFinished = false,
+                        lastUpdate = 9_000L
+                    )
+                )
+            ),
+            credentialStore = credentialStore,
+            catalogStore = catalogStore,
+            authorizedProgressSynchronizer = authorizedProgressSynchronizer,
+            batchSize = 10
+        )
+
+        val summary = synchronizer.syncRootWithSummary(root)
+
+        // Reused Mirror Progress Bridge (Ensures unchanged catalog rows still receive resolver-approved user progress)
+        // The item detail list is empty in this path, so the update can only arrive through the generic authorized progress synchronizer.
+        assertEquals(0, summary.syncedBooks)
+        assertEquals(1, summary.authorizedProgress.remoteProgressCount)
+        assertEquals(1, summary.authorizedProgress.appliedCount)
+        assertEquals(45_000L, progressGateway.progress[existingBook.id]?.globalPositionMs)
+        assertEquals(9_000L, progressGateway.progress[existingBook.id]?.lastPlayedAt)
+        assertEquals(AudiobookSchema.ReadStatus.IN_PROGRESS, catalogStore.books[existingBook.id]?.readStatus)
     }
 
     @Test
@@ -325,7 +451,8 @@ class AbsCatalogStage2Test {
         chapters: List<AbsChapterDto> = listOf(
             AbsChapterDto(id = 0, title = "Chapter 1", start = 0.0, end = 10.0)
         ),
-        progress: AbsUserProgressDto? = null
+        progress: AbsUserProgressDto? = null,
+        updatedAt: Long = 100L
     ): AbsLibraryItemDto {
         val tracks = (1..trackCount).map { index ->
             val ino = if (index == 1) "856465" else "85646$index"
@@ -359,7 +486,7 @@ class AbsCatalogStage2Test {
             libraryId = libraryId,
             mediaType = "book",
             title = "First Fifty Digits of Pi",
-            updatedAt = 100L,
+            updatedAt = updatedAt,
             addedAt = 50L,
             media = AbsItemMediaDto(
                 metadata = AbsMediaMetadataDto(
@@ -382,13 +509,14 @@ class AbsCatalogStage2Test {
 
     private class FakeAbsApiClient(
         private val minified: AbsLibraryItemsResponseDto,
-        private val details: List<AbsLibraryItemDto>
+        private val details: List<AbsLibraryItemDto>,
+        private val mediaProgress: List<AbsUserProgressDto> = emptyList()
     ) : AbsApiClient {
         override suspend fun status(baseUrl: String): AbsStatusDto = AbsStatusDto(serverVersion = "2.35.1", isInit = true)
         override suspend fun login(baseUrl: String, username: String, password: String) =
             throw UnsupportedOperationException()
         override suspend fun authorize(baseUrl: String, token: String): AbsAuthorizeResponseDto =
-            AbsAuthorizeResponseDto(user = AbsAuthorizedUserDto(id = "user-1", username = "demo-user", token = token))
+            AbsAuthorizeResponseDto(user = AbsAuthorizedUserDto(id = "user-1", username = "demo-user", token = token, mediaProgress = mediaProgress))
         override suspend fun getLibraries(baseUrl: String, token: String): List<AbsLibraryDto> =
             listOf(AbsLibraryDto(id = "lib-1", name = "Audiobooks", mediaType = "book"))
         override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String): AbsLibraryItemsResponseDto =
@@ -423,10 +551,12 @@ class AbsCatalogStage2Test {
 
     private class FakeAbsCatalogStore(
         val books: MutableMap<String, BookEntity> = linkedMapOf(),
+        val progress: MutableMap<String, BookProgressEntity> = linkedMapOf(),
         val mirrors: MutableMap<String, AbsItemMirrorEntity> = linkedMapOf(),
         var syncState: AbsSyncStateEntity? = null
     ) : AbsCatalogStore {
         override suspend fun getBookById(bookId: String): BookEntity? = books[bookId]
+        override suspend fun getProgressByBookId(bookId: String): BookProgressEntity? = progress[bookId]
         override suspend fun getMirrorsByRootId(rootId: String): List<AbsItemMirrorEntity> =
             mirrors.values.filter { mirror -> mirror.rootId == rootId }
         override suspend fun getSyncState(rootId: String): AbsSyncStateEntity? =
@@ -440,6 +570,9 @@ class AbsCatalogStage2Test {
             syncState: AbsSyncStateEntity
         ) {
             books[book.id] = book
+            if (progress != null) {
+                this.progress[book.id] = progress
+            }
             mirrors[mirror.remoteItemId] = mirror
             this.syncState = syncState
         }
@@ -454,5 +587,53 @@ class AbsCatalogStage2Test {
                 books[bookId] = existing.copy(status = status)
             }
         }
+    }
+
+    private class FakeBookQueryGateway(
+        private val books: MutableMap<String, BookEntity>,
+        private val files: Map<String, List<BookFileEntity>>
+    ) : BookQueryGateway {
+        override val audiobooks: Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
+        override suspend fun getBookById(id: String): BookEntity? = books[id]
+        override fun observeBookById(id: String): Flow<BookEntity?> = flowOf(books[id])
+        override fun searchAudiobooks(query: String): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
+        override fun filterByYear(year: String): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
+        override fun filterByAuthor(author: String): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
+        override fun filterByAuthorLimited(author: String, excludeId: String, limit: Int): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
+        override fun filterByNarrator(narrator: String): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
+        override fun filterByNarratorLimited(narrator: String, excludeId: String, limit: Int): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
+        override fun getRecentlyAdded(limit: Int): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
+        override fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
+        override suspend fun deleteBook(bookId: String) = Unit
+        override suspend fun updateBookReadStatus(bookId: String, readStatus: String) {
+            books[bookId]?.let { existing -> books[bookId] = existing.copy(readStatus = readStatus) }
+        }
+        override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit
+        override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = files[bookId].orEmpty()
+        override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = getFilesForBookSync(bookId)
+        override fun observeLatestScanSession(): Flow<com.viel.aplayer.data.entity.ScanSessionEntity?> = flowOf(null)
+        override suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = null
+        override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
+        override fun getChapters(bookId: String): Flow<List<com.viel.aplayer.data.entity.ChapterWithBookFile>> = flowOf(emptyList())
+        override suspend fun getChaptersForBookSync(bookId: String): List<com.viel.aplayer.data.entity.ChapterWithBookFile> = emptyList()
+        override fun saveChapters(bookId: String, chapters: List<com.viel.aplayer.data.entity.ChapterEntity>) = Unit
+        override fun getBookmarks(bookId: String): Flow<List<com.viel.aplayer.data.entity.BookmarkEntity>> = flowOf(emptyList())
+        override suspend fun addBookmark(bookId: String, position: Long, title: String) = Unit
+        override suspend fun updateBookmark(bookmark: com.viel.aplayer.data.entity.BookmarkEntity) = Unit
+        override suspend fun deleteBookmark(bookmark: com.viel.aplayer.data.entity.BookmarkEntity) = Unit
+    }
+
+    private class FakeProgressGateway(
+        val progress: MutableMap<String, BookProgressEntity>
+    ) : ProgressGateway {
+        override fun updateProgress(bookId: String, position: Long) = Unit
+        override suspend fun saveProgress(progress: BookProgressEntity) {
+            this.progress[progress.bookId] = progress
+        }
+        override suspend fun getLastPlayedProgressSync(): BookProgressEntity? = progress.values.maxByOrNull { it.lastPlayedAt }
+        override suspend fun getProgressForBookSync(bookId: String): BookProgressEntity? = progress[bookId]
+        override suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = true
+        override suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) = Unit
+        override suspend fun findNextAvailablePlaybackFile(bookId: String, afterQueueIndex: Int): Pair<Int, BookFileEntity>? = null
     }
 }

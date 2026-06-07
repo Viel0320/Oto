@@ -29,7 +29,7 @@ class AbsProgressMapper {
         files: List<BookFileEntity>,
         syncedAt: Long
     ): BookProgressEntity {
-        val globalPositionMs = ((remote.currentTime ?: 0.0) * 1000.0).toLong().coerceAtLeast(0L)
+        val globalPositionMs = (resolvedCurrentTimeSec(remote) * 1000.0).toLong().coerceAtLeast(0L)
         val anchor = if (files.isNotEmpty()) {
             val (fileIndex, posInFile) = PositionMapper.globalToFilePosition(globalPositionMs, files)
             val file = files.getOrNull(fileIndex)
@@ -51,9 +51,18 @@ class AbsProgressMapper {
     fun toReadStatus(item: AbsLibraryItemDto, existing: BookEntity?): String =
         when {
             item.progress?.isFinished == true -> AudiobookSchema.ReadStatus.FINISHED
-            (item.progress?.currentTime ?: 0.0) > 0.0 -> AudiobookSchema.ReadStatus.IN_PROGRESS
+            item.progress?.let(::resolvedCurrentTimeSec)?.let { positionSec -> positionSec > 0.0 } == true -> AudiobookSchema.ReadStatus.IN_PROGRESS
             else -> existing?.readStatus ?: AudiobookSchema.ReadStatus.NOT_STARTED
         }
+
+    /**
+     * Remote Position Fallback (Reconstructs seconds when ABS omits currentTime but includes progress ratio and duration)
+     * This keeps first-sync read status and local progress deterministic across authorize and item-detail payload shapes.
+     */
+    fun resolvedCurrentTimeSec(remote: AbsUserProgressDto): Double =
+        remote.currentTime ?: remote.progress?.let { ratio ->
+            remote.duration?.let { totalDurationSec -> ratio * totalDurationSec }
+        } ?: 0.0
 
     private data class ProgressAnchor(
         val bookFileId: String?,

@@ -9,6 +9,8 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.logger.AbsSyncLogger
 import com.viel.aplayer.logger.CoverImageCoilEventListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +57,22 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         // Dispatches the pre-caching of preferences and progress recovery self-healing to a dedicated background thread.
         appScope.launch {
             appContainer.settingsRepository
+            runCatching {
+                // ABS Authorized Progress Warmup (Refresh reusable remote user progress before local playback self-healing)
+                // Running the shared progress synchronizer first preserves timestamp authority before auto-rewind recovery mutates local checkpoints.
+                val roots = appContainer.libraryRootGateway.getAllRootsOnce()
+                    .filter { root -> root.status == AudiobookSchema.LibraryRootStatus.ACTIVE && root.sourceType == AudiobookSchema.LibrarySourceType.ABS }
+                val summary = appContainer.absAuthorizedProgressSynchronizer.sync(roots)
+                AbsSyncLogger.logAuthorizedProgressSyncSuccess(
+                    remoteProgressCount = summary.remoteProgressCount,
+                    appliedCount = summary.appliedCount,
+                    skippedByResolverCount = summary.skippedByResolverCount,
+                    skippedMissingBookCount = summary.skippedMissingBookCount,
+                    failedRootCount = summary.failedRootCount
+                )
+            }.onFailure { error ->
+                AbsSyncLogger.logAuthorizedProgressSyncFailure(error::class.java.simpleName, error.message)
+            }
             appContainer.autoRewindManager.performColdStartSelfHealing()
         }
     }

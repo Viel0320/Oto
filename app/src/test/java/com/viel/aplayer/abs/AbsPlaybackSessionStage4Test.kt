@@ -199,6 +199,58 @@ class AbsPlaybackSessionStage4Test {
     }
 
     @Test
+    fun `remote progress download should use newer timestamp even when positions diverge`() {
+        val resolver = AbsProgressConflictResolver()
+        val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 1_000L, lastPlayedAt = 2_000L)
+        val remoteNew = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 3_000L)
+
+        // Newer Remote Authority (Documents cross-device progress download semantics)
+        // A large position gap alone must not block download when the server checkpoint was updated after the local checkpoint.
+        assertTrue(resolver.shouldApplyRemoteProgress(local, remoteNew, isCurrentlyPlaying = false))
+    }
+
+    @Test
+    fun `sync should upload newer local progress even when remote position diverges`() = kotlinx.coroutines.runBlocking {
+        val book = absBook()
+        val api = SuccessfulPlaybackApi(remoteProgress = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 3_000L))
+        val playbackSessionDao = FakePlaybackSessionDao().apply {
+            saved[book.id] = AbsPlaybackSessionEntity(
+                bookId = book.id,
+                remoteItemId = "item-1",
+                sessionId = "session-1",
+                currentTimeSec = 0.0,
+                timeListenedSec = 0.0,
+                state = "OPEN"
+            )
+        }
+        val pendingDao = FakePendingSyncDao()
+        val coordinator = conflictCoordinator(
+            api = api,
+            book = book,
+            localProgress = BookProgressEntity(bookId = book.id, globalPositionMs = 125_000L, lastPlayedAt = 4_000L)
+        )
+        val syncer = AbsPlaybackSessionSyncer(
+            apiClient = api,
+            absPlaybackSessionDao = playbackSessionDao,
+            absPendingProgressSyncDao = pendingDao,
+            catalogStore = FakeCatalogStore(),
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            progressConflictCoordinator = coordinator
+        )
+
+        syncer.syncProgress(
+            book = book,
+            progress = BookProgressEntity(bookId = book.id, globalPositionMs = 125_000L, lastPlayedAt = 4_000L),
+            durationMs = 200_000L
+        )
+
+        // Newer Local Authority (Documents upload arbitration beyond position delta)
+        // Playback creates a fresh local checkpoint, so an older remote timestamp must not block the session sync request.
+        assertEquals(1, api.syncCallCount)
+        assertNull(pendingDao.getByBookId(book.id))
+    }
+
+    @Test
     fun `conflict resolver should tolerate thirty seconds of progress drift`() {
         // Thirty-Second Drift Tolerance (Documents the maximum accepted local-vs-remote progress delta)
         // Exactly thirty seconds is treated as in-sync, while any larger delta requires explicit conflict handling.

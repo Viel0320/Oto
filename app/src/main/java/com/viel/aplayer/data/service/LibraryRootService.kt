@@ -86,6 +86,12 @@ class LibraryRootService(
         return cachedRoots
     }
 
+    override suspend fun getAllRootsOnce(): List<LibraryRootEntity> = withContext(Dispatchers.IO) {
+        // Persistent Root Snapshot (Bypasses reactive cache during startup coordination)
+        // Cold-start services need a deterministic list even before the cache collector has emitted its first database snapshot.
+        libraryRootDao.getAllRootsOnce()
+    }
+
     override suspend fun setLibraryRoot(uri: Uri): LibraryRootEntity = withContext(Dispatchers.IO) {
         rootStore.addRoot(uri, "My Library")
     }

@@ -7,6 +7,7 @@ import com.viel.aplayer.abs.mapping.AbsProgressMapper
 import com.viel.aplayer.abs.mapping.AbsRemoteIdMapper
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.dto.AbsLibraryItemDto
+import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.cache.CoverCacheInvalidationPolicy
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -24,6 +25,7 @@ class AbsCatalogSynchronizer(
     private val progressMapper: AbsProgressMapper = AbsProgressMapper(),
     private val progressConflictResolver: AbsProgressConflictResolver = AbsProgressConflictResolver(),
     private val catalogMapper: AbsCatalogMapper = AbsCatalogMapper(idMapper, progressMapper),
+    private val authorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer? = null,
     private val batchSize: Int = 20
 ) {
     /**
@@ -98,6 +100,11 @@ class AbsCatalogSynchronizer(
         }
         val authorization = apiClient.authorize(credential.baseUrl, credential.token)
         val userId = authorization.user?.id
+        val mediaProgressByItemId = authorization.user?.mediaProgress.orEmpty()
+            .mapNotNull { progress ->
+                progress.libraryItemId?.takeIf { itemId -> itemId.isNotBlank() }?.let { itemId -> itemId to progress }
+            }
+            .toMap()
         val serverKey = idMapper.serverKey(credential.baseUrl, userId)
         val now = System.currentTimeMillis()
         val syncRunId = UUID.randomUUID().toString()
@@ -107,12 +114,16 @@ class AbsCatalogSynchronizer(
         val existingSync = catalogStore.getSyncState(root.id)
         val minifiedItems = minified.results.orEmpty()
         val currentFingerprint = minifiedFingerprint(minifiedItems)
-        val detailCandidateIds = selectAbsDetailCandidateIds(
-            minifiedItems = minifiedItems,
-            existingMirrors = existingMirrors,
-            previousFullListFingerprint = existingSync?.fullListFingerprint,
-            currentFullListFingerprint = currentFingerprint
-        )
+        val minifiedItemIds = minifiedItems.mapNotNull { item -> item.id }.toSet()
+        val progressCandidateIds = mediaProgressByItemId.keys.filter { itemId -> itemId in minifiedItemIds }
+        val detailCandidateIds = (
+            selectAbsDetailCandidateIds(
+                minifiedItems = minifiedItems,
+                existingMirrors = existingMirrors,
+                previousFullListFingerprint = existingSync?.fullListFingerprint,
+                currentFullListFingerprint = currentFingerprint
+            ) + progressCandidateIds
+            ).distinct()
         AbsSyncLogger.logIncrementalSelection(
             rootId = root.id,
             totalItems = minifiedItems.size,
@@ -192,7 +203,9 @@ class AbsCatalogSynchronizer(
                 }
             )
         }
-        val detailById = detailItems.associateBy { item -> item.id }
+        val detailById = detailItems
+            .map { item -> item.withAuthorizedProgress(mediaProgressByItemId[item.id]) }
+            .associateBy { item -> item.id }
         val reusedMirrors = mutableListOf<AbsItemMirrorEntity>()
         for (minifiedItem in minifiedItems) {
             val remoteItemId = minifiedItem.id ?: continue
@@ -290,6 +303,29 @@ class AbsCatalogSynchronizer(
                 lastError = buildAbsIncrementalErrorSummary(unresolvedDetailFailures)
             )
         )
+        // Authorized Progress Final Merge (Routes the full user progress snapshot through the shared merger after catalog materialization)
+        // Catalog item overlays only cover fetched detail rows, while this pass also updates reused mirrored books with resolver-approved progress.
+        val authorizedProgressSummary = runCatching {
+            authorizedProgressSynchronizer?.mergeAuthorizedProgress(
+                root = root,
+                baseUrl = credential.baseUrl,
+                userId = userId,
+                mediaProgress = authorization.user?.mediaProgress.orEmpty()
+            ) ?: AbsAuthorizedProgressSyncSummary()
+        }.getOrElse { error ->
+            // Authorized Progress Best Effort (Keeps catalog materialization successful when progress merging fails)
+            // The summary records this root as failed so diagnostics retain the progress problem without rolling back the completed catalog sync.
+            AbsSyncLogger.logAuthorizedProgressSyncFailure(error::class.java.simpleName, error.message)
+            AbsAuthorizedProgressSyncSummary(failedRootCount = 1)
+        }
+        AbsSyncLogger.logAuthorizedProgressRootMerge(
+            rootId = root.id,
+            remoteProgressCount = authorizedProgressSummary.remoteProgressCount,
+            appliedCount = authorizedProgressSummary.appliedCount,
+            skippedByResolverCount = authorizedProgressSummary.skippedByResolverCount,
+            skippedMissingBookCount = authorizedProgressSummary.skippedMissingBookCount,
+            failedRootCount = authorizedProgressSummary.failedRootCount
+        )
         AbsSyncLogger.logSyncRootSuccess(
             rootId = root.id,
             minifiedCount = minifiedItems.size,
@@ -302,7 +338,8 @@ class AbsCatalogSynchronizer(
             addedBooks = addedBookCount,
             syncedBooks = syncedBookCount,
             failedItems = unresolvedDetailFailures.size + failedBookCount,
-            reusedBooks = reusedMirrors.size
+            reusedBooks = reusedMirrors.size,
+            authorizedProgress = authorizedProgressSummary
         )
     }
 
@@ -543,6 +580,23 @@ class AbsCatalogSynchronizer(
 }
 
 /**
+ * Authorized Progress Overlay (Combines user-scoped progress with item metadata responses)
+ * Audiobookshelf can return progress only from authorize.user.mediaProgress while minified or batch item payloads omit it, so catalog sync overlays the fresher user progress before mapping readStatus and BookProgress.
+ */
+private fun AbsLibraryItemDto.withAuthorizedProgress(authorizedProgress: AbsUserProgressDto?): AbsLibraryItemDto {
+    val mergedProgress = newerProgress(progress, authorizedProgress)
+    return if (mergedProgress === progress) this else copy(progress = mergedProgress)
+}
+
+private fun newerProgress(itemProgress: AbsUserProgressDto?, authorizedProgress: AbsUserProgressDto?): AbsUserProgressDto? =
+    when {
+        itemProgress == null -> authorizedProgress
+        authorizedProgress == null -> itemProgress
+        (authorizedProgress.lastUpdate ?: Long.MIN_VALUE) > (itemProgress.lastUpdate ?: Long.MIN_VALUE) -> authorizedProgress
+        else -> itemProgress
+    }
+
+/**
  * Playability Inspection (Verifies item format criteria to ensure that the parsed entity possesses valid media tracks)
  * Requires mediaType as "book" and non-empty track records; items without media URLs are skipped.
  */
@@ -617,7 +671,12 @@ data class AbsSyncSummary(
     val addedBooks: Int,
     val syncedBooks: Int,
     val failedItems: Int,
-    val reusedBooks: Int
+    val reusedBooks: Int,
+    /**
+     * Authorized Progress Summary (Reports the follow-up user progress merge for this catalog root)
+     * Defaulting to an empty aggregate keeps legacy tests and callers focused on catalog counts unless they inspect progress sync explicitly.
+     */
+    val authorizedProgress: AbsAuthorizedProgressSyncSummary = AbsAuthorizedProgressSyncSummary()
 )
 
 data class AbsSyncPlan(

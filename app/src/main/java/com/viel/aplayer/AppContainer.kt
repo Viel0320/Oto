@@ -7,6 +7,7 @@ import com.viel.aplayer.abs.net.RealAbsApiClient
 import com.viel.aplayer.abs.playback.AbsPlaybackCredentialResolver
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
+import com.viel.aplayer.abs.sync.AbsAuthorizedProgressSynchronizer
 import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsCoverCache
 import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
@@ -156,6 +157,12 @@ interface AppContainer : java.io.Closeable {
      * Provides playback prompts and upload guards without leaking ABS protocol details into generic progress services.
      */
     val absProgressConflictCoordinator: AbsProgressConflictCoordinator
+
+    /**
+     * ABS Authorized Progress Synchronizer (Reusable remote progress merge service)
+     * Pulls authorize.user.mediaProgress for existing ABS books and applies the shared progress conflict rules across startup, manual sync, and worker sync.
+     */
+    val absAuthorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer
 
     /**
      * Application-Level ABS Sync Coordinator (Coordinates background server synchronization)
@@ -446,16 +453,6 @@ internal class AbsContainer(
         )
     }
 
-    val absCatalogSynchronizer: AbsCatalogSynchronizer by lazy {
-        // ABS Catalog Synchronizer: Mirrors server library catalogs to local room tables.
-        AbsCatalogSynchronizer(
-            apiClient = absApiClient,
-            credentialStore = absCredentialStore,
-            catalogStore = core.database.absCatalogDao(),
-            coverCache = absCoverCache
-        )
-    }
-
     val absProgressConflictCoordinator: AbsProgressConflictCoordinator by lazy {
         // Progress Conflict Coordinator: Arbitrates conflicting play timestamps.
         AbsProgressConflictCoordinator(
@@ -463,6 +460,30 @@ internal class AbsContainer(
             bookQueryGateway = local.bookQueryGateway,
             progressGateway = local.progressGateway,
             credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) }
+        )
+    }
+
+    val absAuthorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer by lazy {
+        // Authorized Progress Synchronizer: Merges user progress snapshots for startup and catalog-triggered refreshes.
+        AbsAuthorizedProgressSynchronizer(
+            apiClient = absApiClient,
+            credentialProvider = { root ->
+                val credential = root.credentialId?.let { credentialId -> absCredentialStore.get(credentialId) }
+                credential?.let { AbsAuthorizedProgressSynchronizer.CredentialSnapshot(baseUrl = it.baseUrl, token = it.token) }
+            },
+            bookQueryGateway = local.bookQueryGateway,
+            progressGateway = local.progressGateway
+        )
+    }
+
+    val absCatalogSynchronizer: AbsCatalogSynchronizer by lazy {
+        // ABS Catalog Synchronizer: Mirrors server library catalogs and delegates user progress merging to the shared progress synchronizer.
+        AbsCatalogSynchronizer(
+            apiClient = absApiClient,
+            credentialStore = absCredentialStore,
+            catalogStore = core.database.absCatalogDao(),
+            coverCache = absCoverCache,
+            authorizedProgressSynchronizer = absAuthorizedProgressSynchronizer
         )
     }
 
@@ -558,6 +579,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
 
     override val absProgressConflictCoordinator: AbsProgressConflictCoordinator
         get() = abs.absProgressConflictCoordinator
+
+    override val absAuthorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer
+        get() = abs.absAuthorizedProgressSynchronizer
 
     override val absSyncTaskCoordinator: AbsSyncTaskCoordinator
         get() = abs.absSyncTaskCoordinator

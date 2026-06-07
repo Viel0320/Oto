@@ -178,4 +178,25 @@ internal object AbsSyncLogger {
             "worker failure: rootId=${AbsLogSanitizer.shortId(rootId)}, errorClass=$errorClass, message=${AbsLogSanitizer.compact(message)}"
         )
     }
+
+    fun logAuthorizedProgressSyncSuccess(remoteProgressCount: Int, appliedCount: Int, skippedByResolverCount: Int, skippedMissingBookCount: Int, failedRootCount: Int) {
+        AbsLogEmitter.debug(
+            TAG,
+            "authorizedProgress success: remoteProgress=$remoteProgressCount, applied=$appliedCount, skippedByResolver=$skippedByResolverCount, skippedMissingBook=$skippedMissingBookCount, failedRoots=$failedRootCount"
+        )
+    }
+
+    fun logAuthorizedProgressSyncFailure(errorClass: String, message: String?) {
+        AbsLogEmitter.warn(
+            TAG,
+            "authorizedProgress failure: errorClass=$errorClass, message=${AbsLogSanitizer.compact(message)}"
+        )
+    }
+
+    fun logAuthorizedProgressRootMerge(rootId: String, remoteProgressCount: Int, appliedCount: Int, skippedByResolverCount: Int, skippedMissingBookCount: Int, failedRootCount: Int) {
+        AbsLogEmitter.debug(
+            TAG,
+            "authorizedProgress rootMerge: rootId=${AbsLogSanitizer.shortId(rootId)}, remoteProgress=$remoteProgressCount, applied=$appliedCount, skippedByResolver=$skippedByResolverCount, skippedMissingBook=$skippedMissingBookCount, failedRoots=$failedRootCount"
+        )
+    }
 }
