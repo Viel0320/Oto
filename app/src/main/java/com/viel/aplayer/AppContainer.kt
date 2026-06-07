@@ -311,7 +311,6 @@ internal class LocalLibraryContainer(
             bookDao = core.database.bookDao(),
             chapterDao = core.database.chapterDao(),
             bookmarkDao = core.database.bookmarkDao(),
-            scanSessionDao = core.database.scanSessionDao(),
             coverRecoveryHelper = coverRecoveryHelper
         )
     }

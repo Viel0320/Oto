@@ -1,9 +1,7 @@
 package com.viel.aplayer.ui.home
 
 import android.annotation.SuppressLint
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,8 +33,8 @@ enum class HomeFilter {
  *
  * Stateful home container component, responsible for observing and syncing state from LibraryViewModel and PlayerViewModel inside the main navigation host.
  * Through logical architectural refactoring, HomeScreen is upgraded to a high-level business state binding container.
- * Specifically collects UI data state from ViewModels' StateFlows, and manages the horizontal scroll state of the recent list `recentListState` internally,
- * completely shielding the scroll state loss risk when grid scrolling dismisses it, and purifying system navigation and routing architecture.
+ * Specifically collects UI data state from ViewModels' StateFlows and delegates list-local scroll ownership to child rendering components,
+ * keeping this container focused on business state binding and route-level interaction wiring.
  */
 @SuppressLint("FrequentlyChangingValue")
 @Composable
@@ -58,7 +56,6 @@ fun HomeScreen(
     val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
-    val scanResult by libraryViewModel.scanResultDialogState.collectAsStateWithLifecycle()
 
     // Home Dialog State (Page-level modal event holder)
     // Keeps dialog selection in the Home container so the content renderer reports clicks without owning concrete dialog implementations.
@@ -69,32 +66,6 @@ fun HomeScreen(
     // Home Dialog Haze Selection (Prefer the app-level backdrop for dialog windows)
     // Falls back to the page-local source only when previews or isolated hosts do not provide the outer app sampling state.
     val resolvedHomeDialogHazeState = homeDialogHazeState ?: homeContentHazeState
-
-    // Home Scan Result Dialog Sync (Route completed import feedback into the page dialog host)
-    // Scan completion originates in LibraryViewModel, but the concrete dialog is mounted by HomeDialogHost so Home-owned dialogs share the same template and app-level blur source.
-    LaunchedEffect(scanResult, homeDialogState) {
-        val session = scanResult
-        when {
-            session != null && homeDialogState == HomeDialogState.None -> {
-                homeDialogState = HomeDialogState.ScanResult(session)
-            }
-            session == null && homeDialogState is HomeDialogState.ScanResult -> {
-                homeDialogState = HomeDialogState.None
-            }
-        }
-    }
-
-    // Manage Horizontal Scroll State (State Loss Prevention)
-    // Maintain independent scroll state for home page "recent" horizontal scrolling list, placed at the outermost layer.
-    // This prevents the state of this horizontal list from being destroyed/reset due to leaving the screen when the grid (LazyVerticalGrid) scrolls up and down.
-    val recentListState = rememberLazyListState()
-
-    // Track Initial Book State (Detect Data Mutations)
-    // Use state variables to record the first book ID of the last render and a flag indicating whether scroll needs to be reset.
-    // In composition phase, grid layout has not run, so `firstVisibleItemIndex` and `firstVisibleItemScrollOffset` still preserve the real scroll position of the previous frame.
-    // This allows us to capture the "before change start position" state before multi-book batch insertion shifts layouts, avoiding status detection failure and race conditions caused by Compose default anchor rules.
-    var prevFirstBookId by remember { mutableStateOf<String?>(null) }
-    var shouldScrollToStart by remember { mutableStateOf(false) }
 
     val recentBooks = libraryUiState.recentBooks
     /*
@@ -125,26 +96,6 @@ fun HomeScreen(
     } else {
         null
     }
-    val firstBookId = recentBooks.firstOrNull()?.book?.id
-    if (firstBookId != prevFirstBookId) {
-        // Data source first item changed (new book imported or filter switched)
-        val wasAtStart = recentListState.firstVisibleItemIndex == 0 && recentListState.firstVisibleItemScrollOffset == 0
-        if (wasAtStart) {
-            shouldScrollToStart = true
-        }
-        prevFirstBookId = firstBookId
-    }
-
-    LaunchedEffect(shouldScrollToStart) {
-        if (shouldScrollToStart) {
-            // Scroll to First Item (Safe Viewport Reset)
-            // After layout runs and the viewport offsets due to anchoring, LaunchedEffect asynchronously and safely resets viewport to the leftmost 0th item.
-            // Thus, no matter how many books are imported at once, if the user was at the start, viewport will stay locked on the leftmost newest book.
-            recentListState.scrollToItem(0)
-            shouldScrollToStart = false
-        }
-    }
-
     HomeScreenContent(
         modifier = modifier,
         selectedFilter = libraryUiState.selectedFilter,
@@ -160,7 +111,6 @@ fun HomeScreen(
         homeTopBarHeightPx = homeTopBarHeightPx,
         homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest,
         isMiniPlayerVisible = playerUiState.hasActiveTrack,
-        recentListState = recentListState,
         onFilterSelected = { libraryViewModel.setFilter(it) },
         onNavigateToDetail = { id: String, entrySource: DetailEntrySource ->
             val book = libraryUiState.audiobooks.find { it.book.id == id }
@@ -191,12 +141,6 @@ fun HomeScreen(
             // Home Dialog Dismissal (Return the page dialog host to idle)
             // Centralizes dismissal so first-level and nested confirmation dialogs clear through the same page-owned state.
             homeDialogState = HomeDialogState.None
-        },
-        onDismissScanResult = {
-            // Scan Result Dismissal (Clear both host state and source ViewModel state)
-            // Keeps the derived dialog host and LibraryViewModel event state synchronized so the completed scan summary does not reopen.
-            homeDialogState = HomeDialogState.None
-            libraryViewModel.dismissScanResultDialog()
         },
         onUpdateReadStatus = { bookId, status ->
             libraryViewModel.updateBookReadStatus(bookId, status)

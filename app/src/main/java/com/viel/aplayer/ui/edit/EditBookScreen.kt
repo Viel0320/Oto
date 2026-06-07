@@ -68,9 +68,12 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.library.vfs.VfsExternalInputReader
+import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
@@ -100,7 +103,8 @@ fun EditBookScreen(
     onSave: (title: String, author: String, narrator: String, year: String, description: String, series: String, newCoverPath: String?) -> Unit,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // Setup Haze State (Transition backdrop reference to HazeState)
+    // Edit Sheet Haze Source (Receive the stable overlay sampling state)
+    // The legacy parameter name is preserved for compatibility, but production callers now pass the app-level HazeState.
     detailHazeState: HazeState? = null
 ) {
     // Android Context (Needed for file handling and resolution operations)
@@ -176,11 +180,37 @@ fun EditBookScreen(
         }
     }
 
+    // Edit Cover Display Source (Use the same path for preview artwork and page color extraction)
+    // A freshly uploaded cover replaces the book cover immediately, so this key changes and forces the edit page color state to refresh from the new file.
+    val editCoverPath = tempCoverPath ?: book?.coverPath ?: book?.thumbnailPath
+    // Edit Cover Dynamic Color State (Seed the edit page theme from its own currently displayed cover)
+    // The cache gives an instant color when available, while PlayerCover will update this state after Coil decodes a newly uploaded temporary cover.
+    var editCoverColor by remember(editCoverPath) {
+        mutableStateOf<Color?>(ImageProcessor.getCachedColor(editCoverPath)?.let { Color(it) })
+    }
+    val darkTheme = LocalDarkTheme.current
+    val fallbackColorScheme = MaterialTheme.colorScheme
+    // Edit Cover Color Scheme (Derive Material colors from the edit page cover instead of inheriting the underlying page)
+    // This keeps text fields, outlines, buttons, and top-bar content aligned with the editable cover, including temporary covers chosen before save.
+    val editColorScheme = remember(editCoverColor, darkTheme, fallbackColorScheme) {
+        editCoverColor?.let { coverColor ->
+            DynamicColorSchemeHelper.generateColorSchemeFromSeed(
+                seedColor = coverColor,
+                darkTheme = darkTheme,
+                fallbackScheme = fallbackColorScheme
+            )
+        }
+    }
+
+    val contentBlock = @Composable {
     // Blur Feature flag (Verify if Haze settings and state are present)
     val isBlur = glassEffectMode == GlassEffectMode.Haze && detailHazeState != null
 
     val animatedBgColor = MaterialTheme.colorScheme.surfaceVariant
     val bgColor = MaterialTheme.colorScheme.background
+    // Edit Page Content Color (Read foreground color from the edit cover-derived Material scheme)
+    // Surface and Scaffold are transparent in Haze mode, so explicit contentColor prevents the old underlying page color from leaking into the edit UI.
+    val editContentColor = MaterialTheme.colorScheme.onSurface
 
     // Background tinting brush (Apply translucency in blur mode to allow backdrop colors to bleed through)
     val backgroundBrush = remember(animatedBgColor, bgColor, isBlur) {
@@ -237,7 +267,10 @@ fun EditBookScreen(
                 }
             )
             .background(if (isBlur) Color.Transparent else MaterialTheme.colorScheme.background),
-        color = Color.Transparent
+        color = Color.Transparent,
+        // Edit Surface Content Color (Bind foreground defaults to the cover-derived scheme)
+        // Transparent Material surfaces cannot infer a useful content color, so the edit page supplies its own cover-based foreground.
+        contentColor = editContentColor
     ) {
         Box(
             modifier = Modifier
@@ -285,15 +318,18 @@ fun EditBookScreen(
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent,
-                            titleContentColor = MaterialTheme.colorScheme.onBackground,
-                            // Edit Top Bar Icon Color Unification (Override Material3 navigation/action defaults)
-                            // The edit page currently exposes a navigation icon only, but the action slot is set too for consistent future chrome.
-                            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                            actionIconContentColor = MaterialTheme.colorScheme.onSurface
+                            // Edit Top Bar Cover Content Color (Use the edit cover-derived foreground for chrome)
+                            // Title and icons share one explicit content color so uploaded cover changes update the whole header consistently.
+                            titleContentColor = editContentColor,
+                            navigationIconContentColor = editContentColor,
+                            actionIconContentColor = editContentColor
                         )
                     )
                 },
-                containerColor = Color.Transparent
+                containerColor = Color.Transparent,
+                // Edit Scaffold Content Color (Propagate cover-derived foreground through the transparent Scaffold)
+                // Body text, progress indicators, and default icons inherit the edit cover content color instead of the host page color.
+                contentColor = editContentColor
             ) { paddingValues ->
                 if (book == null) {
                     Box(
@@ -579,7 +615,7 @@ fun EditBookScreen(
                                     verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     PlayerCover(
-                                        coverPath = tempCoverPath ?: book.coverPath ?: book.thumbnailPath,
+                                        coverPath = editCoverPath,
                                         isPlaying = false,
                                         coverLastUpdated = book.lastScannedAt,
                                         coverScene = "edit-main-cover",
@@ -591,7 +627,10 @@ fun EditBookScreen(
                                             .aspectRatio(1f)
                                             .clip(RoundedCornerShape(24.dp)),
                                         sizeRatio = 1.0f,
-                                        gesturesEnabled = false
+                                        gesturesEnabled = false,
+                                        // Edit Cover Color Extraction (Refresh the edit page theme after the visible cover decodes)
+                                        // This callback is also triggered for temporary uploaded covers, so controls recolor before the user saves.
+                                        onColorExtracted = { editCoverColor = it }
                                     )
 
                                     changeCoverButton()
@@ -616,7 +655,7 @@ fun EditBookScreen(
                         } else {
                             // Portrait layout (Fails back to vertical stack structure)
                             PlayerCover(
-                                coverPath = tempCoverPath ?: book.coverPath ?: book.thumbnailPath,
+                                coverPath = editCoverPath,
                                 isPlaying = false,
                                 coverLastUpdated = book.lastScannedAt,
                                 coverScene = "edit-main-cover",
@@ -628,7 +667,10 @@ fun EditBookScreen(
                                     .aspectRatio(1f)
                                     .clip(RoundedCornerShape(24.dp)),
                                 sizeRatio = 1.0f,
-                                gesturesEnabled = false
+                                gesturesEnabled = false,
+                                // Edit Cover Color Extraction (Refresh the edit page theme after the visible cover decodes)
+                                // This callback is also triggered for temporary uploaded covers, so controls recolor before the user saves.
+                                onColorExtracted = { editCoverColor = it }
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -651,6 +693,15 @@ fun EditBookScreen(
                 }
             }
         }
+    }
+    }
+
+    // Edit Cover Theme Application (Apply the cover-derived color scheme around the full edit surface)
+    // The wrapper sits outside transparent Surface and Scaffold layers so contentColor, primary, outline, and button colors all come from the current edit cover.
+    if (editColorScheme != null) {
+        MaterialTheme(colorScheme = editColorScheme, content = contentBlock)
+    } else {
+        contentBlock()
     }
 }
 

@@ -93,7 +93,9 @@ class LibraryRootService(
     }
 
     override suspend fun setLibraryRoot(uri: Uri): LibraryRootEntity = withContext(Dispatchers.IO) {
-        rootStore.addRoot(uri, "My Library")
+        // SAF Display Name Delegation (Let the root store derive the selected folder name)
+        // Passing a blank label prevents every newly picked SAF library from being stored as the generic "My Library" placeholder.
+        rootStore.addRoot(uri, "")
     }
 
     override suspend fun addWebDavLibraryRoot(

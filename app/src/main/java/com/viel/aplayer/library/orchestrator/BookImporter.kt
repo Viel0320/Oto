@@ -15,6 +15,10 @@ class BookImporter(context: Context) {
     private val database = AppDatabase.getInstance(context)
     private val bookDao = database.bookDao()
     private val chapterDao = database.chapterDao()
+    private val bookmarkDao = database.bookmarkDao()
+    // Ownership State Migrator (Pure replacement mapping)
+    // Keeps progress/bookmark anchor remapping out of the persistence boundary so this importer only coordinates database work.
+    private val ownershipStateMigrator = OwnershipStateMigrator()
 
     // Prepared scan commands are committed atomically after the run has completed.
     suspend fun applyImportRun(result: ImportRunResult) = withContext(Dispatchers.IO) {
@@ -22,26 +26,45 @@ class BookImporter(context: Context) {
             result.readyImports.forEach { command ->
                 insertReadyDraft(command.draft)
             }
+            result.replacementImports.forEach { command ->
+                replaceExistingBooks(command)
+            }
             result.refreshedBooks.forEach { command ->
                 refreshExistingClaim(command, result.scanId)
-            }
-            result.pendingActions.forEach { command ->
-                val existing = database.scanSessionDao().getActionByKey(command.action.actionKey)
-                val action = existing?.copy(
-                    scanSessionId = command.action.scanSessionId,
-                    type = command.action.type,
-                    bookId = command.action.bookId,
-                    payloadJson = command.action.payloadJson,
-                    message = command.action.message,
-                    lastSeenScanId = command.action.lastSeenScanId
-                ) ?: command.action
-                // Duplicate action keys refresh the current queue row; no resolved/skipped state is retained.
-                database.scanSessionDao().insertAction(action)
             }
         }
     }
 
-    // Repeated manifest scans update visibility markers without adding duplicate pending actions.
+    // Ownership Replacement Transaction (Conflict chain elimination)
+    // Reassigns ownership to a higher-priority draft while preserving user-facing state before obsolete book rows are deleted.
+    private suspend fun replaceExistingBooks(command: ImportCommand.ReplaceExistingBooks) {
+        val replacedBookIds = command.replacedBookIds.distinct()
+        val oldBooks = replacedBookIds.mapNotNull { bookDao.getBookById(it) }
+        val oldFilesByBookId = replacedBookIds.associateWith { bookDao.getAllFilesForBookList(it) }
+        val oldProgresses = replacedBookIds.mapNotNull { bookDao.getProgressForBookSync(it) }
+        val oldBookmarks = replacedBookIds.flatMap { bookmarkDao.getBookmarksForBookSync(it) }
+        val migration = ownershipStateMigrator.migrate(
+            OwnershipStateMigrationInput(
+                draft = command.draft,
+                oldBooks = oldBooks,
+                oldFiles = oldFilesByBookId.values.flatten(),
+                oldProgresses = oldProgresses,
+                oldBookmarks = oldBookmarks
+            )
+        )
+
+        insertReadyDraft(migration.draft)
+        migration.progress?.let { bookDao.insertProgress(it) }
+        if (migration.bookmarks.isNotEmpty()) {
+            bookmarkDao.insertAll(migration.bookmarks)
+        }
+        oldBooks
+            .filterNot { it.id == command.draft.book.id }
+            .forEach { bookDao.deleteBook(it) }
+    }
+
+    // Repeated Manifest Scan Refresh (Idempotent ownership maintenance)
+    // Updates visibility markers without adding duplicate imports or rewriting book-level metadata.
     private suspend fun refreshExistingClaim(command: ImportCommand.RefreshExistingBook, scanId: String) {
         val now = System.currentTimeMillis()
         bookDao.updateBookLastScannedAt(command.bookId, now)

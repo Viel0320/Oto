@@ -24,10 +24,10 @@ import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.PlayerActions
+import com.viel.aplayer.ui.player.PlayerFloatingSurfaceHost
 import com.viel.aplayer.ui.player.PlayerScreen
 import com.viel.aplayer.ui.player.PlayerViewModel
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -43,6 +43,9 @@ fun PlayerOverlay(
     playerNavigationActions: PlayerNavigationActions,
     // Glass effect mode must be explicitly passed from the settings state by the App container.
     glassEffectMode: GlassEffectMode,
+    // App-Level Haze Source (Stable sampler shared by app chrome, Search, and dialogs)
+    // When provided by APlayerApp, the expanded player registers into this long-lived source so foreground overlays do not rebind or sample stale pages.
+    appHazeState: HazeState? = null,
     modifier: Modifier = Modifier
 ) {
     // Only listen to the player visibility (low-frequency signal)
@@ -52,14 +55,20 @@ fun PlayerOverlay(
 
     // Listen to metadataState to extract dynamic color
     val metadata by playerViewModel.metadataState.collectAsStateWithLifecycle()
+    // Player Floating Surface State (Collect modal inputs at the overlay layer)
+    // Chapter sheets and bookmark dialogs are rendered outside PlayerScreen, so PlayerOverlay owns the lightweight state reads required to feed those surfaces.
+    val progressState by playerViewModel.playbackProgressState.collectAsStateWithLifecycle()
+    val settings by playerViewModel.settingsState.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize()) {
         // Full screen player layer
         //
-        // Instantiate the playerBackdrop sampling source dedicated to the full screen player itself,
-        // mount it on the outermost wrapping Box to collect real-time layout data of the entire player.
-        // Setup Haze State (Manage overlay-wide blur capturing state)
-        val playerHazeState = remember { HazeState() }
+        // Player Fallback Haze Source (Support isolated previews and tests without an app shell)
+        // Production callers pass appHazeState from APlayerApp, while this fallback keeps PlayerOverlay renderable when hosted alone.
+        val fallbackPlayerHazeState = remember { HazeState() }
+        // Player Resolved Haze Source (Keep effect consumers bound to one stable state)
+        // The app-level state is preferred so Search, dialogs, and player glass surfaces share a single sampling target across overlay transitions.
+        val resolvedPlayerHazeState = appHazeState ?: fallbackPlayerHazeState
         // Align transition durations: Set PlayerOverlay slide enter and exit transition animations to 300ms for uniform UX speed.
         AnimatedVisibility(
             visible = isFullPlayerVisible,
@@ -102,25 +111,32 @@ fun PlayerOverlay(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .then(
-                                if (glassEffectMode == GlassEffectMode.Haze) {
-                                    // Setup PlayerOverlay Haze (Apply haze modifier to container to make it a blur source)
-                                    Modifier.hazeSource(playerHazeState)
-                                } else {
-                                    Modifier
-                                }
-                            )
                     ) {
                         PlayerScreen(
                             viewModel = playerViewModel,
                             actions = playerActions,
                             navigationActions = playerNavigationActions,
-                            // The full screen player internally manages creating the Haze blur effect for the chapter list, so only the mode is passed through here.
+                            // Player Glass Haze Routing (Forward the stable sampler without wrapping the whole player tree)
+                            // PlayerScreen registers only its backdrop layer into this HazeState, keeping controls and modal surfaces outside the source subtree.
                             glassEffectMode = glassEffectMode,
-                            // Setup dropdown menu blur (Pass HazeState to the drop-down menu to render glassmorphism)
-                            hazeState = playerHazeState,
+                            hazeState = resolvedPlayerHazeState,
                             coverColor = coverColor,
-                            onColorExtracted = { coverColor = it }
+                            onColorExtracted = { coverColor = it },
+                            // Overlay-Owned Floating Surfaces (Prevent player modal surfaces from living inside the sampled page tree)
+                            // PlayerOverlay renders these surfaces as siblings after PlayerScreen so modal glass does not sample itself.
+                            renderFloatingSurfaces = false
+                        )
+
+                        // Overlay Player Floating Surface Host (Keep player modal surfaces outside the sampled content tree)
+                        // The chapter sheet and bookmark dialog use the app-level HazeState while PlayerScreen registers only its backdrop into that source.
+                        PlayerFloatingSurfaceHost(
+                            currentPosition = progressState.elapsedMs,
+                            totalDuration = progressState.durationMs,
+                            metadata = metadata,
+                            settings = settings,
+                            actions = playerActions,
+                            hazeState = resolvedPlayerHazeState,
+                            glassEffectMode = glassEffectMode
                         )
                     }
                 }

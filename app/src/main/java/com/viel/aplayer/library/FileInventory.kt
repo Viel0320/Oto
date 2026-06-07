@@ -34,16 +34,20 @@ data class DirectoryInventory(
     // Introduces directory modification timestamps defaulting to 0L for reflection and database schema compatibility.
     val lastModified: Long = 0L
 ) {
-    // Light Scan Filtering (Legacy incremental boundary checks)
-    // Retains only manifest and audio files not yet claimed by any BookFile for downstream import scope building.
-    fun onlyUnclaimed(existingClaimIndex: ExistingClaimIndex): DirectoryInventory =
-        copy(
-            cueFiles = cueFiles.filterNot { existingClaimIndex.has(it.identity) },
-            m3u8Files = m3u8Files.filterNot { existingClaimIndex.has(it.identity) },
-            audioFiles = audioFiles.filterNot { existingClaimIndex.has(it.identity) }
-            // Asset Retention Exclusion (Asset lifecycle management)
-            // Sidecar files (text, images) bypass unclaimed filters, remaining in scope as directory metadata assets.
-        )
+    // Light Scan Manifest Context Preservation (Ownership reconciliation)
+    // Keeps CUE/M3U8 neighborhoods intact so cold-start scans can compare manifests against lower-priority existing audio owners.
+    fun forLightScanClaimReconciliation(existingClaimIndex: ExistingClaimIndex): DirectoryInventory {
+        val hasManifestCandidates = cueFiles.isNotEmpty() || m3u8Files.isNotEmpty()
+        return if (hasManifestCandidates) {
+            this
+        } else {
+            copy(
+                audioFiles = audioFiles.filterNot { existingClaimIndex.has(it.identity) }
+                // Asset Retention Exclusion (Asset lifecycle management)
+                // Sidecar files (text, images) bypass unclaimed filters, remaining in scope as directory metadata assets.
+            )
+        }
+    }
 }
 
 // Runtime file reference used during a single scan/import run.

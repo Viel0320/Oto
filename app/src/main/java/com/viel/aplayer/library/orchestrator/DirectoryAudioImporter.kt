@@ -167,7 +167,6 @@ internal class DirectoryAudioImporter(
                     scanId,
                     emptyList(),
                     emptyList(),
-                    emptyList(),
                     emptyList()
                 ),
                 success = true
@@ -273,7 +272,6 @@ internal class DirectoryAudioImporter(
             scanId = scanId,
             readyImports = emptyList(),
             refreshedBooks = emptyList(),
-            pendingActions = emptyList(),
             failures = inheritedFailures + ImportCommand.RecordFailure(
                 ImportFailure(
                     sourceUri = displayUri(),
@@ -294,10 +292,15 @@ internal class DirectoryAudioImporter(
     private fun ImportScope.timingScopeId(): String = "${kind.name}:${displayUri()}"
 
     private fun ImportRunResult.timingCommandDetail(): String =
-        "ready=${readyImports.size} refreshed=${refreshedBooks.size} pending=${pendingActions.size} failures=${failures.size}"
+        "ready=${readyImports.size} refreshed=${refreshedBooks.size} replaced=${replacementImports.size} failures=${failures.size}"
 
     private fun ImportRunResult.triggerCoverRegenerationForReadyBooks() {
         readyImports.forEach { command ->
+            triggerCoverRegeneration(command.draft.book)
+        }
+        // Replacement Cover Regeneration (Ownership upgrade visuals)
+        // Treats replacement drafts as newly active books because their old cover-bearing rows are removed after migration.
+        replacementImports.forEach { command ->
             triggerCoverRegeneration(command.draft.book)
         }
     }

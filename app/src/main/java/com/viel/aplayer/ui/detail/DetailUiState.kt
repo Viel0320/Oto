@@ -49,6 +49,7 @@ data class DetailUiState(
     // Controlled by DetailViewModel.onPlayPressed, and preserved through configuration changes.
     val displayProgressPercent: Int = 0,
     // Deprecated: backgroundColorArgb is removed
-    // Added fullSourcePath field to store the complete physical source file path processed at the ViewModel level (after SAF decoding, 'primary:' filtering, and concatenation with the filename), ensuring purity and high performance in the UI rendering layer.
+    // Detail Source Indicator Text (Stores the user-facing storage breadcrumb for the selected book)
+    // The ViewModel formats this from library root labels and VFS-relative file metadata so the UI never displays raw SAF tree URIs, WebDAV URLs, or remote playback endpoints.
     val fullSourcePath: String = ""
 )

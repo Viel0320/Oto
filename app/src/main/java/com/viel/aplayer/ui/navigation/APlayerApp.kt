@@ -361,11 +361,12 @@ fun APlayerApp(
                     hazeState = targetHazeState
                 )
 
-                // Mount EditBookOverlay with HazeState (Provide detail background blur context to edit book overlay) Passed detailHazeState to EditBookOverlay.
+                // Edit Overlay Stable Haze Target (Keep edit glass bound to app-level sampling)
+                // The edit sheet behaves like other app overlays, so it uses the same long-lived app HazeState instead of rebinding to Detail's local source.
                 EditBookOverlay(
                     editViewModel = editViewModel,
                     glassEffectMode = libraryUiState.glassEffectMode,
-                    hazeState = detailHazeState,
+                    hazeState = hazeState,
                     onSaveSuccess = {
                         // Edit Save Success (Reactive Flow Refresh)
                         // After saving successfully, the responsive flow will automatically refresh and redraw the details page via the Room Flow, so there is no need to execute extra UI dirty operations to force a refresh.
@@ -378,14 +379,17 @@ fun APlayerApp(
                     playerViewModel = playerViewModel,
                     playerActions = playerActions,
                     playerNavigationActions = playerNavigationActions,
-                    glassEffectMode = libraryUiState.glassEffectMode
+                    glassEffectMode = libraryUiState.glassEffectMode,
+                    // Player App-Level Haze Registration (Let expanded player become the active sampled surface)
+                    // PlayerOverlay registers its full-screen content into this stable source so Search and dialogs can sample the visible player instead of stale route content.
+                    appHazeState = hazeState
                 )
 
-                // Mount SearchOverlay with HazeState (Provide global background blur context to search overlay)
-                // Dynamically pass hazeState or detailHazeState to SearchOverlay depending on whether the detail screen is visible.
+                // Search Stable Haze Target (Keep SearchOverlay bound to the app-level sampler)
+                // Visible pages now register themselves into this same source, so Search no longer switches state when Detail or Player becomes the background.
                 SearchOverlay(
                     searchViewModel = searchViewModel,
-                    hazeState = if (detailUiState.isVisible) detailHazeState else hazeState,
+                    hazeState = hazeState,
                     glassEffectMode = libraryUiState.glassEffectMode,
                     /*
                      * Search Detail Source Selector (Search-result source handoff)
@@ -424,11 +428,12 @@ fun APlayerApp(
                     }
                 )
 
-                // Mount SettingsOverlay without HazeState (Prevent sharing conflicts with SearchOverlay)
-                // Positioned after SearchOverlay to guarantee settings overlay rendered on top of search overlay.
+                // Settings Stable Dialog Haze Target (Share app-level sampling with settings-owned dialogs)
+                // Settings keeps local page chrome sampling separately, while its dialogs use the stable app source like Search and playback dialogs.
                 SettingsOverlay(
                     settingsViewModel = settingsViewModel,
-                    glassEffectMode = libraryUiState.glassEffectMode
+                    glassEffectMode = libraryUiState.glassEffectMode,
+                    appHazeState = hazeState
                 )
 
                 // Track Unavailable Confirm Dialog (Avoid Interruptions)

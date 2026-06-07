@@ -65,6 +65,7 @@ import com.viel.aplayer.ui.player.components.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
 import com.viel.aplayer.ui.player.layouts.PlayerPortrait
 import com.viel.aplayer.ui.player.layouts.PlayerTabletLandscape
+import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
@@ -100,6 +101,9 @@ fun PlayerScreen(
     // Color Extracted Callback (Notify parent overlay about extracted cover color)
     // Callback triggered when Coil successfully loads the cover and extracts its dominant color.
     onColorExtracted: (Color) -> Unit,
+    // Player Floating Surface Ownership (Allow outer overlays to render modal surfaces outside the sampled content tree)
+    // PlayerOverlay disables this flag so chapter sheets and bookmark dialogs are composed as siblings of the player hazeSource instead of inside PlayerScreen.
+    renderFloatingSurfaces: Boolean = true,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
@@ -246,11 +250,13 @@ fun PlayerScreen(
             com.viel.aplayer.ui.common.theme.LocalDarkTheme provides com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
         ) {
         val focusManager = LocalFocusManager.current
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-        
         // Setup Haze State (Initialize local state for player backdrop blur)
         // Splits blurred cover backgrounds into a separate visual sibling layer.
         val coverHazeState = remember { HazeState() }
+        // Player Floating Haze Source (Prefer the stable app-level sampler for player floating surfaces)
+        // CoverHazeState still owns the decorative cover blur, while chapter sheets, dialogs, dropdowns, and controls sample the player backdrop through the external HazeState when available.
+        val externalFloatingHazeState = hazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
+        val floatingHazeState = externalFloatingHazeState ?: coverHazeState
         
         // Sync Player Haze State: Initialize a separate HazeState to sample the entire player (including foreground controls).
         // This avoids recursive rendering loops and lets the snackbar blur everything behind it.
@@ -382,24 +388,38 @@ fun PlayerScreen(
                 // Separates blurred backdrop sampling layers and forefront components as siblings.
 
                 // 1. Pure backdrop layer (Sibling background node)
-                CoverBackground(
-                    coverPath = playerBackdropCoverPath,
-                    lastUpdated = metadata.coverLastUpdated,
-                    coverColor = coverColor,
-                    glassEffectMode = glassEffectMode,
-                    hazeState = coverHazeState
-                )
-
-                // Background Blur Layer (Render dynamic ultra-thin blur on top of clear cover background)
-                // Draw a full-screen box configured with hazeChild using ultra-thin style to blur the backdrop.
-                if (glassEffectMode == GlassEffectMode.Haze) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .hazeEffect(
-                                state = coverHazeState,
-                                style = HazeMaterials.ultraThin())
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (externalFloatingHazeState != null) {
+                                // Player Backdrop App-Level Source (Register only the non-interactive backdrop for floating glass)
+                                // Controls and modal surfaces consume this HazeState as siblings, preventing the app-level sampler from capturing its own glass effects.
+                                Modifier.hazeSource(externalFloatingHazeState)
+                            } else {
+                                Modifier
+                            }
+                        )
+                ) {
+                    CoverBackground(
+                        coverPath = playerBackdropCoverPath,
+                        lastUpdated = metadata.coverLastUpdated,
+                        coverColor = coverColor,
+                        glassEffectMode = glassEffectMode,
+                        hazeState = coverHazeState
                     )
+
+                    // Background Blur Layer (Render dynamic ultra-thin blur on top of clear cover background)
+                    // Draw a full-screen box configured with hazeChild using ultra-thin style to blur the backdrop.
+                    if (glassEffectMode == GlassEffectMode.Haze) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .hazeEffect(
+                                    state = coverHazeState,
+                                    style = HazeMaterials.ultraThin())
+                        )
+                    }
                 }
 
                 // 2. Forefront controls layer (Sibling forefront node)
@@ -448,7 +468,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetHazeState = coverHazeState,
+                                chapterSheetHazeState = floatingHazeState,
                                 onColorExtracted = onColorExtracted
                             )
                         }
@@ -491,7 +511,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetHazeState = coverHazeState,
+                                chapterSheetHazeState = floatingHazeState,
                                 onColorExtracted = onColorExtracted
                             )
                         }
@@ -534,7 +554,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetHazeState = coverHazeState,
+                                chapterSheetHazeState = floatingHazeState,
                                 offsetY = offsetY,
                                 scope = scope,
                                 dismissThreshold = dismissThreshold,
@@ -589,32 +609,63 @@ fun PlayerScreen(
             }
         }
 
-        // Compact chapter list overlays (To present track index selections dynamically)
-        ChapterListSheetStateful(
-            currentPosition = progressState.elapsedMs,
-            totalDuration = progressState.durationMs,
-            metadata = metadata,
-            settings = settings,
-            actions = actions,
-            sheetState = sheetState,
-            // Full-screen backdrop resolution (To apply full-screen backdrop sampling parameters)
-            hazeState = hazeState ?: coverHazeState,
-            glassEffectMode = glassEffectMode
-        )
-
-        // Bookmark creation sheet (To display input fields for bookmark naming details)
-        BookmarkDialog(
-            isVisible = settings.isBookmarkDialogVisible,
-            defaultTitle = settings.bookmarkTitle,
-            hazeState = hazeState ?: coverHazeState,
-            glassEffectMode = glassEffectMode,
-            onSave = { localTitle ->
-                actions.bookmarks.onTitleChange(localTitle)
-                actions.bookmarks.onSave()
-            },
-            onDismiss = actions.bookmarks.onDismissDialog
-        )
+        if (renderFloatingSurfaces) {
+            // Inline Player Floating Surface Host (Preserve standalone PlayerScreen behavior for previews and isolated tests)
+            // App shell callers can disable this branch and render the same host outside the page hazeSource to prevent nested modal sampling.
+            PlayerFloatingSurfaceHost(
+                currentPosition = progressState.elapsedMs,
+                totalDuration = progressState.durationMs,
+                metadata = metadata,
+                settings = settings,
+                actions = actions,
+                hazeState = floatingHazeState,
+                glassEffectMode = glassEffectMode
+            )
+        }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlayerFloatingSurfaceHost(
+    currentPosition: Long,
+    totalDuration: Long,
+    metadata: BookMetadataState,
+    settings: PlayerSettingsState,
+    actions: PlayerActions,
+    hazeState: HazeState?,
+    glassEffectMode: GlassEffectMode
+) {
+    // Chapter Sheet State Ownership (Keep modal sheet mechanics with the floating surface host)
+    // Moving the sheet state here lets PlayerOverlay render the chapter sheet as a sibling of sampled player content without duplicating sheet wiring.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+
+    // Compact Chapter List Surface (Present track index selections through the shared floating surface host)
+    // The hazeState is supplied by the caller so app-level overlays can sample a stable source while standalone screens fall back to their local sampler.
+    ChapterListSheetStateful(
+        currentPosition = currentPosition,
+        totalDuration = totalDuration,
+        metadata = metadata,
+        settings = settings,
+        actions = actions,
+        sheetState = sheetState,
+        hazeState = hazeState,
+        glassEffectMode = glassEffectMode
+    )
+
+    // Bookmark Creation Surface (Display bookmark naming controls through the shared floating surface host)
+    // Keeping this dialog beside the chapter sheet centralizes player modal ownership and avoids nesting dialogs inside sampled page content.
+    BookmarkDialog(
+        isVisible = settings.isBookmarkDialogVisible,
+        defaultTitle = settings.bookmarkTitle,
+        hazeState = hazeState,
+        glassEffectMode = glassEffectMode,
+        onSave = { localTitle ->
+            actions.bookmarks.onTitleChange(localTitle)
+            actions.bookmarks.onSave()
+        },
+        onDismiss = actions.bookmarks.onDismissDialog
+    )
 }
 
 // Suppress VM forwarding checker (To allow instantiating empty ViewModel instances under preview components)

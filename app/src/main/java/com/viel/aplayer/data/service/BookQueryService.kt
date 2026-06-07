@@ -4,11 +4,11 @@ package com.viel.aplayer.data.service
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.core.net.toUri
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookmarkDao
 import com.viel.aplayer.data.dao.ChapterDao
-import com.viel.aplayer.data.dao.ScanSessionDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
@@ -16,7 +16,6 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
-import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.CoverUriResolver
 import com.viel.aplayer.media.BookPlaybackPlan
@@ -49,7 +48,6 @@ class BookQueryService(
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val bookmarkDao: BookmarkDao,
-    private val scanSessionDao: ScanSessionDao,
     private val coverRecoveryHelper: CoverRecoveryHelper
 ) : BookQueryGateway, java.io.Closeable {
 
@@ -168,11 +166,6 @@ class BookQueryService(
         bookDao.getAllFilesForBookList(bookId)
     }
 
-    override fun observeLatestScanSession(): Flow<ScanSessionEntity?> {
-        // Observe scan session: Streams completion attributes of the last rescan session block.
-        return scanSessionDao.observeLatestCompletedSession()
-    }
-
     override suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = withContext(Dispatchers.IO) {
         val planBuildStart = SystemClock.elapsedRealtime()
         val bookQueryStart = SystemClock.elapsedRealtime()
@@ -205,7 +198,7 @@ class BookQueryService(
         val artworkPath = book.coverPath
         // Decouple Platform URI Resolution: Delegate the content:// URI creation to the CoverUriResolver interface to keep platform logic out of data services.
         val artworkUri = if (!artworkPath.isNullOrBlank()) {
-            coverUriResolver.toContentUri(artworkPath)?.let { android.net.Uri.parse(it) }
+            coverUriResolver.toContentUri(artworkPath)?.let { it.toUri() }
         } else null
 
         val plan = BookPlaybackPlan(

@@ -139,22 +139,27 @@ class ScanService(
             triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
         ).rescan(type, allowedRootIds = availableDirectoryRootIds)
 
-        ScanWorkflowLogger.info("scanService success: trigger=$trigger, discovered=${session.discoveredBookCount}, pending=${session.pendingActionCount}")
+        ScanWorkflowLogger.info("scanService success: trigger=$trigger, discovered=${session.discoveredBookCount}, updated=${session.updatedBookCount}, partial=${session.partialBookCount}")
 
         // Broadcast Scan Completion (Decoupled UI notification bus)
         // Emits toast commands through PlaybackManager's event stream.
         // Replaces legacy hardcoded Toast calls inside business services to maintain clean domain boundaries.
-        if (session.pendingActionCount == 0) {
-            val isLibraryEmpty = com.viel.aplayer.data.db.AppDatabase.getInstance(appContext).bookDao().getAllBooksOnce().isEmpty()
-            val message = if (session.discoveredBookCount > 0) {
-                "媒体库同步已完成，新增了 ${session.discoveredBookCount} 本书籍"
-            } else if (isLibraryEmpty) {
-                "媒体库为空，未扫描到有效书籍"
-            } else {
-                "媒体库已是最新状态"
-            }
-            playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(message))
+        val isLibraryEmpty = com.viel.aplayer.data.db.AppDatabase.getInstance(appContext).bookDao().getAllBooksOnce().isEmpty()
+        val changedCount = session.discoveredBookCount + session.updatedBookCount + session.partialBookCount
+        val message = if (session.discoveredBookCount > 0) {
+            "媒体库同步已完成，新增了 ${session.discoveredBookCount} 本书籍"
+        } else if (changedCount > 0) {
+            "媒体库同步已完成"
+        } else if (isLibraryEmpty) {
+            "媒体库为空，未扫描到有效书籍"
+        } else {
+            "媒体库已是最新状态"
         }
+        // Scan Toast Detail Suffix (Partial and replacement reporting)
+        // Appends resolved replacement and partial-import counts after the neutral completion message now that review-pending scans no longer exist.
+        val updatedSuffix = if (session.updatedBookCount > 0) "，更新了 ${session.updatedBookCount} 本书籍" else ""
+        val partialSuffix = if (session.partialBookCount > 0) "，其中 ${session.partialBookCount} 本为部分导入" else ""
+        playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(message + updatedSuffix + partialSuffix))
     }
 
     override fun close() {

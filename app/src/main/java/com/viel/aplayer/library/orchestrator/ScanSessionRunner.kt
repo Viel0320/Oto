@@ -112,9 +112,6 @@ class ScanSessionRunner(
             status = AudiobookSchema.ScanStatus.RUNNING,
             startedAt = System.currentTimeMillis()
         )
-        // Flush Stale Pending Actions (Data Integrity Protection)
-        // Removes old, unconfirmed conflict entries from the DB to ensure a clean rescan environment.
-        scanSessionDao.clearPendingActions()
         scanSessionDao.insertSession(session)
 
         val result = runCatching {
@@ -124,7 +121,12 @@ class ScanSessionRunner(
             }
                 .filter { root -> root.isDirectorySyncRoot() }
                 .filter { root -> allowedRootIds == null || root.id in allowedRootIds }
-            val existingIndex = ExistingClaimIndex.from(bookDao.getAllBookFilesOnce())
+            // Existing Claim Priority Snapshot (Ownership conflict policy)
+            // Loads books beside file claims so the pipeline can compare persisted owner source types during replacement decisions.
+            val existingIndex = ExistingClaimIndex.from(
+                files = bookDao.getAllBookFilesOnce(),
+                books = bookDao.getAllBooksOnce()
+            )
             
             // Delegate Import Pipeline (Pipeline Execution)
             // Invokes ScopeOrchestrator to parse and import all files within folders.
@@ -139,7 +141,9 @@ class ScanSessionRunner(
             } else {
                 MissingBookFileRecoveryResult()
             }
-            importResult.readyImports.map { it.draft.book.rootId }.distinct().forEach { scannedRootId ->
+            (importResult.readyImports.map { it.draft.book.rootId } + importResult.replacementImports.map { it.draft.book.rootId })
+                .distinct()
+                .forEach { scannedRootId ->
                 rootDao.updateRootScanState(scannedRootId, System.currentTimeMillis())
             }
             scanSessionDao.markCompleted(
@@ -148,7 +152,6 @@ class ScanSessionRunner(
                 unavailableBookCount = importResult.failureCount,
                 partialBookCount = importResult.partialNewBookCount,
                 updatedBookCount = importResult.updateExistingCount + recoveryResult.restoredBookCount,
-                pendingActionCount = importResult.pendingActions.size,
                 summaryJson = importResult.toSummaryJson(recoveryResult)
             )
         }
@@ -168,7 +171,6 @@ class ScanSessionRunner(
             append("\"newBooks\":").append(discoveredNames.toJsonArray()).append(',')
             append("\"partialImports\":").append(partialNames.toJsonArray()).append(',')
             append("\"updatedBooks\":").append((updateExistingNames + recoveryResult.restoredBookTitles).toJsonArray()).append(',')
-            append("\"pendingActions\":").append(pendingNames.toJsonArray()).append(',')
             append("\"failures\":").append(failureNames.toJsonArray())
             append('}')
         }

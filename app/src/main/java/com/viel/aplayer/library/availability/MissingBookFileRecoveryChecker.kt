@@ -32,7 +32,8 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
             }
         }
         if (restoredFileIds.isNotEmpty()) {
-            // Restored files become READY immediately, but no import/pending action is created.
+            // Restored File Visibility (Availability-only recovery)
+            // Marks files READY immediately without creating a new import command because the book already owns the file rows.
             bookDao.updateBookFileStatuses(restoredFileIds, AudiobookSchema.FileStatus.READY)
         }
         val restoredFileCount = restoredFileIds.size

@@ -19,7 +19,7 @@ data class ScanSessionEntity(
     val unavailableBookCount: Int = 0,
     val partialBookCount: Int = 0,
     val updatedBookCount: Int = 0,
-    val pendingActionCount: Int = 0,
-    // Persist display names from this scan so the completion dialog can show concrete items.
+    // Scan Summary Payload (Diagnostics retention)
+    // Persists concrete changed item names for logs and future lightweight scan history surfaces.
     val summaryJson: String = ""
 )

@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.common
 
-// Setup Haze BottomSheet Integration (Replace old blur implementation with dev.chrisbanes.haze) Replaced backdrop APIs with HazeState, hazeChild, and HazeMaterials.
+// Setup Liquid Glass BottomSheet Integration (Route sheet blur through the shared liquid renderer)
+// The sheet still consumes HazeState for backdrop sampling, but its Haze mode now draws the same liquid glass refraction and highlight treatment as dialogs and top bars.
 // Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,10 +23,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * BlurModalBottomSheet — Frosted glass BottomSheet refactored using Haze.
@@ -48,7 +48,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  * @param modifier Modifier.
  * @param content BottomSheet body content (ColumnScope).
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BlurModalBottomSheet(
     modifier: Modifier = Modifier,
@@ -92,15 +92,18 @@ fun BlurModalBottomSheet(
         dragHandle = null,
         contentWindowInsets = contentWindowInsets,
     ) {
-        // Setup Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to BottomSheet content Box when Haze mode is active and hazeState is available.
+        // Setup Liquid Glass Modifier (Apply the shared liquid glass renderer to modal sheets)
+        // Bottom sheets previously used raw HazeMaterials, so chapter panels blurred but did not draw the app's liquid refraction and highlight treatment.
         val glassModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
-            // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
             Modifier
-                // Clip bottom sheet shape before applying hazeChild
+                // Bottom Sheet Shape Clipping (Constrain blur and border highlights to the sheet outline)
+                // The liquid renderer draws shape-aware highlights, so clipping first prevents rectangular blur spill around rounded top corners.
                 .clip(shape)
-                .hazeEffect(
+                .liquidGlassCompatEffect(
                     state = hazeState,
-                    style = HazeMaterials.ultraThick()
+                    // Bottom Sheet Liquid Glass Style (Match the Material sheet shape while keeping the shared app tint and blur defaults)
+                    // Passing the sheet shape lets the refraction outline follow BottomSheetDefaults.ExpandedShape instead of the generic rounded rectangle default.
+                    style = LiquidGlassStyle(shape = shape)
                 )
         } else {
             Modifier

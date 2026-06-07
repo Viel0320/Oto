@@ -5,7 +5,10 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.media.parser.ImageProcessor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -109,56 +112,25 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 fullSourcePath = ""
             )
 
-            // Resolve Physical Path (Map and format VFS identifiers to a display path)
-            // Launches an asynchronous scope to fetch book tracks, decode SAF references,
-            // strip virtual directory prefixes, and map the clean path to UI display variables.
+            // Resolve User-Facing Source Location (Build a friendly source indicator from VFS metadata)
+            // The detail page should not expose raw SAF tree fragments, remote URLs, or ABS playback API paths; it displays the registered library name plus the selected file's relative path instead.
             viewModelScope.launch {
-                // Retrieve Track list (Query complete book tracks via aggregate gateway)
+                val selectedBookId = book.book.id
                 val files = libraryFacade.getAllFilesForBookSync(book.book.id)
-                val fileName = when (book.book.sourceType) {
-                    com.viel.aplayer.data.db.AudiobookSchema.SourceType.SINGLE_AUDIO -> {
-                        // Single File Source (Default to first track display name)
-                        files.firstOrNull()?.displayName.orEmpty()
-                    }
-                    com.viel.aplayer.data.db.AudiobookSchema.SourceType.CUE,
-                    com.viel.aplayer.data.db.AudiobookSchema.SourceType.M3U8 -> {
-                        // Manifest Book source (Prioritize the source manifest track, falling back to track index 0)
-                        files.firstOrNull { it.fileRole == com.viel.aplayer.data.db.AudiobookSchema.FileRole.SOURCE_MANIFEST }?.displayName
-                            ?: files.firstOrNull()?.displayName.orEmpty()
-                    }
-                    com.viel.aplayer.data.db.AudiobookSchema.SourceType.GENERATED_M3U8 -> {
-                        // Aggregated Book source (Sort tracks and default to the first sorted track name)
-                        files.minByOrNull { it.index }?.displayName.orEmpty()
-                    }
-                    else -> ""
-                }
-
-                // URL Decoding (Resolve percent encoding symbols inside SAF roots)
-                val root = book.book.sourceRoot
-                val decodedRoot = android.net.Uri.decode(root)
-
-                // Prefix Stripping (Isolate local physical directories from virtual authority prefixes)
-                // In SAF scopes, physical URLs can carry duplicate authority fragments (e.g., "primary:Audiobooks/document/primary:Audiobooks").
-                // Locating the last instance of "primary:" cleans up virtual prefixes, leaving only the physical subpath.
-                val primaryKey = "primary:"
-                val startIndex = decodedRoot.lastIndexOf(primaryKey, ignoreCase = true)
-                val cleanRoot = if (startIndex != -1) {
-                    decodedRoot.substring(startIndex + primaryKey.length)
-                } else {
-                    decodedRoot
-                }
-
-                // Path Assembly (Concatenate cleaned root directory and resolved filename)
-                val finalPath = if (cleanRoot.endsWith("/")) {
-                    "$cleanRoot$fileName"
-                } else if (cleanRoot.isNotEmpty() && fileName.isNotEmpty()) {
-                    "$cleanRoot/$fileName"
-                } else {
-                    "$cleanRoot$fileName"
-                }
+                // Library Root Snapshot (Resolve the selected book's registered source root)
+                // Reading roots through the facade keeps DetailViewModel on the domain gateway boundary while giving the display formatter a user-owned source label.
+                val root = libraryFacade.getCachedLibraryRoots().firstOrNull { it.id == book.book.rootId }
+                    ?: libraryFacade.getAllRootsOnce().firstOrNull { it.id == book.book.rootId }
+                val finalPath = buildFriendlySourceLocation(book, files, root)
 
                 _uiState.update { state ->
-                    state.copy(fullSourcePath = finalPath)
+                    // Detail Source Race Guard (Ignore stale path work after the selected book changes)
+                    // Source formatting runs asynchronously, so the book id is checked before applying the display label to prevent cross-book path flashes.
+                    if (state.book?.book?.id == selectedBookId) {
+                        state.copy(fullSourcePath = finalPath)
+                    } else {
+                        state
+                    }
                 }
             }
 
@@ -289,6 +261,115 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+
+    /**
+     * Friendly Source Location Builder (Maps storage metadata into a user-readable breadcrumb)
+     *
+     * Uses a typed library prefix plus LibraryRootEntity.displayName as the stable source label and BookFileEntity.sourcePath as the VFS-relative location, avoiding raw content URIs, server URLs, and internal ABS content endpoints.
+     */
+    private fun buildFriendlySourceLocation(
+        book: BookWithProgress,
+        files: List<BookFileEntity>,
+        root: LibraryRootEntity?
+    ): String {
+        val displayFile = selectDisplayFile(book.book.sourceType, files)
+        val playableFileCount = files.count { it.fileRole == AudiobookSchema.FileRole.AUDIO }
+        val rootLabel = root?.displayName?.takeIf { it.isNotBlank() }
+            ?: book.book.sourceRoot.takeIf { it.isNotBlank() }
+            ?: "Library"
+        val sourceScheme = resolveSourceDisplayScheme(root, book.book.sourceType)
+        val segments = buildList {
+            // Detail Source Type Prefix (Expose the library protocol before the user-facing source name)
+            // Prefixing with SAF://, WEBDAV://, or ABS:// makes the same displayName understandable across local, remote, and server-backed libraries.
+            add("$sourceScheme://${rootLabel.toSourceSchemeLabel()}")
+            if (sourceScheme == "ABS") {
+                // ABS Source Privacy (Hide remote stream API paths)
+                // Audiobookshelf track content URLs are implementation details, so the indicator names the library and title instead of rendering content endpoints.
+                add(book.book.title.ifBlank { displayFile?.displayName.orEmpty() })
+            } else {
+                val pathSegments = displayFile?.sourcePath.orEmpty().toDisplayPathSegments(displayFile?.displayName)
+                // Legacy Source Path De-Duplication (Avoid repeating the library name in older imported records)
+                // Current VFS paths are relative to the root, but some historical records may already include the root folder name as their first segment.
+                addAll(pathSegments.dropLeadingDuplicate(rootLabel))
+            }
+        }.filter { it.isNotBlank() }
+        // Detail Source Path Separator (Render breadcrumbs as path-like slashes)
+        // The source indicator already uses protocol prefixes, so slash separators should stay compact without extra surrounding spaces.
+        val baseLocation = segments.joinToString("/")
+        return if (playableFileCount > 1) {
+            "$baseLocation · $playableFileCount tracks"
+        } else {
+            baseLocation
+        }
+    }
+
+    /**
+     * Detail Source File Selector (Chooses the file that best represents the book source)
+     *
+     * Manifest-based books display their manifest file when available, while generated playlists and regular books display the first playable audio track.
+     */
+    private fun selectDisplayFile(sourceType: String, files: List<BookFileEntity>): BookFileEntity? {
+        val playableFiles = files
+            .filter { it.fileRole == AudiobookSchema.FileRole.AUDIO }
+            .sortedBy { it.index }
+        return when (sourceType) {
+            AudiobookSchema.SourceType.CUE,
+            AudiobookSchema.SourceType.M3U8 -> {
+                files.firstOrNull { it.fileRole == AudiobookSchema.FileRole.SOURCE_MANIFEST }
+                    ?: playableFiles.firstOrNull()
+                    ?: files.minByOrNull { it.index }
+            }
+            AudiobookSchema.SourceType.GENERATED_M3U8 -> playableFiles.firstOrNull() ?: files.minByOrNull { it.index }
+            else -> playableFiles.firstOrNull() ?: files.minByOrNull { it.index }
+        }
+    }
+
+    /**
+     * VFS Path Segment Formatter (Converts a VFS-relative path into breadcrumb segments)
+     *
+     * Decodes percent-encoded names, normalizes slash direction, and falls back to the file displayName when the source path is empty.
+     */
+    private fun String.toDisplayPathSegments(fallbackDisplayName: String?): List<String> {
+        val normalizedPath = android.net.Uri.decode(this)
+            .replace('\\', '/')
+            .trim()
+            .trim('/')
+        val pathSegments = normalizedPath
+            .split('/')
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        return pathSegments.ifEmpty {
+            fallbackDisplayName?.takeIf { it.isNotBlank() }?.let(::listOf) ?: emptyList()
+        }
+    }
+
+    /**
+     * Duplicate Root Segment Filter (Removes repeated root names from display breadcrumbs)
+     *
+     * Keeps the source indicator compact when legacy data stores paths like "Audiobooks/Book/file.mp3" while the root display label is already "Audiobooks".
+     */
+    private fun List<String>.dropLeadingDuplicate(rootLabel: String): List<String> =
+        if (firstOrNull()?.equals(rootLabel, ignoreCase = true) == true) drop(1) else this
+
+    /**
+     * Detail Source Scheme Resolver (Uses the library root sourceType as the display protocol)
+     *
+     * LibraryRootEntity.sourceType already stores SAF, WEBDAV, or ABS; BookEntity.sourceType is only a fallback because local books store content forms such as SINGLE_AUDIO, CUE, or M3U8.
+     */
+    private fun resolveSourceDisplayScheme(root: LibraryRootEntity?, bookSourceType: String): String =
+        root?.sourceType?.takeIf { it.isNotBlank() } ?: when {
+            bookSourceType == AudiobookSchema.SourceType.ABS_REMOTE -> "ABS"
+            else -> "SAF"
+        }
+
+    /**
+     * Source Scheme Label Normalizer (Keeps protocol-prefixed labels compact)
+     *
+     * Removes leading and trailing slashes from persisted labels so values like "/audiobooks" render as "webdav://audiobooks".
+     */
+    private fun String.toSourceSchemeLabel(): String =
+        trim().trim('/').ifBlank { "Library" }
+
 
     companion object {
         // Protection Time Constant (Central source of truth for debouncing initial playback transitions)

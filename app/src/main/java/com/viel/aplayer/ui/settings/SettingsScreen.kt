@@ -1,8 +1,4 @@
 package com.viel.aplayer.ui.settings
-
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,7 +37,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -75,22 +70,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onLibraryRootSelected: (Uri) -> Unit,
-    onSafRootRelocated: (String, Uri) -> Unit,
-    onWebDavRootSubmitted: (url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
-    onWebDavRootUpdated: (id: String, url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
-    webDavConnectionState: WebDavConnectionUiState,
-    onWebDavConnectionTest: (url: String, username: String, password: String, basePath: String, editingRootId: String?) -> Unit,
-    onResetWebDavConnectionState: () -> Unit,
-    onResetAbsConnectionState: () -> Unit,
-    onAbsConnectionTest: (baseUrl: String, username: String, password: String, editingRootId: String?) -> Unit,
-    onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String, editingRootId: String?) -> Unit,
-    getWebDavCredentials: (credentialId: String) -> WebDavCredential?,
-    getAbsCredential: suspend (credentialId: String) -> AbsCredential?,
-    onAbsSync: (rootId: String) -> Unit,
-    onRescan: () -> Unit,
     libraryRootDisplays: List<LibraryRootDisplayState>,
-    absConnectionState: AbsConnectionUiState,
     isChapterProgressMode: Boolean,
     onChapterProgressModeChange: (Boolean) -> Unit,
     isCleartextTrafficAllowed: Boolean,
@@ -98,7 +78,6 @@ fun SettingsScreen(
     // Insecure TLS Config: Expose insecure TLS parameter flag and its status modification callback.
     isAllowInsecureTls: Boolean,
     onAllowInsecureTlsChange: (Boolean) -> Unit,
-    onDeleteLibraryRoot: (LibraryRootEntity) -> Unit,
     isSkipSilenceEnabled: Boolean,
     onSkipSilenceEnabledChange: (Boolean) -> Unit,
     isSleepFadeOutEnabled: Boolean,
@@ -113,6 +92,10 @@ fun SettingsScreen(
     onDynamicColorEnabledChange: (Boolean) -> Unit,
     glassEffectMode: GlassEffectMode,
     settingsHazeState: HazeState? = null,
+    // Settings Dialog Intent Routing (Let the overlay own modal surfaces instead of the sampled page content)
+    // SettingsScreen emits root and add-library intents so SettingsOverlay can render dialogs beside the page hazeSource.
+    onRootClick: (LibraryRootEntity) -> Unit = {},
+    onAddLibraryClick: () -> Unit = {},
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
     autoRewindSeconds: Int,
     onAutoRewindSecondsChange: (Int) -> Unit,
@@ -120,41 +103,6 @@ fun SettingsScreen(
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
     onAboutLibrariesClick: () -> Unit
 ) {
-    var editingSafRootId by remember { mutableStateOf<String?>(null) }
-
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        uri?.let {
-            if (editingSafRootId != null) {
-                onSafRootRelocated(editingSafRootId!!, it)
-                editingSafRootId = null
-            } else {
-                onLibraryRootSelected(it)
-            }
-        }
-    }
-
-    var dialogState by remember { mutableStateOf<SettingsDialogState>(SettingsDialogState.None) }
-    val rootToDelete = (dialogState as? SettingsDialogState.DeleteRoot)?.root
-    val showWebDavDialog = dialogState == SettingsDialogState.WebDavRoot
-    val showAbsDialog = dialogState == SettingsDialogState.AbsServer
-    val showAddLibraryTypeDialog = dialogState == SettingsDialogState.AddLibraryType
-    val rootForAction = (dialogState as? SettingsDialogState.RootActions)?.root
-
-    var webDavUrl by remember { mutableStateOf("") }
-    var webDavUsername by remember { mutableStateOf("") }
-    var webDavPassword by remember { mutableStateOf("") }
-    var webDavDisplayName by remember { mutableStateOf("") }
-    var webDavBasePath by remember { mutableStateOf("") }
-    var absBaseUrl by remember { mutableStateOf("") }
-    var absUsername by remember { mutableStateOf("") }
-    var absPassword by remember { mutableStateOf("") }
-    var absLibraryId by remember { mutableStateOf("") }
-    var absLibraryName by remember { mutableStateOf("") }
-    var absDisplayName by remember { mutableStateOf("") }
-    var editingRootId by remember { mutableStateOf<String?>(null) }
-
     val windowClass = LocalWindowClass.current
     val useWideLayout = windowClass.isWideScreen
 
@@ -171,147 +119,6 @@ fun SettingsScreen(
         with(density) { settingsTopBarHeightPx.toDp() }
     } else {
         safeDrawingPadding.calculateTopPadding() + 64.dp
-    }
-
-    if (showWebDavDialog) {
-        WebDavRootDialog(
-            url = webDavUrl,
-            username = webDavUsername,
-            password = webDavPassword,
-            displayName = webDavDisplayName,
-            basePath = webDavBasePath,
-            editingRootId = editingRootId,
-            hazeState = settingsHazeState,
-            glassEffectMode = glassEffectMode,
-            connectionState = webDavConnectionState,
-            onUrlChange = { 
-                webDavUrl = it
-                onResetWebDavConnectionState()
-            },
-            onUsernameChange = { 
-                webDavUsername = it
-                onResetWebDavConnectionState()
-            },
-            onPasswordChange = { 
-                webDavPassword = it
-                onResetWebDavConnectionState()
-            },
-            onDisplayNameChange = { webDavDisplayName = it },
-            onBasePathChange = { 
-                webDavBasePath = it
-                onResetWebDavConnectionState()
-            },
-            onTestConnection = {
-                onWebDavConnectionTest(
-                    webDavUrl.trim(),
-                    webDavUsername.trim(),
-                    webDavPassword,
-                    webDavBasePath.trim(),
-                    editingRootId
-                )
-            },
-            onDismiss = {
-                dialogState = SettingsDialogState.None
-                webDavUrl = ""
-                webDavUsername = ""
-                webDavPassword = ""
-                webDavDisplayName = ""
-                webDavBasePath = ""
-                editingRootId = null
-                onResetWebDavConnectionState()
-            },
-            onConfirm = {
-                if (editingRootId != null) {
-                    onWebDavRootUpdated(
-                        editingRootId!!,
-                        webDavUrl.trim(),
-                        webDavUsername.trim(),
-                        webDavPassword,
-                        webDavDisplayName.trim(),
-                        webDavBasePath.trim()
-                    )
-                } else {
-                    onWebDavRootSubmitted(
-                        webDavUrl.trim(),
-                        webDavUsername.trim(),
-                        webDavPassword,
-                        webDavDisplayName.trim(),
-                        webDavBasePath.trim()
-                    )
-                }
-                dialogState = SettingsDialogState.None
-                webDavUrl = ""
-                webDavUsername = ""
-                webDavPassword = ""
-                webDavDisplayName = ""
-                webDavBasePath = ""
-                editingRootId = null
-                onResetWebDavConnectionState()
-            }
-        )
-    }
-
-    if (showAbsDialog) {
-        AbsServerDialog(
-            baseUrl = absBaseUrl,
-            username = absUsername,
-            password = absPassword,
-            displayName = absDisplayName,
-            editingRootId = editingRootId,
-            hazeState = settingsHazeState,
-            glassEffectMode = glassEffectMode,
-            connectionState = absConnectionState,
-            selectedLibraryId = absLibraryId,
-            selectedLibraryName = absLibraryName,
-            onBaseUrlChange = { 
-                absBaseUrl = it
-                onResetAbsConnectionState()
-            },
-            onUsernameChange = { 
-                absUsername = it
-                onResetAbsConnectionState()
-            },
-            onPasswordChange = { 
-                absPassword = it
-                onResetAbsConnectionState()
-            },
-            onDisplayNameChange = { absDisplayName = it },
-            onLibrarySelected = { id, name ->
-                absLibraryId = id
-                absLibraryName = name
-            },
-            onTestConnection = { onAbsConnectionTest(absBaseUrl.trim(), absUsername.trim(), absPassword, editingRootId) },
-            onDismiss = {
-                dialogState = SettingsDialogState.None
-                absBaseUrl = ""
-                absUsername = ""
-                absPassword = ""
-                absLibraryId = ""
-                absLibraryName = ""
-                absDisplayName = ""
-                editingRootId = null
-                onResetAbsConnectionState()
-            },
-            onConfirm = {
-                onAbsRootSubmitted(
-                    absBaseUrl.trim(),
-                    absUsername.trim(),
-                    absPassword,
-                    absLibraryId.trim(),
-                    absLibraryName.trim(),
-                    editingRootId
-                )
-                dialogState = SettingsDialogState.None
-                absBaseUrl = ""
-                absUsername = ""
-                absPassword = ""
-                absLibraryId = ""
-                absLibraryName = ""
-                absDisplayName = ""
-                editingRootId = null
-                onResetAbsConnectionState()
-            }
-        )
     }
 
     Box(
@@ -354,8 +161,8 @@ fun SettingsScreen(
                     item {
                         LibraryDirectoriesSection(
                             libraryRootDisplays = libraryRootDisplays,
-                            onRootClick = { dialogState = SettingsDialogState.RootActions(it) },
-                            onAddLibraryClick = { dialogState = SettingsDialogState.AddLibraryType }
+                            onRootClick = onRootClick,
+                            onAddLibraryClick = onAddLibraryClick
                         )
                     }
                     item {
@@ -429,25 +236,185 @@ fun SettingsScreen(
             )
         }
     }
+}
+
+@Composable
+fun SettingsDialogHost(
+    controller: SettingsDialogController,
+    glassEffectMode: GlassEffectMode,
+    settingsDialogHazeState: HazeState? = null,
+    webDavConnectionState: WebDavConnectionUiState,
+    onWebDavConnectionTest: (url: String, username: String, password: String, basePath: String, editingRootId: String?) -> Unit,
+    onResetWebDavConnectionState: () -> Unit,
+    onWebDavRootSubmitted: (url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
+    onWebDavRootUpdated: (id: String, url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
+    absConnectionState: AbsConnectionUiState,
+    onAbsConnectionTest: (baseUrl: String, username: String, password: String, editingRootId: String?) -> Unit,
+    onResetAbsConnectionState: () -> Unit,
+    onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String, editingRootId: String?) -> Unit,
+    getWebDavCredentials: (credentialId: String) -> WebDavCredential?,
+    getAbsCredential: suspend (credentialId: String) -> AbsCredential?,
+    onAbsSync: (rootId: String) -> Unit,
+    onRescan: () -> Unit,
+    onDeleteLibraryRoot: (LibraryRootEntity) -> Unit,
+    onLaunchSafRootPicker: () -> Unit
+) {
+    val dialogState = controller.dialogState
+    val rootToDelete = (dialogState as? SettingsDialogState.DeleteRoot)?.root
+    val showWebDavDialog = dialogState == SettingsDialogState.WebDavRoot
+    val showAbsDialog = dialogState == SettingsDialogState.AbsServer
+    val showAddLibraryTypeDialog = dialogState == SettingsDialogState.AddLibraryType
+    val rootForAction = (dialogState as? SettingsDialogState.RootActions)?.root
+    // Resolve Settings Dialog Haze Source (Gate app-level dialog sampling by current glass mode)
+    // All settings modal dialogs use this single stable source instead of the page-local top-bar source.
+    val resolvedSettingsDialogHazeState = settingsDialogHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
+
+    if (showWebDavDialog) {
+        WebDavRootDialog(
+            url = controller.webDavUrl,
+            username = controller.webDavUsername,
+            password = controller.webDavPassword,
+            displayName = controller.webDavDisplayName,
+            basePath = controller.webDavBasePath,
+            editingRootId = controller.editingRootId,
+            hazeState = resolvedSettingsDialogHazeState,
+            glassEffectMode = glassEffectMode,
+            connectionState = webDavConnectionState,
+            onUrlChange = {
+                controller.webDavUrl = it
+                onResetWebDavConnectionState()
+            },
+            onUsernameChange = {
+                controller.webDavUsername = it
+                onResetWebDavConnectionState()
+            },
+            onPasswordChange = {
+                controller.webDavPassword = it
+                onResetWebDavConnectionState()
+            },
+            onDisplayNameChange = { controller.webDavDisplayName = it },
+            onBasePathChange = {
+                controller.webDavBasePath = it
+                onResetWebDavConnectionState()
+            },
+            onTestConnection = {
+                onWebDavConnectionTest(
+                    controller.webDavUrl.trim(),
+                    controller.webDavUsername.trim(),
+                    controller.webDavPassword,
+                    controller.webDavBasePath.trim(),
+                    controller.editingRootId
+                )
+            },
+            onDismiss = {
+                controller.dialogState = SettingsDialogState.None
+                controller.resetWebDavForm()
+                onResetWebDavConnectionState()
+            },
+            onConfirm = {
+                if (controller.editingRootId != null) {
+                    onWebDavRootUpdated(
+                        controller.editingRootId!!,
+                        controller.webDavUrl.trim(),
+                        controller.webDavUsername.trim(),
+                        controller.webDavPassword,
+                        controller.webDavDisplayName.trim(),
+                        controller.webDavBasePath.trim()
+                    )
+                } else {
+                    onWebDavRootSubmitted(
+                        controller.webDavUrl.trim(),
+                        controller.webDavUsername.trim(),
+                        controller.webDavPassword,
+                        controller.webDavDisplayName.trim(),
+                        controller.webDavBasePath.trim()
+                    )
+                }
+                controller.dialogState = SettingsDialogState.None
+                controller.resetWebDavForm()
+                onResetWebDavConnectionState()
+            }
+        )
+    }
+
+    if (showAbsDialog) {
+        AbsServerDialog(
+            baseUrl = controller.absBaseUrl,
+            username = controller.absUsername,
+            password = controller.absPassword,
+            displayName = controller.absDisplayName,
+            editingRootId = controller.editingRootId,
+            hazeState = resolvedSettingsDialogHazeState,
+            glassEffectMode = glassEffectMode,
+            connectionState = absConnectionState,
+            selectedLibraryId = controller.absLibraryId,
+            selectedLibraryName = controller.absLibraryName,
+            onBaseUrlChange = {
+                controller.absBaseUrl = it
+                onResetAbsConnectionState()
+            },
+            onUsernameChange = {
+                controller.absUsername = it
+                onResetAbsConnectionState()
+            },
+            onPasswordChange = {
+                controller.absPassword = it
+                onResetAbsConnectionState()
+            },
+            onDisplayNameChange = { controller.absDisplayName = it },
+            onLibrarySelected = { id, name ->
+                controller.absLibraryId = id
+                controller.absLibraryName = name
+            },
+            onTestConnection = {
+                onAbsConnectionTest(
+                    controller.absBaseUrl.trim(),
+                    controller.absUsername.trim(),
+                    controller.absPassword,
+                    controller.editingRootId
+                )
+            },
+            onDismiss = {
+                controller.dialogState = SettingsDialogState.None
+                controller.resetAbsForm()
+                onResetAbsConnectionState()
+            },
+            onConfirm = {
+                onAbsRootSubmitted(
+                    controller.absBaseUrl.trim(),
+                    controller.absUsername.trim(),
+                    controller.absPassword,
+                    controller.absLibraryId.trim(),
+                    controller.absLibraryName.trim(),
+                    controller.editingRootId
+                )
+                controller.dialogState = SettingsDialogState.None
+                controller.resetAbsForm()
+                onResetAbsConnectionState()
+            }
+        )
+    }
 
     if (rootToDelete != null) {
         val root = rootToDelete
         SettingsTemplateDialog(
-            onDismissRequest = { dialogState = SettingsDialogState.None },
+            onDismissRequest = { controller.dialogState = SettingsDialogState.None },
+            hazeState = resolvedSettingsDialogHazeState,
+            glassEffectMode = glassEffectMode,
             title = { Text("移除媒体库根目录") },
             text = { Text("移除此媒体库根目录将使应用失去对该目录的物理文件访问权限，所有相关的书籍记录将会从库中移除，但不会删除您存储卡中的物理音频文件。您确定要移除该目录并释放物理授权吗？") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onDeleteLibraryRoot(root)
-                        dialogState = SettingsDialogState.None
+                        controller.dialogState = SettingsDialogState.None
                     }
                 ) {
                     Text("确定", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { dialogState = SettingsDialogState.None }) {
+                TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
                     Text("取消")
                 }
             }
@@ -456,7 +423,9 @@ fun SettingsScreen(
 
     if (showAddLibraryTypeDialog) {
         SettingsTemplateDialog(
-            onDismissRequest = { dialogState = SettingsDialogState.None },
+            onDismissRequest = { controller.dialogState = SettingsDialogState.None },
+            hazeState = resolvedSettingsDialogHazeState,
+            glassEffectMode = glassEffectMode,
             title = { Text("选择媒体库类别") },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -464,9 +433,9 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                dialogState = SettingsDialogState.None
-                                editingSafRootId = null
-                                launcher.launch(null)
+                                controller.dialogState = SettingsDialogState.None
+                                controller.editingSafRootId = null
+                                onLaunchSafRootPicker()
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -479,14 +448,9 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                dialogState = SettingsDialogState.None
-                                webDavUrl = ""
-                                webDavDisplayName = ""
-                                webDavBasePath = ""
-                                webDavUsername = ""
-                                webDavPassword = ""
-                                editingRootId = null
-                                dialogState = SettingsDialogState.WebDavRoot
+                                controller.dialogState = SettingsDialogState.None
+                                controller.resetWebDavForm()
+                                controller.dialogState = SettingsDialogState.WebDavRoot
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -499,15 +463,9 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                dialogState = SettingsDialogState.None
-                                absBaseUrl = ""
-                                absUsername = ""
-                                absPassword = ""
-                                absLibraryId = ""
-                                absLibraryName = ""
-                                absDisplayName = ""
-                                editingRootId = null
-                                dialogState = SettingsDialogState.AbsServer
+                                controller.dialogState = SettingsDialogState.None
+                                controller.resetAbsForm()
+                                controller.dialogState = SettingsDialogState.AbsServer
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -520,7 +478,7 @@ fun SettingsScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { dialogState = SettingsDialogState.None }) {
+                TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
                     Text("取消")
                 }
             }
@@ -533,7 +491,9 @@ fun SettingsScreen(
         val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
         val scope = rememberCoroutineScope()
         SettingsTemplateDialog(
-            onDismissRequest = { dialogState = SettingsDialogState.None },
+            onDismissRequest = { controller.dialogState = SettingsDialogState.None },
+            hazeState = resolvedSettingsDialogHazeState,
+            glassEffectMode = glassEffectMode,
             title = { Text(root.displayName.ifBlank { "媒体库操作" }) },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -542,29 +502,29 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clickable {
                                 if (root.sourceType == AudiobookSchema.LibrarySourceType.SAF) {
-                                    editingSafRootId = root.id
-                                    dialogState = SettingsDialogState.None
-                                    launcher.launch(null)
+                                    controller.editingSafRootId = root.id
+                                    controller.dialogState = SettingsDialogState.None
+                                    onLaunchSafRootPicker()
                                 } else if (isWebDavRoot) {
                                     val creds = getWebDavCredentials(root.credentialId ?: "")
-                                    webDavUrl = root.sourceUri
-                                    webDavDisplayName = root.displayName
-                                    webDavBasePath = root.basePath
-                                    webDavUsername = creds?.username ?: ""
-                                    webDavPassword = creds?.password ?: ""
-                                    editingRootId = root.id
-                                    dialogState = SettingsDialogState.WebDavRoot
+                                    controller.webDavUrl = root.sourceUri
+                                    controller.webDavDisplayName = root.displayName
+                                    controller.webDavBasePath = root.basePath
+                                    controller.webDavUsername = creds?.username ?: ""
+                                    controller.webDavPassword = creds?.password ?: ""
+                                    controller.editingRootId = root.id
+                                    controller.dialogState = SettingsDialogState.WebDavRoot
                                 } else if (isAbsRoot) {
                                     scope.launch {
                                         val creds = getAbsCredential(root.credentialId ?: "")
-                                        absBaseUrl = root.sourceUri
-                                        absUsername = creds?.username ?: ""
-                                        absPassword = ""
-                                        absLibraryId = root.basePath
-                                        absLibraryName = root.displayName
-                                        absDisplayName = root.displayName
-                                        editingRootId = root.id
-                                        dialogState = SettingsDialogState.AbsServer
+                                        controller.absBaseUrl = root.sourceUri
+                                        controller.absUsername = creds?.username ?: ""
+                                        controller.absPassword = ""
+                                        controller.absLibraryId = root.basePath
+                                        controller.absLibraryName = root.displayName
+                                        controller.absDisplayName = root.displayName
+                                        controller.editingRootId = root.id
+                                        controller.dialogState = SettingsDialogState.AbsServer
                                     }
                                 }
                             }
@@ -585,7 +545,7 @@ fun SettingsScreen(
                                 } else {
                                     onRescan()
                                 }
-                                dialogState = SettingsDialogState.None
+                                controller.dialogState = SettingsDialogState.None
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -599,7 +559,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                dialogState = SettingsDialogState.DeleteRoot(root)
+                                controller.dialogState = SettingsDialogState.DeleteRoot(root)
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -612,7 +572,7 @@ fun SettingsScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { dialogState = SettingsDialogState.None }) {
+                TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
                     Text("取消")
                 }
             }
@@ -632,22 +592,7 @@ fun SettingsScreenPreview() {
         ) {
             SettingsScreen(
                 onBack = {},
-                onLibraryRootSelected = {},
-                onSafRootRelocated = { _, _ -> },
-                onWebDavRootSubmitted = { _, _, _, _, _ -> },
-                onWebDavRootUpdated = { _, _, _, _, _, _ -> },
-                webDavConnectionState = WebDavConnectionUiState(),
-                onWebDavConnectionTest = { _, _, _, _, _ -> },
-                onResetWebDavConnectionState = {},
-                onResetAbsConnectionState = {},
-                onAbsConnectionTest = { _, _, _, _ -> },
-                onAbsRootSubmitted = { _, _, _, _, _, _ -> },
-                getWebDavCredentials = { _ -> null },
-                getAbsCredential = { _ -> null },
-                onAbsSync = {},
-                onRescan = {},
                 libraryRootDisplays = emptyList(),
-                absConnectionState = AbsConnectionUiState(),
                 isChapterProgressMode = false,
                 onChapterProgressModeChange = {},
                 isCleartextTrafficAllowed = false,
@@ -655,7 +600,6 @@ fun SettingsScreenPreview() {
                 // Preview Bypass Parameter: Provide dummy values for isAllowInsecureTls settings fields.
                 isAllowInsecureTls = false,
                 onAllowInsecureTlsChange = {},
-                onDeleteLibraryRoot = {},
                 isSkipSilenceEnabled = false,
                 onSkipSilenceEnabledChange = {},
                 isSleepFadeOutEnabled = true,

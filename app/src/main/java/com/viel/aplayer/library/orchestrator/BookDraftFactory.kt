@@ -105,6 +105,9 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         year: String = "",
         description: String = "",
         series: String = "",
+        // Manifest Book Status Override (Partial import support)
+        // Allows CUE/M3U8 imports with missing references to persist directly as PARTIAL books.
+        bookStatus: String = AudiobookSchema.BookStatus.READY,
         cover: CoverExtractor.CoverResult?
     ): BookDraft {
         val durationByKey = audioFiles
@@ -175,6 +178,9 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = audioBookFiles.sumOf { it.fileSize } + manifestFile.fileSize,
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
+            // Manifest Status Assignment (Resolved import state)
+            // Stores PARTIAL only on the logical book while available manifest/audio rows remain playable READY file claims.
+            status = bookStatus,
             // Deprecated: backgroundColorArgb field is fully deprecated
             // Manifest Series Mapping (Map the series parameter into BookEntity)
             series = series

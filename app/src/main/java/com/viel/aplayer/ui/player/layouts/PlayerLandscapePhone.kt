@@ -84,7 +84,8 @@ fun PlayerLandscapePhone(
     onModeChange: (PlayerScreenMode) -> Unit,
     animatedBgColor: Color,
     glassEffectMode: GlassEffectMode,
-    // Setup Haze State (Transition backdrop reference to HazeState)
+    // Player Floating Haze Source (Use the stable app-level sampler for player glass surfaces)
+    // PlayerScreen passes the resolved app-level source so chapter sheets, bookmark dialogs, controls, and header menus stay on one HazeState.
     chapterSheetHazeState: HazeState?,
     // Color Extracted Callback (Pass color callback to downstream PlayerCover)
     // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
@@ -282,8 +283,8 @@ fun PlayerLandscapePhone(
                                     onConfirmDelete = onConfirmDeleteBookmark,
                                     onConfirmUpdate = onConfirmUpdateBookmark,
                                     onDismissDialogs = onDismissBookmarkDialogs,
-                                    // Bookmark Dialog Haze Routing (Reuse the active player content source)
-                                    // Edit/delete bookmark dialogs should sample the same surface as chapter and bookmark panels in landscape phone layout.
+                                    // Bookmark Dialog Haze Routing (Reuse the stable player floating source)
+                                    // Edit/delete bookmark dialogs share chapterSheetHazeState with the chapter sheet and player chrome to avoid source rebinding.
                                     hazeState = chapterSheetHazeState,
                                     glassEffectMode = glassEffectMode,
                                     currentPosition = currentPosition,

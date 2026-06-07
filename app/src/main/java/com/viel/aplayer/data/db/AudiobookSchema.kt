@@ -57,14 +57,6 @@ object AudiobookSchema {
         const val COMPLETED = "COMPLETED"
     }
 
-    object PendingActionType {
-        const val CONFLICT = "CONFLICT"
-        const val UPDATE_EXISTING = "UPDATE_EXISTING"
-        const val PARTIAL_NEW_BOOK = "PARTIAL_NEW_BOOK"
-    }
-
-    // Pending actions are current queue rows only; handled/skipped decisions delete rows instead of storing status.
-
     object LibraryRootStatus {
         const val ACTIVE = "ACTIVE"
         const val REVOKED = "REVOKED"

@@ -16,6 +16,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -36,6 +40,58 @@ sealed interface SettingsDialogState {
     data object AbsServer : SettingsDialogState
     data class RootActions(val root: LibraryRootEntity) : SettingsDialogState
     data class DeleteRoot(val root: LibraryRootEntity) : SettingsDialogState
+}
+
+// Settings Dialog Controller (Own transient settings dialog inputs outside SettingsScreen content)
+// The overlay owns this controller so modal UI can be rendered beside page haze sources while still preserving form fields across dialog transitions.
+class SettingsDialogController {
+    var editingSafRootId by mutableStateOf<String?>(null)
+    var dialogState by mutableStateOf<SettingsDialogState>(SettingsDialogState.None)
+
+    var webDavUrl by mutableStateOf("")
+    var webDavUsername by mutableStateOf("")
+    var webDavPassword by mutableStateOf("")
+    var webDavDisplayName by mutableStateOf("")
+    var webDavBasePath by mutableStateOf("")
+
+    var absBaseUrl by mutableStateOf("")
+    var absUsername by mutableStateOf("")
+    var absPassword by mutableStateOf("")
+    var absLibraryId by mutableStateOf("")
+    var absLibraryName by mutableStateOf("")
+    var absDisplayName by mutableStateOf("")
+
+    var editingRootId by mutableStateOf<String?>(null)
+
+    // WebDAV Form Reset (Clear remote-library input after submit or dismiss)
+    // Resetting all WebDAV fields together prevents stale credentials from leaking into the next add/edit flow.
+    fun resetWebDavForm() {
+        webDavUrl = ""
+        webDavUsername = ""
+        webDavPassword = ""
+        webDavDisplayName = ""
+        webDavBasePath = ""
+        editingRootId = null
+    }
+
+    // ABS Form Reset (Clear Audiobookshelf input after submit or dismiss)
+    // Resetting library selection and credentials together keeps subsequent server dialogs independent.
+    fun resetAbsForm() {
+        absBaseUrl = ""
+        absUsername = ""
+        absPassword = ""
+        absLibraryId = ""
+        absLibraryName = ""
+        absDisplayName = ""
+        editingRootId = null
+    }
+}
+
+@Composable
+fun rememberSettingsDialogController(): SettingsDialogController {
+    // Settings Dialog Controller Memory (Keep one overlay-scoped controller for modal transitions)
+    // remember keeps typed input stable while dialogs switch between root actions, WebDAV editing, and ABS editing.
+    return remember { SettingsDialogController() }
 }
 
 /**

@@ -190,8 +190,8 @@ class AbsPlaybackSessionStage4Test {
     fun `conflict resolver should prefer remote only when newer and not currently playing`() {
         val resolver = AbsProgressConflictResolver()
         val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 1000L, lastPlayedAt = 2000L)
-        val remoteOld = com.viel.aplayer.abs.net.dto.AbsUserProgressDto(currentTime = 5.0, lastUpdate = 1000L)
-        val remoteNew = com.viel.aplayer.abs.net.dto.AbsUserProgressDto(currentTime = 5.0, lastUpdate = 3000L)
+        val remoteOld = AbsUserProgressDto(currentTime = 5.0, lastUpdate = 1000L)
+        val remoteNew = AbsUserProgressDto(currentTime = 5.0, lastUpdate = 3000L)
 
         assertFalse(resolver.shouldApplyRemoteProgress(local, remoteOld, isCurrentlyPlaying = false))
         assertTrue(resolver.shouldApplyRemoteProgress(local, remoteNew, isCurrentlyPlaying = false))
@@ -342,8 +342,8 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun getSyncState(rootId: String): AbsSyncStateEntity? = null
         override suspend fun upsertCatalogMirror(
             book: BookEntity,
-            files: List<com.viel.aplayer.data.entity.BookFileEntity>,
-            chapters: List<com.viel.aplayer.data.entity.ChapterEntity>,
+            files: List<BookFileEntity>,
+            chapters: List<ChapterEntity>,
             progress: BookProgressEntity?,
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity

@@ -5,12 +5,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -30,7 +31,6 @@ import com.viel.aplayer.ui.motion.SharedElementKeys
  * @param recentTitle Main title text of the horizontal block (e.g., Recently Added, Recently Played).
  * @param recentBooks Audiobook data collection of recent items.
  * @param activeDetailBookId Currently visible Detail book ID, used to hide the matching source cover during shared-element handoff.
- * @param recentListState Horizontal scroll LazyListState handler, used to preserve scroll position when grid scrolls vertically.
  * @param glassEffectMode Global frosted glass visual effect mode.
  * @param screenHorizontalPadding Dynamically calculated visual alignment left margin.
  * @param onNavigateToDetail Callback function on card click navigating to audiobook details.
@@ -41,13 +41,27 @@ fun RecentlyAddedSection(
     recentTitle: String,
     recentBooks: List<BookWithProgress>,
     activeDetailBookId: String?,
-    recentListState: LazyListState,
     glassEffectMode: GlassEffectMode,
     screenHorizontalPadding: Dp,
     onNavigateToDetail: (String) -> Unit,
     onBookLongClick: (BookWithProgress) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Recent CardGroup Row Scroll Ownership (Keep horizontal scroll state beside the LazyRow that consumes it)
+    // The Home container no longer passes a LazyListState through route-level parameters, so this component owns the cardgroup row viewport and preserves it while the parent grid scrolls vertically.
+    val recentListState = rememberLazyListState()
+
+    // Recent Dataset Head Tracking (Reset the row whenever the leading card changes)
+    // The recent row now treats a changed first book as a fresh ordering event and always returns to item 0, regardless of the user's previous horizontal offset.
+    val firstBookId = recentBooks.firstOrNull()?.book?.id
+    LaunchedEffect(firstBookId) {
+        // Recent Row Head Reset (Show the newest leading card after recent ordering changes)
+        // Running after layout avoids LazyRow anchoring leaving the updated first card off-screen or partially displaced.
+        if (firstBookId != null) {
+            recentListState.scrollToItem(0)
+        }
+    }
+
     Column(
         modifier = modifier.fillMaxWidth()
     ) {

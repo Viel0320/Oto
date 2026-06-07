@@ -4,7 +4,6 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
-import com.viel.aplayer.data.entity.PendingScanActionEntity
 
 /**
  * Import Pipeline Execution Command (Pipeline Data Model)
@@ -20,6 +19,17 @@ sealed interface ImportCommand {
     data class CreateReadyBook(val draft: BookDraft) : ImportCommand
 
     /**
+     * Replace Existing Audiobooks (Ownership Reassignment)
+     *
+     * Inserts the incoming higher-priority draft, migrates user state from the replaced books,
+     * and removes the obsolete ownership rows in the persistence boundary.
+     */
+    data class ReplaceExistingBooks(
+        val draft: BookDraft,
+        val replacedBookIds: List<String>
+    ) : ImportCommand
+
+    /**
      * Update Existing Audiobook (Pipeline Action)
      *
      * Overwrites metadata, chapters, and track information of a previously recorded audiobook.
@@ -33,13 +43,6 @@ sealed interface ImportCommand {
      * Updates visibility and ownership of files associated with a book, bypassing book-level metadata rewrites.
      */
     data class RefreshExistingBook(val bookId: String, val files: List<BookFileEntity>) : ImportCommand
-
-    /**
-     * Record Pending Scan Action (Pipeline Action)
-     *
-     * Creates an entry for tasks requiring user intervention (e.g. metadata conflicts or file overlaps).
-     */
-    data class CreatePendingAction(val action: PendingScanActionEntity) : ImportCommand
 
     /**
      * Record Import Failure (Pipeline Action)
@@ -112,65 +115,56 @@ data class ImportRunResult(
     val refreshedBooks: List<ImportCommand.RefreshExistingBook>,
 
     /**
-     * Commands for Pending User Decisions (Pipeline Actions)
-     */
-    val pendingActions: List<ImportCommand.CreatePendingAction>,
-
-    /**
      * Commands for Scanned Failures (Pipeline Actions)
      */
-    val failures: List<ImportCommand.RecordFailure>
+    val failures: List<ImportCommand.RecordFailure>,
+
+    /**
+     * Commands for Ownership Replacements (Pipeline Actions)
+     *
+     * Kept separate from readyImports so scan summaries can report these as updates instead of new books.
+     */
+    val replacementImports: List<ImportCommand.ReplaceExistingBooks> = emptyList()
 ) {
     /**
      * Count of Discovered Books (Statistics Metrics)
      */
     val discoveredCount: Int get() = readyImports.size
 
-    // Names are persisted for ScanResultDialog item details.
+    // Scan Summary Names (Completion diagnostics)
+    // Stores concrete titles in summaryJson so logs and future lightweight summaries can report what changed.
     /**
      * Discovered Audiobook Title List (UI Presentation Helpers)
      */
     val discoveredNames: List<String> get() = readyImports.map { it.draft.book.title }
 
     /**
-     * Pending Decision Message List (UI Presentation Helpers)
-     */
-    val pendingNames: List<String> get() = pendingActions.map { it.action.message }
-
-    /**
      * Scopes Flagged as Partial New Books (UI Presentation Helpers)
      */
-    val partialNames: List<String> get() = pendingActions
-        .filter { it.action.type == AudiobookSchema.PendingActionType.PARTIAL_NEW_BOOK }
-        .map { it.action.message }
+    val partialNames: List<String> get() = (readyImports.map { it.draft } + replacementImports.map { it.draft })
+        .filter { it.book.status == AudiobookSchema.BookStatus.PARTIAL }
+        .map { it.book.title }
 
     /**
      * Scopes Flagged for Metadata Updates (UI Presentation Helpers)
      */
-    val updateExistingNames: List<String> get() = pendingActions
-        .filter { it.action.type == AudiobookSchema.PendingActionType.UPDATE_EXISTING }
-        .map { it.action.message }
+    val updateExistingNames: List<String> get() = replacementImports.map { it.draft.book.title }
 
     /**
      * Diagnostic Failure Message List (UI Presentation Helpers)
      */
     val failureNames: List<String> get() = failures.map { "${it.failure.sourceUri.substringAfterLast('/')}: ${it.failure.message}" }
 
-    // Pending stats back ScanSession and the scan-complete dialog.
-    /**
-     * Count of Conflict Actions (Statistics Metrics)
-     */
-    val conflictCount: Int get() = pendingActions.count { it.action.type == AudiobookSchema.PendingActionType.CONFLICT }
-
     /**
      * Count of Metadata Update Actions (Statistics Metrics)
      */
-    val updateExistingCount: Int get() = pendingActions.count { it.action.type == AudiobookSchema.PendingActionType.UPDATE_EXISTING }
+    val updateExistingCount: Int get() = replacementImports.size
 
     /**
      * Count of Partial New Book Actions (Statistics Metrics)
      */
-    val partialNewBookCount: Int get() = pendingActions.count { it.action.type == AudiobookSchema.PendingActionType.PARTIAL_NEW_BOOK }
+    val partialNewBookCount: Int get() = (readyImports.map { it.draft } + replacementImports.map { it.draft })
+        .count { it.book.status == AudiobookSchema.BookStatus.PARTIAL }
 
     /**
      * Count of Scan Failures (Statistics Metrics)

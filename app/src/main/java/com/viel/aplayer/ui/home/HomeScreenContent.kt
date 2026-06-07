@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -29,7 +28,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -114,7 +112,6 @@ fun HomeScreenContent(
     // Each increment represents one scroll-to-top command emitted by HomeAppBar outside this content tree.
     homeTopBarScrollToTopRequest: Int = 0,
     isMiniPlayerVisible: Boolean = false,
-    recentListState: LazyListState,
     onFilterSelected: (HomeFilter) -> Unit = {},
     onNavigateToDetail: (String, DetailEntrySource) -> Unit = { _, _ -> },
     onNavigateToPlayer: () -> Unit = {},
@@ -289,7 +286,6 @@ fun HomeScreenContent(
                             recentTitle = recentTitle,
                             recentBooks = recentBooks,
                             activeDetailBookId = activeRecentDetailBookId,
-                            recentListState = recentListState,
                             glassEffectMode = glassEffectMode,
                             screenHorizontalPadding = screenHorizontalPadding,
                             /*
@@ -445,7 +441,6 @@ fun HomeScreenNotStartedPreview() {
     )
 
     APlayerTheme {
-        val mockListState = rememberLazyListState()
         // Preview Shared Haze Source (Mirror the isolated Home fallback path)
         // The production top bar is hosted by APlayerNavHost, while preview keeps a local grid source for content-level blur.
         val previewHomeHazeState = remember { HazeState() }
@@ -461,7 +456,6 @@ fun HomeScreenNotStartedPreview() {
                 shouldShowRecentBooks = true,
                 recentTitleRes = R.string.recently_added_title,
                 isMiniPlayerVisible = false,
-                recentListState = mockListState,
                 // Preview explicitly references setting model default glass effect
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
                 // Preview Home Content Haze State (Match the local app bar sampling contract)

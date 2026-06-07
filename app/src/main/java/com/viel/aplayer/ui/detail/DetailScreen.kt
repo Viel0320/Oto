@@ -22,7 +22,8 @@ fun DetailScreen(
     onSearchClick: (String) -> Unit = {}, // Callback for tag click navigating to search
     // Glass effect mode passed from outside
     glassEffectMode: GlassEffectMode,
-    // Setup HazeState Arguments (Map backdrop parameters to HazeState) Changed LayerBackdrop parameter to HazeState.
+    // Detail HazeState Arguments (Separate inline controls from floating app surfaces)
+    // hazeState is the stable app-level sampler, while fullPageHazeState is forwarded to menus and dialogs that must not rebind to a page-local source.
     hazeState: HazeState? = null,
     fullPageHazeState: HazeState? = null,
     // Callback for launching edit metadata overlay

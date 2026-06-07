@@ -29,7 +29,6 @@ import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.DirectoryCacheEntity
 import com.viel.aplayer.data.entity.DirectoryChildCacheEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.entity.PendingScanActionEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import java.io.File
 
@@ -42,7 +41,6 @@ import java.io.File
         BookmarkEntity::class,
         LibraryRootEntity::class,
         ScanSessionEntity::class,
-        PendingScanActionEntity::class,
         DirectoryCacheEntity::class,
         DirectoryChildCacheEntity::class,
         AbsSyncStateEntity::class,
@@ -53,7 +51,8 @@ import java.io.File
     // Database Schema Design (Adds WebDAV directory child snapshots for scanner-only listing cache reuse)
     // Version 37 introduces series column to the books table.
     // Upgrade database version to 39 to add high-frequency search index configurations on books table (readStatus, series, author, narrator).
-    version = 39,
+    // Upgrade database version to 40 to remove obsolete local scan pending-action storage after conflicts became deterministic imports.
+    version = 40,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -84,6 +83,64 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Schema Migration 39 to 40 (Removes obsolete scan pending queue)
+        // Drops pending_scan_actions and rebuilds scan_sessions without pendingActionCount while preserving completed scan summaries.
+        private val MIGRATION_39_40 = object : androidx.room.migration.Migration(39, 40) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS scan_sessions_new (
+                        id TEXT NOT NULL,
+                        trigger TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        startedAt INTEGER NOT NULL,
+                        completedAt INTEGER,
+                        abandonedAt INTEGER,
+                        discoveredBookCount INTEGER NOT NULL,
+                        unavailableBookCount INTEGER NOT NULL,
+                        partialBookCount INTEGER NOT NULL,
+                        updatedBookCount INTEGER NOT NULL,
+                        summaryJson TEXT NOT NULL,
+                        PRIMARY KEY(id)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO scan_sessions_new (
+                        id,
+                        trigger,
+                        status,
+                        startedAt,
+                        completedAt,
+                        abandonedAt,
+                        discoveredBookCount,
+                        unavailableBookCount,
+                        partialBookCount,
+                        updatedBookCount,
+                        summaryJson
+                    )
+                    SELECT
+                        id,
+                        trigger,
+                        status,
+                        startedAt,
+                        completedAt,
+                        abandonedAt,
+                        discoveredBookCount,
+                        unavailableBookCount,
+                        partialBookCount,
+                        updatedBookCount,
+                        summaryJson
+                    FROM scan_sessions
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE scan_sessions")
+                db.execSQL("ALTER TABLE scan_sessions_new RENAME TO scan_sessions")
+                db.execSQL("DROP TABLE IF EXISTS pending_scan_actions")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -91,7 +148,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
-                .addMigrations(MIGRATION_36_37)
+                .addMigrations(MIGRATION_36_37, MIGRATION_39_40)
                 // Destructive Migration Strategy (Wipe databases and rebuild layout if schema versions mismatch)
                 .fallbackToDestructiveMigration(true)
                 .addCallback(object : Callback() {

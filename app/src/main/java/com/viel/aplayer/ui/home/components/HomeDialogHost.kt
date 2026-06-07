@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.home.components
 
 import androidx.compose.runtime.Composable
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.ScanResultDialog
 import com.viel.aplayer.ui.home.HomeDialogState
 import dev.chrisbanes.haze.HazeState
 
@@ -18,7 +17,6 @@ fun HomeDialogHost(
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode,
     onDismissRequest: () -> Unit,
-    onDismissScanResult: () -> Unit,
     onUpdateReadStatus: (String, String) -> Unit,
     onForceRegenerate: (String) -> Unit,
     onDeleteBook: (String) -> Unit
@@ -34,14 +32,6 @@ fun HomeDialogHost(
                 onUpdateReadStatus = onUpdateReadStatus,
                 onForceRegenerate = onForceRegenerate,
                 onDeleteBook = onDeleteBook
-            )
-        }
-        is HomeDialogState.ScanResult -> {
-            ScanResultDialog(
-                session = state.session,
-                hazeState = hazeState,
-                glassEffectMode = glassEffectMode,
-                onDismiss = onDismissScanResult
             )
         }
     }

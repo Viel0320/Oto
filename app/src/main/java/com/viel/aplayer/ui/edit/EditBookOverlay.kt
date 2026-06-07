@@ -117,7 +117,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
  * @param editViewModel Associated lightweight book edit ViewModel instance
  * @param glassEffectMode Current glass effect mode config of the system
  * @param modifier External modifier
- * @param hazeState Shared HazeState blur sampling source rendered from the details page
+ * @param hazeState App-level HazeState blur sampling source shared by cross-page overlays
  * @param onSaveSuccess Host-level event callback after successful book saving
  */
 @Composable
@@ -140,7 +140,8 @@ fun EditBookOverlay(
         modifier = modifier
     ) {
         // Call the completely decoupled stateless EditBookScreen UI component
-        // Setup EditBookScreen Haze Parameter (Link details background hazeState) Replaced detailBackdrop with detailHazeState.
+        // Edit Screen Stable Haze Parameter (Link edit glass to the app-level sampler)
+        // The edit sheet samples whichever screen is registered under the stable app source instead of rebinding to Detail's local source.
         EditBookScreen(
             book = book,
             onNavigationBack = { editViewModel.setVisible(false) },

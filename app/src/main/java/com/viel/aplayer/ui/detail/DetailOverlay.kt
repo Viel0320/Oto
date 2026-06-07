@@ -110,8 +110,8 @@ fun DetailOverlay(
                             }
                         )
                 ) {
-                    // Detail Local Haze Source (Preserve detail-owned glass surfaces and dialogs)
-                    // Detail controls, dropdowns, edit overlay, and search-on-detail still use detailHazeState, keeping page-local effects independent from app-level chrome sampling.
+                    // Detail Local Haze Source (Preserve detail-owned inline glass controls)
+                    // Detail page controls can keep local sampling, while dialogs and cross-page overlays are routed to the stable app-level HazeState.
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -143,9 +143,10 @@ fun DetailOverlay(
                             },
                             // Details page dropdown menu and other overlays uniformly follow the Material/Haze settings.
                             glassEffectMode = glassEffectMode,
-                            // Setup DetailScreen Haze Parameters (Map details background and full-page blur sources) Replaced backdrop with hazeState and detailHazeState.
+                            // Detail Dialog Haze Routing (Use app-level source for floating surfaces)
+                            // Detail registers its visible content into hazeState above, so menus and info dialogs can sample Detail without rebinding to detailHazeState.
                             hazeState = hazeState,
-                            fullPageHazeState = detailHazeState,
+                            fullPageHazeState = hazeState,
                             // Pass down the in-memory lambda callback for editing book metadata
                             onEditClick = onEditClick,
                             coverColor = coverColor,

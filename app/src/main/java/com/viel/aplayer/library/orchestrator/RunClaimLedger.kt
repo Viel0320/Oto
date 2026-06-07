@@ -76,6 +76,16 @@ class RunClaimLedger(
             }
         }
     }
+
+    // Promote Resolved Replacement Claim (Conflict resolver handoff)
+    // Marks a higher-priority replacement as the in-flight owner after policy resolution so later sources in the same scan cannot duplicate the same reassignment.
+    fun promoteResolvedClaim(source: ImportSourceRef, files: List<FileIdentity>) {
+        synchronized(ownerByKey) {
+            files.forEach { identity ->
+                identity.keys().forEach { key -> ownerByKey.putIfAbsent(key, source) }
+            }
+        }
+    }
 }
 
 data class ImportSourceRef(

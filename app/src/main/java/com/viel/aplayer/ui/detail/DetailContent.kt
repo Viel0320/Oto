@@ -92,7 +92,8 @@ fun DetailContent(
     onPlayClick: () -> Unit = {}, // Official playback action callback
     onSearchClick: (String) -> Unit = {}, // Callback for clicking a specific tag to search for related books
     glassEffectMode: GlassEffectMode, // Precise control of dynamic switching between Material design and frosted glass Haze mode
-    // Setup Haze State Arguments (Map backdrop parameters to HazeState) Changed LayerBackdrop to HazeState.
+    // Detail Floating Surface Haze Source (Use app-level sampling for menus and dialogs)
+    // DetailOverlay registers visible Detail content into the stable app source, so these floating surfaces avoid local HazeState rebinding.
     fullPageHazeState: HazeState? = null,
     onEditClick: (String) -> Unit = {}, // Callback for clicking to edit book metadata details
     // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)

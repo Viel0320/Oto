@@ -9,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.UiEvent
@@ -19,8 +18,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.Collator
@@ -42,13 +39,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
      */
     private val deleteBookUseCase = container.deleteBookUseCase
 
-    private val _scanResultDialogState = MutableStateFlow<ScanSessionEntity?>(null)
-    val scanResultDialogState: StateFlow<ScanSessionEntity?> = _scanResultDialogState.asStateFlow()
-
-    private var lastCompletedSessionId: String? = null
-    // VM Startup Timestamp (Filters completed scan sessions from preceding app lifecycles, preventing duplicate popups)
-    private val viewModelStartTime = System.currentTimeMillis()
-
     // One-Off Event Stream (Utilizes a unified, global `UiEvent` channel instead of module-level definitions)
     // Enhances domain purity by removing dependency on feature-specific UI event classes.
     private val _uiEvents = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
@@ -58,8 +48,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     // When null, the combine stream resolves filter attributes via a strict priority chain.
     // This blocks competing updates from asynchronous settings during cold starts, preventing filter chips animation flickering.
     private val _selectedFilter = MutableStateFlow<HomeFilter?>(null)
-
-    private var isFirstLoad = true
 
     val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
         libraryFacade.audiobooks,
@@ -197,49 +185,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     init {
         // Cold start scan queue (Submitted to LibraryFacade to keep VM isolated from WorkManager configurations)
         libraryFacade.scheduleLibrarySync("COLD_START")
-        observeScanSessions()
-
-        viewModelScope.launch {
-            // Optimize First Load Filter (Determine and persist optimal home filter on first load asynchronously)
-            // Monitors book updates and triggers home filter auto-selection only when new filter state diverges from cached preferences.
-            libraryFacade.audiobooks.collect { books ->
-                if (books.isNotEmpty() && isFirstLoad) {
-                    isFirstLoad = false
-                    val autoFilter = if (books.any { it.isInProgress }) {
-                        HomeFilter.InProgress
-                    } else {
-                        HomeFilter.NotStarted
-                    }
-                    val currentSettings = settingsRepository.settingsFlow.first()
-                    if (currentSettings.homeFilter != autoFilter.name) {
-                        settingsRepository.updateHomeFilter(autoFilter.name)
-                    }
-                }
-            }
-        }
-    }
-
-    private fun observeScanSessions() {
-        viewModelScope.launch {
-            libraryFacade.observeLatestScanSession().collect { session ->
-                if (session != null && session.id != lastCompletedSessionId) {
-                    // Filter Stale Sessions (Apply timestamp boundaries to block historical toast events)
-                    // Blocks popup alerts triggered by cached flow variables returning completed events from prior launches.
-                    val completedAt = session.completedAt ?: 0L
-                    if (completedAt > viewModelStartTime) {
-                        if (session.pendingActionCount > 0) {
-                            _scanResultDialogState.value = session
-                        }
-                    }
-                    // Remember the completed session so the same result does not reopen the dialog.
-                    lastCompletedSessionId = session.id
-                }
-            }
-        }
-    }
-
-    fun dismissScanResultDialog() {
-        _scanResultDialogState.value = null
+        // Home Filter Startup Policy (Preserve explicit and persisted category selection)
+        // Cold start no longer rewrites HOME_FILTER from library contents, so in-progress books cannot override the user's saved Home category.
     }
 
     fun deleteBook(bookId: String) {

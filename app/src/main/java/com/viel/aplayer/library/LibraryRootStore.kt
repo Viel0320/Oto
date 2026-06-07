@@ -2,6 +2,7 @@ package com.viel.aplayer.library
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.data.db.AppDatabase
@@ -42,18 +43,23 @@ class LibraryRootStore(
      */
     suspend fun addRoot(uri: Uri, displayName: String): LibraryRootEntity = withContext(Dispatchers.IO) {
         val normalizedUri = uri.normalizeScheme().toString()
+        val resolvedDisplayName = displayName.ifBlank {
+            // SAF Display Name Resolution (Use the user-selected tree folder name)
+            // The system picker returns a tree URI rather than a readable label, so the store derives a stable folder label before persisting the root.
+            resolveSafDisplayName(uri)
+        }
         rootDao.getAllRootsOnce()
             .firstOrNull { existing -> existing.isSameRoot(normalizedUri) }
             ?.let { existing ->
                 // Re-selecting a stored root refreshes its grant state instead of inserting a duplicate row.
                 rootDao.updateRootGrantState(
                     id = existing.id,
-                    displayName = displayName,
+                    displayName = resolvedDisplayName,
                     grantedAt = System.currentTimeMillis(),
                     status = AudiobookSchema.LibraryRootStatus.ACTIVE
                 )
                 return@withContext existing.copy(
-                    displayName = displayName,
+                    displayName = resolvedDisplayName,
                     grantedAt = System.currentTimeMillis(),
                     status = AudiobookSchema.LibraryRootStatus.ACTIVE
                 )
@@ -63,7 +69,7 @@ class LibraryRootStore(
             // Unified URI Mapping (Uniform path parameter abstraction)
             // Assigns tree URIs to sourceUri, allowing WebDAV protocols to share identical location fields later.
             sourceUri = normalizedUri,
-            displayName = displayName,
+            displayName = resolvedDisplayName,
             grantedAt = System.currentTimeMillis(),
             status = AudiobookSchema.LibraryRootStatus.ACTIVE
         )
@@ -82,12 +88,9 @@ class LibraryRootStore(
         val normalizedEndpoint = normalizeWebDavEndpoint(parsed)
         val normalizedBasePath = normalizeWebDavBasePath(basePath.ifBlank { parsed.path.orEmpty() })
         val resolvedDisplayName = displayName.ifBlank {
-            // Label Fallback Interpolation (UI rendering safety guard)
-            // Interpolates host address and base folder path if no display name is defined by the user.
-            buildString {
-                append(parsed.host ?: normalizedEndpoint)
-                if (normalizedBasePath.isNotBlank()) append(normalizedBasePath)
-            }
+            // WebDAV Display Name Fallback (Prefer the configured remote library path)
+            // When the user leaves the custom name empty, the root label mirrors basePath instead of mixing host and path into a longer technical endpoint label.
+            normalizedBasePath.toWebDavDisplayNameFallback()
         }
         val now = System.currentTimeMillis()
         rootDao.getAllRootsOnce()
@@ -236,8 +239,40 @@ class LibraryRootStore(
             ?.let { "/$it" }
             .orEmpty()
 
+    /**
+     * WebDAV Display Name Fallback (Converts normalized basePath into a compact label)
+     *
+     * Strips only the leading slash used for storage normalization while preserving nested path names such as "audiobooks/japanese".
+     */
+    private fun String.toWebDavDisplayNameFallback(): String =
+        trim('/').ifBlank { "WebDAV" }
+
     private fun treeDocumentId(sourceUri: String): String =
         Uri.decode(sourceUri).substringAfter("/tree/", missingDelimiterValue = sourceUri)
+
+    /**
+     * SAF Display Name Resolver (Derives a readable label from a tree URI)
+     *
+     * Converts document IDs such as "primary:Audiobooks" or "home:Documents" into the selected folder segment, falling back to a local-library label when the picker returns a storage root.
+     */
+    private fun resolveSafDisplayName(uri: Uri): String {
+        val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(uri) }
+            .getOrNull()
+            ?.let(Uri::decode)
+            .orEmpty()
+        val selectedSegment = treeDocumentId
+            .substringAfterLast(':', missingDelimiterValue = treeDocumentId)
+            .replace('\\', '/')
+            .trim()
+            .trim('/')
+            .substringAfterLast('/')
+            .trim()
+        return selectedSegment.ifBlank {
+            // SAF Root Label Fallback (Avoid empty labels for storage-root selections)
+            // Some providers expose the root as "primary:" with no child folder segment, so the UI receives a readable generic local source name.
+            "Local Library"
+        }
+    }
 
     /**
      * Update SAF root configuration (Relocate local directory)
@@ -250,7 +285,7 @@ class LibraryRootStore(
     suspend fun updateSafRoot(id: String, newUri: Uri): LibraryRootEntity = withContext(Dispatchers.IO) {
         val existing = rootDao.getRootById(id) ?: throw IllegalArgumentException("Root not found: $id")
         try {
-            val oldUri = Uri.parse(existing.sourceUri)
+            val oldUri = existing.sourceUri.toUri()
             context.contentResolver.releasePersistableUriPermission(
                 oldUri,
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -263,11 +298,9 @@ class LibraryRootStore(
             android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
         )
         val normalizedUri = newUri.normalizeScheme().toString()
-        val displayName = try {
-            Uri.decode(normalizedUri).substringAfterLast(":")
-        } catch (_: Exception) {
-            existing.displayName
-        }
+        // SAF Relocation Display Name Resolution (Reuse the same selected-folder label logic as new roots)
+        // Keeping add and update paths aligned prevents relocated libraries from showing raw tree URI fragments.
+        val displayName = resolveSafDisplayName(newUri).ifBlank { existing.displayName }
         val updated = existing.copy(
             sourceUri = normalizedUri,
             displayName = if (displayName.isNotBlank()) displayName else existing.displayName,
@@ -305,10 +338,9 @@ class LibraryRootStore(
         val normalizedEndpoint = normalizeWebDavEndpoint(parsed)
         val normalizedBasePath = normalizeWebDavBasePath(basePath.ifBlank { parsed.path.orEmpty() })
         val resolvedDisplayName = displayName.ifBlank {
-            buildString {
-                append(parsed.host ?: normalizedEndpoint)
-                if (normalizedBasePath.isNotBlank()) append(normalizedBasePath)
-            }
+            // WebDAV Update Display Name Fallback (Keep edit behavior aligned with new root creation)
+            // Empty custom names resolve to the remote basePath so Settings and Detail use the same user-facing library label.
+            normalizedBasePath.toWebDavDisplayNameFallback()
         }
         val credentialId = existing.credentialId ?: UUID.randomUUID().toString()
         webDavCredentialStore.save(

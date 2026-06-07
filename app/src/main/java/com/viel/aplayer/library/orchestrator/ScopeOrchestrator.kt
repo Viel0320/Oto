@@ -96,16 +96,25 @@ internal class ScopeOrchestrator(
                     scopeResults.addAll(subBatchResults.map { it.result })
 
                     // Conditionally Reload Claim Index (Data Consistency)
-                    // Refreshes the database claim index if any files are newly mapped, updated, or marked pending.
-                    val anySuccessApplied = subBatchResults.any { 
-                        it.success && (it.result.readyImports.isNotEmpty() || it.result.refreshedBooks.isNotEmpty() || it.result.pendingActions.isNotEmpty()) 
+                    // Refreshes the database claim index if any files are newly mapped, refreshed, or replaced.
+                    val anySuccessApplied = subBatchResults.any {
+                        // Claim Snapshot Refresh Trigger (Replacement-aware ownership)
+                        // Reloads persisted claims after replacements too, because deleted old books and inserted priority owners change downstream conflict decisions.
+                        it.success && (
+                            it.result.readyImports.isNotEmpty() ||
+                                it.result.refreshedBooks.isNotEmpty() ||
+                                it.result.replacementImports.isNotEmpty()
+                            )
                     }
                     if (anySuccessApplied) {
                         currentExistingIndex = ImportTimingLogger.measure(
                             scopeId = scope.timingScopeId(),
                             stage = "db.refreshClaimIndex"
                         ) {
-                            ExistingClaimIndex.from(bookDao.getAllBookFilesOnce())
+                            ExistingClaimIndex.from(
+                                files = bookDao.getAllBookFilesOnce(),
+                                books = bookDao.getAllBooksOnce()
+                            )
                         }
                     }
                     return@forEach
@@ -171,13 +180,18 @@ internal class ScopeOrchestrator(
                 // Reload book file claims from Room database on successful writes to inform downstream conflict resolution.
                 if (appliedResult.readyImports.isNotEmpty() ||
                     appliedResult.refreshedBooks.isNotEmpty() ||
-                    appliedResult.pendingActions.isNotEmpty()
+                    appliedResult.replacementImports.isNotEmpty()
                 ) {
                     currentExistingIndex = ImportTimingLogger.measure(
                         scopeId = timingScopeId,
                         stage = "db.refreshClaimIndex"
                     ) {
-                        ExistingClaimIndex.from(bookDao.getAllBookFilesOnce())
+                        // Existing Claim Priority Snapshot (Post-transaction state)
+                        // Refreshes both files and books so subsequent scopes see ownership replacements with correct source priority.
+                        ExistingClaimIndex.from(
+                            files = bookDao.getAllBookFilesOnce(),
+                            books = bookDao.getAllBooksOnce()
+                        )
                     }
                 }
 
@@ -211,7 +225,7 @@ internal class ScopeOrchestrator(
             // Cold-Start Lightweight Filtering (Incremental Scan Rules)
             // Filters out previously claimed files in the Inventory layer during cold starts to reduce scope overhead.
             val importDirectory = if (type == RescanType.COLD_START_LIGHT) {
-                directory.onlyUnclaimed(currentExistingIndex)
+                directory.forLightScanClaimReconciliation(currentExistingIndex)
             } else {
                 directory
             }
@@ -248,8 +262,10 @@ internal class ScopeOrchestrator(
             scanId = scanId,
             readyImports = scopeResults.flatMap { it.readyImports },
             refreshedBooks = scopeResults.flatMap { it.refreshedBooks },
-            pendingActions = scopeResults.flatMap { it.pendingActions },
-            failures = scopeResults.flatMap { it.failures }
+            failures = scopeResults.flatMap { it.failures },
+            // Replacement Result Aggregation (Resolved ownership conflicts)
+            // Carries deterministic replacements into scan session summaries instead of dropping them after per-scope writes.
+            replacementImports = scopeResults.flatMap { it.replacementImports }
         )
         ImportTimingLogger.logDuration(
             scopeId = "scan:$scanId",
@@ -272,7 +288,6 @@ internal class ScopeOrchestrator(
             scanId = scanId,
             readyImports = emptyList(),
             refreshedBooks = emptyList(),
-            pendingActions = emptyList(),
             failures = inheritedFailures + ImportCommand.RecordFailure(
                 ImportFailure(
                     sourceUri = displayUri(),
@@ -304,12 +319,18 @@ internal class ScopeOrchestrator(
     // Format Command Execution Counts (Diagnostics Metrics)
     // Returns counts of operations (inserts, updates, conflicts) to evaluate DB bottlenecks.
     private fun ImportRunResult.timingCommandDetail(): String =
-        "ready=${readyImports.size} refreshed=${refreshedBooks.size} pending=${pendingActions.size} failures=${failures.size}"
+        "ready=${readyImports.size} refreshed=${refreshedBooks.size} replaced=${replacementImports.size} failures=${failures.size}"
 
     // Trigger Covers for Successful Imports (Asset Recovery)
     // Enqueues cover extraction jobs for newly imported ready books; avoids doing so for updates or unconfirmed files.
     private fun ImportRunResult.triggerCoverRegenerationForReadyBooks() {
         readyImports.forEach { command ->
+            triggerCoverRegeneration(command.draft.book)
+        }
+        // Replacement Cover Regeneration (Visual state continuity)
+        // Schedules the new owner for cover recovery just like a fresh import, because the old cover rows are removed with the replaced book.
+        replacementImports.forEach { command ->
+            triggerCoverRegeneration(command.draft.book)
         }
     }
 }
