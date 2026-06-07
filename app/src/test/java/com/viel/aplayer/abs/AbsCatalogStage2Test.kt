@@ -611,7 +611,6 @@ class AbsCatalogStage2Test {
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit
         override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = files[bookId].orEmpty()
         override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = getFilesForBookSync(bookId)
-        override fun observeLatestScanSession(): Flow<com.viel.aplayer.data.entity.ScanSessionEntity?> = flowOf(null)
         override suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = null
         override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
         override fun getChapters(bookId: String): Flow<List<com.viel.aplayer.data.entity.ChapterWithBookFile>> = flowOf(emptyList())

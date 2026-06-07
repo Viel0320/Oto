@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.detail
 
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.media.parser.ImageProcessor
 
 /**
  * Detail Entry Source (Detail overlay motion origin)

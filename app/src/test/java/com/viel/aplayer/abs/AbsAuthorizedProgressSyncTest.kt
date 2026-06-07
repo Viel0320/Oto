@@ -135,7 +135,6 @@ class AbsAuthorizedProgressSyncTest {
         override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> =
             listOf(BookFileEntity(id = "$bookId:file:0", bookId = bookId, rootId = "root-1", index = 0, sourcePath = "/track.mp3", sourceIdentity = "$bookId-track", displayName = "track.mp3", durationMs = 120_000L, fileSize = 1L, lastModified = 0L))
         override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = getFilesForBookSync(bookId)
-        override fun observeLatestScanSession(): Flow<com.viel.aplayer.data.entity.ScanSessionEntity?> = flowOf(null)
         override suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = null
         override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
         override fun getChapters(bookId: String): Flow<List<com.viel.aplayer.data.entity.ChapterWithBookFile>> = flowOf(emptyList())

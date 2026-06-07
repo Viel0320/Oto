@@ -11,7 +11,6 @@ import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.aplayer.library.vfs.sourceProvider.SourceNode
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.InputStream

@@ -29,7 +29,6 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
-import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.media.BookPlaybackPlan
@@ -375,7 +374,6 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit
         override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()
         override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()
-        override fun observeLatestScanSession(): Flow<ScanSessionEntity?> = flowOf(null)
         override suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = null
         override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
         override fun getChapters(bookId: String): Flow<List<ChapterWithBookFile>> = flowOf(emptyList())
