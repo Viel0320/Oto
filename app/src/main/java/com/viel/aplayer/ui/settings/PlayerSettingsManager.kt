@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.settings
 
 import android.content.Context
 import android.media.AudioManager
+import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackState
@@ -23,7 +24,10 @@ class PlayerSettingsManager(
     private val audioManager: () -> AudioManager?,
     // Dynamic Context provider (To prevent memory leaks from capturing Activity/Fragment contexts)
     // Invokes a lambda context provider rather than caching a strong context reference.
-    private val contextProvider: () -> Context?
+    private val contextProvider: () -> Context?,
+    // Player Feedback Callback (Routes helper-level tips to the app event sink through PlayerViewModel)
+    // This prevents SleepTimerManager from using PlaybackManager as a toast transport.
+    private val onShowToast: (FeedbackMessage) -> Unit = {}
 ) {
     private val _settingsState = MutableStateFlow(PlayerSettingsState())
     val settingsState: StateFlow<PlayerSettingsState> = _settingsState.asStateFlow()
@@ -51,6 +55,7 @@ class PlayerSettingsManager(
         isSleepFadeOutEnabled = { isSleepFadeOutEnabled },
         isShakeToResetEnabled = { isShakeToResetEnabled },
         sleepMode = { sleepMode },
+        onShowToast = onShowToast,
         selectedSleepTimer = { _settingsState.value.selectedSleepTimer },
         onTimerReset = {
             // Reset selection state (To reset the selected timer value to zero when timer stops)

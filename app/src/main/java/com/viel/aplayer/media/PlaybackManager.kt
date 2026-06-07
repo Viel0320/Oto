@@ -15,16 +15,14 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import com.viel.aplayer.media.service.PlaybackService
-import com.viel.aplayer.ui.player.components.SubtitleLine
+import com.viel.aplayer.media.subtitle.SubtitleLine
 
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -41,13 +39,19 @@ class PlaybackManager private constructor(context: Context) {
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
 
-    // Decoupled Gateway Resolution (Extract read-only and write gateways from the application dependency container)
-    // Bypasses direct references to the legacy LibraryRepository to align with clean architecture guidelines.
-    private val container = (appContext as com.viel.aplayer.APlayerApplication).container
-    private val bookQueryGateway = container.bookQueryGateway
-    private val progressGateway = container.progressGateway
-    private val absPlaybackSessionSyncer = container.absPlaybackSessionSyncer
-    private val playbackSourcePreflight = container.playbackSourcePreflight
+    // Playback Runtime Dependency View (Resolve only the media-core dependencies used by this manager)
+    // This keeps PlaybackManager from depending on the full application container while preserving the existing singleton lifecycle.
+    private val playbackDependencies = com.viel.aplayer.APlayerApplication.getPlaybackRuntimeDependencies(appContext)
+    private val bookQueryGateway = playbackDependencies.bookQueryGateway
+    private val progressGateway = playbackDependencies.progressGateway
+    // Playback Availability Gateway (Owns status-writing recovery checks for failed or missing tracks)
+    // PlaybackManager uses this seam for failover discovery instead of binding availability refreshes to progress persistence.
+    private val bookAvailabilityGateway = playbackDependencies.bookAvailabilityGateway
+    private val absPlaybackSessionSyncer = playbackDependencies.absPlaybackSessionSyncer
+    private val playbackSourcePreflight = playbackDependencies.playbackSourcePreflight
+    // Playback Domain Event Sink (Publishes media-core outcomes without constructing UI events)
+    // The application bridge translates these playback facts into Toasts or dialogs outside the media package.
+    private val playbackEventSink = playbackDependencies.playbackDomainEventSink
 
     // Configuration Repository Reference (Access runtime settings such as cleartext HTTP configurations)
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
@@ -77,15 +81,6 @@ class PlaybackManager private constructor(context: Context) {
     // Media3/ExoPlayer manages internal tag parses natively; hence, only physical sidecar files are tracked here.
     private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
     val currentSubtitles = _currentSubtitles.asStateFlow()
-
-    // Feedback Notification Stream (Broadcast transient UI notifications dispatched from PlaybackService)
-    private val _uiEvents = MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
-    val uiEvents = _uiEvents.asSharedFlow()
-
-    // Emitter Pipeline Entry (Allow utility components to dispatch transient popups safely to the UI thread)
-    fun sendUiEvent(event: com.viel.aplayer.ui.common.UiEvent) {
-        _uiEvents.tryEmit(event)
-    }
 
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition = _currentPosition.asStateFlow()
@@ -187,9 +182,8 @@ class PlaybackManager private constructor(context: Context) {
 
     private fun initializeController() {
         val sessionToken = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
-        // Custom Session Interceptor (Inject custom listener to decode server-originated session commands)
-        // Captures background service events (e.g., skip silence notifications or bad track indicators)
-        // and broadcasts them to the UI thread as Toast or Dialog triggers.
+        // Custom Session Interceptor (Decode service-originated playback commands)
+        // Converts legacy media-session callbacks into playback-domain events instead of UI events.
         controllerFuture = MediaController.Builder(appContext, sessionToken)
             .setListener(object : MediaController.Listener {
                 override fun onCustomCommand(
@@ -199,10 +193,11 @@ class PlaybackManager private constructor(context: Context) {
                 ): ListenableFuture<androidx.media3.session.SessionResult> {
                     if (command.customAction == "EVENT_SKIP_SILENCE") {
                     } else if (command.customAction == "EVENT_TRACK_UNAVAILABLE") {
-                        // Damaged Track Intercept (Extract payload from command arguments and dispatch dialog trigger to UI)
+                        // Damaged Track Intercept (Extract payload and publish a playback-domain recovery event)
+                        // The app-level bridge decides whether this domain event becomes a dialog, toast, or both.
                         val bookId = args.getString("bookId") ?: ""
                         val queueIndex = args.getInt("queueIndex", -1)
-                        _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowTrackUnavailableDialog(bookId, queueIndex))
+                        playbackEventSink.emit(PlaybackDomainEvent.TrackUnavailable(bookId, queueIndex))
                     }
                     return com.google.common.util.concurrent.Futures.immediateFuture(
                         androidx.media3.session.SessionResult(androidx.media3.session.SessionResult.RESULT_SUCCESS)
@@ -274,7 +269,7 @@ class PlaybackManager private constructor(context: Context) {
             when (val preflight = playbackSourcePreflight.check(finalPlan)) {
                 PlaybackSourcePreflightResult.Available -> Unit
                 is PlaybackSourcePreflightResult.Blocked -> {
-                    _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast(preflight.message))
+                    playbackEventSink.emit(PlaybackDomainEvent.SourcePreflightBlocked(preflight.message))
                     PlaybackWorkflowLogger.warn("playbackManager source preflight blocked: bookId=${plan.bookId}, message=${preflight.message}")
                     return@launch
                 }
@@ -310,9 +305,7 @@ class PlaybackManager private constructor(context: Context) {
                     scope.launch {
                         val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
                         if (!isAllowed) {
-                            withContext(Dispatchers.Main) {
-                                android.widget.Toast.makeText(appContext, "安全拦截：明文 HTTP 播放未授权。请在设置中允许。", android.widget.Toast.LENGTH_LONG).show()
-                            }
+                            playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked)
                             return@launch
                         }
                         withContext(Dispatchers.Main) { applyPlaybackPlan(finalPlan) }
@@ -528,8 +521,9 @@ class PlaybackManager private constructor(context: Context) {
      */
     fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
         scope.launch {
-            // Query Fallback Tracks (Lookup next eligible track from database using progressGateway)
-            val next = progressGateway.findNextAvailablePlaybackFile(bookId, queueIndex)
+            // Failover Track Search With Status Refresh (Finds the next eligible track while persisting checked availability)
+            // PlaybackManager depends on the explicit refresh-named gateway method because failover inspection writes READY/MISSING states.
+            val next = bookAvailabilityGateway.findNextAvailablePlaybackFileAndRefreshStatus(bookId, queueIndex)
             if (next != null) {
                 val (nextIndex, _) = next
                 com.viel.aplayer.logger.PlaybackFailureLogger.logSelfHealSuccess(nextIndex)
@@ -541,8 +535,9 @@ class PlaybackManager private constructor(context: Context) {
                 }
             } else {
                 PlaybackWorkflowLogger.warn("playbackManager no next available track: bookId=$bookId, queueIndex=$queueIndex")
-                // Send UI Notification (Notify user that no further playable tracks remain)
-                _uiEvents.tryEmit(com.viel.aplayer.ui.common.UiEvent.ShowToast("未找到后续任何可播音频分轨，已终止播放"))
+                // Failover Exhausted Event (Notify the app layer that recovery cannot continue)
+                // The media manager reports the domain outcome while UI rendering remains outside playback-core.
+                playbackEventSink.emit(PlaybackDomainEvent.NoAvailableTrackAfterFailure)
             }
         }
     }

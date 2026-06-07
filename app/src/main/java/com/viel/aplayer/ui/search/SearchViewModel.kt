@@ -21,9 +21,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
-    // M5b.2 Migration: Replace legacy LibraryRepository with high-level business facade libraryFacade.
-    // This decouples the ViewModel from the heavy infrastructure layer, delegating all operations to domain Gateway services.
-    private val libraryFacade = (application as APlayerApplication).container.libraryFacade
+    // Library Presentation Dependency View (Resolve only the facade required by search)
+    // SearchViewModel queries books and history through LibraryFacade without learning settings or playback dependencies.
+    private val libraryFacade = APlayerApplication.getLibraryPresentationDependencies(application).libraryFacade
 
     // Visibility Flow (Search Overlay Animation Signal)
     // Reactive state flow controlling whether the SearchOverlay is visible.

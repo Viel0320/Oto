@@ -430,7 +430,7 @@ internal fun ensureSupportedAbsServerVersion(serverVersion: String?) {
         throw AbsApiError(
             code = "UNSUPPORTED_SERVER_VERSION",
             availabilityStatus = AudiobookSchema.AvailabilityStatus.UNSUPPORTED,
-            message = "ABS server 版本过低：当前 $actual，最低要求 $MIN_SUPPORTED_ABS_SERVER_VERSION"
+            message = "ABS server version unsupported: current $actual, minimum $MIN_SUPPORTED_ABS_SERVER_VERSION"
         )
     }
 }

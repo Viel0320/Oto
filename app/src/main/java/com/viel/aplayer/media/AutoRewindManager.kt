@@ -126,11 +126,11 @@ class AutoRewindManager private constructor(context: Context) {
             // Read Interrupted State (Acquire settings configuration)
             val settings = settingsRepository.settingsFlow.first()
             if (settings.isLastPlaybackInterrupted && settings.autoRewindSeconds > 0) {
-                // Decoupled Gateway Ingestion (Resolve dependencies via the Application's dependency container)
-                // Obtains BookQueryGateway and ProgressGateway, bypassing old heavy repositories.
-                val container = (appContext as com.viel.aplayer.APlayerApplication).container
-                val bookQueryGateway = container.bookQueryGateway
-                val progressGateway = container.progressGateway
+                // Playback Recovery Dependency Ingestion (Resolve only timeline lookup and progress persistence)
+                // Cold-start self-healing does not need playback session, scanner, or screen-facing dependencies.
+                val recoveryDependencies = com.viel.aplayer.APlayerApplication.getPlaybackRecoveryDependencies(appContext)
+                val bookQueryGateway = recoveryDependencies.bookQueryGateway
+                val progressGateway = recoveryDependencies.progressGateway
 
                 val lastProgress = progressGateway.getLastPlayedProgressSync()
                 if (lastProgress != null) {

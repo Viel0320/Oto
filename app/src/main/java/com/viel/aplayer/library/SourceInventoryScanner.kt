@@ -12,7 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 
 // VFS-aligned Scanner (SAF Provider supplies data in Phase 1; WebDavProvider shares the same pipeline in later phases)
@@ -25,16 +24,9 @@ class SourceInventoryScanner(
         directoryListingCache = directoryListingCache
     )
 
-    suspend fun scan(roots: List<LibraryRootEntity>): FileInventory = withContext(Dispatchers.IO) {
-        val inventories = roots.mapNotNull { root ->
-            val rootNode = vfs.root(root) ?: return@mapNotNull null
-            if (!vfs.exists(rootNode)) return@mapNotNull null
-            scanRoot(root, rootNode)
-        }
-        merge(roots, inventories)
-    }
-
     // Post-order Traversal (Releases DirectoryInventory when folders close to guarantee stable transactional boundaries)
+    // Single Scanner Entry Point (Keeps file classification rules in the directory-streaming path only)
+    // The removed aggregate scan entry had no production callers and duplicated file-type branching, so scanner consumers now use this streaming interface.
     fun scanDirectories(roots: List<LibraryRootEntity>): Flow<DirectoryInventory> = flow {
         roots.forEach { root ->
             val rootNode = vfs.root(root) ?: return@forEach
@@ -44,47 +36,6 @@ class SourceInventoryScanner(
             }
         }
     }.flowOn(Dispatchers.IO)
-
-    private suspend fun scanRoot(root: LibraryRootEntity, rootNode: VfsNode): FileInventory {
-        val cueFiles = mutableListOf<FileRef>()
-        val m3u8Files = mutableListOf<FileRef>()
-        val audioFiles = mutableListOf<FileRef>()
-        val imagesByParent = mutableMapOf<String, MutableList<FileRef>>()
-        // Sidecar Indexing (Groups text files by parent folder during scans so that manifest parsers can reuse cached structures)
-        val textFilesByParent = mutableMapOf<String, MutableList<FileRef>>()
-
-        suspend fun walk(directory: VfsNode) {
-            vfs.listChildren(directory).forEach { node ->
-                yield()
-                val name = node.metadata.displayName
-                if (node.metadata.isDirectory) {
-                    walk(node)
-                    return@forEach
-                }
-
-                val ref = toRef(root.id, node, directory)
-                when {
-                    isCue(name) -> cueFiles.add(ref)
-                    isM3u(name) -> m3u8Files.add(ref)
-                    isAudio(name) -> audioFiles.add(ref)
-                    isImage(name) -> imagesByParent.getOrPut(ref.parentSourceKey) { mutableListOf() }.add(ref)
-                    // Text files are kept as folder assets and skipped from primary ownership claims.
-                    isText(name) -> textFilesByParent.getOrPut(ref.parentSourceKey) { mutableListOf() }.add(ref)
-                }
-            }
-        }
-
-        walk(rootNode)
-
-        return FileInventory(
-            roots = listOf(root),
-            cueFiles = cueFiles.sortedByStableFileKey(),
-            m3u8Files = m3u8Files.sortedByStableFileKey(),
-            audioFiles = audioFiles.sortedByStableFileKey(),
-            imageFilesByParent = imagesByParent.mapValues { it.value.sortedByStableFileKey() },
-            textFilesByParent = textFilesByParent.mapValues { it.value.sortedByStableFileKey() }
-        )
-    }
 
     private suspend fun scanRootDirectories(
         root: LibraryRootEntity,
@@ -161,20 +112,6 @@ class SourceInventoryScanner(
             displayName = file.metadata.displayName,
             fileSize = file.metadata.fileSize,
             lastModified = file.metadata.lastModified
-        )
-
-    private fun merge(roots: List<LibraryRootEntity>, inventories: List<FileInventory>): FileInventory =
-        FileInventory(
-            roots = roots,
-            cueFiles = inventories.flatMap { it.cueFiles }.sortedByStableFileKey(),
-            m3u8Files = inventories.flatMap { it.m3u8Files }.sortedByStableFileKey(),
-            audioFiles = inventories.flatMap { it.audioFiles }.sortedByStableFileKey(),
-            imageFilesByParent = inventories.flatMap { it.imageFilesByParent.entries }
-                .groupBy({ it.key }, { it.value })
-                .mapValues { (_, values) -> values.flatten().sortedByStableFileKey() },
-            textFilesByParent = inventories.flatMap { it.textFilesByParent.entries }
-                .groupBy({ it.key }, { it.value })
-                .mapValues { (_, values) -> values.flatten().sortedByStableFileKey() }
         )
 
     private fun isCue(name: String): Boolean = name.endsWith(".cue", ignoreCase = true)

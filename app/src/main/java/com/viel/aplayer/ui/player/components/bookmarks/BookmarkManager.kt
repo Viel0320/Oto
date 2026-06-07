@@ -1,7 +1,7 @@
 package com.viel.aplayer.ui.player.components.bookmarks
 
+import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.entity.BookmarkEntity
-import com.viel.aplayer.data.gateway.BookQueryGateway
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -11,7 +11,9 @@ import kotlinx.coroutines.launch
  * Responsible for bookmark addition, deletion, and modification operations.
  */
 class BookmarkManager(
-    private val repository: BookQueryGateway,
+    // UI Facade Bookmark Access (Routes player-screen bookmark mutations through the same high-level facade used by ViewModels)
+    // This prevents UI helpers from depending directly on granular book-query gateways while preserving the existing bookmark behavior.
+    private val libraryFacade: LibraryFacade,
     private val scope: CoroutineScope
 ) {
     /**
@@ -19,7 +21,7 @@ class BookmarkManager(
      */
     fun addBookmark(bookId: String, position: Long, title: String) {
         scope.launch {
-            repository.addBookmark(bookId, position, title)
+            libraryFacade.addBookmark(bookId, position, title)
         }
     }
 
@@ -28,7 +30,7 @@ class BookmarkManager(
      */
     fun deleteBookmark(bookmark: BookmarkEntity) {
         scope.launch {
-            repository.deleteBookmark(bookmark)
+            libraryFacade.deleteBookmark(bookmark)
         }
     }
 
@@ -37,7 +39,7 @@ class BookmarkManager(
      */
     fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) {
         scope.launch {
-            repository.updateBookmark(bookmark.copy(title = newTitle))
+            libraryFacade.updateBookmark(bookmark.copy(title = newTitle))
         }
     }
 }

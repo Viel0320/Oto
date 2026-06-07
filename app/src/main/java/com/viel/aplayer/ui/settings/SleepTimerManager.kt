@@ -1,6 +1,8 @@
 package com.viel.aplayer.ui.settings
 
 import android.content.Context
+import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackState
@@ -31,6 +33,9 @@ class SleepTimerManager(
     private val isSleepFadeOutEnabled: () -> Boolean,
     private val isShakeToResetEnabled: () -> Boolean,
     private val sleepMode: () -> com.viel.aplayer.data.store.SleepMode,
+    // Application Feedback Callback (Reports timer tips without routing through playback-core events)
+    // The timer engine still controls playback volume and pause, but user messages go through the app-level sink.
+    private val onShowToast: (FeedbackMessage) -> Unit,
     private val selectedSleepTimer: () -> Int,
     // Timer Event Callbacks (Notify outer UI state coordinator)
     private val onTimerReset: () -> Unit,
@@ -115,7 +120,7 @@ class SleepTimerManager(
                         // Movement Toast Notification (Alert listener on movement detection)
                         if (!isDeviceMoving) {
                             if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking) {
-                                playbackManager()?.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("动作跟踪：检测到运动，睡眠定时器已暂停计时，一分钟内保持暂停"))  // TODO: Remove toast before production release
+                                showToast(FeedbackMessages.sleepMotionTrackingPaused())
                             }
                         }
                         isDeviceMoving = true
@@ -126,7 +131,7 @@ class SleepTimerManager(
                         // Sleep Mode Reset (Reset sleep state on movement)
                         if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking && hasUserFallenAsleep) {
                             hasUserFallenAsleep = false
-                            showToast("检测到身体活动，睡眠跟踪暂停，待您接近静止后继续")
+                            showToast(FeedbackMessages.sleepTrackingPausedByActivity())
                         }
                     } else {
                         // Cooldown Stabilization Period (Prevent premature static states)
@@ -136,7 +141,7 @@ class SleepTimerManager(
                                 // Static Toast Notification (Alert listener on static state recovery)
                                 if (isDeviceMoving) {
                                     if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking) {
-                                        playbackManager()?.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("动作跟踪：检测到静止，睡眠定时器恢复计时"))  // TODO: Remove toast before production release
+                                        showToast(FeedbackMessages.sleepMotionTrackingResumed())
                                     }
                                 }
                                 isDeviceMoving = false
@@ -188,11 +193,11 @@ class SleepTimerManager(
         }
     }
 
-    // UI Event Dispatch (Decouple toast UI actions via event bus)
-    // Sends a lightweight ShowToast event via the `PlaybackManager` bus to the UI layout wrapper.
-    private fun showToast(message: String) {
+    // Timer Feedback Dispatch (Decouple toast UI actions via the app event sink callback)
+    // Sends lightweight timer messages through PlayerViewModel so playback-core classes remain event-free.
+    private fun showToast(message: FeedbackMessage) {
         scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-            playbackManager()?.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(message))
+            onShowToast(message)
         }
     }
 
@@ -219,22 +224,22 @@ class SleepTimerManager(
                 // Execute Chapter Skip (Apply shake reset to subsequent boundary)
                 triggerVibration()
                 skippedChapterStartMs = currentChapter.startPositionMs
-                showToast("已摇晃顺延至下一章结束")
+                showToast(FeedbackMessages.sleepShakeExtendedToNextChapter())
                 setSleepTimer(-2, currentPlayback, currentMetadata, isShakeReset = true)
             } else {
                 // Fallback Terminal Boundary (Maintain standard pause at final track end)
                 triggerVibration()
-                showToast("已是最后一章，无法顺延")
+                showToast(FeedbackMessages.sleepShakeNoNextChapter())
             }
         } else if (currentSelected > 0) {
             // Regular Minute Mode (Reset countdown duration to initial configured length)
             triggerVibration()
-            showToast("已摇晃重置睡眠倒计时")
+            showToast(FeedbackMessages.sleepShakeCountdownReset())
             setSleepTimer(currentSelected, currentPlayback, currentMetadata, isShakeReset = true)
         } else if (currentSelected == -1) {
             // Diagnostics Test Mode (Reset debugging 5-second countdown)
             triggerVibration()
-            showToast("已摇晃重置测试倒计时")
+            showToast(FeedbackMessages.sleepShakeTestCountdownReset())
             setSleepTimer(currentSelected, currentPlayback, currentMetadata, isShakeReset = true)
         }
     }
@@ -448,7 +453,7 @@ class SleepTimerManager(
                                             // Static Duration Threshold: Accumulate 10 minutes of static frames to confirm sleep state.
                                             if (timeInStaticMs >= 600000L) {
                                                 hasUserFallenAsleep = true
-                                                showToast("睡眠检测：检测到已安稳入睡，开始睡眠倒计时")
+                                                showToast(FeedbackMessages.sleepTrackingCountdownStarted())
                                             }
                                         } else {
                                             timeInStaticMs = 0L

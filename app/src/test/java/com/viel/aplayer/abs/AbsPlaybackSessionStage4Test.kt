@@ -31,7 +31,6 @@ import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
-import com.viel.aplayer.media.BookPlaybackPlan
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
@@ -343,10 +342,12 @@ class AbsPlaybackSessionStage4Test {
             book: BookEntity,
             files: List<BookFileEntity>,
             chapters: List<ChapterEntity>,
-            progress: BookProgressEntity?,
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
-        ) = Unit
+        ) {
+            // Playback Session Catalog Fixture Scope (Provides the catalog interface without accepting progress writes)
+            // Session tests validate upload/download arbitration through ProgressGateway, so catalog materialization is intentionally inert here.
+        }
         override suspend fun replaceMirrors(mirrors: List<AbsItemMirrorEntity>) = Unit
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) = Unit
         override suspend fun updateBookStatus(bookId: String, status: String) = Unit
@@ -374,7 +375,6 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit
         override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()
         override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()
-        override suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = null
         override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
         override fun getChapters(bookId: String): Flow<List<ChapterWithBookFile>> = flowOf(emptyList())
         override suspend fun getChaptersForBookSync(bookId: String): List<ChapterWithBookFile> = emptyList()
@@ -396,9 +396,6 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun getLastPlayedProgressSync(): BookProgressEntity? = localProgress
         override suspend fun getProgressForBookSync(bookId: String): BookProgressEntity? =
             localProgress?.takeIf { it.bookId == bookId }
-        override suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = true
-        override suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) = Unit
-        override suspend fun findNextAvailablePlaybackFile(bookId: String, afterQueueIndex: Int): Pair<Int, BookFileEntity>? = null
     }
 
     private class FailingSyncPlaybackApi : AbsApiClient {

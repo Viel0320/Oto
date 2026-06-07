@@ -9,10 +9,14 @@ import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.domain.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.domain.usecase.GetRelatedBooksUseCase
 import com.viel.aplayer.domain.usecase.RelatedData
+import com.viel.aplayer.event.AppEventSink
+import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.media.AutoRewindManager
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.media.PlaybackMediaId
@@ -24,7 +28,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -46,22 +49,22 @@ class PlayerViewModel : ViewModel() {
     }
 
     private var playbackManager: PlaybackManager? = null
-    // Downgrade database operations (To decouple direct heavy DB transactions from view models)
-    private var libraryFacade: com.viel.aplayer.data.LibraryFacade? = null
+    // UI Library Facade Access (Centralizes player-screen data reads through the high-level application facade)
+    // PlayerViewModel is a UI coordinator, so it keeps granular gateways out of this layer while playback core still owns gateway-level access.
+    private var libraryFacade: LibraryFacade? = null
     private var settingsRepository: AppSettingsRepository? = null
     private var getRelatedBooksUseCase: GetRelatedBooksUseCase? = null
+    private var buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase? = null
     private var absProgressConflictCoordinator: AbsProgressConflictCoordinator? = null
+    // Application Event Sink Reference (Routes player UI feedback to the shared app-shell event stream)
+    // The PlayerViewModel keeps no local one-shot event bus after the playback feedback boundary was centralized.
+    private var appEventSink: AppEventSink? = null
     private var audioManager: AudioManager? = null
     
     private val _currentBookId = MutableStateFlow<String?>(null)
     val currentBookId: StateFlow<String?> = _currentBookId.asStateFlow()
 
-    // Shared UI events flow (To dispatch one-time visual alerts like toast notices)
-    // Listens to playback feedback events asynchronously without holding UI view references.
-    private val _uiEvents = kotlinx.coroutines.flow.MutableSharedFlow<com.viel.aplayer.ui.common.UiEvent>(extraBufferCapacity = 1)
-    val uiEvents = _uiEvents.asSharedFlow()
-
-    private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.ui.player.components.SubtitleLine>>(emptyList())
+    private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.media.subtitle.SubtitleLine>>(emptyList())
 
     /**
      * Restored Playback Snapshot (Stores visual-only cold-start progress without media source loading)
@@ -86,7 +89,10 @@ class PlayerViewModel : ViewModel() {
         scope = viewModelScope,
         playbackManager = { playbackManager },
         audioManager = { audioManager },
-        contextProvider = { appContext }
+        contextProvider = { appContext },
+        // Player Settings Feedback Hook (Forwards control tips to the centralized app event sink)
+        // Sleep timer and speed controls remain stateful helpers, while Toast rendering stays in the app shell.
+        onShowToast = { message -> showToast(message) }
     )
 
     // =====================================================================
@@ -201,7 +207,7 @@ class PlayerViewModel : ViewModel() {
                 facade.getChapters(id),
                 facade.getBookmarks(id),
                 _currentSubtitles
-            ) { entity: com.viel.aplayer.data.entity.BookEntity?, chapters: List<com.viel.aplayer.data.entity.ChapterWithBookFile>, bookmarks: List<BookmarkEntity>, subtitles: List<com.viel.aplayer.ui.player.components.SubtitleLine> ->
+            ) { entity: com.viel.aplayer.data.entity.BookEntity?, chapters: List<com.viel.aplayer.data.entity.ChapterWithBookFile>, bookmarks: List<BookmarkEntity>, subtitles: List<com.viel.aplayer.media.subtitle.SubtitleLine> ->
                 BookMetadataState(
                     id = id,
                     title = entity?.title ?: "",
@@ -389,24 +395,25 @@ class PlayerViewModel : ViewModel() {
         if (playbackManager != null) return
         val appContext = context.applicationContext
         this.appContext = appContext
-        val container = (appContext as APlayerApplication).container
+        val playerDependencies = APlayerApplication.getPlayerScreenDependencies(appContext)
         
-        // Resolve gateway dependencies (To load facade structures during initialization)
-        // Avoids caching heavy repository references inside local scopes.
-        val facade = container.libraryFacade
+        // Player Screen Dependency Resolution (Resolve only UI-facing player dependencies)
+        // The media core continues to resolve granular runtime gateways separately, while this ViewModel and its UI helpers share LibraryFacade.
+        val facade = playerDependencies.libraryFacade
         libraryFacade = facade
-        val queryGateway = container.bookQueryGateway
-        settingsRepository = container.settingsRepository
-        absProgressConflictCoordinator = container.absProgressConflictCoordinator
+        settingsRepository = playerDependencies.settingsRepository
+        absProgressConflictCoordinator = playerDependencies.absProgressConflictCoordinator
+        appEventSink = playerDependencies.appEventSink
+        buildPlaybackPlanUseCase = playerDependencies.buildPlaybackPlanUseCase
 
-        getRelatedBooksUseCase = GetRelatedBooksUseCase(queryGateway)
+        getRelatedBooksUseCase = GetRelatedBooksUseCase(facade)
         audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         playbackManager = PlaybackManager.getInstance(appContext)
 
-        bookmarkManager = BookmarkManager(queryGateway, viewModelScope)
+        bookmarkManager = BookmarkManager(facade, viewModelScope)
         playbackDelegate = MediaPlaybackDelegate(
             playbackManager = { playbackManager },
-            repository = queryGateway,
+            libraryFacade = facade,
             scope = viewModelScope
         )
 
@@ -470,14 +477,6 @@ class PlayerViewModel : ViewModel() {
 
     private fun observePlaybackManager() {
         val manager = playbackManager ?: return
-
-        viewModelScope.launch {
-            // Forward background events (To pipe service-level notifications to observing UI components)
-            // Emits notifications (like EVENT_SKIP_SILENCE) into shared flows.
-            manager.uiEvents.collect { event ->
-                _uiEvents.emit(event)
-            }
-        }
 
         viewModelScope.launch {
             manager.currentMediaItem.collectLatest { mediaItem ->
@@ -598,7 +597,9 @@ class PlayerViewModel : ViewModel() {
         settingsManager.dismissBookmarkDialog()
 
         val playbackPlanStart = SystemClock.elapsedRealtime()
-        val plan = libraryFacade?.getPlaybackPlan(id)
+        // Playback Plan Use Case (Build playable track plan through the playback application seam)
+        // PlayerViewModel no longer asks LibraryFacade or BookQueryGateway for playback startup semantics.
+        val plan = buildPlaybackPlanUseCase?.invoke(id)
         val playbackPlanCost = SystemClock.elapsedRealtime() - playbackPlanStart
         com.viel.aplayer.logger.PlaybackTimingLogger.logPlaybackPlanBuild(
             bookId = id,
@@ -653,7 +654,7 @@ class PlayerViewModel : ViewModel() {
                 clearPendingAbsProgressConflict()
                 loadBookAfterProgressDecision(request.bookId, request.playWhenReady, request.requestStartMs)
             }.onFailure { error ->
-                sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("服务器进度写入本机失败：${error.message ?: "未知错误"}"))
+                showToast("服务器进度写入本机失败：${error.message ?: "未知错误"}")
             }
         }
     }
@@ -779,11 +780,16 @@ class PlayerViewModel : ViewModel() {
     fun setSleepTimer(minutes: Int) = settingsManager.setSleepTimer(minutes, { playbackState.value }, { metadataState.value })
     fun adjustVolume(delta: Float) = settingsManager.adjustVolume(delta)
     
-    // Dispatch UI notifications (To pipe temporary alert events to the main thread)
-    fun sendUiEvent(event: com.viel.aplayer.ui.common.UiEvent) {
-        viewModelScope.launch {
-            _uiEvents.emit(event)
-        }
+    // Player Feedback Dispatch (Proxy player-screen tips to the application event sink)
+    // This keeps local player controls from owning or exposing a parallel UI event stream.
+    fun showToast(message: FeedbackMessage) {
+        appEventSink?.showToast(message)
+    }
+
+    // Legacy Player Feedback Dispatch (Keeps old string-producing controls working during resource migration)
+    // New feedback paths should prefer FeedbackMessage so copy and localization remain centralized in resources.
+    fun showToast(message: String) {
+        appEventSink?.showToast(message)
     }
 
     fun showChapterList() = settingsManager.showChapterList()
@@ -794,8 +800,9 @@ class PlayerViewModel : ViewModel() {
     fun saveBookmarkFromDialog() {
         addBookmark(settingsState.value.bookmarkTitle.ifBlank { "Bookmark" })
         dismissBookmarkDialog()
-        // Alert bookmark additions (To emit ShowToast event in uiEvents flow)
-        sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("Bookmark added"))
+        // Bookmark Dialog Feedback (Notify through the centralized app event sink)
+        // The ViewModel reports the outcome while the app shell owns the Toast widget.
+        showToast("Bookmark added")
     }
     fun setSelectedContentTab(tab: Int) = settingsManager.setSelectedContentTab(tab)
     fun setFullPlayerVisible(visible: Boolean) {
@@ -814,7 +821,9 @@ class PlayerViewModel : ViewModel() {
             emit(true)
             return@flow
         }
-        emit(libraryFacade?.checkCurrentPlaybackFileAvailability(bookId) ?: false)
+        // Current Playback Status Refresh (Updates persisted availability before emitting mini-player eligibility)
+        // The facade method name exposes that this read also refreshes file and book status rows.
+        emit(libraryFacade?.refreshCurrentPlaybackFileAvailabilityStatus(bookId) ?: false)
     }
     
     fun toggleProgressMode() {

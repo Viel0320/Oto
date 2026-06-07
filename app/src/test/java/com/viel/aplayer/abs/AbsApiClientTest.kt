@@ -25,10 +25,17 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.io.path.createTempDirectory
 
+// Local Android Runtime Alignment (Runs AndroidX DataStore through the app-supported SDK path)
+// Robolectric pins Build.VERSION.SDK_INT to API 32 so the test avoids android.jar's default SDK 0 behavior, which makes DataStore use a Windows-incompatible legacy rename path.
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [32])
 class AbsApiClientTest {
 
     @Test
@@ -196,9 +203,9 @@ class AbsApiClientTest {
                 }
                 error("Expected unsupported version rejection")
             } catch (error: Exception) {
-                // Early server version rejection. Unsupported server versions must be rejected immediately during the /status check,
-                // ensuring no subsequent requests to /api/authorize or /api/libraries are dispatched.
-                assertTrue(error.message?.contains("版本过低") == true)
+                // Network Layer Diagnostic Contract (Keeps low-level ABS errors localization-free)
+                // Unsupported server versions must be rejected during /status without emitting user-facing copy from the client layer.
+                assertTrue(error.message?.contains("version unsupported") == true)
                 assertTrue(error.message?.contains(MIN_SUPPORTED_ABS_SERVER_VERSION) == true)
                 val statusRequest = server.takeRequest()
                 assertEquals("/audiobookshelf/status", statusRequest.path)

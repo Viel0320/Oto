@@ -1,5 +1,7 @@
 package com.viel.aplayer.data.gateway
 
+import com.viel.aplayer.library.scan.ScanOutcome
+
 /**
  * Decoupled Domain Gateway Interface (ScanScheduler)
  * Dedicated to scheduling and triggering directory file scans and metadata sync for local and WebDAV library sources.
@@ -12,11 +14,11 @@ interface ScanScheduler {
 
     /**
      * Foreground Immediate Ingestion (Direct sync command)
-     * Triggers database updates and file rescan operations immediately in the active foreground context.
+     * Triggers database updates and file rescan operations immediately, returning the shared scan outcome contract.
      * 
      * @param trigger Origin indicating sync cause (e.g. "USER", "SYSTEM", "BACKGROUND")
      */
-    suspend fun syncLibrary(trigger: String = "USER")
+    suspend fun syncLibrary(trigger: String = "USER"): ScanOutcome
 
     /**
      * Schedule Asynchronous Ingestion (Background dispatcher dispatch)

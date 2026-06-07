@@ -4,7 +4,6 @@ package com.viel.aplayer.ui.player.components
 
 // Import Resolution (Brings snapshotFlow into scope to observe Compose state changes in flows)
 // Added snapshotFlow import to fix unresolved reference snapshotFlow error.
-import android.widget.Toast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -49,14 +48,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.common.BlurModalBottomSheet
 import com.viel.aplayer.ui.common.formatTime
@@ -229,13 +232,19 @@ fun ChapterListContent(
     // Glass effect mode must be explicitly passed from the chapter BottomSheet; the list content no longer declares a Material default.
     glassEffectMode: GlassEffectMode
 ) {
+    val context = LocalContext.current
+    val appEventSink = remember(context) {
+        // Chapter List Feedback Sink (Resolve only the shared app event stream from the current composition context)
+        // Missing-file chapter taps use the same app-shell Toast renderer as ViewModels, services, and workers.
+        APlayerApplication.getAppFeedbackDependencies(context).appEventSink
+    }
 
     Column(
         modifier = modifier
             .fillMaxWidth()            .padding(horizontal = 16.dp)
     ) {
         Text(
-            text = "Chapters",
+            text = stringResource(R.string.chapter_list_title),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
@@ -251,7 +260,7 @@ fun ChapterListContent(
                     .height(200.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No chapters available", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.chapter_list_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(
@@ -266,7 +275,6 @@ fun ChapterListContent(
                     val bookFile = chapterWithFile.bookFile
                     val isCurrent = chapter.id == currentChapter?.id
                     val isMissing = bookFile?.status == com.viel.aplayer.data.db.AudiobookSchema.FileStatus.MISSING
-                    val context = LocalContext.current
 
                     // Haze Blur mode uses a lighter rounded glass highlight, while Material mode retains a more distinct primaryContainer selection feedback. Modified references to Haze.
                     val selectedContainerColor = when (glassEffectMode) {
@@ -322,7 +330,7 @@ fun ChapterListContent(
                                 // This provides a more intuitive, premium alert feedback and enhances the overall typographic quality of the list in exception scenarios.
                                 Icon(
                                     imageVector = Icons.Rounded.Warning,
-                                    contentDescription = "文件不可用",
+                                    contentDescription = stringResource(R.string.chapter_file_unavailable_description),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             } else {
@@ -341,7 +349,7 @@ fun ChapterListContent(
                             .then(selectedBorderModifier)
                             .clickable {
                                 if (isMissing) {
-                                    Toast.makeText(context, "该章节对应的物理文件已丢失，无法播放", Toast.LENGTH_SHORT).show()
+                                    appEventSink.showToast(FeedbackMessages.chapterPhysicalFileMissing())
                                 } else {
                                     onChapterClick(chapter.startPositionMs)
                                 }

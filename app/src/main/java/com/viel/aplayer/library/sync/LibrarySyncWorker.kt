@@ -3,7 +3,10 @@ package com.viel.aplayer.library.sync
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.viel.aplayer.library.scan.ScanOutcomeKind
+import com.viel.aplayer.library.scan.ScanOutcomePolicy
 import com.viel.aplayer.logger.ScanWorkflowLogger
+import kotlinx.coroutines.CancellationException
 
 class LibrarySyncWorker(
     context: Context,
@@ -16,23 +19,34 @@ class LibrarySyncWorker(
             
             // 
             // Refactored to delegate scan requests to the focused ScanScheduler interface instead of calling legacy repository routines directly.
-            // Safe Dependency Resolution (Uses the companion getter method to fetch dependencies lazily inside WorkManager's worker instance)
-            // Prevents casting applicationContext to APlayerApplication directly, eliminating ClassCastExceptions during multi-process setups.
-            val container = com.viel.aplayer.APlayerApplication.getContainer(applicationContext)
-            val scanScheduler = container.scanScheduler
+            // Library Sync Worker Dependency Resolution (Fetch only the scheduler required by this WorkManager job)
+            // Narrowing the worker view prevents background scans from depending on playback, settings, or ABS container entries.
+            val workerDependencies = com.viel.aplayer.APlayerApplication.getLibrarySyncWorkerDependencies(applicationContext)
+            val scanScheduler = workerDependencies.scanScheduler
             
-            // Execute Ingestion: Call suspend syncLibrary directly to perform the sync within WorkManager's execution scope.
-            scanScheduler.syncLibrary(trigger)
-            Result.success()
-        } catch (e: java.io.IOException) {
-            // Transient Exception Handler (Intercepts temporary physical failures such as network drops, timeouts, or SQLite lock contentions)
-            // Dispatches WorkManager's Result.retry() response to schedule backoff attempts and recover background scan runs automatically.
-            ScanWorkflowLogger.warn("librarySyncWorker retry: scheduling retry after transient sync failure", e)
-            Result.retry()
+            // Execute Ingestion Outcome (Share the same scan result contract used by foreground commands)
+            // WorkManager now adapts the returned ScanOutcome instead of classifying scanner exceptions separately.
+            scanScheduler.syncLibrary(trigger).toWorkerResult()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            // Fatal Fault Handler (Catches logic issues or parameter configuration errors, returning Result.failure() to avoid power-draining reload loops)
-            ScanWorkflowLogger.error("librarySyncWorker failure: permanent logic error during library sync", e)
-            Result.failure()
+            // Worker Fallback Outcome (Uses the shared scan policy when failure happens before ScanScheduler returns)
+            // This keeps WorkManager retry/failure semantics in one policy even for dependency resolution or early command failures.
+            val outcome = ScanOutcomePolicy.fromFailure(e)
+            ScanWorkflowLogger.warn("librarySyncWorker fallback outcome=${outcome.kind}: message=${outcome.message}", e)
+            outcome.toWorkerResult()
+        }
+    }
+
+    private fun com.viel.aplayer.library.scan.ScanOutcome.toWorkerResult(): Result {
+        // WorkManager Outcome Adapter (Maps domain scan result semantics to background scheduling decisions)
+        // Blocked and partial scans complete the command, retry only represents transient infrastructure failure.
+        return when (kind) {
+            ScanOutcomeKind.SUCCESS,
+            ScanOutcomeKind.PARTIAL,
+            ScanOutcomeKind.BLOCKED -> Result.success()
+            ScanOutcomeKind.RETRY -> Result.retry()
+            ScanOutcomeKind.FAILED -> Result.failure()
         }
     }
 }

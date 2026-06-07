@@ -13,7 +13,6 @@ import com.viel.aplayer.abs.vfs.AbsSourceProvider
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
-import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import kotlinx.coroutines.runBlocking
@@ -208,10 +207,11 @@ class AbsSourceProviderStage3Test {
             book: BookEntity,
             files: List<BookFileEntity>,
             chapters: List<ChapterEntity>,
-            progress: BookProgressEntity?,
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
         ) {
+            // Source Provider Catalog Fixture Scope (Stores only catalog rows needed for virtual file resolution)
+            // Playback progress is intentionally absent because source provider tests exercise ABS path construction, not progress merging.
             books[book.id] = book
             mirrors[mirror.remoteItemId] = mirror
             this.syncState = syncState

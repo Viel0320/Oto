@@ -25,8 +25,9 @@ import kotlin.time.Duration.Companion.milliseconds
  * Separated from `LibraryViewModel` to respect single-responsibility principles and establish clean domains.
  */
 class DetailViewModel(application: Application) : AndroidViewModel(application) {
-    // Business Facade (Decoupled high-level aggregate gateway)
-    private val libraryFacade = (application as APlayerApplication).container.libraryFacade
+    // Library Presentation Dependency View (Resolve only the facade required by the detail screen)
+    // DetailViewModel observes book data and does not need settings, playback, or worker dependencies.
+    private val libraryFacade = APlayerApplication.getLibraryPresentationDependencies(application).libraryFacade
 
     // Relational Observer Job (Tracks database updates for the selected book)
     private var bookObserveJob: kotlinx.coroutines.Job? = null
@@ -135,8 +136,9 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             viewModelScope.launch {
                 // Request Tracking (Tag checker action with selected bookId to avoid crosstalk on screen shifts)
                 val checkedBookId = book.book.id
-                // Asynchronous Availability check (Verify VFS readability status of the selected book)
-                val isAvailable = libraryFacade.checkDetailAvailability(checkedBookId)
+                // Detail Availability Status Refresh (Verifies VFS readability and persists the latest book/file status)
+                // The facade method name makes the state-refreshing side effect explicit to the detail UI flow.
+                val isAvailable = libraryFacade.refreshDetailAvailabilityStatus(checkedBookId)
                 _uiState.update { state ->
                     // Atomic State Resolution (Apply availability results only if selected target is unchanged)
                     if (state.book?.book?.id == checkedBookId) {

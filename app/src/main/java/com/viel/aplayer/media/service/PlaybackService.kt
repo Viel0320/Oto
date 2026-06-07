@@ -6,7 +6,6 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Toast
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -25,12 +24,19 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.data.gateway.BookAvailabilityGateway
+import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import com.viel.aplayer.media.NotificationProgressPlayer
+import com.viel.aplayer.media.PlaybackDomainEvent
+import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackMediaId
+import com.viel.aplayer.media.PlaybackPlanGateway
 import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.media.session.PlaybackSessionErrorDecision
+import com.viel.aplayer.media.session.PlaybackSessionState
 import com.viel.aplayer.widget.PlayerWidget
 import com.viel.aplayer.widget.PlayerWidgetStateHelper
 import kotlinx.coroutines.CoroutineScope
@@ -74,9 +80,22 @@ class PlaybackService : MediaSessionService() {
     private lateinit var rewindButton: CommandButton
     private lateinit var forwardButton: CommandButton
     private lateinit var bookmarkButton: CommandButton
-    // Unified Library Facade Service (References the consolidated gateway domain instead of the legacy monolithic repository)
-    private lateinit var libraryFacade: LibraryFacade
+    // Playback Book Query Gateway (Limits the media service to book, chapter, and bookmark reads it actually needs)
+    // Keeping playback service on granular gateways prevents the foreground media core from depending on the broad UI-facing LibraryFacade.
+    private lateinit var bookQueryGateway: BookQueryGateway
+    // Playback Plan Gateway (Dedicated media-core read model for plan materialization)
+    // Separating plan construction from BookQueryGateway keeps playback startup semantics out of generic book queries.
+    private lateinit var playbackPlanGateway: PlaybackPlanGateway
+    // Playback Progress Gateway (Provides resume checkpoints and runtime progress state without routing through the UI facade)
+    // This keeps progress persistence and playback recovery aligned with the media-core gateway seam.
+    private lateinit var progressGateway: ProgressGateway
+    // Playback Availability Gateway (Provides status-writing track recovery without coupling it to progress persistence)
+    // Runtime media failures use this seam to refresh READY/MISSING rows explicitly.
+    private lateinit var bookAvailabilityGateway: BookAvailabilityGateway
     private lateinit var settingsRepository: AppSettingsRepository
+    // Playback Domain Event Sink (Publishes media-service outcomes for the application bridge)
+    // Foreground service commands no longer construct Toasts directly, keeping media code presentation-free.
+    private lateinit var playbackEventSink: PlaybackDomainEventSink
     private lateinit var notificationPlayer: NotificationProgressPlayer
 
     // Notification Layer Book Metadata Cache (Stores the active book identifier to prevent track index cross-pollution during transitions)
@@ -84,9 +103,9 @@ class PlaybackService : MediaSessionService() {
     // Notification Segment Reference List (Maintains track schemas exclusively for timeline calculations)
     private var notificationFiles: List<BookFileEntity> = emptyList()
 
-    // Active Playback IO Boundary (Separates initial media loading from runtime stream interruptions)
-    // The flag becomes true only after ExoPlayer reports actual playback, so pre-play source failures can surface directly without retry or skip recovery.
-    private var currentItemHasPlayed = false
+    // Playback Session State Boundary (Centralizes first-frame and runtime failure classification)
+    // The service now adapts Media3 callbacks into session events instead of sharing a mutable playback flag across handlers.
+    private val playbackSessionState = PlaybackSessionState()
 
     private var exitJob: Job? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -102,9 +121,16 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         
-        val container = (applicationContext as com.viel.aplayer.APlayerApplication).container
-        libraryFacade = container.libraryFacade
+        val playbackDependencies = APlayerApplication.getPlaybackRuntimeDependencies(applicationContext)
+        // Playback Runtime Dependency Resolution (Resolve only the fine-grained media-core dependency view)
+        // The service stores separate gateway references so future playback changes cannot accidentally reach unrelated library facade operations.
+        bookQueryGateway = playbackDependencies.bookQueryGateway
+        playbackPlanGateway = playbackDependencies.playbackPlanGateway
+        progressGateway = playbackDependencies.progressGateway
+        bookAvailabilityGateway = playbackDependencies.bookAvailabilityGateway
         settingsRepository = AppSettingsRepository.getInstance(this)
+        // Playback Domain Event Sink Resolution (Route service-originated playback facts through the media event stream)
+        playbackEventSink = playbackDependencies.playbackDomainEventSink
 
         // 1. Instantiate the dedicated audio focus manager component.
         audioFocusManager = PlaybackAudioFocusManager(
@@ -116,10 +142,10 @@ class PlaybackService : MediaSessionService() {
 
         // 2. Instantiate the isolated error handler, passing progressGateway to decouple from the legacy repository.
         failureHandler = PlaybackFailureHandler(
-            context = this,
             serviceScope = serviceScope,
-            progressGateway = container.progressGateway,
-            settingsRepository = settingsRepository
+            bookAvailabilityGateway = bookAvailabilityGateway,
+            settingsRepository = settingsRepository,
+            playbackEventSink = playbackEventSink
         )
 
         // 3. Delegate Configuration (Configures and instantiates the core player instance using ExoPlayerFactory)
@@ -129,19 +155,22 @@ class PlaybackService : MediaSessionService() {
                 override fun onPlayerError(error: PlaybackException) {
                     PlaybackWorkflowLogger.error("playbackService player error: code=${error.errorCode}, message=${error.message}", error)
                     val activePlayer = this@PlaybackService.player
-                    if (!currentItemHasPlayed) {
-                        // Initial Load Failure Branch (Report any pre-playback source error without entering IO recovery)
-                        // Applies regardless of saved progress because the current MediaItem has not produced playback in this load session.
-                        activePlayer?.let { failureHandler.handleInitialMediaLoadFailure(it, error) }
-                        updateWidgetState()
-                        return
+                    when (playbackSessionState.classifyPlayerError()) {
+                        PlaybackSessionErrorDecision.InitialMediaLoadFailure -> {
+                            // Initial Load Failure Branch (Report any pre-playback source error without entering IO recovery)
+                            // Applies regardless of saved progress because the session state has not observed playback for this item.
+                            activePlayer?.let { failureHandler.handleInitialMediaLoadFailure(it, error) }
+                            updateWidgetState()
+                            return
+                        }
+                        PlaybackSessionErrorDecision.RuntimePlaybackFailure -> Unit
                     }
                     // Error Recovery Delegation (Routes server exceptions to the disaster recovery handler for track skipping)
                     if (failureHandler.isUnavailableMediaError(error)) {
                         activePlayer?.let { player ->
                             // Runtime IO Recovery (Keep existing retry and skip rules only after playback has actually started)
                             // Prevents first-load failures from marking tracks missing or entering skip dialogs before the user hears any media.
-                            failureHandler.handleUnavailableMediaItem(player, mediaSession)
+                            failureHandler.handleUnavailableMediaItem(player)
                         }
                     }
                     if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED) {
@@ -161,23 +190,23 @@ class PlaybackService : MediaSessionService() {
 
                     // Lock State Reset (Clears track-skipping transition guard to allow fresh recovery runs)
                     failureHandler.clearSkipGuard()
-                    currentItemHasPlayed = false
+                    playbackSessionState.onMediaItemTransition()
                     updateNotificationTimeline(mediaItem)
                     // Transition Widget Synchronization (Triggers immediate widget update during track transition to reflect current metadata)
                     updateWidgetState()
                 }
  
                 override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (playbackState == Player.STATE_READY && this@PlaybackService.player?.isPlaying == true) {
-                        // Continuous Playback Start Detection (Covers item transitions where isPlaying stays true)
-                        // Marks the current item as runtime playback so later stream IO failures may use recovery rules.
-                        currentItemHasPlayed = true
-                    }
+                    playbackSessionState.onPlaybackStateChanged(
+                        isReady = playbackState == Player.STATE_READY,
+                        isPlaying = this@PlaybackService.player?.isPlaying == true
+                    )
                     if (playbackState == Player.STATE_ENDED) {
-                        // Playback Queue Finished (Prompts the user and schedules a safe 5-second delayed shutdown of the service)
+                        // Playback Queue Finished (Publish domain event and schedule a safe delayed shutdown of the service)
+                        // The app-level bridge renders the user notification while the service keeps only playback lifecycle logic.
                         exitJob?.cancel()
                         exitJob = serviceScope.launch {
-                            Toast.makeText(this@PlaybackService, "播放结束，5秒后将自动关闭", Toast.LENGTH_SHORT).show()
+                            playbackEventSink.emit(PlaybackDomainEvent.PlaybackFinishedShutdownScheduled(delaySeconds = 5))
                             delay(5000.milliseconds)
                             this@PlaybackService.player?.clearMediaItems()
                             stopSelf()
@@ -192,9 +221,7 @@ class PlaybackService : MediaSessionService() {
                 }
  
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    if (isPlaying) {
-                        currentItemHasPlayed = true
-                    }
+                    playbackSessionState.onIsPlayingChanged(isPlaying)
                     // Audio Focus Delegation (Routes the active player state updates to keep system focus tracking in sync)
                     audioFocusManager.handlePlayerPlayingStateChanged(isPlaying)
                     // Playback Status Widget Synchronization (Reflects the changes of user-initiated play/pause toggles directly onto the widget)
@@ -237,22 +264,24 @@ class PlaybackService : MediaSessionService() {
 
 
         // Custom Controller Assembly (Initializes the command button models for rewind, forward, and bookmark buttons)
+        // Media Session Labels (Resolve user-visible command names from resources)
+        // System media surfaces can display these labels, so they follow the same resource policy as in-app copy.
         rewindButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("快退10秒")
+            .setDisplayName(getString(R.string.media_session_rewind_10))
             .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
             .setCustomIconResId(R.drawable.ic_replay_10)
             .setEnabled(true)
             .build()
 
         forwardButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("快进30秒")
+            .setDisplayName(getString(R.string.media_session_forward_30))
             .setSessionCommand(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
             .setCustomIconResId(R.drawable.ic_forward_30)
             .setEnabled(true)
             .build()
 
         bookmarkButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("添加书签")
+            .setDisplayName(getString(R.string.media_session_add_bookmark))
             .setSessionCommand(SessionCommand(ACTION_BOOKMARK, Bundle.EMPTY))
             .setCustomIconResId(R.drawable.ic_bookmark_add)
             .setEnabled(true)
@@ -331,9 +360,10 @@ class PlaybackService : MediaSessionService() {
         val bookId = mediaParts.bookId
 
         serviceScope.launch(Dispatchers.IO) {
-            // Sync Metadata Load (Fetches book file mappings and chapters directly using the library facade interface)
-            val files = libraryFacade.getFilesForBookSync(bookId)
-            val chapters = libraryFacade.getChaptersForBookSync(bookId)
+            // Notification Timeline Query (Fetches only book files and chapters through the playback query gateway)
+            // The notification player needs timeline metadata, not the full UI facade surface.
+            val files = bookQueryGateway.getFilesForBookSync(bookId)
+            val chapters = bookQueryGateway.getChaptersForBookSync(bookId)
             if (files.isNotEmpty()) {
                 launch(Dispatchers.Main) {
                     notificationBookId = bookId
@@ -419,9 +449,10 @@ class PlaybackService : MediaSessionService() {
                             val positionMs = (session.player as? NotificationProgressPlayer)
                                 ?.currentGlobalPosition()
                                 ?: currentGlobalPosition(session.player, bookId)
-                            // Unified Facade Persistence (Delegates persistence changes directly to the library facade endpoint)
-                            libraryFacade.addBookmark(bookId, positionMs, "Bookmark")
-                            Toast.makeText(this@PlaybackService, "已添加当前播放位置到书签", Toast.LENGTH_SHORT).show()
+                            // Notification Bookmark Command (Persists bookmark changes through the playback query gateway)
+                            // Notification actions live in the media service, so they use the same granular gateway path as other playback metadata commands.
+                            bookQueryGateway.addBookmark(bookId, positionMs, "Bookmark")
+                            playbackEventSink.emit(PlaybackDomainEvent.BookmarkCreated(bookId, positionMs))
                         }
                     }
                 }
@@ -438,18 +469,20 @@ class PlaybackService : MediaSessionService() {
             val future = com.google.common.util.concurrent.SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
             serviceScope.launch(Dispatchers.IO) {
                 try {
-                    val lastProgress = libraryFacade.getLastPlayedProgressSync()
+                    val lastProgress = progressGateway.getLastPlayedProgressSync()
                     if (lastProgress == null) {
                         future.setException(UnsupportedOperationException("No last played book found"))
                         return@launch
                     }
-                    val plan = libraryFacade.getPlaybackPlan(lastProgress.bookId)
+                    // Resume Playback Plan Build (Use the dedicated playback-plan gateway)
+                    // The foreground media service stays on granular playback seams instead of borrowing generic book queries.
+                    val plan = playbackPlanGateway.buildPlaybackPlan(lastProgress.bookId)
                     if (plan == null || plan.files.isEmpty()) {
                         future.setException(UnsupportedOperationException("Playback plan is empty for book: ${lastProgress.bookId}"))
                         return@launch
                     }
                     val mediaItems = com.viel.aplayer.media.PlaybackPlanBuilder.buildMediaItems(plan)
-                    val chapters = libraryFacade.getChaptersForBookSync(lastProgress.bookId)
+                    val chapters = bookQueryGateway.getChaptersForBookSync(lastProgress.bookId)
                     val startIndex = if (lastProgress.currentFileIndex in mediaItems.indices) {
                         lastProgress.currentFileIndex
                     } else {
@@ -495,9 +528,10 @@ class PlaybackService : MediaSessionService() {
     private suspend fun currentGlobalPosition(player: Player, bookId: String): Long {
         val fileIndex = player.currentMediaItemIndex.coerceAtLeast(0)
         val positionInFile = player.currentPosition.coerceAtLeast(0L)
-        // Missing Cache Fetch (Retrieves the segments using the facade when cached files are missing to ensure correct mapping)
+        // Missing Cache Fetch (Retrieves the segments through the playback query gateway when cached files are missing)
+        // This fallback keeps global-position mapping local to the media gateway surface instead of reaching the UI facade.
         val files = notificationFiles.takeIf { notificationBookId == bookId && it.isNotEmpty() }
-            ?: libraryFacade.getFilesForBookSync(bookId)
+            ?: bookQueryGateway.getFilesForBookSync(bookId)
         
         return if (files.isNotEmpty()) {
             PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
@@ -533,8 +567,9 @@ class PlaybackService : MediaSessionService() {
                         .getGlanceIds(PlayerWidget::class.java)
                     if (glanceIds.isEmpty()) return@withContext
 
-                    // Detailed Metadata Query (Loads active book details to populate widget text fields and remote artwork)
-                    val book = libraryFacade.getBookById(bookId)
+                    // Widget Metadata Query (Loads active book details through the playback query gateway)
+                    // Widget updates are triggered from the media service and should not depend on the broad UI facade.
+                    val book = bookQueryGateway.getBookById(bookId)
                     val title = book?.title ?: fallbackTitle
                     val author = book?.author ?: fallbackArtist
                     val coverPath = book?.thumbnailPath ?: book?.coverPath

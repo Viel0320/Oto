@@ -7,14 +7,18 @@ import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.gateway.ScanScheduler
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.library.LibraryRootStore
-import com.viel.aplayer.library.availability.buildUnavailableRootsSyncMessage
-import com.viel.aplayer.library.availability.isDirectorySyncRoot
-import com.viel.aplayer.library.availability.isSyncAvailable
-import com.viel.aplayer.library.orchestrator.RescanType
 import com.viel.aplayer.library.orchestrator.ScanSessionRunner
+import com.viel.aplayer.library.scan.ScanCommand
+import com.viel.aplayer.library.scan.ScanImportAdapter
+import com.viel.aplayer.library.scan.ScanLibrarySnapshotAdapter
+import com.viel.aplayer.library.scan.ScanOutcome
+import com.viel.aplayer.library.scan.ScanOutcomeKind
+import com.viel.aplayer.library.scan.ScanRootStatusAdapter
+import com.viel.aplayer.library.scan.ScanSession
 import com.viel.aplayer.library.sync.LibrarySyncWorker
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
@@ -47,15 +51,17 @@ class ScanService(
     // Scanner Directory Cache (Injects scanner-only directory child snapshots)
     // Keeps WebDAV listing reuse inside ingestion flows while playback and availability checks continue using direct VFS providers.
     private val directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache,
-    private val playbackManager: com.viel.aplayer.media.PlaybackManager
+    // Application Event Sink (Reports scan feedback without depending on playback coordination)
+    // ScanService is an application ingestion module, so Toast requests now use the app-level feedback seam directly.
+    private val appEventSink: AppEventSink
 ) : ScanScheduler, java.io.Closeable {
 
     // Safe Application Context Binding (Memory leak avoidance)
     // Binds applicationContext to avoid tracking Activity lifecycle contexts.
     private val appContext = context.applicationContext
 
-    // Local Database Store Instantiation (Sub-dependency initializer)
-    // Directly instantiates LibraryRootStore to manage credentials and local paths.
+    // Root Status Adapter Construction (Infrastructure adapter seam)
+    // Wraps LibraryRootStore so ScanSession owns root eligibility state while ScanService keeps Android construction details.
     private val rootStore = LibraryRootStore(appContext)
 
     // Private Sync Exception Handler (Task crash safety block)
@@ -72,10 +78,11 @@ class ScanService(
     // Excludes concurrent scanner invocations to prevent SQLite concurrent lock and transaction errors.
     private val scanMutex = Mutex()
 
-    override suspend fun syncLibrary(trigger: String): Unit = scanMutex.withLock {
-        // Protected Sync Block (Mutex-wrapped scanner execution)
-        // Invokes actual library sync operations within the scanMutex execution block.
-        runSyncLibrary(trigger)
+    override suspend fun syncLibrary(trigger: String): ScanOutcome = scanMutex.withLock {
+        val outcome = runSyncLibrary(trigger)
+        logScanOutcome(trigger, outcome)
+        emitScanOutcomeFeedback(outcome)
+        outcome
     }
 
     override fun scheduleLibrarySync(trigger: String) {
@@ -99,67 +106,57 @@ class ScanService(
      * Core Sync Execution (Metadata synchronization and recovery)
      * Dispatches reachability checks, scans folders, and launches cover self-healing procedures.
      */
-    private suspend fun runSyncLibrary(trigger: String) = withContext(Dispatchers.IO) {
-        // Sync Preflight Status Refresh (Updates root reachability before any scan session starts)
-        // Persists current availability for all roots and separates directory-scannable roots from unavailable or non-enumerable sources.
-        val availabilityUpdates = rootStore.refreshPermissionStatuses()
-        val directoryRootUpdates = availabilityUpdates.filter { update -> update.root.isDirectorySyncRoot() }
-        val unavailableDirectoryUpdates = directoryRootUpdates.filterNot { update -> update.isSyncAvailable }
-        val availableDirectoryRootIds = directoryRootUpdates
-            .filter { update -> update.isSyncAvailable }
-            .map { update -> update.root.id }
-            .toSet()
-        if (unavailableDirectoryUpdates.isNotEmpty()) {
-            ScanWorkflowLogger.warn("scanService skipped unavailable roots: trigger=$trigger, count=${unavailableDirectoryUpdates.size}")
-            playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(buildUnavailableRootsSyncMessage(unavailableDirectoryUpdates)))
-        }
-        if (availableDirectoryRootIds.isEmpty()) {
-            // Empty Sync Guard (Avoids creating scan sessions when no reachable directory root can be traversed)
-            // Reports the blocked condition and returns before ScanSessionRunner allocation so unavailable roots cannot start background work.
-            ScanWorkflowLogger.warn("scanService skipped: trigger=$trigger, no available directory roots")
-            if (unavailableDirectoryUpdates.isEmpty()) {
-                playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast("没有可同步的本地或 WebDAV 库根"))
+    private suspend fun runSyncLibrary(trigger: String): ScanOutcome = withContext(Dispatchers.IO) {
+        // Scan Session Adapter Assembly (Command execution seam)
+        // Builds concrete Android and Room adapters once per command while ScanSession owns status transitions and outcome mapping.
+        createScanSession().execute(ScanCommand(trigger))
+    }
+
+    private fun createScanSession(): ScanSession =
+        ScanSession(
+            rootStatusAdapter = ScanRootStatusAdapter {
+                rootStore.refreshPermissionStatuses()
+            },
+            importAdapter = ScanImportAdapter { type, allowedRootIds ->
+                // Runner Import Adapter (Inventory stream and import transaction bridge)
+                // Delegates the heavy scan work to ScanSessionRunner while keeping runner construction outside the command state module.
+                ScanSessionRunner(
+                    context = appContext,
+                    vfsFileInterface = vfsFileInterface,
+                    directoryListingCache = directoryListingCache,
+                    triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
+                ).rescan(type, allowedRootIds = allowedRootIds)
+            },
+            librarySnapshotAdapter = ScanLibrarySnapshotAdapter {
+                AppDatabase.getInstance(appContext).bookDao().getAllBooksOnce().isEmpty()
             }
-            return@withContext
-        }
-        
-        // 2. Classify rescan type (shallow/light for COLD_START, deep for active USER request).
-        val type = if (trigger == AudiobookSchema.ScanTrigger.COLD_START) {
-            RescanType.COLD_START_LIGHT
-        } else {
-            RescanType.USER_GLOBAL
-        }
+        )
 
-        // 3. Rescan files utilizing ScanSessionRunner.
-        // Injects cover recovery hooks to repair missing images during database ingestion, passing vfsFileInterface.
-        val session = ScanSessionRunner(
-            context = appContext,
-            vfsFileInterface = vfsFileInterface,
-            directoryListingCache = directoryListingCache,
-            triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
-        ).rescan(type, allowedRootIds = availableDirectoryRootIds)
-
-        ScanWorkflowLogger.info("scanService success: trigger=$trigger, discovered=${session.discoveredBookCount}, updated=${session.updatedBookCount}, partial=${session.partialBookCount}")
-
-        // Broadcast Scan Completion (Decoupled UI notification bus)
-        // Emits toast commands through PlaybackManager's event stream.
-        // Replaces legacy hardcoded Toast calls inside business services to maintain clean domain boundaries.
-        val isLibraryEmpty = com.viel.aplayer.data.db.AppDatabase.getInstance(appContext).bookDao().getAllBooksOnce().isEmpty()
-        val changedCount = session.discoveredBookCount + session.updatedBookCount + session.partialBookCount
-        val message = if (session.discoveredBookCount > 0) {
-            "媒体库同步已完成，新增了 ${session.discoveredBookCount} 本书籍"
-        } else if (changedCount > 0) {
-            "媒体库同步已完成"
-        } else if (isLibraryEmpty) {
-            "媒体库为空，未扫描到有效书籍"
-        } else {
-            "媒体库已是最新状态"
+    private fun logScanOutcome(trigger: String, outcome: ScanOutcome) {
+        // Outcome Logging (Records the unified scan result category at the service boundary)
+        // This keeps diagnostics aligned with the command result returned to WorkManager and foreground callers.
+        when (outcome.kind) {
+            ScanOutcomeKind.SUCCESS,
+            ScanOutcomeKind.PARTIAL -> {
+                val session = outcome.session
+                ScanWorkflowLogger.info(
+                    "scanService ${outcome.kind}: trigger=$trigger, discovered=${session?.discoveredBookCount ?: 0}, " +
+                        "updated=${session?.updatedBookCount ?: 0}, partial=${session?.partialBookCount ?: 0}, unavailable=${session?.unavailableBookCount ?: 0}"
+                )
+            }
+            ScanOutcomeKind.BLOCKED ->
+                ScanWorkflowLogger.warn("scanService blocked: trigger=$trigger, message=${outcome.message?.mergeKey}")
+            ScanOutcomeKind.RETRY ->
+                ScanWorkflowLogger.warn("scanService retry: trigger=$trigger, message=${outcome.message?.mergeKey}", outcome.cause)
+            ScanOutcomeKind.FAILED ->
+                ScanWorkflowLogger.error("scanService failed: trigger=$trigger, message=${outcome.message?.mergeKey}", outcome.cause)
         }
-        // Scan Toast Detail Suffix (Partial and replacement reporting)
-        // Appends resolved replacement and partial-import counts after the neutral completion message now that review-pending scans no longer exist.
-        val updatedSuffix = if (session.updatedBookCount > 0) "，更新了 ${session.updatedBookCount} 本书籍" else ""
-        val partialSuffix = if (session.partialBookCount > 0) "，其中 ${session.partialBookCount} 本为部分导入" else ""
-        playbackManager.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(message + updatedSuffix + partialSuffix))
+    }
+
+    private fun emitScanOutcomeFeedback(outcome: ScanOutcome) {
+        // Outcome Feedback Emission (Publishes the policy-selected user message once per scan command)
+        // Both manual scans and WorkManager-triggered scans now use the same outcome text instead of separate service/worker mappings.
+        outcome.message?.let { message -> appEventSink.showToast(message) }
     }
 
     override fun close() {

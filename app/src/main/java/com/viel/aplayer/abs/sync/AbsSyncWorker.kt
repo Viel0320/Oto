@@ -8,7 +8,6 @@ import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
 import com.viel.aplayer.logger.AbsSyncLogger
-import com.viel.aplayer.ui.common.UiEvent
 
 class AbsSyncWorker(
     context: Context,
@@ -19,7 +18,9 @@ class AbsSyncWorker(
         // Worker Execution Logging (Distinguishes worker lifecycle states)
         // Logs startup separately so diagnostics can tell queued work from actually executed work.
         AbsSyncLogger.logWorkerStart(rootId)
-        val container = APlayerApplication.getContainer(applicationContext)
+        // ABS Sync Worker Dependency Resolution (Fetch only feedback and catalog-sync capabilities)
+        // The worker should not learn settings, playback, or VFS dependencies while mirroring a single ABS root.
+        val workerDependencies = APlayerApplication.getAbsSyncWorkerDependencies(applicationContext)
         val preflight = LibraryRootStore(applicationContext).refreshRootStatus(rootId)
             ?: return Result.failure()
         if (!preflight.isSyncAvailable) {
@@ -31,12 +32,14 @@ class AbsSyncWorker(
                 errorClass = "RootUnavailable",
                 message = message
             )
-            container.playbackManager.sendUiEvent(UiEvent.ShowToast(message))
+            // Worker Feedback Dispatch (Use the app-level sink instead of the playback event bus)
+            // WorkManager runs outside the UI lifecycle, so user-facing sync messages must go through the process-wide feedback seam.
+            workerDependencies.appEventSink.showToast(message)
             return Result.failure()
         }
         val root = preflight.root
         return runCatching {
-            container.absCatalogSynchronizer.syncRoot(root)
+            workerDependencies.absCatalogSynchronizer.syncRoot(root)
             AbsSyncLogger.logWorkerSuccess(rootId)
             Result.success()
         }.getOrElse { error ->

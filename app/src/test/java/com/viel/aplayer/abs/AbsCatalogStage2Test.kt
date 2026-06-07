@@ -35,7 +35,6 @@ import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
-import com.viel.aplayer.media.BookPlaybackPlan
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -51,7 +50,7 @@ class AbsCatalogStage2Test {
 
     private val idMapper = AbsRemoteIdMapper()
     private val progressMapper = AbsProgressMapper()
-    private val catalogMapper = AbsCatalogMapper(idMapper, progressMapper)
+    private val catalogMapper = AbsCatalogMapper(idMapper)
 
     @Test
     fun `remote id mapper must be stable and scoped by user plus server`() {
@@ -167,7 +166,7 @@ class AbsCatalogStage2Test {
     }
 
     @Test
-    fun `catalog sync should apply authorize media progress when item detail omits progress`() = runBlocking {
+    fun `catalog sync should leave authorize media progress to authorized synchronizer`() = runBlocking {
         val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
         val root = LibraryRootEntity(
             id = idMapper.rootId(serverKey, "lib-1"),
@@ -201,11 +200,10 @@ class AbsCatalogStage2Test {
         synchronizer.syncRootWithSummary(root)
 
         val bookId = idMapper.bookId(serverKey, "item-1")
-        // Authorize Media Progress Adoption (Locks the real ABS 2.35.x payload shape)
-        // Library item detail responses can omit progress, so catalog sync must merge user.mediaProgress before mapping readStatus and BookProgress.
-        assertEquals(AudiobookSchema.ReadStatus.IN_PROGRESS, catalogStore.books[bookId]?.readStatus)
-        assertEquals(12_500L, catalogStore.progress[bookId]?.globalPositionMs)
-        assertEquals(999L, catalogStore.progress[bookId]?.lastPlayedAt)
+        // Catalog Progress Exclusion (Locks the catalog synchronizer to structural materialization only)
+        // Authorized media progress is present in the response, but this path must not write playback state without the dedicated progress synchronizer.
+        assertEquals(AudiobookSchema.ReadStatus.NOT_STARTED, catalogStore.books[bookId]?.readStatus)
+        assertNull(catalogStore.progress[bookId])
     }
 
     @Test
@@ -556,7 +554,6 @@ class AbsCatalogStage2Test {
         var syncState: AbsSyncStateEntity? = null
     ) : AbsCatalogStore {
         override suspend fun getBookById(bookId: String): BookEntity? = books[bookId]
-        override suspend fun getProgressByBookId(bookId: String): BookProgressEntity? = progress[bookId]
         override suspend fun getMirrorsByRootId(rootId: String): List<AbsItemMirrorEntity> =
             mirrors.values.filter { mirror -> mirror.rootId == rootId }
         override suspend fun getSyncState(rootId: String): AbsSyncStateEntity? =
@@ -565,14 +562,12 @@ class AbsCatalogStage2Test {
             book: BookEntity,
             files: List<BookFileEntity>,
             chapters: List<ChapterEntity>,
-            progress: BookProgressEntity?,
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
         ) {
+            // Catalog Store Fixture Scope (Mirrors the production boundary by avoiding progress writes during catalog upsert)
+            // Progress remains available to FakeProgressGateway so authorized progress tests can prove the separate merge path.
             books[book.id] = book
-            if (progress != null) {
-                this.progress[book.id] = progress
-            }
             mirrors[mirror.remoteItemId] = mirror
             this.syncState = syncState
         }
@@ -611,7 +606,6 @@ class AbsCatalogStage2Test {
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit
         override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = files[bookId].orEmpty()
         override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = getFilesForBookSync(bookId)
-        override suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = null
         override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
         override fun getChapters(bookId: String): Flow<List<com.viel.aplayer.data.entity.ChapterWithBookFile>> = flowOf(emptyList())
         override suspend fun getChaptersForBookSync(bookId: String): List<com.viel.aplayer.data.entity.ChapterWithBookFile> = emptyList()
@@ -631,8 +625,5 @@ class AbsCatalogStage2Test {
         }
         override suspend fun getLastPlayedProgressSync(): BookProgressEntity? = progress.values.maxByOrNull { it.lastPlayedAt }
         override suspend fun getProgressForBookSync(bookId: String): BookProgressEntity? = progress[bookId]
-        override suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = true
-        override suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) = Unit
-        override suspend fun findNextAvailablePlaybackFile(bookId: String, afterQueueIndex: Int): Pair<Int, BookFileEntity>? = null
     }
 }

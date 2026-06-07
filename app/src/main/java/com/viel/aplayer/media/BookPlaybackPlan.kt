@@ -2,7 +2,7 @@ package com.viel.aplayer.media
 
 import android.net.Uri
 import com.viel.aplayer.data.entity.BookFileEntity
-import com.viel.aplayer.ui.player.components.SubtitleLine
+import com.viel.aplayer.media.subtitle.SubtitleLine
 
 /**
  * Playback Plan Configuration (Defines structure and properties for playing a specific book)

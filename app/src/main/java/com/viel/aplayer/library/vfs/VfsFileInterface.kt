@@ -14,6 +14,14 @@ import java.io.InputStream
 import java.util.concurrent.ConcurrentHashMap
 
 /**
+ * Playback Stream Reader Boundary (Narrows Media3 data-source access to offset stream acquisition)
+ * Keeps playback callers dependent on a single VFS read capability instead of the full directory, range-cache, and descriptor facade.
+ */
+interface VfsPlaybackStreamReader {
+    suspend fun openPlaybackStream(file: BookFileEntity, offset: Long): InputStream?
+}
+
+/**
  * VfsFileInterface (Read-only VFS facade)
  *
  * Responsibilities:
@@ -28,7 +36,7 @@ class VfsFileInterface(
     private val libraryRootDao: LibraryRootDao? = null,
     private val rootsById: Map<String, LibraryRootEntity> = emptyMap(),
     rangeCache: VfsRangeCache? = null
-) {
+) : VfsPlaybackStreamReader {
     private val vfs = VirtualFileSystem(LibrarySourceProviderFactory(context.applicationContext))
     private val cachedRangeReader = rangeCache?.let { cache ->
         // Metadata Range Cache Decorator (Wraps only bounded readRange calls)
@@ -68,6 +76,11 @@ class VfsFileInterface(
         val node = directOpenNode(root, file)
         return vfs.openInputStream(node, offset)
     }
+
+    override suspend fun openPlaybackStream(file: BookFileEntity, offset: Long): InputStream? =
+        // Playback Stream Delegation (Routes Media3 offset opens through the same VFS hot path)
+        // This lets tests inject only playback stream behavior while production keeps provider-specific seek handling unchanged.
+        open(file, offset)
 
     suspend fun open(node: VfsNode): InputStream? =
         vfs.openInputStream(node)

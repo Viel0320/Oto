@@ -2,7 +2,7 @@ package com.viel.aplayer.ui.player
 
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
-import com.viel.aplayer.ui.player.components.SubtitleLine
+import com.viel.aplayer.media.subtitle.SubtitleLine
 
 /**
  * Book metadata state (Model caching static metadata values of loaded audiobook)

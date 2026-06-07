@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.home
 
-// Import globally defined one-off UI feedback events to decouple module-specific LibraryUiEvents.
 // UseCase Import Update: Align imports with the domain usecase package for DeleteBookUseCase.
 import android.app.Application
 import android.net.Uri
@@ -11,38 +10,37 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
-import com.viel.aplayer.ui.common.UiEvent
-import kotlinx.coroutines.flow.MutableSharedFlow
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.Collator
 import java.util.Locale
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
-    private val container = (application as APlayerApplication).container
-    // Target Facade (Transitioned to high-level LibraryFacade gateway for domain isolation)
-    private val libraryFacade = container.libraryFacade
-    private val settingsRepository = container.settingsRepository
+    // Home Screen Dependency View (Resolve only home scene, settings, deletion use cases, and feedback needed by Home)
+    // This keeps LibraryViewModel from seeing playback runtime, ABS worker, or VFS dependencies.
+    private val homeDependencies = APlayerApplication.getHomeScreenDependencies(application)
+    // Home Library Scene Surface (Consumes the home-scoped read model and commands instead of the full library bus)
+    // This makes the home catalog dependency narrow while deeper projections can move into the read model later.
+    private val homeLibraryReadModel = homeDependencies.homeLibraryReadModel
+    private val homeLibraryUseCases = homeDependencies.homeLibraryUseCases
+    private val settingsRepository = homeDependencies.settingsRepository
+    // Application Event Sink (Routes home feedback through the process-wide UI event stream)
+    // The home ViewModel no longer owns a local toast flow, so app-shell rendering stays centralized.
+    private val appEventSink = homeDependencies.appEventSink
 
     /**
      * Library Root Deletion UseCase (Cross-domain coordinator to handle clean removal of library roots)
      */
-    private val deleteLibraryRootUseCase = container.deleteLibraryRootUseCase
+    private val deleteLibraryRootUseCase = homeDependencies.deleteLibraryRootUseCase
 
     /**
      * Book Deletion UseCase (Cross-domain coordinator to handle safe removal of individual books)
      */
-    private val deleteBookUseCase = container.deleteBookUseCase
-
-    // One-Off Event Stream (Utilizes a unified, global `UiEvent` channel instead of module-level definitions)
-    // Enhances domain purity by removing dependency on feature-specific UI event classes.
-    private val _uiEvents = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
-    val uiEvents: SharedFlow<UiEvent> = _uiEvents.asSharedFlow()
+    private val deleteBookUseCase = homeDependencies.deleteBookUseCase
 
     // User Selection Filter (Initially null, indicating no explicit user action has occurred)
     // When null, the combine stream resolves filter attributes via a strict priority chain.
@@ -50,7 +48,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _selectedFilter = MutableStateFlow<HomeFilter?>(null)
 
     val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
-        libraryFacade.audiobooks,
+        homeLibraryReadModel.audiobooks,
         _selectedFilter,
         settingsRepository.settingsFlow
     ) { audiobooks, userSelection, appSettings ->
@@ -183,8 +181,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     init {
-        // Cold start scan queue (Submitted to LibraryFacade to keep VM isolated from WorkManager configurations)
-        libraryFacade.scheduleLibrarySync("COLD_START")
+        // Cold Start Scan Queue (Submitted to the home scene use case to hide WorkManager trigger details)
+        homeLibraryUseCases.scheduleColdStartSync()
         // Home Filter Startup Policy (Preserve explicit and persisted category selection)
         // Cold start no longer rewrites HOME_FILTER from library contents, so in-progress books cannot override the user's saved Home category.
     }
@@ -194,35 +192,28 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             // Coordinate Book Deletion: Use the unified domain DeleteBookUseCase to cleanly remove the book and stop playback.
             val fileExists = deleteBookUseCase.invoke(bookId)
 
-            // Dispatch feedback toast via the global `UiEvent` stream
-            val fileStatus = if (fileExists) "源文件已保留" else "源文件已丢失或不存在"
-            val message = "书籍已从媒体库移除\n$fileStatus"
-            _uiEvents.tryEmit(UiEvent.ShowToast(message))
+            // Deletion Feedback Dispatch (Send home deletion status through the application event sink)
+            // This keeps Toast rendering outside the ViewModel while avoiding another feature-local event stream.
+            appEventSink.showToast(FeedbackMessages.homeBookDeleted(sourceFileKept = fileExists))
         }
     }
 
     // Update Reading State: Updates user progress status in database and dispatches feedback toasts.
     fun updateBookReadStatus(bookId: String, readStatus: String) {
         viewModelScope.launch {
-            // Invoke read-status update on high-level facade
-            libraryFacade.updateBookReadStatus(bookId, readStatus)
-            val message = when (readStatus) {
-                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.NOT_STARTED -> "已标记为：未开始"
-                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.IN_PROGRESS -> "已标记为：进行中"
-                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.FINISHED -> "已标记为：已完成"
-                else -> "状态已更新"
-            }
-            _uiEvents.tryEmit(UiEvent.ShowToast(message))
+            // Home Read Status Command (Routes manual status changes through the home scene use case)
+            homeLibraryUseCases.updateReadStatus(bookId, readStatus)
+            appEventSink.showToast(FeedbackMessages.homeReadStatusUpdated(readStatus))
         }
     }
 
     // Reconstruct Metadata cache: Rebuilds localized graphics cover cache and maps raw values asynchronously.
     fun forceRegenerateCoverAndMetadata(bookId: String) {
         viewModelScope.launch {
-            _uiEvents.tryEmit(UiEvent.ShowToast("正在重建封面与元数据..."))
-            // Re-render caching assets and tags via high-level facade
-            libraryFacade.forceRegenerateCoverAndMetadata(bookId)
-            _uiEvents.tryEmit(UiEvent.ShowToast("封面与元数据重建已完成"))
+            appEventSink.showToast(FeedbackMessages.homeCoverMetadataRegenerationStarted())
+            // Home Metadata Refresh Command (Keeps regeneration behind the home scene command surface)
+            homeLibraryUseCases.regenerateCoverAndMetadata(bookId)
+            appEventSink.showToast(FeedbackMessages.homeCoverMetadataRegenerationCompleted())
         }
     }
 
@@ -252,8 +243,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onLibraryRootSelected(uri: Uri) {
-        // Delegate directory mapping, root import, and synchronization tasks to the LibraryFacade
-        libraryFacade.addLibraryRootAndScheduleSync(uri)
+        // Home Root Import Command (Delegates root registration and sync scheduling through the home scene use case)
+        homeLibraryUseCases.addLocalRootAndScheduleSync(uri)
     }
 
     // Remove Library Root: Revokes directory permission, handles safe teardown of playback streams, and deletes metadata.
@@ -261,16 +252,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             // Execute deletion through high-level coordinator to prevent reverse dependencies.
             val playbackWasStopped = deleteLibraryRootUseCase.invoke(root)
-            val message = if (playbackWasStopped) {
-                "媒体库已移除，当前播放已停止"
-            } else {
-                "媒体库已移除"
-            }
-            android.widget.Toast.makeText(
-                getApplication(),
-                message,
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
+            // Root Removal Feedback Dispatch (Use the app-level sink instead of constructing Toast in the ViewModel)
+            // This keeps the Home route on the same event rendering path as Settings, scan, and playback feedback.
+            appEventSink.showToast(FeedbackMessages.settingsLibraryRootRemoved(playbackWasStopped))
         }
     }
 
@@ -278,13 +262,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearSearchHistory() {
         viewModelScope.launch {
-            // Clean queries array via high-level facade
-            libraryFacade.clearHistory()
+            // Home Search History Cleanup (Uses the home scene command so LibraryViewModel does not depend on SearchHistoryGateway directly)
+            homeLibraryUseCases.clearSearchHistory()
         }
     }
 
     fun triggerRescan() {
-        // Dispatch manual rescan request queue
-        libraryFacade.scheduleLibrarySync("USER")
+        // Home Manual Scan Command (Keeps the literal trigger label inside the home scene use case)
+        homeLibraryUseCases.scheduleUserSync()
     }
 }

@@ -1,10 +1,8 @@
 package com.viel.aplayer.data.service
 
 import com.viel.aplayer.data.dao.BookDao
-import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.gateway.ProgressGateway
-import com.viel.aplayer.library.availability.PlaybackReachabilityManager
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -18,12 +16,11 @@ import kotlinx.coroutines.withContext
  * Playback Progress Tracking Application Service (Implements ProgressGateway)
  * 
  * Core Design Goals:
- * 1. Eradicate God-Class Repositories: Connects BookDao and PlaybackReachabilityManager in the M6b phase, fully decoupling from the legacy PlaybackHistoryRepository.
- * 2. Bounded Concurrency Progress Synchronization: Manages a private coroutine scope to process high-frequency status swaps (e.g. finished thresholds, failover checks, ENOENT corrections).
+ * 1. Eradicate God-Class Repositories: Connects BookDao while staying fully decoupled from the legacy PlaybackHistoryRepository.
+ * 2. Bounded Concurrency Progress Synchronization: Manages a private coroutine scope to process high-frequency position writes.
  */
 class ProgressService(
-    private val bookDao: BookDao,
-    private val reachabilityManager: PlaybackReachabilityManager
+    private val bookDao: BookDao
 ) : ProgressGateway, java.io.Closeable {
 
     // Private Coroutine Exception Handler (Asynchronous tracking fault barrier)
@@ -63,27 +60,6 @@ class ProgressService(
         // Targeted Progress Fetch (Single-book conflict resolution lookup)
         // Reads the exact local checkpoint required by ABS progress arbitration without routing through broad catalog flows.
         bookDao.getProgressForBookSync(bookId)
-    }
-
-    override suspend fun checkCurrentPlaybackFileAvailability(bookId: String): Boolean = withContext(Dispatchers.IO) {
-        // Access-Control Authorization Verification (Physical reachability audit)
-        // Delegates to the reachability manager to verify permissions and physical existences before starting playback.
-        reachabilityManager.checkCurrentPlaybackFileAvailability(bookId)
-    }
-
-    override suspend fun markPlaybackFileUnavailable(bookId: String, queueIndex: Int) = withContext(Dispatchers.IO) {
-        // Mark Corrupt Ingested Track (Playback crash resilience)
-        // Flags the current track as invalid and timestamps the failover attempt when ExoPlayer throws IO exceptions.
-        reachabilityManager.markPlaybackFileUnavailable(bookId, queueIndex)
-    }
-
-    override suspend fun findNextAvailablePlaybackFile(
-        bookId: String,
-        afterQueueIndex: Int
-    ): Pair<Int, BookFileEntity>? = withContext(Dispatchers.IO) {
-        // Resolve Sibling Failover Track (Disaster recovery scan)
-        // Searches the queue sequentially to match the next available track when active files are missing or unreadable.
-        reachabilityManager.findNextAvailablePlaybackFile(bookId, afterQueueIndex)
     }
 
     override fun close() {

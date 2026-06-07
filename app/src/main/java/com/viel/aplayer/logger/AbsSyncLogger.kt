@@ -123,10 +123,12 @@ internal object AbsSyncLogger {
         )
     }
 
-    fun logUpsertItem(rootId: String, itemId: String?, bookId: String, fileCount: Int, chapterCount: Int, hasProgress: Boolean) {
+    // Catalog Upsert Log Scope (Keeps catalog sync logging aligned with structural writes only)
+    // Remote progress is reported by authorized progress logs, so this message records only the book, file, and chapter materialization counts.
+    fun logUpsertItem(rootId: String, itemId: String?, bookId: String, fileCount: Int, chapterCount: Int) {
         AbsLogEmitter.debug(
             TAG,
-            "upsert item: rootId=${AbsLogSanitizer.shortId(rootId)}, itemId=${AbsLogSanitizer.shortId(itemId)}, bookId=${AbsLogSanitizer.shortId(bookId)}, files=$fileCount, chapters=$chapterCount, hasProgress=$hasProgress"
+            "upsert item: rootId=${AbsLogSanitizer.shortId(rootId)}, itemId=${AbsLogSanitizer.shortId(itemId)}, bookId=${AbsLogSanitizer.shortId(bookId)}, files=$fileCount, chapters=$chapterCount"
         )
     }
 

@@ -2,12 +2,9 @@ package com.viel.aplayer.abs.sync
 
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.mapping.AbsCatalogMapper
-import com.viel.aplayer.abs.mapping.AbsProgressConflictResolver
-import com.viel.aplayer.abs.mapping.AbsProgressMapper
 import com.viel.aplayer.abs.mapping.AbsRemoteIdMapper
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.dto.AbsLibraryItemDto
-import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.cache.CoverCacheInvalidationPolicy
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -22,9 +19,7 @@ class AbsCatalogSynchronizer(
     private val catalogStore: AbsCatalogStore,
     private val coverCache: AbsCoverStore? = null,
     private val idMapper: AbsRemoteIdMapper = AbsRemoteIdMapper(),
-    private val progressMapper: AbsProgressMapper = AbsProgressMapper(),
-    private val progressConflictResolver: AbsProgressConflictResolver = AbsProgressConflictResolver(),
-    private val catalogMapper: AbsCatalogMapper = AbsCatalogMapper(idMapper, progressMapper),
+    private val catalogMapper: AbsCatalogMapper = AbsCatalogMapper(idMapper),
     private val authorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer? = null,
     private val batchSize: Int = 20
 ) {
@@ -100,11 +95,6 @@ class AbsCatalogSynchronizer(
         }
         val authorization = apiClient.authorize(credential.baseUrl, credential.token)
         val userId = authorization.user?.id
-        val mediaProgressByItemId = authorization.user?.mediaProgress.orEmpty()
-            .mapNotNull { progress ->
-                progress.libraryItemId?.takeIf { itemId -> itemId.isNotBlank() }?.let { itemId -> itemId to progress }
-            }
-            .toMap()
         val serverKey = idMapper.serverKey(credential.baseUrl, userId)
         val now = System.currentTimeMillis()
         val syncRunId = UUID.randomUUID().toString()
@@ -114,16 +104,14 @@ class AbsCatalogSynchronizer(
         val existingSync = catalogStore.getSyncState(root.id)
         val minifiedItems = minified.results.orEmpty()
         val currentFingerprint = minifiedFingerprint(minifiedItems)
-        val minifiedItemIds = minifiedItems.mapNotNull { item -> item.id }.toSet()
-        val progressCandidateIds = mediaProgressByItemId.keys.filter { itemId -> itemId in minifiedItemIds }
-        val detailCandidateIds = (
-            selectAbsDetailCandidateIds(
-                minifiedItems = minifiedItems,
-                existingMirrors = existingMirrors,
-                previousFullListFingerprint = existingSync?.fullListFingerprint,
-                currentFullListFingerprint = currentFingerprint
-            ) + progressCandidateIds
-            ).distinct()
+        // Catalog Detail Candidate Scope (Selects detail fetches only from catalog freshness rules)
+        // Authorized progress no longer expands this queue because progress merging runs after structural catalog rows exist.
+        val detailCandidateIds = selectAbsDetailCandidateIds(
+            minifiedItems = minifiedItems,
+            existingMirrors = existingMirrors,
+            previousFullListFingerprint = existingSync?.fullListFingerprint,
+            currentFullListFingerprint = currentFingerprint
+        )
         AbsSyncLogger.logIncrementalSelection(
             rootId = root.id,
             totalItems = minifiedItems.size,
@@ -203,9 +191,9 @@ class AbsCatalogSynchronizer(
                 }
             )
         }
-        val detailById = detailItems
-            .map { item -> item.withAuthorizedProgress(mediaProgressByItemId[item.id]) }
-            .associateBy { item -> item.id }
+        // Catalog Detail Mapping (Keeps remote progress out of book/file/chapter materialization)
+        // Authorized progress is merged after catalog rows exist, through AbsAuthorizedProgressSynchronizer.
+        val detailById = detailItems.associateBy { item -> item.id }
         val reusedMirrors = mutableListOf<AbsItemMirrorEntity>()
         for (minifiedItem in minifiedItems) {
             val remoteItemId = minifiedItem.id ?: continue
@@ -304,7 +292,7 @@ class AbsCatalogSynchronizer(
             )
         )
         // Authorized Progress Final Merge (Routes the full user progress snapshot through the shared merger after catalog materialization)
-        // Catalog item overlays only cover fetched detail rows, while this pass also updates reused mirrored books with resolver-approved progress.
+        // Catalog sync now materializes only books, files, chapters, mirrors, and sync state before this dedicated progress pass runs.
         val authorizedProgressSummary = runCatching {
             authorizedProgressSynchronizer?.mergeAuthorizedProgress(
                 root = root,
@@ -374,7 +362,9 @@ class AbsCatalogSynchronizer(
             syncedAt = now,
             remoteVersionChanged = remoteVersionChanged
         )
-        val initialBook = catalogMapper.toBook(
+        // Catalog-Only Book Mapping (Builds metadata without applying remote progress or read-status overrides)
+        // Playback state reconciliation is centralized in AbsAuthorizedProgressSynchronizer to keep catalog writes deterministic.
+        val book = catalogMapper.toBook(
             root = root,
             serverKey = serverKey,
             item = item,
@@ -387,25 +377,6 @@ class AbsCatalogSynchronizer(
         )
         val files = catalogMapper.toFiles(root, serverKey, item)
         val chapters = catalogMapper.toChapters(serverKey, item, files)
-        val localProgress = catalogStore.getProgressByBookId(initialBook.id)
-        val shouldApplyRemoteProgress = progressConflictResolver.shouldApplyRemoteProgress(
-            local = localProgress,
-            remote = item.progress,
-            isCurrentlyPlaying = false,
-            localReadStatus = existingBookEntity?.readStatus
-        )
-        // Remote Progress Adoption Gate (Avoids silent overwrite of divergent device progress during catalog sync)
-        // Catalog metadata can refresh freely, but remote progress is inserted only after the shared conflict resolver permits it.
-        val progress = if (shouldApplyRemoteProgress) {
-            progressMapper.toProgressOrNull(item, initialBook, files, now)
-        } else {
-            null
-        }
-        val book = if (progress == null && item.progress != null && existingBookEntity != null) {
-            initialBook.copy(readStatus = existingBookEntity.readStatus)
-        } else {
-            initialBook
-        }
         val mirror = AbsItemMirrorEntity(
             localBookId = book.id,
             rootId = root.id,
@@ -432,18 +403,17 @@ class AbsCatalogSynchronizer(
             book = book,
             files = files,
             chapters = chapters,
-            progress = progress,
             mirror = mirror,
             syncState = syncState
         )
-        // Logging plan results at item level.
+        // Catalog Item Materialization Log (Reports only catalog-shaped rows written by this synchronizer)
+        // Remote progress is excluded from this log because it is handled by the authorized progress synchronizer.
         AbsSyncLogger.logUpsertItem(
             rootId = root.id,
             itemId = item.id,
             bookId = book.id,
             fileCount = files.size,
-            chapterCount = chapters.size,
-            hasProgress = progress != null
+            chapterCount = chapters.size
         )
     }
 
@@ -578,23 +548,6 @@ class AbsCatalogSynchronizer(
         private const val MAX_DETAIL_RETRY_ATTEMPTS = 3
     }
 }
-
-/**
- * Authorized Progress Overlay (Combines user-scoped progress with item metadata responses)
- * Audiobookshelf can return progress only from authorize.user.mediaProgress while minified or batch item payloads omit it, so catalog sync overlays the fresher user progress before mapping readStatus and BookProgress.
- */
-private fun AbsLibraryItemDto.withAuthorizedProgress(authorizedProgress: AbsUserProgressDto?): AbsLibraryItemDto {
-    val mergedProgress = newerProgress(progress, authorizedProgress)
-    return if (mergedProgress === progress) this else copy(progress = mergedProgress)
-}
-
-private fun newerProgress(itemProgress: AbsUserProgressDto?, authorizedProgress: AbsUserProgressDto?): AbsUserProgressDto? =
-    when {
-        itemProgress == null -> authorizedProgress
-        authorizedProgress == null -> itemProgress
-        (authorizedProgress.lastUpdate ?: Long.MIN_VALUE) > (itemProgress.lastUpdate ?: Long.MIN_VALUE) -> authorizedProgress
-        else -> itemProgress
-    }
 
 /**
  * Playability Inspection (Verifies item format criteria to ensure that the parsed entity possesses valid media tracks)

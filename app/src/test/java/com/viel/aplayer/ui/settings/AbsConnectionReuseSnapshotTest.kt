@@ -2,6 +2,8 @@ package com.viel.aplayer.ui.settings
 
 import com.viel.aplayer.abs.net.dto.AbsLibraryDto
 import com.viel.aplayer.abs.sync.AbsConnectionTestResult
+import com.viel.aplayer.domain.usecase.AbsConnectionReuseSnapshot
+import com.viel.aplayer.domain.usecase.shouldReuseAbsConnectionSnapshot
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

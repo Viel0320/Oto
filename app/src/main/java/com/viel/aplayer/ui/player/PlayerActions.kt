@@ -39,9 +39,9 @@ fun PlayerViewModel.rememberActions(onDeleteBook: (String) -> Unit = {}): Player
                 onAdjustVolume = { delta -> viewModel.adjustVolume(delta) },
                 onNextChapter = { viewModel.skipToNextChapter() },
                 onPreviousChapter = { viewModel.skipToPreviousChapter() },
-                // Map local visual toast actions (To route toast notifications into ViewModel scope)
-                // Dispatches string messages into standard UI event flow.
-                onShowToast = { msg -> viewModel.sendUiEvent(com.viel.aplayer.ui.common.UiEvent.ShowToast(msg)) }
+                // Map Local Visual Toast Actions (Route player-control tips into the app event sink)
+                // Player controls report plain messages while the app shell remains the only Toast renderer.
+                onShowToast = { msg -> viewModel.showToast(msg) }
             ),
             bookmarks = BookmarkActions(
                 onDelete = { bookmark -> viewModel.deleteBookmark(bookmark) },

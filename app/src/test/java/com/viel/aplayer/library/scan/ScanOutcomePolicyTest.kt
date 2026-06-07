@@ -1,0 +1,113 @@
+package com.viel.aplayer.library.scan
+
+import com.viel.aplayer.R
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.library.availability.AvailabilityResult
+import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.IOException
+
+class ScanOutcomePolicyTest {
+
+    @Test
+    fun `completed session with discovered books maps to success outcome`() {
+        val session = scanSession(discovered = 2)
+
+        val outcome = ScanOutcomePolicy.fromCompletedSession(
+            session = session,
+            isLibraryEmpty = false
+        )
+
+        // Successful Scan Outcome (Maps persisted scan counts into the shared command result)
+        // Both manual scans and WorkManager observe this same success category and user-facing message.
+        assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
+        assertEquals(session, outcome.session)
+        val message = outcome.message as FeedbackMessage.Resource
+        assertEquals(R.string.feedback_scan_completed_with_discovered_books, message.resId)
+        assertEquals(listOf(2), message.args)
+    }
+
+    @Test
+    fun `partial imports or skipped roots map to partial outcome`() {
+        val session = scanSession(updated = 1, partial = 1)
+        val skippedRoot = LibraryRootAvailabilityUpdate(
+            root = LibraryRootEntity(
+                id = "root-1",
+                sourceType = AudiobookSchema.LibrarySourceType.WEBDAV,
+                sourceUri = "https://example.com/dav",
+                displayName = "Remote Shelf"
+            ),
+            availability = AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.TIMEOUT)
+        )
+
+        val outcome = ScanOutcomePolicy.fromCompletedSession(
+            session = session,
+            isLibraryEmpty = false,
+            skippedRoots = listOf(skippedRoot)
+        )
+
+        // Partial Scan Outcome (Preserves soft failures inside one command result)
+        // The policy keeps partial imports and skipped roots together so callers avoid emitting competing scan messages.
+        assertEquals(ScanOutcomeKind.PARTIAL, outcome.kind)
+        val message = outcome.message as FeedbackMessage.Composite
+        assertTrue(message.parts.any { part ->
+            part is FeedbackMessage.Resource && part.resId == R.string.feedback_scan_suffix_updated && part.args == listOf(1)
+        })
+        assertTrue(message.parts.any { part ->
+            part is FeedbackMessage.Resource && part.resId == R.string.feedback_scan_suffix_partial && part.args == listOf(1)
+        })
+        assertTrue(message.parts.any { part ->
+            part is FeedbackMessage.RawText && part.value.contains("Remote Shelf")
+        })
+    }
+
+    @Test
+    fun `blocked scan without reachable roots maps to blocked outcome without session`() {
+        val outcome = ScanOutcomePolicy.blocked(emptyList())
+
+        // Blocked Scan Outcome (Represents a valid no-work command instead of a runner failure)
+        // No ScanSessionEntity exists because the runner should not start when no directory root is available.
+        assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
+        assertNull(outcome.session)
+        val message = outcome.message as FeedbackMessage.Resource
+        assertEquals(R.string.feedback_scan_blocked_no_directory_roots, message.resId)
+    }
+
+    @Test
+    fun `io failures request retry while logic failures fail permanently`() {
+        val retry = ScanOutcomePolicy.fromFailure(IOException("network down"))
+        val failed = ScanOutcomePolicy.fromFailure(IllegalStateException("bad state"))
+
+        // Failure Classification Outcome (Separates transient infrastructure faults from permanent command failures)
+        // WorkManager adapters can use these categories without duplicating exception mapping logic.
+        assertEquals(ScanOutcomeKind.RETRY, retry.kind)
+        assertEquals(ScanOutcomeKind.FAILED, failed.kind)
+        val retryMessage = retry.message as FeedbackMessage.Resource
+        val failedMessage = failed.message as FeedbackMessage.Resource
+        assertEquals(R.string.feedback_scan_retry_later, retryMessage.resId)
+        assertEquals(R.string.feedback_scan_failed, failedMessage.resId)
+        assertEquals(listOf("bad state"), failedMessage.args)
+    }
+
+    private fun scanSession(
+        discovered: Int = 0,
+        unavailable: Int = 0,
+        partial: Int = 0,
+        updated: Int = 0
+    ): ScanSessionEntity =
+        ScanSessionEntity(
+            id = "scan-1",
+            trigger = AudiobookSchema.ScanTrigger.USER,
+            status = AudiobookSchema.ScanStatus.COMPLETED,
+            discoveredBookCount = discovered,
+            unavailableBookCount = unavailable,
+            partialBookCount = partial,
+            updatedBookCount = updated
+        )
+}

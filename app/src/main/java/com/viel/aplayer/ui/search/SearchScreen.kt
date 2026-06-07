@@ -67,6 +67,63 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
 /**
+ * Search Screen (Stateless search screen adapter)
+ *
+ * Receives all state and callbacks from SearchRoute, then forwards them to the stateless SearchContent.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchScreen(
+    modifier: Modifier = Modifier,
+    query: TextFieldValue,
+    searchResults: List<BookWithProgress>,
+    searchHistory: List<SearchHistoryEntry>,
+    onQueryChange: (TextFieldValue) -> Unit,
+    onSearch: (String) -> Unit,
+    onClearQuery: () -> Unit,
+    onDeleteHistory: (SearchHistoryEntry) -> Unit,
+    onClearHistory: () -> Unit,
+    onBack: () -> Unit,
+    /*
+     * Active Search Detail Book Id (Search result source visibility selector)
+     *
+     * Forwarded from the overlay host so stateless SearchContent can hide only the selected
+     * search-result cover during the Search -> Detail shared-element handoff.
+     */
+    activeSearchDetailBookId: String? = null,
+    onNavigateToDetail: (String) -> Unit,
+    onLoadBook: (String) -> Unit,
+    onNavigateToPlayer: () -> Unit,
+    // Haze Screen Input (Receives the already-owned app-level sampling source)
+    // SearchContent can render glass controls without gaining route or ViewModel responsibilities.
+    hazeState: HazeState? = null,
+    glassEffectMode: GlassEffectMode
+) {
+    // Search Content Delegation (Keep screen-level adapter thin and stateless)
+    // The adapter centralizes derived command suggestions while leaving SearchContent preview-friendly.
+    SearchContent(
+        query = query,
+        searchResults = searchResults,
+        searchHistory = searchHistory,
+        commandSuggestions = commandSuggestionsFor(query),
+        onQueryChange = onQueryChange,
+        onSearch = onSearch,
+        onClearQuery = onClearQuery,
+        onDeleteHistory = onDeleteHistory,
+        onClearHistory = onClearHistory,
+        onBack = onBack,
+        activeSearchDetailBookId = activeSearchDetailBookId,
+        onNavigateToDetail = onNavigateToDetail,
+        onLoadBook = onLoadBook,
+        onNavigateToPlayer = onNavigateToPlayer,
+        autoFocus = true,
+        hazeState = hazeState,
+        glassEffectMode = glassEffectMode,
+        modifier = modifier
+    )
+}
+
+/**
  * SearchContent Setup (Stateless Search Content UI)
  *
  * Pure stateless search content UI rendering component (Stateless).

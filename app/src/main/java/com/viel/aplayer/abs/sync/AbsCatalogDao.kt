@@ -7,23 +7,20 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
-import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 
 interface AbsCatalogStore {
     suspend fun getBookById(bookId: String): BookEntity?
-    /**
-     * Local Progress Lookup (Reads the current device checkpoint for ABS conflict checks)
-     * Defaulting to null keeps lightweight test stores compatible while the Room DAO provides the real implementation.
-     */
-    suspend fun getProgressByBookId(bookId: String): BookProgressEntity? = null
     suspend fun getMirrorsByRootId(rootId: String): List<AbsItemMirrorEntity>
     suspend fun getSyncState(rootId: String): AbsSyncStateEntity?
+    /**
+     * Catalog Mirror Materialization Boundary (Persists only the ABS catalog shape)
+     * Book progress is intentionally absent from this contract so remote progress must flow through AbsAuthorizedProgressSynchronizer.
+     */
     suspend fun upsertCatalogMirror(
         book: BookEntity,
         files: List<BookFileEntity>,
         chapters: List<ChapterEntity>,
-        progress: BookProgressEntity?,
         mirror: AbsItemMirrorEntity,
         syncState: AbsSyncStateEntity
     )
@@ -36,9 +33,6 @@ interface AbsCatalogStore {
 abstract class AbsCatalogDao : AbsCatalogStore {
     @Query("SELECT * FROM books WHERE id = :bookId")
     abstract override suspend fun getBookById(bookId: String): BookEntity?
-
-    @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
-    abstract override suspend fun getProgressByBookId(bookId: String): BookProgressEntity?
 
     @Query("SELECT * FROM abs_item_mirror WHERE rootId = :rootId")
     abstract override suspend fun getMirrorsByRootId(rootId: String): List<AbsItemMirrorEntity>
@@ -62,9 +56,6 @@ abstract class AbsCatalogDao : AbsCatalogStore {
     protected abstract suspend fun insertChapters(chapters: List<ChapterEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    protected abstract suspend fun insertProgressEntity(progress: BookProgressEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     protected abstract suspend fun insertMirrorsInternal(mirrors: List<AbsItemMirrorEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -78,7 +69,6 @@ abstract class AbsCatalogDao : AbsCatalogStore {
         book: BookEntity,
         files: List<BookFileEntity>,
         chapters: List<ChapterEntity>,
-        progress: BookProgressEntity?,
         mirror: AbsItemMirrorEntity,
         syncState: AbsSyncStateEntity
     ) {
@@ -91,9 +81,8 @@ abstract class AbsCatalogDao : AbsCatalogStore {
         if (chapters.isNotEmpty()) {
             insertChapters(chapters)
         }
-        if (progress != null) {
-            insertProgressEntity(progress)
-        }
+        // Catalog Materialization Scope (Persists catalog rows without applying remote listening state)
+        // Remote progress and read status are intentionally handled by AbsAuthorizedProgressSynchronizer after catalog rows exist.
         insertMirrorsInternal(listOf(mirror))
         insertSyncStateInternal(syncState)
     }

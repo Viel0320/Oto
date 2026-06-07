@@ -28,14 +28,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.viel.aplayer.media.subtitle.SubtitleLine
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import kotlin.time.Duration.Companion.milliseconds
-
-data class SubtitleLine(
-    val startTime: Long,
-    val endTime: Long,
-    val text: String
-)
 
 @Composable
 fun SubtitlesView(

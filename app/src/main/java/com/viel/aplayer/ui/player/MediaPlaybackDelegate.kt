@@ -1,7 +1,7 @@
 package com.viel.aplayer.ui.player
 
+import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.entity.ChapterEntity
-import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.media.BookPlaybackPlan
 import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.media.PlaybackManager
@@ -16,7 +16,9 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 class MediaPlaybackDelegate(
     private val playbackManager: () -> PlaybackManager?,
-    private val repository: BookQueryGateway,
+    // UI Facade Metadata Lookup (Keeps player-screen helpers on the same high-level facade seam as their owning ViewModel)
+    // The delegate only polls refreshed cover metadata after playback starts, so it should not bind UI code directly to granular query gateways.
+    private val libraryFacade: LibraryFacade,
     private val scope: CoroutineScope
 ) {
     fun play() = playbackManager()?.play()
@@ -37,7 +39,7 @@ class MediaPlaybackDelegate(
         // Poll cover path (To query updated thumbnail and cover paths sequentially)
         scope.launch {
             repeat(5) {
-                val book = repository.getBookById(plan.bookId)
+                val book = libraryFacade.getBookById(plan.bookId)
                 if (book != null && (book.coverPath != null || book.thumbnailPath != null)) {
                     // Player UI should use the cached thumbnail when available and fall back to the original cover.
                     onCoverUpdate(book.thumbnailPath ?: book.coverPath)

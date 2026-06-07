@@ -40,15 +40,17 @@ fun LibraryDirectoriesSection(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        SettingsSectionHeader(title = "媒体库管理")
+        SettingsSectionHeader(title = stringResource(R.string.settings_library_management_title))
         libraryRootDisplays.forEach { display ->
             val root = display.root
             val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
             val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
             val locationLine = display.selectedLibraryText
                 ?.takeIf { it.isNotBlank() }
-                ?.let { libraryName -> "位置：${display.locationText} · 当前书库：$libraryName" }
-                ?: "位置：${display.locationText}"
+                ?.let { libraryName ->
+                    stringResource(R.string.settings_library_location_with_abs, display.locationText, libraryName)
+                }
+                ?: stringResource(R.string.settings_library_location, display.locationText)
             
             Row(
                 modifier = Modifier
@@ -88,14 +90,18 @@ fun LibraryDirectoriesSection(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "最近同步：${display.lastSyncText} · 已导入：${display.importedBookCount} 本",
+                        text = stringResource(
+                            R.string.settings_library_sync_summary,
+                            display.lastSyncText,
+                            display.importedBookCount
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (isAbsRoot && display.lastError?.isNotBlank() == true) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "错误：${display.lastError}",
+                            text = stringResource(R.string.settings_library_error, display.lastError),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -104,8 +110,8 @@ fun LibraryDirectoriesSection(
             }
         }
         SettingsItem(
-            title = "添加媒体库",
-            subtitle = "支持本地 (SAF)、WebDAV、Audiobookshelf 服务器",
+            title = stringResource(R.string.settings_add_library_title),
+            subtitle = stringResource(R.string.settings_add_library_subtitle),
             icon = Icons.Rounded.FolderOpen,
             onClick = onAddLibraryClick
         )
@@ -126,11 +132,11 @@ fun InterfaceSettingsSection(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        SettingsSectionHeader(title = "界面效果")
+        SettingsSectionHeader(title = stringResource(R.string.settings_interface_effects_title))
         val isHaze = glassEffectMode == GlassEffectMode.Haze
         SettingsSegmentedThemeModeItem(
-            title = "夜间模式",
-            subtitle = "选择界面配色（跟随系统: 自动切换；浅色: 始终使用亮色调；深色: 始终使用暗色调）",
+            title = stringResource(R.string.settings_theme_mode_title),
+            subtitle = stringResource(R.string.settings_theme_mode_subtitle),
             icon = Icons.Rounded.LinearScale,
             selectedMode = if (isHaze) ThemeMode.Dark else themeMode,
             onModeSelected = onThemeModeChange,
@@ -138,16 +144,20 @@ fun InterfaceSettingsSection(
         )
         val isDynamicColorSupported = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
         SettingsToggleItem(
-            title = "Monet 动态取色",
-            subtitle = if (isDynamicColorSupported) "开启后，应用主题配色将自动从您的系统壁纸中提取" else "Monet 动态取色需要 Android 8.0 及以上系统版本",
+            title = stringResource(R.string.settings_dynamic_color_title),
+            subtitle = if (isDynamicColorSupported) {
+                stringResource(R.string.settings_dynamic_color_supported_subtitle)
+            } else {
+                stringResource(R.string.settings_dynamic_color_unsupported_subtitle)
+            },
             icon = Icons.Rounded.LinearScale,
             checked = isDynamicColorEnabled,
             onCheckedChange = onDynamicColorEnabledChange,
             enabled = isDynamicColorSupported
         )
         SettingsToggleItem(
-            title = "实验性模糊效果",
-            subtitle = "实验性支持部分界面的 background 模糊效果",
+            title = stringResource(R.string.settings_haze_effect_title),
+            subtitle = stringResource(R.string.settings_haze_effect_subtitle),
             icon = Icons.Rounded.LinearScale,
             checked = glassEffectMode == GlassEffectMode.Haze,
             onCheckedChange = { isChecked ->
@@ -175,7 +185,7 @@ fun PlaybackNetworkSection(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        SettingsSectionHeader(title = "播放与网络")
+        SettingsSectionHeader(title = stringResource(R.string.settings_playback_network_title))
         SettingsToggleItem(
             title = stringResource(R.string.chapter_progress_title),
             subtitle = stringResource(R.string.chapter_progress_subtitle),
@@ -184,23 +194,23 @@ fun PlaybackNetworkSection(
             onCheckedChange = onChapterProgressModeChange
         )
         SettingsToggleItem(
-            title = "允许明文 HTTP 流量",
-            subtitle = "允许应用播放和加载不安全的 http:// 网络有声书源。建议保持关闭以维持最高安全边界。",
+            title = stringResource(R.string.settings_cleartext_title),
+            subtitle = stringResource(R.string.settings_cleartext_subtitle),
             icon = Icons.Rounded.LinearScale,
             checked = isCleartextTrafficAllowed,
             onCheckedChange = onCleartextTrafficAllowedChange
         )
         // Insecure TLS Switch: Render standard toggle item for insecure TLS settings block below HTTP cleartext settings.
         SettingsToggleItem(
-            title = "允许不安全 TLS",
-            subtitle = "允许应用忽略自签名证书或不安全服务器的 SSL/TLS 证书校验。建议保持关闭以维持最高安全边界。",
+            title = stringResource(R.string.settings_insecure_tls_title),
+            subtitle = stringResource(R.string.settings_insecure_tls_subtitle),
             icon = Icons.Rounded.LinearScale,
             checked = isAllowInsecureTls,
             onCheckedChange = onAllowInsecureTlsChange
         )
         SettingsToggleItem(
-            title = "通知避让",
-            subtitle = "开启后，播放将在失去焦点（如收到通知、导航播报、来电等）时暂停，重获焦点时恢复，避免降音避让时漏听内容。",
+            title = stringResource(R.string.settings_notification_avoidance_title),
+            subtitle = stringResource(R.string.settings_notification_avoidance_subtitle),
             icon = Icons.Rounded.LinearScale,
             checked = isNotificationAvoidanceEnabled,
             onCheckedChange = onNotificationAvoidanceEnabledChange
@@ -218,10 +228,10 @@ fun SkipSilenceSection(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        SettingsSectionHeader(title = "自动跳过静音")
+        SettingsSectionHeader(title = stringResource(R.string.settings_skip_silence_title))
         SettingsToggleItem(
-            title = "自动跳过静音期",
-            subtitle = "在播放有声书时，自动跳过主播停顿、换气及章节末尾等无声片段以提高收听效率。",
+            title = stringResource(R.string.settings_skip_silence_toggle_title),
+            subtitle = stringResource(R.string.settings_skip_silence_subtitle),
             icon = Icons.Rounded.LinearScale,
             checked = isSkipSilenceEnabled,
             onCheckedChange = onSkipSilenceEnabledChange
@@ -243,24 +253,24 @@ fun SleepTimerSection(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        SettingsSectionHeader(title = "睡眠定时器")
+        SettingsSectionHeader(title = stringResource(R.string.settings_sleep_timer_title))
         SettingsSegmentedSleepModeItem(
-            title = "睡眠模式",
-            subtitle = "选择计时触发机制（常规: 设定时间即计时；运动跟踪: 静止才计时，运动则暂停；睡眠跟踪: 熟睡才计时）",
+            title = stringResource(R.string.settings_sleep_mode_title),
+            subtitle = stringResource(R.string.settings_sleep_mode_subtitle),
             icon = Icons.Rounded.LinearScale,
             selectedMode = sleepMode,
             onModeSelected = onSleepModeChange
         )
         SettingsToggleItem(
-            title = "睡眠倒计时音量渐隐",
-            subtitle = "当倒计时走到最后 10 秒（或章节快结束前 10 秒）时，音量将柔和对数式递减到静音，避免突然的无声惊醒您。",
+            title = stringResource(R.string.settings_sleep_fade_title),
+            subtitle = stringResource(R.string.settings_sleep_fade_subtitle),
             icon = Icons.Rounded.LinearScale,
             checked = isSleepFadeOutEnabled,
             onCheckedChange = onSleepFadeOutEnabledChange
         )
         SettingsToggleItem(
-            title = "摇晃手机重置睡眠定时器",
-            subtitle = "当进入睡眠定时器最后 10 秒音量渐隐阶段时，轻轻摇晃手机即可触发轻微震动反馈并重置定时器。若为“章节结束停止模式”，摇晃重置时若有下一章将自动顺延为 15 分钟常规倒计时并顺延至下一个章节继续播放，免去夜间亮屏解锁的繁琐。",
+            title = stringResource(R.string.settings_shake_reset_title),
+            subtitle = stringResource(R.string.settings_shake_reset_subtitle),
             icon = Icons.Rounded.LinearScale,
             checked = isShakeToResetEnabled,
             onCheckedChange = onShakeToResetEnabledChange
@@ -278,17 +288,23 @@ fun AutoRewindSection(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        SettingsSectionHeader(title = "自动回放")
+        SettingsSectionHeader(title = stringResource(R.string.settings_auto_rewind_title))
+        val disabledText = stringResource(R.string.settings_auto_rewind_disabled)
+        val secondsTemplate = stringResource(R.string.settings_seconds_value)
         SettingsSliderItem(
-            title = "暂停自动回放",
-            subtitle = "暂停或以任何方式（通知避让除外）停止播放时自动回退的时长",
+            title = stringResource(R.string.settings_auto_rewind_toggle_title),
+            subtitle = stringResource(R.string.settings_auto_rewind_subtitle),
             icon = Icons.Rounded.LinearScale,
             value = autoRewindSeconds.toFloat(),
             onValueChange = { onAutoRewindSecondsChange(it.toInt()) },
             valueRange = 0f..30f,
             steps = 29,
             valueFormatter = {
-                if (it.toInt() == 0) "已关闭" else String.format(java.util.Locale.US, "%d 秒", it.toInt())
+                if (it.toInt() == 0) {
+                    disabledText
+                } else {
+                    String.format(java.util.Locale.US, secondsTemplate, it.toInt())
+                }
             },
             enabled = true
         )
@@ -304,10 +320,10 @@ fun AboutSection(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        SettingsSectionHeader(title = "关于")
+        SettingsSectionHeader(title = stringResource(R.string.settings_about_title))
         SettingsItem(
-            title = "开源许可",
-            subtitle = "查看应用使用的开源库及许可协议",
+            title = stringResource(R.string.settings_open_source_license_title),
+            subtitle = stringResource(R.string.settings_open_source_license_subtitle),
             icon = Icons.Rounded.Info,
             onClick = onAboutLibrariesClick
         )

@@ -1,16 +1,13 @@
 package com.viel.aplayer.media.service
 
-import android.content.Context
-import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.session.MediaSession
-import androidx.media3.session.SessionCommand
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.data.gateway.BookAvailabilityGateway
+import com.viel.aplayer.media.PlaybackDomainEvent
+import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackMediaId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -23,14 +20,13 @@ import kotlinx.coroutines.launch
  */
 @UnstableApi
 class PlaybackFailureHandler(
-    context: Context,
     private val serviceScope: CoroutineScope,
-    private val progressGateway: ProgressGateway,
-    private val settingsRepository: AppSettingsRepository
+    private val bookAvailabilityGateway: BookAvailabilityGateway,
+    private val settingsRepository: AppSettingsRepository,
+    // Playback Domain Event Sink (Reports recovery facts without rendering Android UI)
+    // Failure handling stays inside media service logic while the application bridge owns Toast and dialog decisions.
+    private val playbackEventSink: PlaybackDomainEventSink
 ) {
-    // Application Context Cache (Extracts application context once to avoid service or activity memory leaks)
-    private val appContext = context.applicationContext
-
     // Debounce Guard Key (Format: "bookId:queueIndex" to prevent infinite loops of repeated error events)
     private var unavailableSkipKey: String? = null
 
@@ -56,9 +52,9 @@ class PlaybackFailureHandler(
     }
 
     /**
-     * Error Recovery Routine (Pauses playback, flags db entries, and broadcasts UI events to prompt for user choice)
+     * Error Recovery Routine (Pauses playback, flags db entries, and emits playback-domain recovery events)
      */
-    fun handleUnavailableMediaItem(player: Player, mediaSession: MediaSession?) {
+    fun handleUnavailableMediaItem(player: Player) {
         val mediaItem = player.currentMediaItem ?: return
         val mediaParts = PlaybackMediaId.parse(mediaItem.mediaId) ?: return
         val bookId = mediaParts.bookId
@@ -75,7 +71,7 @@ class PlaybackFailureHandler(
             if (currentUri.startsWith("http://")) {
                 val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
                 if (!isAllowed) {
-                    Toast.makeText(appContext, "安全拦截：明文 HTTP 播放未授权。请在设置中允许。", Toast.LENGTH_LONG).show()
+                    playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked)
                     player.pause()
                     player.stop()
                     Log.w("FailureHandler", "安全拦截：用户未授权播放明文 HTTP 协议音频流")
@@ -83,23 +79,18 @@ class PlaybackFailureHandler(
                 }
             }
 
-            // 2. Persistence State Serialization (Flags the failing book track segment as unavailable in Room repository)
-            progressGateway.markPlaybackFileUnavailable(bookId, queueIndex)
+            // 2. Failed Track Status Refresh (Revalidates and persists the failing queue item's availability)
+            // Remote tracks may recover after a transient error, so the gateway call explicitly refreshes status instead of blindly marking missing.
+            bookAvailabilityGateway.refreshPlaybackFileUnavailableStatus(bookId, queueIndex)
             
             // Halt Loop Reloads (Enforces immediate playback pause and stop to intercept ExoPlayer's infinite buffer loop)
             player.pause()
             player.stop()
             
-            // User Alert Prompt (Triggers toast indication to ensure listener awareness before the dialog resolves)
-            Toast.makeText(appContext, "当前分轨文件不可用，请确认是否跳轨收听", Toast.LENGTH_LONG).show()
+            // Track Recovery Event (Publish a playback-domain fact for the app bridge)
+            // The bridge pairs this with the existing skip-confirmation dialog without importing UI models here.
+            playbackEventSink.emit(PlaybackDomainEvent.TrackUnavailable(bookId, queueIndex))
             com.viel.aplayer.logger.PlaybackFailureLogger.logTrackMarkedUnavailable(skipKey)
-
-            // 3. Media Session Event Broadcast (Dispatches custom EVENT_TRACK_UNAVAILABLE event to notify foreground screen views)
-            val args = Bundle().apply {
-                putString("bookId", bookId)
-                putInt("queueIndex", queueIndex)
-            }
-            mediaSession?.broadcastCustomCommand(SessionCommand("EVENT_TRACK_UNAVAILABLE", Bundle.EMPTY), args)
         }
     }
 
@@ -114,7 +105,7 @@ class PlaybackFailureHandler(
             val message = error.localizedMessage?.takeIf { it.isNotBlank() }
                 ?: error.message?.takeIf { it.isNotBlank() }
                 ?: "未知错误"
-            Toast.makeText(appContext, "媒体源载入失败：$message", Toast.LENGTH_LONG).show()
+            playbackEventSink.emit(PlaybackDomainEvent.InitialMediaLoadFailed(message))
             Log.w("FailureHandler", "媒体源载入前失败，已跳过播放中恢复流程: code=${error.errorCode}, message=$message")
         }
     }

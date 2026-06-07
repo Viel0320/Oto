@@ -17,10 +17,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.Credentials
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.w3c.dom.Element
 import org.w3c.dom.NodeList
@@ -30,16 +28,9 @@ import java.io.EOFException
 import java.io.IOException
 import java.io.InputStream
 import java.net.SocketTimeoutException
-import java.security.SecureRandom
-import java.security.cert.X509Certificate
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
-import java.util.concurrent.TimeUnit
-import javax.net.ssl.HostnameVerifier
-import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 import javax.xml.parsers.DocumentBuilderFactory
 
 // WebDavException (Maps HTTP and network errors to standardized availability statuses to avoid exposing OkHttp details upstream)
@@ -74,43 +65,22 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
     private val appSettingsRepository = AppSettingsRepository.getInstance(context.applicationContext)
 
-    // Unsafe Trust Manager: Custom trust manager that bypasses certificate path validation checks for self-signed servers.
-    private val unsafeTrustManager = object : X509TrustManager {
-        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
-    }
-
-    // Unsafe SSL Socket Factory: SSL context initialization bypassing active validation routines using the unsafe trust manager.
-    private val unsafeSslSocketFactory = run {
-        val sslContext = SSLContext.getInstance("TLS")
-        sslContext.init(null, arrayOf<TrustManager>(unsafeTrustManager), SecureRandom())
-        sslContext.socketFactory
-    }
-
-    // Unsafe Hostname Verifier: Null hostname verifier accepting any server hostname.
-    private val unsafeHostnameVerifier = HostnameVerifier { _, _ -> true }
-
-    // OkHttpClient instance shared across the provider lifetime to reuse connection pools, reducing TCP handshake overhead.
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
-        .callTimeout(60, TimeUnit.SECONDS)
-        .build()
-
-    // Unsafe OkHttpClient: Reconfigured OkHttpClient using client.newBuilder() to share the connection pool but bypass SSL checks.
-    private val unsafeClient = client.newBuilder()
-        .sslSocketFactory(unsafeSslSocketFactory, unsafeTrustManager)
-        .hostnameVerifier(unsafeHostnameVerifier)
-        .build()
+    // WebDAV Client Factory (Shares TLS bypass construction with settings connection tests)
+    // The provider still decides whether insecure TLS is allowed for each root, but client construction no longer duplicates certificate logic.
+    private val clientFactory = WebDavHttpClientFactory(
+        connectTimeoutSeconds = 10,
+        readTimeoutSeconds = 45,
+        callTimeoutSeconds = 60
+    )
 
     private val credentialStore = WebDavCredentialStore(context.applicationContext)
 
-    // Resolve client instance: Dynamically return client or unsafeClient depending on global or local credential configuration.
+    // Resolve Client Policy (Selects trusted or insecure WebDAV client from the shared factory)
+    // Global settings and per-root credentials both participate in TLS policy without duplicating client construction.
     private fun getClient(root: LibraryRootEntity): OkHttpClient {
         val globalAllowInsecure = appSettingsRepository.cachedSettings.isAllowInsecureTls
         val localAllowInsecure = credentialStore.get(root.credentialId)?.allowInsecureTls == true
-        return if (globalAllowInsecure || localAllowInsecure) unsafeClient else client
+        return clientFactory.clientFor(globalAllowInsecure || localAllowInsecure)
     }
 
     override suspend fun rootDirectory(root: LibraryRootEntity): SourceNode? =
@@ -281,7 +251,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             val url = urlFor(root, sourcePath, directory = true)
             val request = Request.Builder()
                 .url(url)
-                .method("PROPFIND", PROPFIND_BODY)
+                .method("PROPFIND", WebDavProtocol.PROPFIND_ALL_PROPERTIES_BODY)
                 .header("Depth", depth)
                 .header("Accept", "application/xml,text/xml,*/*")
                 .applyAuth(root)
@@ -577,8 +547,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         (0 until length).mapNotNull { index -> item(index) as? Element }
 
     private companion object {
-        private val PROPFIND_BODY = """<?xml version="1.0" encoding="utf-8" ?><D:propfind xmlns:D="DAV:"><D:allprop/></D:propfind>"""
-            .toRequestBody("application/xml; charset=utf-8".toMediaType())
         private const val HTTP_OK = 200
         private const val HTTP_MULTI_STATUS = 207
         private const val HTTP_UNAUTHORIZED = 401

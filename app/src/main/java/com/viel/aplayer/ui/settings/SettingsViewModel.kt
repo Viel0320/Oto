@@ -1,77 +1,65 @@
 package com.viel.aplayer.ui.settings
 
-// Import alignment: Add java.util.UUID import for random ID generation during credential fallback
-// Import alignment: Add WebDAV client okhttp dependencies for remote host availability check
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import android.app.Application
 import android.net.Uri
-import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
+import com.viel.aplayer.domain.usecase.AbsConnectionReuseSnapshot
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
 import com.viel.aplayer.logger.AbsSettingsLogger
-import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.common.formatDate
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import okhttp3.Credentials
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.IOException
-import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 /**
  * Settings view model (Handler for configuration persistence interactions)
  * Manages reactive settings flows and dispatches business operations.
  */
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val container = (application as APlayerApplication).container
-    private val settingsRepository = container.settingsRepository
-    private val absCatalogSynchronizer = container.absCatalogSynchronizer
-    private val absSyncTaskCoordinator = container.absSyncTaskCoordinator
-    private val absCredentialStore = AbsCredentialStore.getInstance(application.applicationContext)
-    // Shared client instance (To avoid redundant authentication requests)
-    // Reuses a single API client instance across connection tests and registration flows.
-    private val absApiClient = com.viel.aplayer.abs.net.RealAbsApiClient(appSettingsRepository = settingsRepository)
-    private val absConnectionTester = com.viel.aplayer.abs.sync.AbsConnectionTester(absApiClient)
-    private val database = com.viel.aplayer.data.db.AppDatabase.getInstance(application.applicationContext)
+    // Settings Screen Dependency View (Resolve only settings-page operations and feedback)
+    // SettingsViewModel coordinates several settings workflows but should not see playback runtime or VFS dependencies.
+    private val settingsDependencies = APlayerApplication.getSettingsScreenDependencies(application)
+    private val settingsRepository = settingsDependencies.settingsRepository
+    private val absCatalogSynchronizer = settingsDependencies.absCatalogSynchronizer
+    private val absSyncTaskCoordinator = settingsDependencies.absSyncTaskCoordinator
+    // Settings Query Use Case (Supplies settings read models and credential lookups)
+    // The ViewModel now maps application snapshots into UI state instead of reading Room DAOs or credential stores directly.
+    private val settingsQueryUseCase = settingsDependencies.settingsQueryUseCase
+    private val settingsLibraryMaintenanceUseCase = settingsDependencies.settingsLibraryMaintenanceUseCase
+    private val absSettingsConnectionUseCase = settingsDependencies.absSettingsConnectionUseCase
+    private val webDavConnectionTester = settingsDependencies.webDavConnectionTester
+    // Application Event Sink (Centralizes settings feedback with the rest of the app shell)
+    // SettingsViewModel now emits user messages through the shared app-level stream instead of a local UI event flow.
+    private val appEventSink = settingsDependencies.appEventSink
     // Cache connection snapshot (To speed up registration directly after a successful test)
     // Temporarily retains connection metadata in memory without writing to database or exposing it to UI.
     private var lastSuccessfulAbsConnection: AbsConnectionReuseSnapshot? = null
-    // Cache WebDAV connection snapshot: Temporarily retains successful verification details in memory to mirror ABS behavior.
-    private var lastSuccessfulWebDavConnection: WebDavConnectionReuseSnapshot? = null
     
-    // M5b.1 Decouple repositories (To remove deprecated libraryRepository dependency)
-    // Downgrades direct repository operations to libraryRootGateway and scanScheduler.
-    private val libraryRootGateway = container.libraryRootGateway
-    private val scanScheduler = container.scanScheduler
+    // UI Facade Root Operations (Routes settings page root and scan commands through the high-level facade)
+    // SettingsViewModel remains a UI state coordinator, while LibraryFacade hides the granular root and scan gateways behind one application-facing seam.
+    private val libraryFacade = settingsDependencies.libraryFacade
     
     /**
      * Cross-domain deletion usecase (To enforce DDD architecture boundaries)
      * Replaces direct facade repository calls with clean domain-level service triggers.
      */
-    private val deleteLibraryRootUseCase = container.deleteLibraryRootUseCase
+    private val deleteLibraryRootUseCase = settingsDependencies.deleteLibraryRootUseCase
 
     // Settings Overlay Visibility State (To control settings overlay visibility in single-activity architecture)
     // Manages the show/hide status of the settings overlay inside MainActivity, providing reactive flow signals.
@@ -84,8 +72,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _isVisible.value = visible
     }
 
-    private val _uiEvents = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
-    val uiEvents: SharedFlow<UiEvent> = _uiEvents.asSharedFlow()
     private val _absConnectionState = MutableStateFlow(AbsConnectionUiState())
     val absConnectionState: StateFlow<AbsConnectionUiState> = _absConnectionState.asStateFlow()
     // WebDAV connection state: Expose state flow indicating verification progress to settings dialog.
@@ -102,36 +88,33 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = AppSettings()
         )
 
-    val libraryRootDisplays: StateFlow<List<LibraryRootDisplayState>> = combine(
-        libraryRootGateway.observeLibraryRoots(),
-        database.absSyncStateDao().observeAll(),
-        database.bookDao().getAllBooks()
-    ) { roots, syncStates, books ->
-        // Library Root Book Counts (Aggregates imported titles per root without introducing another persistence table)
-        // Counts active BookEntity records by rootId so the settings list can display the imported-book total for SAF, WebDAV, and ABS roots uniformly.
-        val bookCountsByRootId = books.groupingBy { book -> book.rootId }.eachCount()
-        val syncByRootId = syncStates.associateBy { state -> state.rootId }
-        roots.map { root ->
-            val sync = syncByRootId[root.id]
-            val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
-            LibraryRootDisplayState(
-                root = root,
-                title = resolveLibraryRootTitle(root),
-                statusText = resolveLibraryRootStatusText(root, sync?.lastError, sync?.lastFullSyncAt),
-                locationText = resolveLibraryRootLocation(root),
-                selectedLibraryText = if (isAbsRoot) root.displayName.ifBlank { root.basePath } else null,
-                lastSyncText = formatLibraryRootSyncTime(
-                    if (isAbsRoot) sync?.lastFullSyncAt else root.lastScannedAt.takeIf { it > 0L }
-                ),
-                importedBookCount = bookCountsByRootId[root.id] ?: 0,
-                lastError = sync?.lastError?.redactAbsError()
-            )
-        }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+    val libraryRootDisplays: StateFlow<List<LibraryRootDisplayState>> = settingsQueryUseCase
+        .observeLibraryRootSnapshots()
+        .map { snapshots ->
+            // Settings Display Mapping (Converts application query snapshots into presentation text)
+            // Query ownership stays in SettingsQueryUseCase while ViewModel keeps the UI-specific title, status, and timestamp formatting.
+            snapshots.map { snapshot ->
+                val root = snapshot.root
+                val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
+                LibraryRootDisplayState(
+                    root = root,
+                    title = resolveLibraryRootTitle(root),
+                    statusText = resolveLibraryRootStatusText(root, snapshot.absLastError, snapshot.absLastFullSyncAt),
+                    locationText = resolveLibraryRootLocation(root),
+                    selectedLibraryText = if (isAbsRoot) root.displayName.ifBlank { root.basePath } else null,
+                    lastSyncText = formatLibraryRootSyncTime(
+                        timestampMs = if (isAbsRoot) snapshot.absLastFullSyncAt else root.lastScannedAt.takeIf { it > 0L },
+                        notSyncedText = getApplication<Application>().getString(R.string.settings_library_not_synced)
+                    ),
+                    importedBookCount = snapshot.importedBookCount,
+                    lastError = snapshot.absLastError?.redactAbsError()
+                )
+            }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     init {
         viewModelScope.launch {
@@ -139,7 +122,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             // Obtains the visibility flow and updates the registered library directories once overlay shows up.
             isVisible.collect { visible ->
                 if (visible) {
-                    libraryRootGateway.refreshLibraryRootStatuses()
+                    libraryFacade.refreshLibraryRootStatuses()
                 }
             }
         }
@@ -147,8 +130,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun onLibraryRootSelected(uri: Uri) {
         // Persist local library directory (To registers new SAF path and schedules import sync)
-        // Dispatches the folder registration to libraryRootGateway.
-        libraryRootGateway.addLibraryRootAndScheduleSync(uri)
+        // Dispatches the folder registration to LibraryFacade so UI callers do not select a granular root gateway.
+        libraryFacade.addLibraryRootAndScheduleSync(uri)
     }
 
     /**
@@ -158,16 +141,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun onSafRootRelocated(id: String, newUri: Uri) {
         viewModelScope.launch {
             runCatching {
-                libraryRootGateway.updateSafLibraryRoot(id, newUri)
-                database.directoryCacheDao().deleteByRootId(id)
-                val recoveryChecker = com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker(getApplication())
-                recoveryChecker.recoverMissingAudioFiles()
+                settingsLibraryMaintenanceUseCase.updateSafRootAndScheduleSync(id, newUri)
             }.onSuccess {
-                scanScheduler.scheduleLibrarySync("USER")
-                _uiEvents.tryEmit(UiEvent.ShowToast("本地媒体库位置已更新，开始扫描"))
+                appEventSink.showToast(FeedbackMessages.settingsLocalLibraryRelocated())
             }.onFailure { error ->
                 com.viel.aplayer.logger.ScanWorkflowLogger.error("onSafRootRelocated failed", error)
-                _uiEvents.tryEmit(UiEvent.ShowToast("更新位置失败：${error.message}"))
+                appEventSink.showToast(FeedbackMessages.settingsLocalLibraryRelocationFailed(error.message))
             }
         }
     }
@@ -180,8 +159,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         basePath: String
     ) {
         // Register WebDAV endpoint (To initiate a background sync task for remote WebDAV resources)
-        // Passes connection credentials and directories to libraryRootGateway.
-        libraryRootGateway.addWebDavLibraryRootAndScheduleSync(
+        // Passes connection credentials and directories to LibraryFacade so settings UI stays on the application-facing seam.
+        libraryFacade.addWebDavLibraryRootAndScheduleSync(
             url = url,
             username = username,
             password = password,
@@ -204,7 +183,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     ) {
         viewModelScope.launch {
             runCatching {
-                libraryRootGateway.updateWebDavLibraryRoot(
+                settingsLibraryMaintenanceUseCase.updateWebDavRootAndScheduleSync(
                     id = id,
                     url = url,
                     username = username,
@@ -212,19 +191,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     displayName = displayName,
                     basePath = basePath
                 )
-                database.directoryCacheDao().deleteByRootId(id)
-                val recoveryChecker = com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker(getApplication())
-                recoveryChecker.recoverMissingAudioFiles()
             }.onSuccess {
-                scanScheduler.scheduleLibrarySync("USER")
-                _uiEvents.tryEmit(UiEvent.ShowToast("WebDAV 媒体库已更新"))
+                appEventSink.showToast(FeedbackMessages.settingsWebDavUpdated())
             }.onFailure { error ->
-                _uiEvents.tryEmit(UiEvent.ShowToast("修改 WebDAV 失败：${error.message}"))
+                appEventSink.showToast(FeedbackMessages.settingsWebDavUpdateFailed(error.message))
             }
         }
     }
 
-    // WebDAV connection tester: Verify remote credentials by issuing a light propfind call.
+    // WebDAV Connection UI Action (Delegates URL, TLS, and PROPFIND work to WebDavConnectionTester)
+    // The ViewModel only flips loading/result state and emits user feedback.
     fun testWebDavConnection(
         url: String,
         username: String,
@@ -232,137 +208,49 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         basePath: String,
         editingRootId: String? = null
     ) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             _webDavConnectionState.value = WebDavConnectionUiState(isTesting = true)
             runCatching {
-                val normalizedEndpoint = normalizeWebDavEndpoint(url)
-                val normalizedBasePath = normalizeWebDavBasePath(basePath, url)
-                val targetUrl = if (normalizedBasePath.isEmpty()) normalizedEndpoint else "$normalizedEndpoint$normalizedBasePath"
-
-                val finalUsername = if (username.isBlank() && editingRootId != null) {
-                    val existingRoot = database.libraryRootDao().getRootById(editingRootId)
-                    val cred = existingRoot?.credentialId?.let { getWebDavCredentials(it) }
-                    cred?.username ?: ""
-                } else {
-                    username
-                }
-                
-                val finalPassword = if (password.isBlank() && editingRootId != null) {
-                    val existingRoot = database.libraryRootDao().getRootById(editingRootId)
-                    val cred = existingRoot?.credentialId?.let { getWebDavCredentials(it) }
-                    cred?.password ?: ""
-                } else {
-                    password
-                }
-
-                // Create client builder for connection test, applying unsafe SSL/TLS configurations if enabled globally.
-                val clientBuilder = OkHttpClient.Builder()
-                    .connectTimeout(10, TimeUnit.SECONDS)
-                    .readTimeout(15, TimeUnit.SECONDS)
-
-                if (settingsRepository.cachedSettings.isAllowInsecureTls) {
-                    val unsafeTrustManager = object : javax.net.ssl.X509TrustManager {
-                        override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
-                        override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
-                        override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = emptyArray()
-                    }
-                    val sslContext = javax.net.ssl.SSLContext.getInstance("TLS")
-                    sslContext.init(null, arrayOf<javax.net.ssl.TrustManager>(unsafeTrustManager), java.security.SecureRandom())
-                    clientBuilder.sslSocketFactory(sslContext.socketFactory, unsafeTrustManager)
-                    clientBuilder.hostnameVerifier { _, _ -> true }
-                }
-
-                val client = clientBuilder.build()
-
-                val mediaType = "application/xml; charset=utf-8".toMediaType()
-                val requestBody = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><D:propfind xmlns:D=\"DAV:\"><D:allprop/></D:propfind>".toRequestBody(mediaType)
-                val builder = Request.Builder()
-                    .url(targetUrl)
-                    .method("PROPFIND", requestBody)
-                    .header("Depth", "0")
-
-                if (finalUsername.isNotBlank() || finalPassword.isNotBlank()) {
-                    builder.header("Authorization", Credentials.basic(finalUsername, finalPassword, Charsets.UTF_8))
-                }
-
-                client.newCall(builder.build()).execute().use { response ->
-                    if (response.isSuccessful || response.code == 207) {
-                        true
-                    } else {
-                        val errMsg = when (response.code) {
-                            401 -> "认证失败（用户名或密码错误）"
-                            403 -> "服务器拒绝访问（403 禁止访问）"
-                            404 -> "未找到路径，请检查 URL 和库内路径"
-                            else -> "连接失败，HTTP 状态码: ${response.code}"
-                        }
-                        throw IOException(errMsg)
-                    }
-                }
-            }.onSuccess {
-                // WebDAV connection tester: Cache verified settings payload on success and invalidate snapshot upon reset or failure.
-                lastSuccessfulWebDavConnection = WebDavConnectionReuseSnapshot(
-                    url = url.trim(),
-                    username = username.trim(),
+                val resolvedCredentials = settingsQueryUseCase.resolveWebDavCredentials(
+                    username = username,
                     password = password,
-                    basePath = basePath.trim()
+                    editingRootId = editingRootId
                 )
+                webDavConnectionTester.testConnection(
+                    url = url,
+                    username = resolvedCredentials.username,
+                    password = resolvedCredentials.password,
+                    basePath = basePath
+                )
+            }.onSuccess {
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = true)
-                _uiEvents.tryEmit(UiEvent.ShowToast("WebDAV 测试连接成功"))
+                appEventSink.showToast(FeedbackMessages.settingsWebDavConnectionSucceeded())
             }.onFailure { error ->
-                lastSuccessfulWebDavConnection = null
                 // User Friendly SSL Error: Handle SSL/TLS trust path verify exceptions specifically and offer hints.
-                val friendlyMessage = when (error) {
-                    is javax.net.ssl.SSLHandshakeException -> "SSL/TLS 证书校验失败，证书链不可信。"
-                    is javax.net.ssl.SSLPeerUnverifiedException -> "SSL/TLS 主机名校验失败，域名与证书不匹配。"
-                    else -> error.message ?: "连接失败"
-                }
+                val friendlyMessage = resolveConnectionFailureMessage(error)
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = false, lastError = friendlyMessage)
-                _uiEvents.tryEmit(UiEvent.ShowToast("WebDAV 测试连接失败: $friendlyMessage"))
+                appEventSink.showToast(FeedbackMessages.settingsWebDavConnectionFailed(friendlyMessage))
             }
         }
     }
 
     // WebDAV state reset: Restore default verification status and clear snapshot when dialog is closed or saved.
     fun resetWebDavConnectionState() {
-        lastSuccessfulWebDavConnection = null
         _webDavConnectionState.value = WebDavConnectionUiState()
-    }
-
-    private fun normalizeWebDavEndpoint(url: String): String {
-        val parsed = url.trim().toUri()
-        val scheme = parsed.scheme?.lowercase() ?: throw IllegalArgumentException("WebDAV URL 缺少协议")
-        val authority = parsed.encodedAuthority ?: throw IllegalArgumentException("WebDAV URL 缺少主机")
-        require(scheme == "http" || scheme == "https") { "WebDAV URL 仅支持 http/https" }
-        return "$scheme://$authority"
-    }
-
-    private fun normalizeWebDavBasePath(basePath: String, url: String): String {
-        val parsed = url.trim().toUri()
-        val rawPath = basePath.ifBlank { parsed.path.orEmpty() }
-        return Uri.decode(rawPath)
-            .replace('\\', '/')
-            .trim()
-            .trim('/')
-            .takeIf { it.isNotBlank() }
-            ?.let { "/$it" }
-            .orEmpty()
     }
 
     /**
      * Retrieve WebDAV credentials (To pre-fill edit form inputs in UI dialogs)
      */
     fun getWebDavCredentials(credentialId: String?): com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential? {
-        if (credentialId.isNullOrBlank()) return null
-        val store = com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore(getApplication())
-        return store.get(credentialId)
+        return settingsQueryUseCase.getWebDavCredential(credentialId)
     }
 
     /**
      * Retrieve ABS credentials (To pre-fill edit form inputs in UI dialogs)
      */
     suspend fun getAbsCredential(credentialId: String?): com.viel.aplayer.abs.auth.AbsCredential? {
-        if (credentialId.isNullOrBlank()) return null
-        return absCredentialStore.get(credentialId)
+        return settingsQueryUseCase.getAbsCredential(credentialId)
     }
 
     fun addAbsServerWithPassword(
@@ -378,80 +266,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             // Segregates user configuration events from network-level authentication logs.
             AbsSettingsLogger.logAddServerStart(baseUrl, username, libraryId, libraryName)
             runCatching {
-                val reuseSnapshot = lastSuccessfulAbsConnection?.takeIf { snapshot ->
-                    shouldReuseAbsConnectionSnapshot(
-                        snapshot = snapshot,
-                        baseUrl = baseUrl,
-                        username = username,
-                        libraryId = libraryId
-                    )
-                }
-                // Skip authentication request (To skip login network requests when parameters align with the tested endpoint)
-                // Verifies if input arguments match the cached snapshot metadata.
-                val token = reuseSnapshot?.token 
-                    ?: if (password.isBlank() && editingRootId != null) {
-                        val existingRoot = database.libraryRootDao().getRootById(editingRootId)
-                        val cred = existingRoot?.credentialId?.let { absCredentialStore.get(it) }
-                        cred?.token ?: throw IllegalArgumentException("ABS 凭据读取失败且密码为空")
-                    } else {
-                        requireNotNull(absApiClient.login(baseUrl, username, password).user?.token)
-                    }
-                val connection = reuseSnapshot?.connection ?: absConnectionTester.testConnection(baseUrl, token)
-                val credential = if (editingRootId != null) {
-                    val existingRoot = database.libraryRootDao().getRootById(editingRootId)
-                    val existingCredId = existingRoot?.credentialId
-                    absCredentialStore.save(
-                        baseUrl = baseUrl,
-                        token = token,
-                        userId = connection.userId,
-                        username = connection.username,
-                        credentialId = existingCredId ?: UUID.randomUUID().toString()
-                    )
-                } else {
-                    absCredentialStore.save(
-                        baseUrl = baseUrl,
-                        token = token,
-                        userId = connection.userId,
-                        username = connection.username
-                    )
-                }
-                val root = if (editingRootId != null) {
-                    libraryRootGateway.updateAbsLibraryRoot(
-                        id = editingRootId,
-                        credentialId = credential.id,
-                        libraryId = libraryId,
-                        displayName = libraryName
-                    )
-                } else {
-                    libraryRootGateway.addAbsLibraryRoot(
-                        credentialId = credential.id,
-                        libraryId = libraryId,
-                        displayName = libraryName
-                    )
-                }
-                if (editingRootId != null) {
-                    database.directoryCacheDao().deleteByRootId(editingRootId)
-                    val recoveryChecker = com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker(getApplication())
-                    recoveryChecker.recoverMissingAudioFiles()
-                }
-                // Retain connection snapshot (To minimize waiting times when adding multiple libraries from the same host)
-                // Saves the validated connection payload in memory.
-                val normalizedSnapshot = AbsConnectionReuseSnapshot(
-                    baseUrl = normalizeAbsBaseUrlForReuse(baseUrl),
-                    username = username.trim(),
-                    token = token,
-                    connection = connection
+                // ABS Server Save Delegation (Moves login, token reuse, credential persistence, and root edits into the use case)
+                // The ViewModel receives only the saved root plus a refreshed reuse snapshot for UI-adjacent caching.
+                absSettingsConnectionUseCase.saveServer(
+                    baseUrl = baseUrl,
+                    username = username,
+                    password = password,
+                    libraryId = libraryId,
+                    libraryName = libraryName,
+                    editingRootId = editingRootId,
+                    reuseSnapshot = lastSuccessfulAbsConnection
                 )
-                root to normalizedSnapshot
-            }.onSuccess { (root, snapshot) ->
-                lastSuccessfulAbsConnection = snapshot
-                AbsSettingsLogger.logAddServerSuccess(baseUrl, username, libraryId, root.id)
-                val msg = if (editingRootId != null) "ABS server 已更新，开始同步" else "ABS server 已添加，开始同步"
-                _uiEvents.tryEmit(UiEvent.ShowToast(msg))
+            }.onSuccess { outcome ->
+                lastSuccessfulAbsConnection = outcome.snapshot
+                AbsSettingsLogger.logAddServerSuccess(baseUrl, username, libraryId, outcome.root.id)
+                appEventSink.showToast(FeedbackMessages.settingsAbsServerSaved(editing = editingRootId != null))
                 _absConnectionState.value = AbsConnectionUiState()
-                launchAutoAbsSync(root)
+                launchAutoAbsSync(outcome.root)
             }.onFailure { error ->
-                val redactedMessage = (error.message ?: "ABS server 保存失败").redactAbsError()
+                val redactedMessage = (
+                    error.message ?: getApplication<Application>().getString(R.string.feedback_settings_abs_server_save_failed_fallback)
+                    ).redactAbsError()
                 AbsSettingsLogger.logAddServerFailure(
                     baseUrl = baseUrl,
                     username = username,
@@ -461,7 +296,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 )
                 // Expose authentication failures (To detail precise server constraints on the settings interface)
                 // Toast details error payload rather than generic failure messages.
-                _uiEvents.tryEmit(UiEvent.ShowToast("ABS server 保存失败：$redactedMessage"))
+                appEventSink.showToast(FeedbackMessages.settingsAbsServerSaveFailed(redactedMessage))
             }
         }
     }
@@ -478,33 +313,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 username = username
             )
             runCatching {
-                // ABS testing authentication logic enhancement: Support token reuse when testing connections in editing mode with blank password.
-                val token = if (password.isBlank() && editingRootId != null) {
-                    val existingRoot = database.libraryRootDao().getRootById(editingRootId)
-                    val cred = existingRoot?.credentialId?.let { absCredentialStore.get(it) }
-                    cred?.token ?: throw IllegalArgumentException("ABS 凭据读取失败且密码为空")
-                } else {
-                    val login = absApiClient.login(baseUrl, username, password)
-                    requireNotNull(login.user?.token)
-                }
-                val result = absConnectionTester.testConnection(baseUrl, token)
-                // Cache authorization parameters (To avoid login loops when registration is performed right after check)
-                // Holds token and library list in memory.
-                lastSuccessfulAbsConnection = AbsConnectionReuseSnapshot(
-                    baseUrl = normalizeAbsBaseUrlForReuse(baseUrl),
-                    username = username.trim(),
-                    token = token,
-                    connection = result
+                // ABS Connection Test Delegation (Moves login and edit-mode token lookup behind the settings use case)
+                // The ViewModel only stores the returned reuse snapshot and renders the library options.
+                absSettingsConnectionUseCase.testConnection(
+                    baseUrl = baseUrl,
+                    username = username,
+                    password = password,
+                    editingRootId = editingRootId
                 )
-                result
             }.onSuccess { result ->
+                lastSuccessfulAbsConnection = result.snapshot
                 _absConnectionState.value = AbsConnectionUiState(
                     isTesting = false,
                     baseUrl = baseUrl,
                     username = username,
-                    serverVersion = result.serverVersion,
+                    serverVersion = result.result.serverVersion,
                     loginSucceeded = true,
-                    libraries = result.bookLibraries.map { library ->
+                    libraries = result.result.bookLibraries.map { library ->
                         AbsLibraryOptionState(
                             id = library.id.orEmpty(),
                             name = library.name.orEmpty()
@@ -515,20 +340,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     baseUrl = baseUrl,
                     username = username,
                     costMs = AbsSettingsLogger.elapsedMs(start),
-                    libraryCount = result.bookLibraries.size,
-                    serverVersion = result.serverVersion
+                    libraryCount = result.result.bookLibraries.size,
+                    serverVersion = result.result.serverVersion
                 )
-                _uiEvents.tryEmit(UiEvent.ShowToast("连接成功，发现 ${result.bookLibraries.size} 个可用书库"))
+                appEventSink.showToast(FeedbackMessages.settingsAbsConnectionSucceeded(result.result.bookLibraries.size))
             }.onFailure { error ->
                 // Evict cached credentials (To avoid reusing stale or invalid tokens)
                 // Discards the snapshot when a subsequent test check fails or returns an error.
                 lastSuccessfulAbsConnection = null
                 // User Friendly SSL Error: Handle SSL/TLS trust path verify exceptions specifically and offer hints.
-                val friendlyMessage = when (error) {
-                    is javax.net.ssl.SSLHandshakeException -> "SSL/TLS 证书校验失败，证书链不可信。"
-                    is javax.net.ssl.SSLPeerUnverifiedException -> "SSL/TLS 主机名校验失败，域名与证书不匹配。"
-                    else -> (error.message ?: "连接失败").redactAbsError()
-                }
+                val friendlyMessage = resolveConnectionFailureMessage(error).redactAbsError()
                 _absConnectionState.value = AbsConnectionUiState(
                     isTesting = false,
                     baseUrl = baseUrl,
@@ -543,7 +364,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     errorClass = error::class.java.simpleName,
                     message = friendlyMessage
                 )
-                _uiEvents.tryEmit(UiEvent.ShowToast("连接失败：$friendlyMessage"))
+                appEventSink.showToast(FeedbackMessages.settingsAbsConnectionFailed(friendlyMessage))
             }
         }
     }
@@ -555,11 +376,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun syncAbsRoot(rootId: String) {
         viewModelScope.launch {
-            val preflight = libraryRootGateway.refreshLibraryRootStatus(rootId) ?: return@launch
+            val preflight = libraryFacade.refreshLibraryRootStatus(rootId) ?: return@launch
             if (!preflight.isSyncAvailable) {
                 // Manual ABS Sync Preflight (Blocks plan inspection when the selected root is unavailable)
                 // Plan inspection talks to the remote server, so the root status must be refreshed and validated before any preview request is sent.
-                _uiEvents.tryEmit(UiEvent.ShowToast(buildRootUnavailableSyncMessage(preflight)))
+                appEventSink.showToast(
+                    FeedbackMessages.settingsRootUnavailableSyncBlocked(buildRootUnavailableSyncMessage(preflight))
+                )
                 return@launch
             }
             val root = preflight.root
@@ -576,17 +399,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val scheduled = absSyncTaskCoordinator.start(rootId, com.viel.aplayer.abs.sync.AbsSyncTaskOrigin.MANUAL)
             if (scheduled) {
                 AbsSettingsLogger.logManualSyncFinished(rootId = rootId, costMs = AbsSettingsLogger.elapsedMs(start))
-                _uiEvents.tryEmit(UiEvent.ShowToast("ABS 同步已开始"))
+                appEventSink.showToast(FeedbackMessages.settingsAbsSyncStarted())
             } else {
-                _uiEvents.tryEmit(UiEvent.ShowToast("ABS 同步已在进行中"))
+                appEventSink.showToast(FeedbackMessages.settingsAbsSyncAlreadyRunning())
             }
         }
     }
 
     fun triggerRescan() {
         // Trigger manual scan (To check file updates on registered roots)
-        // Dispatches scan scheduler request in asynchronous scope.
-        scanScheduler.scheduleLibrarySync("USER")
+        // Dispatches scan scheduler request through LibraryFacade so the UI layer does not bind to ScanScheduler directly.
+        libraryFacade.scheduleLibrarySync("USER")
     }
 
     fun toggleChapterProgressMode(enabled: Boolean) {
@@ -618,15 +441,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             // Stop playback before deletion (To prevent crashes or unexpected playback behaviors from missing tracks)
             // Triggers deleteLibraryRootUseCase which conditionally stops active playback.
             val playbackWasStopped = deleteLibraryRootUseCase.invoke(root)
-            val message = if (playbackWasStopped) {
-                "媒体库已移除，当前播放已停止"
-            } else {
-                "媒体库已移除"
-            }
             // Log removal result (To track whether the removal caused immediate playback halt)
             // Records outcome stats to log system.
             AbsSettingsLogger.logDeleteServerFinished(rootId = root.id, playbackStopped = playbackWasStopped)
-            _uiEvents.tryEmit(UiEvent.ShowToast(message))
+            appEventSink.showToast(FeedbackMessages.settingsLibraryRootRemoved(playbackWasStopped))
         }
     }
 
@@ -706,10 +524,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         // Enqueues synchronization to absSyncTaskCoordinator.
         val scheduled = absSyncTaskCoordinator.start(root.id, com.viel.aplayer.abs.sync.AbsSyncTaskOrigin.AUTO_ADD)
         if (!scheduled) {
-            _uiEvents.tryEmit(UiEvent.ShowToast("ABS 同步已在进行中"))
+            appEventSink.showToast(FeedbackMessages.settingsAbsSyncAlreadyRunning())
         }
         return
     }
+
+    private fun resolveConnectionFailureMessage(error: Throwable): String =
+        when (error) {
+            is javax.net.ssl.SSLHandshakeException ->
+                getApplication<Application>().getString(R.string.feedback_settings_ssl_certificate_untrusted)
+            is javax.net.ssl.SSLPeerUnverifiedException ->
+                getApplication<Application>().getString(R.string.feedback_settings_ssl_hostname_mismatch)
+            else -> error.message ?: getApplication<Application>().getString(R.string.feedback_settings_connection_failed_fallback)
+        }
 }
 
 private fun String.redactAbsError(): String =
@@ -773,46 +600,5 @@ private fun formatSafDisplayPath(sourceUri: String): String {
  * Library Root Sync Time Formatter (Converts persisted millisecond timestamps into standard local time text)
  * Returns a stable placeholder when a source has not completed a scan or ABS full sync yet.
  */
-private fun formatLibraryRootSyncTime(timestampMs: Long?): String =
-    timestampMs?.takeIf { it > 0L }?.let(::formatDate) ?: "未同步"
-
-/**
- * Connection reuse data snapshot (To cache successful testing credentials)
- * Retains validation details in memory to facilitate smooth registration.
- */
-internal data class AbsConnectionReuseSnapshot(
-    val baseUrl: String,
-    val username: String,
-    val token: String,
-    val connection: com.viel.aplayer.abs.sync.AbsConnectionTestResult
-)
-
-// WebDAV connection snapshot model: Store verified WebDAV parameters to mirror ABS reuse behavior.
-internal data class WebDavConnectionReuseSnapshot(
-    val url: String,
-    val username: String,
-    val password: String,
-    val basePath: String
-)
-
-/**
- * Normalize baseUrl value (To align user input URLs during reuse validation check)
- * Removes trailing slash and trims whitespace character margins.
- */
-internal fun normalizeAbsBaseUrlForReuse(baseUrl: String): String =
-    baseUrl.trim().trimEnd('/')
-
-/**
- * Validate reuse criteria (To determine if the cached connection snapshot can be safely reused)
- * Checks if URLs, username, and target library IDs are equivalent.
- */
-internal fun shouldReuseAbsConnectionSnapshot(
-    snapshot: AbsConnectionReuseSnapshot,
-    baseUrl: String,
-    username: String,
-    libraryId: String
-): Boolean {
-    if (normalizeAbsBaseUrlForReuse(baseUrl) != snapshot.baseUrl) return false
-    if (username.trim() != snapshot.username) return false
-    return snapshot.connection.bookLibraries.any { library -> library.id == libraryId }
-}
+private fun formatLibraryRootSyncTime(timestampMs: Long?, notSyncedText: String): String =
+    timestampMs?.takeIf { it > 0L }?.let(::formatDate) ?: notSyncedText

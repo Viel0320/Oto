@@ -4,11 +4,6 @@ package com.viel.aplayer.ui.navigation
 // Import Haze's backdrop mechanism API to completely replace the legacy blur library dependency, achieving a clearer viewport-level Gaussian blur refraction effect.
 // Setup Haze Core (Import dev.chrisbanes.haze modifiers) Import HazeState and haze modifier for Compose-based blur.
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
-import android.text.Layout
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.AlignmentSpan
-import android.widget.Toast
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
@@ -27,21 +22,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.ThemeMode
-import com.viel.aplayer.ui.common.UiEvent
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.detail.DetailEntrySource
-import com.viel.aplayer.ui.detail.DetailOverlay
+import com.viel.aplayer.ui.detail.DetailRoute
 import com.viel.aplayer.ui.detail.DetailViewModel
-import com.viel.aplayer.ui.edit.EditBookOverlay
+import com.viel.aplayer.ui.edit.EditBookRoute
 import com.viel.aplayer.ui.edit.EditBookViewModel
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.miniplayer.MiniPlayerActions
 import com.viel.aplayer.ui.miniplayer.MiniPlayerOverlay
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
+import com.viel.aplayer.ui.navigation.shell.DefaultAppFeedbackRenderer
+import com.viel.aplayer.ui.navigation.shell.dispatch
 import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.components.PlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
-import com.viel.aplayer.ui.search.SearchOverlay
+import com.viel.aplayer.ui.search.SearchRoute
 import com.viel.aplayer.ui.search.SearchViewModel
 import com.viel.aplayer.ui.settings.SettingsOverlay
 import com.viel.aplayer.ui.settings.SettingsViewModel
@@ -57,8 +53,19 @@ fun APlayerApp(
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-    val settingsRepository = remember {
-        com.viel.aplayer.APlayerApplication.getContainer(context).settingsRepository
+    val appShellDependencies = remember(context) {
+        // App Shell Dependency Resolution (Resolve only settings and app-event stream for the top-level shell)
+        // The navigation host renders global feedback and theme state without needing screen-specific or playback dependencies.
+        com.viel.aplayer.APlayerApplication.getAppShellDependencies(context)
+    }
+    val settingsRepository = remember(appShellDependencies) {
+        appShellDependencies.settingsRepository
+    }
+    val appEventSink = remember(appShellDependencies) {
+        appShellDependencies.appEventSink
+    }
+    val appFeedbackRenderer = remember {
+        DefaultAppFeedbackRenderer
     }
     // Async Settings Load (Use collectAsStateWithLifecycle to load AppSettings, seeding it with the pre-cached value)
     // Avoids running a blocking runBlocking read on the main thread during cold start, preventing thread lock/ANR.
@@ -128,12 +135,12 @@ fun APlayerApp(
         val settingsViewModel: SettingsViewModel = viewModel()
 
         val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
-        // Collect Detail UI State (Coordinate overlay routing without rebinding mini player glass)
-        // Detail visibility still drives SearchOverlay routing and shared transition source handoff, while MiniPlayerOverlay intentionally keeps the stable app-level HazeState to avoid effect flashes.
+        // Collect Detail UI State (Coordinate route interactions without rebinding mini player glass)
+        // Detail visibility still drives Search route handoff, while MiniPlayerOverlay intentionally keeps the stable app-level HazeState to avoid effect flashes.
         val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
         // Collect Search Visibility State (Control MiniPlayer Rendering)
-        // Responsively collect the visibility state flow of the non-independent SearchOverlay, used to dynamically determine and control the display and mounting of the mini-player, avoiding invalid rendering and resource waste under layer occlusion.
+        // Responsively collect the visibility state flow of the Search route to control mini-player mounting under layer occlusion.
         val isSearchVisible by searchViewModel.isVisible.collectAsStateWithLifecycle()
 
         val canStartNavigation = rememberNavigationThrottle()
@@ -174,39 +181,14 @@ fun APlayerApp(
             }
         }
 
-        // Toast Notification Collection (Decouple Toast Construction)
-        // Consume the one-time UI events (such as Toast messages) emitted by LibraryViewModel, adhering to the architecture principle that ViewModels do not directly manipulate Android UI components. The construction and display of all Toasts are handled in the Composable layer. Refactored to centrally render matching common UiEvent.ShowToast events.
-        LaunchedEffect(Unit) {
-            libraryViewModel.uiEvents.collect { event ->
-                when (event) {
-                    is UiEvent.ShowToast -> {
-                        val spannable = SpannableString(event.message)
-                        spannable.setSpan(
-                            AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER),
-                            0, event.message.length,
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                        )
-                        Toast.makeText(context, spannable, Toast.LENGTH_SHORT).show()
-                    }
-                    else -> {}
-                }
-            }
-        }
-
-        // Player UI Event Collection (Native Toast Presentation)
-        // Consume the one-time UI feedback events shared and forwarded by the player's PlayerViewModel. Present messages using standard Toast directly, avoiding over-packaging to maintain a native and concise style.
-        LaunchedEffect(Unit) {
-            playerViewModel.uiEvents.collect { event ->
-                when (event) {
-                    is UiEvent.ShowToast -> {
-                        Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
-                    }
-                    is UiEvent.ShowTrackUnavailableDialog -> {
-                        // Track Unavailable Event (Trigger Confirmatory Dialog)
-                        // Upon receiving the track unavailable event, immediately update the state in the ViewModel to trigger the Compose confirmation and jump dialog.
-                        playerViewModel.showTrackUnavailableDialog(event.bookId, event.queueIndex)
-                    }
-                }
+        // App Event Collection (Single app-shell renderer for transient feedback)
+        // Consumes process-wide AppShellEvent values so Home, Settings, scan, ABS sync, and playback no longer expose parallel event streams.
+        LaunchedEffect(appEventSink, appFeedbackRenderer, playerViewModel) {
+            appEventSink.events.collect { event ->
+                appFeedbackRenderer.render(event).dispatch(
+                    context = context,
+                    onTrackUnavailableDialog = playerViewModel::showTrackUnavailableDialog
+                )
             }
         }
 
@@ -313,7 +295,7 @@ fun APlayerApp(
                         // HomeScreen still renders the catalog from LibraryUiState, while the app bar dialog only edits these persisted preferences.
                         homeViewStyle = libraryUiState.homeViewStyle,
                         homeSortRule = libraryUiState.homeSortRule,
-                        // Home Dialog Haze Routing (Use the same app backdrop source as SearchOverlay)
+                        // Home Dialog Haze Routing (Use the same app backdrop source as Search route)
                         // Passing the top-level source prevents Home dialogs from sampling the clipped LazyGrid-local fallback source.
                         homeDialogHazeState = hazeState,
                         // Settings Navigation Callback (To open settings overlay on request)
@@ -326,8 +308,9 @@ fun APlayerApp(
                     )
                 }
 
-                // Mount DetailOverlay with HazeStates (Link background and overlay blur targets) Replaced App/Detail Backdrop with corresponding hazeState and detailHazeState parameters.
-                DetailOverlay(
+                // Mount Detail Route with HazeStates (Link background and overlay blur targets)
+                // Route owns ViewModel/effect wiring while its overlay shell owns animation and haze registration.
+                DetailRoute(
                     detailViewModel = detailViewModel,
                     canStartNavigation = canStartNavigation,
                     glassEffectMode = libraryUiState.glassEffectMode,
@@ -341,15 +324,15 @@ fun APlayerApp(
                         searchViewModel.setVisible(true)
                         searchViewModel.onQueryChange(TextFieldValue(query))
                     },
-                    // Handle Edit Click (Launch EditBookOverlay)
-                    // Receive the book editing click event from the detail page, and directly launch the EditBookOverlay floating layer inside the memory without delay.
+                    // Handle Edit Click (Launch EditBookRoute)
+                    // Receive the book editing click event from the detail page, and open the edit route without delay.
                     onEditClick = { bookId ->
                         editViewModel.startEdit(bookId)
                     }
                 )
 
                 // MiniPlayer Stable Haze Target (Keep the effect state constant across overlays)
-                // DetailOverlay registers its visible content into this same app-level source, so the mini player can sample Detail without rebinding its own HazeEffect and flashing during transitions.
+                // Detail route registers its visible content into this same app-level source, so the mini player can sample Detail without rebinding its own HazeEffect and flashing during transitions.
                 val targetHazeState = hazeState
 
                 // Mount MiniPlayer with HazeState (Provide blur context to mini player overlay) Passed target HazeState value to match active background visuals.
@@ -363,7 +346,7 @@ fun APlayerApp(
 
                 // Edit Overlay Stable Haze Target (Keep edit glass bound to app-level sampling)
                 // The edit sheet behaves like other app overlays, so it uses the same long-lived app HazeState instead of rebinding to Detail's local source.
-                EditBookOverlay(
+                EditBookRoute(
                     editViewModel = editViewModel,
                     glassEffectMode = libraryUiState.glassEffectMode,
                     hazeState = hazeState,
@@ -374,7 +357,7 @@ fun APlayerApp(
                 )
 
                 // PlayerOverlay Mounting (Layer Decoupling Hierarchy)
-                // Core hierarchy change: To ensure that the full-screen player completely covers the mini-player, full-screen editing interface, and details page when expanded, the physical declaration position of PlayerOverlay is moved after EditBookOverlay in the Box container.
+                // Core hierarchy change: To ensure that the full-screen player completely covers the mini-player, full-screen editing interface, and details page when expanded, PlayerOverlay is declared after EditBookRoute.
                 PlayerOverlay(
                     playerViewModel = playerViewModel,
                     playerActions = playerActions,
@@ -385,9 +368,9 @@ fun APlayerApp(
                     appHazeState = hazeState
                 )
 
-                // Search Stable Haze Target (Keep SearchOverlay bound to the app-level sampler)
+                // Search Stable Haze Target (Keep SearchRoute bound to the app-level sampler)
                 // Visible pages now register themselves into this same source, so Search no longer switches state when Detail or Player becomes the background.
-                SearchOverlay(
+                SearchRoute(
                     searchViewModel = searchViewModel,
                     hazeState = hazeState,
                     glassEffectMode = libraryUiState.glassEffectMode,

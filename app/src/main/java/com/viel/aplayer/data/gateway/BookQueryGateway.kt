@@ -6,7 +6,6 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
-import com.viel.aplayer.media.BookPlaybackPlan
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -129,12 +128,6 @@ interface BookQueryGateway {
      * Synchronously fetches all database file records (audio tracks and manifest sidecars) for the book.
      */
     suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity>
-
-    /**
-     * Build Playback Plan (Controller initialization utility)
-     * Synchronously constructs the playback structure, resolving track sequences and resume offsets.
-     */
-    suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan?
 
     /**
      * Update Tag Metadata (Silent parser synchronization)

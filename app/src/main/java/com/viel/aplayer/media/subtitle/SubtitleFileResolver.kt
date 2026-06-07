@@ -11,7 +11,6 @@ import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.VfsNode
 import com.viel.aplayer.media.PlaybackSubtitle
 import com.viel.aplayer.media.VfsPlaybackUri
-import com.viel.aplayer.ui.player.components.SubtitleLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream

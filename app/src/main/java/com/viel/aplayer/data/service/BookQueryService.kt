@@ -1,10 +1,7 @@
 package com.viel.aplayer.data.service
 
-// UseCase Import Update: Align imports with decoupled CoverUriResolver interface definition.
-import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
-import androidx.core.net.toUri
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookmarkDao
@@ -17,8 +14,6 @@ import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.gateway.BookQueryGateway
-import com.viel.aplayer.data.gateway.CoverUriResolver
-import com.viel.aplayer.media.BookPlaybackPlan
 import com.viel.aplayer.media.PositionMapper
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -44,7 +39,6 @@ import java.util.UUID
  */
 @OptIn(UnstableApi::class)
 class BookQueryService(
-    private val coverUriResolver: CoverUriResolver,
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val bookmarkDao: BookmarkDao,
@@ -164,63 +158,6 @@ class BookQueryService(
 
     override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = withContext(Dispatchers.IO) {
         bookDao.getAllFilesForBookList(bookId)
-    }
-
-    override suspend fun getPlaybackPlan(bookId: String): BookPlaybackPlan? = withContext(Dispatchers.IO) {
-        val planBuildStart = SystemClock.elapsedRealtime()
-        val bookQueryStart = SystemClock.elapsedRealtime()
-        val book = bookDao.getBookById(bookId) ?: return@withContext null
-        val bookQueryCost = SystemClock.elapsedRealtime() - bookQueryStart
-        
-        // Cover self-healing trigger: Starts image self-healing checks asynchronously alongside play plan builds.
-        coverRecoveryHelper.checkAndTriggerCoverRegeneration(book)
-        
-        val filesQueryStart = SystemClock.elapsedRealtime()
-        val files = bookDao.getFilesForBookList(bookId)
-        val filesQueryCost = SystemClock.elapsedRealtime() - filesQueryStart
-        
-        val progressQueryStart = SystemClock.elapsedRealtime()
-        val progress = bookDao.getProgressForBookSync(bookId)
-        val progressQueryCost = SystemClock.elapsedRealtime() - progressQueryStart
-        
-        if (files.isEmpty()) {
-            val totalCost = SystemClock.elapsedRealtime() - planBuildStart
-            com.viel.aplayer.logger.LibraryLogger.logPlaybackPlanEmpty(
-                bookId = bookId,
-                bookQueryMs = bookQueryCost,
-                filesQueryMs = filesQueryCost,
-                progressQueryMs = progressQueryCost,
-                totalMs = totalCost
-            )
-            return@withContext null
-        }
-        
-        val artworkPath = book.coverPath
-        // Decouple Platform URI Resolution: Delegate the content:// URI creation to the CoverUriResolver interface to keep platform logic out of data services.
-        val artworkUri = if (!artworkPath.isNullOrBlank()) {
-            coverUriResolver.toContentUri(artworkPath)?.let { it.toUri() }
-        } else null
-
-        val plan = BookPlaybackPlan(
-            bookId = bookId,
-            title = book.title,
-            author = book.author,
-            artworkUri = artworkUri,
-            files = files,
-            subtitlesByFileId = emptyMap(),
-            startGlobalPositionMs = progress?.globalPositionMs ?: 0L
-        )
-        val totalCost = SystemClock.elapsedRealtime() - planBuildStart
-        com.viel.aplayer.logger.LibraryLogger.logPlaybackPlanReady(
-            bookId = bookId,
-            bookQueryMs = bookQueryCost,
-            filesQueryMs = filesQueryCost,
-            progressQueryMs = progressQueryCost,
-            totalMs = totalCost,
-            fileCount = plan.files.size,
-            startPosition = plan.startGlobalPositionMs
-        )
-        plan
     }
 
     override fun updateMetadata(

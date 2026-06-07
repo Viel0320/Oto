@@ -2,10 +2,11 @@ package com.viel.aplayer.abs.sync
 
 // Resource Cleanup Support: Import Closeable and cancel extensions for proper background scope lifecycle management.
 import com.viel.aplayer.data.dao.LibraryRootDao
+import com.viel.aplayer.event.AppEventSink
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
-import com.viel.aplayer.ui.common.UiEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,7 +24,9 @@ import java.io.Closeable
 class AbsSyncTaskCoordinator(
     private val libraryRootDao: LibraryRootDao,
     private val synchronizer: AbsCatalogSynchronizer,
-    private val playbackManager: com.viel.aplayer.media.PlaybackManager,
+    // Application Event Sink (Reports background ABS sync feedback without routing through playback)
+    // ABS sync is an application task, so its user-facing messages now share the process-wide event stream.
+    private val appEventSink: AppEventSink,
     // Root Preflight Refresh (Updates root state before ABS catalog synchronization)
     // Injects the application-service boundary so the coordinator can block unavailable roots without owning protocol-specific availability logic.
     private val rootPreflight: (suspend (String) -> LibraryRootAvailabilityUpdate?)? = null,
@@ -58,7 +61,7 @@ class AbsSyncTaskCoordinator(
                 val preflight = rootPreflight?.invoke(rootId)
                 val root = preflight?.root ?: libraryRootDao.getRootById(rootId)
                 if (root == null) {
-                    val errMsg = "找不到对应的 ABS 书库根"
+                    val errMsg = "ABS_ROOT_NOT_FOUND"
                     _events.emit(
                         AbsSyncTaskResult(
                             rootId = rootId,
@@ -68,7 +71,7 @@ class AbsSyncTaskCoordinator(
                             errorMessage = errMsg
                         )
                     )
-                    playbackManager.sendUiEvent(UiEvent.ShowToast("ABS 后台同步失败：$errMsg"))
+                    appEventSink.showToast(FeedbackMessages.absBackgroundSyncRootMissing())
                     return@launch
                 }
                 if (preflight != null && !preflight.isSyncAvailable) {
@@ -84,7 +87,7 @@ class AbsSyncTaskCoordinator(
                             errorMessage = errMsg
                         )
                     )
-                    playbackManager.sendUiEvent(UiEvent.ShowToast(errMsg))
+                    appEventSink.showToast(FeedbackMessages.absBackgroundSyncUnavailable(errMsg))
                     return@launch
                 }
                 val summary = synchronizer.syncRootWithSummary(root)
@@ -97,10 +100,11 @@ class AbsSyncTaskCoordinator(
                         errorMessage = null
                     )
                 )
-                val toastMsg = "ABS 后台同步完成：成功添加 ${summary.addedBooks} 本，失败 ${summary.failedItems} 本"
-                playbackManager.sendUiEvent(UiEvent.ShowToast(toastMsg))
+                appEventSink.showToast(
+                    FeedbackMessages.absBackgroundSyncCompleted(summary.addedBooks, summary.failedItems)
+                )
             } catch (error: Exception) {
-                val errMsg = error.message ?: "ABS 后台同步失败"
+                val errMsg = error.message ?: "ABS_BACKGROUND_SYNC_FAILED"
                 _events.emit(
                     AbsSyncTaskResult(
                         rootId = rootId,
@@ -110,7 +114,7 @@ class AbsSyncTaskCoordinator(
                         errorMessage = errMsg.redactAbsError()
                     )
                 )
-                playbackManager.sendUiEvent(UiEvent.ShowToast("ABS 后台同步失败：${errMsg.redactAbsError()}"))
+                appEventSink.showToast(FeedbackMessages.absBackgroundSyncFailed(errMsg.redactAbsError()))
             } finally {
                 synchronized(lock) {
                     runningRootIds -= rootId

@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>APlayer Strict Engineering Architecture Review - 2026-06-08</title>
+    <!-- Report Runtime Dependencies (Provide a portable visual review artifact)
+         Tailwind and Mermaid are loaded from CDN so this report can live in docs without adding app build dependencies. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      /* Report Visual Vocabulary (Keep candidate diagrams readable and consistent)
+         These utility classes mark strong modules, weak seams, and production-risk callouts across all review cards. */
+      body { font-feature-settings: "kern" 1, "liga" 1; }
+      code { white-space: nowrap; }
+      .risk-high { border-color: #dc2626; background: #fef2f2; color: #7f1d1d; }
+      .risk-mid { border-color: #d97706; background: #fffbeb; color: #78350f; }
+      .risk-low { border-color: #0284c7; background: #f0f9ff; color: #0c4a6e; }
+      .deep-card { background: linear-gradient(135deg, #0f172a, #1e293b); color: #fff; }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <main class="mx-auto max-w-7xl px-6 py-10">
+      <!-- Review Header (Capture scope, method, and source limitations)
+           This section records that the review is based on direct source reading rather than generic checklist assumptions. -->
+      <header class="space-y-6">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">APlayer / strict engineering review / 2026-06-08</p>
+            <h1 class="mt-2 text-4xl font-semibold tracking-normal">严格工程视角架构审视报告</h1>
+            <p class="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
+              本报告基于当前源码、构建配置与 docs 文档阅读，重点检查长期维护性、扩展性、稳定性、用户体验和真实生产环境适配能力。
+              项目未提供 <code>CONTEXT.md</code> 与 <code>docs/adr/</code>，因此领域语言从现有代码和文档中抽取。
+            </p>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
+            <p class="font-medium">阅读重点</p>
+            <p class="mt-1 text-slate-600">AppContainer/Graph, Room, VFS, Scan, Playback, ABS, UI shell, release policy</p>
+          </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-4">
+          <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-emerald-700">Positive</p>
+            <p class="mt-2 text-sm leading-6">依赖视图、Graph 拆分、Gateway、ScanOutcomePolicy 已明显改善 locality。</p>
+          </div>
+          <div class="rounded-lg border border-red-200 bg-red-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-red-700">Critical</p>
+            <p class="mt-2 text-sm leading-6">Manifest 权限、备份规则、release signing、Room destructive fallback 存在生产风险。</p>
+          </div>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-amber-700">Hidden Bug</p>
+            <p class="mt-2 text-sm leading-6"><code>VfsPlaybackDataSource</code> 中断 watcher 很可能监控错线程。</p>
+          </div>
+          <div class="rounded-lg border border-sky-200 bg-sky-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-sky-700">Output</p>
+            <p class="mt-2 text-sm leading-6">每个候选项包含 Files、Problem、Solution、Benefits 与 before/after 图。</p>
+          </div>
+        </div>
+      </header>
+
+      <!-- Executive Summary (Prioritize actionable findings over broad commentary)
+           The summary separates production blockers from architectural deepening work so the remediation order stays reversible. -->
+      <section class="mt-10 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-2xl font-semibold">总评</h2>
+        <div class="mt-4 grid gap-6 lg:grid-cols-3">
+          <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <h3 class="font-semibold text-emerald-950">架构方向正确</h3>
+            <p class="mt-2 text-sm leading-6 text-emerald-900">
+              项目已经从旧式大仓库向 <code>LibraryFacade</code>、细粒度 Gateway、Graph 组合根、Typed dependency views 迁移。
+              <code>ContainerAccessArchitectureTest</code>、<code>GraphLifecycleTest</code>、<code>PlaybackDependencyViewArchitectureTest</code>
+              说明团队已经在用测试守住 interface，而不是只依赖约定。
+            </p>
+          </div>
+          <div class="rounded-lg border border-red-200 bg-red-50 p-4">
+            <h3 class="font-semibold text-red-950">生产适配仍不稳</h3>
+            <p class="mt-2 text-sm leading-6 text-red-900">
+              真实发布前最危险的不是功能代码，而是配置与持久化：<code>android:permission="TODO"</code>、
+              <code>fallbackToDestructiveMigration(true)</code>、DataStore 凭据备份遗漏、入库 release keystore 与明文密码。
+              这些问题会绕过大部分单元测试。
+            </p>
+          </div>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <h3 class="font-semibold text-amber-950">深模块还没完全形成</h3>
+            <p class="mt-2 text-sm leading-6 text-amber-900">
+              多数 module 已经被切开，但部分 interface 仍然 shallow：<code>LibraryFacade</code> 是全量委托总线，
+              <code>APlayerApp</code> 是 UI shell 协调中心，播放状态跨 Manager/Service/Handler/DataSource 分散。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Findings Matrix (Rank problems by user impact and blast radius)
+           This matrix gives a quick triage view before the detailed candidate cards. -->
+      <section class="mt-10 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-2xl font-semibold">风险矩阵</h2>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full min-w-[900px] border-collapse text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-500">
+                <th class="py-3 pr-4">等级</th>
+                <th class="py-3 pr-4">问题</th>
+                <th class="py-3 pr-4">真实影响</th>
+                <th class="py-3 pr-4">优先建议</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr>
+                <td class="py-3 pr-4 font-semibold text-red-700">P0</td>
+                <td class="py-3 pr-4">Manifest 服务权限 TODO、release signing 入库、DataStore 凭据备份遗漏</td>
+                <td class="py-3 pr-4">系统媒体控制失效、安全审计失败、token 随备份迁移</td>
+                <td class="py-3 pr-4">先做生产策略 module 与 policy tests</td>
+              </tr>
+              <tr>
+                <td class="py-3 pr-4 font-semibold text-red-700">P0</td>
+                <td class="py-3 pr-4">Room destructive fallback 与迁移链缺口</td>
+                <td class="py-3 pr-4">升级时丢库、进度与书签不可恢复</td>
+                <td class="py-3 pr-4">正式版本前移除 release destructive fallback</td>
+              </tr>
+              <tr>
+                <td class="py-3 pr-4 font-semibold text-amber-700">P1</td>
+                <td class="py-3 pr-4">VFS DataSource 中断 watcher 可能监控错线程</td>
+                <td class="py-3 pr-4">取消/切歌后旧网络打开继续卡住，播放体验不稳定</td>
+                <td class="py-3 pr-4">修复为捕获 loader thread，并补取消测试</td>
+              </tr>
+              <tr>
+                <td class="py-3 pr-4 font-semibold text-amber-700">P1</td>
+                <td class="py-3 pr-4">播放状态分散在 Manager、Service、FailureHandler、DataSource</td>
+                <td class="py-3 pr-4">首帧失败、ABS session、自动续播、通知进度之间易出现边界不一致</td>
+                <td class="py-3 pr-4">提炼 PlaybackSession state module</td>
+              </tr>
+              <tr>
+                <td class="py-3 pr-4 font-semibold text-sky-700">P2</td>
+                <td class="py-3 pr-4">APlayerApp 过度承载全局 UI 编排</td>
+                <td class="py-3 pr-4">新 overlay、动效或全局事件容易互相影响</td>
+                <td class="py-3 pr-4">按 shell state、overlay host、feedback renderer 拆深</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="mt-10 space-y-8">
+        <!-- Candidate 1 (Harden release and platform policy first)
+             Production configuration issues can break users even when app logic compiles and unit tests pass. -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl font-semibold">1. 生产策略 module：Manifest、签名、备份、网络优先级</h2>
+            <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">Strong</span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">platform seam</span>
+          </div>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Before</p>
+              <pre class="mermaid">
+flowchart TD
+  Manifest[AndroidManifest.xml]
+  Service[PlaybackService exported=true permission=TODO]
+  Backup[allowBackup=true]
+  Rules[backup_rules excludes sharedpref/device.xml only]
+  Signing[release.jks + password in Gradle]
+  Network[base-config cleartext=true]
+  Manifest --> Service
+  Manifest --> Backup
+  Backup --> Rules
+  Gradle[app/build.gradle.kts] --> Signing
+  NetXml[network_security_config.xml] --> Network
+  classDef risk fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+  class Service,Rules,Signing,Network risk;
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">After</p>
+              <pre class="mermaid">
+flowchart TD
+  Policy[ProductionPolicy module]
+  ManifestGuard[Declared service policy]
+  BackupGuard[Explicit DataStore and credential backup policy]
+  SigningGuard[Externalized release signing]
+  NetworkGuard[Runtime host policy + platform allowance]
+  Tests[ReleasePolicyTest extension]
+  Policy --> ManifestGuard
+  Policy --> BackupGuard
+  Policy --> SigningGuard
+  Policy --> NetworkGuard
+  Policy --> Tests
+  classDef deep fill:#0f172a,stroke:#0f172a,color:#fff;
+  class Policy,Tests deep;
+              </pre>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Files</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>app/src/main/AndroidManifest.xml:35,45,53,112,114</li>
+                <li>app/src/main/res/xml/network_security_config.xml:5</li>
+                <li>app/src/main/res/xml/backup_rules.xml:2-4</li>
+                <li>app/src/main/res/xml/data_extraction_rules.xml:3-8</li>
+                <li>app/build.gradle.kts:41-54</li>
+                <li>app/src/main/java/com/viel/aplayer/abs/auth/AbsCredentialStore.kt:15</li>
+              </ul>
+            </div>
+            <div class="space-y-3 text-sm leading-6">
+              <p><b>Problem</b>: 当前配置 interface 传达了互相冲突或不完整的生产语义。<code>PlaybackService</code> 声明 <code>android:permission="TODO"</code>，这既可能阻断系统媒体控制，也可能给安全策略造成假象；备份规则只处理 <code>sharedpref/device.xml</code>，但真实敏感数据在 Preferences DataStore，例如 <code>abs_credentials</code>；release keystore 与明文密码在仓库内。</p>
+              <p><b>Solution</b>: 建立“生产策略 module”，把 Manifest 权限、DataStore 备份、release signing、cleartext/TLS 策略集中到一个可测试 interface。<code>ReleasePolicyTest</code> 继续扩展，禁止 TODO 权限、禁止入库 release 密码、要求凭据 DataStore 被排除或明确加密。</p>
+              <p><b>Benefits</b>: locality 提升到配置策略层；leverage 是每次 SDK、Media3、WorkManager 或发布配置升级都能跑同一套规则；测试面从“文档存在”升级到“危险配置不能进入 release”。</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 2 (Protect durable user data before feature expansion)
+             Audiobook progress and bookmarks are durable assets, so database migration must become a deep module before release. -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl font-semibold">2. Room 迁移链：从 destructive fallback 转为发布级迁移 module</h2>
+            <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">Strong</span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">durable data seam</span>
+          </div>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Before</p>
+              <pre class="mermaid">
+flowchart TD
+  V28[schemas 28..35 exist]
+  M3637[Migration 36 to 37]
+  Gap[37 to 38 to 39 gap]
+  M3940[Migration 39 to 40]
+  Fallback[fallbackToDestructiveMigration true]
+  V28 --> Gap
+  M3637 --> Gap
+  Gap --> M3940
+  Gap --> Fallback
+  classDef risk fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+  class Gap,Fallback risk;
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">After</p>
+              <pre class="mermaid">
+flowchart TD
+  Registry[MigrationRegistry]
+  Chain[Full upgrade chain]
+  Fixtures[Schema fixture tests]
+  Release[Release build rejects destructive fallback]
+  Policy[Data retention policy]
+  Registry --> Chain
+  Registry --> Fixtures
+  Registry --> Release
+  Registry --> Policy
+  classDef deep fill:#0f172a,stroke:#0f172a,color:#fff;
+  class Registry deep;
+              </pre>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Files</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>app/src/main/java/com/viel/aplayer/data/db/AppDatabase.kt:35,55,80,88,151</li>
+                <li>app/schemas/com.viel.aplayer.data.db.AppDatabase/28.json..40.json</li>
+              </ul>
+            </div>
+            <div class="space-y-3 text-sm leading-6">
+              <p><b>Problem</b>: schema 已到 40，仓库保留了 28-40 的 schema 文件，但实现只声明了 36->37 和 39->40，其他路径依赖 destructive fallback。对有声书播放器来说，进度、书签、ABS mirror、根目录授权状态都是长期资产，不能默认丢失。</p>
+              <p><b>Solution</b>: 把迁移做成独立 module：迁移注册表、schema fixture、迁移链测试、release 禁止 destructive fallback。开发阶段可以保留 debug 宽松策略，但 release 必须用显式迁移或明确的用户确认重建流程。</p>
+              <p><b>Benefits</b>: interface 变小：调用方只知道“数据库可升级”；实现内部吸收历史版本细节。locality 集中在迁移 module；leverage 是每次 schema 变更都能复用同一套回归测试。</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 3 (Fix a concrete hidden playback cancellation bug)
+             The current data-source cancellation watcher appears to observe its own dispatcher thread rather than the Media3 loader thread. -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl font-semibold">3. VFS 播放 DataSource：中断语义与错误映射收口</h2>
+            <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">Strong</span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">playback I/O seam</span>
+          </div>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Before</p>
+              <pre class="mermaid">
+sequenceDiagram
+  participant M as Media3 loader thread
+  participant D as VfsPlaybackDataSource.open
+  participant B as runBlocking
+  participant W as watcher on Dispatchers.Default
+  M->>D: open(dataSpec)
+  D->>B: runBlocking
+  B->>W: launch watcher
+  W->>W: Thread.currentThread()
+  Note over W: likely watches Default worker, not loader
+  B->>D: file lookup / VFS open
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">After</p>
+              <pre class="mermaid">
+sequenceDiagram
+  participant M as Media3 loader thread
+  participant D as VfsPlaybackDataSource.open
+  participant A as BlockingOpenAdapter
+  participant V as VFS reader
+  M->>D: open(dataSpec)
+  D->>A: openWithInterrupt(loaderThread)
+  A->>V: lookup + stream open
+  M-->>A: interrupt/cancel
+  A-->>D: InterruptedIOException
+              </pre>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Files</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>app/src/main/java/com/viel/aplayer/media/VfsPlaybackDataSource.kt:18,56,63,105,112,139</li>
+              </ul>
+            </div>
+            <div class="space-y-3 text-sm leading-6">
+              <p><b>Problem</b>: <code>runBlocking</code> 内部 watcher 在 <code>Dispatchers.Default</code> 协程里调用 <code>Thread.currentThread()</code>，很可能拿到的是 watcher 自己的线程，而不是 Media3 loader 线程。这样取消/切歌/seek 中断时，旧的 DB lookup 或 WebDAV open 可能不会及时停下。另一个风险是 open 阶段 <code>IOException</code> 被映射为 <code>ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE</code>，网络失败和真正越界会混在一起。</p>
+              <p><b>Solution</b>: 提取 <code>BlockingVfsOpenAdapter</code> 或等价内部 module，在进入 <code>runBlocking</code> 前捕获 loader thread；统一映射 InterruptedIOException、timeout、not found、range unsupported。补一个可控 fake reader：阻塞 open 后中断 loader thread，断言立即取消并返回标准异常。</p>
+              <p><b>Benefits</b>: locality 集中在播放 I/O seam；leverage 是 ExoPlayer、WebDAV、ABS streaming、SAF open 共享同一取消语义；测试面从真实网络变成 fake adapter。</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 4 (Deepen playback session state)
+             Playback behavior currently spans UI manager, foreground service, failure handler, notification adapter, and ABS session sync. -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl font-semibold">4. 播放状态 module：把首帧、恢复、ABS session、错误恢复集中</h2>
+            <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">Worth exploring</span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">state seam</span>
+          </div>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Before</p>
+              <pre class="mermaid">
+flowchart TD
+  VM[PlayerViewModel] --> PM[PlaybackManager]
+  PM --> Flags1[currentPlan + pendingPlayWhenReady]
+  PM --> ABS1[open/close ABS session]
+  Service[PlaybackService] --> Flags2[currentItemHasPlayed + exitJob]
+  Service --> Failure[PlaybackFailureHandler]
+  Service --> Notification[NotificationProgressPlayer]
+  DS[VfsPlaybackDataSource] --> Errors[DataSource errors]
+  classDef weak fill:#fffbeb,stroke:#d97706,color:#78350f;
+  class Flags1,Flags2,ABS1,Errors weak;
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">After</p>
+              <pre class="mermaid">
+flowchart TD
+  Commands[Playback commands] --> Session[PlaybackSessionState module]
+  ServiceEvents[Media3 events] --> Session
+  Session --> PlayerAdapter[ExoPlayer adapter]
+  Session --> Progress[Progress gateway]
+  Session --> ABS[ABS session adapter]
+  Session --> DomainEvents[PlaybackDomainEventSink]
+  classDef deep fill:#0f172a,stroke:#0f172a,color:#fff;
+  class Session deep;
+              </pre>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Files</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>app/src/main/java/com/viel/aplayer/media/PlaybackManager.kt:68,94,219,292,348,498</li>
+                <li>app/src/main/java/com/viel/aplayer/media/service/PlaybackService.kt:106,108,153,194,203</li>
+                <li>app/src/main/java/com/viel/aplayer/media/service/PlaybackFailureHandler.kt</li>
+                <li>app/src/main/java/com/viel/aplayer/media/NotificationProgressPlayer.kt</li>
+              </ul>
+            </div>
+            <div class="space-y-3 text-sm leading-6">
+              <p><b>Problem</b>: 依赖 view 已经收窄，但播放行为的真实状态仍分散：Manager 知道 plan 和 autoplay，Service 知道首帧与结束延迟，FailureHandler 知道故障恢复，ABS syncer 知道远端 session。某些边界条件，例如首个媒体项还没播放就失败、用户快速切书、通知 seek、ABS close 失败，会跨多个 module 才能推理。</p>
+              <p><b>Solution</b>: 不急着大拆。先为现有状态列出事件表，再提取深的 <code>PlaybackSessionState</code> module：输入是 command 与 Media3 event，输出是播放器动作、进度动作、ABS 动作和 domain event。Manager/Service 变为 adapter。</p>
+              <p><b>Benefits</b>: locality 是播放边界条件集中；leverage 是 UI、通知、Widget、Android Auto、ABS 都读同一状态事实；测试能绕开 Media3，用事件序列覆盖首帧失败、切歌、seek、结束延迟。</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 5 (Reduce facade shallowness without reintroducing a god class)
+             LibraryFacade is useful but currently exposes the sum of many gateways through delegation. -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl font-semibold">5. LibraryFacade：从全量委托总线深化为场景读写 module</h2>
+            <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">Worth exploring</span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">application seam</span>
+          </div>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Before</p>
+              <pre class="mermaid">
+flowchart TD
+  Home[Home/Detail/Search/Edit ViewModels] --> Facade[LibraryFacade]
+  Facade --> Q[BookQueryGateway]
+  Facade --> A[BookAvailabilityGateway]
+  Facade --> P[ProgressGateway]
+  Facade --> S[ScanScheduler]
+  Facade --> R[LibraryRootGateway]
+  Facade --> C[CoverAssetGateway]
+  Facade --> M[MetadataRefreshGateway]
+  Facade --> H[SearchHistoryGateway]
+  classDef shallow fill:#fffbeb,stroke:#d97706,color:#78350f;
+  class Facade shallow;
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">After</p>
+              <pre class="mermaid">
+flowchart TD
+  Home --> HomeLibraryReadModel[HomeLibraryReadModel]
+  Detail --> BookDetailReadModel[BookDetailReadModel]
+  Settings --> LibraryRootAdminUseCases[LibraryRootAdminUseCases]
+  Player --> BuildPlaybackPlanUseCase
+  HomeLibraryReadModel --> Gateways[Focused gateways]
+  BookDetailReadModel --> Gateways
+  LibraryRootAdminUseCases --> Gateways
+  classDef deep fill:#0f172a,stroke:#0f172a,color:#fff;
+  class HomeLibraryReadModel,BookDetailReadModel,LibraryRootAdminUseCases deep;
+              </pre>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Files</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>app/src/main/java/com/viel/aplayer/data/LibraryFacade.kt:22-40</li>
+                <li>app/src/main/java/com/viel/aplayer/AppContainer.kt:53-218</li>
+                <li>app/src/main/java/com/viel/aplayer/ui/home/LibraryViewModel.kt:16,21,133</li>
+                <li>app/src/main/java/com/viel/aplayer/ui/settings/SettingsViewModel.kt:60</li>
+              </ul>
+            </div>
+            <div class="space-y-3 text-sm leading-6">
+              <p><b>Problem</b>: <code>LibraryFacade</code> 删除测试看起来仍会把复杂度分散到多个 ViewModel，因此它是有价值的；但它通过 Kotlin delegation 暴露所有 gateway，interface 接近所有实现能力之和。长期看，新功能会继续往 facade 上挂方法，形成“表面不大、实际全知”的 shallow module。</p>
+              <p><b>Solution</b>: 保留 <code>LibraryFacade</code> 作为过渡 seam，但新增场景级深 module：<code>HomeLibraryReadModel</code>、<code>BookDetailReadModel</code>、<code>LibraryRootAdminUseCases</code>、<code>PlaybackStartUseCase</code>。每个 screen 依赖自己的场景 interface，而不是总线。</p>
+              <p><b>Benefits</b>: locality 是 UI 场景逻辑集中；leverage 是新屏幕不会自动继承所有书库能力；测试面从“mock 一个超宽 facade”变为“验证一个场景 read model”。</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 6 (Make scan and ABS synchronization more resilient)
+             Scan and ABS sync already have useful modules, but orchestration still constructs infrastructure directly and mixes state transitions. -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl font-semibold">6. Scan 与 ABS sync：把执行状态、存储 adapter、失败策略分离</h2>
+            <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">Worth exploring</span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">ingestion seam</span>
+          </div>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Before</p>
+              <pre class="mermaid">
+flowchart TD
+  ScanService --> RootStore[LibraryRootStore constructed]
+  ScanService --> Runner[ScanSessionRunner constructed]
+  ScanService --> DB1[AppDatabase direct read]
+  Runner --> DB2[AppDatabase direct]
+  Runner --> Scope[ScopeOrchestrator]
+  Scope --> DB3[AppDatabase direct]
+  ABS[AbsCatalogSynchronizer] --> Fetch[fetch list/detail]
+  ABS --> Write[upsert mirrors/books]
+  ABS --> Stale[mark stale]
+  ABS --> Progress[authorized progress merge]
+  classDef weak fill:#fffbeb,stroke:#d97706,color:#78350f;
+  class DB1,DB2,DB3,ABS weak;
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">After</p>
+              <pre class="mermaid">
+flowchart TD
+  Command[Ingestion command] --> Session[ScanSession module]
+  Session --> RootPort[Root status port]
+  Session --> Inventory[Inventory stream adapter]
+  Session --> Importer[Import transaction adapter]
+  ABSCommand[ABS sync command] --> CatalogState[CatalogSyncState module]
+  CatalogState --> Fetcher[Remote snapshot fetcher]
+  CatalogState --> MirrorWriter[Mirror writer]
+  CatalogState --> ProgressMerge[Progress merge trigger]
+  classDef deep fill:#0f172a,stroke:#0f172a,color:#fff;
+  class Session,CatalogState deep;
+              </pre>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Files</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>app/src/main/java/com/viel/aplayer/data/service/ScanService.kt:65,81,145,152</li>
+                <li>app/src/main/java/com/viel/aplayer/library/orchestrator/ScanSessionRunner.kt:58,83,126</li>
+                <li>app/src/main/java/com/viel/aplayer/library/orchestrator/ScopeOrchestrator.kt:44,114,191,211</li>
+                <li>app/src/main/java/com/viel/aplayer/abs/sync/AbsCatalogSynchronizer.kt:16,133,139,248,297,482</li>
+              </ul>
+            </div>
+            <div class="space-y-3 text-sm leading-6">
+              <p><b>Problem</b>: 本地扫描链路已经有 <code>ScanOutcomePolicy</code>，ABS 也有 catalog mirror，但执行 module 仍直接构造 RootStore、Runner、Database、ScopeOrchestrator；ABS 同步器同时处理列表拉取、detail 重试、stale 收敛、cover、progress merge。理解一次失败需要跳多个 module。</p>
+              <p><b>Solution</b>: 对本地扫描提取 <code>ScanSession</code> 深 module，输入是 scan command，输出是 <code>ScanOutcome</code>；Root status、Inventory stream、Import transaction 是 adapter。对 ABS 提取 <code>CatalogSyncState</code>，把 remote snapshot fetch、detail resolver、mirror writer、stale reconciler、progress merge trigger 做成内部 seams。</p>
+              <p><b>Benefits</b>: locality 是失败策略集中；leverage 是 UI 手动扫描和 WorkManager 共用同一语义；大库 ABS sync 可增加 checkpoint、取消、进度显示，而不污染 mapper 或 UI。</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 7 (Split the top-level Compose shell into deeper orchestration modules)
+             APlayerApp currently coordinates theme, navigation, overlays, feedback, motion, and multiple ViewModels in one function. -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl font-semibold">7. APlayerApp：拆分 app shell 状态协调与 overlay 编排</h2>
+            <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">Speculative</span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">UI shell seam</span>
+          </div>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Before</p>
+              <pre class="mermaid">
+flowchart TD
+  App[APlayerApp]
+  App --> Theme[theme resolution]
+  App --> VMs[5 ViewModels]
+  App --> Effects[LaunchedEffects]
+  App --> Nav[APlayerNavHost]
+  App --> Detail[DetailRoute]
+  App --> Mini[MiniPlayerOverlay]
+  App --> Edit[EditBookRoute]
+  App --> Player[PlayerOverlay]
+  App --> Search[SearchRoute]
+  App --> Settings[SettingsOverlay]
+  App --> Dialogs[APlayerAppDialogHost]
+  classDef weak fill:#fffbeb,stroke:#d97706,color:#78350f;
+  class App weak;
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">After</p>
+              <pre class="mermaid">
+flowchart TD
+  App[APlayerApp shell]
+  Theme[ShellThemeResolver]
+  Feedback[AppFeedbackRenderer]
+  State[ShellStateCoordinator]
+  Host[OverlayHost]
+  App --> Theme
+  App --> Feedback
+  App --> State
+  App --> Host
+  Host --> Routes[Route content]
+  Host --> Overlays[Ordered overlays]
+  classDef deep fill:#0f172a,stroke:#0f172a,color:#fff;
+  class Theme,Feedback,State,Host deep;
+              </pre>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Files</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>app/src/main/java/com/viel/aplayer/ui/navigation/APlayerApp.kt:53,57,123,126,137,154,188,356,378,390,433,445</li>
+              </ul>
+            </div>
+            <div class="space-y-3 text-sm leading-6">
+              <p><b>Problem</b>: <code>APlayerApp</code> 同时负责主题、导航状态、全局事件、多个 ViewModel、Haze 状态、Detail/Search/Player/Edit/Settings overlay 顺序、播放进度回写。任何一个 overlay 调整都可能影响全局层级和动效采样。</p>
+              <p><b>Solution</b>: 先不拆视觉实现，只拆 interface：<code>ShellThemeResolver</code> 处理设置到主题；<code>AppFeedbackRenderer</code> 处理 app event 到 Toast/Dialog；<code>ShellStateCoordinator</code> 处理跨 ViewModel 协调；<code>OverlayHost</code> 固化 overlay 顺序。</p>
+              <p><b>Benefits</b>: locality 是全局 UI 规则集中；leverage 是新增 overlay 不需要重读整棵 app shell；测试可用 Compose screenshot 或 state tests 固化层级和可见性。</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- Candidate 8 (Clean user-visible text and encoding drift)
+             Several source files contain mojibake user-visible strings while resource tests only cover strings.xml and a small guarded set. -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-xl font-semibold">8. 用户可见文案：从 Kotlin 字符串与乱码迁移到资源 module</h2>
+            <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">Strong</span>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">UX seam</span>
+          </div>
+
+          <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Before</p>
+              <pre class="mermaid">
+flowchart TD
+  Strings[strings.xml guarded]
+  Kotlin[Kotlin call sites]
+  Tests[UserVisibleStringResourceTest]
+  Kotlin --> Hardcoded[hard-coded Toasts]
+  Kotlin --> Mojibake[mojibake text]
+  Tests --> Strings
+  classDef risk fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+  class Hardcoded,Mojibake risk;
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">After</p>
+              <pre class="mermaid">
+flowchart TD
+  Messages[FeedbackMessage resources]
+  Renderer[App shell renderer]
+  Tests[Resource and mojibake tests]
+  Producers[ViewModels/services]
+  Producers --> Messages
+  Messages --> Renderer
+  Tests --> Messages
+  classDef deep fill:#0f172a,stroke:#0f172a,color:#fff;
+  class Messages,Tests deep;
+              </pre>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Files</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>app/src/main/java/com/viel/aplayer/ui/home/LibraryViewModel.kt:151,163,174,194,200</li>
+                <li>app/src/main/java/com/viel/aplayer/ui/settings/SettingsViewModel.kt:206,260,290,453</li>
+                <li>app/src/main/java/com/viel/aplayer/abs/net/AbsApiClient.kt:433</li>
+                <li>app/proguard-rules.pro:4,14,17,25</li>
+                <li>docs/APlayer_Architecture_and_Optimization_Analysis.md</li>
+              </ul>
+            </div>
+            <div class="space-y-3 text-sm leading-6">
+              <p><b>Problem</b>: <code>strings.xml</code> 有测试，但多个 Kotlin 文件仍包含硬编码文案和明显 mojibake。用户看到的删除、同步、ABS 错误、WebDAV SSL 错误如果是乱码，会直接破坏可信度。更糟的是，架构测试目前只覆盖一小组迁移文件。</p>
+              <p><b>Solution</b>: 建立 message resource module：业务层只发 <code>FeedbackMessage</code> key 与参数，app shell 负责资源渲染。新增 repo-wide user-visible text test：扫描 <code>showToast("...")</code>、中文硬编码、常见 mojibake marker，保留日志白名单。</p>
+              <p><b>Benefits</b>: locality 是文案集中；leverage 是中文/英文、本地化、测试复用；用户体验直接提升，生产日志也更容易审计。</p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- Cross-Cutting Recommendations (Connect candidates into phased, reversible work)
+           The plan is ordered so each phase can be shipped or reverted independently without mixing domains. -->
+      <section class="mt-10 rounded-xl border border-slate-300 bg-slate-950 p-6 text-white shadow-sm">
+        <h2 class="text-2xl font-semibold">可回归阶段计划</h2>
+        <div class="mt-5 grid gap-4 lg:grid-cols-5">
+          <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-slate-300">Phase 0</p>
+            <h3 class="mt-2 font-semibold">生产策略止血</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-300">修 manifest TODO、签名外置、备份排除凭据、release policy tests。只动配置和测试。</p>
+          </div>
+          <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-slate-300">Phase 1</p>
+            <h3 class="mt-2 font-semibold">持久化安全</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-300">迁移注册表、schema fixture、release 禁止 destructive fallback。只靠近 Room 域。</p>
+          </div>
+          <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-slate-300">Phase 2</p>
+            <h3 class="mt-2 font-semibold">播放 I/O 修复</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-300">修 DataSource 中断 watcher、错误映射、root cache invalidation。覆盖播放 I/O 测试。</p>
+          </div>
+          <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-slate-300">Phase 3</p>
+            <h3 class="mt-2 font-semibold">深模块提炼</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-300">PlaybackSession、ScanSession、CatalogSyncState 按域逐个做，不混在一次 refactor。</p>
+          </div>
+          <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-slate-300">Phase 4</p>
+            <h3 class="mt-2 font-semibold">UI shell 收口</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-300">拆 ThemeResolver、FeedbackRenderer、OverlayHost，截图回归覆盖层级和动效。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Top Recommendation (Make the first action explicit)
+           The top recommendation favors high-confidence production fixes before larger structural changes. -->
+      <section class="mt-10 rounded-xl border border-emerald-200 bg-emerald-50 p-6">
+        <p class="text-xs font-semibold uppercase tracking-widest text-emerald-700">Top recommendation</p>
+        <h2 class="mt-2 text-2xl font-semibold text-emerald-950">先做 Phase 0：生产策略止血</h2>
+        <p class="mt-3 max-w-5xl text-sm leading-6 text-emerald-900">
+          当前项目的架构重构方向基本正确，不建议马上继续扩大结构性拆分。第一优先级应是配置层和发布层：
+          <code>PlaybackService</code> 权限、DataStore 凭据备份、release signing、cleartext/TLS 规则、乱码文案测试。
+          这些改动 scope 小、可回归、收益高，并且能防止后续架构优化建立在不可靠的生产基础上。
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

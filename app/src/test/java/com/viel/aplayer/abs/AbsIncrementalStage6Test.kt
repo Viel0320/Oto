@@ -27,7 +27,6 @@ import com.viel.aplayer.abs.sync.selectAbsDetailCandidateIds
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
-import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import kotlinx.coroutines.runBlocking
@@ -43,7 +42,7 @@ class AbsIncrementalStage6Test {
 
     private val idMapper = AbsRemoteIdMapper()
     private val progressMapper = AbsProgressMapper()
-    private val catalogMapper = AbsCatalogMapper(idMapper, progressMapper)
+    private val catalogMapper = AbsCatalogMapper(idMapper)
 
     @Test
     fun `incremental selector should skip unchanged items and keep changed or new items in detail queue`() {
@@ -416,10 +415,11 @@ class AbsIncrementalStage6Test {
             book: BookEntity,
             files: List<BookFileEntity>,
             chapters: List<ChapterEntity>,
-            progress: BookProgressEntity?,
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
         ) {
+            // Incremental Catalog Fixture Scope (Represents only the rows owned by catalog synchronization)
+            // Progress assertions in this file continue to target AbsProgressMapper directly instead of the catalog store fake.
             books[book.id] = book
             mirrors[mirror.remoteItemId] = mirror
             this.syncState = syncState

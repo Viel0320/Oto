@@ -138,6 +138,9 @@ dependencies {
     // API Testing Support (Utilize MockWebServer for local integration testing)
     // Solidifies API behaviors including HTTP methods, path routing, and authentication headers.
     testImplementation(libs.mockwebserver)
+    // AndroidX DataStore JVM Runtime (Runs Android API-dependent storage tests against a realistic SDK)
+    // Prevents local unit tests from exercising android.jar stub defaults that never occur on the app's supported devices.
+    testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

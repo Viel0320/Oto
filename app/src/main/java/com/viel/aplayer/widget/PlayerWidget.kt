@@ -69,7 +69,7 @@ class PlayerWidget : GlanceAppWidget() {
                 if (it.isNullOrEmpty()) "APlayer" else it 
             }
             val author = prefs[PlayerWidgetStateHelper.KEY_AUTHOR].let { 
-                if (it.isNullOrEmpty()) "有声书播放器" else it 
+                if (it.isNullOrEmpty()) context.getString(R.string.player_widget_fallback_author) else it
             }
             val coverPath = prefs[PlayerWidgetStateHelper.KEY_COVER_PATH] ?: ""
 
@@ -118,7 +118,7 @@ class PlayerWidget : GlanceAppWidget() {
             if (coverBitmap != null) {
                 Image(
                     provider = ImageProvider(coverBitmap),
-                    contentDescription = "Background Cover",
+                    contentDescription = context.getString(R.string.player_widget_background_cover_description),
                     modifier = GlanceModifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
@@ -126,7 +126,7 @@ class PlayerWidget : GlanceAppWidget() {
                 // Fallback background. Use the bundled default neon-gradient placeholder when no cover is present.
                 Image(
                     provider = ImageProvider(R.drawable.widget_cover_placeholder),
-                    contentDescription = "Background Placeholder",
+                    contentDescription = context.getString(R.string.player_widget_background_placeholder_description),
                     modifier = GlanceModifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
@@ -188,7 +188,7 @@ class PlayerWidget : GlanceAppWidget() {
                     }
                     Image(
                         provider = ImageProvider(R.drawable.ic_replay_10),
-                        contentDescription = "Seek Backward",
+                        contentDescription = context.getString(R.string.player_widget_seek_backward_description),
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(rewindIntent)),
@@ -215,7 +215,7 @@ class PlayerWidget : GlanceAppWidget() {
                     ) {
                         Image(
                             provider = ImageProvider(playPauseIconRes),
-                            contentDescription = "Play or Pause",
+                            contentDescription = context.getString(R.string.player_widget_play_pause),
                             modifier = GlanceModifier.size(22.dp),
                             colorFilter = ColorFilter.tint(GlanceTheme.colors.onPrimary)
                         )
@@ -230,7 +230,7 @@ class PlayerWidget : GlanceAppWidget() {
                     }
                     Image(
                         provider = ImageProvider(R.drawable.ic_forward_30),
-                        contentDescription = "Seek Forward",
+                        contentDescription = context.getString(R.string.player_widget_seek_forward_description),
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(forwardIntent)),

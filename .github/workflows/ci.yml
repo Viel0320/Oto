@@ -1,0 +1,31 @@
+name: Android CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  debug-unit-tests:
+    name: Debug Unit Tests
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Architecture And Lifecycle Gate (Runs the JVM test suite that contains container access and graph teardown rules)
+      # Keeping this gate in CI prevents future UI, media, or Worker callers from regressing to the full container surface.
+      - name: Run Debug Unit Tests
+        run: .\gradlew.bat testDebugUnitTest

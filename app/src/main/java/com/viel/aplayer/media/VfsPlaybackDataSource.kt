@@ -11,26 +11,41 @@ import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
-import com.viel.aplayer.library.vfs.VfsFileInterface
+import com.viel.aplayer.abs.net.AbsApiError
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.library.vfs.VfsPlaybackStreamReader
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
+import java.io.InterruptedIOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.min
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(UnstableApi::class)
-class VfsPlaybackDataSource private constructor(
+class VfsPlaybackDataSource internal constructor(
     private val fileLookup: PlaybackFileLookup,
-    private val fileReader: VfsFileInterface,
+    private val fileReader: VfsPlaybackStreamReader,
 ) : BaseDataSource(false) {
 
     private var inputStream: InputStream? = null
     private var openedUri: Uri? = null
     private var bytesRemaining: Long = 0L
     private var opened = false
+    // Active Loader Thread Handle (Targets Media3 cancellation at the thread executing VFS I/O)
+    // DataSource.close() can run from a different control path, so it stores the current open/read thread explicitly instead of interrupting watcher coroutines.
+    private val activeLoaderThread = AtomicReference<Thread?>()
 
     override fun open(dataSpec: DataSpec): Long {
         // Open Pipeline Separation (Split DataSource.open into database query and VFS stream acquisition phases)
@@ -41,102 +56,26 @@ class VfsPlaybackDataSource private constructor(
 
         transferInitializing(dataSpec)
 
-        // Interrupted Thread Check (Fast-fail if the loading thread was interrupted prior to database lookup)
-        // Short-circuits execution immediately to avoid executing unnecessary operations.
-        if (Thread.currentThread().isInterrupted) {
-            throw DataSourceException(
-                java.io.InterruptedIOException("Loader thread was interrupted before database lookup"),
-                PlaybackException.ERROR_CODE_IO_UNSPECIFIED
-            )
-        }
+        failIfLoaderInterrupted("Database lookup")
 
         val dbLookupStart = SystemClock.elapsedRealtime()
         // Fast File Resolution (Resolves the target audiobook track using the decoupled playback lookup service)
-        val file = try {
-            runBlocking {
-                // Interrupt Watcher (Run active guard coroutine on the Default dispatcher to poll current thread interrupt status)
-                // Instantly cancels the coroutine context when interrupted, forcing underlying blocks to throw CancellationException.
-                val interruptWatcher = launch(kotlinx.coroutines.Dispatchers.Default) {
-                    val currentThread = Thread.currentThread()
-                    while (isActive) {
-                        if (currentThread.isInterrupted) {
-                            this@runBlocking.coroutineContext[kotlinx.coroutines.Job]?.cancel(
-                                kotlinx.coroutines.CancellationException("Database lookup interrupted physically")
-                            )
-                            break
-                        }
-                        delay(50.milliseconds)
-                    }
-                }
-                try {
-                    fileLookup.getBookFileById(bookFileId)
-                } finally {
-                    interruptWatcher.cancel() // Resource Clean Guard (Clean up active watcher coroutines to prevent Job leaks)
-                }
-            }
-        } catch (_: InterruptedException) {
-            // Interrupt Conversion (Map thread cancellations to Media3-compatible InterruptedIOException)
-            // Standardizes exceptions to prevent ExoPlayer throwing "Unexpected exception loading stream" messages.
-            throw DataSourceException(
-                java.io.InterruptedIOException("Database lookup was interrupted"),
-                PlaybackException.ERROR_CODE_IO_UNSPECIFIED
-            )
-        } catch (_: kotlinx.coroutines.CancellationException) {
-            throw DataSourceException(
-                java.io.InterruptedIOException("Database lookup was canceled by thread interrupt"),
-                PlaybackException.ERROR_CODE_IO_UNSPECIFIED
-            )
+        val file = runInterruptibleBlocking("Database lookup") {
+            fileLookup.getBookFileById(bookFileId)
         } ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
 
         val dbLookupCost = SystemClock.elapsedRealtime() - dbLookupStart
 
-        // Post-Query Interrupt Check (Inspects thread interrupt status again after database lookup compiles)
-        // Avoids launching slow and expensive remote network handshakes if the playback load task is already obsolete.
-        if (Thread.currentThread().isInterrupted) {
-            throw DataSourceException(
-                java.io.InterruptedIOException("Loader thread was interrupted after database lookup"),
-                PlaybackException.ERROR_CODE_IO_UNSPECIFIED
-            )
-        }
+        failIfLoaderInterrupted("VFS open")
 
         // Offset Delegation (Delegates seek offsets to VFS, allowing SAF to skip bytes and WebDAV to use Range HTTP headers)
         val vfsOpenStart = SystemClock.elapsedRealtime()
         val stream = try {
-            runBlocking {
-                // Network Interrupt Guard (Spawns a guardian coroutine monitoring the loader thread during WebDAV socket handshakes)
-                // Forces network connection calls to throw CancellationException immediately if the player cancels the load.
-                val interruptWatcher = launch(kotlinx.coroutines.Dispatchers.Default) {
-                    val currentThread = Thread.currentThread()
-                    while (isActive) {
-                        if (currentThread.isInterrupted) {
-                            this@runBlocking.coroutineContext[kotlinx.coroutines.Job]?.cancel(
-                                kotlinx.coroutines.CancellationException("VFS open stream was physically interrupted")
-                            )
-                          break
-                        }
-                        delay(50.milliseconds)
-                    }
-                }
-                try {
-                    fileReader.open(file, dataSpec.position)
-                } finally {
-                    interruptWatcher.cancel() // Thread Guard Clean (Ensure background coroutines are cancelled to prevent leaks)
-                }
+            runInterruptibleBlocking("VFS open") {
+                fileReader.openPlaybackStream(file, dataSpec.position)
             }
-        } catch (_: InterruptedException) {
-            // Exception Normalization (Map thread cancellations during connection setup to standard IOExceptions for ExoPlayer compatibility)
-            throw DataSourceException(
-                java.io.InterruptedIOException("VFS open stream was interrupted"),
-                PlaybackException.ERROR_CODE_IO_UNSPECIFIED
-            )
-        } catch (_: kotlinx.coroutines.CancellationException) {
-            throw DataSourceException(
-                java.io.InterruptedIOException("VFS open stream was physically canceled by thread interrupt"),
-                PlaybackException.ERROR_CODE_IO_UNSPECIFIED
-            )
         } catch (e: IOException) {
-            // Error Mapping Strategy (Map VFS stream open failures to standard out-of-range position errors to shield inner exceptions)
-            throw DataSourceException(e, PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
+            throw e.toPlaybackOpenException(dataSpec.position)
         } ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
         val vfsOpenCost = SystemClock.elapsedRealtime() - vfsOpenStart
 
@@ -175,9 +114,11 @@ class VfsPlaybackDataSource private constructor(
             min(length.toLong(), bytesRemaining).toInt()
         }
         val bytesRead = try {
-            stream.read(buffer, offset, bytesToRead)
+            runWithActiveLoaderThread {
+                stream.read(buffer, offset, bytesToRead)
+            }
         } catch (e: IOException) {
-            throw DataSourceException(e, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
+            throw e.toPlaybackReadException()
         }
         if (bytesRead == -1) return C.RESULT_END_OF_INPUT
         if (bytesRemaining != C.LENGTH_UNSET.toLong()) {
@@ -191,6 +132,9 @@ class VfsPlaybackDataSource private constructor(
 
     override fun close() {
         try {
+            // Playback Cancellation Interrupt (Stops the active loader/open thread before closing the stream)
+            // This gives blocking stream reads and provider opens a direct interrupt signal during seek, track replacement, or player release.
+            activeLoaderThread.get()?.interrupt()
             inputStream?.closeQuietly()
         } finally {
             inputStream = null
@@ -211,16 +155,132 @@ class VfsPlaybackDataSource private constructor(
         }
     }
 
+    private fun failIfLoaderInterrupted(phase: String) {
+        // Loader Thread Preflight (Avoids starting a new VFS phase after Media3 has already cancelled it)
+        // The check keeps obsolete loads from entering database lookup or remote stream setup after the caller interrupts the loader.
+        if (Thread.currentThread().isInterrupted) {
+            throw InterruptedIOException("$phase was interrupted before VFS playback work started")
+        }
+    }
+
+    private fun <T> runInterruptibleBlocking(phase: String, block: suspend () -> T): T {
+        val loaderThread = Thread.currentThread()
+        activeLoaderThread.set(loaderThread)
+        return try {
+            runBlocking {
+                // Loader Thread Interrupt Watcher (Observes the Media3 load thread captured before dispatcher hops)
+                // Cancels the runBlocking job when Media3 interrupts the load thread during seek, track replacement, or release.
+                val parentJob = coroutineContext[Job]
+                val interruptWatcher = launch(Dispatchers.Default) {
+                    while (isActive) {
+                        if (loaderThread.isInterrupted) {
+                            parentJob?.cancel(CancellationException("$phase canceled by loader thread interrupt"))
+                            break
+                        }
+                        delay(INTERRUPT_WATCH_INTERVAL_MS.milliseconds)
+                    }
+                }
+                try {
+                    block()
+                } finally {
+                    interruptWatcher.cancel()
+                }
+            }
+        } catch (_: InterruptedException) {
+            throw InterruptedIOException("$phase was interrupted")
+        } catch (_: CancellationException) {
+            throw InterruptedIOException("$phase was canceled")
+        } finally {
+            activeLoaderThread.compareAndSet(loaderThread, null)
+        }
+    }
+
+    private inline fun <T> runWithActiveLoaderThread(block: () -> T): T {
+        val loaderThread = Thread.currentThread()
+        activeLoaderThread.set(loaderThread)
+        return try {
+            block()
+        } finally {
+            activeLoaderThread.compareAndSet(loaderThread, null)
+        }
+    }
+
+    private fun IOException.toPlaybackOpenException(position: Long): IOException {
+        // Playback Open Error Classification (Keeps cancellation, network failure, and range overflow on separate Media3 paths)
+        // Active cancellation remains InterruptedIOException, while provider availability failures map to the closest playback I/O code.
+        if (isPlaybackCancellation()) {
+            return InterruptedIOException(message ?: "VFS playback open was canceled").also { interrupted ->
+                interrupted.initCause(this)
+            }
+        }
+        val errorCode = when {
+            this is AbsApiError -> availabilityStatus.toPlaybackErrorCode(position)
+            this is WebDavException -> availabilityStatus.toPlaybackErrorCode(position)
+            hasCause<SocketTimeoutException>() -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+            hasCause<UnknownHostException>() || hasCause<ConnectException>() -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+            this is FileNotFoundException -> PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND
+            else -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+        }
+        return DataSourceException(this, errorCode)
+    }
+
+    private fun IOException.toPlaybackReadException(): IOException =
+        // Playback Read Error Classification (Preserves caller cancellation during stream consumption)
+        // Close-triggered interrupts should not be reported as ordinary unavailable media or corrupt playback streams.
+        if (isPlaybackCancellation()) {
+            InterruptedIOException(message ?: "VFS playback read was canceled").also { interrupted ->
+                interrupted.initCause(this)
+            }
+        } else {
+            DataSourceException(this, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
+        }
+
+    private fun IOException.isPlaybackCancellation(): Boolean =
+        // Cancellation Cause Detection (Recognizes direct interrupts and provider-wrapped cancellation causes)
+        // Remote providers may wrap socket cancellation inside their own IOException type, so the whole cause chain is inspected.
+        this is InterruptedIOException ||
+            hasCause<InterruptedIOException>() ||
+            hasCause<CancellationException>() ||
+            Thread.currentThread().isInterrupted
+
+    private inline fun <reified T : Throwable> Throwable.hasCause(): Boolean {
+        // Cause Chain Search (Finds wrapped provider errors without depending on a single exception wrapper)
+        // ABS, WebDAV, OkHttp, and DataSource layers can each add one wrapper around the original cancellation or network exception.
+        var current: Throwable? = this
+        while (current != null) {
+            if (current is T) return true
+            current = current.cause
+        }
+        return false
+    }
+
+    private fun String.toPlaybackErrorCode(position: Long): Int =
+        // Availability Status Mapping (Translates provider health states into Media3 I/O categories)
+        // A missing ranged stream is treated as seek overflow, while missing position zero remains a file-not-found condition.
+        when (this) {
+            AudiobookSchema.AvailabilityStatus.TIMEOUT -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+            AudiobookSchema.AvailabilityStatus.AUTH_FAILED,
+            AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED -> PlaybackException.ERROR_CODE_IO_NO_PERMISSION
+            AudiobookSchema.AvailabilityStatus.NOT_FOUND ->
+                if (position > 0L) PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE else PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND
+            AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+            else -> PlaybackException.ERROR_CODE_IO_UNSPECIFIED
+        }
+
     class Factory(context: Context) : DataSource.Factory {
         private val appContext = context.applicationContext
-        // Decoupled Container Access (Use getContainer to resolve dependencies from application contexts lazily)
-        // Removes hardcoded application class casting to ensure thread-safe component resolutions during player recovery.
-        private val container = com.viel.aplayer.APlayerApplication.getContainer(appContext)
+        // VFS Playback Dependency Access (Resolve only data-source file lookup and VFS reader dependencies)
+        // This prevents Media3 data-source factories from learning scanner, settings, or library mutation capabilities.
+        private val vfsPlaybackDependencies = com.viel.aplayer.APlayerApplication.getVfsPlaybackDependencies(appContext)
 
         override fun createDataSource(): DataSource =
             VfsPlaybackDataSource(
-                fileLookup = container.playbackFileLookup,
-                fileReader = container.vfsFileInterface
+                fileLookup = vfsPlaybackDependencies.playbackFileLookup,
+                fileReader = vfsPlaybackDependencies.vfsFileInterface
             )
+    }
+
+    private companion object {
+        private const val INTERRUPT_WATCH_INTERVAL_MS = 50L
     }
 }

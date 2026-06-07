@@ -4,7 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 
 /**
- * Library Storage Logger (Track repository CRUD and playback plan query performance)
+ * Library Storage Logger (Track repository CRUD and playback plan build performance)
  *
  * Collects and logs database queries, execution durations, and file operations
  * (such as cover and thumbnail cache deletions) within the library repository layer.
@@ -19,7 +19,7 @@ internal object LibraryLogger {
     fun elapsedMs(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
 
     /**
-     * Log Empty Playback Plan Query (Record performance metrics when no playable files are found)
+     * Log Empty Playback Plan Build (Record performance metrics when no playable files are found)
      *
      * Tracks the exact time spent querying books, files, and progress for empty plans.
      */
@@ -32,13 +32,13 @@ internal object LibraryLogger {
     ) {
         Log.d(
             TAG,
-            "getPlaybackPlan($bookId) 无可播放文件, book=${bookQueryMs}ms, " +
+            "buildPlaybackPlan($bookId) 无可播放文件, book=${bookQueryMs}ms, " +
                 "files=${filesQueryMs}ms, progress=${progressQueryMs}ms, total=${totalMs}ms"
         )
     }
 
     /**
-     * Log Completed Playback Plan Query (Record performance metrics when a plan is successfully constructed)
+     * Log Completed Playback Plan Build (Record performance metrics when a plan is successfully constructed)
      *
      * Tracks elapsed durations for querying books, files, and progress to diagnose plan generation latency.
      */
@@ -53,7 +53,7 @@ internal object LibraryLogger {
     ) {
         Log.d(
             TAG,
-            "getPlaybackPlan($bookId) 完成, book=${bookQueryMs}ms, files=${filesQueryMs}ms, " +
+            "buildPlaybackPlan($bookId) 完成, book=${bookQueryMs}ms, files=${filesQueryMs}ms, " +
                 "progress=${progressQueryMs}ms, total=${totalMs}ms, " +
                 "files=$fileCount, start=$startPosition"
         )

@@ -10,8 +10,7 @@ import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 
 class AbsCatalogMapper(
-    private val idMapper: AbsRemoteIdMapper,
-    private val progressMapper: AbsProgressMapper
+    private val idMapper: AbsRemoteIdMapper
 ) {
     fun toBook(
         root: LibraryRootEntity,
@@ -21,9 +20,8 @@ class AbsCatalogMapper(
         syncedAt: Long,
         lastScannedAt: Long = existing?.lastScannedAt ?: 0L,
         coverPath: String? = existing?.coverPath,
-        thumbnailPath: String? = existing?.thumbnailPath,
+        thumbnailPath: String? = existing?.thumbnailPath
         // Deprecated: backgroundColorArgb is removed
-        readStatusOverride: String? = null
     ): BookEntity {
         // ID Presence Validation: Enforce that the remote item possesses a valid identifier to prevent database primary key collisions.
         val itemId = item.id ?: throw com.viel.aplayer.abs.net.AbsApiError(code = "MALFORMED_ITEM", message = "item.id missing")
@@ -65,9 +63,9 @@ class AbsCatalogMapper(
             // If no changes have occurred, the existing timestamp is retained, avoiding invalidation of the local cover image cache.
             lastScannedAt = lastScannedAt,
             status = AudiobookSchema.BookStatus.READY,
-            // Remote Progress Read Status Gate (Keeps catalog metadata sync from silently accepting divergent server progress)
-            // Callers may override readStatus with the existing local state when progress conflict resolution rejects the remote candidate.
-            readStatus = readStatusOverride ?: progressMapper.toReadStatus(item, existing)
+            // Catalog Read Status Preservation (Keeps catalog materialization independent from remote progress)
+            // Remote progress and finished state are applied exclusively by AbsAuthorizedProgressSynchronizer after books/files/chapters exist locally.
+            readStatus = existing?.readStatus ?: AudiobookSchema.ReadStatus.NOT_STARTED
         )
     }
 

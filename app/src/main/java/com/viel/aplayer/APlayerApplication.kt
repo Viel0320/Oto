@@ -10,6 +10,17 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.dependencies.AbsSyncWorkerDependencies
+import com.viel.aplayer.dependencies.AppFeedbackDependencies
+import com.viel.aplayer.dependencies.AppShellDependencies
+import com.viel.aplayer.dependencies.HomeScreenDependencies
+import com.viel.aplayer.dependencies.LibraryPresentationDependencies
+import com.viel.aplayer.dependencies.LibrarySyncWorkerDependencies
+import com.viel.aplayer.dependencies.PlaybackRecoveryDependencies
+import com.viel.aplayer.dependencies.PlaybackRuntimeDependencies
+import com.viel.aplayer.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.dependencies.SettingsScreenDependencies
+import com.viel.aplayer.dependencies.VfsPlaybackDependencies
 import com.viel.aplayer.logger.AbsSyncLogger
 import com.viel.aplayer.logger.CoverImageCoilEventListener
 import kotlinx.coroutines.CoroutineScope
@@ -118,6 +129,127 @@ class APlayerApplication : Application(), ImageLoaderFactory {
             return instance ?: synchronized(this) {
                 instance ?: DefaultAppContainer(context.applicationContext).also { instance = it }
             }
+        }
+
+        /**
+         * Playback Runtime Dependencies Provider (Return the narrow media-core dependency view)
+         * Prevents playback services from learning the wider application container surface.
+         *
+         * @param context Component Context
+         * @return The media-core dependency view backed by the global container
+         */
+        fun getPlaybackRuntimeDependencies(context: Context): PlaybackRuntimeDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Playback Recovery Dependencies Provider (Return the narrow cold-start recovery dependency view)
+         * Lets AutoRewindManager repair progress records without receiving playback session or UI-facing dependencies.
+         *
+         * @param context Component Context
+         * @return The progress recovery dependency view backed by the global container
+         */
+        fun getPlaybackRecoveryDependencies(context: Context): PlaybackRecoveryDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * VFS Playback Dependencies Provider (Return the narrow data-source dependency view)
+         * Keeps playback data-source factories limited to VFS reads and media-file lookup.
+         *
+         * @param context Component Context
+         * @return The VFS playback dependency view backed by the global container
+         */
+        fun getVfsPlaybackDependencies(context: Context): VfsPlaybackDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Library Sync Worker Dependencies Provider (Return the narrow local-library worker dependency view)
+         * Lets WorkManager refresh jobs schedule scans without receiving screen, playback, or ABS surfaces.
+         *
+         * @param context Component Context
+         * @return The local-library worker dependency view backed by the global container
+         */
+        fun getLibrarySyncWorkerDependencies(context: Context): LibrarySyncWorkerDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * ABS Sync Worker Dependencies Provider (Return the narrow Audiobookshelf worker dependency view)
+         * Lets ABS background jobs mirror one root and publish feedback without receiving unrelated container entries.
+         *
+         * @param context Component Context
+         * @return The ABS worker dependency view backed by the global container
+         */
+        fun getAbsSyncWorkerDependencies(context: Context): AbsSyncWorkerDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Library Presentation Dependencies Provider (Return the shared simple-library-screen dependency view)
+         * Lets detail, search, and edit ViewModels consume LibraryFacade without receiving the full container.
+         *
+         * @param context Component Context
+         * @return The library presentation dependency view backed by the global container
+         */
+        fun getLibraryPresentationDependencies(context: Context): LibraryPresentationDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Home Screen Dependencies Provider (Return the home-screen dependency view)
+         * Gives LibraryViewModel only home scene interfaces, settings, deletion use cases, and feedback sink it consumes.
+         *
+         * @param context Component Context
+         * @return The home-screen dependency view backed by the global container
+         */
+        fun getHomeScreenDependencies(context: Context): HomeScreenDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Settings Screen Dependencies Provider (Return the settings-screen dependency view)
+         * Gives SettingsViewModel settings-specific operations without exposing playback runtime or VFS entries.
+         *
+         * @param context Component Context
+         * @return The settings-screen dependency view backed by the global container
+         */
+        fun getSettingsScreenDependencies(context: Context): SettingsScreenDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Player Screen Dependencies Provider (Return the player-screen dependency view)
+         * Gives PlayerViewModel UI-facing playback startup and feedback dependencies while media core keeps its own runtime view.
+         *
+         * @param context Component Context
+         * @return The player-screen dependency view backed by the global container
+         */
+        fun getPlayerScreenDependencies(context: Context): PlayerScreenDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * App Shell Dependencies Provider (Return the top-level Compose shell dependency view)
+         * Lets APlayerApp collect settings and app-shell events without touching screen or playback entries.
+         *
+         * @param context Component Context
+         * @return The app-shell dependency view backed by the global container
+         */
+        fun getAppShellDependencies(context: Context): AppShellDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * App Feedback Dependencies Provider (Return the feedback-only dependency view)
+         * Lets small UI helpers send app-shell feedback without resolving unrelated dependencies.
+         *
+         * @param context Component Context
+         * @return The feedback-only dependency view backed by the global container
+         */
+        fun getAppFeedbackDependencies(context: Context): AppFeedbackDependencies {
+            return getContainer(context)
         }
     }
 }
