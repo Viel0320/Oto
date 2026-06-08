@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.detail
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
@@ -30,12 +33,56 @@ fun DetailOverlay(
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
     detailHazeState: HazeState? = null,
+    onTransitionIdleChanged: (Boolean) -> Unit = {},
     content: @Composable () -> Unit
 ) {
+    /*
+     * Detail Visibility Transition State (Animation lifecycle surface)
+     *
+     * Owns the actual AnimatedVisibility state object so the app shell can distinguish
+     * logical Detail visibility from the still-running enter/exit animation frames.
+     */
+    val detailVisibilityState = remember { MutableTransitionState(false) }
+
+    val isChangingTarget = detailVisibilityState.currentState != visible ||
+        detailVisibilityState.targetState != visible
+    if (detailVisibilityState.targetState != visible) {
+        /*
+         * Detail Target Visibility Sync (Start animation in the current composition)
+         *
+         * Updates the transition target immediately so the shared-element exit or enter chain
+         * starts in the same frame as the route visibility change instead of waiting for an effect.
+         */
+        detailVisibilityState.targetState = visible
+    }
+
+    /*
+     * Immediate Transition Busy Report (Close same-frame navigation gaps)
+     *
+     * AnimatedVisibility reports isIdle after recomposition, so the app shell needs an eager
+     * busy signal as soon as Detail's target visibility changes; otherwise a very fast Home/Search
+     * tap can retarget Detail before the exit shared-element chain starts.
+     */
+    LaunchedEffect(visible) {
+        if (isChangingTarget) {
+            onTransitionIdleChanged(false)
+        }
+    }
+
+    /*
+     * Detail Transition Idle Report (Navigation gate signal)
+     *
+     * Reports whether the overlay transition is idle so navigation can queue a new Detail
+     * selection until the previous shared-element return chain has completed.
+     */
+    LaunchedEffect(detailVisibilityState.isIdle) {
+        onTransitionIdleChanged(detailVisibilityState.isIdle)
+    }
+
     // Detail Overlay Animation (Keep transition policy separate from DetailRoute state collection)
     // A fixed 300ms duration preserves the existing enter/exit behavior while making this wrapper stateless.
     AnimatedVisibility(
-        visible = visible,
+        visibleState = detailVisibilityState,
         enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
         exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)),
         modifier = modifier

@@ -12,6 +12,7 @@ import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.components.HomeDialogHost
+import com.viel.aplayer.ui.navigation.DetailOpenRequest
 import com.viel.aplayer.ui.player.PlayerViewModel
 import dev.chrisbanes.haze.HazeState
 
@@ -44,6 +45,9 @@ fun HomeScreen(
     libraryViewModel: LibraryViewModel,
     playerViewModel: PlayerViewModel,
     detailViewModel: DetailViewModel,
+    // Detail Open Request (Delegate overlay retargeting to the app shell)
+    // Home maps library rows into Detail scene items, while APlayerApp decides whether to open immediately or queue behind a running shared-element return.
+    onOpenDetail: (DetailOpenRequest) -> Unit = {},
     // Home Dialog Backdrop Source (Allow app shell to provide the cross-layer blur source)
     // Dialogs are rendered above the page content, so they should sample the app-level backdrop when one is available instead of the LazyGrid-local fallback source.
     homeDialogHazeState: HazeState? = null,
@@ -134,9 +138,11 @@ fun HomeScreen(
                     progressPercent = libraryBook.progressPercent
                 )
             }
-            detailViewModel.selectBook(
-                book = book,
-                entrySource = entrySource
+            onOpenDetail(
+                DetailOpenRequest(
+                    book = book,
+                    entrySource = entrySource
+                )
             )
         },
         onLoadBook = { id: String ->

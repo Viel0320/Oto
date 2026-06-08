@@ -36,6 +36,9 @@ fun DetailRoute(
     hazeState: HazeState? = null,
     detailHazeState: HazeState? = null,
     onEditClick: (String) -> Unit = {},
+    // Detail Transition Idle Callback (Expose overlay animation lifecycle to the app shell)
+    // The navigation layer uses this signal to defer rapid Detail re-entry until the previous shared-element return chain finishes.
+    onTransitionIdleChanged: (Boolean) -> Unit = {},
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
     val darkTheme = LocalDarkTheme.current
@@ -61,7 +64,8 @@ fun DetailRoute(
         glassEffectMode = glassEffectMode,
         modifier = modifier,
         hazeState = hazeState,
-        detailHazeState = detailHazeState
+        detailHazeState = detailHazeState,
+        onTransitionIdleChanged = onTransitionIdleChanged
     ) {
         val screenBlock = @Composable {
             DetailScreen(

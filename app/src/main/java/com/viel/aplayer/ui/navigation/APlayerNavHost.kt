@@ -69,6 +69,9 @@ fun APlayerNavHost(
     // Settings Navigation Event (To delegate settings launch routing to upper controller)
     // Abstract callback parameter to notify parent overlay scope when user requests setting screen.
     onNavigateToSettings: () -> Unit,
+    // Detail Open Request (Route Home detail intents through the app-level transition gate)
+    // APlayerNavHost owns Home route composition, while APlayerApp owns the overlay transition gate that protects shared-element return chains.
+    onOpenDetail: (DetailOpenRequest) -> Unit,
     // Home View Style Selection Callback (Persist display renderer changes through the parent ViewModel)
     // APlayerNavHost only hosts the top-bar dialog and delegates actual preference writes upward.
     onHomeViewStyleSelected: (HomeViewStyle) -> Unit,
@@ -94,7 +97,7 @@ fun APlayerNavHost(
     // Setup Entry Provider (Resolve NavKeys to Screen composables)
     // Declares the mapping of serializable NavKey to their respective Compose screen contents.
     // Explicit NavKey Provider (Fix Nav3 type parameter matching issue) Explicitly parameterize entryProvider with NavKey to bypass Kotlin contravariance compile errors.
-    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, homeDialogHazeState, homeTopBarHeightPx, homeTopBarScrollToTopRequest) {
+    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, onOpenDetail, homeDialogHazeState, homeTopBarHeightPx, homeTopBarScrollToTopRequest) {
         entryProvider<NavKey> {
             entry<HomeRoute> {
                 /*
@@ -107,6 +110,7 @@ fun APlayerNavHost(
                     libraryViewModel = libraryViewModel,
                     playerViewModel = playerViewModel,
                     detailViewModel = detailViewModel,
+                    onOpenDetail = onOpenDetail,
                     homeDialogHazeState = homeDialogHazeState,
                     homeTopBarHeightPx = homeTopBarHeightPx,
                     homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest

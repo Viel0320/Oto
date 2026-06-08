@@ -4,10 +4,10 @@ package com.viel.aplayer.ui.navigation
 // Import Haze's backdrop mechanism API to completely replace the legacy blur library dependency, achieving a clearer viewport-level Gaussian blur refraction effect.
 // Setup Haze Core (Import dev.chrisbanes.haze modifiers) Import HazeState and haze modifier for Compose-based blur.
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -21,8 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.savedstate.compose.LocalSavedStateRegistryOwner
@@ -169,6 +169,13 @@ fun APlayerApp(
         // Separation of DetailViewModel (Single Responsibility)
         // Independent ViewModel for the audiobook details page, split from LibraryViewModel to make each ViewModel have a single responsibility.
         val detailViewModel: DetailViewModel = viewModel()
+        /*
+         * Detail Transition Gate Ownership (Centralize rapid re-entry coordination)
+         *
+         * Keeps Home and Search detail-open commands behind the same app-shell gate so a new
+         * selection waits for any running Detail exit animation and preserves the source return chain.
+         */
+        val detailTransitionGate = rememberDetailTransitionGate(detailViewModel)
         // EditBookViewModel Lifecycle (Host Lifecycle Management)
         // Instantiate the independent ViewModel for editing book metadata, which is hosted and destroyed by the current Activity.
         val editViewModel: EditBookViewModel = viewModel()
@@ -353,6 +360,7 @@ fun APlayerApp(
                         onNavigateToSettings = {
                             settingsViewModel.setVisible(true)
                         },
+                        onOpenDetail = detailTransitionGate::requestOpen,
                         onHomeViewStyleSelected = libraryViewModel::setHomeViewStyle,
                         onHomeSortRuleSelected = libraryViewModel::setHomeSortRule,
                         onHomeSortDirectionSelected = libraryViewModel::setHomeSortDirection
@@ -379,7 +387,8 @@ fun APlayerApp(
                     // Receive the book editing click event from the detail page, and open the edit route without delay.
                     onEditClick = { bookId ->
                         editViewModel.startEdit(bookId)
-                    }
+                    },
+                    onTransitionIdleChanged = detailTransitionGate::onTransitionIdleChanged
                 )
 
                 // MiniPlayer Stable Haze Target (Keep the effect state constant across overlays)
@@ -440,7 +449,6 @@ fun APlayerApp(
                         null
                     },
                     onNavigateToDetail = { bookId ->
-                        searchViewModel.setVisible(false)
                         val book = libraryUiState.audiobooks.find { it.id == bookId }?.let { libraryBook ->
                             // Search Detail Boundary Mapping (Convert the search-selected library row into a Detail scene item)
                             // The navigation shell bridges the Home scene projection to Detail without exposing Room rows through DetailViewModel.
@@ -461,15 +469,26 @@ fun APlayerApp(
                                 progressPercent = libraryBook.progressPercent
                             )
                         }
-                        detailViewModel.selectBook(
-                            book = book,
-                            /*
-                             * Search Detail Entry Source (Search motion channel tagging)
-                             *
-                             * Marks this selection as Search-originated so Detail binds to the
-                             * search2detail cover key instead of any Home artwork channel.
-                             */
-                            entrySource = DetailEntrySource.Search
+                        detailTransitionGate.requestOpen(
+                            DetailOpenRequest(
+                                book = book,
+                                /*
+                                 * Search Detail Entry Source (Search motion channel tagging)
+                                 *
+                                 * Marks this selection as Search-originated so Detail binds to the
+                                 * search2detail cover key instead of any Home artwork channel.
+                                 */
+                                entrySource = DetailEntrySource.Search
+                            ),
+                            beforeOpen = {
+                                /*
+                                 * Search Source Lifetime (Close search only when the handoff starts)
+                                 *
+                                 * If Detail re-entry is queued behind an exit animation, keeping Search
+                                 * composed preserves the selected result thumbnail as the source endpoint.
+                                 */
+                                searchViewModel.setVisible(false)
+                            }
                         )
                     },
                     onLoadBook = { bookId ->
