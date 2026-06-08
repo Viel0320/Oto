@@ -64,9 +64,9 @@ data class AppSettings(
     val isChapterProgressMode: Boolean = false,
     // Insecure TLS Config: Add a configuration flag to allow bypassing SSL certificate checks for self-signed remote servers.
     val isAllowInsecureTls: Boolean = false,
-    // Cleartext Network Permission (Insecure server compatibility flag)
-    // Permits unencrypted HTTP network connections; enabled by default for easier initial WebDAV setups.
-    val isCleartextTrafficAllowed: Boolean = true,
+    // Cleartext Network Permission (Explicit user opt-in for unencrypted remote endpoints)
+    // Blocks HTTP by default so WebDAV, ABS, and playback requests only use cleartext after the user enables the global compatibility switch.
+    val isCleartextTrafficAllowed: Boolean = false,
     /**
      * Skip Silence Controller (Playback audio filter switch)
      * Automatically skips silent periods in audio streams; utilizes standard Media3 behaviours.

@@ -9,6 +9,7 @@ import com.viel.aplayer.abs.net.dto.AbsLibraryDto
 import com.viel.aplayer.abs.net.ensureSupportedAbsServerVersion
 import com.viel.aplayer.abs.sync.AbsConnectionTester
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
@@ -104,7 +105,7 @@ class AbsApiClientTest {
                     .setResponseCode(200)
                     .setBody("""{"user":{"id":"u1","username":"demo"}}""")
             )
-            val client = RealAbsApiClient()
+            val client = RealAbsApiClient(settingsProvider = ::allowCleartextSettings)
 
             runBlocking {
                 client.authorize(server.url("/audiobookshelf").toString(), "token-123")
@@ -125,7 +126,7 @@ class AbsApiClientTest {
                     .setResponseCode(200)
                     .setBody("""{"user":{"id":"u1","username":"demo","token":"t1"}}""")
             )
-            val client = RealAbsApiClient()
+            val client = RealAbsApiClient(settingsProvider = ::allowCleartextSettings)
 
             runBlocking {
                 client.login(server.url("/audiobookshelf").toString(), "demo", "demo")
@@ -166,7 +167,7 @@ class AbsApiClientTest {
                         """.trimIndent()
                     )
             )
-            val client = RealAbsApiClient()
+            val client = RealAbsApiClient(settingsProvider = ::allowCleartextSettings)
             val tester = AbsConnectionTester(client)
 
             val result = runBlocking {
@@ -195,7 +196,7 @@ class AbsApiClientTest {
                     .setResponseCode(200)
                     .setBody("""{"serverVersion":"2.35.0"}""")
             )
-            val tester = AbsConnectionTester(RealAbsApiClient())
+            val tester = AbsConnectionTester(RealAbsApiClient(settingsProvider = ::allowCleartextSettings))
 
             try {
                 runBlocking {
@@ -242,4 +243,13 @@ class AbsApiClientTest {
         assertNotNull(networkThreadName.get())
         assertNotEquals(callerThreadName.get(), networkThreadName.get())
     }
+
+    /**
+     * Test Cleartext Settings (Opts MockWebServer HTTP endpoints into transport compatibility)
+     *
+     * Production defaults stay strict; only these local protocol tests enable HTTP because MockWebServer
+     * serves plain HTTP unless each test provisions TLS certificates.
+     */
+    private fun allowCleartextSettings(): AppSettings =
+        AppSettings(isCleartextTrafficAllowed = true)
 }

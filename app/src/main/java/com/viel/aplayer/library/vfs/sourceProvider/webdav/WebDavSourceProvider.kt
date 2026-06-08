@@ -12,6 +12,7 @@ import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.aplayer.library.vfs.sourceProvider.SourceCapabilities
 import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.aplayer.library.vfs.sourceProvider.SourceNode
+import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -75,13 +76,10 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
     private val credentialStore = WebDavCredentialStore(context.applicationContext)
 
-    // Resolve Client Policy (Selects trusted or insecure WebDAV client from the shared factory)
-    // Global settings and per-root credentials both participate in TLS policy without duplicating client construction.
-    private fun getClient(root: LibraryRootEntity): OkHttpClient {
-        val globalAllowInsecure = appSettingsRepository.cachedSettings.isAllowInsecureTls
-        val localAllowInsecure = credentialStore.get(root.credentialId)?.allowInsecureTls == true
-        return clientFactory.clientFor(globalAllowInsecure || localAllowInsecure)
-    }
+    // Resolve Client Policy (Selects trusted or insecure WebDAV client from the global settings switch)
+    // Root-level TLS exceptions are intentionally ignored so certificate bypass behavior remains controlled by one user-visible setting.
+    private fun getClient(): OkHttpClient =
+        clientFactory.clientFor(UnsafeNetworkPolicy.isInsecureTlsAllowed(appSettingsRepository.cachedSettings))
 
     override suspend fun rootDirectory(root: LibraryRootEntity): SourceNode? =
         try {
@@ -314,8 +312,15 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
     private fun executeRequestBlocking(root: LibraryRootEntity, request: Request): Response =
         try {
-            // Execute Request: Select client instance according to SSL verification settings and run network call.
-            getClient(root).newCall(request).execute()
+            // Unsafe Network Request Gate (Validate transport before sending WebDAV credentials or stream requests)
+            // The provider checks every PROPFIND, GET, and Range request centrally so new WebDAV operations cannot bypass the cleartext policy.
+            UnsafeNetworkPolicy.requireCleartextHttpAllowed(
+                url = request.url.toString(),
+                settings = appSettingsRepository.cachedSettings,
+                operation = "WebDAV ${request.method}"
+            )
+            // Execute Request: Select client instance according to the global SSL verification setting and run network call.
+            getClient().newCall(request).execute()
         } catch (error: WebDavException) {
             throw error
         } catch (error: SocketTimeoutException) {

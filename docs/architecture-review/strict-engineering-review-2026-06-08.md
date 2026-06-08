@@ -46,11 +46,18 @@
 
 ### P0-2 远程源明文策略实际失效
 
+当前状态：
+
+- 已修复。新增 `UnsafeNetworkPolicy`，把 cleartext HTTP 与 insecure TLS 都收敛到全局设置策略；`AppSettings.isCleartextTrafficAllowed` 和 `AppSettings.isAllowInsecureTls` 默认均为 `false`。
+- Root 创建/更新、WebDAV 连接测试、WebDAV VFS 请求、ABS REST 请求、ABS 媒体流请求、播放 preflight 均接入 `UnsafeNetworkPolicy`；播放路径已移除 `hasHttp=false` 占位，改为基于 `LibraryRootEntity.sourceUri` 判断真实远程 root。
+- WebDAV per-root `allowInsecureTls` 不再参与运行时放行；旧 SharedPreferences 字段仅在保存/删除凭据时清理，unsafe TLS 只有全局开关。
+- `ReleasePolicyTest` 已改为守护默认拒绝、`UnsafeNetworkPolicy` 存在，以及平台 cleartext 放行时必须有运行时入口调用策略。
+
 证据：
 
 - `app/src/main/res/xml/network_security_config.xml:5` 全局 `cleartextTrafficPermitted="true"`。
-- `AppSettingsRepository.kt:117` 默认 `isCleartextTrafficAllowed = true`。
-- `PlaybackManager.kt:303` 存在 `val hasHttp = false`，导致播放路径的明文拦截永远不会触发。
+- 原始问题为：`AppSettingsRepository.kt:117` 默认 `isCleartextTrafficAllowed = true`。
+- 原始问题为：`PlaybackManager.kt:303` 存在 `val hasHttp = false`，导致播放路径的明文拦截永远不会触发。
 - WebDAV Basic Auth 与 ABS token 均可能走 HTTP 明文传输。
 
 影响：

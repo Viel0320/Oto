@@ -36,17 +36,19 @@ device transfer:
 - `app/src/main/res/xml/data_extraction_rules.xml` excludes `sharedpref/device.xml` from cloud backup.
 - `app/src/main/res/xml/data_extraction_rules.xml` excludes `sharedpref/device.xml` from device transfer.
 
-## Cleartext Network
+## Unsafe Network
 
 The platform network security config permits cleartext traffic at the socket layer so WebDAV and LAN libraries
 can still connect to user-owned HTTP endpoints.
 
 Runtime playback and remote access code must consult app settings before using insecure network behavior:
 
-- `AppSettings.isCleartextTrafficAllowed` defaults to `true` for onboarding compatibility.
-- Playback cleartext preflight blocks HTTP playback when the setting is disabled.
+- `AppSettings.isCleartextTrafficAllowed` defaults to `false`.
 - `AppSettings.isAllowInsecureTls` defaults to `false`.
-- WebDAV and ABS clients must opt into unsafe TLS only when the setting or credential explicitly allows it.
+- `UnsafeNetworkPolicy` is the single runtime rule for cleartext HTTP and insecure TLS decisions.
+- WebDAV, ABS, root registration, connection testing, availability checks, and playback preflight must reject HTTP unless the global cleartext setting is enabled.
+- WebDAV and ABS clients must use unsafe TLS only when the global insecure TLS setting is enabled.
+- Credential or root-scoped TLS exceptions are not allowed; unsafe network behavior is global-only.
 
 ## Dependency Upgrade Rule
 

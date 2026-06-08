@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -12,6 +13,7 @@ import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
+import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -24,7 +26,8 @@ class LibraryRootStore(
     private val rootDaoOverride: com.viel.aplayer.data.dao.LibraryRootDao? = null,
     private val availabilityCheckerOverride: AvailabilityChecker? = null,
     private val webDavCredentialStoreOverride: WebDavCredentialStore? = null,
-    private val absCredentialStoreOverride: AbsCredentialStore? = null
+    private val absCredentialStoreOverride: AbsCredentialStore? = null,
+    private val appSettingsRepositoryOverride: AppSettingsRepository? = null
 ) {
     private val rootDao by lazy { rootDaoOverride ?: AppDatabase.getInstance(context).libraryRootDao() }
     // Unified Availability Scanner (Access checking facade)
@@ -36,6 +39,9 @@ class LibraryRootStore(
     // ABS Token Scoping Boundary (Credential isolation support)
     // Stores only reference IDs in root models, preventing auth tokens from persisting to raw library tables.
     private val absCredentialStore by lazy { absCredentialStoreOverride ?: AbsCredentialStore.getInstance(context.applicationContext) }
+    // Unsafe Network Settings Source (Global compatibility switch owner)
+    // Root registration reads the cached settings so endpoint validation matches runtime WebDAV, ABS, and playback policy without introducing per-root exceptions.
+    private val appSettingsRepository by lazy { appSettingsRepositoryOverride ?: AppSettingsRepository.getInstance(context.applicationContext) }
 
     /**
      * Add New Storage Root (Ingestion path registration)
@@ -87,6 +93,13 @@ class LibraryRootStore(
         val parsed = url.trim().toUri()
         val normalizedEndpoint = normalizeWebDavEndpoint(parsed)
         val normalizedBasePath = normalizeWebDavBasePath(basePath.ifBlank { parsed.path.orEmpty() })
+        // WebDAV Root Registration Policy (Reject cleartext roots before credentials are persisted)
+        // Root creation is the earliest durable boundary, so HTTP endpoints require the same explicit global opt-in as connection tests and VFS reads.
+        UnsafeNetworkPolicy.requireCleartextHttpAllowed(
+            url = normalizedEndpoint,
+            settings = appSettingsRepository.cachedSettings,
+            operation = "WebDAV root registration"
+        )
         val resolvedDisplayName = displayName.ifBlank {
             // WebDAV Display Name Fallback (Prefer the configured remote library path)
             // When the user leaves the custom name empty, the root label mirrors basePath instead of mixing host and path into a longer technical endpoint label.
@@ -140,6 +153,13 @@ class LibraryRootStore(
             "ABS 凭据不存在: $credentialId"
         }
         val normalizedBaseUrl = credential.baseUrl
+        // ABS Root Registration Policy (Reject cleartext server roots before library rows are persisted)
+        // This keeps ABS catalog roots aligned with login and API transport policy instead of storing roots that runtime requests would block.
+        UnsafeNetworkPolicy.requireCleartextHttpAllowed(
+            url = normalizedBaseUrl,
+            settings = appSettingsRepository.cachedSettings,
+            operation = "ABS root registration"
+        )
         val resolvedDisplayName = displayName.ifBlank { libraryId }
         val now = System.currentTimeMillis()
         val root = mergeAbsRoot(
@@ -337,6 +357,13 @@ class LibraryRootStore(
         val parsed = url.trim().toUri()
         val normalizedEndpoint = normalizeWebDavEndpoint(parsed)
         val normalizedBasePath = normalizeWebDavBasePath(basePath.ifBlank { parsed.path.orEmpty() })
+        // WebDAV Root Update Policy (Apply cleartext validation before replacing stored endpoint data)
+        // Edits can move a previously safe HTTPS root to HTTP, so updates must be checked just like first-time registration.
+        UnsafeNetworkPolicy.requireCleartextHttpAllowed(
+            url = normalizedEndpoint,
+            settings = appSettingsRepository.cachedSettings,
+            operation = "WebDAV root update"
+        )
         val resolvedDisplayName = displayName.ifBlank {
             // WebDAV Update Display Name Fallback (Keep edit behavior aligned with new root creation)
             // Empty custom names resolve to the remote basePath so Settings and Detail use the same user-facing library label.
@@ -382,6 +409,13 @@ class LibraryRootStore(
         val credential = requireNotNull(absCredentialStore.get(credentialId)) {
             "ABS 凭据不存在: $credentialId"
         }
+        // ABS Root Update Policy (Apply cleartext validation before rebinding a root to a new server credential)
+        // The selected credential owns the server URL, so updates must reject HTTP unless the global cleartext setting is enabled.
+        UnsafeNetworkPolicy.requireCleartextHttpAllowed(
+            url = credential.baseUrl,
+            settings = appSettingsRepository.cachedSettings,
+            operation = "ABS root update"
+        )
         val resolvedDisplayName = displayName.ifBlank { libraryId }
         val updated = existing.copy(
             sourceUri = credential.baseUrl,

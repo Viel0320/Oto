@@ -3,6 +3,7 @@ package com.viel.aplayer.library.vfs.sourceProvider.webdav
 import android.net.Uri
 import androidx.core.net.toUri
 import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -35,6 +36,10 @@ class WebDavConnectionTester(
         val normalizedEndpoint = normalizeWebDavEndpoint(url)
         val normalizedBasePath = normalizeWebDavBasePath(basePath, url)
         val targetUrl = if (normalizedBasePath.isEmpty()) normalizedEndpoint else "$normalizedEndpoint$normalizedBasePath"
+        val settings = appSettingsRepository.cachedSettings
+        // Unsafe Network Preflight (Block HTTP test requests before Basic Auth headers are sent)
+        // Connection testing uses the same global policy as VFS reads so a successful test cannot authorize a root that playback would later reject.
+        UnsafeNetworkPolicy.requireCleartextHttpAllowed(targetUrl, settings, "WebDAV connection test")
         val request = Request.Builder()
             .url(targetUrl)
             .method("PROPFIND", WebDavProtocol.PROPFIND_ALL_PROPERTIES_BODY)
@@ -48,7 +53,7 @@ class WebDavConnectionTester(
             }
             .build()
 
-        val allowInsecureTls = appSettingsRepository.cachedSettings.isAllowInsecureTls
+        val allowInsecureTls = UnsafeNetworkPolicy.isInsecureTlsAllowed(settings)
         clientFactory.clientFor(allowInsecureTls).newCall(request).execute().use { response ->
             if (response.isSuccessful || response.code == WebDavProtocol.HTTP_MULTI_STATUS) {
                 return@withContext WebDavConnectionTestResult(

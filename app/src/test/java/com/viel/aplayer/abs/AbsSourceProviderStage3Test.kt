@@ -16,6 +16,7 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.store.AppSettings
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -31,7 +32,11 @@ class AbsSourceProviderStage3Test {
     @Test
     fun `resolve content url should preserve base subpath and reject external hosts`() {
         val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
-        val provider = AbsSourceProvider(context = null, credentialStore = credentialStore)
+        val provider = AbsSourceProvider(
+            context = null,
+            credentialStore = credentialStore,
+            settingsProvider = ::allowCleartextSettings
+        )
         val root = LibraryRootEntity(
             id = "root-1",
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
@@ -76,7 +81,11 @@ class AbsSourceProviderStage3Test {
                     .setBody("56789")
             )
             val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
-            val provider = AbsSourceProvider(context = null, credentialStore = credentialStore)
+            val provider = AbsSourceProvider(
+                context = null,
+                credentialStore = credentialStore,
+                settingsProvider = ::allowCleartextSettings
+            )
             val root = LibraryRootEntity(
                 id = "root-1",
                 sourceType = AudiobookSchema.LibrarySourceType.ABS,
@@ -106,7 +115,11 @@ class AbsSourceProviderStage3Test {
                     .setBody("0123456789")
             )
             val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
-            val provider = AbsSourceProvider(context = null, credentialStore = credentialStore)
+            val provider = AbsSourceProvider(
+                context = null,
+                credentialStore = credentialStore,
+                settingsProvider = ::allowCleartextSettings
+            )
             val root = LibraryRootEntity(
                 id = "root-1",
                 sourceType = AudiobookSchema.LibrarySourceType.ABS,
@@ -176,6 +189,15 @@ class AbsSourceProviderStage3Test {
         }
         return store
     }
+
+    /**
+     * Test Cleartext Settings (Opts MockWebServer HTTP streams into transport compatibility)
+     *
+     * ABS media stream tests use local HTTP endpoints to inspect headers and Range behavior; production
+     * code still defaults to blocking cleartext unless the user enables the global setting.
+     */
+    private fun allowCleartextSettings(): AppSettings =
+        AppSettings(isCleartextTrafficAllowed = true)
 
     private class FakeCoverStore(
         private val coverPath: String,

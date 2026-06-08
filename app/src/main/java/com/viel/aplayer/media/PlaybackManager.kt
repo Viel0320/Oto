@@ -269,8 +269,13 @@ class PlaybackManager private constructor(context: Context) {
 
             // DB-Only Root Preflight (Reject media source creation when Room already marks the root inactive)
             // This check deliberately avoids file opens, SAF traversal, WebDAV requests, and ABS API calls before MediaController receives media items.
-            when (val preflight = playbackSourcePreflight.check(finalPlan)) {
+            when (val preflight = playbackSourcePreflight.check(finalPlan, settings)) {
                 PlaybackSourcePreflightResult.Available -> Unit
+                PlaybackSourcePreflightResult.CleartextHttpBlocked -> {
+                    playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked)
+                    PlaybackWorkflowLogger.warn("playbackManager cleartext preflight blocked: bookId=${plan.bookId}")
+                    return@launch
+                }
                 is PlaybackSourcePreflightResult.Blocked -> {
                     playbackEventSink.emit(PlaybackDomainEvent.SourcePreflightBlocked(preflight.message))
                     PlaybackWorkflowLogger.warn("playbackManager source preflight blocked: bookId=${plan.bookId}, message=${preflight.message}")
@@ -312,25 +317,14 @@ class PlaybackManager private constructor(context: Context) {
                 _duration.value = totalDur
                 // Widget Refresh Bypass (Omit Widget refresh since widget is deprecated)
 
-                // Stream Address Validation (VFS abstracts endpoints; HTTP checks are protocol-specific)
-                val hasHttp = false
-                if (hasHttp) {
-                    scope.launch {
-                        val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
-                        if (!isAllowed) {
-                            playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked)
-                            return@launch
-                        }
-                        withContext(Dispatchers.Main) { applyPlaybackPlan(finalPlan) }
-                    }
-                } else {
-                    val preApplyCost = SystemClock.elapsedRealtime() - setPlanStart
-                    com.viel.aplayer.logger.PlaybackTimingLogger.logPreApplyCost(
-                        bookId = plan.bookId,
-                        preApplyCostMs = preApplyCost
-                    )
-                    executeOnMain { applyPlaybackPlan(finalPlan) }
-                }
+                // Playback Plan Application (Runs only after root lifecycle and unsafe-network preflight pass)
+                // The previous placeholder HTTP check is replaced by PlaybackSourcePreflight, which inspects the persisted remote root endpoints behind VFS media URIs.
+                val preApplyCost = SystemClock.elapsedRealtime() - setPlanStart
+                com.viel.aplayer.logger.PlaybackTimingLogger.logPreApplyCost(
+                    bookId = plan.bookId,
+                    preApplyCostMs = preApplyCost
+                )
+                executeOnMain { applyPlaybackPlan(finalPlan) }
             }
         }
     }

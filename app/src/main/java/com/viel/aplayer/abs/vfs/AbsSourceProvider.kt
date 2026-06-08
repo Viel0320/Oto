@@ -4,8 +4,10 @@ import android.content.Context
 import android.os.ParcelFileDescriptor
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.AbsApiError
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.aplayer.library.vfs.sourceProvider.SourceCapabilities
@@ -13,6 +15,7 @@ import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.aplayer.library.vfs.sourceProvider.SourceNode
 import com.viel.aplayer.logger.AbsAuthLogger
 import com.viel.aplayer.logger.AbsStreamLogger
+import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -30,6 +33,12 @@ class AbsSourceProvider(
     private val credentialStore: AbsCredentialStore = requireNotNull(context) {
         "AbsSourceProvider requires context when credentialStore is not injected"
     }.let { ctx -> AbsCredentialStore.getInstance(ctx.applicationContext) },
+    private val settingsProvider: () -> AppSettings = {
+        context
+            ?.applicationContext
+            ?.let { AppSettingsRepository.getInstance(it).cachedSettings }
+            ?: AppSettings()
+    },
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -258,6 +267,13 @@ class AbsSourceProvider(
             AbsAuthLogger.logMissingCredential(path = "AbsSourceProvider.executeRequest", rootId = file.root.id, credentialId = file.root.credentialId)
         }
         val url = resolveContentUrl(credential.baseUrl, file.root, file.metadata.sourcePath)
+        // ABS Stream Cleartext Gate (Reject HTTP media reads before bearer credentials are attached)
+        // The VFS stream path does not go through RealAbsApiClient, so it must enforce the same global policy before GET and HEAD requests.
+        UnsafeNetworkPolicy.requireCleartextHttpAllowed(
+            url = url.toString(),
+            settings = settingsProvider(),
+            operation = "ABS media $method"
+        )
         val requestBuilder = Request.Builder()
             .url(url)
             .header("Authorization", "Bearer ${credential.token}")

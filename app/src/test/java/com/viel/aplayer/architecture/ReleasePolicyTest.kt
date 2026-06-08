@@ -1,6 +1,7 @@
 package com.viel.aplayer.architecture
 
 import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.network.UnsafeNetworkPolicy
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -17,7 +18,7 @@ class ReleasePolicyTest {
             "Debug And Release Differences",
             "Logs",
             "Backup And Transfer",
-            "Cleartext Network",
+            "Unsafe Network",
             "Dependency Upgrade Rule"
         ).forEach { heading ->
             assertTrue("release-policy.md must cover $heading.", policy.contains("## $heading"))
@@ -63,15 +64,31 @@ class ReleasePolicyTest {
     }
 
     @Test
-    fun cleartextPlatformAllowanceIsPairedWithRuntimeSettingsDefaults() {
+    fun cleartextPlatformAllowanceIsPairedWithUnsafeNetworkRuntimePolicy() {
         val networkConfig = repoFile("app/src/main/res/xml/network_security_config.xml").readText()
         val defaults = AppSettings()
+        val policy = repoFile("app/src/main/java/com/viel/aplayer/network/UnsafeNetworkPolicy.kt").readText()
+        val runtimeGates = listOf(
+            repoFile("app/src/main/java/com/viel/aplayer/library/LibraryRootStore.kt"),
+            repoFile("app/src/main/java/com/viel/aplayer/library/vfs/sourceProvider/webdav/WebDavConnectionTester.kt"),
+            repoFile("app/src/main/java/com/viel/aplayer/library/vfs/sourceProvider/webdav/WebDavSourceProvider.kt"),
+            repoFile("app/src/main/java/com/viel/aplayer/abs/net/AbsApiClient.kt"),
+            repoFile("app/src/main/java/com/viel/aplayer/abs/vfs/AbsSourceProvider.kt"),
+            repoFile("app/src/main/java/com/viel/aplayer/media/PlaybackSourcePreflight.kt")
+        )
 
-        // Cleartext Priority Policy (Allows platform sockets while preserving runtime control)
-        // The socket layer remains compatible with user-owned HTTP libraries, while settings own the user-facing security decision.
+        // Unsafe Network Runtime Gate (Allows platform sockets only with centralized runtime enforcement)
+        // The socket layer remains compatible with user-owned HTTP libraries, but cleartext HTTP and insecure TLS default to blocked until the global settings switches allow them.
         assertTrue(networkConfig.contains("""<base-config cleartextTrafficPermitted="true">"""))
-        assertTrue(defaults.isCleartextTrafficAllowed)
+        assertTrue(!defaults.isCleartextTrafficAllowed)
         assertTrue(!defaults.isAllowInsecureTls)
+        assertTrue(!UnsafeNetworkPolicy.isCleartextHttpAllowed("http://example.test/books", defaults))
+        assertTrue(!UnsafeNetworkPolicy.isInsecureTlsAllowed(defaults))
+        assertTrue(policy.contains("fun isCleartextHttpAllowed"))
+        assertTrue(policy.contains("fun isInsecureTlsAllowed"))
+        runtimeGates.forEach { file ->
+            assertTrue("${file.path} must enforce UnsafeNetworkPolicy.", file.readText().contains("UnsafeNetworkPolicy"))
+        }
     }
 
     @Test

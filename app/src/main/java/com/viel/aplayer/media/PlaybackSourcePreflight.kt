@@ -2,6 +2,8 @@ package com.viel.aplayer.media
 
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -16,7 +18,7 @@ class PlaybackSourcePreflight(
      * Validate Playback Roots (Checks persisted root lifecycle state before media source creation)
      * Ensures a playback plan is allowed to reach MediaController only when all referenced library roots still exist and remain ACTIVE in Room.
      */
-    suspend fun check(plan: BookPlaybackPlan): PlaybackSourcePreflightResult = withContext(Dispatchers.IO) {
+    suspend fun check(plan: BookPlaybackPlan, settings: AppSettings): PlaybackSourcePreflightResult = withContext(Dispatchers.IO) {
         val rootIds = plan.files.map { file -> file.rootId }.distinct()
         for (rootId in rootIds) {
             val root = libraryRootDao.getRootById(rootId)
@@ -24,6 +26,11 @@ class PlaybackSourcePreflight(
             if (root.status != AudiobookSchema.LibraryRootStatus.ACTIVE) {
                 val rootName = root.displayName.ifBlank { root.sourceUri }
                 return@withContext PlaybackSourcePreflightResult.Blocked("媒体库根不可用，无法载入媒体源：$rootName")
+            }
+            // Playback Cleartext Root Gate (Blocks HTTP-backed remote roots before MediaController receives media items)
+            // VFS playback URIs hide provider URLs, so the preflight checks persisted root endpoints instead of relying on generated media item schemes.
+            if (!UnsafeNetworkPolicy.isCleartextHttpAllowed(root.sourceUri, settings)) {
+                return@withContext PlaybackSourcePreflightResult.CleartextHttpBlocked
             }
         }
         PlaybackSourcePreflightResult.Available
@@ -37,4 +44,7 @@ class PlaybackSourcePreflight(
 sealed class PlaybackSourcePreflightResult {
     data object Available : PlaybackSourcePreflightResult()
     data class Blocked(val message: String) : PlaybackSourcePreflightResult()
+    // Cleartext HTTP Blocked (Distinguishes security-policy blocks from unavailable storage roots)
+    // PlaybackManager maps this result to the existing CleartextPlaybackBlocked domain event so the app shell can render the dedicated feedback message.
+    data object CleartextHttpBlocked : PlaybackSourcePreflightResult()
 }

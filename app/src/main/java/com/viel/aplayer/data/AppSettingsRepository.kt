@@ -113,8 +113,8 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             isChapterProgressMode = preferences[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] ?: false,
             // Read Insecure TLS Option: Load insecure TLS bypass configuration from preferences, defaulting to false.
             isAllowInsecureTls = preferences[PreferencesKeys.IS_ALLOW_INSECURE_TLS] ?: false,
-            // Read HTTP Policy (Resolve cleartext connection permission, falling back to true for initial WebDAV onboarding)
-            isCleartextTrafficAllowed = preferences[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] ?: true,
+            // Read HTTP Policy (Resolve global cleartext permission, defaulting to false until the user explicitly opts in)
+            isCleartextTrafficAllowed = preferences[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] ?: false,
             /**
              * Read Skip Silence (Expose silence skipping flag, defaulting to false)
              * Custom threshold offsets and status notification settings have been pruned in this revision.

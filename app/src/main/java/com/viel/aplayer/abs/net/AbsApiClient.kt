@@ -15,7 +15,9 @@ import com.viel.aplayer.abs.net.dto.AbsStatusDto
 import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.logger.AbsAuthLogger
+import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -64,6 +66,9 @@ interface AbsApiClient {
 class RealAbsApiClient(
     private val client: OkHttpClient = defaultClient(),
     private val appSettingsRepository: AppSettingsRepository? = null,
+    private val settingsProvider: () -> AppSettings = {
+        appSettingsRepository?.cachedSettings ?: AppSettings()
+    },
     // Pure Codegen: Instantiate Moshi without reflection support since all DTOs have generated adapters.
     private val moshi: Moshi = Moshi.Builder().build()
 ) : AbsApiClient {
@@ -91,9 +96,9 @@ class RealAbsApiClient(
         .hostnameVerifier(unsafeHostnameVerifier)
         .build()
 
-    // Resolve client instance: Dynamically return client or unsafeClient depending on global settings.
+    // Resolve client instance: Dynamically return client or unsafeClient depending on the global unsafe network policy.
     private fun getClient(): OkHttpClient {
-        val allowInsecure = appSettingsRepository?.cachedSettings?.isAllowInsecureTls == true
+        val allowInsecure = UnsafeNetworkPolicy.isInsecureTlsAllowed(settingsProvider())
         return if (allowInsecure) unsafeClient else client
     }
     private val statusAdapter: JsonAdapter<AbsStatusDto> = moshi.adapter(AbsStatusDto::class.java)
@@ -285,6 +290,9 @@ class RealAbsApiClient(
      */
     private suspend fun <T> executeJson(request: Request, adapter: JsonAdapter<T>): T {
         return withContext(Dispatchers.IO) {
+                // ABS Cleartext Request Gate (Reject HTTP before credentials or bearer tokens leave the process)
+                // All ABS login, token validation, catalog, playback-session, and progress requests pass this single transport check.
+                validateRequestTransport(request)
                 val response = try {
                     // Execute Call: Run client matching SSL certificate checks settings.
                     getClient().newCall(request).execute()
@@ -329,6 +337,9 @@ class RealAbsApiClient(
      */
     private suspend fun executeUnit(request: Request) {
         withContext(Dispatchers.IO) {
+                // ABS Cleartext Request Gate (Reject HTTP before session mutation requests leave the process)
+                // The same policy protects progress sync and close-session calls, which also carry Bearer credentials.
+                validateRequestTransport(request)
                 val response = try {
                     // Execute Call: Run client matching SSL certificate checks settings.
                     getClient().newCall(request).execute()
@@ -375,6 +386,20 @@ class RealAbsApiClient(
             .addPathSegment("api")
             .addPathSegment(endpoint)
             .build()
+
+    /**
+     * ABS Transport Policy Check (Applies global cleartext settings to resolved request URLs)
+     *
+     * RealAbsApiClient owns the final OkHttp request, making this the last reliable point before
+     * login passwords or bearer tokens are attached to network traffic.
+     */
+    private fun validateRequestTransport(request: Request) {
+        UnsafeNetworkPolicy.requireCleartextHttpAllowed(
+            url = request.url.toString(),
+            settings = settingsProvider(),
+            operation = "ABS ${request.method}"
+        )
+    }
 
     private fun bearer(token: String): String = "Bearer $token"
 
