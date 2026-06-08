@@ -30,6 +30,8 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.PlaybackSeekStepConfig
+import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.ui.settings.SettingsRootItem
@@ -200,6 +202,9 @@ fun PlaybackBehaviorSection(
     onSkipSilenceEnabledChange: (Boolean) -> Unit,
     autoRewindSeconds: Int,
     onAutoRewindSecondsChange: (Int) -> Unit,
+    playbackSeekStepConfig: PlaybackSeekStepConfig,
+    onSeekBackwardStepChange: (SeekStepSeconds) -> Unit,
+    onSeekForwardStepChange: (SeekStepSeconds) -> Unit,
     isNotificationAvoidanceEnabled: Boolean,
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
@@ -219,6 +224,20 @@ fun PlaybackBehaviorSection(
             icon = Icons.Rounded.LinearScale,
             checked = isSkipSilenceEnabled,
             onCheckedChange = onSkipSilenceEnabledChange
+        )
+        SettingsSegmentedSeekStepItem(
+            title = stringResource(R.string.settings_seek_backward_step_title),
+            subtitle = stringResource(R.string.settings_seek_backward_step_subtitle),
+            icon = Icons.Rounded.LinearScale,
+            selectedStep = playbackSeekStepConfig.backward,
+            onStepSelected = onSeekBackwardStepChange
+        )
+        SettingsSegmentedSeekStepItem(
+            title = stringResource(R.string.settings_seek_forward_step_title),
+            subtitle = stringResource(R.string.settings_seek_forward_step_subtitle),
+            icon = Icons.Rounded.LinearScale,
+            selectedStep = playbackSeekStepConfig.forward,
+            onStepSelected = onSeekForwardStepChange
         )
         val disabledText = stringResource(R.string.settings_auto_rewind_disabled)
         val resources = LocalContext.current.resources

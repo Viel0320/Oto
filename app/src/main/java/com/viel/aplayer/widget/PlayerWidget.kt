@@ -43,6 +43,8 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
+import com.viel.aplayer.data.store.SeekStepSeconds
+import com.viel.aplayer.media.SeekStepPresentation
 
 /**
  * Modern declarative desktop media control widget.
@@ -72,6 +74,16 @@ class PlayerWidget : GlanceAppWidget() {
                 if (it.isNullOrEmpty()) context.getString(R.string.player_widget_fallback_author) else it
             }
             val coverPath = prefs[PlayerWidgetStateHelper.KEY_COVER_PATH] ?: ""
+            // Widget Seek Step State (Validate stored widget step values before resolving resources)
+            // Widget DataStore can lag behind service updates, so invalid values fall back to the same direction defaults as AppSettings.
+            val backwardStep = SeekStepSeconds.fromSecondsOrDefault(
+                prefs[PlayerWidgetStateHelper.KEY_SEEK_BACKWARD_SECONDS],
+                SeekStepSeconds.Ten
+            )
+            val forwardStep = SeekStepSeconds.fromSecondsOrDefault(
+                prefs[PlayerWidgetStateHelper.KEY_SEEK_FORWARD_SECONDS],
+                SeekStepSeconds.Twenty
+            )
 
             // 2. State bridging optimization. The UI composition layer only bridges Glance states to Bitmap representations; I/O bounds, downsampling, and fallbacks are delegated to WidgetCoverArtRenderer.
             // This prevents scattering disk operations and BitmapFactory operations within UI components, ensuring the widget retrieves a small memory-safe bitmap rather than using main-feed large image cache footprints.
@@ -86,7 +98,9 @@ class PlayerWidget : GlanceAppWidget() {
                     isPlaying = isPlaying,
                     title = title,
                     author = author,
-                    coverBitmap = bitmap
+                    coverBitmap = bitmap,
+                    backwardStep = backwardStep,
+                    forwardStep = forwardStep
                 )
             }
         }
@@ -101,7 +115,9 @@ class PlayerWidget : GlanceAppWidget() {
         isPlaying: Boolean,
         title: String,
         author: String,
-        coverBitmap: Bitmap?
+        coverBitmap: Bitmap?,
+        backwardStep: SeekStepSeconds,
+        forwardStep: SeekStepSeconds
     ) {
         // Card click navigation. Clicking empty card areas launches MainActivity smoothly via SingleTop, instead of automatically pulling up full-screen player interfaces.
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
@@ -187,8 +203,8 @@ class PlayerWidget : GlanceAppWidget() {
                         action = PlayerWidgetActionReceiver.ACTION_REWIND
                     }
                     Image(
-                        provider = ImageProvider(R.drawable.ic_replay_10),
-                        contentDescription = context.getString(R.string.player_widget_seek_backward_description),
+                        provider = ImageProvider(SeekStepPresentation.backwardIcon(backwardStep)),
+                        contentDescription = context.getString(SeekStepPresentation.backwardLabel(backwardStep)),
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(rewindIntent)),
@@ -229,8 +245,8 @@ class PlayerWidget : GlanceAppWidget() {
                         action = PlayerWidgetActionReceiver.ACTION_FORWARD
                     }
                     Image(
-                        provider = ImageProvider(R.drawable.ic_forward_30),
-                        contentDescription = context.getString(R.string.player_widget_seek_forward_description),
+                        provider = ImageProvider(SeekStepPresentation.forwardIcon(forwardStep)),
+                        contentDescription = context.getString(SeekStepPresentation.forwardLabel(forwardStep)),
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(forwardIntent)),

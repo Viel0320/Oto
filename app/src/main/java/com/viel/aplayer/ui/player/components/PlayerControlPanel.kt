@@ -94,6 +94,7 @@ fun PlayerControlPanel(
             playbackSpeed = playbackSpeed,
             selectedSleepTimer = settings.selectedSleepTimer,
             isSpeedManualMode = isSpeedManualMode,
+            playbackSeekStepConfig = settings.playbackSeekStepConfig,
             actions = actions.playback,
             buttonColor = buttonColor,
             glassEffectMode = glassEffectMode,

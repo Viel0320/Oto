@@ -237,6 +237,11 @@
     <string name="settings_notification_avoidance_subtitle">Mettre la lecture en pause lors d’une perte de focus audio, puis reprendre au retour du focus pour éviter de manquer du contenu.</string>
     <string name="settings_skip_silence_toggle_title">Ignorer les silences</string>
     <string name="settings_skip_silence_subtitle">Ignorer automatiquement les pauses, respirations et silences de fin de chapitre pendant la lecture.</string>
+    <string name="settings_seek_backward_step_title">Pas de retour</string>
+    <string name="settings_seek_backward_step_subtitle">Choisir la durée de recul du bouton de retour.</string>
+    <string name="settings_seek_forward_step_title">Pas d’avance rapide</string>
+    <string name="settings_seek_forward_step_subtitle">Choisir la durée d’avance du bouton d’avance.</string>
+    <string name="settings_seek_step_seconds_option">%1$ds</string>
     <string name="settings_sleep_timer_title">Minuteur de sommeil</string>
     <string name="settings_sleep_mode_title">Mode sommeil</string>
     <string name="settings_sleep_mode_subtitle">Choisir le mode de compte à rebours : normal, suivi du mouvement ou suivi du sommeil.</string>
@@ -346,6 +351,10 @@
     <string name="chapter_list_empty">Aucun chapitre disponible</string>
     <string name="chapter_file_unavailable_description">Fichier indisponible</string>
     <string name="media_session_rewind_10">Reculer de 10 secondes</string>
+    <string name="media_session_rewind_20">Reculer de 20 secondes</string>
+    <string name="media_session_rewind_30">Reculer de 30 secondes</string>
+    <string name="media_session_forward_10">Avancer de 10 secondes</string>
+    <string name="media_session_forward_20">Avancer de 20 secondes</string>
     <string name="media_session_forward_30">Avancer de 30 secondes</string>
     <string name="media_session_add_bookmark">Ajouter un signet</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->

@@ -15,6 +15,8 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
+import com.viel.aplayer.data.store.PlaybackSeekStepConfig
+import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import com.viel.aplayer.data.store.ThemeMode
@@ -88,6 +90,12 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         val GLASS_EFFECT_MODE = stringPreferencesKey("glass_effect_mode")
         // Post-Interrupt Auto Rewind (Preferences key storing rewind offset in seconds; 0 disables the feature)
         val AUTO_REWIND_SECONDS = intPreferencesKey("auto_rewind_seconds")
+        // Seek Backward Step Storage (Stores constrained rewind command increments in seconds)
+        // Repository reads validate this integer before exposing it to playback surfaces.
+        val SEEK_BACKWARD_SECONDS = intPreferencesKey("seek_backward_seconds")
+        // Seek Forward Step Storage (Stores constrained fast-forward command increments in seconds)
+        // Repository reads validate this integer before exposing it to playback surfaces.
+        val SEEK_FORWARD_SECONDS = intPreferencesKey("seek_forward_seconds")
         // Interrupted State Tracker (Preferences key flagging whether the previous session terminated abnormally, e.g. system kill)
         val IS_LAST_PLAYBACK_INTERRUPTED = booleanPreferencesKey("is_last_playback_interrupted")
         // Audio Focus Ducking Avoidance (Preferences key tracking whether focus loss forces explicit playback pause)
@@ -152,6 +160,12 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
                 ?: AppSettings.DEFAULT_GLASS_EFFECT_MODE,
             // Read Auto Rewind (Expose rewind duration, defaulting to 0 for disabled state)
             autoRewindSeconds = preferences[PreferencesKeys.AUTO_REWIND_SECONDS] ?: 0,
+            // Read Short Seek Steps (Validate persisted values before they leave the settings boundary)
+            // Invalid backward values fall back to 10 seconds and invalid forward values fall back to 20 seconds, matching the product contract.
+            playbackSeekStepConfig = PlaybackSeekStepConfig.fromStored(
+                backwardSeconds = preferences[PreferencesKeys.SEEK_BACKWARD_SECONDS],
+                forwardSeconds = preferences[PreferencesKeys.SEEK_FORWARD_SECONDS]
+            ),
             // Read Session Interruption (Flag indicating abnormal application restarts, defaulting to false)
             isLastPlaybackInterrupted = preferences[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] ?: false,
             // Read Ducking Avoidance (Expose focus loss avoidance status, defaulting to false for safe media defaults)
@@ -233,6 +247,18 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     // Write Auto Rewind (Persist rewind offset in seconds to offset post-interruption session restarts)
     suspend fun updateAutoRewindSeconds(seconds: Int) {
         dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = seconds }
+    }
+
+    // Write Seek Backward Step (Persist validated rewind increments only)
+    // Accepting SeekStepSeconds keeps callers from writing unsupported raw integers into DataStore.
+    suspend fun updateSeekBackwardSeconds(step: SeekStepSeconds) {
+        dataStore.edit { it[PreferencesKeys.SEEK_BACKWARD_SECONDS] = step.seconds }
+    }
+
+    // Write Seek Forward Step (Persist validated fast-forward increments only)
+    // Accepting SeekStepSeconds keeps notification, widget, and player controls aligned on the same allowed values.
+    suspend fun updateSeekForwardSeconds(step: SeekStepSeconds) {
+        dataStore.edit { it[PreferencesKeys.SEEK_FORWARD_SECONDS] = step.seconds }
     }
 
     // Write Interruption Flag (Flag whether the current playback loop ended normally or via process terminations)

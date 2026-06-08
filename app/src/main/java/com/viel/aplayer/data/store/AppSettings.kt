@@ -103,6 +103,42 @@ enum class HomeSortDirection {
     Descending
 }
 
+// Seek Step Value (Constrains short transport jumps to supported audiobook increments)
+// Keeping validation in this value type prevents UI, notification, and widget surfaces from interpreting arbitrary stored integers differently.
+enum class SeekStepSeconds(val seconds: Int) {
+    Ten(10),
+    Twenty(20),
+    Thirty(30);
+
+    fun toMillis(): Long = seconds * 1000L
+
+    companion object {
+        val supported: List<SeekStepSeconds> = entries
+
+        // Stored Seek Step Validation (Maps DataStore integers into stable seek-step values)
+        // Invalid or stale preferences return the caller-provided direction default so repository reads stay crash-free.
+        fun fromSecondsOrDefault(seconds: Int?, defaultValue: SeekStepSeconds): SeekStepSeconds =
+            supported.firstOrNull { it.seconds == seconds } ?: defaultValue
+    }
+}
+
+// Playback Seek Step Configuration (Groups backward and forward short-seek choices)
+// Consumers receive one validated pair instead of duplicating fallback rules for each direction.
+data class PlaybackSeekStepConfig(
+    val backward: SeekStepSeconds = SeekStepSeconds.Ten,
+    val forward: SeekStepSeconds = SeekStepSeconds.Twenty
+) {
+    companion object {
+        // Stored Seek Step Pair Parsing (Builds a validated playback seek config from persisted integers)
+        // Direction-specific defaults live here so repository reads can expose one already-safe configuration object.
+        fun fromStored(backwardSeconds: Int?, forwardSeconds: Int?): PlaybackSeekStepConfig =
+            PlaybackSeekStepConfig(
+                backward = SeekStepSeconds.fromSecondsOrDefault(backwardSeconds, SeekStepSeconds.Ten),
+                forward = SeekStepSeconds.fromSecondsOrDefault(forwardSeconds, SeekStepSeconds.Twenty)
+            )
+    }
+}
+
 data class AppSettings(
     // Theme Mode Setting (Expose themeMode configurations, defaulting to System) Binds active theme configuration.
     val themeMode: ThemeMode = ThemeMode.System,
@@ -153,6 +189,9 @@ data class AppSettings(
     // Auto-Rewind Seconds (Playback offset backing size)
     // Configuration in seconds to rewind the playback offset upon resuming; 0 means disabled.
     val autoRewindSeconds: Int = 0,
+    // Short Seek Step Config (Controls transport rewind and fast-forward command increments)
+    // Defaults keep rewind at 10 seconds while moving fast-forward to the product default of 20 seconds.
+    val playbackSeekStepConfig: PlaybackSeekStepConfig = PlaybackSeekStepConfig(),
     // Playback Interruption Flag (Crash recovery marker)
     // Sets to true during active playback, and resets to false upon explicit pauses. Used for crash resumption.
     val isLastPlaybackInterrupted: Boolean = false,

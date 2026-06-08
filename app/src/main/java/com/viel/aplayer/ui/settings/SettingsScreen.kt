@@ -49,9 +49,11 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.abs.auth.AbsCredential
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.AppLanguage
+import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.PlaybackSeekStepConfig
+import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
@@ -107,6 +109,9 @@ fun SettingsScreen(
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
     autoRewindSeconds: Int,
     onAutoRewindSecondsChange: (Int) -> Unit,
+    playbackSeekStepConfig: PlaybackSeekStepConfig,
+    onSeekBackwardStepChange: (SeekStepSeconds) -> Unit,
+    onSeekForwardStepChange: (SeekStepSeconds) -> Unit,
     isNotificationAvoidanceEnabled: Boolean,
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
     onAboutLibrariesClick: () -> Unit
@@ -195,6 +200,9 @@ fun SettingsScreen(
                             onSkipSilenceEnabledChange = onSkipSilenceEnabledChange,
                             autoRewindSeconds = autoRewindSeconds,
                             onAutoRewindSecondsChange = onAutoRewindSecondsChange,
+                            playbackSeekStepConfig = playbackSeekStepConfig,
+                            onSeekBackwardStepChange = onSeekBackwardStepChange,
+                            onSeekForwardStepChange = onSeekForwardStepChange,
                             isNotificationAvoidanceEnabled = isNotificationAvoidanceEnabled,
                             onNotificationAvoidanceEnabledChange = onNotificationAvoidanceEnabledChange
                         )
@@ -656,6 +664,9 @@ fun SettingsScreenPreview() {
                 onGlassEffectModeChange = {},
                 autoRewindSeconds = 0,
                 onAutoRewindSecondsChange = {},
+                playbackSeekStepConfig = PlaybackSeekStepConfig(),
+                onSeekBackwardStepChange = {},
+                onSeekForwardStepChange = {},
                 isNotificationAvoidanceEnabled = false,
                 onNotificationAvoidanceEnabledChange = {},
                 onAboutLibrariesClick = {}

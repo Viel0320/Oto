@@ -254,6 +254,11 @@
     <string name="settings_notification_avoidance_subtitle">Pause playback when audio focus is lost, then resume when focus returns, so ducking does not make you miss content.</string>
     <string name="settings_skip_silence_toggle_title">Skip Silent Periods</string>
     <string name="settings_skip_silence_subtitle">Automatically skip narrator pauses, breaths, and chapter-tail silence during audiobook playback.</string>
+    <string name="settings_seek_backward_step_title">Rewind Step</string>
+    <string name="settings_seek_backward_step_subtitle">Choose how far the rewind button moves playback.</string>
+    <string name="settings_seek_forward_step_title">Fast-Forward Step</string>
+    <string name="settings_seek_forward_step_subtitle">Choose how far the forward button moves playback.</string>
+    <string name="settings_seek_step_seconds_option">%1$ds</string>
     <string name="settings_sleep_timer_title">Sleep Timer</string>
     <string name="settings_sleep_mode_title">Sleep Mode</string>
     <string name="settings_sleep_mode_subtitle">Choose how the timer counts down: regular timing, motion tracking, or sleep tracking.</string>
@@ -371,6 +376,10 @@
     <string name="chapter_list_empty">No chapters available</string>
     <string name="chapter_file_unavailable_description">File unavailable</string>
     <string name="media_session_rewind_10">Rewind 10 seconds</string>
+    <string name="media_session_rewind_20">Rewind 20 seconds</string>
+    <string name="media_session_rewind_30">Rewind 30 seconds</string>
+    <string name="media_session_forward_10">Forward 10 seconds</string>
+    <string name="media_session_forward_20">Forward 20 seconds</string>
     <string name="media_session_forward_30">Forward 30 seconds</string>
     <string name="media_session_add_bookmark">Add Bookmark</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->

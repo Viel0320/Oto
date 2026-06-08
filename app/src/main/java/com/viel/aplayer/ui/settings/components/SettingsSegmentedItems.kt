@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
 
@@ -149,6 +150,59 @@ fun SettingsSegmentedThemeModeItem(
                                 ThemeMode.Light -> stringResource(R.string.settings_theme_mode_light)
                                 ThemeMode.Dark -> stringResource(R.string.settings_theme_mode_dark)
                             },
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Settings Segmented Seek Step Item (Renders constrained short-seek increments)
+ * Keeps the 10/20/30-second option set in one reusable component so playback behavior settings cannot drift between backward and forward rows.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsSegmentedSeekStepItem(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    selectedStep: SeekStepSeconds,
+    onStepSelected: (SeekStepSeconds) -> Unit
+) {
+    val steps = SeekStepSeconds.supported
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                steps.forEachIndexed { index, step ->
+                    SegmentedButton(
+                        selected = selectedStep == step,
+                        onClick = { onStepSelected(step) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = steps.size)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_seek_step_seconds_option, step.seconds),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }

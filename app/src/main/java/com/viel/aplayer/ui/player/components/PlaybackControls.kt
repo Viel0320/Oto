@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Forward30
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.FilledIconButton
@@ -37,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,7 +43,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.media.SeekStepPresentation
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
@@ -61,6 +62,7 @@ fun PlaybackControls(
     playbackSpeed: Float,
     selectedSleepTimer: Int,
     isSpeedManualMode: Boolean,
+    playbackSeekStepConfig: PlaybackSeekStepConfig,
     actions: PlaybackControlActions,
     modifier: Modifier = Modifier,
     buttonColor: Color = MaterialTheme.colorScheme.primaryContainer,
@@ -73,11 +75,11 @@ fun PlaybackControls(
     // Playback state values are runtime data, while speed labels, transport descriptions, and timer units are app-authored UI copy.
     val playbackSpeedContentDescription = stringResource(R.string.playback_speed_content_description)
     val playbackSpeedText = stringResource(R.string.playback_speed_value, playbackSpeed.toString())
-    val rewindContentDescription = stringResource(R.string.media_session_rewind_10)
+    val rewindContentDescription = stringResource(SeekStepPresentation.backwardLabel(playbackSeekStepConfig.backward))
     val playPauseContentDescription = stringResource(
         if (isPlaying) R.string.playback_pause_content_description else R.string.playback_play_content_description
     )
-    val forwardContentDescription = stringResource(R.string.media_session_forward_30)
+    val forwardContentDescription = stringResource(SeekStepPresentation.forwardLabel(playbackSeekStepConfig.forward))
     val sleepTimerContentDescription = stringResource(R.string.settings_sleep_timer_title)
 
     // Speed Toast logic (Debounced)
@@ -162,7 +164,7 @@ fun PlaybackControls(
 
         IconButton(onClick = actions.onSkipBackward, modifier = Modifier.size(56.dp)) {
             Icon(
-                Icons.Rounded.Replay10,
+                painter = painterResource(SeekStepPresentation.backwardIcon(playbackSeekStepConfig.backward)),
                 contentDescription = rewindContentDescription,
                 modifier = Modifier.size(32.dp)
             )
@@ -239,7 +241,7 @@ fun PlaybackControls(
 
         IconButton(onClick = actions.onSkipForward, modifier = Modifier.size(56.dp)) {
             Icon(
-                Icons.Rounded.Forward30,
+                painter = painterResource(SeekStepPresentation.forwardIcon(playbackSeekStepConfig.forward)),
                 contentDescription = forwardContentDescription,
                 modifier = Modifier.size(32.dp)
             )
@@ -294,6 +296,7 @@ fun PlaybackControlsPreview() {
                 playbackSpeed = 1.0f,
                 selectedSleepTimer = 0,
                 isSpeedManualMode = false,
+                playbackSeekStepConfig = PlaybackSeekStepConfig(),
                 actions = PlaybackControlActions(),
                 modifier = Modifier.padding(16.dp)
             )

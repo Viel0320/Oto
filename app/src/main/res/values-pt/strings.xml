@@ -237,6 +237,11 @@
     <string name="settings_notification_avoidance_subtitle">Pausa ao perder foco de áudio e retoma quando o foco regressa, para não perder conteúdo durante a atenuação.</string>
     <string name="settings_skip_silence_toggle_title">Saltar silêncios</string>
     <string name="settings_skip_silence_subtitle">Salta automaticamente pausas do narrador, respirações e silêncio no fim de capítulos.</string>
+    <string name="settings_seek_backward_step_title">Passo de recuo</string>
+    <string name="settings_seek_backward_step_subtitle">Escolha quanto o botão de recuo desloca a reprodução.</string>
+    <string name="settings_seek_forward_step_title">Passo de avanço</string>
+    <string name="settings_seek_forward_step_subtitle">Escolha quanto o botão de avanço desloca a reprodução.</string>
+    <string name="settings_seek_step_seconds_option">%1$ds</string>
     <string name="settings_sleep_timer_title">Temporizador de sono</string>
     <string name="settings_sleep_mode_title">Modo de sono</string>
     <string name="settings_sleep_mode_subtitle">Escolha como o temporizador conta: normal, seguimento de movimento ou seguimento do sono.</string>
@@ -311,6 +316,10 @@
     <string name="chapter_list_empty">Sem capítulos disponíveis</string>
     <string name="chapter_file_unavailable_description">Ficheiro indisponível</string>
     <string name="media_session_rewind_10">Recuar 10 segundos</string>
+    <string name="media_session_rewind_20">Recuar 20 segundos</string>
+    <string name="media_session_rewind_30">Recuar 30 segundos</string>
+    <string name="media_session_forward_10">Avançar 10 segundos</string>
+    <string name="media_session_forward_20">Avançar 20 segundos</string>
     <string name="media_session_forward_30">Avançar 30 segundos</string>
     <string name="media_session_add_bookmark">Adicionar marcador</string>
     <!-- Core Dialog And Edit Resources: Localized labels and actions for book editing, playback conflict choices, unavailable tracks, and home-row commands. -->

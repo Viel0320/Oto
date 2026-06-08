@@ -241,6 +241,11 @@
     <string name="settings_notification_avoidance_subtitle">失去音频焦点时暂停播放，焦点恢复后继续，避免降音时漏听内容。</string>
     <string name="settings_skip_silence_toggle_title">自动跳过静音期</string>
     <string name="settings_skip_silence_subtitle">播放有声书时自动跳过主播停顿、换气和章节末尾静音。</string>
+    <string name="settings_seek_backward_step_title">快退步长</string>
+    <string name="settings_seek_backward_step_subtitle">选择快退按钮每次移动播放的位置。</string>
+    <string name="settings_seek_forward_step_title">快进步长</string>
+    <string name="settings_seek_forward_step_subtitle">选择快进按钮每次移动播放的位置。</string>
+    <string name="settings_seek_step_seconds_option">%1$d秒</string>
     <string name="settings_sleep_timer_title">睡眠定时器</string>
     <string name="settings_sleep_mode_title">睡眠模式</string>
     <string name="settings_sleep_mode_subtitle">选择倒计时机制：常规计时、运动跟踪或睡眠跟踪。</string>
@@ -350,6 +355,10 @@
     <string name="chapter_list_empty">暂无章节</string>
     <string name="chapter_file_unavailable_description">文件不可用</string>
     <string name="media_session_rewind_10">快退 10 秒</string>
+    <string name="media_session_rewind_20">快退 20 秒</string>
+    <string name="media_session_rewind_30">快退 30 秒</string>
+    <string name="media_session_forward_10">快进 10 秒</string>
+    <string name="media_session_forward_20">快进 20 秒</string>
     <string name="media_session_forward_30">快进 30 秒</string>
     <string name="media_session_add_bookmark">添加书签</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->

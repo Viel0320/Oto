@@ -31,15 +31,17 @@ import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
 import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import com.viel.aplayer.media.NotificationProgressPlayer
 import com.viel.aplayer.media.PlaybackDomainEvent
 import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackMediaId
 import com.viel.aplayer.media.PlaybackPlanGateway
-import com.viel.aplayer.timeline.PositionMapper
+import com.viel.aplayer.media.SeekStepPresentation
 import com.viel.aplayer.media.session.PlaybackSessionErrorDecision
 import com.viel.aplayer.media.session.PlaybackSessionState
+import com.viel.aplayer.timeline.PositionMapper
 import com.viel.aplayer.widget.PlayerWidget
 import com.viel.aplayer.widget.PlayerWidgetStateHelper
 import kotlinx.coroutines.CoroutineScope
@@ -253,6 +255,16 @@ class PlaybackService : MediaSessionService() {
                  * Dynamic Silence Skipping (Updates dynamic silence skipping parameters using the standard ExoPlayer API)
                  */
                 playerInstance.skipSilenceEnabled = settings.isSkipSilenceEnabled
+                // Dynamic Short Seek Steps (Apply validated settings to both service-owned players)
+                // Widgets and media notifications use seekBack/seekForward, so changing Media3 increments keeps external commands aligned.
+                val seekConfig = settings.playbackSeekStepConfig
+                val backwardMs = seekConfig.backward.toMillis()
+                val forwardMs = seekConfig.forward.toMillis()
+                playerInstance.setSeekBackIncrementMs(backwardMs)
+                playerInstance.setSeekForwardIncrementMs(forwardMs)
+                notificationPlayer.setSeekIncrements(backwardMs = backwardMs, forwardMs = forwardMs)
+                rebuildTransportButtons(seekConfig)
+                applyCustomCommandLayout()
 
                 // Dynamic Notification Avoidance (Adjusts audio attributes and takes over player focus dynamically based on settings)
                 val isAvoidanceEnabled = settings.isNotificationAvoidanceEnabled
@@ -274,22 +286,9 @@ class PlaybackService : MediaSessionService() {
 
 
 
-        // Custom Controller Assembly (Initializes the command button models for rewind, forward, and bookmark buttons)
-        // Media Session Labels (Resolve user-visible command names from resources)
-        // System media surfaces can display these labels, so they follow the same resource policy as in-app copy.
-        rewindButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName(getString(R.string.media_session_rewind_10))
-            .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
-            .setCustomIconResId(R.drawable.ic_replay_10)
-            .setEnabled(true)
-            .build()
-
-        forwardButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName(getString(R.string.media_session_forward_30))
-            .setSessionCommand(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
-            .setCustomIconResId(R.drawable.ic_forward_30)
-            .setEnabled(true)
-            .build()
+        // Custom Controller Assembly (Initializes transport command buttons from the validated seek-step config)
+        // The cached settings value avoids hard-coded notification defaults before the DataStore collector emits.
+        rebuildTransportButtons(settingsRepository.cachedSettings.playbackSeekStepConfig)
 
         bookmarkButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName(getString(R.string.media_session_add_bookmark))
@@ -321,14 +320,38 @@ class PlaybackService : MediaSessionService() {
             .build()
             
         // Custom Command Array (Orders buttons as rewind, forward, and bookmark to position actions consistently on the notification drawer)
-        mediaSession?.let {
-            it.setCustomLayout(listOf(rewindButton, forwardButton, bookmarkButton))
-            addSession(it)
-        }
-        notificationSession?.let {
-            it.setCustomLayout(listOf(rewindButton, forwardButton, bookmarkButton))
-            addSession(it)
-        }
+        applyCustomCommandLayout()
+        mediaSession?.let { addSession(it) }
+        notificationSession?.let { addSession(it) }
+    }
+
+    private fun rebuildTransportButtons(config: PlaybackSeekStepConfig) {
+        // Rewind Command Button (Resolve icon and display copy from the central seek-step presentation map)
+        // Rebuilding the button lets connected media surfaces refresh labels after the user changes settings.
+        rewindButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName(getString(SeekStepPresentation.backwardLabel(config.backward)))
+            .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
+            .setCustomIconResId(SeekStepPresentation.backwardIcon(config.backward))
+            .setEnabled(true)
+            .build()
+
+        // Forward Command Button (Resolve icon and display copy from the central seek-step presentation map)
+        // Rebuilding the button keeps notification actions visually aligned with the active fast-forward increment.
+        forwardButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName(getString(SeekStepPresentation.forwardLabel(config.forward)))
+            .setSessionCommand(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
+            .setCustomIconResId(SeekStepPresentation.forwardIcon(config.forward))
+            .setEnabled(true)
+            .build()
+    }
+
+    private fun applyCustomCommandLayout() {
+        // Custom Layout Reapplication (Pushes rebuilt command buttons to both media sessions)
+        // The UI session and notification session share the same transport presentation while their timeline behavior stays separate.
+        if (!::rewindButton.isInitialized || !::forwardButton.isInitialized || !::bookmarkButton.isInitialized) return
+        val layout = listOf(rewindButton, forwardButton, bookmarkButton)
+        mediaSession?.setCustomLayout(layout)
+        notificationSession?.setCustomLayout(layout)
     }
 
     private fun observeNotificationProgressMode() {
@@ -598,13 +621,16 @@ class PlaybackService : MediaSessionService() {
                     val title = book?.title ?: fallbackTitle
                     val author = book?.author ?: fallbackArtist
                     val coverPath = book?.thumbnailPath ?: book?.coverPath
+                    val seekConfig = settingsRepository.cachedSettings.playbackSeekStepConfig
                     
                     PlayerWidgetStateHelper.updateWidgetState(
                         context = this@PlaybackService,
                         isPlaying = isPlaying,
                         title = title,
                         author = author,
-                        coverPath = coverPath
+                        coverPath = coverPath,
+                        seekBackwardSeconds = seekConfig.backward.seconds,
+                        seekForwardSeconds = seekConfig.forward.seconds
                     )
                 }
             } else {
@@ -614,12 +640,15 @@ class PlaybackService : MediaSessionService() {
                         .getGlanceIds(PlayerWidget::class.java)
                     if (glanceIds.isEmpty()) return@withContext
 
+                    val seekConfig = settingsRepository.cachedSettings.playbackSeekStepConfig
                     PlayerWidgetStateHelper.updateWidgetState(
                         context = this@PlaybackService,
                         isPlaying = false,
                         title = null,
                         author = null,
-                        coverPath = null
+                        coverPath = null,
+                        seekBackwardSeconds = seekConfig.backward.seconds,
+                        seekForwardSeconds = seekConfig.forward.seconds
                     )
                 }
             }
@@ -637,7 +666,9 @@ class PlaybackService : MediaSessionService() {
                 isPlaying = false,
                 title = null,
                 author = null,
-                coverPath = null
+                coverPath = null,
+                seekBackwardSeconds = settingsRepository.cachedSettings.playbackSeekStepConfig.backward.seconds,
+                seekForwardSeconds = settingsRepository.cachedSettings.playbackSeekStepConfig.forward.seconds
             )
         }
         serviceScope.cancel()

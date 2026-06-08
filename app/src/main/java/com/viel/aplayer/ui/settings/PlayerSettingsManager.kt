@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.settings
 import android.content.Context
 import android.media.AudioManager
 import com.viel.aplayer.application.playback.PlayerPlaybackController
+import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackState
@@ -114,5 +115,8 @@ class PlayerSettingsManager(
     fun setMiniPlayerHidden(hidden: Boolean) = _settingsState.update { it.copy(isMiniPlayerHidden = hidden) }
     fun toggleProgressMode() = _settingsState.update { it.copy(isChapterProgressMode = !it.isChapterProgressMode) }
     fun setChapterProgressMode(enabled: Boolean) = _settingsState.update { it.copy(isChapterProgressMode = enabled) }
+    // Playback Seek Step Sync (Updates short-seek configuration from DataStore)
+    // Full-player controls read this state so their icons, labels, and seek math match notification and widget behavior.
+    fun setPlaybackSeekStepConfig(config: PlaybackSeekStepConfig) = _settingsState.update { it.copy(playbackSeekStepConfig = config) }
     fun setUndoSeekVisible(visible: Boolean) = _settingsState.update { it.copy(showUndoSeek = visible) }
 }

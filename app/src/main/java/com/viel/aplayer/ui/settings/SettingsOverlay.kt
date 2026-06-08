@@ -200,6 +200,9 @@ fun SettingsOverlay(
                                 onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },
                                 autoRewindSeconds = settingsState.autoRewindSeconds,
                                 onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) },
+                                playbackSeekStepConfig = settingsState.playbackSeekStepConfig,
+                                onSeekBackwardStepChange = { settingsViewModel.updateSeekBackwardSeconds(it) },
+                                onSeekForwardStepChange = { settingsViewModel.updateSeekForwardSeconds(it) },
                                 isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
                                 onNotificationAvoidanceEnabledChange = { settingsViewModel.toggleNotificationAvoidanceEnabled(it) },
                                 onAboutLibrariesClick = { showAboutLibraries = true }

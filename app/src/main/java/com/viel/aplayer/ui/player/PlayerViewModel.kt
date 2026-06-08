@@ -8,19 +8,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
-import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
-import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 import com.viel.aplayer.application.library.player.PlayerChapterItem
+import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
+import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
 import com.viel.aplayer.application.library.player.PlayerRelatedData
 import com.viel.aplayer.application.playback.PlayerPlaybackController
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.media.PlaybackMediaId
+import com.viel.aplayer.media.PlaybackSeekStepPolicy
 import com.viel.aplayer.media.subtitle.SubtitleParser
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
@@ -451,6 +452,9 @@ class PlayerViewModel : ViewModel() {
                 settingsManager.isShakeToResetEnabled = settings.isShakeToResetEnabled
                 // Synchronize timer strategy (To align PlayerSettingsManager sleep mode config with DataStore values)
                 settingsManager.sleepMode = settings.sleepMode
+                // Synchronize Short Seek Steps (To keep full-player controls aligned with persisted transport increments)
+                // The settings repository has already validated fallback values, so the player can apply the config directly.
+                settingsManager.setPlaybackSeekStepConfig(settings.playbackSeekStepConfig)
             }
         }
     }
@@ -742,8 +746,26 @@ class PlayerViewModel : ViewModel() {
         }
     }
 
-    fun skipForward() = seekTo((playbackState.value.currentPosition + 30000).coerceAtMost(playbackState.value.duration))
-    fun skipBackward() = seekTo((playbackState.value.currentPosition - 10000).coerceAtLeast(0L))
+    fun skipForward() {
+        val state = playbackState.value
+        seekTo(
+            PlaybackSeekStepPolicy.forwardTarget(
+                currentPositionMs = state.currentPosition,
+                durationMs = state.duration,
+                config = settingsState.value.playbackSeekStepConfig
+            )
+        )
+    }
+
+    fun skipBackward() {
+        val state = playbackState.value
+        seekTo(
+            PlaybackSeekStepPolicy.backwardTarget(
+                currentPositionMs = state.currentPosition,
+                config = settingsState.value.playbackSeekStepConfig
+            )
+        )
+    }
 
     fun setPlaybackSpeed(speed: Float) = playbackDelegate?.setPlaybackSpeed(speed)
     fun cyclePlaybackSpeed() {

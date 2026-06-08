@@ -7,15 +7,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
+import com.viel.aplayer.application.library.settings.SettingsAbsSyncInspection
+import com.viel.aplayer.application.usecase.AbsConnectionReuseSnapshot
+import com.viel.aplayer.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
-import com.viel.aplayer.application.library.settings.SettingsAbsSyncInspection
-import com.viel.aplayer.application.usecase.AbsConnectionReuseSnapshot
-import com.viel.aplayer.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTestException
@@ -516,6 +517,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateAutoRewindSeconds(seconds: Int) {
         viewModelScope.launch {
             settingsRepository.updateAutoRewindSeconds(seconds)
+        }
+    }
+
+    // Update Rewind Seek Step (Persist the short backward transport increment)
+    // The repository accepts only constrained seek-step values, so Settings UI cannot write unsupported integers.
+    fun updateSeekBackwardSeconds(step: SeekStepSeconds) {
+        viewModelScope.launch {
+            settingsRepository.updateSeekBackwardSeconds(step)
+        }
+    }
+
+    // Update Forward Seek Step (Persist the short forward transport increment)
+    // The repository accepts only constrained seek-step values, keeping player, notification, and widget commands aligned.
+    fun updateSeekForwardSeconds(step: SeekStepSeconds) {
+        viewModelScope.launch {
+            settingsRepository.updateSeekForwardSeconds(step)
         }
     }
 

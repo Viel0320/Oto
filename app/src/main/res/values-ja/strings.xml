@@ -237,6 +237,11 @@
     <string name="settings_notification_avoidance_subtitle">音声フォーカスを失ったら一時停止し、戻ったら再開します。ダッキング中の聞き逃しを防ぎます。</string>
     <string name="settings_skip_silence_toggle_title">無音区間をスキップ</string>
     <string name="settings_skip_silence_subtitle">朗読の間、息継ぎ、章末の無音を自動的にスキップします。</string>
+    <string name="settings_seek_backward_step_title">巻き戻しステップ</string>
+    <string name="settings_seek_backward_step_subtitle">巻き戻しボタンで移動する再生位置の量を選びます。</string>
+    <string name="settings_seek_forward_step_title">早送りステップ</string>
+    <string name="settings_seek_forward_step_subtitle">早送りボタンで移動する再生位置の量を選びます。</string>
+    <string name="settings_seek_step_seconds_option">%1$d秒</string>
     <string name="settings_sleep_timer_title">睡眠タイマー</string>
     <string name="settings_sleep_mode_title">睡眠モード</string>
     <string name="settings_sleep_mode_subtitle">カウント方式を選びます：通常、モーショントラッキング、睡眠トラッキング。</string>
@@ -346,6 +351,10 @@
     <string name="chapter_list_empty">利用可能な章はありません</string>
     <string name="chapter_file_unavailable_description">ファイルを利用できません</string>
     <string name="media_session_rewind_10">10 秒戻る</string>
+    <string name="media_session_rewind_20">20 秒戻る</string>
+    <string name="media_session_rewind_30">30 秒戻る</string>
+    <string name="media_session_forward_10">10 秒進む</string>
+    <string name="media_session_forward_20">20 秒進む</string>
     <string name="media_session_forward_30">30 秒進む</string>
     <string name="media_session_add_bookmark">ブックマークを追加</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->

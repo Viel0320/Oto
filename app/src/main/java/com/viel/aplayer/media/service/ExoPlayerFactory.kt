@@ -112,8 +112,10 @@ object ExoPlayerFactory {
             )
             .setLoadControl(loadControl)
             .setMediaSourceFactory(mediaSourceFactory)
-            .setSeekBackIncrementMs(10000)   // Hardcodes the seek backward increment to 10 seconds
-            .setSeekForwardIncrementMs(30000)  // Hardcodes the seek forward increment to 30 seconds
+            // Default Short Seek Increments (Match AppSettings fallback values before DataStore emits)
+            // PlaybackService hot-reloads user-selected values after startup, while the factory keeps first-frame behavior aligned with product defaults.
+            .setSeekBackIncrementMs(10000)
+            .setSeekForwardIncrementMs(20000)
             .build()
             .apply {
                 // Attaches the global lifecycle and error state event listener

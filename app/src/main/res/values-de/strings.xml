@@ -237,6 +237,11 @@
     <string name="settings_notification_avoidance_subtitle">Bei Verlust des Audiofokus pausieren und bei Rückkehr fortsetzen, damit beim Ducking kein Inhalt verloren geht.</string>
     <string name="settings_skip_silence_toggle_title">Stille überspringen</string>
     <string name="settings_skip_silence_subtitle">Pausen, Atemzüge und Stille am Kapitelende während der Hörbuchwiedergabe automatisch überspringen.</string>
+    <string name="settings_seek_backward_step_title">Rücksprung-Schritt</string>
+    <string name="settings_seek_backward_step_subtitle">Wählen, wie weit die Zurück-Taste die Wiedergabe verschiebt.</string>
+    <string name="settings_seek_forward_step_title">Vorsprung-Schritt</string>
+    <string name="settings_seek_forward_step_subtitle">Wählen, wie weit die Vor-Taste die Wiedergabe verschiebt.</string>
+    <string name="settings_seek_step_seconds_option">%1$ds</string>
     <string name="settings_sleep_timer_title">Sleeptimer</string>
     <string name="settings_sleep_mode_title">Schlafmodus</string>
     <string name="settings_sleep_mode_subtitle">Countdown-Methode wählen: regulär, Bewegungstracking oder Schlaftracking.</string>
@@ -346,6 +351,10 @@
     <string name="chapter_list_empty">Keine Kapitel verfügbar</string>
     <string name="chapter_file_unavailable_description">Datei nicht verfügbar</string>
     <string name="media_session_rewind_10">10 Sekunden zurück</string>
+    <string name="media_session_rewind_20">20 Sekunden zurück</string>
+    <string name="media_session_rewind_30">30 Sekunden zurück</string>
+    <string name="media_session_forward_10">10 Sekunden vor</string>
+    <string name="media_session_forward_20">20 Sekunden vor</string>
     <string name="media_session_forward_30">30 Sekunden vor</string>
     <string name="media_session_add_bookmark">Lesezeichen hinzufügen</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->

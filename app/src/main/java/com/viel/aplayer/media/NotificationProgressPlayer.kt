@@ -21,6 +21,10 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
     private var files: List<BookFileEntity> = emptyList()
     private var chapters: List<ChapterEntity> = emptyList()
     private var isChapterMode: Boolean = false
+    // Notification Seek Increments (Mirror the service-owned ExoPlayer short seek settings)
+    // The notification wrapper overrides seekBack/seekForward, so it must keep its own display-window increments in sync.
+    private var seekBackIncrementMs: Long = 10_000L
+    private var seekForwardIncrementMs: Long = 20_000L
     // Track Previous Display Boundaries (Detect transition events across chapter indexes within one track)
     private var lastDisplayWindow: DisplayWindow? = null
 
@@ -58,6 +62,13 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
     // Bookmarks and persistence need the stable global position, regardless of notification display mode.
     fun currentGlobalPosition(): Long = currentRawGlobalPosition()
 
+    // Short Seek Increment Sync (Updates notification-window seek distances without changing chapter timeline mapping)
+    // These values affect only seekBack and seekForward; progress-bar seeking still maps through the current display window.
+    fun setSeekIncrements(backwardMs: Long, forwardMs: Long) {
+        seekBackIncrementMs = backwardMs.coerceAtLeast(0L)
+        seekForwardIncrementMs = forwardMs.coerceAtLeast(0L)
+    }
+
 
     // Notification seek bars read duration from MediaSession; expose current chapter length when chapter mode is enabled.
     override fun getDuration(): Long = currentDisplayWindow().also(::refreshNotificationWindowIfNeeded).durationMs
@@ -80,6 +91,14 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
     // Expose Original contentDuration (Ensure total stream duration is preserved from window overrides)
     override fun getContentDuration(): Long = wrappedPlayer.contentDuration.coerceKnown()
 
+    // Notification Seek Back Increment (Expose configured rewind distance to Media3 controllers)
+    // The wrapper performs seek math itself, so this getter mirrors the private value rather than reading the wrapped player.
+    override fun getSeekBackIncrement(): Long = seekBackIncrementMs
+
+    // Notification Seek Forward Increment (Expose configured fast-forward distance to Media3 controllers)
+    // The wrapper performs seek math itself, so this getter mirrors the private value rather than reading the wrapped player.
+    override fun getSeekForwardIncrement(): Long = seekForwardIncrementMs
+
     // A notification seek in the current displayed window is mapped back to the real playlist item and file offset.
     override fun seekTo(positionMs: Long) {
         seekDisplayPosition(positionMs)
@@ -92,12 +111,12 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
 
     // Notification rewind follows the same displayed timeline as the notification progress bar.
     override fun seekBack() {
-        seekDisplayPosition((currentPosition - seekBackIncrement).coerceAtLeast(0L))
+        seekDisplayPosition((currentPosition - seekBackIncrementMs).coerceAtLeast(0L))
     }
 
     // Notification fast-forward follows the same displayed timeline as the notification progress bar.
     override fun seekForward() {
-        seekDisplayPosition((currentPosition + seekForwardIncrement).coerceAtMost(duration))
+        seekDisplayPosition((currentPosition + seekForwardIncrementMs).coerceAtMost(duration))
     }
 
     private fun seekDisplayPosition(positionMs: Long) {

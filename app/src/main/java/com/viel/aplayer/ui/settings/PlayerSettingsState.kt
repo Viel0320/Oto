@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.settings
 
+import com.viel.aplayer.data.store.PlaybackSeekStepConfig
+
 
 /**
  * UI setting state model (Container for UI view states)
@@ -22,6 +24,8 @@ data class PlayerSettingsState(
     val isMiniPlayerHidden: Boolean = false,
     /** Chapter progress mode flag (To toggle rendering progress relative to current chapter instead of full book) */
     val isChapterProgressMode: Boolean = false,
+    /** Short seek step configuration (To render and execute rewind/forward transport controls) */
+    val playbackSeekStepConfig: PlaybackSeekStepConfig = PlaybackSeekStepConfig(),
     /** Fullscreen player visibility (To control whether the full player screen is displayed) */
     val isFullPlayerVisible: Boolean = false
 )

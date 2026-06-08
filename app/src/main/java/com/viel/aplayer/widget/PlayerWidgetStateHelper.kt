@@ -3,6 +3,7 @@ package com.viel.aplayer.widget
 import android.content.Context
 import android.util.Log
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
@@ -26,6 +27,12 @@ object PlayerWidgetStateHelper {
     val KEY_TITLE = stringPreferencesKey("title")
     val KEY_AUTHOR = stringPreferencesKey("author")
     val KEY_COVER_PATH = stringPreferencesKey("cover_path")
+    // Widget Rewind Step Key (Stores the currently rendered backward short-seek step)
+    // The click action still routes through MediaController.seekBack, while this value keeps the widget icon truthful.
+    val KEY_SEEK_BACKWARD_SECONDS = intPreferencesKey("seek_backward_seconds")
+    // Widget Forward Step Key (Stores the currently rendered forward short-seek step)
+    // The click action still routes through MediaController.seekForward, while this value keeps the widget icon truthful.
+    val KEY_SEEK_FORWARD_SECONDS = intPreferencesKey("seek_forward_seconds")
 
     /**
      * Update widget state. Asynchronously commits updated state data and triggers widget recomposition.
@@ -41,7 +48,9 @@ object PlayerWidgetStateHelper {
         isPlaying: Boolean,
         title: String?,
         author: String?,
-        coverPath: String?
+        coverPath: String?,
+        seekBackwardSeconds: Int = 10,
+        seekForwardSeconds: Int = 20
     ) {
         try {
             // 1. Retrieve the Glance widget manager.
@@ -62,6 +71,8 @@ object PlayerWidgetStateHelper {
                         this[KEY_TITLE] = title ?: ""
                         this[KEY_AUTHOR] = author ?: ""
                         this[KEY_COVER_PATH] = coverPath ?: ""
+                        this[KEY_SEEK_BACKWARD_SECONDS] = seekBackwardSeconds
+                        this[KEY_SEEK_FORWARD_SECONDS] = seekForwardSeconds
                     }
                 }
             }
