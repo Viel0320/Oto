@@ -11,7 +11,6 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
-import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
@@ -114,14 +113,12 @@ class LibraryRootStore(
                     password = password,
                     credentialId = existing.credentialId ?: UUID.randomUUID().toString()
                 )
-                val updated = existing.copy(
-                    displayName = resolvedDisplayName,
-                    credentialId = credential.id,
-                    grantedAt = now,
-                    status = AudiobookSchema.LibraryRootStatus.ACTIVE,
-                    availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
-                    lastAvailabilityCheckedAt = 0L,
-                    lastAvailabilityErrorCode = null
+                val updated = LibraryRootLifecyclePolicy.markBindingRefreshed(
+                    existing.copy(
+                        displayName = resolvedDisplayName,
+                        credentialId = credential.id,
+                        grantedAt = now
+                    )
                 )
                 // WebDAV Ingest Deduplication (Record update strategy)
                 // Overwrites credentials and labels rather than creating duplicate rows if the same WebDAV target is added.
@@ -197,15 +194,8 @@ class LibraryRootStore(
      */
     private suspend fun refreshRootStatusInternal(root: LibraryRootEntity): LibraryRootAvailabilityUpdate {
         val availability = availabilityChecker.checkRoot(root)
-        val status = if (availability.isAvailable) {
-            AudiobookSchema.LibraryRootStatus.ACTIVE
-        } else if (LibrarySourceKind.from(root.sourceType) == LibrarySourceKind.SAF) {
-            AudiobookSchema.LibraryRootStatus.REVOKED
-        } else {
-            // Remote Error Flagging (Diagnostics routing policy)
-            // Maps remote checkouts to ERROR states, enabling UI lists to separate network timeouts from local permission revocations.
-            AudiobookSchema.LibraryRootStatus.ERROR
-        }
+        val updatedRoot = LibraryRootLifecyclePolicy.applyAvailabilitySnapshot(root, availability)
+        val status = updatedRoot.status
         if (root.status != status) {
             rootDao.updateRootStatus(root.id, status)
         }
@@ -214,12 +204,6 @@ class LibraryRootStore(
             availabilityStatus = availability.status,
             checkedAt = availability.checkedAt,
             errorCode = availability.errorCode
-        )
-        val updatedRoot = root.copy(
-            status = status,
-            availabilityStatus = availability.status,
-            lastAvailabilityCheckedAt = availability.checkedAt,
-            lastAvailabilityErrorCode = availability.errorCode
         )
         return LibraryRootAvailabilityUpdate(root = updatedRoot, availability = availability)
     }
@@ -321,13 +305,11 @@ class LibraryRootStore(
         // SAF Relocation Display Name Resolution (Reuse the same selected-folder label logic as new roots)
         // Keeping add and update paths aligned prevents relocated libraries from showing raw tree URI fragments.
         val displayName = resolveSafDisplayName(newUri).ifBlank { existing.displayName }
-        val updated = existing.copy(
-            sourceUri = normalizedUri,
-            displayName = if (displayName.isNotBlank()) displayName else existing.displayName,
-            status = AudiobookSchema.LibraryRootStatus.ACTIVE,
-            availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
-            lastAvailabilityCheckedAt = 0L,
-            lastAvailabilityErrorCode = null
+        val updated = LibraryRootLifecyclePolicy.markBindingRefreshed(
+            existing.copy(
+                sourceUri = normalizedUri,
+                displayName = if (displayName.isNotBlank()) displayName else existing.displayName
+            )
         )
         rootDao.insertRoot(updated)
         updated
@@ -375,15 +357,13 @@ class LibraryRootStore(
             password = password,
             credentialId = credentialId
         )
-        val updated = existing.copy(
-            displayName = resolvedDisplayName,
-            sourceUri = normalizedEndpoint,
-            basePath = normalizedBasePath,
-            credentialId = credentialId,
-            status = AudiobookSchema.LibraryRootStatus.ACTIVE,
-            availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
-            lastAvailabilityCheckedAt = 0L,
-            lastAvailabilityErrorCode = null
+        val updated = LibraryRootLifecyclePolicy.markBindingRefreshed(
+            existing.copy(
+                displayName = resolvedDisplayName,
+                sourceUri = normalizedEndpoint,
+                basePath = normalizedBasePath,
+                credentialId = credentialId
+            )
         )
         rootDao.insertRoot(updated)
         updated
@@ -417,15 +397,13 @@ class LibraryRootStore(
             operation = "ABS root update"
         )
         val resolvedDisplayName = displayName.ifBlank { libraryId }
-        val updated = existing.copy(
-            sourceUri = credential.baseUrl,
-            basePath = libraryId,
-            credentialId = credentialId,
-            displayName = resolvedDisplayName,
-            status = AudiobookSchema.LibraryRootStatus.ACTIVE,
-            availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
-            lastAvailabilityCheckedAt = 0L,
-            lastAvailabilityErrorCode = null
+        val updated = LibraryRootLifecyclePolicy.markBindingRefreshed(
+            existing.copy(
+                sourceUri = credential.baseUrl,
+                basePath = libraryId,
+                credentialId = credentialId,
+                displayName = resolvedDisplayName
+            )
         )
         rootDao.insertRoot(updated)
         updated
@@ -449,12 +427,8 @@ internal fun mergeAbsRoot(
     return existing?.copy(
         displayName = displayName,
         credentialId = credentialId,
-        grantedAt = now,
-        status = AudiobookSchema.LibraryRootStatus.ACTIVE,
-        availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
-        lastAvailabilityCheckedAt = 0L,
-        lastAvailabilityErrorCode = null
-    )
+        grantedAt = now
+    )?.let(LibraryRootLifecyclePolicy::markBindingRefreshed)
         ?: LibraryRootEntity(
             id = newRootId,
             sourceType = AudiobookSchema.LibrarySourceType.ABS,

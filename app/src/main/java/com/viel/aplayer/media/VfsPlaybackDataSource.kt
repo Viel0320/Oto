@@ -11,10 +11,7 @@ import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
-import com.viel.aplayer.abs.net.AbsApiError
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.library.vfs.VfsPlaybackStreamReader
-import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -22,13 +19,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
 import java.io.InterruptedIOException
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.min
 import kotlin.time.Duration.Companion.milliseconds
@@ -75,7 +68,7 @@ class VfsPlaybackDataSource internal constructor(
                 fileReader.openPlaybackStream(file, dataSpec.position)
             }
         } catch (e: IOException) {
-            throw e.toPlaybackOpenException(dataSpec.position)
+            throw PlaybackErrorPolicy.toOpenException(e, dataSpec.position)
         } ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
         val vfsOpenCost = SystemClock.elapsedRealtime() - vfsOpenStart
 
@@ -118,7 +111,7 @@ class VfsPlaybackDataSource internal constructor(
                 stream.read(buffer, offset, bytesToRead)
             }
         } catch (e: IOException) {
-            throw e.toPlaybackReadException()
+            throw PlaybackErrorPolicy.toReadException(e)
         }
         if (bytesRead == -1) return C.RESULT_END_OF_INPUT
         if (bytesRemaining != C.LENGTH_UNSET.toLong()) {
@@ -204,68 +197,6 @@ class VfsPlaybackDataSource internal constructor(
             activeLoaderThread.compareAndSet(loaderThread, null)
         }
     }
-
-    private fun IOException.toPlaybackOpenException(position: Long): IOException {
-        // Playback Open Error Classification (Keeps cancellation, network failure, and range overflow on separate Media3 paths)
-        // Active cancellation remains InterruptedIOException, while provider availability failures map to the closest playback I/O code.
-        if (isPlaybackCancellation()) {
-            return InterruptedIOException(message ?: "VFS playback open was canceled").also { interrupted ->
-                interrupted.initCause(this)
-            }
-        }
-        val errorCode = when {
-            this is AbsApiError -> availabilityStatus.toPlaybackErrorCode(position)
-            this is WebDavException -> availabilityStatus.toPlaybackErrorCode(position)
-            hasCause<SocketTimeoutException>() -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
-            hasCause<UnknownHostException>() || hasCause<ConnectException>() -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
-            this is FileNotFoundException -> PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND
-            else -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
-        }
-        return DataSourceException(this, errorCode)
-    }
-
-    private fun IOException.toPlaybackReadException(): IOException =
-        // Playback Read Error Classification (Preserves caller cancellation during stream consumption)
-        // Close-triggered interrupts should not be reported as ordinary unavailable media or corrupt playback streams.
-        if (isPlaybackCancellation()) {
-            InterruptedIOException(message ?: "VFS playback read was canceled").also { interrupted ->
-                interrupted.initCause(this)
-            }
-        } else {
-            DataSourceException(this, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
-        }
-
-    private fun IOException.isPlaybackCancellation(): Boolean =
-        // Cancellation Cause Detection (Recognizes direct interrupts and provider-wrapped cancellation causes)
-        // Remote providers may wrap socket cancellation inside their own IOException type, so the whole cause chain is inspected.
-        this is InterruptedIOException ||
-            hasCause<InterruptedIOException>() ||
-            hasCause<CancellationException>() ||
-            Thread.currentThread().isInterrupted
-
-    private inline fun <reified T : Throwable> Throwable.hasCause(): Boolean {
-        // Cause Chain Search (Finds wrapped provider errors without depending on a single exception wrapper)
-        // ABS, WebDAV, OkHttp, and DataSource layers can each add one wrapper around the original cancellation or network exception.
-        var current: Throwable? = this
-        while (current != null) {
-            if (current is T) return true
-            current = current.cause
-        }
-        return false
-    }
-
-    private fun String.toPlaybackErrorCode(position: Long): Int =
-        // Availability Status Mapping (Translates provider health states into Media3 I/O categories)
-        // A missing ranged stream is treated as seek overflow, while missing position zero remains a file-not-found condition.
-        when (this) {
-            AudiobookSchema.AvailabilityStatus.TIMEOUT -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
-            AudiobookSchema.AvailabilityStatus.AUTH_FAILED,
-            AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED -> PlaybackException.ERROR_CODE_IO_NO_PERMISSION
-            AudiobookSchema.AvailabilityStatus.NOT_FOUND ->
-                if (position > 0L) PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE else PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND
-            AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
-            else -> PlaybackException.ERROR_CODE_IO_UNSPECIFIED
-        }
 
     class Factory(context: Context) : DataSource.Factory {
         private val appContext = context.applicationContext

@@ -6,7 +6,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
-import com.viel.aplayer.timeline.PositionMapper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -86,23 +85,20 @@ class AutoRewindManager private constructor(context: Context) {
                 if (rewindSeconds > 0) {
                     val rewindMs = rewindSeconds * 1000L
                     
-                    if (plan != null && plan.files.isNotEmpty()) {
-                        // Multi-Track Rewinding (Calculate global book timeline to cross boundaries)
-                        // Computes global offset to handle crossing track boundaries without stuck at 0 seconds.
-                        val fileIndex = controller.currentMediaItemIndex.coerceIn(0, plan.files.lastIndex)
-                        val positionInFile = controller.currentPosition.coerceAtLeast(0L)
-                        val currentGlobalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
-                        val targetGlobalPos = (currentGlobalPos - rewindMs).coerceAtLeast(0L)
-                        
-                        // Map to Track Targets (Identify destination track file index and internal track duration)
-                        val (targetFileIndex, targetPosInFile) = PositionMapper.globalToFilePosition(targetGlobalPos, plan.files)
-                        // Execute Multi-Track Seek (Dispatch index change to alter active MediaItem)
-                        controller.seekTo(targetFileIndex, targetPosInFile)
+                    val seekTarget = AutoRewindPositionPolicy.playbackSeekTarget(
+                        currentMediaItemIndex = controller.currentMediaItemIndex,
+                        currentPositionMs = controller.currentPosition,
+                        rewindMs = rewindMs,
+                        files = plan?.files.orEmpty()
+                    )
+                    if (seekTarget.mediaItemIndex != null) {
+                        // Multi-Track Seek Dispatch (Applies the policy-mapped file coordinate to Media3)
+                        // Position math lives in AutoRewindPositionPolicy, leaving the manager responsible only for controller side effects.
+                        controller.seekTo(seekTarget.mediaItemIndex, seekTarget.positionMs)
                     } else {
-                        // Single-Track Supporter (Seek backwards relative to current track time)
-                        val currentPos = controller.currentPosition
-                        val targetPos = (currentPos - rewindMs).coerceAtLeast(0L)
-                        controller.seekTo(targetPos)
+                        // Single-Track Seek Dispatch (Uses current-item seek when no multi-file plan exists)
+                        // This preserves the legacy fallback for ad-hoc playback states that do not have a BookPlaybackPlan.
+                        controller.seekTo(seekTarget.positionMs)
                     }
                     
                     // Pipeline State Notification (Force client components to re-collect position state)
@@ -136,31 +132,19 @@ class AutoRewindManager private constructor(context: Context) {
                 val lastProgress = progressGateway.getLastPlayedProgressSync()
                 if (lastProgress != null) {
                     val rewindMs = settings.autoRewindSeconds * 1000L
-                    val targetGlobalPos = (lastProgress.globalPositionMs - rewindMs).coerceAtLeast(0L)
-                    
                     val files = bookQueryGateway.getFilesForBookSync(lastProgress.bookId)
-                    val healedProgress = if (files.isNotEmpty()) {
-                        val (targetFileIndex, targetPosInFile) = PositionMapper.globalToFilePosition(targetGlobalPos, files)
-                        val bookFileId = files.getOrNull(targetFileIndex)?.id
-                        lastProgress.copy(
-                            globalPositionMs = targetGlobalPos,
-                            bookFileId = bookFileId,
-                            currentFileIndex = targetFileIndex,
-                            positionInFileMs = targetPosInFile,
-                            lastPlayedAt = System.currentTimeMillis()
-                        )
-                    } else {
-                        lastProgress.copy(
-                            globalPositionMs = targetGlobalPos,
-                            lastPlayedAt = System.currentTimeMillis()
-                        )
-                    }
+                    val healedProgress = AutoRewindPositionPolicy.rewoundProgress(
+                        progress = lastProgress,
+                        rewindMs = rewindMs,
+                        files = files,
+                        now = System.currentTimeMillis()
+                    )
                     
                     progressGateway.saveProgress(healedProgress)
                     com.viel.aplayer.logger.AutoRewindLogger.logColdStartSelfHeal(
                         bookId = lastProgress.bookId,
                         rewindMs = rewindMs,
-                        targetPositionMs = targetGlobalPos
+                        targetPositionMs = healedProgress.globalPositionMs
                     )
                 }
                 

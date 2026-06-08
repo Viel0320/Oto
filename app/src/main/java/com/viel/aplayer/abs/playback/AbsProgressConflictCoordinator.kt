@@ -2,6 +2,7 @@ package com.viel.aplayer.abs.playback
 
 import com.viel.aplayer.abs.mapping.AbsProgressConflictResolver
 import com.viel.aplayer.abs.mapping.AbsProgressMapper
+import com.viel.aplayer.abs.mapping.RemoteProgressReadStatusPolicy
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
@@ -97,11 +98,12 @@ class AbsProgressConflictCoordinator(
         // Remote Read-State Adoption (Applies the server completion flag after the user chooses the server checkpoint)
         // The user's selection makes the ABS progress snapshot authoritative for this playback start, so local readStatus is aligned with it.
         conflict.remoteIsFinished?.let { isFinished ->
-            val nextReadStatus = when {
-                isFinished -> AudiobookSchema.ReadStatus.FINISHED
-                conflict.remoteProgress.globalPositionMs > 0L -> AudiobookSchema.ReadStatus.IN_PROGRESS
-                else -> AudiobookSchema.ReadStatus.NOT_STARTED
-            }
+            // Conflict Acceptance Read-State Mapping (Uses shared ABS remote-progress semantics after explicit user selection)
+            // Playback conflict handling stays focused on persistence while the readStatus rule remains testable in the mapping package.
+            val nextReadStatus = RemoteProgressReadStatusPolicy.fromRemoteProgress(
+                isFinished = isFinished,
+                hasPositivePosition = conflict.remoteProgress.globalPositionMs > 0L
+            )
             bookQueryGateway.updateBookReadStatus(conflict.book.id, nextReadStatus)
         }
     }

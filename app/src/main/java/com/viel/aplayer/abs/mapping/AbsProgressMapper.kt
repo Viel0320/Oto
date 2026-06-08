@@ -49,11 +49,14 @@ class AbsProgressMapper {
     }
 
     fun toReadStatus(item: AbsLibraryItemDto, existing: BookEntity?): String =
-        when {
-            item.progress?.isFinished == true -> AudiobookSchema.ReadStatus.FINISHED
-            item.progress?.let(::resolvedCurrentTimeSec)?.let { positionSec -> positionSec > 0.0 } == true -> AudiobookSchema.ReadStatus.IN_PROGRESS
-            else -> existing?.readStatus ?: AudiobookSchema.ReadStatus.NOT_STARTED
-        }
+        // Catalog Read Status Mapping (Delegates ABS progress semantics to the shared read-status policy)
+        // Catalog item mapping keeps its existing-read fallback while sharing the same finished and positive-position rules as progress sync.
+        RemoteProgressReadStatusPolicy.fromRemoteProgress(
+            isFinished = item.progress?.isFinished,
+            hasPositivePosition = item.progress?.let(::resolvedCurrentTimeSec)
+                ?.let { positionSec -> positionSec > 0.0 } == true,
+            existingReadStatus = existing?.readStatus
+        )
 
     /**
      * Remote Position Fallback (Reconstructs seconds when ABS omits currentTime but includes progress ratio and duration)

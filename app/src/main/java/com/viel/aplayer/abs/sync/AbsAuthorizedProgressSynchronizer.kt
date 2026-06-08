@@ -3,6 +3,7 @@ package com.viel.aplayer.abs.sync
 import com.viel.aplayer.abs.mapping.AbsProgressConflictResolver
 import com.viel.aplayer.abs.mapping.AbsProgressMapper
 import com.viel.aplayer.abs.mapping.AbsRemoteIdMapper
+import com.viel.aplayer.abs.mapping.RemoteProgressReadStatusPolicy
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -117,12 +118,14 @@ class AbsAuthorizedProgressSynchronizer(
      */
     private suspend fun applyRemoteProgress(book: BookEntity, remote: AbsUserProgressDto) {
         val files = bookQueryGateway.getFilesForBookSync(book.id)
-        progressGateway.saveProgress(progressMapper.toProgress(remote, book, files, System.currentTimeMillis()))
-        val nextReadStatus = when {
-            remote.isFinished == true -> AudiobookSchema.ReadStatus.FINISHED
-            progressMapper.resolvedCurrentTimeSec(remote) > 0.0 -> AudiobookSchema.ReadStatus.IN_PROGRESS
-            else -> AudiobookSchema.ReadStatus.NOT_STARTED
-        }
+        val progress = progressMapper.toProgress(remote, book, files, System.currentTimeMillis())
+        progressGateway.saveProgress(progress)
+        // Authorized Progress Read-State Mapping (Uses the same remote-progress status policy as playback conflict acceptance)
+        // The synchronizer persists progress first, then derives semantic readStatus from that mapped local position to avoid duplicate second-to-millisecond rules.
+        val nextReadStatus = RemoteProgressReadStatusPolicy.fromRemoteProgress(
+            isFinished = remote.isFinished,
+            hasPositivePosition = progressMapper.resolvedCurrentTimeSec(remote) > 0.0
+        )
         if (book.readStatus != nextReadStatus) {
             bookQueryGateway.updateBookReadStatus(book.id, nextReadStatus)
         }

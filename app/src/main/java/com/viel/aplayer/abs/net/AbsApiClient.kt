@@ -16,6 +16,8 @@ import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.library.availability.RemoteAvailabilityMappingPolicy
+import com.viel.aplayer.library.availability.RemoteAvailabilityProtocol
 import com.viel.aplayer.logger.AbsAuthLogger
 import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +29,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
-import java.net.SocketTimeoutException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
@@ -296,18 +297,18 @@ class RealAbsApiClient(
                 val response = try {
                     // Execute Call: Run client matching SSL certificate checks settings.
                     getClient().newCall(request).execute()
-                } catch (error: SocketTimeoutException) {
-                    throw AbsApiError(
-                        code = "TIMEOUT",
-                        availabilityStatus = AudiobookSchema.AvailabilityStatus.TIMEOUT,
-                        message = "ABS request timed out: ${request.method} ${request.url.redacted()}",
-                        cause = error
-                    )
                 } catch (error: IOException) {
+                    val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
+                    // ABS Transport Failure Mapping (Reuses the shared timeout/connectivity classification without changing AbsApiError callers)
+                    // Message text stays protocol-specific, while the availability status and compact code now come from one policy.
                     throw AbsApiError(
-                        code = "NETWORK_UNAVAILABLE",
-                        availabilityStatus = AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE,
-                        message = "ABS request failed: ${request.method} ${request.url.redacted()}",
+                        code = failure.errorCode,
+                        availabilityStatus = failure.availabilityStatus,
+                        message = if (failure.isTimeout) {
+                            "ABS request timed out: ${request.method} ${request.url.redacted()}"
+                        } else {
+                            "ABS request failed: ${request.method} ${request.url.redacted()}"
+                        },
                         cause = error
                     )
                 }
@@ -316,7 +317,10 @@ class RealAbsApiClient(
                         throw AbsApiError(
                             code = "HTTP_${httpResponse.code}",
                             httpStatus = httpResponse.code,
-                            availabilityStatus = httpResponse.code.toAvailabilityStatus(),
+                            availabilityStatus = RemoteAvailabilityMappingPolicy.fromHttpStatus(
+                                statusCode = httpResponse.code,
+                                protocol = RemoteAvailabilityProtocol.ABS
+                            ),
                             message = "ABS request failed with HTTP ${httpResponse.code}: ${request.method} ${request.url.redacted()}"
                         )
                     }
@@ -343,18 +347,18 @@ class RealAbsApiClient(
                 val response = try {
                     // Execute Call: Run client matching SSL certificate checks settings.
                     getClient().newCall(request).execute()
-                } catch (error: SocketTimeoutException) {
-                    throw AbsApiError(
-                        code = "TIMEOUT",
-                        availabilityStatus = AudiobookSchema.AvailabilityStatus.TIMEOUT,
-                        message = "ABS request timed out: ${request.method} ${request.url.redacted()}",
-                        cause = error
-                    )
                 } catch (error: IOException) {
+                    val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
+                    // ABS Unit Transport Failure Mapping (Shares network failure classification with JSON requests)
+                    // Session mutation calls still expose AbsApiError, but no longer duplicate timeout and connectivity status constants.
                     throw AbsApiError(
-                        code = "NETWORK_UNAVAILABLE",
-                        availabilityStatus = AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE,
-                        message = "ABS request failed: ${request.method} ${request.url.redacted()}",
+                        code = failure.errorCode,
+                        availabilityStatus = failure.availabilityStatus,
+                        message = if (failure.isTimeout) {
+                            "ABS request timed out: ${request.method} ${request.url.redacted()}"
+                        } else {
+                            "ABS request failed: ${request.method} ${request.url.redacted()}"
+                        },
                         cause = error
                     )
                 }
@@ -363,7 +367,10 @@ class RealAbsApiClient(
                         throw AbsApiError(
                             code = "HTTP_${httpResponse.code}",
                             httpStatus = httpResponse.code,
-                            availabilityStatus = httpResponse.code.toAvailabilityStatus(),
+                            availabilityStatus = RemoteAvailabilityMappingPolicy.fromHttpStatus(
+                                statusCode = httpResponse.code,
+                                protocol = RemoteAvailabilityProtocol.ABS
+                            ),
                             message = "ABS request failed with HTTP ${httpResponse.code}: ${request.method} ${request.url.redacted()}"
                         )
                     }
@@ -402,15 +409,6 @@ class RealAbsApiClient(
     }
 
     private fun bearer(token: String): String = "Bearer $token"
-
-    private fun Int.toAvailabilityStatus(): String =
-        when (this) {
-            401 -> AudiobookSchema.AvailabilityStatus.AUTH_FAILED
-            403 -> AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED
-            404 -> AudiobookSchema.AvailabilityStatus.NOT_FOUND
-            in 500..599 -> AudiobookSchema.AvailabilityStatus.SERVER_ERROR
-            else -> AudiobookSchema.AvailabilityStatus.UNKNOWN
-        }
 
     private fun HttpUrl.redacted(): String =
         newBuilder().query(null).fragment(null).build().toString()

@@ -7,6 +7,8 @@ import androidx.core.net.toUri
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.library.availability.RemoteAvailabilityMappingPolicy
+import com.viel.aplayer.library.availability.RemoteAvailabilityProtocol
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.aplayer.library.vfs.sourceProvider.SourceCapabilities
@@ -28,7 +30,6 @@ import java.io.ByteArrayOutputStream
 import java.io.EOFException
 import java.io.IOException
 import java.io.InputStream
-import java.net.SocketTimeoutException
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -323,28 +324,22 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             getClient().newCall(request).execute()
         } catch (error: WebDavException) {
             throw error
-        } catch (error: SocketTimeoutException) {
-            // Logs socket timeout details.
-            com.viel.aplayer.logger.VfsLogger.logWebDavError(
-                url = request.url.toString(),
-                status = AudiobookSchema.AvailabilityStatus.TIMEOUT,
-                errorClass = error.javaClass.simpleName
-            )
-            throw WebDavException(
-                availabilityStatus = AudiobookSchema.AvailabilityStatus.TIMEOUT,
-                message = "WebDAV request timed out: ${request.url}",
-                cause = error
-            )
         } catch (error: IOException) {
-            // Logs basic connection failures.
+            val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
+            // WebDAV Transport Failure Mapping (Shares timeout/connectivity classification with other remote sources)
+            // The provider still logs WebDAV-specific request URLs and throws WebDavException for existing VFS callers.
             com.viel.aplayer.logger.VfsLogger.logWebDavError(
                 url = request.url.toString(),
-                status = AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE,
+                status = failure.availabilityStatus,
                 errorClass = error.javaClass.simpleName
             )
             throw WebDavException(
-                availabilityStatus = AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE,
-                message = "WebDAV network request failed: ${request.url}",
+                availabilityStatus = failure.availabilityStatus,
+                message = if (failure.isTimeout) {
+                    "WebDAV request timed out: ${request.url}"
+                } else {
+                    "WebDAV network request failed: ${request.url}"
+                },
                 cause = error
             )
         }
@@ -398,14 +393,12 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     }
 
     private fun Response.toWebDavException(method: String): WebDavException {
-        val status = when (code) {
-            HTTP_UNAUTHORIZED -> AudiobookSchema.AvailabilityStatus.AUTH_FAILED
-            HTTP_FORBIDDEN -> AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED
-            HTTP_NOT_FOUND -> AudiobookSchema.AvailabilityStatus.NOT_FOUND
-            HTTP_REQUEST_TIMEOUT, HTTP_GATEWAY_TIMEOUT -> AudiobookSchema.AvailabilityStatus.TIMEOUT
-            in 500..599 -> AudiobookSchema.AvailabilityStatus.SERVER_ERROR
-            else -> AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE
-        }
+        // WebDAV HTTP Failure Mapping (Delegates protocol-specific fallback rules to RemoteAvailabilityMappingPolicy)
+        // WebDAV keeps its historical NETWORK_UNAVAILABLE default for unclassified HTTP failures while sharing common auth/not-found/server mappings.
+        val status = RemoteAvailabilityMappingPolicy.fromHttpStatus(
+            statusCode = code,
+            protocol = RemoteAvailabilityProtocol.WEBDAV
+        )
         return WebDavException(
             availabilityStatus = status,
             message = "WebDAV $method failed with HTTP $code for ${request.url}"
@@ -554,12 +547,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     private companion object {
         private const val HTTP_OK = 200
         private const val HTTP_MULTI_STATUS = 207
-        private const val HTTP_UNAUTHORIZED = 401
-        private const val HTTP_FORBIDDEN = 403
         private const val HTTP_NOT_FOUND = 404
-        private const val HTTP_REQUEST_TIMEOUT = 408
         private const val HTTP_RANGE_NOT_SATISFIABLE = 416
-        private const val HTTP_GATEWAY_TIMEOUT = 504
         private const val DEFAULT_RANGE_BUFFER_SIZE = 16 * 1024
         // Safety Limit (Defines 8MB upper bound for PROPFIND responses to prevent out-of-memory states from large XML inputs)
         private const val MAX_PROPFIND_RESPONSE_SIZE = 8 * 1024 * 1024

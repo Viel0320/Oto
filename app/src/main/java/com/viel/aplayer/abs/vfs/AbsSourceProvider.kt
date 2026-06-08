@@ -8,6 +8,8 @@ import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.library.availability.RemoteAvailabilityMappingPolicy
+import com.viel.aplayer.library.availability.RemoteAvailabilityProtocol
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.aplayer.library.vfs.sourceProvider.SourceCapabilities
@@ -25,7 +27,6 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import java.io.InputStream
-import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 
 class AbsSourceProvider(
@@ -284,20 +285,15 @@ class AbsSourceProvider(
         }
         return try {
             client.newCall(requestBuilder.build()).execute()
-        } catch (error: SocketTimeoutException) {
-            AbsStreamLogger.logRequestFailure(method = method, url = url.toString(), errorClass = error.javaClass.simpleName, message = error.message)
-            throw AbsApiError(
-                code = "TIMEOUT",
-                availabilityStatus = AudiobookSchema.AvailabilityStatus.TIMEOUT,
-                message = "ABS media request timed out",
-                cause = error
-            )
         } catch (error: IOException) {
+            val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
+            // ABS Media Transport Failure Mapping (Aligns stream GET/HEAD errors with the ABS REST client policy)
+            // The media provider keeps its stream-specific logs and messages while sharing timeout/connectivity status classification.
             AbsStreamLogger.logRequestFailure(method = method, url = url.toString(), errorClass = error.javaClass.simpleName, message = error.message)
             throw AbsApiError(
-                code = "NETWORK_UNAVAILABLE",
-                availabilityStatus = AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE,
-                message = "ABS media request failed",
+                code = failure.errorCode,
+                availabilityStatus = failure.availabilityStatus,
+                message = if (failure.isTimeout) "ABS media request timed out" else "ABS media request failed",
                 cause = error
             )
         }
@@ -357,13 +353,12 @@ class AbsSourceProvider(
     }
 
     private fun Response.toAbsApiError(method: String): AbsApiError {
-        val availabilityStatus = when (code) {
-            HTTP_UNAUTHORIZED -> AudiobookSchema.AvailabilityStatus.AUTH_FAILED
-            HTTP_FORBIDDEN -> AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED
-            HTTP_NOT_FOUND -> AudiobookSchema.AvailabilityStatus.NOT_FOUND
-            in 500..599 -> AudiobookSchema.AvailabilityStatus.SERVER_ERROR
-            else -> AudiobookSchema.AvailabilityStatus.UNKNOWN
-        }
+        // ABS Media HTTP Failure Mapping (Delegates shared HTTP status classification to the remote availability policy)
+        // Stream request exceptions retain AbsApiError while using the same mapping table as ABS catalog/session requests.
+        val availabilityStatus = RemoteAvailabilityMappingPolicy.fromHttpStatus(
+            statusCode = code,
+            protocol = RemoteAvailabilityProtocol.ABS
+        )
         return AbsApiError(
             code = "HTTP_$code",
             httpStatus = code,
@@ -375,8 +370,6 @@ class AbsSourceProvider(
     private companion object {
         private const val HTTP_OK = 200
         private const val HTTP_PARTIAL_CONTENT = 206
-        private const val HTTP_UNAUTHORIZED = 401
-        private const val HTTP_FORBIDDEN = 403
         private const val HTTP_NOT_FOUND = 404
         private const val HTTP_RANGE_NOT_SATISFIABLE = 416
     }

@@ -4,7 +4,6 @@ import com.viel.aplayer.library.FileRef
 import java.io.BufferedInputStream
 import java.io.InputStream
 import java.nio.charset.Charset
-import java.util.Locale
 
 /**
  * Parser Sidecar Manager (Centralize sidecar image/text evaluation routines to decouple directory traversal from step layers)
@@ -53,7 +52,8 @@ object ManifestSidecarSupport {
         openTextFile: suspend (FileRef) -> InputStream?
     ): SidecarPayload =
         SidecarPayload(
-            // No anchor parsing (Omit same-name checks; rely purely on standard filenames or single txt fallback)
+            // Heuristic Text Selection (No manifest anchor is available for same-name matching)
+            // Standard description names or a single txt sibling remain eligible through ManifestSidecarSelectionPolicy.
             description = readTxtDescription(
                 textFiles = directoryContext.textFiles,
                 openTextFile = openTextFile,
@@ -69,42 +69,16 @@ object ManifestSidecarSupport {
         baseName: String? = null,
         strictSameNameOnly: Boolean = false
     ): String? {
-        if (textFiles.isEmpty()) return null
-
-        if (!baseName.isNullOrBlank()) {
-            val sameNameFile = textFiles.firstOrNull { file ->
-                file.displayName.substringBeforeLast('.', missingDelimiterValue = "").equals(baseName, ignoreCase = true)
-            }
-            if (sameNameFile != null) {
-                return readTextFile(openTextFile, sameNameFile)
-            }
-        }
-
-        if (strictSameNameOnly) return null
-
-        val commonNames = listOf("desc", "description", "info", "book", "readme", "简介", "有声书简介")
-        val commonNameFile = textFiles.firstOrNull { file ->
-            val nameWithoutExt = file.displayName.substringBeforeLast('.', missingDelimiterValue = "").lowercase(Locale.ROOT)
-            commonNames.any { common -> nameWithoutExt == common || nameWithoutExt.contains(common) }
-        }
-        if (commonNameFile != null) {
-            return readTextFile(openTextFile, commonNameFile)
-        }
-
-        if (textFiles.size == 1) {
-            return readTextFile(openTextFile, textFiles.first())
-        }
-
-        return null
+        val selectedTextFile = ManifestSidecarSelectionPolicy.selectTextDescription(
+            textFiles = textFiles,
+            baseName = baseName,
+            strictSameNameOnly = strictSameNameOnly
+        ) ?: return null
+        return readTextFile(openTextFile, selectedTextFile)
     }
 
-    fun findDirectoryCover(imageFiles: List<FileRef>): FileRef? {
-        val priorityNames = listOf("cover", "folder", "artwork", "front")
-        return imageFiles.firstOrNull { image ->
-            val baseName = image.displayName.substringBeforeLast('.').lowercase(Locale.ROOT)
-            baseName in priorityNames
-        } ?: imageFiles.firstOrNull()
-    }
+    fun findDirectoryCover(imageFiles: List<FileRef>): FileRef? =
+        ManifestSidecarSelectionPolicy.selectDirectoryCover(imageFiles)
 
     private suspend fun readTextFile(
         openTextFile: suspend (FileRef) -> InputStream?,
