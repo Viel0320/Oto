@@ -54,6 +54,15 @@ class ReleasePolicyTest {
     }
 
     @Test
+    fun manifestDoesNotShipPlaceholderPermissions() {
+        val manifest = repoFile("app/src/main/AndroidManifest.xml").readText()
+
+        // Manifest Placeholder Permission Guard (Prevents fake service permissions from reaching release builds)
+        // MediaSessionService access is enforced by PlaybackService controller verification, so the manifest must not advertise a TODO permission.
+        assertTrue(!manifest.contains("""android:permission="TODO""""))
+    }
+
+    @Test
     fun cleartextPlatformAllowanceIsPairedWithRuntimeSettingsDefaults() {
         val networkConfig = repoFile("app/src/main/res/xml/network_security_config.xml").readText()
         val defaults = AppSettings()
@@ -77,6 +86,35 @@ class ReleasePolicyTest {
         assertTrue(logBlock.contains("public static int i(...);"))
         assertTrue(!logBlock.contains("public static int w(...);"))
         assertTrue(!logBlock.contains("public static int e(...);"))
+    }
+
+    @Test
+    fun ciWorkflowRunsDebugLintReleaseLintAndReleaseR8AsSeparateGates() {
+        val workflow = repoFile(".github/workflows/ci.yml").readText()
+
+        // CI Gate Coverage Policy (Pins release-only validation to explicit workflow cases)
+        // Each command is asserted independently so release lint, R8 packaging, debug compile, and unit tests cannot silently collapse into one weak job.
+        listOf(
+            "name: Debug Kotlin Compile" to ".\\gradlew.bat compileDebugKotlin",
+            "name: Debug Unit Tests" to ".\\gradlew.bat testDebugUnitTest",
+            "name: Debug Android Lint" to ".\\gradlew.bat lintDebug",
+            "name: Release Android Lint" to ".\\gradlew.bat lintRelease",
+            "name: Release Assemble And R8" to ".\\gradlew.bat assembleRelease"
+        ).forEach { (jobName, command) ->
+            assertTrue("ci.yml must contain $jobName.", workflow.contains(jobName))
+            assertTrue("ci.yml must run $command.", workflow.contains(command))
+        }
+        assertTrue("ci.yml must allow manual release verification.", workflow.contains("workflow_dispatch:"))
+    }
+
+    @Test
+    fun r8RulesDoNotSuppressWholeMedia3OrCoilPackages() {
+        val rules = repoFile("app/proguard-rules.pro").readText()
+
+        // R8 Warning Visibility Policy (Prevents whole-library warning suppression from hiding release failures)
+        // Consumer rules should carry Media3 and Coil internals; app rules may not blanket-suppress those packages.
+        assertTrue(!rules.contains("-dontwarn androidx.media3.**"))
+        assertTrue(!rules.contains("-dontwarn coil.**"))
     }
 
     private fun repoFile(path: String): File {

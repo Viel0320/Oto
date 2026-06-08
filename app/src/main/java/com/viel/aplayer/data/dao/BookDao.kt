@@ -11,7 +11,7 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.timeline.PositionMapper
 import kotlinx.coroutines.flow.Flow
 
 /**

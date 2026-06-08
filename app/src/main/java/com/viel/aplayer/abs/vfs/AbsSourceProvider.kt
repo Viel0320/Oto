@@ -107,6 +107,26 @@ class AbsSourceProvider(
                     message = "ABS range request is out of bounds"
                 )
             }
+            if (offset > 0L && response.isSuccessful && !response.isTrustedOffsetResponse(offset)) {
+                response.close()
+                AbsStreamLogger.logOpenFailure(
+                    rootId = file.root.id,
+                    sourcePath = file.metadata.sourcePath,
+                    offset = offset,
+                    httpCode = response.code,
+                    costMs = AbsStreamLogger.elapsedMs(openStart),
+                    errorClass = "AbsApiError",
+                    message = "RANGE_IGNORED"
+                )
+                // Offset Range Enforcement (Reject ignored Range requests before returning a stream)
+                // A 200 response after a non-zero offset means playback would resume from byte zero, so the caller must fail fast instead of replaying earlier audio.
+                throw AbsApiError(
+                    code = "RANGE_IGNORED",
+                    httpStatus = response.code,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+                    message = "ABS range request was ignored by the server"
+                )
+            }
             if (!response.isSuccessful) {
                 val error = response.toAbsApiError("GET")
                 response.close()
@@ -312,6 +332,14 @@ class AbsSourceProvider(
         return absolute
     }
 
+    private fun Response.isTrustedOffsetResponse(offset: Long): Boolean {
+        // Offset Range Response Contract (Accept only responses that prove the requested byte offset was honored)
+        // Some proxies return HTTP 200 for a Range request; accepting those would corrupt resume and seek playback by streaming from the beginning.
+        if (code == HTTP_PARTIAL_CONTENT) return true
+        val contentRange = header("Content-Range") ?: return false
+        return contentRange.startsWith("bytes $offset-")
+    }
+
     private fun Response.toAbsApiError(method: String): AbsApiError {
         val availabilityStatus = when (code) {
             HTTP_UNAUTHORIZED -> AudiobookSchema.AvailabilityStatus.AUTH_FAILED
@@ -330,6 +358,7 @@ class AbsSourceProvider(
 
     private companion object {
         private const val HTTP_OK = 200
+        private const val HTTP_PARTIAL_CONTENT = 206
         private const val HTTP_UNAUTHORIZED = 401
         private const val HTTP_FORBIDDEN = 403
         private const val HTTP_NOT_FOUND = 404

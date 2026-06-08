@@ -1,7 +1,7 @@
 package com.viel.aplayer.domain.usecase
 
 import android.net.Uri
-import com.viel.aplayer.data.dao.DirectoryCacheDao
+import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
 class SettingsLibraryMaintenanceUseCase(
     private val libraryRootGateway: LibraryRootGateway,
     private val scanScheduler: ScanScheduler,
-    private val directoryCacheDao: DirectoryCacheDao,
+    private val cacheEvictionCoordinator: CacheEvictionCoordinator,
     private val missingBookFileRecoveryChecker: MissingBookFileRecoveryChecker
 ) {
     suspend fun updateSafRootAndScheduleSync(id: String, newUri: Uri) = withContext(Dispatchers.IO) {
@@ -45,13 +45,15 @@ class SettingsLibraryMaintenanceUseCase(
             basePath = basePath
         )
         clearRootCacheAndRecover(rootId = id)
-        scanScheduler.scheduleLibrarySync("USER")
+        // WebDAV Root Edit Rescan (Require connectivity for remote-only root mutations)
+        // Updated WebDAV coordinates cannot be validated or traversed offline, so WorkManager should wait for a connected network before executing this queued scan.
+        scanScheduler.scheduleLibrarySync("USER", requiresNetwork = true)
     }
 
     suspend fun clearRootCacheAndRecover(rootId: String) = withContext(Dispatchers.IO) {
         // Root Edit Cache Eviction (Forces scanner and availability checks to re-read the relocated source)
-        // Missing file recovery runs after the cache drop so previously unavailable audio files can be restored immediately.
-        directoryCacheDao.deleteByRootId(rootId)
+        // The shared coordinator clears directory rows, directory-child rows, artwork, and VFS range blocks so edited roots cannot reuse stale provider snapshots.
+        cacheEvictionCoordinator.evictRootCaches(rootId)
         missingBookFileRecoveryChecker.recoverMissingAudioFiles()
     }
 }

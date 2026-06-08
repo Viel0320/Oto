@@ -6,6 +6,7 @@ import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.gateway.BookQueryGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.timeline.PositionMapper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.player
 
+import com.viel.aplayer.event.feedback.FeedbackMessage
 
 data class PlaybackControlActions(
     val onPlayPauseClick: () -> Unit = {},
@@ -14,6 +15,11 @@ data class PlaybackControlActions(
     val onAdjustVolume: (delta: Float) -> Unit = {},
     val onNextChapter: () -> Unit = {},
     val onPreviousChapter: () -> Unit = {},
-    /** Toast trigger callback (To allow child composables to dispatch toast events to ViewModel) */
-    val onShowToast: (String) -> Unit = {},
+    /**
+     * Resource Feedback Callback (Dispatches player-control tips through localized message keys)
+     *
+     * Player controls produce feedback facts instead of raw copy so Toast rendering and localization stay
+     * centralized in the app shell.
+     */
+    val onShowToast: (FeedbackMessage) -> Unit = {},
 )

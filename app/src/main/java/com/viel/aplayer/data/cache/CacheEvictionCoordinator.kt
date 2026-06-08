@@ -41,14 +41,22 @@ class CacheEvictionCoordinator internal constructor(
      * orphaned file artifacts or directory snapshot rows.
      */
     suspend fun evictBeforeRootDelete(root: LibraryRootEntity): CacheEvictionSummary {
-        val coverFilesDeleted = deleteRootCoverFiles(root.id)
-        directoryCacheDao.deleteByRootId(root.id)
-        directoryChildCacheDao.deleteByRootId(root.id)
-        // Range Cache Root Eviction (Clears metadata-sized byte blocks for the deleted library root)
+        return evictRootCaches(root.id)
+    }
+
+    /**
+     * Evict Root Caches (Clears root-scoped derived artifacts without deleting the root row)
+     * Root edits reuse the same directory, artwork, and range-cache cleanup as root deletion so rescans cannot reuse stale provider coordinates.
+     */
+    suspend fun evictRootCaches(rootId: String): CacheEvictionSummary {
+        val coverFilesDeleted = deleteRootCoverFiles(rootId)
+        directoryCacheDao.deleteByRootId(rootId)
+        directoryChildCacheDao.deleteByRootId(rootId)
+        // Range Cache Root Eviction (Clears metadata-sized byte blocks for the edited or deleted library root)
         // Uses the same hashed root id as VfsRangeCacheKey so raw root identifiers never appear in cache file names.
-        val rangeFilesDeleted = vfsRangeCache?.evictRoot(VfsRangeCacheKey.hashIdentifier(root.id)) ?: 0
+        val rangeFilesDeleted = vfsRangeCache?.evictRoot(VfsRangeCacheKey.hashIdentifier(rootId)) ?: 0
         return CacheEvictionSummary(
-            rootId = root.id,
+            rootId = rootId,
             coverFilesDeleted = coverFilesDeleted,
             directoryRowsDeleted = true,
             directoryChildRowsDeleted = true,

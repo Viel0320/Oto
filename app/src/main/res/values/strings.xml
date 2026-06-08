@@ -43,6 +43,9 @@
     <string name="feedback_playback_no_available_track_after_failure">未找到后续任何可播音频分轨，已终止播放</string>
     <string name="feedback_playback_finished_shutdown_scheduled">播放结束，%1$d秒后将自动关闭</string>
     <string name="feedback_playback_bookmark_created">已添加当前播放位置到书签</string>
+    <string name="feedback_playback_remote_progress_save_failed">服务器进度写入本机失败：%1$s</string>
+    <string name="feedback_playback_speed_reset">播放速度已重置</string>
+    <string name="feedback_playback_speed_changed">播放速度：%1$s 倍</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
     <string name="feedback_playback_track_unavailable">当前分轨文件不可用，请确认是否跳轨收听</string>
     <string name="feedback_settings_local_library_relocated">本地媒体库位置已更新，开始扫描</string>
@@ -94,7 +97,12 @@
     <string name="feedback_sleep_shake_countdown_reset">已摇晃重置睡眠倒计时</string>
     <string name="feedback_sleep_shake_test_countdown_reset">已摇晃重置测试倒计时</string>
     <string name="feedback_sleep_tracking_countdown_started">睡眠检测：检测到已安稳入睡，开始睡眠倒计时</string>
+    <string name="feedback_sleep_timer_off">睡眠定时器已关闭</string>
+    <string name="feedback_sleep_timer_five_seconds">5 秒后停止播放</string>
+    <string name="feedback_sleep_timer_end_of_chapter">将在本章结束后停止播放</string>
+    <string name="feedback_sleep_timer_minutes">睡眠定时器：%1$d 分钟</string>
     <string name="feedback_chapter_physical_file_missing">该章节对应的物理文件已丢失，无法播放</string>
+    <string name="bookmark_default_title">书签</string>
     <string name="settings_library_management_title">媒体库管理</string>
     <string name="settings_library_location_with_abs">位置：%1$s · 当前书库：%2$s</string>
     <string name="settings_library_location">位置：%1$s</string>

@@ -17,6 +17,7 @@ import com.viel.aplayer.domain.usecase.GetRelatedBooksUseCase
 import com.viel.aplayer.domain.usecase.RelatedData
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.media.AutoRewindManager
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.media.PlaybackMediaId
@@ -654,7 +655,7 @@ class PlayerViewModel : ViewModel() {
                 clearPendingAbsProgressConflict()
                 loadBookAfterProgressDecision(request.bookId, request.playWhenReady, request.requestStartMs)
             }.onFailure { error ->
-                showToast("服务器进度写入本机失败：${error.message ?: "未知错误"}")
+                showToast(FeedbackMessages.playbackRemoteProgressSaveFailed(error.message))
             }
         }
     }
@@ -786,23 +787,24 @@ class PlayerViewModel : ViewModel() {
         appEventSink?.showToast(message)
     }
 
-    // Legacy Player Feedback Dispatch (Keeps old string-producing controls working during resource migration)
-    // New feedback paths should prefer FeedbackMessage so copy and localization remain centralized in resources.
-    fun showToast(message: String) {
-        appEventSink?.showToast(message)
-    }
-
     fun showChapterList() = settingsManager.showChapterList()
     fun dismissChapterList() = settingsManager.dismissChapterList()
     fun showBookmarkDialog() = settingsManager.showBookmarkDialog()
     fun dismissBookmarkDialog() = settingsManager.dismissBookmarkDialog()
     fun updateBookmarkTitle(title: String) = settingsManager.updateBookmarkTitle(title)
     fun saveBookmarkFromDialog() {
-        addBookmark(settingsState.value.bookmarkTitle.ifBlank { "Bookmark" })
+        addBookmark(settingsState.value.bookmarkTitle.ifBlank { defaultBookmarkTitle() })
         dismissBookmarkDialog()
         // Bookmark Dialog Feedback (Notify through the centralized app event sink)
         // The ViewModel reports the outcome while the app shell owns the Toast widget.
-        showToast("Bookmark added")
+        showToast(FeedbackMessages.playbackBookmarkCreated())
+    }
+
+    private fun defaultBookmarkTitle(): String {
+        // Default Bookmark Title Resource (Avoid persisting a hard-coded English fallback into user data)
+        // Bookmark titles are visible in the saved bookmark list, so the default label is resolved from Android resources when the app context is ready.
+        return appContext?.getString(com.viel.aplayer.R.string.bookmark_default_title)
+            ?: error("PlayerViewModel must be initialized before resolving the default bookmark title.")
     }
     fun setSelectedContentTab(tab: Int) = settingsManager.setSelectedContentTab(tab)
     fun setFullPlayerVisible(visible: Boolean) {

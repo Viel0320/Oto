@@ -25,6 +25,13 @@ class UserVisibleStringResourceTest {
         // These keys cover feedback, settings, widget, media-session, and chapter-list copy moved out of Kotlin.
         listOf(
             "feedback_scan_completed_with_discovered_books",
+            "feedback_playback_remote_progress_save_failed",
+            "feedback_playback_speed_reset",
+            "feedback_playback_speed_changed",
+            "feedback_sleep_timer_off",
+            "feedback_sleep_timer_five_seconds",
+            "feedback_sleep_timer_end_of_chapter",
+            "feedback_sleep_timer_minutes",
             "feedback_sleep_motion_tracking_paused",
             "feedback_abs_background_sync_completed",
             "feedback_chapter_physical_file_missing",
@@ -37,7 +44,8 @@ class UserVisibleStringResourceTest {
             "settings_sleep_timer_title",
             "player_widget_fallback_author",
             "media_session_add_bookmark",
-            "chapter_file_unavailable_description"
+            "chapter_file_unavailable_description",
+            "bookmark_default_title"
         ).forEach { key ->
             assertTrue("strings.xml must define $key.", strings.contains("""name="$key""""))
         }
@@ -69,6 +77,8 @@ class UserVisibleStringResourceTest {
             "app/src/main/java/com/viel/aplayer/ui/settings/SleepTimerManager.kt",
             "app/src/main/java/com/viel/aplayer/ui/settings/SettingsSections.kt",
             "app/src/main/java/com/viel/aplayer/ui/settings/SettingsViewModel.kt",
+            "app/src/main/java/com/viel/aplayer/ui/player/PlayerViewModel.kt",
+            "app/src/main/java/com/viel/aplayer/ui/player/components/PlaybackControls.kt",
             "app/src/main/java/com/viel/aplayer/ui/home/LibraryViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/components/ChapterList.kt",
             "app/src/main/java/com/viel/aplayer/widget/PlayerWidget.kt",

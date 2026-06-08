@@ -14,7 +14,7 @@ import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.gateway.BookQueryGateway
-import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.timeline.PositionMapper
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope

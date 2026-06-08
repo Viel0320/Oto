@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.work.Data
-import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.viel.aplayer.data.db.AppDatabase
@@ -25,6 +24,7 @@ import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.NoOpDirectoryListingCache
 import com.viel.aplayer.logger.ScanWorkflowLogger
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
+import com.viel.aplayer.work.WorkSchedulingPolicy
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -85,8 +85,10 @@ class ScanService(
         outcome
     }
 
-    override fun scheduleLibrarySync(trigger: String) {
-        // Enqueue Unique Work: Schedule LibrarySyncWorker via WorkManager using ExistingWorkPolicy.KEEP to prevent redundant scan runs.
+    override fun scheduleLibrarySync(trigger: String, requiresNetwork: Boolean) {
+        val policy = WorkSchedulingPolicy.librarySync(trigger = trigger, requiresNetwork = requiresNetwork)
+        // Enqueue Unique Work (Apply trigger-aware replacement and connectivity policy)
+        // Cold-start scans keep debounce behavior, while user/root-edit scans replace stale queued work so new root settings are not dropped.
         val workManager = WorkManager.getInstance(appContext)
         val request = OneTimeWorkRequestBuilder<LibrarySyncWorker>()
             .setInputData(
@@ -94,10 +96,12 @@ class ScanService(
                     .putString("trigger", trigger)
                     .build()
             )
+            .setConstraints(policy.constraints)
+            .setBackoffCriteria(policy.backoffPolicy, policy.backoffDelay, policy.backoffTimeUnit)
             .build()
         workManager.enqueueUniqueWork(
-            "LibrarySyncWork",
-            ExistingWorkPolicy.KEEP,
+            policy.uniqueWorkName,
+            policy.existingWorkPolicy,
             request
         )
     }

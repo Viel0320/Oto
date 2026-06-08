@@ -105,6 +105,28 @@ class AbsPlaybackSessionStage4Test {
     }
 
     @Test
+    fun `open session should be idempotent while local session is active`() = kotlinx.coroutines.runBlocking {
+        val playbackSessionDao = FakePlaybackSessionDao()
+        val api = SuccessfulPlaybackApi()
+        val syncer = AbsPlaybackSessionSyncer(
+            apiClient = api,
+            absPlaybackSessionDao = playbackSessionDao,
+            absPendingProgressSyncDao = FakePendingSyncDao(),
+            catalogStore = FakeCatalogStore(),
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") }
+        )
+        val book = absBook()
+
+        syncer.openSession(book, remoteItemId = "item-1")
+        syncer.openSession(book, remoteItemId = "item-1")
+
+        // Idempotent Open Regression (Prevents resume commands from creating duplicate ABS server sessions)
+        // PlaybackManager may ensure a session when local play resumes, so the syncer must no-op when a session row is already active.
+        assertEquals(1, api.openCallCount)
+        assertNotNull(playbackSessionDao.getByBookId(book.id))
+    }
+
+    @Test
     fun `sync should skip upload when remote progress conflicts`() = kotlinx.coroutines.runBlocking {
         // Remote Conflict Upload Guard (Verifies live sync does not overwrite a divergent ABS checkpoint)
         // The server position is intentionally far ahead of the local position, so the sync call must be skipped instead of queued or sent.
@@ -289,6 +311,7 @@ class AbsPlaybackSessionStage4Test {
     private class SuccessfulPlaybackApi(
         private val remoteProgress: AbsUserProgressDto? = null
     ) : AbsApiClient {
+        var openCallCount = 0
         var syncCallCount = 0
         override suspend fun status(baseUrl: String) = AbsStatusDto(serverVersion = "2.35.1", isInit = true)
         override suspend fun login(baseUrl: String, username: String, password: String) = throw UnsupportedOperationException()
@@ -298,8 +321,10 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String) = AbsLibraryItemsResponseDto()
         override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>) = emptyList<AbsLibraryItemDto>()
         override suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? = remoteProgress
-        override suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto) =
-            AbsPlaybackSessionDto(id = "session-1", libraryItemId = itemId, audioTracks = listOf(AbsTrackDto(index = 1, contentUrl = "/hls/session-1/output.m3u8")))
+        override suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto): AbsPlaybackSessionDto {
+            openCallCount += 1
+            return AbsPlaybackSessionDto(id = "session-1", libraryItemId = itemId, audioTracks = listOf(AbsTrackDto(index = 1, contentUrl = "/hls/session-1/output.m3u8")))
+        }
         override suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) {
             syncCallCount += 1
         }

@@ -42,6 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
@@ -75,11 +76,14 @@ fun PlaybackControls(
             //
             // Adjusted to 1500 milliseconds (1.5 seconds) to provide a more sufficient buffer against accidental double clicks or spamming.
             delay(1500.milliseconds) // Wait for 1.5s of inactivity
-            val msg = if (playbackSpeed == 1.0f) "Playback speed reset" else "Playback speed: ${playbackSpeed}x"
-            // Unified speed UI feedback events.
-            //
-            // Moved speed reset and toggle tips out of local physical Toast calls, routing them via actions.onShowToast to the global event bus.
-            actions.onShowToast(msg)
+            val message = if (playbackSpeed == 1.0f) {
+                FeedbackMessages.playbackSpeedReset()
+            } else {
+                FeedbackMessages.playbackSpeedChanged(formatPlaybackSpeedForFeedback(playbackSpeed))
+            }
+            // Resource-Backed Speed Feedback (Route playback-speed tips through FeedbackMessage)
+            // This removes English Toast literals from the control surface while preserving the existing debounced UX behavior.
+            actions.onShowToast(message)
             lastSpeed = playbackSpeed
         }
     }
@@ -92,16 +96,15 @@ fun PlaybackControls(
             //
             // Adjusted to 1500 milliseconds (1.5 seconds) to avoid spamming the screen with toast popups during rapid successive clicks.
             delay(1500.milliseconds) // Wait for 1.5s of inactivity
-            val msg = when (selectedSleepTimer) {
-                0 -> "Sleep timer off"
-                -1 -> "Sleep in 5 seconds"
-                -2 -> "Stop at end of chapter"
-                else -> "Sleep in $selectedSleepTimer minutes"
+            val message = when (selectedSleepTimer) {
+                0 -> FeedbackMessages.sleepTimerOff()
+                -1 -> FeedbackMessages.sleepTimerFiveSeconds()
+                -2 -> FeedbackMessages.sleepTimerEndOfChapter()
+                else -> FeedbackMessages.sleepTimerMinutes(selectedSleepTimer)
             }
-            // Unified sleep timer UI feedback.
-            //
-            // Route sleep timer duration change events via actions.onShowToast to decouple the UI from Context instances.
-            actions.onShowToast(msg)
+            // Resource-Backed Sleep Timer Feedback (Route timer tips through FeedbackMessage)
+            // This keeps timer copy in string resources while the composable remains responsible only for debounce timing.
+            actions.onShowToast(message)
             lastTimer = selectedSleepTimer
         }
     }
@@ -284,4 +287,11 @@ fun PlaybackControlsPreview() {
             )
         }
     }
+}
+
+private fun formatPlaybackSpeedForFeedback(speed: Float): String {
+    // Playback Speed Formatting (Keep feedback arguments copy-neutral)
+    // Trims the trailing decimal from whole-number speeds while preserving fractional values such as 0.75 or 1.25.
+    val text = speed.toString()
+    return text.trimEnd('0').trimEnd('.')
 }

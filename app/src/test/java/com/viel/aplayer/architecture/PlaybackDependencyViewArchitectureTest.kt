@@ -75,6 +75,17 @@ class PlaybackDependencyViewArchitectureTest {
         assertTrue(!vfsInterface.contains("LibraryFacade"))
     }
 
+    @Test
+    fun bookDaoDoesNotImportMediaRuntime() {
+        val sourceRoot = resolveSourceRoot()
+        val bookDaoSource = sourceRoot.resolve("data/dao/BookDao.kt").readText()
+
+        // DAO Timeline Mapping Boundary (Keeps Room persistence out of the media runtime package)
+        // BookDao may use neutral timeline math for progress coordinates, but it must not import playback/session/runtime media classes.
+        assertTrue(!bookDaoSource.contains("import com.viel.aplayer.media."))
+        assertTrue(bookDaoSource.contains("import com.viel.aplayer.timeline.PositionMapper"))
+    }
+
     private fun resolveSourceRoot(): File {
         // Source Root Resolution (Supports both module and repository working directories)
         // Gradle can execute JVM tests from different directories, so the test checks both stable source-root candidates.

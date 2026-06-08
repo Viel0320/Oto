@@ -15,16 +15,15 @@
 }
 
 # Media3 / ExoPlayer
-# Media3 Consumer Rules (Avoid broad manual keep rules for Media3 internals)
-# Media3 ships consumer rules, so this file only suppresses warnings from optional classes.
--dontwarn androidx.media3.**
+# Media3 Consumer Rules (Avoid broad manual keep or dontwarn rules for Media3 internals)
+# Media3 ships consumer rules, so release builds should surface missing optional classes instead of hiding whole-package warnings.
 
 # Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherLoader {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
 
-# Coil
--dontwarn coil.**
+# Coil Consumer Rules (Avoid broad manual keep or dontwarn rules for image loading internals)
+# Coil ships consumer rules, so this app rule file should not mask package-wide image loading warnings.
 
 # Runnable Inline Cache Workaround (Keep only run method signatures for affected generated paths)
 # This narrow rule avoids broader class retention while preventing missing inline-cache warnings.

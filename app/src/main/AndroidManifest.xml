@@ -107,11 +107,12 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Media Session Service Exposure (Leave access control to the Media3 controller handshake)
+             The service must be exported so platform media surfaces can bind, while PlaybackService validates caller identity and degrades controller capabilities at connection time. -->
         <service
             android:name=".media.service.PlaybackService"
             android:exported="true"
-            android:foregroundServiceType="mediaPlayback"
-            android:permission="TODO">
+            android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
                 <action android:name="android.intent.action.MEDIA_BUTTON" />

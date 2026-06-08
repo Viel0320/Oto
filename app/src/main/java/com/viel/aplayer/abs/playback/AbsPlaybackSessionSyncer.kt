@@ -9,6 +9,8 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.logger.AbsPlaybackLogger
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class AbsPlaybackSessionSyncer(
     private val apiClient: AbsApiClient,
@@ -18,9 +20,23 @@ class AbsPlaybackSessionSyncer(
     private val credentialProvider: suspend (BookEntity) -> CredentialSnapshot?,
     private val progressConflictCoordinator: AbsProgressConflictCoordinator? = null
 ) {
-    suspend fun openSession(book: BookEntity, remoteItemId: String) {
+    // ABS Session Operation Mutex (Serializes open, sync, and close calls for one playback syncer)
+    // Playback controls can issue pause, stop, switch-book, and progress sync requests concurrently; this lock preserves server session ordering without blocking local player commands.
+    private val sessionOperationMutex = Mutex()
+
+    suspend fun openSession(book: BookEntity, remoteItemId: String) = sessionOperationMutex.withLock {
+        openSessionLocked(book, remoteItemId)
+    }
+
+    private suspend fun openSessionLocked(book: BookEntity, remoteItemId: String) {
         if (book.sourceType != AudiobookSchema.SourceType.ABS_REMOTE) {
             AbsPlaybackLogger.logOpenSessionSkipped(bookId = book.id, reason = "NOT_ABS_REMOTE")
+            return
+        }
+        if (absPlaybackSessionDao.getByBookId(book.id) != null) {
+            // Idempotent Session Open (Avoids creating duplicate server sessions during resume or repeated play commands)
+            // PlaybackManager may ask to ensure an ABS session after local play resumes; an existing local session row means the remote session is already active.
+            AbsPlaybackLogger.logOpenSessionSkipped(bookId = book.id, reason = "SESSION_ALREADY_OPEN")
             return
         }
         val credential = credentialProvider(book)
@@ -57,7 +73,11 @@ class AbsPlaybackSessionSyncer(
         flushPendingIfAny(book, credential)
     }
 
-    suspend fun syncProgress(book: BookEntity, progress: BookProgressEntity, durationMs: Long) {
+    suspend fun syncProgress(book: BookEntity, progress: BookProgressEntity, durationMs: Long) = sessionOperationMutex.withLock {
+        syncProgressLocked(book, progress, durationMs)
+    }
+
+    private suspend fun syncProgressLocked(book: BookEntity, progress: BookProgressEntity, durationMs: Long) {
         if (book.sourceType != AudiobookSchema.SourceType.ABS_REMOTE) return
         val session = absPlaybackSessionDao.getByBookId(book.id) ?: return
         val credential = credentialProvider(book) ?: return
@@ -142,7 +162,11 @@ class AbsPlaybackSessionSyncer(
         }
     }
 
-    suspend fun closeSession(book: BookEntity, progress: BookProgressEntity?, durationMs: Long) {
+    suspend fun closeSession(book: BookEntity, progress: BookProgressEntity?, durationMs: Long) = sessionOperationMutex.withLock {
+        closeSessionLocked(book, progress, durationMs)
+    }
+
+    private suspend fun closeSessionLocked(book: BookEntity, progress: BookProgressEntity?, durationMs: Long) {
         if (book.sourceType != AudiobookSchema.SourceType.ABS_REMOTE) return
         val session = absPlaybackSessionDao.getByBookId(book.id) ?: return
         val credential = credentialProvider(book) ?: return

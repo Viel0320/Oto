@@ -1,10 +1,13 @@
-package com.viel.aplayer.media
+package com.viel.aplayer.timeline
 
 import com.viel.aplayer.data.entity.BookFileEntity
 
 /**
  * Position Translation Engine (Responsible for mapping between global audiobook positions and file-specific positions)
  * Decouples playback interfaces from multi-track storage offsets by managing coordinate mapping.
+ *
+ * Timeline Module Placement (Keeps coordinate mapping outside the media runtime package)
+ * Data, library, ABS, and playback callers all need this deterministic math, so the mapper lives in a neutral package instead of forcing data code to import media.
  */
 object PositionMapper {
     /**

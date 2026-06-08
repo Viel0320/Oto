@@ -6,7 +6,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
-import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.timeline.PositionMapper
 
 class AbsProgressMapper {
     fun toProgressOrNull(

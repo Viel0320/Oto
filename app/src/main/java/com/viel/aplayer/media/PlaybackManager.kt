@@ -13,9 +13,12 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import com.viel.aplayer.media.service.PlaybackService
 import com.viel.aplayer.media.subtitle.SubtitleLine
+import com.viel.aplayer.timeline.PositionMapper
 
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -289,9 +292,19 @@ class PlaybackManager private constructor(context: Context) {
                 // Bypassing Lock Activation (Prevent erroneous auto-rewind triggers during track reloading)
                 autoRewindManager.ignoreNextAutoRewind = true
 
+                val previousBookId = this@PlaybackManager.currentPlan?.bookId
+                val previousAbsSessionSnapshot = if (previousBookId != null && previousBookId != finalPlan.bookId) {
+                    // ABS Switch Snapshot (Capture old-book coordinates before currentPlan points at the next book)
+                    // The remote close path must use the outgoing plan and controller position, not the replacement plan that is about to load.
+                    captureAbsSessionSnapshot()
+                } else {
+                    null
+                }
                 this@PlaybackManager.currentPlan = finalPlan
                 this@PlaybackManager.pendingPlayWhenReady = playWhenReady
-                openAbsSessionIfNeeded(finalPlan.bookId)
+                if (previousBookId != finalPlan.bookId) {
+                    scheduleAbsSessionTransition(previousAbsSessionSnapshot, finalPlan.bookId)
+                }
 
                 // State Prefetching (Publish initial positions instantly to prevent UI frame flickers)
                 val totalDur = finalPlan.files.sumOf { it.durationMs }
@@ -367,13 +380,20 @@ class PlaybackManager private constructor(context: Context) {
 
     // Commands
     fun play() {
-        executeOnMain { mediaController?.play() }
+        scope.launch {
+            // Local Play First (Resume audible playback before remote ABS session bookkeeping)
+            // The background session open is idempotent, so resume after a pause-close can recover server tracking without delaying controls.
+            mediaController?.play()
+            currentPlan?.bookId?.let { bookId -> scheduleAbsSessionOpen(bookId) }
+        }
     }
 
     fun pause() {
         scope.launch {
-            closeAbsSessionIfNeeded()
-            executeOnMain { mediaController?.pause() }
+            // Local Pause First (Apply the user-visible control before remote ABS teardown)
+            // Slow ABS close requests must not keep audio playing after the user presses pause on weak networks.
+            mediaController?.pause()
+            scheduleAbsSessionClose(captureAbsSessionSnapshot(), skipIfPlaybackResumed = true)
         }
     }
 
@@ -476,15 +496,19 @@ class PlaybackManager private constructor(context: Context) {
      * Block-waits controller readiness to ensure stop command hits ExoPlayer even from background threads.
      */
     suspend fun stopPlayback() {
-        closeAbsSessionIfNeeded()
         val controller = getController()
-        withContext(Dispatchers.Main) {
+        val snapshot = withContext(Dispatchers.Main) {
             // Prevent Redundant Actions (Toggle ignoreNextAutoRewind flag prior to stop to suppress post-pause rewinds)
             autoRewindManager.ignoreNextAutoRewind = true
-            controller?.let { conn ->
+            val capturedSnapshot = if (controller != null) {
+                val conn = controller
                 conn.pause()
+                val snapshot = captureAbsSessionSnapshot()
                 conn.stop()
                 conn.clearMediaItems()
+                snapshot
+            } else {
+                captureAbsSessionSnapshot()
             }
             currentPlan = null
             _currentMediaItem.value = null
@@ -492,25 +516,93 @@ class PlaybackManager private constructor(context: Context) {
             _duration.value = 0L
             _isPlaying.value = false
             _playbackState.value = Player.STATE_IDLE
+            capturedSnapshot
+        }
+        scheduleAbsSessionClose(snapshot)
+    }
+
+    private fun scheduleAbsSessionTransition(previousSnapshot: AbsSessionSnapshot?, nextBookId: String) {
+        scope.launch(Dispatchers.IO) {
+            // ABS Book Switch Ordering (Close the previous remote session before opening the next one)
+            // The local player can move to the new book immediately, while remote session bookkeeping stays ordered in the background.
+            closeAbsSessionIfNeeded(previousSnapshot)
+            openAbsSessionIfNeeded(nextBookId)
         }
     }
 
-    private fun openAbsSessionIfNeeded(bookId: String) {
-        scope.launch {
-            val book = bookQueryGateway.getBookById(bookId) ?: return@launch
-            if (book.sourceType != com.viel.aplayer.data.db.AudiobookSchema.SourceType.ABS_REMOTE) return@launch
-            val remoteItemId = book.id.substringAfter(":item:", missingDelimiterValue = "")
-            if (remoteItemId.isBlank()) return@launch
-            absPlaybackSessionSyncer.openSession(book, remoteItemId)
+    private fun scheduleAbsSessionOpen(bookId: String) {
+        scope.launch(Dispatchers.IO) {
+            openAbsSessionIfNeeded(bookId)
         }
     }
 
-    private suspend fun closeAbsSessionIfNeeded() {
-        val plan = currentPlan ?: return
-        val book = bookQueryGateway.getBookById(plan.bookId) ?: return
+    private fun scheduleAbsSessionClose(
+        snapshot: AbsSessionSnapshot?,
+        skipIfPlaybackResumed: Boolean = false
+    ) {
+        scope.launch(Dispatchers.IO) {
+            if (skipIfPlaybackResumed && isSnapshotPlayingAgain(snapshot)) return@launch
+            closeAbsSessionIfNeeded(snapshot)
+        }
+    }
+
+    private suspend fun isSnapshotPlayingAgain(snapshot: AbsSessionSnapshot?): Boolean {
+        if (snapshot == null) return false
+        return withContext(Dispatchers.Main) {
+            // Pause Close Latest-Only Guard (Drops stale background close work after the same book resumes)
+            // A quick pause/play sequence should keep the newly active local playback from being invalidated by the older pause teardown.
+            currentPlan?.bookId == snapshot.bookId && mediaController?.isPlaying == true
+        }
+    }
+
+    private suspend fun openAbsSessionIfNeeded(bookId: String) {
+        val book = bookQueryGateway.getBookById(bookId) ?: return
         if (book.sourceType != com.viel.aplayer.data.db.AudiobookSchema.SourceType.ABS_REMOTE) return
-        val progress = progressGateway.getLastPlayedProgressSync()?.takeIf { it.bookId == plan.bookId }
-        absPlaybackSessionSyncer.closeSession(book, progress, plan.files.sumOf { it.durationMs })
+        val remoteItemId = book.id.substringAfter(":item:", missingDelimiterValue = "")
+        if (remoteItemId.isBlank()) return
+        absPlaybackSessionSyncer.openSession(book, remoteItemId)
+    }
+
+    private suspend fun closeAbsSessionIfNeeded(snapshot: AbsSessionSnapshot?) {
+        val sessionSnapshot = snapshot ?: return
+        val book = bookQueryGateway.getBookById(sessionSnapshot.bookId) ?: return
+        if (book.sourceType != com.viel.aplayer.data.db.AudiobookSchema.SourceType.ABS_REMOTE) return
+        val progress = resolveCloseProgress(sessionSnapshot)
+        absPlaybackSessionSyncer.closeSession(book, progress, sessionSnapshot.durationMs)
+    }
+
+    private suspend fun resolveCloseProgress(snapshot: AbsSessionSnapshot): BookProgressEntity? {
+        val capturedProgress = snapshot.toProgressEntity()
+        if (capturedProgress != null) {
+            // ABS Close Progress Flush (Persist the controller snapshot before sending remote close)
+            // Closing uses the same fresh local checkpoint that the UI just observed, avoiding stale 10-second polling data.
+            progressGateway.saveProgress(capturedProgress)
+            return capturedProgress
+        }
+        return progressGateway.getProgressForBookSync(snapshot.bookId)
+    }
+
+    private fun captureAbsSessionSnapshot(plan: BookPlaybackPlan? = currentPlan): AbsSessionSnapshot? {
+        val activePlan = plan ?: return null
+        val controller = mediaController
+        val hasControllerPosition = controller?.currentMediaItem != null && activePlan.files.isNotEmpty()
+        val fileIndex = if (hasControllerPosition) {
+            controller.currentMediaItemIndex.coerceIn(0, activePlan.files.lastIndex)
+        } else {
+            null
+        }
+        val positionInFileMs = if (hasControllerPosition) {
+            controller.currentPosition.coerceAtLeast(0L)
+        } else {
+            null
+        }
+        return AbsSessionSnapshot(
+            bookId = activePlan.bookId,
+            files = activePlan.files,
+            fileIndex = fileIndex,
+            positionInFileMs = positionInFileMs,
+            capturedAtMs = System.currentTimeMillis()
+        )
     }
 
     /**
@@ -547,6 +639,36 @@ class PlaybackManager private constructor(context: Context) {
             action()
         } else {
             scope.launch(Dispatchers.Main) { action() }
+        }
+    }
+
+    /**
+     * ABS Session Snapshot (Captures local playback coordinates before the active plan mutates)
+     * Background remote close calls use this immutable snapshot so book switches and stop commands cannot read a newer plan with an older position.
+     */
+    private data class AbsSessionSnapshot(
+        val bookId: String,
+        val files: List<BookFileEntity>,
+        val fileIndex: Int?,
+        val positionInFileMs: Long?,
+        val capturedAtMs: Long
+    ) {
+        val durationMs: Long = files.sumOf { it.durationMs }
+
+        fun toProgressEntity(): BookProgressEntity? {
+            if (fileIndex == null || positionInFileMs == null || files.isEmpty()) return null
+            val safeFileIndex = fileIndex.coerceIn(0, files.lastIndex)
+            val safePositionInFile = positionInFileMs.coerceAtLeast(0L)
+            val globalPosition = PositionMapper.fileToGlobalPosition(safeFileIndex, safePositionInFile, files)
+                .coerceIn(0L, durationMs.coerceAtLeast(0L))
+            return BookProgressEntity(
+                bookId = bookId,
+                globalPositionMs = globalPosition,
+                bookFileId = files.getOrNull(safeFileIndex)?.id,
+                currentFileIndex = safeFileIndex,
+                positionInFileMs = safePositionInFile,
+                lastPlayedAt = capturedAtMs
+            )
         }
     }
 

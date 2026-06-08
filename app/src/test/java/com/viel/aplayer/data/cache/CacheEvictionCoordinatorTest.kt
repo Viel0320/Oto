@@ -87,6 +87,33 @@ class CacheEvictionCoordinatorTest {
         assertEquals(0, summary.rangeFilesDeleted)
     }
 
+    @Test
+    fun `root edit eviction should clear child directories and range blocks`() = runBlocking {
+        val appCacheDir = createTempDirectory("cache-edit-eviction").toFile()
+        val directoryCacheDao = FakeDirectoryCacheDao()
+        val directoryChildCacheDao = FakeDirectoryChildCacheDao()
+        val rangeCache = VfsRangeCache(cacheDir = File(appCacheDir, "vfs_range_cache"))
+        val ownedRangeKey = sampleRangeKey(VfsRangeCacheKey.hashIdentifier("root-1"), "book-1")
+        rangeCache.write(ownedRangeKey, byteArrayOf(7))
+        val coordinator = CacheEvictionCoordinator(
+            appCacheDir = appCacheDir,
+            bookDao = fakeBookDao(emptyList()),
+            directoryCacheDao = directoryCacheDao,
+            directoryChildCacheDao = directoryChildCacheDao,
+            vfsRangeCache = rangeCache
+        )
+
+        val summary = coordinator.evictRootCaches("root-1")
+
+        // Root Edit Cache Contract (Uses the same root-scoped eviction path as deletion without requiring a LibraryRootEntity)
+        // Editing a provider URL or SAF URI must clear child listings and range-cache blocks so the next scan reads the new coordinates.
+        assertEquals("root-1", summary.rootId)
+        assertEquals("root-1", directoryCacheDao.deletedRootId)
+        assertEquals("root-1", directoryChildCacheDao.deletedRootId)
+        assertEquals(1, summary.rangeFilesDeleted)
+        assertEquals(null, rangeCache.read(ownedRangeKey))
+    }
+
     private fun fakeBookDao(paths: List<BookCoverCachePaths>): BookDao =
         Proxy.newProxyInstance(
             BookDao::class.java.classLoader,

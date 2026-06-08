@@ -6,7 +6,7 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.library.orchestrator.draftmodels.BookDraft
-import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.timeline.PositionMapper
 
 /**
  * Ownership State Migrator (Replacement playback-state policy)

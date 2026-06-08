@@ -290,7 +290,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         SettingsLibraryMaintenanceUseCase(
             libraryRootGateway = library.libraryRootGateway,
             scanScheduler = library.scanScheduler,
-            directoryCacheDao = data.database.directoryCacheDao(),
+            cacheEvictionCoordinator = library.cacheEvictionCoordinator,
             missingBookFileRecoveryChecker = MissingBookFileRecoveryChecker(context.applicationContext)
         )
     }

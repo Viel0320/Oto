@@ -23,6 +23,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.VisualEffectPolicy
+import com.viel.aplayer.ui.common.theme.rememberVisualEffectEnvironment
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailRoute
 import com.viel.aplayer.ui.detail.DetailViewModel
@@ -73,11 +75,16 @@ fun APlayerApp(
         initialValue = settingsRepository.cachedSettings
     )
 
-    val activeGlassEffectMode = if (libraryUiState.selectedFilter != null) {
+    val requestedGlassEffectMode = if (libraryUiState.selectedFilter != null) {
         libraryUiState.glassEffectMode
     } else {
         initialSettings.glassEffectMode
     }
+    val visualEffectEnvironment = rememberVisualEffectEnvironment()
+    val activeGlassEffectMode = VisualEffectPolicy.resolveGlassEffectMode(
+        requestedMode = requestedGlassEffectMode,
+        environment = visualEffectEnvironment
+    )
 
     val activeThemeMode = if (libraryUiState.selectedFilter != null) {
         libraryUiState.themeMode
@@ -290,7 +297,7 @@ fun APlayerApp(
                         // NavHost Haze Source Mount (Let the navigation host own route-level sampling)
                         // This lets HomeAppBar live as a sibling overlay above NavDisplay while still sampling the route content.
                         appHazeState = hazeState,
-                        glassEffectMode = libraryUiState.glassEffectMode,
+                        glassEffectMode = activeGlassEffectMode,
                         // Home View Preference State (Route current renderer and sort selections to the NavHost-owned top bar dialog)
                         // HomeScreen still renders the catalog from LibraryUiState, while the app bar dialog only edits these persisted preferences.
                         homeViewStyle = libraryUiState.homeViewStyle,
@@ -313,7 +320,7 @@ fun APlayerApp(
                 DetailRoute(
                     detailViewModel = detailViewModel,
                     canStartNavigation = canStartNavigation,
-                    glassEffectMode = libraryUiState.glassEffectMode,
+                    glassEffectMode = activeGlassEffectMode,
                     hazeState = hazeState,
                     detailHazeState = detailHazeState,
                     onPlayBook = { bookId ->
@@ -340,7 +347,7 @@ fun APlayerApp(
                     playerViewModel = playerViewModel,
                     miniPlayerActions = miniPlayerActions,
                     isSearchActive = isSearchVisible,
-                    glassEffectMode = libraryUiState.glassEffectMode,
+                    glassEffectMode = activeGlassEffectMode,
                     hazeState = targetHazeState
                 )
 
@@ -348,7 +355,7 @@ fun APlayerApp(
                 // The edit sheet behaves like other app overlays, so it uses the same long-lived app HazeState instead of rebinding to Detail's local source.
                 EditBookRoute(
                     editViewModel = editViewModel,
-                    glassEffectMode = libraryUiState.glassEffectMode,
+                    glassEffectMode = activeGlassEffectMode,
                     hazeState = hazeState,
                     onSaveSuccess = {
                         // Edit Save Success (Reactive Flow Refresh)
@@ -362,7 +369,7 @@ fun APlayerApp(
                     playerViewModel = playerViewModel,
                     playerActions = playerActions,
                     playerNavigationActions = playerNavigationActions,
-                    glassEffectMode = libraryUiState.glassEffectMode,
+                    glassEffectMode = activeGlassEffectMode,
                     // Player App-Level Haze Registration (Let expanded player become the active sampled surface)
                     // PlayerOverlay registers its full-screen content into this stable source so Search and dialogs can sample the visible player instead of stale route content.
                     appHazeState = hazeState
@@ -373,7 +380,7 @@ fun APlayerApp(
                 SearchRoute(
                     searchViewModel = searchViewModel,
                     hazeState = hazeState,
-                    glassEffectMode = libraryUiState.glassEffectMode,
+                    glassEffectMode = activeGlassEffectMode,
                     /*
                      * Search Detail Source Selector (Search-result source handoff)
                      *
@@ -415,7 +422,7 @@ fun APlayerApp(
                 // Settings keeps local page chrome sampling separately, while its dialogs use the stable app source like Search and playback dialogs.
                 SettingsOverlay(
                     settingsViewModel = settingsViewModel,
-                    glassEffectMode = libraryUiState.glassEffectMode,
+                    glassEffectMode = activeGlassEffectMode,
                     appHazeState = hazeState
                 )
 
@@ -427,7 +434,7 @@ fun APlayerApp(
                 val absProgressConflictState by playerViewModel.absProgressConflictDialogState.collectAsStateWithLifecycle()
                 APlayerAppDialogHost(
                     hazeState = hazeState,
-                    glassEffectMode = libraryUiState.glassEffectMode,
+                    glassEffectMode = activeGlassEffectMode,
                     isFullPlayerVisible = playerUiState.isFullPlayerVisible,
                     absProgressConflictState = absProgressConflictState,
                     trackUnavailableState = trackUnavailableState,

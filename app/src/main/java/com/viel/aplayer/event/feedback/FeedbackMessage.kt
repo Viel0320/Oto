@@ -77,6 +77,18 @@ object FeedbackMessages {
     fun playbackBookmarkCreated(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_playback_bookmark_created)
 
+    fun playbackRemoteProgressSaveFailed(errorMessage: String?): FeedbackMessage =
+        FeedbackMessage.Resource(
+            R.string.feedback_playback_remote_progress_save_failed,
+            listOf(errorMessage ?: "")
+        )
+
+    fun playbackSpeedReset(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_playback_speed_reset)
+
+    fun playbackSpeedChanged(speedText: String): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_playback_speed_changed, listOf(speedText))
+
     fun playbackSourcePreflightBlocked(message: String): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_playback_source_preflight_blocked, listOf(message))
 
@@ -230,6 +242,18 @@ object FeedbackMessages {
 
     fun sleepTrackingCountdownStarted(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_sleep_tracking_countdown_started)
+
+    fun sleepTimerOff(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_sleep_timer_off)
+
+    fun sleepTimerFiveSeconds(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_sleep_timer_five_seconds)
+
+    fun sleepTimerEndOfChapter(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_sleep_timer_end_of_chapter)
+
+    fun sleepTimerMinutes(minutes: Int): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_sleep_timer_minutes, listOf(minutes))
 
     fun chapterPhysicalFileMissing(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_chapter_physical_file_missing)

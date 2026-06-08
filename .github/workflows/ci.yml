@@ -6,11 +6,31 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  debug-compile:
+    name: Debug Kotlin Compile
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Debug Compile Gate (Validates main-source Kotlin and KSP generation before slower checks run)
+      # This job is intentionally separate from tests so compiler and annotation-processing failures appear as their own CI case.
+      - name: Compile Debug Kotlin
+        run: .\gradlew.bat compileDebugKotlin
+
   debug-unit-tests:
     name: Debug Unit Tests
     runs-on: windows-latest
@@ -29,3 +49,60 @@ jobs:
       # Keeping this gate in CI prevents future UI, media, or Worker callers from regressing to the full container surface.
       - name: Run Debug Unit Tests
         run: .\gradlew.bat testDebugUnitTest
+
+  debug-lint:
+    name: Debug Android Lint
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Debug Lint Gate (Checks debug-source Android resources, manifests, Compose usage, and API warnings)
+      # This stays separate from unit tests because lint failures usually require production-code or resource fixes rather than test fixes.
+      - name: Run Debug Lint
+        run: .\gradlew.bat lintDebug
+
+  release-lint:
+    name: Release Android Lint
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Release Lint Gate (Checks release manifest merge, release resources, and production-only lint conditions)
+      # Release lint is isolated from debug lint so build-type-specific policy regressions are visible as their own CI case.
+      - name: Run Release Lint
+        run: .\gradlew.bat lintRelease
+
+  release-assemble:
+    name: Release Assemble And R8
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Release Build Gate (Exercises release Kotlin compilation, manifest packaging, resource shrinking, and R8)
+      # This catches release-only failures that debug unit tests cannot see, including minification and resource-shrinker regressions.
+      - name: Assemble Release
+        run: .\gradlew.bat assembleRelease

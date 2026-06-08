@@ -21,10 +21,12 @@ interface ScanScheduler {
     suspend fun syncLibrary(trigger: String = "USER"): ScanOutcome
 
     /**
-     * Schedule Asynchronous Ingestion (Background dispatcher dispatch)
-     * Dispatches rescan jobs asynchronously into the background thread pools.
+     * Schedule Asynchronous Ingestion (Background WorkManager dispatch)
+     * Dispatches rescan jobs asynchronously while preserving trigger-specific replacement and
+     * network-constraint semantics at the scheduler seam.
      * 
      * @param trigger Origin indicating sync cause
+     * @param requiresNetwork True when the queued scan was caused by a remote-only root mutation.
      */
-    fun scheduleLibrarySync(trigger: String = "USER")
+    fun scheduleLibrarySync(trigger: String = "USER", requiresNetwork: Boolean = false)
 }

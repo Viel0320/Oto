@@ -7,6 +7,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.timeline.PositionMapper
 import java.util.concurrent.CopyOnWriteArraySet
 
 /**

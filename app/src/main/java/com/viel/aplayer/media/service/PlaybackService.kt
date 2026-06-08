@@ -4,6 +4,7 @@ package com.viel.aplayer.media.service
 // Resolves UI and database mapping dependencies needed to update widget data store asynchronously.
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.os.Bundle
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -34,7 +35,7 @@ import com.viel.aplayer.media.PlaybackDomainEvent
 import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackMediaId
 import com.viel.aplayer.media.PlaybackPlanGateway
-import com.viel.aplayer.media.PositionMapper
+import com.viel.aplayer.timeline.PositionMapper
 import com.viel.aplayer.media.session.PlaybackSessionErrorDecision
 import com.viel.aplayer.media.session.PlaybackSessionState
 import com.viel.aplayer.widget.PlayerWidget
@@ -381,27 +382,24 @@ class PlaybackService : MediaSessionService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo
         ): MediaSession.ConnectionResult {
-            // Client Package Whitelisting (Performs handshake verification against known package signatures)
-            val callingPackage = controller.packageName
-            val allowedPackages = listOf(
-                packageName,
-                "com.android.systemui",
-                "com.google.android.projection.gearhead",
-                "com.google.android.googlequicksearchbox"
-            )
-            if (callingPackage !in allowedPackages) {
+            if (!isControllerPackageBoundToUid(controller)) {
                 return MediaSession.ConnectionResult.reject()
             }
 
             val sessionCommandsBuilder = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             
-            // Custom Layout Assembly (Injects the customized rewind, forward, and bookmark actions into the controller layout)
-            rewindButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
-            forwardButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
-            bookmarkButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
+            val customLayout = if (canUsePrivilegedMediaControls(controller)) {
+                // Privileged Media Control Surface (Expose app-specific commands only to same-package or system controllers)
+                // Standard external controllers still receive play/pause/seek commands, avoiding brittle package-name allow lists while keeping bookmark mutations privileged.
+                rewindButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
+                forwardButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
+                bookmarkButton.sessionCommand?.let { sessionCommandsBuilder.add(it) }
+                listOf(rewindButton, forwardButton, bookmarkButton)
+            } else {
+                emptyList()
+            }
 
             val sessionCommands = sessionCommandsBuilder.build()
-            val customLayout = listOf(rewindButton, forwardButton, bookmarkButton)
 
             // Sequence Guard configuration (Removes system forward/backward commands to prevent index out of bounds on multi-track media items)
             val playerCommands = Player.Commands.Builder()
@@ -517,6 +515,23 @@ class PlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
+    }
+
+    private fun isControllerPackageBoundToUid(controller: MediaSession.ControllerInfo): Boolean {
+        // Controller UID Verification (Validate package ownership instead of hard-coding known media clients)
+        // Media3 reports the controller package and UID; matching them through PackageManager blocks spoofed package names while allowing OEM media surfaces.
+        val packagesForUid = packageManager.getPackagesForUid(controller.uid) ?: return false
+        return controller.packageName in packagesForUid
+    }
+
+    private fun canUsePrivilegedMediaControls(controller: MediaSession.ControllerInfo): Boolean {
+        if (controller.packageName == packageName) return true
+        return runCatching {
+            val appInfo = packageManager.getApplicationInfo(controller.packageName, 0)
+            val isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
+            val isUpdatedSystemApp = appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
+            isSystemApp || isUpdatedSystemApp
+        }.getOrDefault(false)
     }
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {

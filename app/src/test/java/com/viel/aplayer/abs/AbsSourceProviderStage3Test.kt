@@ -2,6 +2,7 @@ package com.viel.aplayer.abs
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.abs.net.AbsApiError
 import com.viel.aplayer.abs.net.dto.AbsPlayRequestDto
 import com.viel.aplayer.abs.net.dto.AbsPlaybackSessionDto
 import com.viel.aplayer.abs.sync.AbsCatalogStore
@@ -20,6 +21,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.fail
 import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
@@ -91,6 +93,41 @@ class AbsSourceProviderStage3Test {
             assertEquals("Bearer token-1", openRequest.getHeader("Authorization"))
             val rangeRequest = server.takeRequest()
             assertEquals("bytes=5-", rangeRequest.getHeader("Range"))
+        }
+    }
+
+    @Test
+    fun `offset open should reject ignored range responses`() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "audio/mpeg")
+                    .setBody("0123456789")
+            )
+            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val provider = AbsSourceProvider(context = null, credentialStore = credentialStore)
+            val root = LibraryRootEntity(
+                id = "root-1",
+                sourceType = AudiobookSchema.LibrarySourceType.ABS,
+                sourceUri = server.url("/audiobookshelf").toString().trimEnd('/'),
+                basePath = "lib-1",
+                credentialId = "cred-1",
+                displayName = "Audiobooks"
+            )
+            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+
+            try {
+                provider.openInputStream(node, offset = 5)?.close()
+                fail("Expected ignored ABS range responses to fail")
+            } catch (error: AbsApiError) {
+                // Ignored Range Regression (Protects seek and resume from replaying ABS streams from byte zero)
+                // The provider must reject HTTP 200 after requesting a non-zero byte offset because the server did not prove offset alignment.
+                assertEquals("RANGE_IGNORED", error.code)
+            }
+
+            val request = server.takeRequest()
+            assertEquals("bytes=5-", request.getHeader("Range"))
         }
     }
 
