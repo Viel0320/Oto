@@ -28,9 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
@@ -54,6 +56,10 @@ fun ChapterDisplay(
     // Avoids redundant blur computations by using pure mask overlays.
     // Determine Glass Blur Status (Enable blur only if in Haze mode and state is provided)
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    // Localized Chapter Fallback Copy (Use resources for empty chapter and bookmark accessibility text)
+    // Chapter titles usually come from media metadata, but the empty-state fallback and action label are app-authored UI copy.
+    val noChaptersText = stringResource(R.string.player_no_chapters)
+    val addBookmarkContentDescription = stringResource(R.string.media_session_add_bookmark)
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -103,7 +109,7 @@ fun ChapterDisplay(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = currentChapterTitle ?: title ?: "No Chapters",
+                        text = currentChapterTitle ?: title ?: noChaptersText,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
@@ -118,7 +124,7 @@ fun ChapterDisplay(
                 modifier = Modifier.weight(1f, fill = false),
                 label = {
                     Text(
-                        text = currentChapterTitle ?: title ?: "No Chapters",
+                        text = currentChapterTitle ?: title ?: noChaptersText,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -146,7 +152,7 @@ fun ChapterDisplay(
             onClick = onBookmarkClick,
             modifier = Modifier.padding(start = 16.dp) // Offset bookmark button (To prevent buttons overlapping chip bounds)
         ) {
-            Icon(Icons.Rounded.BookmarkAdd, contentDescription = "Bookmark")
+            Icon(Icons.Rounded.BookmarkAdd, contentDescription = addBookmarkContentDescription)
         }
     }
 }

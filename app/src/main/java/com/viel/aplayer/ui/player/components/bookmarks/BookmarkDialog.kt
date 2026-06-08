@@ -12,8 +12,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -44,7 +46,7 @@ fun BookmarkDialog(
             hazeState = hazeState,
             glassEffectMode = glassEffectMode,
             scrollable = false,
-            title = { Text("Add Bookmark") },
+            title = { Text(stringResource(R.string.bookmark_add_title)) },
             body = {
                 // Bookmark Creation Body (Keep draft input local while sharing dialog chrome)
                 // The text draft remains scoped to this composable and is emitted only when Save is clicked.
@@ -55,14 +57,14 @@ fun BookmarkDialog(
             },
             actions = {
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
                 TextButton(
                     onClick = {
                         onSave(localTitle)
                     }
                 ) {
-                    Text("Save")
+                    Text(stringResource(R.string.action_save))
                 }
             }
         )
@@ -78,8 +80,10 @@ fun BookmarkDialogContent(
     OutlinedTextField(
         value = title,
         onValueChange = onTitleChange,
-        label = { Text("Bookmark Title") },
-        placeholder = { Text("Enter a name for this bookmark") },
+        // Bookmark Field Copy (Resource-backed label and placeholder for the bookmark naming form)
+        // The entered bookmark title is user data, but the form chrome belongs to app UI and must follow the selected language.
+        label = { Text(stringResource(R.string.bookmark_title_label)) },
+        placeholder = { Text(stringResource(R.string.bookmark_title_placeholder)) },
         singleLine = true,
         modifier = modifier.fillMaxWidth()
     )

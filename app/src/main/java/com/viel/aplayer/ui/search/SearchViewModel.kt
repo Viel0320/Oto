@@ -6,24 +6,24 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.store.SearchHistoryEntry
+import com.viel.aplayer.application.library.search.SearchHistoryItem
+import com.viel.aplayer.application.library.search.SearchResultSnapshot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
-    // Library Presentation Dependency View (Resolve only the facade required by search)
-    // SearchViewModel queries books and history through LibraryFacade without learning settings or playback dependencies.
-    private val libraryFacade = APlayerApplication.getLibraryPresentationDependencies(application).libraryFacade
+    // Search Scene Dependency View (Resolve only search-specific read and command interfaces)
+    // This keeps SearchViewModel on the new scene boundary while preserving the existing AndroidViewModel construction path.
+    private val searchDependencies = APlayerApplication.getSearchScreenDependencies(application)
+    private val searchLibraryReadModel = searchDependencies.searchLibraryReadModel
+    private val searchLibraryCommands = searchDependencies.searchLibraryCommands
 
     // Visibility Flow (Search Overlay Animation Signal)
     // Reactive state flow controlling whether the SearchOverlay is visible.
@@ -39,8 +39,9 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val _query = MutableStateFlow(TextFieldValue(""))
     val query: StateFlow<TextFieldValue> = _query.asStateFlow()
 
-    // Use libraryFacade facade to responsively observe search history
-    val searchHistory: StateFlow<List<SearchHistoryEntry>> = libraryFacade.searchHistory
+    // Search History Stream (Expose module-owned history records to the overlay)
+    // The read model owns the storage gateway, so the ViewModel only converts it to lifecycle-aware StateFlow.
+    val searchHistory: StateFlow<List<SearchHistoryItem>> = searchLibraryReadModel.searchHistory
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -48,40 +49,9 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val searchResults: StateFlow<List<BookWithProgress>> = _query
+    val searchResults: StateFlow<List<SearchResultSnapshot>> = _query
         .map { it.text }
-        .flatMapLatest { query ->
-            val tokens = query.split(Regex("\\s+")).filter { it.isNotBlank() }
-            if (tokens.isEmpty()) {
-                flowOf(emptyList())
-            } else {
-                val knownCommands = listOf("year", "author", "writer", "narrator")
-                val allFlows = tokens.map { token ->
-                    val parts = token.split(":", limit = 2)
-                    if (parts.size == 2 && parts[0].lowercase() in knownCommands) {
-                        val command = parts[0].trim().lowercase()
-                        val content = parts[1].trim()
-                        
-                        when (command) {
-                            "year" -> if (content.isEmpty()) libraryFacade.audiobooks else libraryFacade.filterByYear(content)
-                            "writer", "author" -> if (content.isEmpty()) libraryFacade.audiobooks else libraryFacade.filterByAuthor(content)
-                            "narrator" -> if (content.isEmpty()) libraryFacade.audiobooks else libraryFacade.filterByNarrator(content)
-                            else -> libraryFacade.audiobooks
-                        }
-                    } else {
-                        libraryFacade.searchAudiobooks(token)
-                    }
-                }
-
-                combine(allFlows) { lists ->
-                    if (lists.isEmpty()) return@combine emptyList()
-                    lists.reduce { acc, list ->
-                        val accIds = acc.map { it.book.id }.toSet()
-                        list.filter { it.book.id in accIds }
-                    }
-                }
-            }
-        }
+        .flatMapLatest(searchLibraryReadModel::search)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -99,8 +69,9 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     fun saveSearchHistory(queryToSave: String) {
         if (queryToSave.isNotBlank()) {
             viewModelScope.launch {
-                // Use libraryFacade to write search history into persistent records
-                libraryFacade.addToHistory(queryToSave.trim())
+                // Search History Save Command (Delegate persistence to the search scene module)
+                // The module normalizes input and owns the history gateway, leaving the ViewModel as a UI intent adapter.
+                searchLibraryCommands.saveSearchHistory(queryToSave)
             }
         }
     }
@@ -110,17 +81,19 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         saveSearchHistory(query)
     }
 
-    fun deleteHistory(history: SearchHistoryEntry) {
+    fun deleteHistory(history: SearchHistoryItem) {
         viewModelScope.launch {
-            // Use libraryFacade to physically delete a single search history item
-            libraryFacade.deleteFromHistory(history)
+            // Search History Delete Command (Delegate single-item removal to the search scene module)
+            // The command interface receives scene-owned items and hides the DataStore entry shape from UI state.
+            searchLibraryCommands.deleteSearchHistory(history)
         }
     }
 
     fun clearHistory() {
         viewModelScope.launch {
-            // Use libraryFacade to clear all historical search keywords with one click.
-            libraryFacade.clearHistory()
+            // Search History Clear Command (Delegate bulk removal to the search scene module)
+            // SearchViewModel no longer needs access to the broader library command surface for this action.
+            searchLibraryCommands.clearSearchHistory()
         }
     }
 }

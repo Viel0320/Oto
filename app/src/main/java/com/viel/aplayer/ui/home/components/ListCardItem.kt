@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,6 +51,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
@@ -103,6 +105,10 @@ fun cardgroup(
     fillAvailableWidth: Boolean = false,
     preferredWidth: Dp = 160.dp
 ) {
+    // Localized Card Metadata Fallback (Keep blank author/narrator placeholders translatable)
+    // The card receives book data from the catalog, but empty metadata fallback text is owned by the app UI.
+    val unknownText = stringResource(R.string.common_unknown)
+
     // Reset Color State on Cover Path Changes: Re-initialize coverColor state whenever the coverPath changes using remember(coverPath) and load the cached color synchronously if available.
     var coverColor by remember(coverPath) {
         mutableStateOf<Color?>(com.viel.aplayer.media.parser.ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
@@ -145,8 +151,9 @@ fun cardgroup(
         )
         Text(
             text = formatPeopleSubtitle(
-                author.takeIf { it.isNotBlank() } ?: "Unknown",
-                narrator.takeIf { it.isNotBlank() } ?: "Unknown"
+                author.takeIf { it.isNotBlank() } ?: unknownText,
+                narrator.takeIf { it.isNotBlank() } ?: unknownText,
+                fallback = unknownText
             ),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -458,7 +465,9 @@ fun cardgroupNewPreview() {
                 title = "The Great Adventure",
                 author = "John Doe",
                 narrator = "Jane Smith",
-                progressText = "NEW",
+                // Preview Badge Copy (Use the localized new-item marker so preview surfaces exercise the same text path as runtime cards)
+                // The surrounding preview book metadata remains mock data, but the badge is app-authored UI copy.
+                progressText = stringResource(R.string.common_new_badge),
                 onClick = {}
             )
         }

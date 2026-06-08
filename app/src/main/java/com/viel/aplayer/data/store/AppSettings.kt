@@ -28,6 +28,59 @@ enum class ThemeMode {
     Dark
 }
 
+// App Language Selection (Persist app-level locale choices independently from translated labels)
+// Locale tags use BCP 47 values so DataStore, Android LocaleManager, and resource qualifiers can share one stable representation.
+enum class AppLanguage(val localeTag: String) {
+    System(""),
+    English("en"),
+    ChineseSimplified("zh-Hans-CN"),
+    ChineseHongKong("zh-Hant-HK"),
+    ChineseTaiwan("zh-Hant-TW"),
+    Japanese("ja"),
+    French("fr"),
+    German("de"),
+    Russian("ru"),
+    Spanish("es"),
+    Portuguese("pt");
+
+    companion object {
+        // Locale Tag Mapping (Normalize platform and stored tags into supported app-language values)
+        // Android can return regional aliases such as zh-CN, so this mapper folds equivalent tags back to the canonical enum.
+        fun fromLocaleTag(tag: String?): AppLanguage? {
+            val normalizedTag = tag
+                ?.trim()
+                ?.replace('_', '-')
+                ?.takeIf { it.isNotEmpty() }
+                ?: return System
+            return when {
+                normalizedTag.equals("en", ignoreCase = true) ||
+                    normalizedTag.startsWith("en-", ignoreCase = true) -> English
+                normalizedTag.equals("zh", ignoreCase = true) ||
+                    normalizedTag.equals("zh-CN", ignoreCase = true) ||
+                    normalizedTag.equals("zh-Hans", ignoreCase = true) ||
+                    normalizedTag.startsWith("zh-Hans-", ignoreCase = true) -> ChineseSimplified
+                normalizedTag.equals("zh-HK", ignoreCase = true) ||
+                    normalizedTag.equals("zh-Hant-HK", ignoreCase = true) -> ChineseHongKong
+                normalizedTag.equals("zh-TW", ignoreCase = true) ||
+                    normalizedTag.equals("zh-Hant-TW", ignoreCase = true) -> ChineseTaiwan
+                normalizedTag.equals("ja", ignoreCase = true) ||
+                    normalizedTag.startsWith("ja-", ignoreCase = true) -> Japanese
+                normalizedTag.equals("fr", ignoreCase = true) ||
+                    normalizedTag.startsWith("fr-", ignoreCase = true) -> French
+                normalizedTag.equals("de", ignoreCase = true) ||
+                    normalizedTag.startsWith("de-", ignoreCase = true) -> German
+                normalizedTag.equals("ru", ignoreCase = true) ||
+                    normalizedTag.startsWith("ru-", ignoreCase = true) -> Russian
+                normalizedTag.equals("es", ignoreCase = true) ||
+                    normalizedTag.startsWith("es-", ignoreCase = true) -> Spanish
+                normalizedTag.equals("pt", ignoreCase = true) ||
+                    normalizedTag.startsWith("pt-", ignoreCase = true) -> Portuguese
+                else -> null
+            }
+        }
+    }
+}
+
 // Home View Style Preference (Controls the catalog item renderer on the Home screen)
 // List keeps adaptive listgroup columns as the default reading model, while Grid switches the catalog to single-line cardgroup carousels.
 enum class HomeViewStyle {
@@ -35,7 +88,7 @@ enum class HomeViewStyle {
     Grid
 }
 
-// Home Sort Rule Preference (Controls the primary grouping and descending pinyin order on the Home screen)
+// Home Sort Rule Preference (Controls the primary grouping pivot for script-clustered Home ordering)
 // Author remains the default catalog organization, while Narrator and Series let users pivot the same library without changing the underlying book domain model.
 enum class HomeSortRule {
     Author,
@@ -43,9 +96,19 @@ enum class HomeSortRule {
     Series
 }
 
+// Home Sort Direction Preference (Controls in-cluster ordering while preserving the fixed script cluster sequence)
+// Cluster order stays Chinese, Japanese, Korean, English, then Other; this enum only flips comparisons inside each cluster.
+enum class HomeSortDirection {
+    Ascending,
+    Descending
+}
+
 data class AppSettings(
     // Theme Mode Setting (Expose themeMode configurations, defaulting to System) Binds active theme configuration.
     val themeMode: ThemeMode = ThemeMode.System,
+    // App Language Setting (Stores the preferred application locale)
+    // System keeps Android in charge, while explicit values feed both the platform LocaleManager and the Compose fallback context.
+    val appLanguage: AppLanguage = AppLanguage.System,
     // Dynamic Color Option (Enable wallpaper-based color theme extraction) Adds isDynamicColorEnabled field to AppSettings with a default value of true to support Monet dynamic coloring.
     val isDynamicColorEnabled: Boolean = true,
     /** Filter state on the home screen */
@@ -56,6 +119,9 @@ data class AppSettings(
     // Home Sort Rule Setting (Persist the selected Home catalog grouping and order)
     // Defaults to Author to preserve the current author-centered browsing model while allowing narrator and series pivots.
     val homeSortRule: HomeSortRule = HomeSortRule.Author,
+    // Home Sort Direction Setting (Persist ascending or descending order inside each script cluster)
+    // Defaults to Ascending to keep the current C/J/K/E/Other policy behavior for existing users until they choose otherwise.
+    val homeSortDirection: HomeSortDirection = HomeSortDirection.Ascending,
     /** Determines if the playback speed configuration is stored globally */
     val isGlobalSpeedEnabled: Boolean = false,
     /** Global speed scale value */

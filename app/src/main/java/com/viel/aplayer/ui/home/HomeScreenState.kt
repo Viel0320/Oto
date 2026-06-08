@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.components.HomeDialogHost
@@ -78,7 +79,7 @@ fun HomeScreen(
         detailUiState.isVisible &&
         detailUiState.entrySource == DetailEntrySource.HomeRecent
     ) {
-        detailUiState.book?.book?.id
+        detailUiState.book?.bookId
     } else {
         null
     }
@@ -92,7 +93,7 @@ fun HomeScreen(
         detailUiState.isVisible &&
         detailUiState.entrySource == DetailEntrySource.HomeList
     ) {
-        detailUiState.book?.book?.id
+        detailUiState.book?.bookId
     } else {
         null
     }
@@ -113,7 +114,26 @@ fun HomeScreen(
         isMiniPlayerVisible = playerUiState.hasActiveTrack,
         onFilterSelected = { libraryViewModel.setFilter(it) },
         onNavigateToDetail = { id: String, entrySource: DetailEntrySource ->
-            val book = libraryUiState.audiobooks.find { it.book.id == id }
+            val book = libraryUiState.audiobooks.find { it.id == id }?.let { libraryBook ->
+                // Home Detail Boundary Mapping (Convert the home library row into a Detail scene item)
+                // Home still owns the library list projection, while DetailViewModel receives only fields needed by the detail scene.
+                DetailBookItem(
+                    id = libraryBook.id,
+                    rootId = libraryBook.rootId,
+                    sourceType = libraryBook.sourceType,
+                    title = libraryBook.title,
+                    author = libraryBook.author,
+                    narrator = libraryBook.narrator,
+                    description = libraryBook.description,
+                    year = libraryBook.year,
+                    totalDurationMs = libraryBook.totalDurationMs,
+                    totalFileSize = libraryBook.totalFileSize,
+                    coverPath = libraryBook.coverPath,
+                    thumbnailPath = libraryBook.thumbnailPath,
+                    lastScannedAt = libraryBook.lastScannedAt,
+                    progressPercent = libraryBook.progressPercent
+                )
+            }
             detailViewModel.selectBook(
                 book = book,
                 entrySource = entrySource
@@ -126,10 +146,10 @@ fun HomeScreen(
             playerViewModel.setFullPlayerVisible(true)
         },
         onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
-        onBookActionsRequested = { bookWithProgress ->
+        onBookActionsRequested = { homeBook ->
             // Home Dialog Request (Route long-press actions to the page dialog host)
             // Stores only the selected audiobook payload and lets HomeDialogHost derive the concrete dialog tree.
-            homeDialogState = HomeDialogState.AudiobookActions(bookWithProgress)
+            homeDialogState = HomeDialogState.AudiobookActions(homeBook)
         }
     )
 

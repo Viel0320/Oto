@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.player.components
 
-// Import Model: Import the RelatedSection model class from the relocated domain model package.
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,9 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.entity.BookEntity
-import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.domain.model.RelatedSection
+import com.viel.aplayer.application.library.player.PlayerRelatedBook
+import com.viel.aplayer.application.library.player.PlayerRelatedSection
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
@@ -25,11 +23,11 @@ import com.viel.aplayer.ui.home.components.ListItem
 fun RelatedBooksView(
     currentBookId: String,
     // Heuristic recommendations parameter (To pass top scored recommended items)
-    heuristicBooks: List<BookWithProgress>,
-    authorSections: List<RelatedSection>,
-    narratorSections: List<RelatedSection>,
-    recentBooks: List<BookWithProgress>,
-    onBookClick: (BookWithProgress) -> Unit,
+    heuristicBooks: List<PlayerRelatedBook>,
+    authorSections: List<PlayerRelatedSection>,
+    narratorSections: List<PlayerRelatedSection>,
+    recentBooks: List<PlayerRelatedBook>,
+    onBookClick: (PlayerRelatedBook) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -43,7 +41,7 @@ fun RelatedBooksView(
             item {
                 RelatedSectionHeader("Recommended for You")
             }
-            items(heuristicBooks, key = { "h:${it.book.id}" }) { book ->
+            items(heuristicBooks, key = { "h:${it.id}" }) { book ->
                 RelatedAudiobookItem(book, onBookClick)
             }
         }
@@ -54,7 +52,7 @@ fun RelatedBooksView(
                     RelatedSectionHeader("More by ${section.name}")
                 }
                 // M-20 Fix — Configure list key (To assign unique key to prevent index recycling glitches)
-                items(section.books, key = { it.book.id }) { book ->
+                items(section.books, key = { it.id }) { book ->
                     RelatedAudiobookItem(book, onBookClick)
                 }
             }
@@ -66,7 +64,7 @@ fun RelatedBooksView(
                     RelatedSectionHeader("More by ${section.name}")
                 }
                 // M-20 Fix — Configure narrator list key (To assign compound keys to avoid key duplicate errors)
-                items(section.books, key = { "n:${it.book.id}" }) { book ->
+                items(section.books, key = { "n:${it.id}" }) { book ->
                     RelatedAudiobookItem(book, onBookClick)
                 }
             }
@@ -77,7 +75,7 @@ fun RelatedBooksView(
                 RelatedSectionHeader("Recently Added")
             }
             // M-20 Fix — Configure recent list key (To assign prefix keys to prevent section key collisions)
-            items(recentBooks, key = { "r:${it.book.id}" }) { book ->
+            items(recentBooks, key = { "r:${it.id}" }) { book ->
                 RelatedAudiobookItem(book, onBookClick)
             }
         }
@@ -96,23 +94,23 @@ private fun RelatedSectionHeader(title: String) {
 
 @Composable
 private fun RelatedAudiobookItem(
-    book: BookWithProgress,
-    onBookClick: (BookWithProgress) -> Unit
+    book: PlayerRelatedBook,
+    onBookClick: (PlayerRelatedBook) -> Unit
 ) {
     ListItem(
-        title = book.book.title,
-        author = book.book.author,
-        narrator = book.book.narrator,
-        duration = book.book.totalDurationMs,
+        title = book.title,
+        author = book.author,
+        narrator = book.narrator,
+        duration = book.totalDurationMs,
         // Small image loading strategy (To retrieve small cover thumbnail images)
         // Matches thumbnail caches with home lists and compact players.
         coverPath = CoverImageSourceSelector.small(
-            thumbnailPath = book.book.thumbnailPath,
-            coverPath = book.book.coverPath
+            thumbnailPath = book.thumbnailPath,
+            coverPath = book.coverPath
         ),
         // Refresh modification timestamp (To forward lastScannedAt parameters)
         // Forces views reload when cover images are regenerated.
-        coverLastUpdated = book.book.lastScannedAt,
+        coverLastUpdated = book.coverLastUpdated,
         progressPercent = book.progressPercent,
         onClick = { onBookClick(book) },
         onPlayClick = { onBookClick(book) }
@@ -122,20 +120,18 @@ private fun RelatedAudiobookItem(
 @Preview(showBackground = true, backgroundColor = 0xFF101418)
 @Composable
 fun RelatedBooksViewPreview() {
-    val mockBook = BookWithProgress(
-        book = BookEntity(
-            id = "id1",
-            rootId = "preview-root",
-            sourceType = "SINGLE_AUDIO",
-            title = "Sample Audiobook",
-            author = "Author Name",
-            narrator = "Narrator Name",
-            totalDurationMs = 3600000L,
-            addedAt = System.currentTimeMillis()
-        ),
-        progress = null
+    val mockBook = PlayerRelatedBook(
+        id = "id1",
+        title = "Sample Audiobook",
+        author = "Author Name",
+        narrator = "Narrator Name",
+        totalDurationMs = 3600000L,
+        thumbnailPath = null,
+        coverPath = null,
+        coverLastUpdated = System.currentTimeMillis(),
+        progressPercent = 0
     )
-    val mockList = listOf(mockBook, mockBook.copy(book = mockBook.book.copy(id = "id2", title = "Another Book")))
+    val mockList = listOf(mockBook, mockBook.copy(id = "id2", title = "Another Book"))
 
     APlayerTheme(darkTheme = true) {
         Surface(color = MaterialTheme.colorScheme.background) {
@@ -143,8 +139,8 @@ fun RelatedBooksViewPreview() {
                 currentBookId = "id0",
                 // Supply heuristic recommendations mock data in preview
                 heuristicBooks = mockList,
-                authorSections = listOf(RelatedSection("Author Name", mockList)),
-                narratorSections = listOf(RelatedSection("Narrator Name", mockList)),
+                authorSections = listOf(PlayerRelatedSection("Author Name", mockList)),
+                narratorSections = listOf(PlayerRelatedSection("Narrator Name", mockList)),
                 recentBooks = mockList,
                 onBookClick = {}
             )

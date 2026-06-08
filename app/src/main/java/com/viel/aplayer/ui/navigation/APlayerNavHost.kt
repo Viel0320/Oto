@@ -14,6 +14,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
@@ -56,9 +57,12 @@ fun APlayerNavHost(
     // Home View Style Selection (Current catalog renderer preference for the Home app bar dialog)
     // The navigation host owns the Home top bar, so it also receives the selected value needed by the adjacent display-preference dialog.
     homeViewStyle: HomeViewStyle,
-    // Home Sort Rule Selection (Current catalog grouping and pinyin-descending order for the Home app bar dialog)
-    // Passing this value keeps the dialog stateless and leaves preference mutation in LibraryViewModel.
+    // Home Sort Rule Selection (Current catalog grouping pivot for the Home app bar dialog)
+    // Passing this value keeps the dialog stateless while the Home catalog policy owns mixed-script ordering.
     homeSortRule: HomeSortRule,
+    // Home Sort Direction Selection (Current in-cluster order for the Home app bar dialog)
+    // The navigation host passes this through without altering the fixed C/J/K/E/Other cluster sequence.
+    homeSortDirection: HomeSortDirection,
     // Home Dialog Backdrop Source (Route app-level sampling into Home dialogs)
     // Dialog windows need the same app-level backdrop used by Search and mini-player overlays so their blur is not clipped by Home's page-local scrolling source.
     homeDialogHazeState: HazeState? = null,
@@ -68,9 +72,12 @@ fun APlayerNavHost(
     // Home View Style Selection Callback (Persist display renderer changes through the parent ViewModel)
     // APlayerNavHost only hosts the top-bar dialog and delegates actual preference writes upward.
     onHomeViewStyleSelected: (HomeViewStyle) -> Unit,
-    // Home Sort Rule Selection Callback (Persist grouping/order changes through the parent ViewModel)
+    // Home Sort Rule Selection Callback (Persist grouping/order pivot changes through the parent ViewModel)
     // The ViewModel recalculates sorted sections after DataStore emits the updated rule.
-    onHomeSortRuleSelected: (HomeSortRule) -> Unit
+    onHomeSortRuleSelected: (HomeSortRule) -> Unit,
+    // Home Sort Direction Selection Callback (Persist in-cluster direction changes through the parent ViewModel)
+    // Direction updates re-run sorting in LibraryViewModel without changing the script cluster order.
+    onHomeSortDirectionSelected: (HomeSortDirection) -> Unit
 ) {
     val isHomeRoute = navigationState.topLevelRoute == HomeRoute
     val isHazeMode = glassEffectMode == GlassEffectMode.Haze
@@ -164,12 +171,14 @@ fun APlayerNavHost(
             HomeViewPreferenceDialog(
                 selectedViewStyle = homeViewStyle,
                 selectedSortRule = homeSortRule,
+                selectedSortDirection = homeSortDirection,
                 // Home View Dialog Backdrop (Prefer the app-level Home dialog haze source)
                 // Falls back to the top-bar haze state in isolated hosts so previews and tests can still render the dialog safely.
                 hazeState = homeDialogHazeState ?: resolvedHomeTopBarHazeState,
                 glassEffectMode = glassEffectMode,
                 onViewStyleSelected = onHomeViewStyleSelected,
                 onSortRuleSelected = onHomeSortRuleSelected,
+                onSortDirectionSelected = onHomeSortDirectionSelected,
                 onDismissRequest = {
                     isHomeViewPreferenceDialogVisible = false
                 }

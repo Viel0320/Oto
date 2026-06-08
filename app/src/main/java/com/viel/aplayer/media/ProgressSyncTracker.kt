@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.media3.session.MediaController
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.aplayer.data.entity.BookProgressEntity
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.timeline.PositionMapper
 import kotlinx.coroutines.CoroutineScope
@@ -19,11 +19,11 @@ import kotlin.time.Duration.Companion.milliseconds
  * Handles high-frequency polling loops and manages database persistence operations.
  * Isolates progress mathematical calculation models and defines precise lifecycle controls.
  * 
- * Decouples the legacy LibraryRepository by splitting operations into BookQueryGateway and ProgressGateway.
+ * Decouples the legacy LibraryRepository by splitting operations into BookCatalogGateway and ProgressGateway.
  */
 class ProgressSyncTracker(
     private val context: Context,
-    private val bookQueryGateway: BookQueryGateway,
+    private val bookCatalogGateway: BookCatalogGateway,
     private val progressGateway: ProgressGateway,
     private val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer,
     private val scope: CoroutineScope,
@@ -115,8 +115,9 @@ class ProgressSyncTracker(
         val positionInFile = controller.currentPosition.coerceAtLeast(0L)
 
         scope.launch {
-            // Fetch Track Configurations (Resolves all physical audio files associated with the book using bookQueryGateway)
-            val files = bookQueryGateway.getFilesForBookSync(bookId)
+            // Fetch Track Configurations (Resolve physical audio files through the catalog-only seam)
+            // Progress tracking needs track inventory and book metadata, not bookmarks, chapters, or metadata mutation commands.
+            val files = bookCatalogGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
                 val bookFileId = files.getOrNull(fileIndex)?.id
@@ -132,7 +133,7 @@ class ProgressSyncTracker(
                         lastPlayedAt = System.currentTimeMillis()
                     )
                 )
-                val book = bookQueryGateway.getBookById(bookId)
+                val book = bookCatalogGateway.getBookById(bookId)
                 if (book != null) {
                     absPlaybackSessionSyncer.syncProgress(
                         book = book,
@@ -161,8 +162,9 @@ class ProgressSyncTracker(
      */
     fun persistProgress(bookId: String, fileIndex: Int, positionInFile: Long) {
         scope.launch {
-            // Fetch Track Configs Sync (Synchronously retrieves track configurations via the read-only gateway)
-            val files = bookQueryGateway.getFilesForBookSync(bookId)
+            // Fetch Track Configs Sync (Synchronously retrieves track configurations via the catalog gateway)
+            // Persisted seek updates stay on the read-only inventory seam before writing progress through ProgressGateway.
+            val files = bookCatalogGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val safeFileIndex = fileIndex.coerceIn(0, files.lastIndex)
                 val safePositionInFile = positionInFile.coerceAtLeast(0L)
@@ -181,7 +183,7 @@ class ProgressSyncTracker(
                         lastPlayedAt = System.currentTimeMillis()
                     )
                 )
-                val book = bookQueryGateway.getBookById(bookId)
+                val book = bookCatalogGateway.getBookById(bookId)
                 if (book != null) {
                     absPlaybackSessionSyncer.syncProgress(
                         book = book,

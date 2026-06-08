@@ -2,8 +2,21 @@ package com.viel.aplayer.ui.player
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.viel.aplayer.ui.home.ContentActions
+import com.viel.aplayer.application.library.player.PlayerRelatedBook
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkActions
+
+/**
+ * Player Content Actions (Player-scoped tab and related-book commands)
+ * Avoids reusing the home content action model so player recommendations can stay on player-scene projections.
+ */
+data class PlayerContentActions(
+    val onSelectedTabChange: (Int) -> Unit = {},
+    val onShowChapterList: () -> Unit = {},
+    val onDismissChapterList: () -> Unit = {},
+    val onLoadRelatedBook: (PlayerRelatedBook) -> Unit = {},
+    val onToggleProgressMode: () -> Unit = {},
+    val onDeleteBook: () -> Unit = {},
+)
 
 /**
  * Player actions aggregator (Aggregator for playback, bookmark, and content operations)
@@ -15,7 +28,7 @@ data class PlayerActions(
     /** Bookmark operations (To dispatch bookmark addition, deletion, and rename updates) */
     val bookmarks: BookmarkActions = BookmarkActions(),
     /** Content layout actions (To handle tab navigation and chapter list toggles) */
-    val content: ContentActions = ContentActions(),
+    val content: PlayerContentActions = PlayerContentActions(),
 )
 
 /**
@@ -51,13 +64,13 @@ fun PlayerViewModel.rememberActions(onDeleteBook: (String) -> Unit = {}): Player
                 onTitleChange = { viewModel.updateBookmarkTitle(it) },
                 onSave = { viewModel.saveBookmarkFromDialog() }
             ),
-            content = ContentActions(
+            content = PlayerContentActions(
                 onSelectedTabChange = { viewModel.setSelectedContentTab(it) },
                 onShowChapterList = { viewModel.showChapterList() },
                 onDismissChapterList = { viewModel.dismissChapterList() },
                 onToggleProgressMode = { viewModel.toggleProgressMode() },
-                onLoadRelatedBook = { bookWithProgress ->
-                    viewModel.loadBook(bookWithProgress.book.id)
+                onLoadRelatedBook = { book ->
+                    viewModel.loadBook(book.id)
                 },
                 onDeleteBook = { viewModel.currentBookId.value?.let { onDeleteBook(it) } }
             )

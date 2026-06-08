@@ -49,8 +49,8 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.abs.auth.AbsCredential
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
@@ -59,6 +59,12 @@ import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
+import com.viel.aplayer.ui.settings.components.AboutSection
+import com.viel.aplayer.ui.settings.components.InterfaceSettingsSection
+import com.viel.aplayer.ui.settings.components.LibraryDirectoriesSection
+import com.viel.aplayer.ui.settings.components.NetworkSecuritySection
+import com.viel.aplayer.ui.settings.components.PlaybackBehaviorSection
+import com.viel.aplayer.ui.settings.components.SleepTimerSection
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
@@ -70,7 +76,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    libraryRootDisplays: List<LibraryRootDisplayState>,
+    libraryRootDisplays: List<SettingsRootItem>,
     isChapterProgressMode: Boolean,
     onChapterProgressModeChange: (Boolean) -> Unit,
     isCleartextTrafficAllowed: Boolean,
@@ -86,6 +92,8 @@ fun SettingsScreen(
     onShakeToResetEnabledChange: (Boolean) -> Unit,
     sleepMode: SleepMode,
     onSleepModeChange: (SleepMode) -> Unit,
+    appLanguage: AppLanguage,
+    onLanguageClick: () -> Unit = {},
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     isDynamicColorEnabled: Boolean,
@@ -94,7 +102,7 @@ fun SettingsScreen(
     settingsHazeState: HazeState? = null,
     // Settings Dialog Intent Routing (Let the overlay own modal surfaces instead of the sampled page content)
     // SettingsScreen emits root and add-library intents so SettingsOverlay can render dialogs beside the page hazeSource.
-    onRootClick: (LibraryRootEntity) -> Unit = {},
+    onRootClick: (SettingsRootItem) -> Unit = {},
     onAddLibraryClick: () -> Unit = {},
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
     autoRewindSeconds: Int,
@@ -158,6 +166,8 @@ fun SettingsScreen(
                         bottom = innerPadding.calculateBottomPadding()
                     )
                 ) {
+                    // Settings Functional Cluster Order (Render settings by user-facing capability)
+                    // Media sources, appearance, playback behavior, sleep automation, network safety, and app info stay in separate clusters so unrelated controls no longer share one section.
                     item {
                         LibraryDirectoriesSection(
                             libraryRootDisplays = libraryRootDisplays,
@@ -167,6 +177,8 @@ fun SettingsScreen(
                     }
                     item {
                         InterfaceSettingsSection(
+                            appLanguage = appLanguage,
+                            onLanguageClick = onLanguageClick,
                             themeMode = themeMode,
                             onThemeModeChange = onThemeModeChange,
                             isDynamicColorEnabled = isDynamicColorEnabled,
@@ -176,22 +188,15 @@ fun SettingsScreen(
                         )
                     }
                     item {
-                        PlaybackNetworkSection(
+                        PlaybackBehaviorSection(
                             isChapterProgressMode = isChapterProgressMode,
                             onChapterProgressModeChange = onChapterProgressModeChange,
-                            isCleartextTrafficAllowed = isCleartextTrafficAllowed,
-                            onCleartextTrafficAllowedChange = onCleartextTrafficAllowedChange,
-                            // Insecure TLS Callback: Forward isAllowInsecureTls configuration and its toggler downstream.
-                            isAllowInsecureTls = isAllowInsecureTls,
-                            onAllowInsecureTlsChange = onAllowInsecureTlsChange,
+                            isSkipSilenceEnabled = isSkipSilenceEnabled,
+                            onSkipSilenceEnabledChange = onSkipSilenceEnabledChange,
+                            autoRewindSeconds = autoRewindSeconds,
+                            onAutoRewindSecondsChange = onAutoRewindSecondsChange,
                             isNotificationAvoidanceEnabled = isNotificationAvoidanceEnabled,
                             onNotificationAvoidanceEnabledChange = onNotificationAvoidanceEnabledChange
-                        )
-                    }
-                    item {
-                        SkipSilenceSection(
-                            isSkipSilenceEnabled = isSkipSilenceEnabled,
-                            onSkipSilenceEnabledChange = onSkipSilenceEnabledChange
                         )
                     }
                     item {
@@ -205,9 +210,13 @@ fun SettingsScreen(
                         )
                     }
                     item {
-                        AutoRewindSection(
-                            autoRewindSeconds = autoRewindSeconds,
-                            onAutoRewindSecondsChange = onAutoRewindSecondsChange
+                        NetworkSecuritySection(
+                            isCleartextTrafficAllowed = isCleartextTrafficAllowed,
+                            onCleartextTrafficAllowedChange = onCleartextTrafficAllowedChange,
+                            // Insecure TLS Callback (Forward transport-risk setting to the dedicated security section)
+                            // Keeping this callback near cleartext HTTP mirrors the new functional grouping in SettingsSections.
+                            isAllowInsecureTls = isAllowInsecureTls,
+                            onAllowInsecureTlsChange = onAllowInsecureTlsChange
                         )
                     }
                     item {
@@ -243,6 +252,8 @@ fun SettingsDialogHost(
     controller: SettingsDialogController,
     glassEffectMode: GlassEffectMode,
     settingsDialogHazeState: HazeState? = null,
+    appLanguage: AppLanguage,
+    onAppLanguageChange: (AppLanguage) -> Unit,
     webDavConnectionState: WebDavConnectionUiState,
     onWebDavConnectionTest: (url: String, username: String, password: String, basePath: String, editingRootId: String?) -> Unit,
     onResetWebDavConnectionState: () -> Unit,
@@ -256,18 +267,29 @@ fun SettingsDialogHost(
     getAbsCredential: suspend (credentialId: String) -> AbsCredential?,
     onAbsSync: (rootId: String) -> Unit,
     onRescan: () -> Unit,
-    onDeleteLibraryRoot: (LibraryRootEntity) -> Unit,
+    onDeleteLibraryRoot: (SettingsRootItem) -> Unit,
     onLaunchSafRootPicker: () -> Unit
 ) {
     val dialogState = controller.dialogState
     val rootToDelete = (dialogState as? SettingsDialogState.DeleteRoot)?.root
     val showWebDavDialog = dialogState == SettingsDialogState.WebDavRoot
     val showAbsDialog = dialogState == SettingsDialogState.AbsServer
+    val showLanguagePicker = dialogState == SettingsDialogState.LanguagePicker
     val showAddLibraryTypeDialog = dialogState == SettingsDialogState.AddLibraryType
     val rootForAction = (dialogState as? SettingsDialogState.RootActions)?.root
     // Resolve Settings Dialog Haze Source (Gate app-level dialog sampling by current glass mode)
     // All settings modal dialogs use this single stable source instead of the page-local top-bar source.
     val resolvedSettingsDialogHazeState = settingsDialogHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
+
+    if (showLanguagePicker) {
+        LanguagePickerDialog(
+            selectedLanguage = appLanguage,
+            hazeState = resolvedSettingsDialogHazeState,
+            glassEffectMode = glassEffectMode,
+            onLanguageSelected = onAppLanguageChange,
+            onDismiss = { controller.dialogState = SettingsDialogState.None }
+        )
+    }
 
     if (showWebDavDialog) {
         WebDavRootDialog(
@@ -401,8 +423,8 @@ fun SettingsDialogHost(
             onDismissRequest = { controller.dialogState = SettingsDialogState.None },
             hazeState = resolvedSettingsDialogHazeState,
             glassEffectMode = glassEffectMode,
-            title = { Text("移除媒体库根目录") },
-            text = { Text("移除此媒体库根目录将使应用失去对该目录的物理文件访问权限，所有相关的书籍记录将会从库中移除，但不会删除您存储卡中的物理音频文件。您确定要移除该目录并释放物理授权吗？") },
+            title = { Text(stringResource(R.string.settings_delete_root_title)) },
+            text = { Text(stringResource(R.string.settings_delete_root_body)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -410,12 +432,12 @@ fun SettingsDialogHost(
                         controller.dialogState = SettingsDialogState.None
                     }
                 ) {
-                    Text("确定", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.settings_delete_root_confirm), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
-                    Text("取消")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -426,7 +448,7 @@ fun SettingsDialogHost(
             onDismissRequest = { controller.dialogState = SettingsDialogState.None },
             hazeState = resolvedSettingsDialogHazeState,
             glassEffectMode = glassEffectMode,
-            title = { Text("选择媒体库类别") },
+            title = { Text(stringResource(R.string.settings_add_library_type_title)) },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -442,7 +464,7 @@ fun SettingsDialogHost(
                     ) {
                         Icon(Icons.Rounded.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("本地（SAF）", style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.settings_library_type_local_saf), style = MaterialTheme.typography.bodyLarge)
                     }
                     Row(
                         modifier = Modifier
@@ -457,7 +479,7 @@ fun SettingsDialogHost(
                     ) {
                         Icon(Icons.Rounded.Cloud, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("WebDAV 媒体库", style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.settings_library_type_webdav), style = MaterialTheme.typography.bodyLarge)
                     }
                     Row(
                         modifier = Modifier
@@ -472,14 +494,14 @@ fun SettingsDialogHost(
                     ) {
                         Icon(Icons.Rounded.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("Audiobookshelf 服务器 (absserver)", style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.settings_library_type_abs), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             },
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
-                    Text("取消")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -487,6 +509,8 @@ fun SettingsDialogHost(
 
     if (rootForAction != null) {
         val root = rootForAction
+        // Settings Root Action Projection (Use scene item fields for all root-specific dialogs)
+        // Dialog actions no longer dereference persistence root rows; edit, sync, relocate, and delete flows consume only rootId plus provider-specific form fields.
         val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
         val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
         val scope = rememberCoroutineScope()
@@ -494,7 +518,7 @@ fun SettingsDialogHost(
             onDismissRequest = { controller.dialogState = SettingsDialogState.None },
             hazeState = resolvedSettingsDialogHazeState,
             glassEffectMode = glassEffectMode,
-            title = { Text(root.displayName.ifBlank { "媒体库操作" }) },
+            title = { Text(root.displayName.ifBlank { stringResource(R.string.settings_root_action_title_fallback) }) },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -502,7 +526,7 @@ fun SettingsDialogHost(
                             .fillMaxWidth()
                             .clickable {
                                 if (root.sourceType == AudiobookSchema.LibrarySourceType.SAF) {
-                                    controller.editingSafRootId = root.id
+                                    controller.editingSafRootId = root.rootId
                                     controller.dialogState = SettingsDialogState.None
                                     onLaunchSafRootPicker()
                                 } else if (isWebDavRoot) {
@@ -512,7 +536,7 @@ fun SettingsDialogHost(
                                     controller.webDavBasePath = root.basePath
                                     controller.webDavUsername = creds?.username ?: ""
                                     controller.webDavPassword = creds?.password ?: ""
-                                    controller.editingRootId = root.id
+                                    controller.editingRootId = root.rootId
                                     controller.dialogState = SettingsDialogState.WebDavRoot
                                 } else if (isAbsRoot) {
                                     scope.launch {
@@ -523,7 +547,7 @@ fun SettingsDialogHost(
                                         controller.absLibraryId = root.basePath
                                         controller.absLibraryName = root.displayName
                                         controller.absDisplayName = root.displayName
-                                        controller.editingRootId = root.id
+                                        controller.editingRootId = root.rootId
                                         controller.dialogState = SettingsDialogState.AbsServer
                                     }
                                 }
@@ -533,7 +557,14 @@ fun SettingsDialogHost(
                     ) {
                         Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text(if (root.sourceType == AudiobookSchema.LibrarySourceType.SAF) "重新定位书库位置" else "编辑媒体库配置", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            if (root.sourceType == AudiobookSchema.LibrarySourceType.SAF) {
+                                stringResource(R.string.settings_root_action_relocate_saf)
+                            } else {
+                                stringResource(R.string.settings_root_action_edit_remote)
+                            },
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
 
                     Row(
@@ -541,7 +572,7 @@ fun SettingsDialogHost(
                             .fillMaxWidth()
                             .clickable {
                                 if (isAbsRoot) {
-                                    onAbsSync(root.id)
+                                    onAbsSync(root.rootId)
                                 } else {
                                     onRescan()
                                 }
@@ -552,7 +583,14 @@ fun SettingsDialogHost(
                     ) {
                         Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text(if (isAbsRoot) "同步" else "重新扫描", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            if (isAbsRoot) {
+                                stringResource(R.string.settings_root_action_sync)
+                            } else {
+                                stringResource(R.string.settings_root_action_rescan)
+                            },
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
 
                     Row(
@@ -566,14 +604,14 @@ fun SettingsDialogHost(
                     ) {
                         Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("移除媒体库", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.settings_root_action_remove), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
                     }
                 }
             },
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
-                    Text("取消")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -608,6 +646,8 @@ fun SettingsScreenPreview() {
                 onShakeToResetEnabledChange = {},
                 sleepMode = SleepMode.Regular,
                 onSleepModeChange = {},
+                appLanguage = AppLanguage.System,
+                onLanguageClick = {},
                 themeMode = ThemeMode.System,
                 onThemeModeChange = {},
                 isDynamicColorEnabled = true,

@@ -13,7 +13,11 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookDeletionGateway
+import com.viel.aplayer.data.gateway.BookMetadataGateway
+import com.viel.aplayer.data.gateway.BookmarkGateway
+import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.timeline.PositionMapper
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -31,7 +35,7 @@ import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 /**
- * Audiobook Query and Maintenance Service (Implements BookQueryGateway)
+ * Audiobook Query and Maintenance Service (Implements split book gateways)
  * 
  * Core Design Goals:
  * 1. Domain Decoupling: Fully disconnects from BookLibraryRepository in the M6 phase, injecting fine-grained Room DAOs and file resolvers directly.
@@ -43,7 +47,12 @@ class BookQueryService(
     private val chapterDao: ChapterDao,
     private val bookmarkDao: BookmarkDao,
     private val coverRecoveryHelper: CoverRecoveryHelper
-) : BookQueryGateway, java.io.Closeable {
+) : BookCatalogGateway,
+    BookMetadataGateway,
+    BookmarkGateway,
+    ChapterGateway,
+    BookDeletionGateway,
+    java.io.Closeable {
 
     // Private Coroutine Exception Handler (Asynchronous tracking fault barrier)
     // Captures failures during async metadata updates to prevent uncaught scope terminations.

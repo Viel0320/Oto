@@ -1,7 +1,7 @@
 package com.viel.aplayer.ui.player
 
-import com.viel.aplayer.data.entity.ChapterEntity
-import com.viel.aplayer.media.ChapterTimeline
+import com.viel.aplayer.application.library.player.PlayerChapterItem
+import com.viel.aplayer.application.library.player.PlayerChapterTimeline
 import kotlin.math.ceil
 
 /**
@@ -45,16 +45,16 @@ object PlaybackStateMapper {
     fun calculateMiniPlayerProgress(
         currentPosition: Long,
         duration: Long,
-        chapters: List<ChapterEntity>,
+        chapters: List<PlayerChapterItem>,
         isChapterMode: Boolean,
         fallbackProgress: Float
     ): Float {
         return if (isChapterMode && chapters.isNotEmpty()) {
-            val currentChapter = ChapterTimeline.currentChapter(chapters, currentPosition)
-            val posInChapter = ChapterTimeline.positionInChapter(
+            val currentChapter = PlayerChapterTimeline.currentChapter(chapters, currentPosition)
+            val posInChapter = PlayerChapterTimeline.positionInChapter(
                 chapters, currentChapter, currentPosition, duration
             )
-            val chapterDuration = ChapterTimeline.duration(
+            val chapterDuration = PlayerChapterTimeline.duration(
                 chapters, currentChapter, duration
             )
             if (chapterDuration > 0) {
@@ -74,7 +74,7 @@ object PlaybackStateMapper {
      * @param position The absolute position of the current player (in milliseconds).
      * @return The matched chapter entity, or null if no match is found.
      */
-    fun currentChapter(chapters: List<ChapterEntity>, position: Long): ChapterEntity? {
-        return ChapterTimeline.currentChapter(chapters, position)
+    fun currentChapter(chapters: List<PlayerChapterItem>, position: Long): PlayerChapterItem? {
+        return PlayerChapterTimeline.currentChapter(chapters, position)
     }
 }

@@ -13,14 +13,17 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.dependencies.AppFeedbackDependencies
 import com.viel.aplayer.dependencies.AppShellDependencies
+import com.viel.aplayer.dependencies.DetailScreenDependencies
+import com.viel.aplayer.dependencies.EditScreenDependencies
 import com.viel.aplayer.dependencies.HomeScreenDependencies
-import com.viel.aplayer.dependencies.LibraryPresentationDependencies
 import com.viel.aplayer.dependencies.LibrarySyncWorkerDependencies
 import com.viel.aplayer.dependencies.PlaybackRecoveryDependencies
 import com.viel.aplayer.dependencies.PlaybackRuntimeDependencies
 import com.viel.aplayer.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.dependencies.SearchScreenDependencies
 import com.viel.aplayer.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.dependencies.VfsPlaybackDependencies
+import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.logger.AbsSyncLogger
 import com.viel.aplayer.logger.CoverImageCoilEventListener
 import kotlinx.coroutines.CoroutineScope
@@ -49,6 +52,10 @@ class APlayerApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // Runtime Locale Config Sync (Keep Android Settings aware of APlayer's supported app languages)
+        // This complements manifest localeConfig and covers Android 16/OEM package-state caches that may not refresh after incremental installs.
+        AppLocaleController.ensurePlatformLocaleConfig(this)
+
         // StrictMode Setup: Enable VM Policy checking to detect closeable leaks on debug builds without depending on BuildConfig class.
         val isDebuggable = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
         if (isDebuggable) {
@@ -187,13 +194,24 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Library Presentation Dependencies Provider (Return the shared simple-library-screen dependency view)
-         * Lets detail, search, and edit ViewModels consume LibraryFacade without receiving the full container.
+         * Search Screen Dependencies Provider (Return the search-scene dependency view)
+         * Gives SearchViewModel only search-specific read and command interfaces during the scene-module migration.
          *
          * @param context Component Context
-         * @return The library presentation dependency view backed by the global container
+         * @return The search-screen dependency view backed by the global container
          */
-        fun getLibraryPresentationDependencies(context: Context): LibraryPresentationDependencies {
+        fun getSearchScreenDependencies(context: Context): SearchScreenDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Detail Screen Dependencies Provider (Return the detail-scene dependency view)
+         * Gives DetailViewModel only detail-specific read and command interfaces during the scene-module migration.
+         *
+         * @param context Component Context
+         * @return The detail-screen dependency view backed by the global container
+         */
+        fun getDetailScreenDependencies(context: Context): DetailScreenDependencies {
             return getContainer(context)
         }
 
@@ -227,6 +245,17 @@ class APlayerApplication : Application(), ImageLoaderFactory {
          * @return The player-screen dependency view backed by the global container
          */
         fun getPlayerScreenDependencies(context: Context): PlayerScreenDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Edit Screen Dependencies Provider (Return the edit-scene dependency view)
+         * Gives EditBookViewModel only editable metadata reads and save commands during the scene-module migration.
+         *
+         * @param context Component Context
+         * @return The edit-screen dependency view backed by the global container
+         */
+        fun getEditScreenDependencies(context: Context): EditScreenDependencies {
             return getContainer(context)
         }
 

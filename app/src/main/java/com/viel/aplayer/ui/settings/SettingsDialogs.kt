@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,8 +25,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.R
+import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import dev.chrisbanes.haze.HazeState
@@ -35,11 +38,71 @@ import dev.chrisbanes.haze.HazeState
  */
 sealed interface SettingsDialogState {
     data object None : SettingsDialogState
+    data object LanguagePicker : SettingsDialogState
     data object AddLibraryType : SettingsDialogState
     data object WebDavRoot : SettingsDialogState
     data object AbsServer : SettingsDialogState
-    data class RootActions(val root: LibraryRootEntity) : SettingsDialogState
-    data class DeleteRoot(val root: LibraryRootEntity) : SettingsDialogState
+    // Root Dialog Payload (Retain only the settings scene projection while a modal is open)
+    // Dialog state survives transitions, so storing SettingsRootItem prevents transient UI state from retaining Room entities.
+    data class RootActions(val root: SettingsRootItem) : SettingsDialogState
+    data class DeleteRoot(val root: SettingsRootItem) : SettingsDialogState
+}
+
+/**
+ * LanguagePickerDialog Composable (Expose app-level locale choices inside settings)
+ * Selecting a row applies the language immediately so users can see the UI switch without an extra confirmation step.
+ */
+@Composable
+fun LanguagePickerDialog(
+    selectedLanguage: AppLanguage,
+    hazeState: HazeState? = null,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    onLanguageSelected: (AppLanguage) -> Unit,
+    onDismiss: () -> Unit
+) {
+    SettingsTemplateDialog(
+        onDismissRequest = onDismiss,
+        hazeState = hazeState,
+        glassEffectMode = glassEffectMode,
+        title = { Text(stringResource(R.string.settings_language_dialog_title)) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                AppLanguageOptions.forEach { language ->
+                    // Language Option Row (Render every supported locale as a single-choice row)
+                    // Row click and radio click share the same immediate apply path to keep accessibility and touch behavior aligned.
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onLanguageSelected(language)
+                                onDismiss()
+                            }
+                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectedLanguage == language,
+                            onClick = {
+                                onLanguageSelected(language)
+                                onDismiss()
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = appLanguageLabel(language),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        }
+    )
 }
 
 // Settings Dialog Controller (Own transient settings dialog inputs outside SettingsScreen content)
@@ -163,13 +226,21 @@ fun AbsServerDialog(
         hazeState = hazeState,
         glassEffectMode = glassEffectMode,
         properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
-        title = { Text(if (editingRootId != null) "编辑 ABS Server" else "添加 ABS Server") },
+        title = {
+            Text(
+                if (editingRootId != null) {
+                    stringResource(R.string.settings_abs_edit_title)
+                } else {
+                    stringResource(R.string.settings_abs_add_title)
+                }
+            )
+        },
         text = {
             Column {
                 OutlinedTextField(
                     value = baseUrl,
                     onValueChange = onBaseUrlChange,
-                    label = { Text("Base URL") },
+                    label = { Text(stringResource(R.string.settings_abs_base_url_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     modifier = Modifier.fillMaxWidth()
@@ -178,7 +249,7 @@ fun AbsServerDialog(
                 OutlinedTextField(
                     value = username,
                     onValueChange = onUsernameChange,
-                    label = { Text("用户名") },
+                    label = { Text(stringResource(R.string.settings_username_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -186,7 +257,15 @@ fun AbsServerDialog(
                 OutlinedTextField(
                     value = password,
                     onValueChange = onPasswordChange,
-                    label = { Text(if (editingRootId != null) "密码（留空则不修改）" else "密码") },
+                    label = {
+                        Text(
+                            if (editingRootId != null) {
+                                stringResource(R.string.settings_password_optional_label)
+                            } else {
+                                stringResource(R.string.settings_password_label)
+                            }
+                        )
+                    },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
@@ -196,12 +275,18 @@ fun AbsServerDialog(
                     onClick = onTestConnection,
                     enabled = baseUrl.isNotBlank() && username.isNotBlank() && (password.isNotBlank() || editingRootId != null)
                 ) {
-                    Text(if (connectionState.isTesting) "连接中..." else "测试连接")
+                    Text(
+                        if (connectionState.isTesting) {
+                            stringResource(R.string.settings_test_connecting)
+                        } else {
+                            stringResource(R.string.settings_test_connection)
+                        }
+                    )
                 }
                 if (connectionState.loginSucceeded) {
                      Spacer(modifier = Modifier.height(8.dp))
                      Text(
-                        text = "登录成功，请选择一个 book library 再点击确认",
+                        text = stringResource(R.string.settings_abs_login_success),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                      )
@@ -209,7 +294,7 @@ fun AbsServerDialog(
                 if (connectionState.serverVersion != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Server Version: ${connectionState.serverVersion}",
+                        text = stringResource(R.string.settings_abs_server_version, connectionState.serverVersion),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -217,7 +302,7 @@ fun AbsServerDialog(
                 if (selectedLibraryName.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "已选 Library: $selectedLibraryName",
+                        text = stringResource(R.string.settings_abs_selected_library, selectedLibraryName),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -232,7 +317,7 @@ fun AbsServerDialog(
                 }
                 if (connectionState.libraries.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("选择 Book Library", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.settings_abs_select_library_title), style = MaterialTheme.typography.titleSmall)
                     connectionState.libraries.forEach { library ->
                         Row(
                             modifier = Modifier
@@ -241,7 +326,7 @@ fun AbsServerDialog(
                                 .padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            androidx.compose.material3.RadioButton(
+                            RadioButton(
                                 selected = selectedLibraryId == library.id,
                                 onClick = { onLibrarySelected(library.id, library.name) }
                             )
@@ -258,12 +343,18 @@ fun AbsServerDialog(
                 enabled = baseUrl.isNotBlank() && username.isNotBlank() && (password.isNotBlank() || editingRootId != null) &&
                     selectedLibraryId.isNotBlank() && selectedLibraryName.isNotBlank()
             ) {
-                Text(if (editingRootId != null) "保存" else "添加")
+                Text(
+                    if (editingRootId != null) {
+                        stringResource(R.string.action_save)
+                    } else {
+                        stringResource(R.string.action_add)
+                    }
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )
@@ -297,13 +388,21 @@ fun WebDavRootDialog(
         hazeState = hazeState,
         glassEffectMode = glassEffectMode,
         properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
-        title = { Text(if (editingRootId != null) "编辑 WebDAV 媒体库" else "添加 WebDAV 媒体库") },
+        title = {
+            Text(
+                if (editingRootId != null) {
+                    stringResource(R.string.settings_webdav_edit_title)
+                } else {
+                    stringResource(R.string.settings_webdav_add_title)
+                }
+            )
+        },
         text = {
             Column {
                 OutlinedTextField(
                     value = url,
                     onValueChange = onUrlChange,
-                    label = { Text("服务器 URL") },
+                    label = { Text(stringResource(R.string.settings_server_url_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     modifier = Modifier.fillMaxWidth()
@@ -312,7 +411,7 @@ fun WebDavRootDialog(
                 OutlinedTextField(
                     value = displayName,
                     onValueChange = onDisplayNameChange,
-                    label = { Text("显示名") },
+                    label = { Text(stringResource(R.string.settings_display_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -320,7 +419,7 @@ fun WebDavRootDialog(
                 OutlinedTextField(
                     value = basePath,
                     onValueChange = onBasePathChange,
-                    label = { Text("库内路径") },
+                    label = { Text(stringResource(R.string.settings_library_base_path_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -328,7 +427,7 @@ fun WebDavRootDialog(
                 OutlinedTextField(
                     value = username,
                     onValueChange = onUsernameChange,
-                    label = { Text("用户名") },
+                    label = { Text(stringResource(R.string.settings_username_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -336,7 +435,15 @@ fun WebDavRootDialog(
                 OutlinedTextField(
                     value = password,
                     onValueChange = onPasswordChange,
-                    label = { Text(if (editingRootId != null) "密码（留空则不修改）" else "密码") },
+                    label = {
+                        Text(
+                            if (editingRootId != null) {
+                                stringResource(R.string.settings_password_optional_label)
+                            } else {
+                                stringResource(R.string.settings_password_label)
+                            }
+                        )
+                    },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -347,12 +454,18 @@ fun WebDavRootDialog(
                     onClick = onTestConnection,
                     enabled = url.isNotBlank() && !connectionState.isTesting
                 ) {
-                    Text(if (connectionState.isTesting) "测试连接中..." else "测试连接")
+                    Text(
+                        if (connectionState.isTesting) {
+                            stringResource(R.string.settings_webdav_test_connecting)
+                        } else {
+                            stringResource(R.string.settings_test_connection)
+                        }
+                    )
                 }
                 if (connectionState.testSucceeded) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "连接测试成功，可以保存媒体库",
+                        text = stringResource(R.string.settings_webdav_connection_success),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -372,12 +485,18 @@ fun WebDavRootDialog(
                 onClick = onConfirm,
                 enabled = url.isNotBlank() && connectionState.testSucceeded
             ) {
-                Text(if (editingRootId != null) "保存" else "添加")
+                Text(
+                    if (editingRootId != null) {
+                        stringResource(R.string.action_save)
+                    } else {
+                        stringResource(R.string.action_add)
+                    }
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )

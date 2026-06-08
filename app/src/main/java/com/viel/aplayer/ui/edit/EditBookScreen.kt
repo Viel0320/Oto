@@ -59,12 +59,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.scale
-import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.R
+import com.viel.aplayer.application.library.edit.EditBookDraft
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.library.vfs.VfsExternalInputReader
@@ -83,11 +85,11 @@ import java.io.File
 /**
  * Edit Book Screen: Stateless Composable layout for modification of audiobook metadata details.
  *
- * Fully decoupled component that receives the targeted `BookEntity` and saves changes via the `onSave` callback.
+ * Fully decoupled component that receives the targeted edit draft and saves changes via the `onSave` callback.
  * Restricts internal mutable state to fast, local input properties (e.g. text input fields and path values).
  * Supports standard Material 3 color backgrounds and adapts smoothly to glassmorphic visual blurs.
  *
- * @param book The target book entity. Shows a loading indicator if null.
+ * @param book The target edit draft. Shows a loading indicator if null.
  * @param onNavigationBack Callback invoked when the user exits or cancels editing, ensuring clean-up of temp files.
  * @param onSave Action callback triggered on confirm save, distributing updated parameters and cover paths.
  * @param glassEffectMode Specifies the glassmorphic rendering style.
@@ -96,7 +98,7 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditBookScreen(
-    book: BookEntity?,
+    book: EditBookDraft?,
     onNavigationBack: () -> Unit,
     // EditBookScreen Save Signature (Adds series parameter to save callback)
     // Passes series name along with other text metadata to the overlay controller.
@@ -300,7 +302,7 @@ fun EditBookScreen(
                         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                         title = {
                             Text(
-                                text = "修改书籍信息",
+                                text = stringResource(R.string.edit_book_title),
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleLarge
                             )
@@ -312,7 +314,7 @@ fun EditBookScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                    contentDescription = "返回"
+                                    contentDescription = stringResource(R.string.back_content_description)
                                 )
                             }
                         },
@@ -372,8 +374,8 @@ fun EditBookScreen(
                         OutlinedTextField(
                             value = title,
                             onValueChange = { title = it },
-                            label = { Text("书名") },
-                            placeholder = { Text("请输入书名") },
+                            label = { Text(stringResource(R.string.edit_book_title_label)) },
+                            placeholder = { Text(stringResource(R.string.edit_book_title_placeholder)) },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = textFieldColors,
@@ -385,8 +387,8 @@ fun EditBookScreen(
                         OutlinedTextField(
                             value = author,
                             onValueChange = { author = it },
-                            label = { Text("作者") },
-                            placeholder = { Text("请输入作者") },
+                            label = { Text(stringResource(R.string.author_label)) },
+                            placeholder = { Text(stringResource(R.string.edit_book_author_placeholder)) },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = textFieldColors,
@@ -398,8 +400,8 @@ fun EditBookScreen(
                         OutlinedTextField(
                             value = narrator,
                             onValueChange = { narrator = it },
-                            label = { Text("讲述人") },
-                            placeholder = { Text("请输入讲述人") },
+                            label = { Text(stringResource(R.string.narrator_label)) },
+                            placeholder = { Text(stringResource(R.string.edit_book_narrator_placeholder)) },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = textFieldColors,
@@ -411,8 +413,8 @@ fun EditBookScreen(
                         OutlinedTextField(
                             value = year,
                             onValueChange = { year = it },
-                            label = { Text("年份") },
-                            placeholder = { Text("请输入出版年份") },
+                            label = { Text(stringResource(R.string.edit_book_year_label)) },
+                            placeholder = { Text(stringResource(R.string.edit_book_year_placeholder)) },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = textFieldColors,
@@ -426,8 +428,8 @@ fun EditBookScreen(
                         OutlinedTextField(
                             value = series,
                             onValueChange = { series = it },
-                            label = { Text("系列") },
-                            placeholder = { Text("请输入所属系列") },
+                            label = { Text(stringResource(R.string.edit_book_series_label)) },
+                            placeholder = { Text(stringResource(R.string.edit_book_series_placeholder)) },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = textFieldColors,
@@ -439,8 +441,8 @@ fun EditBookScreen(
                         OutlinedTextField(
                             value = description,
                             onValueChange = { description = it },
-                            label = { Text("简介描述") },
-                            placeholder = { Text("请输入书籍简介") },
+                            label = { Text(stringResource(R.string.edit_book_description_label)) },
+                            placeholder = { Text(stringResource(R.string.edit_book_description_placeholder)) },
                             minLines = 4,
                             maxLines = 8,
                             shape = RoundedCornerShape(12.dp),
@@ -471,11 +473,11 @@ fun EditBookScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Add,
-                                    contentDescription = "更换封面"
+                                    contentDescription = stringResource(R.string.edit_book_change_cover)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "更换封面",
+                                    text = stringResource(R.string.edit_book_change_cover),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
@@ -531,11 +533,11 @@ fun EditBookScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Save,
-                                        contentDescription = "保存"
+                                        contentDescription = stringResource(R.string.action_save)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "保存书籍信息",
+                                        text = stringResource(R.string.edit_book_save),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp
                                     )
@@ -572,12 +574,12 @@ fun EditBookScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Save,
-                                        contentDescription = "保存",
+                                        contentDescription = stringResource(R.string.action_save),
                                         tint = MaterialTheme.colorScheme.onPrimary
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "保存书籍信息",
+                                        text = stringResource(R.string.edit_book_save),
                                         color = MaterialTheme.colorScheme.onPrimary,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp
@@ -617,7 +619,7 @@ fun EditBookScreen(
                                     PlayerCover(
                                         coverPath = editCoverPath,
                                         isPlaying = false,
-                                        coverLastUpdated = book.lastScannedAt,
+                                        coverLastUpdated = book.coverLastUpdated,
                                         coverScene = "edit-main-cover",
                                         onAdjustVolume = {},
                                         onNextChapter = {},
@@ -657,7 +659,7 @@ fun EditBookScreen(
                             PlayerCover(
                                 coverPath = editCoverPath,
                                 isPlaying = false,
-                                coverLastUpdated = book.lastScannedAt,
+                                coverLastUpdated = book.coverLastUpdated,
                                 coverScene = "edit-main-cover",
                                 onAdjustVolume = {},
                                 onNextChapter = {},
@@ -793,18 +795,20 @@ fun EditBookScreenPortraitPreview() {
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {
             EditBookScreen(
-                book = BookEntity(
+                // Preview Edit Draft (Use the edit scene projection instead of a Room entity)
+                // This keeps preview data aligned with the runtime UI contract after the edit read model mapping.
+                book = EditBookDraft(
                     id = "preview-id",
-                    rootId = "preview-root",
-                    sourceType = "SINGLE_AUDIO",
                     title = "In the Megachurch",
                     author = "Ryo Asai",
                     narrator = "Narrator A",
-                    totalDurationMs = 36000L,
                     year = "2023",
                     description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata.",
                     // Preview Series Field (Define dummy series for previews)
-                    series = "preview-series"
+                    series = "preview-series",
+                    coverPath = null,
+                    thumbnailPath = null,
+                    coverLastUpdated = 0L
                 ),
                 onNavigationBack = {},
                 onSave = { _, _, _, _, _, _, _ -> },
@@ -828,18 +832,20 @@ fun EditBookScreenLandscapePreview() {
             LocalWindowClass provides WindowClass.LandscapePhone
         ) {
             EditBookScreen(
-                book = BookEntity(
+                // Preview Edit Draft (Use the edit scene projection instead of a Room entity)
+                // This keeps landscape previews from depending on persistence-only fields.
+                book = EditBookDraft(
                     id = "preview-id",
-                    rootId = "preview-root",
-                    sourceType = "SINGLE_AUDIO",
                     title = "In the Megachurch",
                     author = "Ryo Asai",
                     narrator = "Narrator A",
-                    totalDurationMs = 36000L,
                     year = "2023",
                     description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata.",
                     // Preview Series Field (Define dummy series for previews)
-                    series = "preview-series"
+                    series = "preview-series",
+                    coverPath = null,
+                    thumbnailPath = null,
+                    coverLastUpdated = 0L
                 ),
                 onNavigationBack = {},
                 onSave = { _, _, _, _, _, _, _ -> },
@@ -863,18 +869,20 @@ fun EditBookScreenTabletLandscapePreview() {
             LocalWindowClass provides WindowClass.TabletLandscape
         ) {
             EditBookScreen(
-                book = BookEntity(
+                // Preview Edit Draft (Use the edit scene projection instead of a Room entity)
+                // This keeps tablet previews on the same type consumed by production EditBookScreen.
+                book = EditBookDraft(
                     id = "preview-id",
-                    rootId = "preview-root",
-                    sourceType = "SINGLE_AUDIO",
                     title = "In the Megachurch",
                     author = "Ryo Asai",
                     narrator = "Narrator A",
-                    totalDurationMs = 36000L,
                     year = "2023",
                     description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata.",
                     // Preview Series Field (Define dummy series for previews)
-                    series = "preview-series"
+                    series = "preview-series",
+                    coverPath = null,
+                    thumbnailPath = null,
+                    coverLastUpdated = 0L
                 ),
                 onNavigationBack = {},
                 onSave = { _, _, _, _, _, _, _ -> },

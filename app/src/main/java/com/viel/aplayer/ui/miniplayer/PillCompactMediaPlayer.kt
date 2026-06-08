@@ -42,8 +42,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
@@ -134,6 +136,12 @@ fun PillCompactMediaPlayer(
     // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
     val pillShape = RoundedCornerShape(animatedCornerRadius)
+    // Localized Player Accessibility Copy (Keep mini-player icon labels aligned with the selected app language)
+    // The pill variant has no visible text, so content descriptions are the only user-facing copy in this component.
+    val coverContentDescription = stringResource(R.string.media_cover_content_description)
+    val playPauseContentDescription = stringResource(
+        if (isPlaying) R.string.playback_pause_content_description else R.string.playback_play_content_description
+    )
 
     val rotation = remember { Animatable(0f) }
 
@@ -271,7 +279,7 @@ fun PillCompactMediaPlayer(
                         }
                         AsyncImage(
                             model = request,
-                            contentDescription = "Cover",
+                            contentDescription = coverContentDescription,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
@@ -304,7 +312,7 @@ fun PillCompactMediaPlayer(
                         } else {
                             Icons.Rounded.PlayArrow
                         },
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        contentDescription = playPauseContentDescription,
                         modifier = Modifier.size(28.dp),
                         tint = MaterialTheme.colorScheme.onSurface
                     )

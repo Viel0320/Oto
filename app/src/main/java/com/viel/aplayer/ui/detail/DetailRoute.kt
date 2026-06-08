@@ -40,7 +40,9 @@ fun DetailRoute(
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
     val darkTheme = LocalDarkTheme.current
     val currentColorScheme = MaterialTheme.colorScheme
-    val coverPath = detailUiState.book?.book?.coverPath
+    // Detail Cover Seed (Resolve artwork from the scene snapshot instead of a Room entity)
+    // Dynamic theme state follows the selected detail item while keeping route code on the Detail boundary type.
+    val coverPath = detailUiState.book?.item?.coverPath
 
     // Cover Color Route State (Reset per selected artwork and seed the detail theme from cached extraction)
     // The color is route state because it coordinates theme selection and render callbacks without belonging to the stateless screen.
@@ -74,10 +76,10 @@ fun DetailRoute(
                     }
                 },
                 onPlayClick = {
-                    detailUiState.book?.let { bookWithProgress ->
+                    detailUiState.book?.let { snapshot ->
                         // Host Playback Command (Route selected detail item playback to PlayerViewModel in the app shell)
                         // DetailScreen only reports the action; route-level wiring resolves the current book identifier.
-                        onPlayBook(bookWithProgress.book.id)
+                        onPlayBook(snapshot.bookId)
                     }
                 },
                 glassEffectMode = glassEffectMode,

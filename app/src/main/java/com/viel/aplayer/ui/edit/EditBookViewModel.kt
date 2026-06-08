@@ -4,7 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.application.library.edit.EditBookCommands
+import com.viel.aplayer.application.library.edit.EditBookDraft
+import com.viel.aplayer.application.library.edit.EditBookReadModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -16,11 +18,13 @@ import kotlinx.coroutines.launch
  * edit route can own state while EditBookScreen remains a stateless rendering surface.
  */
 class EditBookViewModel(application: Application) : AndroidViewModel(application) {
-    // Library Presentation Dependency View (Resolve only the facade required by edit flows)
-    // EditBookViewModel loads and saves book metadata without receiving settings, playback, or worker dependencies.
-    private val libraryFacade = APlayerApplication.getLibraryPresentationDependencies(application).libraryFacade
+    // Edit Scene Dependency View (Resolve only editable metadata reads and save commands)
+    // EditBookViewModel loads and saves book metadata without receiving settings, playback, worker, or broad library dependencies.
+    private val editDependencies = APlayerApplication.getEditScreenDependencies(application)
+    private val editBookReadModel: EditBookReadModel = editDependencies.editBookReadModel
+    private val editBookCommands: EditBookCommands = editDependencies.editBookCommands
 
-    private val _bookState = MutableStateFlow<BookEntity?>(null)
+    private val _bookState = MutableStateFlow<EditBookDraft?>(null)
     val bookState = _bookState.asStateFlow()
 
     private val _isVisible = MutableStateFlow(false)
@@ -50,13 +54,13 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Load Book Details (Asynchronous facade query)
+     * Load Book Details (Asynchronous edit read-model query)
      *
-     * Reads the editable book entity through LibraryFacade so route code stays on the UI-facing application seam.
+     * Reads the editable book entity through the edit scene module so route code stays off broad library dependencies.
      */
     fun loadBook(bookId: String) {
         viewModelScope.launch {
-            _bookState.value = libraryFacade.getBookById(bookId)
+            _bookState.value = editBookReadModel.getEditableBook(bookId)
         }
     }
 
@@ -78,7 +82,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     ) {
         val currentBook = _bookState.value ?: return
         viewModelScope.launch {
-            libraryFacade.updateBookDetails(
+            editBookCommands.updateBookDetails(
                 id = currentBook.id,
                 title = title.trim(),
                 author = author.trim(),
@@ -88,7 +92,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
                 series = series.trim()
             )
             if (newCoverPath != null) {
-                libraryFacade.saveCustomCover(currentBook.id, newCoverPath)
+                editBookCommands.saveCustomCover(currentBook.id, newCoverPath)
             }
             onComplete()
         }

@@ -45,7 +45,9 @@ class PlaybackManager private constructor(context: Context) {
     // Playback Runtime Dependency View (Resolve only the media-core dependencies used by this manager)
     // This keeps PlaybackManager from depending on the full application container while preserving the existing singleton lifecycle.
     private val playbackDependencies = com.viel.aplayer.APlayerApplication.getPlaybackRuntimeDependencies(appContext)
-    private val bookQueryGateway = playbackDependencies.bookQueryGateway
+    // Playback Catalog Gateway (Resolve only book metadata and track inventory for runtime coordination)
+    // PlaybackManager does not mutate bookmarks, chapters, or text metadata, so the catalog seam keeps the runtime dependency narrow.
+    private val bookCatalogGateway = playbackDependencies.bookCatalogGateway
     private val progressGateway = playbackDependencies.progressGateway
     // Playback Availability Gateway (Owns status-writing recovery checks for failed or missing tracks)
     // PlaybackManager uses this seam for failover discovery instead of binding availability refreshes to progress persistence.
@@ -168,7 +170,7 @@ class PlaybackManager private constructor(context: Context) {
         // Coordinate Poller (Instantiate tracker and bind lambdas to update position StateFlows directly)
         progressSyncTracker = ProgressSyncTracker(
             context = appContext,
-            bookQueryGateway = bookQueryGateway,
+            bookCatalogGateway = bookCatalogGateway,
             progressGateway = progressGateway,
             absPlaybackSessionSyncer = absPlaybackSessionSyncer,
             scope = scope,
@@ -411,8 +413,9 @@ class PlaybackManager private constructor(context: Context) {
             val controller = mediaController ?: return@launch
             val mediaParts = PlaybackMediaId.parse(controller.currentMediaItem?.mediaId) ?: return@launch
             val bookId = mediaParts.bookId
-            // Track Query Ingestion (Query track configuration details using bookQueryGateway)
-            val files = bookQueryGateway.getFilesForBookSync(bookId)
+            // Track Query Ingestion (Query track configuration details through the catalog gateway)
+            // Global seek mapping requires only stored track inventory and should not inherit bookmark or metadata writes.
+            val files = bookCatalogGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val totalDuration = files.sumOf { it.durationMs }
                 val targetGlobal = globalPositionMs.coerceIn(0L, totalDuration.coerceAtLeast(0L))
@@ -550,7 +553,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     private suspend fun openAbsSessionIfNeeded(bookId: String) {
-        val book = bookQueryGateway.getBookById(bookId) ?: return
+        val book = bookCatalogGateway.getBookById(bookId) ?: return
         if (book.sourceType != com.viel.aplayer.data.db.AudiobookSchema.SourceType.ABS_REMOTE) return
         val remoteItemId = book.id.substringAfter(":item:", missingDelimiterValue = "")
         if (remoteItemId.isBlank()) return
@@ -559,7 +562,7 @@ class PlaybackManager private constructor(context: Context) {
 
     private suspend fun closeAbsSessionIfNeeded(snapshot: AbsSessionSnapshot?) {
         val sessionSnapshot = snapshot ?: return
-        val book = bookQueryGateway.getBookById(sessionSnapshot.bookId) ?: return
+        val book = bookCatalogGateway.getBookById(sessionSnapshot.bookId) ?: return
         if (book.sourceType != com.viel.aplayer.data.db.AudiobookSchema.SourceType.ABS_REMOTE) return
         val progress = resolveCloseProgress(sessionSnapshot)
         absPlaybackSessionSyncer.closeSession(book, progress, sessionSnapshot.durationMs)

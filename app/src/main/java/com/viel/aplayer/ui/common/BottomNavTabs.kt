@@ -33,11 +33,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.viel.aplayer.R
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.common.theme.WindowClass
@@ -64,9 +66,11 @@ fun BottomNavTabs(
                 .padding(horizontal = 24.dp)
         ) {
             val tabs = listOf(
-                "Bookmark" to PlayerScreenMode.BOOKMARKS,
-                "Subtitles" to PlayerScreenMode.SUBTITLES,
-                "Related" to PlayerScreenMode.RELATED
+                // Player Tab Labels (Resolve player content tabs through resources)
+                // These tab labels are visible navigation text and must track the app language instead of staying hard-coded English.
+                stringResource(R.string.player_tab_bookmarks) to PlayerScreenMode.BOOKMARKS,
+                stringResource(R.string.player_tab_subtitles) to PlayerScreenMode.SUBTITLES,
+                stringResource(R.string.player_tab_related) to PlayerScreenMode.RELATED
             )
 
             val density = LocalDensity.current

@@ -1,13 +1,15 @@
 package com.viel.aplayer.ui.home
 
-// UseCase Import Update: Align imports with the domain usecase package for DeleteBookUseCase.
+// UseCase Import Update: Align imports with the application usecase package for DeleteBookUseCase.
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
-import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.application.library.home.HomeBookItem
+import com.viel.aplayer.application.library.home.HomeCatalogSortPolicy
+import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.event.feedback.FeedbackMessages
@@ -16,8 +18,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.text.Collator
-import java.util.Locale
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
     // Home Screen Dependency View (Resolve only home scene, settings, deletion use cases, and feedback needed by Home)
@@ -31,11 +31,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     // Application Event Sink (Routes home feedback through the process-wide UI event stream)
     // The home ViewModel no longer owns a local toast flow, so app-shell rendering stays centralized.
     private val appEventSink = homeDependencies.appEventSink
-
-    /**
-     * Library Root Deletion UseCase (Cross-domain coordinator to handle clean removal of library roots)
-     */
-    private val deleteLibraryRootUseCase = homeDependencies.deleteLibraryRootUseCase
 
     /**
      * Book Deletion UseCase (Cross-domain coordinator to handle safe removal of individual books)
@@ -73,21 +68,27 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         // Segment 1: Apply chosen filter to book collection
         val filteredAudiobooks = audiobooks.filter { it.matchesFilter(activeFilter) }
 
-        // Home Catalog Sort Application (Build the selected descending pinyin order before grouping)
+        // Home Catalog Sort Application (Build the selected script-clustered order before grouping)
         // Sorting before groupBy preserves section order and item order through Kotlin's insertion-ordered LinkedHashMap result.
-        val sortedAudiobooks = filteredAudiobooks.sortedByHomePreference(appSettings.homeSortRule)
+        val sortedAudiobooks = HomeCatalogSortPolicy.sort(
+            books = filteredAudiobooks,
+            sortRule = appSettings.homeSortRule,
+            sortDirection = appSettings.homeSortDirection
+        )
 
         // Home Catalog Grouping (Group by the same field selected in the sort rule)
         // This keeps the visual section title, section order, and user-selected pivot aligned across listgroup columns and cardgroup rows.
-        val groupedAudiobooks = sortedAudiobooks.groupBy { it.homeGroupLabel(appSettings.homeSortRule) }
+        val groupedAudiobooks = sortedAudiobooks.groupBy { book ->
+            HomeCatalogSortPolicy.groupLabel(book, appSettings.homeSortRule)
+        }
 
         // Segment 3: Filter recent book slots (Takes up to 10 for NotStarted, 5 for InProgress)
         val recentBooks = when (activeFilter) {
             HomeFilter.NotStarted -> audiobooks.filter { it.isNotStarted }
-                .sortedByDescending { it.book.addedAt }
+                .sortedByDescending { it.addedAt }
                 .take(10)
-            HomeFilter.InProgress -> audiobooks.filter { it.isInProgress && (it.progress?.lastPlayedAt ?: 0) > 0 }
-                .sortedByDescending { it.progress?.lastPlayedAt ?: 0 }
+            HomeFilter.InProgress -> audiobooks.filter { it.isInProgress && it.lastPlayedAt > 0 }
+                .sortedByDescending { it.lastPlayedAt }
                 .take(5)
             else -> emptyList()
         }
@@ -118,6 +119,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             // Home Sort Preference Propagation (Forward persisted grouping rule to app bar controls)
             // The actual sorted/grouped catalog above is already derived from this same value.
             homeSortRule = appSettings.homeSortRule,
+            // Home Sort Direction Propagation (Forward persisted in-cluster direction to app bar controls)
+            // The sorted catalog above already applies this direction while leaving script cluster order fixed.
+            homeSortDirection = appSettings.homeSortDirection,
             // Pass down themeMode properties (Synchronize app settings theme configuration down to LibraryUiState) Populate themeMode parameter.
             themeMode = appSettings.themeMode,
             // Pass down Dynamic Color Setting (Synchronize app settings dynamic color selection to LibraryUiState) Populate isDynamicColorEnabled parameter.
@@ -135,48 +139,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
      *
      * Moved from Composable layout to VM domain to consolidate data calculations.
      */
-    private fun BookWithProgress.matchesFilter(filter: HomeFilter): Boolean {
+    private fun HomeBookItem.matchesFilter(filter: HomeFilter): Boolean {
         return when (filter) {
             HomeFilter.NotStarted -> isNotStarted
             HomeFilter.InProgress -> isInProgress
             HomeFilter.Finished -> isFinished
-        }
-    }
-
-    // Home Sort Key Selection (Resolve the metadata field used by the selected catalog pivot)
-    // Blank values are kept blank here so the group label helper can consistently map them to the same visible fallback section.
-    private fun BookWithProgress.homeSortKey(sortRule: HomeSortRule): String {
-        return when (sortRule) {
-            HomeSortRule.Author -> book.author.trim()
-            HomeSortRule.Narrator -> book.narrator.trim()
-            HomeSortRule.Series -> book.series.trim()
-        }
-    }
-
-    // Home Group Label Resolution (Convert blank metadata into one stable visible section)
-    // This prevents empty author, narrator, or series values from producing invisible headers in the catalog.
-    private fun BookWithProgress.homeGroupLabel(sortRule: HomeSortRule): String {
-        return homeSortKey(sortRule).ifBlank { "Unknown" }
-    }
-
-    // Home Pinyin Descending Sort (Apply locale-aware ordering for author, narrator, and series pivots)
-    // Locale.CHINA Collator provides pinyin-friendly ordering for Chinese names while PRIMARY strength keeps Latin case differences from splitting adjacent values.
-    private fun List<BookWithProgress>.sortedByHomePreference(sortRule: HomeSortRule): List<BookWithProgress> {
-        val collator = Collator.getInstance(Locale.CHINA).apply {
-            strength = Collator.PRIMARY
-        }
-        return sortedWith { left, right ->
-            val primary = collator.compare(right.homeGroupLabel(sortRule), left.homeGroupLabel(sortRule))
-            if (primary != 0) {
-                primary
-            } else {
-                val title = collator.compare(right.book.title.trim(), left.book.title.trim())
-                if (title != 0) {
-                    title
-                } else {
-                    right.book.id.compareTo(left.book.id)
-                }
-            }
         }
     }
 
@@ -189,7 +156,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteBook(bookId: String) {
         viewModelScope.launch {
-            // Coordinate Book Deletion: Use the unified domain DeleteBookUseCase to cleanly remove the book and stop playback.
+            // Book Deletion Coordination (Use the application use case to remove the book and stop playback safely)
             val fileExists = deleteBookUseCase.invoke(bookId)
 
             // Deletion Feedback Dispatch (Send home deletion status through the application event sink)
@@ -235,10 +202,18 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setHomeSortRule(rule: HomeSortRule) {
-        // Home Sort Rule Update (Persist the user's selected catalog grouping and descending pinyin order)
+        // Home Sort Rule Update (Persist the user's selected catalog grouping and script-clustered order)
         // The ViewModel rebuilds filtered and grouped catalog sections from settingsFlow after the preference write completes.
         viewModelScope.launch {
             settingsRepository.updateHomeSortRule(rule)
+        }
+    }
+
+    fun setHomeSortDirection(direction: HomeSortDirection) {
+        viewModelScope.launch {
+            // Home Sort Direction Update (Persist ascending or descending order inside each script cluster)
+            // Script cluster order itself remains fixed in HomeCatalogSortPolicy so the setting only affects same-cluster comparisons.
+            settingsRepository.updateHomeSortDirection(direction)
         }
     }
 
@@ -246,19 +221,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         // Home Root Import Command (Delegates root registration and sync scheduling through the home scene use case)
         homeLibraryUseCases.addLocalRootAndScheduleSync(uri)
     }
-
-    // Remove Library Root: Revokes directory permission, handles safe teardown of playback streams, and deletes metadata.
-    fun deleteLibraryRoot(root: com.viel.aplayer.data.entity.LibraryRootEntity) {
-        viewModelScope.launch {
-            // Execute deletion through high-level coordinator to prevent reverse dependencies.
-            val playbackWasStopped = deleteLibraryRootUseCase.invoke(root)
-            // Root Removal Feedback Dispatch (Use the app-level sink instead of constructing Toast in the ViewModel)
-            // This keeps the Home route on the same event rendering path as Settings, scan, and playback feedback.
-            appEventSink.showToast(FeedbackMessages.settingsLibraryRootRemoved(playbackWasStopped))
-        }
-    }
-
-
 
     fun clearSearchHistory() {
         viewModelScope.launch {

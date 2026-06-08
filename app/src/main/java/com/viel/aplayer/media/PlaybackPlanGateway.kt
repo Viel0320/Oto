@@ -4,7 +4,7 @@ package com.viel.aplayer.media
  * Playback Plan Gateway (Fine-grained playback-start read model)
  *
  * Exposes only the operation required to materialize a BookPlaybackPlan for media startup.
- * Keeping this interface outside BookQueryGateway prevents general book queries from inheriting playback startup semantics.
+ * Keeping this interface outside BookCatalogGateway prevents general book reads from inheriting playback startup semantics.
  */
 interface PlaybackPlanGateway {
     /**

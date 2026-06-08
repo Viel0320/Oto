@@ -6,8 +6,8 @@ import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AppDatabase
 
 /**
- * Data Graph (Owns process-wide data stores, database, settings, and singleton managers)
- * Gives higher graphs one stable place to obtain durable app data dependencies.
+ * Data Graph (Owns process-wide data stores, database, and settings)
+ * Gives higher graphs one stable place to obtain durable app data dependencies without carrying playback lifecycle objects.
  */
 @UnstableApi
 internal class DataGraph(val context: Context) {
@@ -16,19 +16,9 @@ internal class DataGraph(val context: Context) {
         AppDatabase.getInstance(context)
     }
 
-    val playbackManager: com.viel.aplayer.media.PlaybackManager by lazy {
-        // Playback Singleton Initialization: Connects media lifecycle events across system interfaces.
-        com.viel.aplayer.media.PlaybackManager.getInstance(context)
-    }
-
     val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore by lazy {
         // Search Store Initialization: Prepares the settings lookup and search logs DataStore.
         com.viel.aplayer.data.store.SearchHistoryStore.getInstance(context)
-    }
-
-    val autoRewindManager: com.viel.aplayer.media.AutoRewindManager by lazy {
-        // Rewind Manager Initialization: Orchestrates the self-healing progress tracking logic.
-        com.viel.aplayer.media.AutoRewindManager.getInstance(context)
     }
 
     val settingsRepository: AppSettingsRepository by lazy {

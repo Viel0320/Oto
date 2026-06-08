@@ -13,10 +13,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.R
+import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.motion.SharedElementKeys
@@ -39,21 +41,24 @@ import com.viel.aplayer.ui.motion.SharedElementKeys
 @Composable
 fun RecentlyAddedSection(
     recentTitle: String,
-    recentBooks: List<BookWithProgress>,
+    recentBooks: List<HomeBookItem>,
     activeDetailBookId: String?,
     glassEffectMode: GlassEffectMode,
     screenHorizontalPadding: Dp,
     onNavigateToDetail: (String) -> Unit,
-    onBookLongClick: (BookWithProgress) -> Unit,
+    onBookLongClick: (HomeBookItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Recent CardGroup Row Scroll Ownership (Keep horizontal scroll state beside the LazyRow that consumes it)
     // The Home container no longer passes a LazyListState through route-level parameters, so this component owns the cardgroup row viewport and preserves it while the parent grid scrolls vertically.
     val recentListState = rememberLazyListState()
+    // Localized Recent Badge Copy (Render newly imported cards with locale-aware app text)
+    // Percent progress remains numeric data, while the empty-progress NEW badge is authored UI copy.
+    val newBadgeText = stringResource(R.string.common_new_badge)
 
     // Recent Dataset Head Tracking (Reset the row whenever the leading card changes)
     // The recent row now treats a changed first book as a fresh ordering event and always returns to item 0, regardless of the user's previous horizontal offset.
-    val firstBookId = recentBooks.firstOrNull()?.book?.id
+    val firstBookId = recentBooks.firstOrNull()?.id
     LaunchedEffect(firstBookId) {
         // Recent Row Head Reset (Show the newest leading card after recent ordering changes)
         // Running after layout avoids LazyRow anchoring leaving the updated first card off-screen or partially displaced.
@@ -82,31 +87,32 @@ fun RecentlyAddedSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // M-20 Fix: Use unique book.id as LazyList stable key to prevent card covers from flickering or shifting due to frequent reloads
-            items(recentBooks, key = { it.book.id }) { book ->
+            items(recentBooks, key = { it.id }) { book ->
                 cardgroup(
-                    bookId = book.book.id,
-                    title = book.book.title,
-                    author = book.book.author,
-                    narrator = book.book.narrator,
-                    // If the audiobook has a specific reading progress, fill the badge with progress percentage, otherwise fill "NEW" indicating newly imported
-                    progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
+                    bookId = book.id,
+                    title = book.title,
+                    author = book.author,
+                    narrator = book.narrator,
+                    // Recent Badge Resolution (Show runtime progress percentages or the localized new-item marker)
+                    // The percentage comes from audiobook state, while the new-item marker is app-authored UI copy.
+                    progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else newBadgeText,
                     /*
                      * Recent Item Visibility Handoff (Selected source exit trigger)
                      *
                      * Passes whether this card is the active Detail target so the card cover can
                      * leave through its own AnimatedVisibility and form a valid source-target pair.
                      */
-                    isDetailTargetActive = book.book.id == activeDetailBookId,
+                    isDetailTargetActive = book.id == activeDetailBookId,
                     // Thumbnail Medium Caching (Optimize Memory and Cache Reuse)
                     // Recently played cards use medium cover specification, preferring local thumbnails.
                     // This allows 360px requests to hit thumbnail cache directly, avoiding decoding large covers.
                     coverPath = CoverImageSourceSelector.medium(
-                        thumbnailPath = book.book.thumbnailPath,
-                        coverPath = book.book.coverPath
+                        thumbnailPath = book.thumbnailPath,
+                        coverPath = book.coverPath
                     ),
                     // Pass last updated timestamp to Coil, allowing it to force redraw without disk I/O when cache is reconstructed.
-                    coverLastUpdated = book.book.lastScannedAt,
-                    onClick = { onNavigateToDetail(book.book.id) },
+                    coverLastUpdated = book.lastScannedAt,
+                    onClick = { onNavigateToDetail(book.id) },
                     onLongClick = { onBookLongClick(book) },
                     glassEffectMode = glassEffectMode,
                     // Deprecated: coverColorArgb is no longer passed from database
@@ -116,7 +122,7 @@ fun RecentlyAddedSection(
                      * Uses the selected book ID to align this recent card cover with the detail
                      * page cover endpoint under the app-level SharedTransitionLayout.
                      */
-                    sharedElementKey = SharedElementKeys.home2DetailCover(book.book.id)
+                    sharedElementKey = SharedElementKeys.home2DetailCover(book.id)
                 )
             }
         }

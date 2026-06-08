@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.settings.about
 
 import android.content.Intent
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -65,11 +66,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -86,7 +89,7 @@ data class OpenSourceLibrary(
     val name: String,
     val developer: String,
     val license: String,
-    val description: String,
+    @StringRes val descriptionRes: Int,
     val url: String,
     val licenseText: String
 )
@@ -100,7 +103,7 @@ private val openSourceLibraries = listOf(
         name = "Jetpack Compose",
         developer = "Google / AndroidX Project",
         license = "Apache License 2.0",
-        description = "Jetpack Compose 是用于构建原生 Android 界面的现代声明式工具包。它简化并加速了 Android 上的界面开发，能够通过更少的代码、强大的工具和直观的 Kotlin API 让应用变得更加生动美观。",
+        descriptionRes = R.string.about_library_compose_description,
         url = "https://developer.android.com/compose",
         licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
@@ -108,7 +111,7 @@ private val openSourceLibraries = listOf(
         name = "AndroidX Media3 (ExoPlayer)",
         developer = "Google / AndroidX Project",
         license = "Apache License 2.0",
-        description = "Media3 是 AndroidX 媒体支持的新一代核心，其集成的 ExoPlayer 是一个基于底层的、高度可定制 of 媒体播放器。APlayer 使用它处理有声书音频流的异步加载、无缝断点播放以及硬解码渲染。",
+        descriptionRes = R.string.about_library_media3_description,
         url = "https://github.com/androidx/media",
         licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
@@ -116,7 +119,7 @@ private val openSourceLibraries = listOf(
         name = "AndroidX Room",
         developer = "Google / AndroidX Project",
         license = "Apache License 2.0",
-        description = "Room 在 SQLite 之上提供了一个抽象层，以便在充分利用 SQLite 的同时，提供流畅的数据库访问。它负责 APlayer 整个本地媒体库元数据、播放进度及断点的高效持久化。",
+        descriptionRes = R.string.about_library_room_description,
         url = "https://developer.android.com/training/data-storage/room",
         licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
@@ -125,7 +128,7 @@ private val openSourceLibraries = listOf(
         name = "Haze",
         developer = "Chris Banes",
         license = "Apache License 2.0",
-        description = "Haze 是一个为 Jetpack Compose 提供的高性能图像与毛玻璃模糊效果组件。APlayer 运用它在播放器、列表卡片徽章、弹窗及各种底面板中实现极致、尊贵且高阶的磨砂玻璃物理透射模糊效果。",
+        descriptionRes = R.string.about_library_haze_description,
         url = "https://github.com/chrisbanes/haze",
         licenseText = "Copyright 2023 Chris Banes\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
@@ -133,7 +136,7 @@ private val openSourceLibraries = listOf(
         name = "Coil Compose",
         developer = "Coil Contributors",
         license = "Apache License 2.0",
-        description = "Coil 是一个极速的 Android 图像加载库，由 Kotlin 协程驱动。它能极其流畅地异步加载、缓存并解码有声书封面图片，并深度契合 Compose 状态管理渲染机制。",
+        descriptionRes = R.string.about_library_coil_description,
         url = "https://github.com/coil-kt/coil",
         licenseText = "Copyright 2023 Coil Contributors\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
@@ -141,7 +144,7 @@ private val openSourceLibraries = listOf(
         name = "Jetpack Glance",
         developer = "Google / AndroidX Project",
         license = "Apache License 2.0",
-        description = "Glance 允许开发者使用 Jetpack Compose 的声明式语言和组件，极其快捷且低耗电地构建出极具现代感和交互功能的桌面小组件（App Widgets）与磁贴面板。",
+        descriptionRes = R.string.about_library_glance_description,
         url = "https://developer.android.com/jetpack/androidx/releases/glance",
         licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
@@ -149,7 +152,7 @@ private val openSourceLibraries = listOf(
         name = "Kotlin Coroutines",
         developer = "JetBrains",
         license = "Apache License 2.0",
-        description = "Kotlin 协程是极其轻量级且强大的异步执行与并发控制设计框架。它为 APlayer 的媒体扫描、网络流分析、数据库检索提供了强大、无阻塞且易于维护的底座支持。",
+        descriptionRes = R.string.about_library_coroutines_description,
         url = "https://github.com/Kotlin/kotlinx.coroutines",
         licenseText = "Copyright 2000-2023 JetBrains s.r.o. and contributors\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
@@ -157,7 +160,7 @@ private val openSourceLibraries = listOf(
         name = "AndroidX DataStore Preferences",
         developer = "Google / AndroidX Project",
         license = "Apache License 2.0",
-        description = "DataStore 是一种改进的、全新设计的数据存储方案，用于替代 SharedPreferences。它基于 Kotlin 协程和 Flow 异步无缝、强一致地存取应用全局设置与偏好数据。",
+        descriptionRes = R.string.about_library_datastore_description,
         url = "https://developer.android.com/topic/libraries/architecture/datastore",
         licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     ),
@@ -165,7 +168,7 @@ private val openSourceLibraries = listOf(
         name = "AndroidX WorkManager",
         developer = "Google / AndroidX Project",
         license = "Apache License 2.0",
-        description = "WorkManager 是用于后台保障性执行可靠的延迟任务的推荐库。它为 APlayer 在后台默默地管理媒体库同步和垃圾物理文件回收任务提供核心异步驱动。",
+        descriptionRes = R.string.about_library_workmanager_description,
         url = "https://developer.android.com/topic/libraries/architecture/workmanager",
         licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
     )
@@ -276,7 +279,7 @@ fun AboutLibrariesScreen(
                 modifier = Modifier.align(Alignment.TopCenter),
                 title = {
                     Text(
-                        text = "开源许可",
+                        text = stringResource(R.string.settings_open_source_license_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -285,7 +288,7 @@ fun AboutLibrariesScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.back_content_description)
                         )
                     }
                 }
@@ -339,15 +342,17 @@ private fun BrandHeaderCard() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Localized App Brand Copy (Read the displayed app name from resources instead of repeating a literal)
+            // The current translations keep the brand stable, but resource lookup keeps the about page aligned with manifest-visible app naming.
             Text(
-                text = "APlayer",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
             Text(
-                text = "版本 1.0 (Beta)",
+                text = stringResource(R.string.about_version_text),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 fontWeight = FontWeight.Medium
@@ -356,7 +361,7 @@ private fun BrandHeaderCard() {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "APlayer 是一款为听书爱好者倾力打造的本地有声书播放器。我们深知伟大的产品离不开开源社区的基石贡献，在此向所有默默无闻的开源库作者与组织致以最崇高的敬意。",
+                text = stringResource(R.string.about_app_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 22.sp,
@@ -376,6 +381,7 @@ private fun LibraryCard(
     onVisitUrl: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val libraryDescription = stringResource(library.descriptionRes)
 
     Card(
         modifier = Modifier
@@ -438,7 +444,7 @@ private fun LibraryCard(
                         }
                         
                         Text(
-                            text = "by ${library.developer}",
+                            text = stringResource(R.string.about_developer_credit, library.developer),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -454,7 +460,7 @@ private fun LibraryCard(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                        contentDescription = "访问项目主页",
+                        contentDescription = stringResource(R.string.about_visit_project_homepage_content_description),
                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                         modifier = Modifier.size(18.dp)
                     )
@@ -465,7 +471,7 @@ private fun LibraryCard(
 
             // Toggle brief description (To truncate texts under folded view states)
             Text(
-                text = library.description,
+                text = libraryDescription,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (expanded) Int.MAX_VALUE else 2,
@@ -495,7 +501,7 @@ private fun LibraryCard(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "详细许可协议声明",
+                        text = stringResource(R.string.about_license_details_title),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -541,7 +547,7 @@ private fun LibraryCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "访问项目主页 (GitHub / Maven)", style = MaterialTheme.typography.labelLarge)
+                        Text(text = stringResource(R.string.about_visit_project_homepage), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }

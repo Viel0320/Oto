@@ -52,8 +52,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.data.entity.BookEntity
-import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.application.library.detail.DetailBookItem
+import com.viel.aplayer.application.library.detail.DetailSnapshot
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
@@ -103,13 +103,18 @@ fun DetailContent(
     // Callback triggered when Coil successfully loads the cover and extracts its dominant color.
     onColorExtracted: (Color) -> Unit,
 ) {
-    val book = uiState.book?.book
+    // Detail Render Item (Use the Room-free scene item for every detail layout)
+    // The UI reads only Detail-owned fields here, preventing layout parameters from depending on database entities.
+    val book = uiState.book?.item
     val isVisible = uiState.isVisible
     // Deprecated: backgroundColorArgb is removed
     var isPredictiveBackActive by remember { mutableStateOf(false) }
     var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
+    // Localized Detail Dialog Action Copy (Resolve the generic acknowledgement button through resources)
+    // Info dialog titles and body text are selected book metadata, while the closing action is app-authored UI copy.
+    val okActionText = stringResource(R.string.action_ok)
     
     // Top-right dropdown menu visibility management
     var showMenu by remember { mutableStateOf(false) }
@@ -224,7 +229,7 @@ fun DetailContent(
                                     glassEffectMode = glassEffectMode
                                 ) {
                                     DropdownMenuItem(
-                                        text = { Text("修改书籍信息") },
+                                        text = { Text(stringResource(R.string.edit_book_title)) },
                                         onClick = {
                                             showMenu = false
                                             book?.id?.let { bookId ->
@@ -375,7 +380,7 @@ fun DetailContent(
                         infoDialogTitle = null
                     }
                 ) {
-                    Text("OK")
+                    Text(okActionText)
                 }
             }
         )
@@ -391,8 +396,8 @@ fun DetailContentPortraitPreview() {
         ) {
             DetailContent(
                 uiState = DetailUiState(
-                    book = BookWithProgress(
-                        book = BookEntity(
+                    book = DetailSnapshot(
+                        item = DetailBookItem(
                             id = "id",
                             rootId = "preview-root",
                             sourceType = "SINGLE_AUDIO",
@@ -401,9 +406,9 @@ fun DetailContentPortraitPreview() {
                             narrator = "Narrator A",
                             totalDurationMs = 36000L,
                             year = "2023",
-                            description = "A preview description."
+                            description = "A preview description.",
+                            progressPercent = 45
                         ),
-                        progress = null
                     ),
                     isVisible = true,
                     isAvailable = true,

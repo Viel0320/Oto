@@ -8,15 +8,16 @@ import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
-import com.viel.aplayer.domain.usecase.AbsConnectionReuseSnapshot
+import com.viel.aplayer.application.library.settings.SettingsAbsSyncInspection
+import com.viel.aplayer.application.usecase.AbsConnectionReuseSnapshot
+import com.viel.aplayer.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.aplayer.event.feedback.FeedbackMessages
-import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
-import com.viel.aplayer.library.availability.isSyncAvailable
+import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.logger.AbsSettingsLogger
 import com.viel.aplayer.ui.common.formatDate
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,8 +37,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // SettingsViewModel coordinates several settings workflows but should not see playback runtime or VFS dependencies.
     private val settingsDependencies = APlayerApplication.getSettingsScreenDependencies(application)
     private val settingsRepository = settingsDependencies.settingsRepository
-    private val absCatalogSynchronizer = settingsDependencies.absCatalogSynchronizer
-    private val absSyncTaskCoordinator = settingsDependencies.absSyncTaskCoordinator
+    // Settings Root Scene Interfaces (Route root display and commands through the settings-root module)
+    // This keeps root registration, status refresh, and manual scan triggers off the broad library transition entry point.
+    private val settingsRootReadModel = settingsDependencies.settingsRootReadModel
+    private val settingsRootCommands = settingsDependencies.settingsRootCommands
     // Settings Query Use Case (Supplies settings read models and credential lookups)
     // The ViewModel now maps application snapshots into UI state instead of reading Room DAOs or credential stores directly.
     private val settingsQueryUseCase = settingsDependencies.settingsQueryUseCase
@@ -50,11 +53,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // Cache connection snapshot (To speed up registration directly after a successful test)
     // Temporarily retains connection metadata in memory without writing to database or exposing it to UI.
     private var lastSuccessfulAbsConnection: AbsConnectionReuseSnapshot? = null
-    
-    // UI Facade Root Operations (Routes settings page root and scan commands through the high-level facade)
-    // SettingsViewModel remains a UI state coordinator, while LibraryFacade hides the granular root and scan gateways behind one application-facing seam.
-    private val libraryFacade = settingsDependencies.libraryFacade
-    
+
     /**
      * Cross-domain deletion usecase (To enforce DDD architecture boundaries)
      * Replaces direct facade repository calls with clean domain-level service triggers.
@@ -88,22 +87,26 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = AppSettings()
         )
 
-    val libraryRootDisplays: StateFlow<List<LibraryRootDisplayState>> = settingsQueryUseCase
-        .observeLibraryRootSnapshots()
+    val libraryRootDisplays: StateFlow<List<SettingsRootItem>> = settingsRootReadModel
+        .observeRootSnapshots()
         .map { snapshots ->
-            // Settings Display Mapping (Converts application query snapshots into presentation text)
-            // Query ownership stays in SettingsQueryUseCase while ViewModel keeps the UI-specific title, status, and timestamp formatting.
+            // Settings Root Item Mapping (Converts application snapshots into Room-free scene items)
+            // Query ownership stays in the settings-root read model while ViewModel keeps UI-specific title, status, and timestamp formatting without exposing persistence root rows.
             snapshots.map { snapshot ->
-                val root = snapshot.root
-                val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
-                LibraryRootDisplayState(
-                    root = root,
-                    title = resolveLibraryRootTitle(root),
-                    statusText = resolveLibraryRootStatusText(root, snapshot.absLastError, snapshot.absLastFullSyncAt),
-                    locationText = resolveLibraryRootLocation(root),
-                    selectedLibraryText = if (isAbsRoot) root.displayName.ifBlank { root.basePath } else null,
+                val isAbsRoot = snapshot.sourceType == AudiobookSchema.LibrarySourceType.ABS
+                SettingsRootItem(
+                    rootId = snapshot.rootId,
+                    sourceType = snapshot.sourceType,
+                    sourceUri = snapshot.sourceUri,
+                    basePath = snapshot.basePath,
+                    credentialId = snapshot.credentialId,
+                    displayName = snapshot.displayName,
+                    title = resolveLibraryRootTitle(snapshot),
+                    statusText = resolveLibraryRootStatusText(snapshot),
+                    locationText = resolveLibraryRootLocation(snapshot),
+                    selectedLibraryText = if (isAbsRoot) snapshot.displayName.ifBlank { snapshot.basePath } else null,
                     lastSyncText = formatLibraryRootSyncTime(
-                        timestampMs = if (isAbsRoot) snapshot.absLastFullSyncAt else root.lastScannedAt.takeIf { it > 0L },
+                        timestampMs = if (isAbsRoot) snapshot.absLastFullSyncAt else snapshot.lastScannedAt.takeIf { it > 0L },
                         notSyncedText = getApplication<Application>().getString(R.string.settings_library_not_synced)
                     ),
                     importedBookCount = snapshot.importedBookCount,
@@ -122,7 +125,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             // Obtains the visibility flow and updates the registered library directories once overlay shows up.
             isVisible.collect { visible ->
                 if (visible) {
-                    libraryFacade.refreshLibraryRootStatuses()
+                    settingsRootCommands.refreshAllRootStatuses()
                 }
             }
         }
@@ -130,8 +133,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun onLibraryRootSelected(uri: Uri) {
         // Persist local library directory (To registers new SAF path and schedules import sync)
-        // Dispatches the folder registration to LibraryFacade so UI callers do not select a granular root gateway.
-        libraryFacade.addLibraryRootAndScheduleSync(uri)
+        // Dispatches the folder registration to the settings-root command surface so UI callers do not select a granular root gateway.
+        settingsRootCommands.addLocalRootAndScheduleSync(uri)
     }
 
     /**
@@ -159,8 +162,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         basePath: String
     ) {
         // Register WebDAV endpoint (To initiate a background sync task for remote WebDAV resources)
-        // Passes connection credentials and directories to LibraryFacade so settings UI stays on the application-facing seam.
-        libraryFacade.addWebDavLibraryRootAndScheduleSync(
+        // Passes connection credentials and directories to the settings-root command surface so settings UI stays on a scene-specific interface.
+        settingsRootCommands.addWebDavRootAndScheduleSync(
             url = url,
             username = username,
             password = password,
@@ -279,10 +282,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 )
             }.onSuccess { outcome ->
                 lastSuccessfulAbsConnection = outcome.snapshot
-                AbsSettingsLogger.logAddServerSuccess(baseUrl, username, libraryId, outcome.root.id)
+                AbsSettingsLogger.logAddServerSuccess(baseUrl, username, libraryId, outcome.rootId)
                 appEventSink.showToast(FeedbackMessages.settingsAbsServerSaved(editing = editingRootId != null))
                 _absConnectionState.value = AbsConnectionUiState()
-                launchAutoAbsSync(outcome.root)
+                launchAutoAbsSync(outcome.rootId)
             }.onFailure { error ->
                 val redactedMessage = (
                     error.message ?: getApplication<Application>().getString(R.string.feedback_settings_abs_server_save_failed_fallback)
@@ -376,40 +379,41 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun syncAbsRoot(rootId: String) {
         viewModelScope.launch {
-            val preflight = libraryFacade.refreshLibraryRootStatus(rootId) ?: return@launch
-            if (!preflight.isSyncAvailable) {
-                // Manual ABS Sync Preflight (Blocks plan inspection when the selected root is unavailable)
-                // Plan inspection talks to the remote server, so the root status must be refreshed and validated before any preview request is sent.
-                appEventSink.showToast(
-                    FeedbackMessages.settingsRootUnavailableSyncBlocked(buildRootUnavailableSyncMessage(preflight))
-                )
-                return@launch
-            }
-            val root = preflight.root
-            // Log manual sync (To trace trigger events initiated from settings panel)
-            // Routes synchronization initialization to settings diagnostic logs.
-            val start = AbsSettingsLogger.mark()
-            AbsSettingsLogger.logManualSyncStart(rootId = root.id, displayName = root.displayName)
-            val plan = absCatalogSynchronizer.inspectRootSyncPlan(root)
-            if (plan.requiresConfirmation) {
-                AbsSettingsLogger.logManualSyncRequiresConfirmation(rootId = rootId, totalItems = plan.totalItems)
-                _absSyncConfirmationState.value = AbsSyncConfirmationState(rootId = rootId, totalItems = plan.totalItems)
-                return@launch
-            }
-            val scheduled = absSyncTaskCoordinator.start(rootId, com.viel.aplayer.abs.sync.AbsSyncTaskOrigin.MANUAL)
-            if (scheduled) {
-                AbsSettingsLogger.logManualSyncFinished(rootId = rootId, costMs = AbsSettingsLogger.elapsedMs(start))
-                appEventSink.showToast(FeedbackMessages.settingsAbsSyncStarted())
-            } else {
-                appEventSink.showToast(FeedbackMessages.settingsAbsSyncAlreadyRunning())
+            when (val inspection = settingsRootCommands.inspectManualAbsSync(rootId)) {
+                SettingsAbsSyncInspection.MissingRoot -> {
+                    appEventSink.showToast(FeedbackMessages.absBackgroundSyncRootMissing())
+                }
+                is SettingsAbsSyncInspection.Blocked -> {
+                    // Manual ABS Sync Block Feedback (Render application-level preflight failure without receiving root entities)
+                    // The settings-root module builds the provider-aware detail message, while the ViewModel only chooses the UI feedback channel.
+                    appEventSink.showToast(FeedbackMessages.settingsRootUnavailableSyncBlocked(inspection.message))
+                }
+                is SettingsAbsSyncInspection.Ready -> {
+                    // Log manual sync (To trace trigger events initiated from settings panel)
+                    // Routes synchronization initialization to settings diagnostic logs using the entity-free inspection projection.
+                    val start = AbsSettingsLogger.mark()
+                    AbsSettingsLogger.logManualSyncStart(rootId = inspection.rootId, displayName = inspection.displayName)
+                    if (inspection.requiresConfirmation) {
+                        AbsSettingsLogger.logManualSyncRequiresConfirmation(rootId = inspection.rootId, totalItems = inspection.totalItems)
+                        _absSyncConfirmationState.value = AbsSyncConfirmationState(rootId = inspection.rootId, totalItems = inspection.totalItems)
+                        return@launch
+                    }
+                    val scheduled = settingsRootCommands.startManualAbsSync(inspection.rootId)
+                    if (scheduled) {
+                        AbsSettingsLogger.logManualSyncFinished(rootId = inspection.rootId, costMs = AbsSettingsLogger.elapsedMs(start))
+                        appEventSink.showToast(FeedbackMessages.settingsAbsSyncStarted())
+                    } else {
+                        appEventSink.showToast(FeedbackMessages.settingsAbsSyncAlreadyRunning())
+                    }
+                }
             }
         }
     }
 
     fun triggerRescan() {
         // Trigger manual scan (To check file updates on registered roots)
-        // Dispatches scan scheduler request through LibraryFacade so the UI layer does not bind to ScanScheduler directly.
-        libraryFacade.scheduleLibrarySync("USER")
+        // Dispatches scan scheduler request through settings-root commands so the UI layer does not bind to ScanScheduler directly.
+        settingsRootCommands.scheduleUserSync()
     }
 
     fun toggleChapterProgressMode(enabled: Boolean) {
@@ -433,17 +437,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     // Deregister library root (To release SAF grant permissions, stop related playback, and clear DB entries)
-    fun deleteLibraryRoot(root: LibraryRootEntity) {
+    fun deleteLibraryRoot(root: SettingsRootItem) {
         viewModelScope.launch {
             // Log directory deletion (To record high-risk library removal event)
             // Writes deletion request info with ID and type indicators.
-            AbsSettingsLogger.logDeleteServerStart(rootId = root.id, sourceType = root.sourceType)
+            AbsSettingsLogger.logDeleteServerStart(rootId = root.rootId, sourceType = root.sourceType)
             // Stop playback before deletion (To prevent crashes or unexpected playback behaviors from missing tracks)
-            // Triggers deleteLibraryRootUseCase which conditionally stops active playback.
-            val playbackWasStopped = deleteLibraryRootUseCase.invoke(root)
+            // Triggers the rootId deletion path so Settings UI never reconstructs or stores the persistence root row.
+            val playbackWasStopped = deleteLibraryRootUseCase.invoke(root.rootId)
             // Log removal result (To track whether the removal caused immediate playback halt)
             // Records outcome stats to log system.
-            AbsSettingsLogger.logDeleteServerFinished(rootId = root.id, playbackStopped = playbackWasStopped)
+            AbsSettingsLogger.logDeleteServerFinished(rootId = root.rootId, playbackStopped = playbackWasStopped)
             appEventSink.showToast(FeedbackMessages.settingsLibraryRootRemoved(playbackWasStopped))
         }
     }
@@ -494,6 +498,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // Update App Language (Persist the selected locale before applying Android per-app language APIs)
+    // DataStore writes first so a framework-triggered Activity recreation cannot lose the user's explicit System-default reset.
+    fun updateAppLanguage(language: AppLanguage) {
+        viewModelScope.launch {
+            settingsRepository.updateAppLanguage(language)
+            AppLocaleController.applyPlatformLocale(getApplication(), language)
+        }
+    }
+
     // Update rewind seconds (To customize position rollback durations)
     fun updateAutoRewindSeconds(seconds: Int) {
         viewModelScope.launch {
@@ -519,10 +532,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * Start automated catalog sync (To sync items immediately after server registration)
      * Initiates non-blocking synchronization process in background coroutine scope.
      */
-    private fun launchAutoAbsSync(root: LibraryRootEntity) {
+    private fun launchAutoAbsSync(rootId: String) {
         // Start application-level task (To prevent task cancellation upon SettingsViewModel destruction)
-        // Enqueues synchronization to absSyncTaskCoordinator.
-        val scheduled = absSyncTaskCoordinator.start(root.id, com.viel.aplayer.abs.sync.AbsSyncTaskOrigin.AUTO_ADD)
+        // Enqueues synchronization through settings-root commands so ABS task origins stay out of presentation code.
+        val scheduled = settingsRootCommands.startAutoAbsSync(rootId)
         if (!scheduled) {
             appEventSink.showToast(FeedbackMessages.settingsAbsSyncAlreadyRunning())
         }
@@ -546,7 +559,7 @@ private fun String.redactAbsError(): String =
  * Library Root Title Formatter (Builds the first-line label for each registered library source)
  * Uses provider-specific fallback names so local, WebDAV, and ABS rows remain readable even when the custom display name is empty.
  */
-private fun resolveLibraryRootTitle(root: LibraryRootEntity): String =
+private fun resolveLibraryRootTitle(root: LibraryRootSettingsSnapshot): String =
     when (root.sourceType) {
         AudiobookSchema.LibrarySourceType.WEBDAV ->
             root.displayName.ifBlank { "${root.sourceUri}${root.basePath}" }
@@ -562,14 +575,14 @@ private fun resolveLibraryRootTitle(root: LibraryRootEntity): String =
  * Library Root Status Formatter (Normalizes storage availability and ABS sync error state)
  * Prioritizes unavailable root reachability over stale ABS sync timestamps so previously synced servers cannot appear healthy after a failed preflight.
  */
-private fun resolveLibraryRootStatusText(root: LibraryRootEntity, absLastError: String?, absLastFullSyncAt: Long?): String =
+private fun resolveLibraryRootStatusText(root: LibraryRootSettingsSnapshot): String =
     when {
         root.status != AudiobookSchema.LibraryRootStatus.ACTIVE ->
             root.availabilityStatus.takeIf { status -> status != AudiobookSchema.AvailabilityStatus.UNKNOWN } ?: root.status
         root.availabilityStatus != AudiobookSchema.AvailabilityStatus.UNKNOWN &&
             root.availabilityStatus != AudiobookSchema.AvailabilityStatus.AVAILABLE -> root.availabilityStatus
-        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && absLastError?.isNotBlank() == true -> "ERROR"
-        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && absLastFullSyncAt != null -> "SYNCED"
+        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && root.absLastError?.isNotBlank() == true -> "ERROR"
+        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && root.absLastFullSyncAt != null -> "SYNCED"
         root.sourceType == AudiobookSchema.LibrarySourceType.ABS -> "IDLE"
         root.availabilityStatus != AudiobookSchema.AvailabilityStatus.UNKNOWN -> root.availabilityStatus
         else -> root.status
@@ -579,7 +592,7 @@ private fun resolveLibraryRootStatusText(root: LibraryRootEntity, absLastError: 
  * Library Root Location Formatter (Builds the second-line physical or remote address)
  * Separates the provider location from display names so ABS library selection can be shown as a distinct field.
  */
-private fun resolveLibraryRootLocation(root: LibraryRootEntity): String =
+private fun resolveLibraryRootLocation(root: LibraryRootSettingsSnapshot): String =
     when (root.sourceType) {
         AudiobookSchema.LibrarySourceType.WEBDAV -> "${root.sourceUri}${root.basePath}"
         AudiobookSchema.LibrarySourceType.ABS -> root.sourceUri

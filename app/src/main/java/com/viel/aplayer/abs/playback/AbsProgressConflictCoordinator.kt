@@ -7,7 +7,8 @@ import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookMetadataGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import java.util.Collections
 
@@ -17,7 +18,8 @@ import java.util.Collections
  */
 class AbsProgressConflictCoordinator(
     private val apiClient: AbsApiClient,
-    private val bookQueryGateway: BookQueryGateway,
+    private val bookCatalogGateway: BookCatalogGateway,
+    private val bookMetadataGateway: BookMetadataGateway,
     private val progressGateway: ProgressGateway,
     private val credentialProvider: suspend (BookEntity) -> AbsPlaybackSessionSyncer.CredentialSnapshot?,
     private val progressMapper: AbsProgressMapper = AbsProgressMapper(),
@@ -62,7 +64,7 @@ class AbsProgressConflictCoordinator(
      * Returns AskUser only when both sides contain divergent positions beyond the shared conflict threshold.
      */
     suspend fun preparePlayback(bookId: String): PlaybackDecision {
-        val book = bookQueryGateway.getBookById(bookId) ?: return PlaybackDecision.ContinueLocal
+        val book = bookCatalogGateway.getBookById(bookId) ?: return PlaybackDecision.ContinueLocal
         if (book.sourceType != AudiobookSchema.SourceType.ABS_REMOTE) return PlaybackDecision.ContinueLocal
         val conflict = buildConflictSnapshot(book) ?: return PlaybackDecision.ContinueLocal
         return when (
@@ -104,7 +106,7 @@ class AbsProgressConflictCoordinator(
                 isFinished = isFinished,
                 hasPositivePosition = conflict.remoteProgress.globalPositionMs > 0L
             )
-            bookQueryGateway.updateBookReadStatus(conflict.book.id, nextReadStatus)
+            bookMetadataGateway.updateBookReadStatus(conflict.book.id, nextReadStatus)
         }
     }
 
@@ -164,7 +166,7 @@ class AbsProgressConflictCoordinator(
                 itemId = remoteItemId
             )
         }.getOrNull() ?: return null
-        val files = bookQueryGateway.getFilesForBookSync(book.id)
+        val files = bookCatalogGateway.getFilesForBookSync(book.id)
         val local = progressGateway.getProgressForBookSync(book.id)
         return ProgressConflict(
             book = book,

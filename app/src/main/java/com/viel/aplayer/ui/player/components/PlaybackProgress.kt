@@ -11,11 +11,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.R
+import com.viel.aplayer.application.library.player.PlayerChapterItem
+import com.viel.aplayer.application.library.player.PlayerChapterTimeline
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -31,7 +33,7 @@ fun PlaybackProgress(
     currentPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
-    chapters: List<ChapterEntity>,
+    chapters: List<PlayerChapterItem>,
     markers: List<Float>,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -41,21 +43,21 @@ fun PlaybackProgress(
     // 1. Find the chapter corresponding to the current position in real-time
     val currentChapter = remember(currentPosition, chapters) {
         // Unify chapter positioning to avoid UI and the notification bar searching for chapters using different ordering.
-        ChapterTimeline.currentChapter(chapters, currentPosition)
+        PlayerChapterTimeline.currentChapter(chapters, currentPosition)
     }
 
     // 2. Calculate display parameters according to the mode
-    val chapterStart = ChapterTimeline.start(currentChapter)
+    val chapterStart = PlayerChapterTimeline.start(currentChapter)
 
     // Ensure duration calculations are valid to prevent division by zero.
     // The durationMs of embedded chapters in single files might be unreliable, so the chapter mode uniformly calculates based on adjacent start times and total duration.
     val displayDur = if (isChapterMode) {
-        ChapterTimeline.duration(chapters, currentChapter, totalDuration)
+        PlayerChapterTimeline.duration(chapters, currentChapter, totalDuration)
     } else {
         totalDuration.coerceAtLeast(1)
     }
     val displayPos = if (isChapterMode) {
-        ChapterTimeline.positionInChapter(chapters, currentChapter, currentPosition, totalDuration)
+        PlayerChapterTimeline.positionInChapter(chapters, currentChapter, currentPosition, totalDuration)
     } else {
         currentPosition.coerceIn(0L, displayDur)
     }
@@ -91,9 +93,16 @@ fun PlaybackProgress(
             
             if (chapters.isNotEmpty()) {
                 // The serial numbers use the same sorting result to guarantee that the display order matches the progress boundaries.
-                val currentIndex = ChapterTimeline.currentIndex(chapters, currentChapter).coerceAtLeast(0)
+                val currentIndex = PlayerChapterTimeline.currentIndex(chapters, currentChapter).coerceAtLeast(0)
+                // Localized Chapter Counter Copy (Format chapter count text through resources)
+                // Chapter indices are runtime playback data, while the separator format is app-authored UI copy.
+                val chapterCounterText = stringResource(
+                    R.string.player_chapter_counter,
+                    currentIndex + 1,
+                    chapters.size
+                )
                 Text(
-                    text = "${currentIndex + 1} / ${chapters.size}",
+                    text = chapterCounterText,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

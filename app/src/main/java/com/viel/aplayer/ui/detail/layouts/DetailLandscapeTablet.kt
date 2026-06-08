@@ -21,7 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
@@ -44,7 +44,7 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun DetailTabletLandscape(
-    book: BookEntity?, // The book metadata entity.
+    book: DetailBookItem?, // The Room-free detail metadata item.
     uiState: DetailUiState, // The UI state model.
     padding: PaddingValues, // Inner padding for Scaffold.
     safeDrawingPadding: PaddingValues, // The physical safe drawing area.
@@ -60,6 +60,8 @@ fun DetailTabletLandscape(
     onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Tablet Detail Item (Render from the scene projection instead of a database entity)
+    // Wide layouts need the same metadata as phones without expanding the Detail UI boundary back to Room.
     val windowClass = LocalWindowClass.current
     val layoutDirection = LocalLayoutDirection.current
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current

@@ -25,7 +25,7 @@ fun HomeDialogHost(
         HomeDialogState.None -> Unit
         is HomeDialogState.AudiobookActions -> {
             AudiobookActionDialogs(
-                bookWithProgress = state.bookWithProgress,
+                book = state.book,
                 hazeState = hazeState,
                 glassEffectMode = glassEffectMode,
                 onDismissRequest = onDismissRequest,

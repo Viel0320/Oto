@@ -31,9 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDropdownMenu
@@ -62,6 +64,13 @@ fun PlayerAppBar(
 ) {
     val navIcon = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
+    // Localized Player Menu Copy (Resolve top-bar labels inside composition)
+    // The same menu appears in portrait and landscape player chrome, so these resources keep progress and delete actions translatable.
+    val unknownText = stringResource(R.string.common_unknown)
+    val showProgressText = stringResource(
+        if (isChapterProgressMode) R.string.player_show_total_progress else R.string.player_show_chapter_progress
+    )
+    val deleteFromLibraryText = stringResource(R.string.player_delete_from_library)
 
     // Left-Align Player Top Bar Title (Shift layout structure to left alignment)
     // Replace CenterAlignedTopAppBar with TopAppBar and adjust Column alignment to Start,
@@ -81,7 +90,7 @@ fun PlayerAppBar(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = formatPeopleSubtitle(author, narrator),
+                    text = formatPeopleSubtitle(author, narrator, fallback = unknownText),
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (contentColor == Color.White) {
                         Color.White.copy(alpha = 0.7f)
@@ -97,7 +106,7 @@ fun PlayerAppBar(
             IconButton(onClick = onNavigationClick) {
                 Icon(
                     painter = rememberVectorPainter(navIcon),
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.back_content_description),
                     // Player Top Bar Navigation Icon Color (Use app-wide top-bar icon color)
                     // Keeps the navigation icon aligned with other top bars instead of inheriting the player title content color.
                     tint = MaterialTheme.colorScheme.onSurface
@@ -109,7 +118,7 @@ fun PlayerAppBar(
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
-                        contentDescription = "More",
+                        contentDescription = stringResource(R.string.more_content_description),
                         // Player Top Bar Action Icon Color (Use app-wide top-bar icon color)
                         // Keeps the action icon aligned with navigation icons and other app chrome.
                         tint = MaterialTheme.colorScheme.onSurface
@@ -127,7 +136,7 @@ fun PlayerAppBar(
                     // 1. Toggle progress mode
                     DropdownMenuItem(
                         text = {
-                            Text(if (isChapterProgressMode) "Show Total Progress" else "Show Chapter Progress")
+                            Text(showProgressText)
                         },
                         onClick = {
                             onToggleProgressMode?.invoke()
@@ -140,7 +149,7 @@ fun PlayerAppBar(
                     if (onDeleteBook != null) {
                         DropdownMenuItem(
                             text = { 
-                                Text("Delete from Library", color = MaterialTheme.colorScheme.error) 
+                                Text(deleteFromLibraryText, color = MaterialTheme.colorScheme.error) 
                             },
                             onClick = {
                                 onDeleteBook.invoke()

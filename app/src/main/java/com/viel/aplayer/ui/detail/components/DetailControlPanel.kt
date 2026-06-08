@@ -36,7 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.formatFileSize
 import com.viel.aplayer.ui.common.formatTime
@@ -54,7 +54,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun DetailControlPanel(
-    book: BookEntity?,
+    book: DetailBookItem?,
     uiState: DetailUiState,
     glassEffectMode: GlassEffectMode,
     // Setup HazeState Parameter (Map backdrop from LayerBackdrop to HazeState) Changed LayerBackdrop to HazeState.
@@ -64,6 +64,8 @@ fun DetailControlPanel(
     isLandscape: Boolean,
     modifier: Modifier = Modifier
 ) {
+    // Control Panel Detail Item (Read chips from the scene projection)
+    // Year, duration, and size are render-only fields, so the panel no longer needs the Room book entity.
     // Setup Haze Effect Switch (Check configured visual style) Aligned to renamed Haze option.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     val displayProgress = uiState.displayProgressPercent

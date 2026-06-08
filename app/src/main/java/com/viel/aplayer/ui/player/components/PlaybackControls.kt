@@ -37,10 +37,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -67,6 +69,16 @@ fun PlaybackControls(
     hazeState: HazeState? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    // Localized Playback Control Copy (Resolve button descriptions and compact timer badges)
+    // Playback state values are runtime data, while speed labels, transport descriptions, and timer units are app-authored UI copy.
+    val playbackSpeedContentDescription = stringResource(R.string.playback_speed_content_description)
+    val playbackSpeedText = stringResource(R.string.playback_speed_value, playbackSpeed.toString())
+    val rewindContentDescription = stringResource(R.string.media_session_rewind_10)
+    val playPauseContentDescription = stringResource(
+        if (isPlaying) R.string.playback_pause_content_description else R.string.playback_play_content_description
+    )
+    val forwardContentDescription = stringResource(R.string.media_session_forward_30)
+    val sleepTimerContentDescription = stringResource(R.string.settings_sleep_timer_title)
 
     // Speed Toast logic (Debounced)
     var lastSpeed by remember { mutableFloatStateOf(playbackSpeed) }
@@ -132,13 +144,13 @@ fun PlaybackControls(
             if (playbackSpeed == 1.0f && !isSpeedManualMode) {
                 Icon(
                     Icons.Rounded.Speed,
-                    contentDescription = "Playback Speed",
+                    contentDescription = playbackSpeedContentDescription,
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             } else {
                 Text(
-                    text = "${playbackSpeed}x",
+                    text = playbackSpeedText,
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold
@@ -151,7 +163,7 @@ fun PlaybackControls(
         IconButton(onClick = actions.onSkipBackward, modifier = Modifier.size(56.dp)) {
             Icon(
                 Icons.Rounded.Replay10,
-                contentDescription = "Rewind 10 seconds",
+                contentDescription = rewindContentDescription,
                 modifier = Modifier.size(32.dp)
             )
         }
@@ -196,7 +208,7 @@ fun PlaybackControls(
                         } else {
                             Icons.Rounded.PlayArrow
                         },
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        contentDescription = playPauseContentDescription,
                         modifier = Modifier.size(40.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -219,7 +231,7 @@ fun PlaybackControls(
                     } else {
                         Icons.Rounded.PlayArrow
                     },
-                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    contentDescription = playPauseContentDescription,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -228,7 +240,7 @@ fun PlaybackControls(
         IconButton(onClick = actions.onSkipForward, modifier = Modifier.size(56.dp)) {
             Icon(
                 Icons.Rounded.Forward30,
-                contentDescription = "Forward 30 seconds",
+                contentDescription = forwardContentDescription,
                 modifier = Modifier.size(32.dp)
             )
         }
@@ -249,15 +261,15 @@ fun PlaybackControls(
             if (selectedSleepTimer == 0) {
                 Icon(
                     Icons.Rounded.Snooze,
-                    contentDescription = "Sleep Timer",
+                    contentDescription = sleepTimerContentDescription,
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             } else {
                 val displayText = when (selectedSleepTimer) {
-                    -1 -> "5s"
-                    -2 -> "Ch"
-                    else -> "${selectedSleepTimer}m"
+                    -1 -> stringResource(R.string.playback_sleep_timer_seconds_short, 5)
+                    -2 -> stringResource(R.string.playback_sleep_timer_chapter_short)
+                    else -> stringResource(R.string.playback_sleep_timer_minutes_short, selectedSleepTimer)
                 }
                 Text(
                     text = displayText,

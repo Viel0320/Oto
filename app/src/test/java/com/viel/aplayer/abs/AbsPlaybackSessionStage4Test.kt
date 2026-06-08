@@ -29,7 +29,11 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookDeletionGateway
+import com.viel.aplayer.data.gateway.BookMetadataGateway
+import com.viel.aplayer.data.gateway.BookmarkGateway
+import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -303,7 +307,10 @@ class AbsPlaybackSessionStage4Test {
         // Conflict Coordinator Fixture (Assembles the production arbitration service with minimal fake gateways)
         // The fakes provide only the progress and book snapshots needed by upload and pending-flush decisions.
         apiClient = api,
-        bookQueryGateway = FakeBookQueryGateway(book),
+        // Conflict Gateway Fixture (Reuse fake across split catalog and metadata seams)
+        // The coordinator reads book/file data from catalog and updates readStatus only through metadata on remote acceptance.
+        bookCatalogGateway = FakeBookQueryGateway(book),
+        bookMetadataGateway = FakeBookQueryGateway(book),
         progressGateway = FakeProgressGateway(localProgress),
         credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") }
     )
@@ -380,7 +387,11 @@ class AbsPlaybackSessionStage4Test {
 
     private class FakeBookQueryGateway(
         private var book: BookEntity
-    ) : BookQueryGateway {
+    ) : BookCatalogGateway,
+        BookMetadataGateway,
+        BookmarkGateway,
+        ChapterGateway,
+        BookDeletionGateway {
         override val audiobooks: Flow<List<BookWithProgress>> = flowOf(emptyList())
         override suspend fun getBookById(id: String): BookEntity? = book.takeIf { it.id == id }
         override fun observeBookById(id: String): Flow<BookEntity?> = flowOf(book.takeIf { it.id == id })

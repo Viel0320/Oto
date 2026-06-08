@@ -2,7 +2,9 @@ package com.viel.aplayer.dependencies
 
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookmarkGateway
+import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.PlaybackDomainEventSink
@@ -16,10 +18,11 @@ import com.viel.aplayer.media.PlaybackSourcePreflight
  */
 interface PlaybackRecoveryDependencies {
     /**
-     * Playback/Core Book Query Gateway (Track timeline lookup for progress coordinate repair)
+     * Playback/Core Book Catalog Gateway (Track timeline lookup for progress coordinate repair)
+     *
      * Lets recovery code resolve book files without seeing unrelated library or settings operations.
      */
-    val bookQueryGateway: BookQueryGateway
+    val bookCatalogGateway: BookCatalogGateway
 
     /**
      * Playback/Core Progress Gateway (Progress checkpoint lookup and write seam)
@@ -33,6 +36,20 @@ interface PlaybackRecoveryDependencies {
  * Collects only the gateways and event sink required by playback services and PlaybackManager.
  */
 interface PlaybackRuntimeDependencies : PlaybackRecoveryDependencies {
+    /**
+     * Playback/Core Chapter Gateway (Timeline chapter read seam)
+     *
+     * Lets foreground playback read chapter timelines without receiving catalog filters or metadata mutation commands.
+     */
+    val chapterGateway: ChapterGateway
+
+    /**
+     * Playback/Core Bookmark Gateway (Notification bookmark command seam)
+     *
+     * Lets foreground playback create bookmarks from notification actions without depending on chapter or catalog operations.
+     */
+    val bookmarkGateway: BookmarkGateway
+
     /**
      * Playback/Core Book Availability Gateway (Status-writing reachability seam)
      * Keeps media failover logic on the availability interface instead of the broad library facade.

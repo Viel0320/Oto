@@ -48,8 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.data.entity.BookEntity
-import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.HomeViewStyle
@@ -80,8 +79,8 @@ fun HomeScreenContent(
     // The following are pre-calculated fields dismantled and passed from LibraryUiState, so the Composable does not need to perform remember operations anymore.
     // When selectedFilter is null, it means the combine pipeline of the ViewModel has not yet produced the first final decision. At this time, the FilterChip row is not rendered to avoid jumping animations.
     selectedFilter: HomeFilter? = null,
-    groupedAudiobooks: Map<String, List<BookWithProgress>> = emptyMap(),
-    recentBooks: List<BookWithProgress> = emptyList(),
+    groupedAudiobooks: Map<String, List<HomeBookItem>> = emptyMap(),
+    recentBooks: List<HomeBookItem> = emptyList(),
     /*
      * Active Recent Detail Book Id (Recent-card source visibility selector)
      *
@@ -119,7 +118,7 @@ fun HomeScreenContent(
     onLibraryRootSelected: (Uri) -> Unit = {},
     // Book Actions Request Event (Report long-press user intent to the Home dialog host)
     // The content layer no longer owns dialog visibility or dialog rendering, keeping bookshelf layout independent from concrete modal implementations.
-    onBookActionsRequested: (BookWithProgress) -> Unit = {},
+    onBookActionsRequested: (HomeBookItem) -> Unit = {},
 ) {
     // Create dedicated HazeState for homepage chips to fetch clean background colors without self-sampling nested loops.
     val chipHazeState = remember { HazeState() }
@@ -131,6 +130,9 @@ fun HomeScreenContent(
     )
     // Resolve recentTitleRes pre-calculated from ViewModel into a localized string (0 means no display needed)
     val recentTitle = if (recentTitleRes != 0) stringResource(recentTitleRes) else ""
+    // Localized Home Badge Copy (Share the new-item label between list rows and grid-rendered catalog cards)
+    // Progress percentages are runtime values, but the fallback NEW marker is authored app UI copy.
+    val newBadgeText = stringResource(R.string.common_new_badge)
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
@@ -304,7 +306,7 @@ fun HomeScreenContent(
 
                 groupedAudiobooks.forEach { (groupTitle, books) ->
                     // Home Group Header (Render the active sort-rule section label)
-                    // The ViewModel already maps blank metadata to Unknown and orders sections by descending pinyin, so the UI only displays the provided label.
+                    // The ViewModel already maps blank metadata to Unknown and orders sections through the script-clustered Home catalog policy.
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = groupTitle,
@@ -328,7 +330,7 @@ fun HomeScreenContent(
                     when (homeViewStyle) {
                         HomeViewStyle.List -> {
                             // M-20 Fix: Use book.id as a stable key to prevent item state dislocation after book list sorting
-                            items(books, key = { it.book.id }) { book ->
+                            items(books, key = { it.id }) { book ->
                                 // listgroup Adaptive Cell Padding (Preserve roomy spacing when responsive layouts create multiple columns)
                                 // Compact portrait keeps the edge-to-edge list feel, while wider layouts add inner spacing between parallel listgroup columns.
                                 val itemModifier = if (listgroupColumnsCount > 1) {
@@ -337,18 +339,18 @@ fun HomeScreenContent(
                                     Modifier
                                 }
                                 ListItem(
-                                    bookId = book.book.id,
-                                    title = book.book.title,
-                                    author = book.book.author,
-                                    narrator = book.book.narrator,
-                                    duration = book.book.totalDurationMs,
+                                    bookId = book.id,
+                                    title = book.title,
+                                    author = book.author,
+                                    narrator = book.narrator,
+                                    duration = book.totalDurationMs,
                                     // Small Thumbnail Selection (thumbnail Preferred)
                                     // Main page common list uses small cover size, delegated to CoverImageSourceSelector.small to choose "thumbnail preferred, original fallback" path, avoiding custom hand-written Elvis rules.
                                     coverPath = CoverImageSourceSelector.small(
-                                        thumbnailPath = book.book.thumbnailPath,
-                                        coverPath = book.book.coverPath
+                                        thumbnailPath = book.thumbnailPath,
+                                        coverPath = book.coverPath
                                     ),
-                                    coverLastUpdated = book.book.lastScannedAt, // Bridge scan/self-healing milliseconds timestamp in Room layer, using declarative design to force synchronous image refreshing
+                                    coverLastUpdated = book.lastScannedAt, // Bridge scan/self-healing milliseconds timestamp in Room layer, using declarative design to force synchronous image refreshing
                                     progressPercent = book.progressPercent,
                                     /*
                                      * List Detail Source Activity (Main-list source visibility trigger)
@@ -356,21 +358,21 @@ fun HomeScreenContent(
                                      * Activates only when this book was opened from the main Home list,
                                      * keeping matching Recent cards visible and out of this transition.
                                      */
-                                    isDetailTargetActive = book.book.id == activeListDetailBookId,
+                                    isDetailTargetActive = book.id == activeListDetailBookId,
                                     /*
                                      * List Detail Shared Element Key (Main-list channel binding)
                                      *
                                      * Uses the list-specific key so Home list artwork cannot pair with
                                      * Recent cards that may show the same book ID.
                                     */
-                                    sharedElementKey = SharedElementKeys.homeList2DetailCover(book.book.id),
-                                    onClick = { onNavigateToDetail(book.book.id, DetailEntrySource.HomeList) },
+                                    sharedElementKey = SharedElementKeys.homeList2DetailCover(book.id),
+                                    onClick = { onNavigateToDetail(book.id, DetailEntrySource.HomeList) },
                                     // Book Actions Request (Forward long-press intent to the parent Home dialog host)
                                     // HomeScreenContent reports the selected audiobook without deciding which dialog should render.
                                     onLongClick = { onBookActionsRequested(book) },
                                     modifier = itemModifier
                                 ) {
-                                    onLoadBook(book.book.id)
+                                    onLoadBook(book.id)
                                     onNavigateToPlayer()
                                 }
                             }
@@ -387,25 +389,25 @@ fun HomeScreenContent(
                                     ),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    items(books, key = { it.book.id }) { book ->
+                                    items(books, key = { it.id }) { book ->
                                         // cardgroup Row Item Rendering (Reuse the fixed-width cover card inside a horizontal carousel)
                                         // Uses the Home-list shared element key so card taps still transition through the catalog-origin detail channel.
                                         cardgroup(
-                                            bookId = book.book.id,
-                                            title = book.book.title,
-                                            author = book.book.author,
-                                            narrator = book.book.narrator,
-                                            progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else "NEW",
+                                            bookId = book.id,
+                                            title = book.title,
+                                            author = book.author,
+                                            narrator = book.narrator,
+                                            progressText = if (book.progressPercent > 0) "${book.progressPercent}%" else newBadgeText,
                                             coverPath = CoverImageSourceSelector.medium(
-                                                thumbnailPath = book.book.thumbnailPath,
-                                                coverPath = book.book.coverPath
+                                                thumbnailPath = book.thumbnailPath,
+                                                coverPath = book.coverPath
                                             ),
-                                            coverLastUpdated = book.book.lastScannedAt,
-                                            isDetailTargetActive = book.book.id == activeListDetailBookId,
-                                            onClick = { onNavigateToDetail(book.book.id, DetailEntrySource.HomeList) },
+                                            coverLastUpdated = book.lastScannedAt,
+                                            isDetailTargetActive = book.id == activeListDetailBookId,
+                                            onClick = { onNavigateToDetail(book.id, DetailEntrySource.HomeList) },
                                             onLongClick = { onBookActionsRequested(book) },
                                             glassEffectMode = glassEffectMode,
-                                            sharedElementKey = SharedElementKeys.homeList2DetailCover(book.book.id)
+                                            sharedElementKey = SharedElementKeys.homeList2DetailCover(book.id)
                                         )
                                     }
                                 }
@@ -424,19 +426,30 @@ fun HomeScreenContent(
 @Composable
 fun HomeScreenNotStartedPreview() {
     val mockBooks = listOf(
-        BookWithProgress(
-            book = BookEntity(
-                id = "id1",
-                // Preview data follows the new logical-book model.
-                rootId = "preview-root",
-                sourceType = "SINGLE_AUDIO",
-                title = "In the Megachurch",
-                author = "Ryo Asai",
-                narrator = "Narrator A",
-                totalDurationMs = 44580000L,
-                addedAt = System.currentTimeMillis()
-            ),
-            progress = null
+        HomeBookItem(
+            id = "id1",
+            // Preview Home Item (Use the same Room-free projection delivered by the home read model)
+            // This preview avoids rebuilding Room rows and keeps the content renderer aligned with the scene boundary.
+            rootId = "preview-root",
+            sourceType = "SINGLE_AUDIO",
+            title = "In the Megachurch",
+            author = "Ryo Asai",
+            narrator = "Narrator A",
+            description = "",
+            year = "",
+            series = "",
+            totalDurationMs = 44580000L,
+            totalFileSize = 0L,
+            coverPath = null,
+            thumbnailPath = null,
+            lastScannedAt = 0L,
+            addedAt = System.currentTimeMillis(),
+            readStatus = "NOT_STARTED",
+            progressPercent = 0,
+            lastPlayedAt = 0L,
+            isFinished = false,
+            isInProgress = false,
+            isNotStarted = true
         )
     )
 
@@ -451,7 +464,7 @@ fun HomeScreenNotStartedPreview() {
             HomeScreenContent(
                 // Preview simulated data pre-calculated from ViewModel
                 selectedFilter = HomeFilter.NotStarted,
-                groupedAudiobooks = mockBooks.groupBy { it.book.author },
+                groupedAudiobooks = mockBooks.groupBy { it.author },
                 recentBooks = mockBooks,
                 shouldShowRecentBooks = true,
                 recentTitleRes = R.string.recently_added_title,

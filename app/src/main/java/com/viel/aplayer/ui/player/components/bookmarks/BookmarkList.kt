@@ -26,11 +26,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.R
+import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.formatDate
@@ -42,16 +44,16 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun BookmarkListView(
     modifier: Modifier = Modifier,
-    bookmarks: List<BookmarkEntity>,
+    bookmarks: List<PlayerBookmarkItem>,
     // Flattened state delegates (To decouple BookmarkDialogsState parameters and enforce stateless layouts design)
-    bookmarkToDelete: BookmarkEntity? = null,
-    bookmarkToEdit: BookmarkEntity? = null,
+    bookmarkToDelete: PlayerBookmarkItem? = null,
+    bookmarkToEdit: PlayerBookmarkItem? = null,
     bookmarkEditTitle: String = "",
     onBookmarkClick: (Long) -> Unit,
     // Request deletion confirmation (To delegate deletion checks to ViewModel callbacks)
-    onRequestDelete: (BookmarkEntity) -> Unit = {},
+    onRequestDelete: (PlayerBookmarkItem) -> Unit = {},
     // Request modification confirmation (To delegate edit overlays checks to ViewModel callbacks)
-    onRequestEdit: (BookmarkEntity) -> Unit = {},
+    onRequestEdit: (PlayerBookmarkItem) -> Unit = {},
     // Update edit text (To forward edit inputs changes back to ViewModel scope)
     onEditTitleChange: (String) -> Unit = {},
     // Confirm bookmark deletion (To invoke bookmark deletion transactions)
@@ -75,15 +77,15 @@ fun BookmarkListView(
             hazeState = hazeState,
             glassEffectMode = glassEffectMode,
             scrollable = false,
-            title = { Text("Delete Bookmark") },
+            title = { Text(stringResource(R.string.bookmark_delete_title)) },
             body = {
                 // Bookmark Delete Body (Confirm destructive bookmark removal)
                 // The selected bookmark entity remains owned by PlayerViewModel while this component only renders the confirmation step.
-                Text("Are you sure you want to delete this bookmark?")
+                Text(stringResource(R.string.bookmark_delete_body))
             },
             actions = {
                 TextButton(onClick = onDismissDialogs) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
                 TextButton(
                     onClick = {
@@ -91,7 +93,7 @@ fun BookmarkListView(
                         onDismissDialogs()
                     }
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             }
         )
@@ -104,12 +106,12 @@ fun BookmarkListView(
             hazeState = hazeState,
             glassEffectMode = glassEffectMode,
             scrollable = false,
-            title = { Text("Edit Bookmark") },
+            title = { Text(stringResource(R.string.bookmark_edit_title)) },
             body = {
                 // Bookmark Edit Body (Expose ViewModel-owned draft title to the shared dialog shell)
                 // Title changes are forwarded immediately so rotation and layout changes preserve the active edit draft.
                 Column {
-                    Text("Update bookmark:")
+                    Text(stringResource(R.string.bookmark_update_label))
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = bookmarkEditTitle,
@@ -121,7 +123,7 @@ fun BookmarkListView(
             },
             actions = {
                 TextButton(onClick = onDismissDialogs) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
                 TextButton(
                     onClick = {
@@ -129,7 +131,7 @@ fun BookmarkListView(
                         onDismissDialogs()
                     }
                 ) {
-                    Text("Save")
+                    Text(stringResource(R.string.action_save))
                 }
             }
         )
@@ -181,7 +183,9 @@ fun BookmarkListView(
                             color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                         )
                         Text(
-                            text = "@ ${formatDate(bookmark.createdAt)}",
+                            // Localized Bookmark Date Prefix (Format bookmark creation dates through resources)
+                            // The timestamp is bookmark data, while the visible prefix and spacing are app-authored UI formatting.
+                            text = stringResource(R.string.bookmark_created_at_label, formatDate(bookmark.createdAt)),
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontSize = 14.sp
                             ),
@@ -194,7 +198,7 @@ fun BookmarkListView(
                 IconButton(onClick = { onRequestDelete(bookmark) }) {
                     Icon(
                         Icons.Rounded.Delete,
-                        contentDescription = "Delete Bookmark",
+                        contentDescription = stringResource(R.string.bookmark_delete_content_description),
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp)
                     )
@@ -208,9 +212,9 @@ fun BookmarkListView(
 @Composable
 fun BookmarkListViewDarkPreview() {
     val sampleBookmarks = listOf(
-        BookmarkEntity("1", "id", 0L, title = "Introduction"),
-        BookmarkEntity("2", "id", 300000L, title = "Chapter 1"),
-        BookmarkEntity("3", "id", 1200000L, title = "Chapter 2")
+        PlayerBookmarkItem("1", "id", 0L, title = "Introduction", createdAt = 0L),
+        PlayerBookmarkItem("2", "id", 300000L, title = "Chapter 1", createdAt = 300000L),
+        PlayerBookmarkItem("3", "id", 1200000L, title = "Chapter 2", createdAt = 1200000L)
     )
 
     APlayerTheme(darkTheme = true) {

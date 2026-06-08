@@ -6,6 +6,8 @@ package com.viel.aplayer.ui.navigation
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -16,12 +18,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.savedstate.compose.LocalSavedStateRegistryOwner
+import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.ThemeMode
+import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.VisualEffectPolicy
 import com.viel.aplayer.ui.common.theme.rememberVisualEffectEnvironment
@@ -111,11 +119,43 @@ fun APlayerApp(
         }
     }
 
-    // Apply App Theme (Pass active dark theme and dynamic color states down to the customized theme container) Wraps the layout in APlayerTheme.
-    APlayerTheme(
-        darkTheme = isDarkTheme,
-        dynamicColor = isDynamicColorEnabled
+    // Localized Resource Context (Feed app-language choices into Compose resource lookup)
+    // Android 13+ may already apply the platform locale, while Android 12L receives the same language through a configuration context fallback.
+    val effectiveAppLanguage = AppLocaleController.resolveEffectiveLanguage(context, initialSettings.appLanguage)
+    val localizedContext = remember(context, effectiveAppLanguage) {
+        AppLocaleController.wrapContext(context, effectiveAppLanguage)
+    }
+    val localizedConfiguration = localizedContext.resources.configuration
+    // Activity Host Owner Capture (Read Activity-provided owners before LocalContext becomes a locale wrapper)
+    // APlayerApp is hosted by MainActivity, so missing owners indicate an invalid host rather than an optional app state.
+    val activityResultRegistryOwner = checkNotNull(LocalActivityResultRegistryOwner.current) {
+        "APlayerApp requires an ActivityResultRegistryOwner host."
+    }
+    val onBackPressedDispatcherOwner = checkNotNull(LocalOnBackPressedDispatcherOwner.current) {
+        "APlayerApp requires an OnBackPressedDispatcherOwner host."
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val viewModelStoreOwner = checkNotNull(LocalViewModelStoreOwner.current) {
+        "APlayerApp requires a ViewModelStoreOwner host."
+    }
+    val savedStateRegistryOwner = LocalSavedStateRegistryOwner.current
+
+    CompositionLocalProvider(
+        // Activity Owner Preservation (Keep Activity-scoped Compose services available after swapping LocalContext)
+        // The localized configuration context is not an Activity, so registry, lifecycle, back handling, ViewModel, and saved-state owners must be carried forward explicitly.
+        LocalActivityResultRegistryOwner provides activityResultRegistryOwner,
+        LocalOnBackPressedDispatcherOwner provides onBackPressedDispatcherOwner,
+        LocalLifecycleOwner provides lifecycleOwner,
+        LocalViewModelStoreOwner provides viewModelStoreOwner,
+        LocalSavedStateRegistryOwner provides savedStateRegistryOwner,
+        LocalContext provides localizedContext,
+        LocalConfiguration provides localizedConfiguration
     ) {
+        // Apply App Theme (Pass active dark theme and dynamic color states down to the customized theme container) Wraps the layout in APlayerTheme.
+        APlayerTheme(
+            darkTheme = isDarkTheme,
+            dynamicColor = isDynamicColorEnabled
+        ) {
         // Setup Navigation 3
         // Controller (Initialize state and navigator) Migrate from rememberNavController to custom NavigationState.
         val navigationState = rememberNavigationState(
@@ -302,6 +342,9 @@ fun APlayerApp(
                         // HomeScreen still renders the catalog from LibraryUiState, while the app bar dialog only edits these persisted preferences.
                         homeViewStyle = libraryUiState.homeViewStyle,
                         homeSortRule = libraryUiState.homeSortRule,
+                        // Home Sort Direction State (Route in-cluster sort direction into the NavHost-owned preference dialog)
+                        // The Home catalog policy keeps cluster order fixed while this value controls ascending or descending comparisons inside clusters.
+                        homeSortDirection = libraryUiState.homeSortDirection,
                         // Home Dialog Haze Routing (Use the same app backdrop source as Search route)
                         // Passing the top-level source prevents Home dialogs from sampling the clipped LazyGrid-local fallback source.
                         homeDialogHazeState = hazeState,
@@ -311,7 +354,8 @@ fun APlayerApp(
                             settingsViewModel.setVisible(true)
                         },
                         onHomeViewStyleSelected = libraryViewModel::setHomeViewStyle,
-                        onHomeSortRuleSelected = libraryViewModel::setHomeSortRule
+                        onHomeSortRuleSelected = libraryViewModel::setHomeSortRule,
+                        onHomeSortDirectionSelected = libraryViewModel::setHomeSortDirection
                     )
                 }
 
@@ -391,13 +435,32 @@ fun APlayerApp(
                         detailUiState.isVisible &&
                         detailUiState.entrySource == DetailEntrySource.Search
                     ) {
-                        detailUiState.book?.book?.id
+                        detailUiState.book?.bookId
                     } else {
                         null
                     },
                     onNavigateToDetail = { bookId ->
                         searchViewModel.setVisible(false)
-                        val book = libraryUiState.audiobooks.find { it.book.id == bookId }
+                        val book = libraryUiState.audiobooks.find { it.id == bookId }?.let { libraryBook ->
+                            // Search Detail Boundary Mapping (Convert the search-selected library row into a Detail scene item)
+                            // The navigation shell bridges the Home scene projection to Detail without exposing Room rows through DetailViewModel.
+                            DetailBookItem(
+                                id = libraryBook.id,
+                                rootId = libraryBook.rootId,
+                                sourceType = libraryBook.sourceType,
+                                title = libraryBook.title,
+                                author = libraryBook.author,
+                                narrator = libraryBook.narrator,
+                                description = libraryBook.description,
+                                year = libraryBook.year,
+                                totalDurationMs = libraryBook.totalDurationMs,
+                                totalFileSize = libraryBook.totalFileSize,
+                                coverPath = libraryBook.coverPath,
+                                thumbnailPath = libraryBook.thumbnailPath,
+                                lastScannedAt = libraryBook.lastScannedAt,
+                                progressPercent = libraryBook.progressPercent
+                            )
+                        }
                         detailViewModel.selectBook(
                             book = book,
                             /*
@@ -454,4 +517,4 @@ fun APlayerApp(
 }
 }
 }
-
+}

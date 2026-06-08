@@ -9,8 +9,10 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.data.store.SleepMode
@@ -49,15 +51,21 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     private object PreferencesKeys {
         // Theme Mode Storage Key (Key tracking theme preference, e.g. System, Light, or Dark) Added string preference key for theme mode.
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        // App Language Storage Key (Stores the explicit app locale selection)
+        // Enum names remain language-agnostic so translated labels can change without invalidating persisted preferences.
+        val APP_LANGUAGE = stringPreferencesKey("app_language")
         // Dynamic Color Storage Key (Preference key to track whether dynamic Monet coloring is enabled) Adds preferences key for dynamic color option.
         val IS_DYNAMIC_COLOR_ENABLED = booleanPreferencesKey("is_dynamic_color_enabled")
         val HOME_FILTER = stringPreferencesKey("home_filter")
         // Home View Style Storage Key (Tracks the user's catalog renderer preference)
         // Stores enum names instead of localized labels so preference data stays stable across language changes.
         val HOME_VIEW_STYLE = stringPreferencesKey("home_view_style")
-        // Home Sort Rule Storage Key (Tracks the user's catalog grouping and pinyin-descending sort preference)
+        // Home Sort Rule Storage Key (Tracks the user's catalog grouping pivot for script-clustered sorting)
         // Stores enum names so author, narrator, and series sorting can be restored without coupling DataStore to UI text.
         val HOME_SORT_RULE = stringPreferencesKey("home_sort_rule")
+        // Home Sort Direction Storage Key (Tracks the user's in-cluster ascending or descending preference)
+        // The script cluster order is fixed in HomeCatalogSortPolicy, so this preference only flips comparisons inside a cluster.
+        val HOME_SORT_DIRECTION = stringPreferencesKey("home_sort_direction")
         val IS_GLOBAL_SPEED_ENABLED = booleanPreferencesKey("is_global_speed_enabled")
         val GLOBAL_PLAYBACK_SPEED = floatPreferencesKey("global_playback_speed")
         val IS_CHAPTER_PROGRESS_MODE = booleanPreferencesKey("is_chapter_progress_mode")
@@ -95,6 +103,11 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             themeMode = preferences[PreferencesKeys.THEME_MODE]
                 ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: ThemeMode.System,
+            // Read App Language (Parse locale preference with a safe system-default fallback)
+            // Invalid enum names are ignored so stale preference values cannot block app startup after locale migrations.
+            appLanguage = preferences[PreferencesKeys.APP_LANGUAGE]
+                ?.let { runCatching { AppLanguage.valueOf(it) }.getOrNull() }
+                ?: AppLanguage.System,
             // Read Dynamic Color Setting (Load persisted dynamic color option, defaulting to true) Reads dynamic color setting from DataStore.
             isDynamicColorEnabled = preferences[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] ?: true,
             homeFilter = preferences[PreferencesKeys.HOME_FILTER] ?: "NotStarted",
@@ -108,6 +121,11 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             homeSortRule = preferences[PreferencesKeys.HOME_SORT_RULE]
                 ?.let { runCatching { HomeSortRule.valueOf(it) }.getOrNull() }
                 ?: HomeSortRule.Author,
+            // Read Home Sort Direction (Parse persisted in-cluster direction while keeping script cluster order fixed)
+            // Invalid values safely fall back to ascending so older preferences and partial writes do not destabilize Home rendering.
+            homeSortDirection = preferences[PreferencesKeys.HOME_SORT_DIRECTION]
+                ?.let { runCatching { HomeSortDirection.valueOf(it) }.getOrNull() }
+                ?: HomeSortDirection.Ascending,
             isGlobalSpeedEnabled = preferences[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] ?: false,
             globalPlaybackSpeed = preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] ?: 1.0f,
             isChapterProgressMode = preferences[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] ?: false,
@@ -154,6 +172,12 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     // Saves enum names directly so the ViewModel can rebuild grouped audiobook sections from the canonical settings stream.
     suspend fun updateHomeSortRule(rule: HomeSortRule) {
         dataStore.edit { it[PreferencesKeys.HOME_SORT_RULE] = rule.name }
+    }
+
+    // Write Home Sort Direction (Persist the selected in-cluster ordering direction)
+    // Saves only the enum name because fixed script cluster ordering remains a policy concern, not a storage concern.
+    suspend fun updateHomeSortDirection(direction: HomeSortDirection) {
+        dataStore.edit { it[PreferencesKeys.HOME_SORT_DIRECTION] = direction.name }
     }
 
     suspend fun updateGlobalSpeedEnabled(enabled: Boolean) {
@@ -224,6 +248,12 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     // Write Theme Mode (Persist user selected theme mode into local DataStore) Helper function to save theme mode configuration.
     suspend fun updateThemeMode(mode: ThemeMode) {
         dataStore.edit { it[PreferencesKeys.THEME_MODE] = mode.name }
+    }
+
+    // Write App Language (Persist explicit app locale selection)
+    // The caller applies platform locale APIs separately, keeping storage mutation and Android framework side effects decoupled.
+    suspend fun updateAppLanguage(language: AppLanguage) {
+        dataStore.edit { it[PreferencesKeys.APP_LANGUAGE] = language.name }
     }
 
     // Write Dynamic Color Setting (Persist dynamic color option to DataStore) Saves dynamic color preference changes.

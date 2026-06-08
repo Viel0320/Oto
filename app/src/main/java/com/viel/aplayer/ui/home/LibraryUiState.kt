@@ -1,9 +1,10 @@
 package com.viel.aplayer.ui.home
 
 import androidx.annotation.StringRes
-import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
@@ -18,20 +19,20 @@ import com.viel.aplayer.data.store.ThemeMode
  */
 data class LibraryUiState(
     /** List of all books on the bookshelf (unfiltered raw) */
-    val audiobooks: List<BookWithProgress> = emptyList(),
+    val audiobooks: List<HomeBookItem> = emptyList(),
 
     /** Current active filter type. null means combine pipeline has not produced first decision, UI should temporarily skip rendering FilterChip row */
     val selectedFilter: HomeFilter? = null,
 
     /** List of filtered books according to current filter and current Home sorting rule */
-    val filteredAudiobooks: List<BookWithProgress> = emptyList(),
+    val filteredAudiobooks: List<HomeBookItem> = emptyList(),
 
     // Home Grouped Catalog (Filtered books grouped by the active Home sort rule)
-    // The map keeps insertion order from the ViewModel's pinyin-descending sort so section headers render in the same order as the selected rule.
-    val groupedAudiobooks: Map<String, List<BookWithProgress>> = emptyMap(),
+    // The map keeps insertion order from the ViewModel's script-clustered sort so section headers render in the same order as the selected rule.
+    val groupedAudiobooks: Map<String, List<HomeBookItem>> = emptyMap(),
 
     /** Book list for "recent" section (NotStarted -> recently added; InProgress -> recently played) */
-    val recentBooks: List<BookWithProgress> = emptyList(),
+    val recentBooks: List<HomeBookItem> = emptyList(),
 
     /**
      * Recent Title Resource ID (Recent Section Header Text)
@@ -52,9 +53,13 @@ data class LibraryUiState(
     // The UI consumes this directly to switch between adaptive listgroup columns and single-line cardgroup carousels.
     val homeViewStyle: HomeViewStyle = HomeViewStyle.List,
 
-    // Home Sort Rule State (Expose the selected Home grouping and pinyin-descending order)
+    // Home Sort Rule State (Expose the selected Home grouping pivot and script-clustered order)
     // The app bar dialog reads this value for selected controls, while content consumes the already-grouped catalog data.
     val homeSortRule: HomeSortRule = HomeSortRule.Author,
+
+    // Home Sort Direction State (Expose ascending or descending preference for items inside each script cluster)
+    // Cluster order remains fixed in the sort policy, so the UI only needs this value for the Home view dialog selected state.
+    val homeSortDirection: HomeSortDirection = HomeSortDirection.Ascending,
 
     // Theme Mode Config (Active theme configuration preference, e.g. System, Light, or Dark) Added theme mode field to home library UI state.
     val themeMode: ThemeMode = ThemeMode.System,

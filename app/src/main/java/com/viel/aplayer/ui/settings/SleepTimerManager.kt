@@ -1,9 +1,9 @@
 package com.viel.aplayer.ui.settings
 
 import android.content.Context
+import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
-import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackState
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +27,7 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 class SleepTimerManager(
     private val scope: CoroutineScope,
-    private val playbackManager: () -> PlaybackManager?,
+    private val playbackController: () -> PlayerPlaybackController?,
     private val contextProvider: () -> Context?,
     // Dynamic Config Lambdas (Access latest preferences on-demand)
     private val isSleepFadeOutEnabled: () -> Boolean,
@@ -212,8 +212,9 @@ class SleepTimerManager(
             // Chapter Boundary Mode (Pause playback at current chapter completion)
             val meta = currentMetadata()
             val state = currentPlayback()
-            // Entity Unpacking Transform (Convert relational structures to simple model lists)
-            val chapters = meta.chapters.map { it.chapter }
+            // Player Chapter Projection Use (Consume player-scene chapter items directly)
+            // BookMetadataState already exposes Room-free timeline fields, so sleep timing no longer unwraps database relations.
+            val chapters = meta.chapters
             // Track Current Segment (Locate active chapter)
             val currentChapter = chapters.findLast { state.currentPosition >= it.startPositionMs }
             val currentChapterIndex = if (currentChapter != null) chapters.indexOf(currentChapter) else -1
@@ -287,8 +288,9 @@ class SleepTimerManager(
                     while (true) {
                         val state = currentPlayback()
                         val meta = currentMetadata()
-                        // Chapter Unpacking Map (Align collections with standard database models)
-                        val chapters = meta.chapters.map { it.chapter }
+                        // Player Chapter Projection Use (Consume player-scene chapter items directly)
+                        // Chapter-boundary sleep timing now reads the same projection used by player controls.
+                        val chapters = meta.chapters
                         if (state.isPlaying) {
                             val currentChapter = chapters.findLast { state.currentPosition >= it.startPositionMs }
                             val endPos = if (currentChapter != null) {
@@ -306,7 +308,7 @@ class SleepTimerManager(
                                 if (!isSkipped && isSleepFadeOutEnabled() && remainingMs <= 10000L) {
                                     if (!isFading) {
                                         isFading = true
-                                        originalVolume = playbackManager()?.playerVolume ?: 1.0f
+                                        originalVolume = playbackController()?.playerVolume ?: 1.0f
                                         if (isShakeToResetEnabled() || sleepMode() != com.viel.aplayer.data.store.SleepMode.Regular) {
                                             registerShakeListener(currentPlayback, currentMetadata)
                                             registeredSensor = true
@@ -323,11 +325,11 @@ class SleepTimerManager(
                                     if (updatedState.isPlaying) {
                                         // Volume Restoration Intercept (Revert volume to standard if user is active)
                                         if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking && isDeviceMoving) {
-                                            playbackManager()?.playerVolume = originalVolume
+                                            playbackController()?.playerVolume = originalVolume
                                             continue
                                         }
                                         if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking && !hasUserFallenAsleep) {
-                                            playbackManager()?.playerVolume = originalVolume
+                                            playbackController()?.playerVolume = originalVolume
                                             continue
                                         }
 
@@ -335,10 +337,10 @@ class SleepTimerManager(
                                         val ratio = (updatedRemaining.coerceAtLeast(0L)).toFloat() / 10000f
                                         // Logarithmic Volume Scale: Volume = OriginalVolume * ln(1 + 9 * ratio) / ln(10)
                                         val factor = (ln(1.0 + 9.0 * ratio.toDouble()) / ln(10.0)).toFloat()
-                                        playbackManager()?.playerVolume = originalVolume * factor
+                                        playbackController()?.playerVolume = originalVolume * factor
                                     } else {
                                         // Interrupt Cleanup Execution (Reset attenuation parameters on external pause)
-                                        playbackManager()?.playerVolume = originalVolume
+                                        playbackController()?.playerVolume = originalVolume
                                         isFading = false
                                         if (registeredSensor) {
                                             unregisterShakeListener()
@@ -360,11 +362,11 @@ class SleepTimerManager(
                         }
                         delay(1000.milliseconds)
                     }
-                    playbackManager()?.pause()
+                    playbackController()?.pause()
                 } finally {
                     // Try-Finally Safety Wrap (Ensure volume and sensor recovery on job termination)
                     if (isFading) {
-                        playbackManager()?.playerVolume = originalVolume
+                        playbackController()?.playerVolume = originalVolume
                     }
                     unregisterShakeListener()
                     hasUserFallenAsleep = false
@@ -390,7 +392,7 @@ class SleepTimerManager(
                     if (isSleepFadeOutEnabled() && _sleepTimerMillis.value <= 10000L) {
                         if (!isFading) {
                             isFading = true
-                            originalVolume = playbackManager()?.playerVolume ?: 1.0f
+                            originalVolume = playbackController()?.playerVolume ?: 1.0f
                             if (isShakeToResetEnabled() || sleepMode() != com.viel.aplayer.data.store.SleepMode.Regular) {
                                 registerShakeListener(currentPlayback, currentMetadata)
                                 registeredSensor = true
@@ -405,11 +407,11 @@ class SleepTimerManager(
                             if (currentPlayback().isPlaying) {
                                 // Countdown Suspend Execution (Hold duration and volume levels if active motion is detected)
                                 if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking && isDeviceMoving) {
-                                    playbackManager()?.playerVolume = originalVolume
+                                    playbackController()?.playerVolume = originalVolume
                                     continue
                                 }
                                 if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking && !hasUserFallenAsleep) {
-                                    playbackManager()?.playerVolume = originalVolume
+                                    playbackController()?.playerVolume = originalVolume
                                     continue
                                 }
 
@@ -417,10 +419,10 @@ class SleepTimerManager(
                                 val ratio = _sleepTimerMillis.value.toFloat() / 10000f
                                 // Logarithmic Volume Scale: Volume = OriginalVolume * ln(1 + 9 * ratio) / ln(10)
                                 val factor = (ln(1.0 + 9.0 * ratio.toDouble()) / ln(10.0)).toFloat()
-                                playbackManager()?.playerVolume = originalVolume * factor
+                                playbackController()?.playerVolume = originalVolume * factor
                             } else {
                                 // Interrupt Cleanup Execution (Reset attenuation parameters on external pause)
-                                playbackManager()?.playerVolume = originalVolume
+                                playbackController()?.playerVolume = originalVolume
                                 isFading = false
                                 if (registeredSensor) {
                                     unregisterShakeListener()
@@ -467,11 +469,11 @@ class SleepTimerManager(
                         }
                     }
                 }
-                playbackManager()?.pause()
+                playbackController()?.pause()
             } finally {
                 // Try-Finally Safety Wrap (Ensure volume and sensor cleanup on timer termination)
                 if (isFading) {
-                    playbackManager()?.playerVolume = originalVolume
+                    playbackController()?.playerVolume = originalVolume
                 }
                 unregisterShakeListener()
                 hasUserFallenAsleep = false

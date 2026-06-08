@@ -20,7 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
@@ -40,7 +40,7 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun DetailPortrait(
-    book: BookEntity?,
+    book: DetailBookItem?,
     uiState: DetailUiState,
     padding: PaddingValues,
     glassEffectMode: GlassEffectMode,
@@ -55,6 +55,8 @@ fun DetailPortrait(
     onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Portrait Detail Item (Render from the scene projection instead of a database entity)
+    // This keeps portrait-specific shared elements, cover loading, and metadata labels inside the Detail boundary.
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
     /*
      * Detail Cover Motion Channel (Entry-source based target binding)

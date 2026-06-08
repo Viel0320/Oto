@@ -40,6 +40,10 @@ fun HomeAppBar(
     onHeightChanged: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Localized Home Bar Action Copy (Resolve the home view-options button accessibility text)
+    // The action opens layout and sorting preferences, so its spoken label should follow the active app locale.
+    val homeViewOptionsContentDescription = stringResource(R.string.home_view_options_content_description)
+
     // Home Top Bar Shared Chrome Reuse (Keep Home-specific behavior in slots)
     // The extracted component owns glass rendering and measurement while HomeAppBar only supplies the title gesture and home navigation actions.
     APlayerGlassTopBar(
@@ -86,7 +90,7 @@ fun HomeAppBar(
                     Icons.Rounded.ViewModule,
                     // Home View Options Entry (Expose catalog layout and sorting controls from the Home top bar)
                     // The entry sits immediately before Settings so display preferences are discoverable without entering the full settings overlay.
-                    contentDescription = "Home view options"
+                    contentDescription = homeViewOptionsContentDescription
                 )
             }
             IconButton(

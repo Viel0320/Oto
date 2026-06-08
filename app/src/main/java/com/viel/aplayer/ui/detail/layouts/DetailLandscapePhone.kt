@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
@@ -44,7 +44,7 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun DetailLandscapePhone(
-    book: BookEntity?,
+    book: DetailBookItem?,
     uiState: DetailUiState,
     padding: PaddingValues,
     safeDrawingPadding: PaddingValues,
@@ -60,6 +60,8 @@ fun DetailLandscapePhone(
     onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Landscape Detail Item (Render from the scene projection instead of a database entity)
+    // The compact split layout only needs Detail-owned metadata and cover fields for rendering.
     val windowClass = LocalWindowClass.current
     val layoutDirection = LocalLayoutDirection.current
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current

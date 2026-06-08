@@ -29,7 +29,12 @@ interface SearchHistoryGateway {
      * Delete History Entry (Specific entry deletion)
      * Permanently deletes a single search query record from the history list.
      */
-    suspend fun deleteFromHistory(history: SearchHistoryEntry)
+    /**
+     * Delete History Query (Stable user-visible identity deletion)
+     *
+     * Deletes by normalized query text so callers outside the persistence layer do not need to carry DataStore entry objects.
+     */
+    suspend fun deleteFromHistory(query: String)
 
     /**
      * Purge Search History (Global database purge)

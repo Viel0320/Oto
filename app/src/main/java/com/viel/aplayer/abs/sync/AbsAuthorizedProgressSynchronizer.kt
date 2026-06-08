@@ -9,7 +9,8 @@ import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookMetadataGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 
 /**
@@ -19,7 +20,8 @@ import com.viel.aplayer.data.gateway.ProgressGateway
 class AbsAuthorizedProgressSynchronizer(
     private val apiClient: AbsApiClient,
     private val credentialProvider: suspend (LibraryRootEntity) -> CredentialSnapshot?,
-    private val bookQueryGateway: BookQueryGateway,
+    private val bookCatalogGateway: BookCatalogGateway,
+    private val bookMetadataGateway: BookMetadataGateway,
     private val progressGateway: ProgressGateway,
     private val progressMapper: AbsProgressMapper = AbsProgressMapper(),
     private val conflictResolver: AbsProgressConflictResolver = AbsProgressConflictResolver(),
@@ -95,7 +97,7 @@ class AbsAuthorizedProgressSynchronizer(
     ): AbsAuthorizedProgressSyncSummary {
         val itemId = remote.libraryItemId?.takeIf { it.isNotBlank() } ?: return AbsAuthorizedProgressSyncSummary(skippedMissingBookCount = 1)
         val bookId = idMapper.bookId(serverKey, itemId)
-        val book = bookQueryGateway.getBookById(bookId)
+        val book = bookCatalogGateway.getBookById(bookId)
             ?.takeIf { existing -> existing.rootId == root.id && existing.sourceType == AudiobookSchema.SourceType.ABS_REMOTE }
             ?: return AbsAuthorizedProgressSyncSummary(skippedMissingBookCount = 1)
         val localProgress = progressGateway.getProgressForBookSync(book.id)
@@ -114,10 +116,10 @@ class AbsAuthorizedProgressSynchronizer(
 
     /**
      * Apply Remote Progress (Persists the resolver-approved checkpoint and aligns readStatus)
-     * ProgressGateway stores the physical file anchor, while BookQueryGateway updates semantic reading state only when it actually changes.
+     * ProgressGateway stores the physical file anchor, while BookMetadataGateway updates semantic reading state only when it actually changes.
      */
     private suspend fun applyRemoteProgress(book: BookEntity, remote: AbsUserProgressDto) {
-        val files = bookQueryGateway.getFilesForBookSync(book.id)
+        val files = bookCatalogGateway.getFilesForBookSync(book.id)
         val progress = progressMapper.toProgress(remote, book, files, System.currentTimeMillis())
         progressGateway.saveProgress(progress)
         // Authorized Progress Read-State Mapping (Uses the same remote-progress status policy as playback conflict acceptance)
@@ -127,7 +129,7 @@ class AbsAuthorizedProgressSynchronizer(
             hasPositivePosition = progressMapper.resolvedCurrentTimeSec(remote) > 0.0
         )
         if (book.readStatus != nextReadStatus) {
-            bookQueryGateway.updateBookReadStatus(book.id, nextReadStatus)
+            bookMetadataGateway.updateBookReadStatus(book.id, nextReadStatus)
         }
     }
 

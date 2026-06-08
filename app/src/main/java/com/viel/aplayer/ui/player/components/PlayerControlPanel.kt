@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.entity.ChapterEntity
+import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
@@ -26,7 +26,7 @@ import dev.chrisbanes.haze.HazeState
  * @param currentPosition The current physical playback progress of the player (in milliseconds).
  * @param totalDuration The current physical total duration of the player (in milliseconds).
  * @param isChapterMode Whether the progress bar is currently in chapter progress view mode.
- * @param currentChapter The chapter entity that is currently playing.
+ * @param currentChapter The player-scene chapter item that is currently playing.
  * @param metadata The metadata state of the current book.
  * @param isPlaying Whether the player is currently playing.
  * @param playbackSpeed The current playback speed.
@@ -43,7 +43,7 @@ fun PlayerControlPanel(
     currentPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
-    currentChapter: ChapterEntity?,
+    currentChapter: PlayerChapterItem?,
     metadata: BookMetadataState,
     isPlaying: Boolean,
     playbackSpeed: Float,
@@ -78,8 +78,9 @@ fun PlayerControlPanel(
             currentPosition = currentPosition,
             totalDuration = totalDuration,
             isChapterMode = isChapterMode,
-            // Map and unpack the independent chapter physical definitions from the metadata list on the fly to match the data type requirements of the stateless component.
-            chapters = metadata.chapters.map { it.chapter },
+            // Player Chapter Projection Forwarding (Pass scene chapters directly to progress rendering)
+            // The timeline helper now works on player projections, so the control panel no longer rehydrates database chapter entities.
+            chapters = metadata.chapters,
             markers = metadata.getChapterMarkers(totalDuration),
             onSeek = { pos -> actions.playback.onSeek(pos, true) },
             modifier = Modifier.fillMaxWidth(),

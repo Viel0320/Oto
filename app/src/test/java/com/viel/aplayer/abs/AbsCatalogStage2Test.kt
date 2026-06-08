@@ -33,7 +33,11 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookDeletionGateway
+import com.viel.aplayer.data.gateway.BookMetadataGateway
+import com.viel.aplayer.data.gateway.BookmarkGateway
+import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -96,6 +100,42 @@ class AbsCatalogStage2Test {
         assertEquals(1, chapters.size)
         assertEquals(files.first().id, chapters.first().bookFileId)
         assertEquals(0L, chapters.first().fileOffsetMs)
+    }
+
+    @Test
+    fun `catalog mapper should preserve remote addedAt for new ABS books and keep local value on resync`() {
+        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val root = LibraryRootEntity(
+            id = idMapper.rootId(serverKey, "lib-1"),
+            sourceType = AudiobookSchema.LibrarySourceType.ABS,
+            sourceUri = "https://example.com/audiobookshelf",
+            basePath = "lib-1",
+            credentialId = "cred-1",
+            displayName = "Audiobooks"
+        )
+        val remoteAddedAt = 4_000L
+        val existingAddedAt = 2_000L
+        val item = sampleItem(
+            itemId = "item-recent",
+            libraryId = "lib-1",
+            addedAt = remoteAddedAt
+        )
+
+        val firstSyncBook = catalogMapper.toBook(root, serverKey, item, existing = null, syncedAt = 9_000L)
+        val resyncedBook = catalogMapper.toBook(
+            root = root,
+            serverKey = serverKey,
+            item = item.copy(addedAt = 10_000L),
+            existing = firstSyncBook.copy(addedAt = existingAddedAt),
+            syncedAt = 11_000L
+        )
+
+        // Remote Recency Regression Guard (Locks Recently Added ordering to ABS catalog time instead of sync execution time)
+        // If this falls back to syncedAt, all books imported in one ABS run tie and the home list keeps its upstream title order.
+        assertEquals(remoteAddedAt, firstSyncBook.addedAt)
+        // Local Recency Stability Guard (Protects existing shelf order from later ABS metadata refreshes)
+        // Once a local book exists, resync should not replace its original addedAt with either remote mutations or current clock time.
+        assertEquals(existingAddedAt, resyncedBook.addedAt)
     }
 
     @Test
@@ -244,13 +284,17 @@ class AbsCatalogStage2Test {
         )
         val credentialStore = createCredentialStore(token = "token-1", baseUrl = "https://example.com/audiobookshelf")
         val progressGateway = FakeProgressGateway(catalogStore.progress)
+        // Authorized Progress Gateway Fixture (Share one fake for catalog reads and metadata writes)
+        // This keeps readStatus updates visible on catalogStore.books while matching the production split gateway constructor.
+        val progressBookGateway = FakeBookQueryGateway(catalogStore.books, mapOf(existingBook.id to existingFiles))
         val authorizedProgressSynchronizer = AbsAuthorizedProgressSynchronizer(
             apiClient = FakeAbsApiClient(
                 minified = AbsLibraryItemsResponseDto(results = listOf(existingItem), total = 1, limit = 1, page = 0),
                 details = emptyList()
             ),
             credentialProvider = { AbsAuthorizedProgressSynchronizer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
-            bookQueryGateway = FakeBookQueryGateway(catalogStore.books, mapOf(existingBook.id to existingFiles)),
+            bookCatalogGateway = progressBookGateway,
+            bookMetadataGateway = progressBookGateway,
             progressGateway = progressGateway
         )
         val synchronizer = AbsCatalogSynchronizer(
@@ -450,7 +494,10 @@ class AbsCatalogStage2Test {
             AbsChapterDto(id = 0, title = "Chapter 1", start = 0.0, end = 10.0)
         ),
         progress: AbsUserProgressDto? = null,
-        updatedAt: Long = 100L
+        updatedAt: Long = 100L,
+        // ABS Fixture Added Time (Models remote catalog recency independently from test execution time)
+        // Recently Added regressions need configurable ABS addedAt values instead of a fixed shared fixture timestamp.
+        addedAt: Long = 50L
     ): AbsLibraryItemDto {
         val tracks = (1..trackCount).map { index ->
             val ino = if (index == 1) "856465" else "85646$index"
@@ -485,7 +532,7 @@ class AbsCatalogStage2Test {
             mediaType = "book",
             title = "First Fifty Digits of Pi",
             updatedAt = updatedAt,
-            addedAt = 50L,
+            addedAt = addedAt,
             media = AbsItemMediaDto(
                 metadata = AbsMediaMetadataDto(
                     title = "First Fifty Digits of Pi",
@@ -587,7 +634,11 @@ class AbsCatalogStage2Test {
     private class FakeBookQueryGateway(
         private val books: MutableMap<String, BookEntity>,
         private val files: Map<String, List<BookFileEntity>>
-    ) : BookQueryGateway {
+    ) : BookCatalogGateway,
+        BookMetadataGateway,
+        BookmarkGateway,
+        ChapterGateway,
+        BookDeletionGateway {
         override val audiobooks: Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
         override suspend fun getBookById(id: String): BookEntity? = books[id]
         override fun observeBookById(id: String): Flow<BookEntity?> = flowOf(books[id])

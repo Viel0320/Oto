@@ -1,11 +1,14 @@
 package com.viel.aplayer.ui.settings
 
-import com.viel.aplayer.data.entity.LibraryRootEntity
-
-// Library Root Display Model (Carries preformatted settings-list fields for each added library)
-// Keeps the SettingsScreen rendering focused on layout while the ViewModel owns status, timestamp, and imported-count aggregation rules.
-data class LibraryRootDisplayState(
-    val root: LibraryRootEntity,
+// Settings Root Item (Room-free row model for settings root management)
+// Carries the display text plus root-scoped edit/delete command anchors so SettingsScreen and SettingsDialogs never need the persistence root row.
+data class SettingsRootItem(
+    val rootId: String,
+    val sourceType: String,
+    val sourceUri: String,
+    val basePath: String,
+    val credentialId: String?,
+    val displayName: String,
     val title: String,
     val statusText: String,
     val locationText: String,

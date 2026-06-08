@@ -55,12 +55,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
-import com.viel.aplayer.data.entity.ChapterEntity
-import com.viel.aplayer.data.entity.ChapterWithBookFile
+import com.viel.aplayer.application.library.player.PlayerChapterItem
+import com.viel.aplayer.application.library.player.PlayerChapterTimeline
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.event.feedback.FeedbackMessages
-import com.viel.aplayer.media.ChapterTimeline
 import com.viel.aplayer.ui.common.BlurModalBottomSheet
 import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -93,7 +92,7 @@ fun ChapterListSheetStateful(
     if (settings.isChapterListVisible) {
         // Calculate the current chapter according to the current position and chapter info passed from outside
         val currentChapter = remember(currentPosition, metadata.chapters) {
-            ChapterTimeline.currentChapter(metadata.chapters.map { it.chapter }, currentPosition)
+            PlayerChapterTimeline.currentChapter(metadata.chapters, currentPosition)
         }
         ChapterListSheet(
             isVisible = true,
@@ -118,8 +117,8 @@ fun ChapterListSheetStateful(
 @Composable
 fun ChapterListSheet(
     isVisible: Boolean,
-    chapters: List<ChapterWithBookFile>,
-    currentChapter: ChapterEntity?,
+    chapters: List<PlayerChapterItem>,
+    currentChapter: PlayerChapterItem?,
     totalDuration: Long,
     onDismissRequest: () -> Unit,
     onChapterClick: (Long) -> Unit,
@@ -133,7 +132,7 @@ fun ChapterListSheet(
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val initialIndex = remember(chapters, currentChapter) {
-        val index = chapters.indexOfFirst { it.chapter.id == currentChapter?.id }
+        val index = chapters.indexOfFirst { it.id == currentChapter?.id }
         (index - 2).coerceAtLeast(0)
     }
 
@@ -222,8 +221,8 @@ fun ChapterListSheet(
 
 @Composable
 fun ChapterListContent(
-    chapters: List<ChapterWithBookFile>,
-    currentChapter: ChapterEntity?,
+    chapters: List<PlayerChapterItem>,
+    currentChapter: PlayerChapterItem?,
     totalDuration: Long,
     onChapterClick: (Long) -> Unit,
     listState: LazyListState,
@@ -269,12 +268,10 @@ fun ChapterListContent(
             ) {
                 itemsIndexed(
                     items = chapters,
-                    key = { _, chapterWithFile -> chapterWithFile.chapter.id }
-                ) { index, chapterWithFile ->
-                    val chapter = chapterWithFile.chapter
-                    val bookFile = chapterWithFile.bookFile
+                    key = { _, chapter -> chapter.id }
+                ) { index, chapter ->
                     val isCurrent = chapter.id == currentChapter?.id
-                    val isMissing = bookFile?.status == com.viel.aplayer.data.db.AudiobookSchema.FileStatus.MISSING
+                    val isMissing = chapter.isFileMissing
 
                     // Haze Blur mode uses a lighter rounded glass highlight, while Material mode retains a more distinct primaryContainer selection feedback. Modified references to Haze.
                     val selectedContainerColor = when (glassEffectMode) {
@@ -336,7 +333,7 @@ fun ChapterListContent(
                             } else {
                                 // When single files contain embedded chapters, prioritize deriving duration using adjacent start times to avoid inconsistent durationMs displays.
                                 Text(
-                                    text = formatTime(ChapterTimeline.duration(chapters.map { it.chapter }, chapter, totalDuration)),
+                                    text = formatTime(PlayerChapterTimeline.duration(chapters, chapter, totalDuration)),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -398,35 +395,17 @@ fun ChapterListSheetStatefulPreview() {
 @Composable
 fun ChapterListSheetPreview() {
     val sampleChapters = List(20) { i ->
-        ChapterWithBookFile(
-            chapter = ChapterEntity(
-                id = UUID.randomUUID().toString(),
-                bookId = "bookId",
-                bookFileId = "fileId",
-                index = i,
-                title = "Chapter ${i + 1}",
-                startPositionMs = i * 60000L,
-                durationMs = 60000L,
-                fileOffsetMs = 0L,
-                source = "EMBEDDED"
-            ),
-            bookFile = if (i == 5) {
-                com.viel.aplayer.data.entity.BookFileEntity(
-                    id = "fileId",
-                    bookId = "bookId",
-                    rootId = "rootId",
-                    index = i,
-                    sourcePath = "path",
-                    sourceIdentity = "identity",
-                    displayName = "file",
-                    durationMs = 60000L,
-                    fileSize = 1024L,
-                    lastModified = 0L,
-                    status = com.viel.aplayer.data.db.AudiobookSchema.FileStatus.MISSING
-                )
-            } else {
-                null
-            }
+        PlayerChapterItem(
+            id = UUID.randomUUID().toString(),
+            bookId = "bookId",
+            bookFileId = "fileId",
+            index = i,
+            title = "Chapter ${i + 1}",
+            startPositionMs = i * 60000L,
+            durationMs = 60000L,
+            fileOffsetMs = 0L,
+            source = "EMBEDDED",
+            isFileMissing = i == 5
         )
     }
 
@@ -434,8 +413,8 @@ fun ChapterListSheetPreview() {
         Surface {
             ChapterListContent(
                 chapters = sampleChapters,
-                currentChapter = sampleChapters[17].chapter,
-                totalDuration = sampleChapters.last().chapter.startPositionMs + sampleChapters.last().chapter.durationMs,
+                currentChapter = sampleChapters[17],
+                totalDuration = sampleChapters.last().startPositionMs + sampleChapters.last().durationMs,
                 onChapterClick = {},
                 listState = rememberLazyListState(initialFirstVisibleItemIndex = 15),
                 // Preview explicitly references the default glass effect in the settings model, preventing ChapterListContent parameters from having local default values again.

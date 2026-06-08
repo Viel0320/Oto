@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.search
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +46,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -52,10 +54,10 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.entity.BookEntity
-import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.R
+import com.viel.aplayer.application.library.search.SearchHistoryItem
+import com.viel.aplayer.application.library.search.SearchResultSnapshot
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.data.store.SearchHistoryEntry
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
@@ -76,12 +78,12 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 fun SearchScreen(
     modifier: Modifier = Modifier,
     query: TextFieldValue,
-    searchResults: List<BookWithProgress>,
-    searchHistory: List<SearchHistoryEntry>,
+    searchResults: List<SearchResultSnapshot>,
+    searchHistory: List<SearchHistoryItem>,
     onQueryChange: (TextFieldValue) -> Unit,
     onSearch: (String) -> Unit,
     onClearQuery: () -> Unit,
-    onDeleteHistory: (SearchHistoryEntry) -> Unit,
+    onDeleteHistory: (SearchHistoryItem) -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
     /*
@@ -136,13 +138,13 @@ fun SearchScreen(
 fun SearchContent(
     modifier: Modifier = Modifier,
     query: TextFieldValue,
-    searchResults: List<BookWithProgress>,
-    searchHistory: List<SearchHistoryEntry>,
+    searchResults: List<SearchResultSnapshot>,
+    searchHistory: List<SearchHistoryItem>,
     commandSuggestions: List<SearchCommand>,
     onQueryChange: (TextFieldValue) -> Unit,
     onSearch: (String) -> Unit,
     onClearQuery: () -> Unit,
-    onDeleteHistory: (SearchHistoryEntry) -> Unit,
+    onDeleteHistory: (SearchHistoryItem) -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
     /*
@@ -160,6 +162,18 @@ fun SearchContent(
     glassEffectMode: GlassEffectMode,
     autoFocus: Boolean = true,
 ) {
+    // Localized Search Screen Copy (Resolve runtime search labels, empty states, and icon accessibility text)
+    // Search result titles and history queries are user data, while the surrounding search chrome is app-authored UI copy.
+    val searchPlaceholderText = stringResource(R.string.search_placeholder)
+    val backContentDescription = stringResource(R.string.back_content_description)
+    val clearContentDescription = stringResource(R.string.clear_content_description)
+    val recentSearchesText = stringResource(R.string.search_recent_title)
+    val clearAllText = stringResource(R.string.search_clear_all)
+    val removeHistoryContentDescription = stringResource(R.string.search_remove_history_content_description)
+    val noRecentSearchesText = stringResource(R.string.search_no_recent)
+    val filterByText = stringResource(R.string.search_filter_by)
+    val resultsText = stringResource(R.string.search_results_title)
+
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val scrollState = rememberLazyListState()
@@ -239,7 +253,7 @@ fun SearchContent(
                             ),
                         placeholder = { 
                             Text(
-                                text = "Search or use year: author: narrator:",
+                                text = searchPlaceholderText,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             ) 
@@ -253,7 +267,7 @@ fun SearchContent(
                                 // Explicitly tint the custom SearchBar back icon with onSurface so it matches standard TopAppBar navigation icons.
                                 Icon(
                                     Icons.AutoMirrored.Rounded.ArrowBack,
-                                    contentDescription = "Back",
+                                    contentDescription = backContentDescription,
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
@@ -268,7 +282,7 @@ fun SearchContent(
                                     // Explicitly tint the custom SearchBar clear icon with onSurface so it remains consistent with other top bar action icons.
                                     Icon(
                                         Icons.Rounded.Clear,
-                                        contentDescription = "Clear",
+                                        contentDescription = clearContentDescription,
                                         tint = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
@@ -325,14 +339,14 @@ fun SearchContent(
                                         .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
                                 ) {
                                     Text(
-                                        text = "Recent Searches",
+                                        text = recentSearchesText,
                                         style = MaterialTheme.typography.titleSmall,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.align(Alignment.CenterStart)
                                     )
                                     Text(
-                                        text = "Clear All",
+                                        text = clearAllText,
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.secondary,
                                         modifier = Modifier
@@ -370,7 +384,7 @@ fun SearchContent(
                                         IconButton(onClick = { onDeleteHistory(history) }) {
                                             Icon(
                                                 Icons.Rounded.Clear,
-                                                contentDescription = "Remove",
+                                                contentDescription = removeHistoryContentDescription,
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
@@ -382,7 +396,7 @@ fun SearchContent(
                             item {
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Text(
-                                        text = "No recent searches",
+                                        text = noRecentSearchesText,
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -407,7 +421,7 @@ fun SearchContent(
                         if (commandSuggestions.isNotEmpty()) {
                             item {
                                 Text(
-                                    text = "Filter by",
+                                    text = filterByText,
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
@@ -444,7 +458,7 @@ fun SearchContent(
                                     },
                                     supportingContent = {
                                         Text(
-                                            text = cmd.description,
+                                            text = stringResource(cmd.descriptionRes),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -470,7 +484,7 @@ fun SearchContent(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "No results found for \"${query.text}\"",
+                                        text = stringResource(R.string.search_no_results_for, query.text),
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -479,7 +493,7 @@ fun SearchContent(
                         } else {
                             item {
                                 Text(
-                                    text = "Results",
+                                    text = resultsText,
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
@@ -488,23 +502,23 @@ fun SearchContent(
                             }
                             items(
                                 count = searchResults.size,
-                                key = { index -> searchResults[index].book.id }
+                                key = { index -> searchResults[index].id }
                             ) { index ->
                                 val result = searchResults[index]
                                 ListItem(
-                                    bookId = result.book.id,
-                                    title = result.book.title,
-                                    author = result.book.author,
-                                    narrator = result.book.narrator,
-                                    duration = result.book.totalDurationMs,
+                                    bookId = result.id,
+                                    title = result.title,
+                                    author = result.author,
+                                    narrator = result.narrator,
+                                    duration = result.totalDurationMs,
                                     // Search Thumbnail Selection (Thumbnail Small Preferred)
                                     // Search results use small thumbnail image size, reusing CoverImageSourceSelector.small.
                                     // Thumbnail-preferred rule is centrally expressed in the selector, so adjustments don't require changes in the search page.
                                     coverPath = CoverImageSourceSelector.small(
-                                        thumbnailPath = result.book.thumbnailPath,
-                                        coverPath = result.book.coverPath
+                                        thumbnailPath = result.thumbnailPath,
+                                        coverPath = result.coverPath
                                     ),
-                                    coverLastUpdated = result.book.lastScannedAt, 
+                                    coverLastUpdated = result.coverLastUpdated,
                                     progressPercent = result.progressPercent,
                                     /*
                                      * Search Detail Source Activity (Search-result source trigger)
@@ -512,21 +526,21 @@ fun SearchContent(
                                      * Activates only for the result opened from Search so the
                                      * selected thumbnail exits without affecting Home channels.
                                      */
-                                    isDetailTargetActive = result.book.id == activeSearchDetailBookId,
+                                    isDetailTargetActive = result.id == activeSearchDetailBookId,
                                     /*
                                      * Search Detail Shared Element Key (Search channel binding)
                                      *
                                      * Uses the search-specific key so Search result artwork cannot
                                      * pair with Home recent or Home list covers for the same book.
                                      */
-                                    sharedElementKey = SharedElementKeys.search2detailCover(result.book.id),
+                                    sharedElementKey = SharedElementKeys.search2detailCover(result.id),
                                     onClick = { 
                                         focusManager.clearFocus()
-                                        onNavigateToDetail(result.book.id) 
+                                        onNavigateToDetail(result.id)
                                     }
                                 ) {
                                     focusManager.clearFocus()
-                                    onLoadBook(result.book.id)
+                                    onLoadBook(result.id)
                                     onNavigateToPlayer()
                                 }
                             }
@@ -547,7 +561,7 @@ fun SearchContent(
  */
 data class SearchCommand(
     val token: String,
-    val description: String
+    @StringRes val descriptionRes: Int
 )
 
 /**
@@ -555,10 +569,12 @@ data class SearchCommand(
  *
  * Statically defined built-in advanced filter directives.
  */
+// Search Directive Syntax (Keep query command tokens stable while localizing their visible descriptions)
+// SearchQueryPlanner recognizes the English directive names, so suggestions insert those tokens even when the explanatory copy follows the active locale.
 private val searchCommands = listOf(
-    SearchCommand("Year:", "Search by release year"),
-    SearchCommand("Author:", "Search by author name"),
-    SearchCommand("Narrator:", "Search by narrator name")
+    SearchCommand("Year:", R.string.search_command_year_description),
+    SearchCommand("Author:", R.string.search_command_author_description),
+    SearchCommand("Narrator:", R.string.search_command_narrator_description)
 )
 
 /**
@@ -589,8 +605,10 @@ fun SearchScreenEmptyPreview() {
             query = TextFieldValue(""),
             searchResults = emptyList(),
             searchHistory = listOf(
-                SearchHistoryEntry("Android Development", System.currentTimeMillis()),
-                SearchHistoryEntry("Jetpack Compose", System.currentTimeMillis())
+                // Preview History Projection (Use the scene item so previews exercise the production UI contract)
+                // This keeps Compose previews independent from the persistence-layer DataStore entry class.
+                SearchHistoryItem("Android Development", System.currentTimeMillis()),
+                SearchHistoryItem("Jetpack Compose", System.currentTimeMillis())
             ),
             commandSuggestions = emptyList(),
             onQueryChange = {},
@@ -613,18 +631,18 @@ fun SearchScreenEmptyPreview() {
 @Composable
 fun SearchScreenResultsPreview() {
     val mockBooks = listOf(
-        BookWithProgress(
-            book = BookEntity(
-                id = "id1",
-                rootId = "preview-root",
-                sourceType = "SINGLE_AUDIO",
-                title = "In the Megachurch",
-                author = "Ryo Asai",
-                narrator = "Narrator A",
-                totalDurationMs = 44580000L,
-                addedAt = System.currentTimeMillis()
-            ),
-            progress = null
+        // Preview Search Snapshot (Use the search scene projection instead of database entities)
+        // The preview mirrors the runtime UI contract and helps prevent Room relationship types from returning to SearchContent.
+        SearchResultSnapshot(
+            id = "id1",
+            title = "In the Megachurch",
+            author = "Ryo Asai",
+            narrator = "Narrator A",
+            totalDurationMs = 44580000L,
+            thumbnailPath = null,
+            coverPath = null,
+            coverLastUpdated = System.currentTimeMillis(),
+            progressPercent = 0
         )
     )
     APlayerTheme {

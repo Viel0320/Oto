@@ -27,10 +27,10 @@ class SearchService(
         }
     }
 
-    override suspend fun deleteFromHistory(history: SearchHistoryEntry) {
-        // Delete Specific History Query (Targeted entry purge)
-        // Permanently removes the designated search history record from the persistent storage.
-        searchHistoryStore.delete(history)
+    override suspend fun deleteFromHistory(query: String) {
+        // Delete Specific History Query (Targeted entry purge by stable text identity)
+        // Permanently removes the designated search history record without exposing the DataStore DTO to upstream scenes.
+        searchHistoryStore.delete(query)
     }
 
     override suspend fun clearHistory() {

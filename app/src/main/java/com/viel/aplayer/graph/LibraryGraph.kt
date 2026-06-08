@@ -2,10 +2,26 @@ package com.viel.aplayer.graph
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
-import com.viel.aplayer.data.LibraryFacade
+import com.viel.aplayer.application.library.detail.DefaultDetailBookModule
+import com.viel.aplayer.application.library.detail.DetailBookCommands
+import com.viel.aplayer.application.library.detail.DetailBookReadModel
+import com.viel.aplayer.application.library.edit.DefaultEditBookModule
+import com.viel.aplayer.application.library.edit.EditBookCommands
+import com.viel.aplayer.application.library.edit.EditBookReadModel
+import com.viel.aplayer.application.library.player.DefaultPlayerLibraryModule
+import com.viel.aplayer.application.library.player.PlayerBookmarkCommands
+import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
+import com.viel.aplayer.application.library.search.DefaultSearchLibraryModule
+import com.viel.aplayer.application.library.search.SearchLibraryCommands
+import com.viel.aplayer.application.library.search.SearchLibraryReadModel
+import com.viel.aplayer.application.library.search.SearchQueryPlanner
 import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookDeletionGateway
+import com.viel.aplayer.data.gateway.BookMetadataGateway
+import com.viel.aplayer.data.gateway.BookmarkGateway
+import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.CoverAssetGateway
 import com.viel.aplayer.data.gateway.CoverUriResolver
 import com.viel.aplayer.data.gateway.LibraryRootGateway
@@ -25,14 +41,14 @@ import com.viel.aplayer.data.service.ProgressService
 import com.viel.aplayer.data.service.ScanService
 import com.viel.aplayer.data.service.SearchService
 import com.viel.aplayer.data.service.SubtitleService
-import com.viel.aplayer.domain.usecase.BuildPlaybackPlanUseCase
-import com.viel.aplayer.domain.usecase.DeleteBookUseCase
-import com.viel.aplayer.domain.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
+import com.viel.aplayer.application.usecase.DeleteBookUseCase
+import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.library.availability.AvailabilityChecker
-import com.viel.aplayer.library.readmodel.DefaultHomeLibraryReadModel
-import com.viel.aplayer.library.readmodel.DefaultHomeLibraryUseCases
-import com.viel.aplayer.library.readmodel.HomeLibraryReadModel
-import com.viel.aplayer.library.readmodel.HomeLibraryUseCases
+import com.viel.aplayer.application.library.home.DefaultHomeLibraryReadModel
+import com.viel.aplayer.application.library.home.DefaultHomeLibraryUseCases
+import com.viel.aplayer.application.library.home.HomeLibraryReadModel
+import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.media.PlaybackPlanGateway
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
@@ -127,7 +143,39 @@ internal class LibraryGraph(
     private val bookQueryService: BookQueryService
         get() = bookQueryServiceLazy.value
 
-    val bookQueryGateway: BookQueryGateway
+    /**
+     * Book Catalog Gateway Accessor (Expose read/search/file inventory as a narrow seam)
+     * The same adapter backs this interface, but callers no longer receive metadata, bookmark, chapter, or deletion commands by default.
+     */
+    val bookCatalogGateway: BookCatalogGateway
+        get() = bookQueryService
+
+    /**
+     * Book Metadata Gateway Accessor (Expose semantic metadata writes as a narrow seam)
+     * Home, edit, and ABS progress flows can update read status or text metadata without inheriting catalog filters.
+     */
+    val bookMetadataGateway: BookMetadataGateway
+        get() = bookQueryService
+
+    /**
+     * Bookmark Gateway Accessor (Expose bookmark reads and writes as a narrow seam)
+     * Player and notification actions can manage bookmarks without depending on catalog search or chapter replacement.
+     */
+    val bookmarkGateway: BookmarkGateway
+        get() = bookQueryService
+
+    /**
+     * Chapter Gateway Accessor (Expose chapter timelines as a narrow seam)
+     * Playback and player scenes can read timeline chapters without receiving bookmark or metadata operations.
+     */
+    val chapterGateway: ChapterGateway
+        get() = bookQueryService
+
+    /**
+     * Book Deletion Gateway Accessor (Expose destructive book deletion as a narrow seam)
+     * DeleteBookUseCase receives only the soft-delete command after playback and availability guards have completed.
+     */
+    val bookDeletionGateway: BookDeletionGateway
         get() = bookQueryService
 
     val playbackPlanGateway: PlaybackPlanGateway by lazy {
@@ -250,26 +298,77 @@ internal class LibraryGraph(
     val searchHistoryGateway: SearchHistoryGateway
         get() = searchHistoryGatewayLazy.value
 
-    val libraryFacade: LibraryFacade by lazy {
-        // Library Domain Facade: Combines the query, scanner, roots, progress, and cover adapters.
-        LibraryFacade(
-            bookQueryGateway = bookQueryGateway,
-            bookAvailabilityGateway = bookAvailabilityService,
-            progressGateway = progressGateway,
-            scanScheduler = scanScheduler,
-            libraryRootGateway = libraryRootGateway,
-            coverAssetGateway = coverAssetGateway,
-            metadataRefreshGateway = metadataRefreshGateway,
-            subtitleGateway = subtitleGateway,
-            searchHistoryGateway = searchHistoryGateway
+    private val searchLibraryModule: DefaultSearchLibraryModule by lazy {
+        // Search Module Wiring (Compose the search scene from granular query and history gateways)
+        // This keeps SearchViewModel on search-specific reads and commands after the broad facade retirement.
+        DefaultSearchLibraryModule(
+            searchHistoryGateway = searchHistoryGateway,
+            queryPlanner = SearchQueryPlanner.from(bookCatalogGateway)
         )
     }
 
+    val searchLibraryReadModel: SearchLibraryReadModel
+        get() = searchLibraryModule
+
+    val searchLibraryCommands: SearchLibraryCommands
+        get() = searchLibraryModule
+
+    private val detailBookModule: DefaultDetailBookModule by lazy {
+        // Detail Module Wiring (Compose the detail scene from granular query, availability, and root gateways)
+        // This keeps DetailViewModel from querying roots, files, or availability through a broad library surface.
+        DefaultDetailBookModule(
+            bookCatalogGateway = bookCatalogGateway,
+            bookAvailabilityGateway = bookAvailabilityService,
+            libraryRootGateway = libraryRootGateway
+        )
+    }
+
+    val detailBookReadModel: DetailBookReadModel
+        get() = detailBookModule
+
+    val detailBookCommands: DetailBookCommands
+        get() = detailBookModule
+
+    private val playerLibraryModule: DefaultPlayerLibraryModule by lazy {
+        // Player Module Wiring (Compose player reads and bookmark commands from granular gateway adapters)
+        // This keeps PlayerViewModel, BookmarkManager, and MediaPlaybackDelegate on the player scene seam.
+        DefaultPlayerLibraryModule(
+            bookCatalogGateway = bookCatalogGateway,
+            chapterGateway = chapterGateway,
+            bookmarkGateway = bookmarkGateway,
+            bookAvailabilityGateway = bookAvailabilityService,
+            progressGateway = progressGateway,
+            subtitleGateway = subtitleGateway
+        )
+    }
+
+    val playerLibraryReadModel: PlayerLibraryReadModel
+        get() = playerLibraryModule
+
+    val playerBookmarkCommands: PlayerBookmarkCommands
+        get() = playerLibraryModule
+
+    private val editBookModule: DefaultEditBookModule by lazy {
+        // Edit Module Wiring (Compose editable metadata reads and writes from granular gateways)
+        // This isolates EditBookViewModel from the broad library facade while keeping cover writes in their dedicated adapter.
+        DefaultEditBookModule(
+            bookCatalogGateway = bookCatalogGateway,
+            bookMetadataGateway = bookMetadataGateway,
+            coverAssetGateway = coverAssetGateway
+        )
+    }
+
+    val editBookReadModel: EditBookReadModel
+        get() = editBookModule
+
+    val editBookCommands: EditBookCommands
+        get() = editBookModule
+
     val homeLibraryReadModel: HomeLibraryReadModel by lazy {
-        // Home Read Model Wiring (Provides the home screen with its catalog stream without passing LibraryFacade)
+        // Home Read Model Wiring (Provides the home screen with its catalog stream through a narrow read model)
         // The read model is intentionally backed by the narrow book query gateway so future home projections can deepen here.
         DefaultHomeLibraryReadModel(
-            bookQueryGateway = bookQueryGateway
+            bookCatalogGateway = bookCatalogGateway
         )
     }
 
@@ -277,7 +376,7 @@ internal class LibraryGraph(
         // Home Use Case Wiring (Collects only home-scoped commands from granular gateways)
         // This adapter keeps scan triggers, root registration, metadata refresh, and history cleanup out of LibraryViewModel.
         DefaultHomeLibraryUseCases(
-            bookQueryGateway = bookQueryGateway,
+            bookMetadataGateway = bookMetadataGateway,
             scanScheduler = scanScheduler,
             libraryRootGateway = libraryRootGateway,
             metadataRefreshGateway = metadataRefreshGateway,
@@ -286,20 +385,22 @@ internal class LibraryGraph(
     }
 
     val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
-        // Library Deletion Use Case: Teardown logic for removing library roots.
+        // Library Root Deletion Wiring (Provide playback stopping through the media lifecycle seam)
+        // LibraryGraph coordinates data deletion while MediaGraph remains the owner of playback runtime shutdown.
         DeleteLibraryRootUseCase(
-            playbackManager = data.playbackManager,
-            bookQueryGateway = bookQueryGateway,
+            playbackStopper = media.playbackStopper,
+            bookCatalogGateway = bookCatalogGateway,
             libraryRootGateway = libraryRootGateway
         )
     }
 
     val deleteBookUseCase: DeleteBookUseCase by lazy {
-        // Delete Book Use Case: Removes library references and covers of a target audiobook.
+        // Book Deletion Wiring (Provide playback stopping through the media lifecycle seam)
+        // The use case receives only PlaybackStopper so deleting a book cannot grow a dependency on media runtime details.
         DeleteBookUseCase(
-            playbackManager = data.playbackManager,
+            playbackStopper = media.playbackStopper,
             bookAvailabilityGateway = bookAvailabilityService,
-            bookQueryGateway = bookQueryGateway
+            bookDeletionGateway = bookDeletionGateway
         )
     }
 

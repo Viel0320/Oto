@@ -41,11 +41,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.viel.aplayer.R
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatCompactDuration
@@ -86,6 +88,13 @@ fun ListItem(
     onLongClick: () -> Unit = {},
     onPlayClick: () -> Unit = {}
 ) {
+    // Localized List Row Copy (Resolve badge, metadata fallback, metadata separator, and play-button accessibility text)
+    // Book titles and people names are library data, while NEW, row separators, and Play are app-authored UI labels.
+    val newBadgeText = stringResource(R.string.common_new_badge)
+    val unknownText = stringResource(R.string.common_unknown)
+    val metadataSeparator = stringResource(R.string.common_metadata_separator)
+    val playContentDescription = stringResource(R.string.playback_play_content_description)
+
     ListItem(
         // Replace original clickable with combinedClickable to listen to onClick and onLongClick gestures
         modifier = modifier.combinedClickable(
@@ -101,7 +110,7 @@ fun ListItem(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    formatPeopleSubtitle(author, narrator),
+                    formatPeopleSubtitle(author, narrator, fallback = unknownText),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium,
@@ -111,7 +120,7 @@ fun ListItem(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val separator = " • "
+                    val separator = metadataSeparator
                     val textStyle = MaterialTheme.typography.labelSmall
                     val textColor = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -124,7 +133,7 @@ fun ListItem(
                         Text(text = separator, style = textStyle, color = textColor)
                     } else {
                         Text(
-                            text = "NEW",
+                            text = newBadgeText,
                             style = textStyle,
                             color = textColor
                         )
@@ -154,7 +163,7 @@ fun ListItem(
                 onClick = onPlayClick,
                 modifier = Modifier.offset(x = 8.dp)
             ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = "Play")
+                Icon(Icons.Rounded.PlayArrow, contentDescription = playContentDescription)
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)

@@ -38,9 +38,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
@@ -135,6 +137,14 @@ fun CompactMediaPlayer(
 
     // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    // Localized Player Copy (Resolve labels beside the composable that renders them)
+    // These values feed visible fallback metadata and accessibility text, so they follow the active app locale instead of hard-coded English.
+    val unknownText = stringResource(R.string.common_unknown)
+    val unknownTitle = stringResource(R.string.common_unknown_title)
+    val coverContentDescription = stringResource(R.string.media_cover_content_description)
+    val playPauseContentDescription = stringResource(
+        if (isPlaying) R.string.playback_pause_content_description else R.string.playback_play_content_description
+    )
 
     Surface(
         onClick = onClick,
@@ -228,7 +238,7 @@ fun CompactMediaPlayer(
                         }
                         AsyncImage(
                             model = request,
-                            contentDescription = "Cover",
+                            contentDescription = coverContentDescription,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
@@ -253,7 +263,7 @@ fun CompactMediaPlayer(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = title,
+                        text = title.takeIf { it.isNotBlank() } ?: unknownTitle,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -261,8 +271,9 @@ fun CompactMediaPlayer(
                     )
                     Text(
                         text = formatPeopleSubtitle(
-                            author.takeIf { it.isNotBlank() } ?: "Unknown",
-                            narrator.takeIf { it.isNotBlank() } ?: "Unknown"
+                            author.takeIf { it.isNotBlank() } ?: unknownText,
+                            narrator.takeIf { it.isNotBlank() } ?: unknownText,
+                            fallback = unknownText
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -280,7 +291,7 @@ fun CompactMediaPlayer(
                         } else {
                             Icons.Rounded.PlayArrow
                         },
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        contentDescription = playPauseContentDescription,
                         modifier = Modifier.size(32.dp),
                         tint = MaterialTheme.colorScheme.onSurface
                     )

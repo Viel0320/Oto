@@ -21,10 +21,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurDropdownMenu
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -47,6 +49,15 @@ fun PlayerLandscapeHeader(
     hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
+    // Localized Landscape Header Copy (Share player chrome resources with the portrait app bar)
+    // Landscape mode renders its own menu, so it resolves the same progress/delete labels locally instead of duplicating English strings.
+    val unknownText = stringResource(R.string.common_unknown)
+    val unknownTitle = stringResource(R.string.common_unknown_title)
+    val showProgressText = stringResource(
+        if (settings.isChapterProgressMode) R.string.player_show_total_progress else R.string.player_show_chapter_progress
+    )
+    val deleteFromLibraryText = stringResource(R.string.player_delete_from_library)
+
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -54,7 +65,7 @@ fun PlayerLandscapeHeader(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = metadata.title.takeIf { it.isNotBlank() } ?: "Unknown Title",
+                text = metadata.title.takeIf { it.isNotBlank() } ?: unknownTitle,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -62,7 +73,7 @@ fun PlayerLandscapeHeader(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = com.viel.aplayer.ui.common.formatPeopleSubtitle(metadata.author, metadata.narrator),
+                text = com.viel.aplayer.ui.common.formatPeopleSubtitle(metadata.author, metadata.narrator, fallback = unknownText),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -75,7 +86,7 @@ fun PlayerLandscapeHeader(
             IconButton(onClick = { showLandscapeMenu = true }) {
                 Icon(
                     imageVector = Icons.Rounded.MoreVert,
-                    contentDescription = "More",
+                    contentDescription = stringResource(R.string.more_content_description),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -87,7 +98,7 @@ fun PlayerLandscapeHeader(
             ) {
                 DropdownMenuItem(
                     text = {
-                        Text(if (settings.isChapterProgressMode) "Show Total Progress" else "Show Chapter Progress")
+                        Text(showProgressText)
                     },
                     onClick = {
                         actions.content.onToggleProgressMode()
@@ -96,7 +107,7 @@ fun PlayerLandscapeHeader(
                 )
                 DropdownMenuItem(
                     text = {
-                        Text("Delete from Library", color = MaterialTheme.colorScheme.error)
+                        Text(deleteFromLibraryText, color = MaterialTheme.colorScheme.error)
                     },
                     onClick = {
                         actions.content.onDeleteBook()

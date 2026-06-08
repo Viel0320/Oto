@@ -44,10 +44,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.R
+import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
@@ -105,6 +108,10 @@ fun PlayerScreen(
     renderFloatingSurfaces: Boolean = true,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    // Localized Seek Undo Banner Copy (Resolve the undo action and transient seek message through resources)
+    // The banner reflects app-authored playback feedback, while the target position itself remains runtime playback state.
+    val seekUndoActionText = stringResource(R.string.player_seek_undo_action)
+    val seekUndoMessageText = stringResource(R.string.player_seek_undo_message)
 
     // =====================================================================
     // L2 container state gathering (To ensure layout classes remain stateless)
@@ -121,7 +128,7 @@ fun PlayerScreen(
     }
 
     val currentChapter = if (isPreview) {
-        com.viel.aplayer.data.entity.ChapterEntity(
+        PlayerChapterItem(
             id = "chapter_1",
             bookId = "book_1",
             bookFileId = "file_1",
@@ -157,16 +164,11 @@ fun PlayerScreen(
             thumbnailPath = null,
             coverLastUpdated = 0L,
             // Deprecated: backgroundColorArgb is removed
-            // Wrapped in ChapterWithBookFile relation model (To align chapter schemas with Room relation setups)
+            // Player Preview Chapters (Use player-scene projections instead of Room relation models)
+            // Preview data mirrors the runtime player boundary and keeps this UI file independent from persistence entities.
             chapters = listOf(
-                com.viel.aplayer.data.entity.ChapterWithBookFile(
-                    chapter = com.viel.aplayer.data.entity.ChapterEntity("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, "EMBEDDED"),
-                    bookFile = null
-                ),
-                com.viel.aplayer.data.entity.ChapterWithBookFile(
-                    chapter = com.viel.aplayer.data.entity.ChapterEntity("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, "EMBEDDED"),
-                    bookFile = null
-                )
+                PlayerChapterItem("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, "EMBEDDED"),
+                PlayerChapterItem("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, "EMBEDDED")
             )
         )
     } else {
@@ -589,7 +591,7 @@ fun PlayerScreen(
                         action = {
                             TextButton(onClick = actions.playback.onUndoSeek) {
                                 Text(
-                                    text = "Undo",
+                                    text = seekUndoActionText,
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -600,7 +602,7 @@ fun PlayerScreen(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
-                            text = "Jumped to a new position",
+                            text = seekUndoMessageText,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }

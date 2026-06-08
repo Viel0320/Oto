@@ -12,12 +12,15 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
@@ -34,24 +37,32 @@ import dev.chrisbanes.haze.HazeState
 fun HomeViewPreferenceDialog(
     selectedViewStyle: HomeViewStyle,
     selectedSortRule: HomeSortRule,
+    selectedSortDirection: HomeSortDirection,
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode,
     onViewStyleSelected: (HomeViewStyle) -> Unit,
     onSortRuleSelected: (HomeSortRule) -> Unit,
+    onSortDirectionSelected: (HomeSortDirection) -> Unit,
     onDismissRequest: () -> Unit
 ) {
     // Home View Style Options (Bind stable enum values to compact user-facing labels)
     // Labels stay local to this Home-only dialog while persisted enum names remain language-independent.
     val viewStyleOptions = listOf(
-        HomeViewStyle.List to "列表",
-        HomeViewStyle.Grid to "网格"
+        HomeViewStyle.List to stringResource(R.string.home_view_style_list),
+        HomeViewStyle.Grid to stringResource(R.string.home_view_style_grid)
     )
     // Home Sort Rule Options (Bind sorting pivots to concise labels)
-    // The ViewModel applies the same selected enum to grouping, pinyin-descending ordering, and section header generation.
+    // The ViewModel applies the same selected enum to grouping, script-clustered ordering, and section header generation.
     val sortRuleOptions = listOf(
-        HomeSortRule.Author to "作者",
-        HomeSortRule.Narrator to "朗读者",
-        HomeSortRule.Series to "系列名"
+        HomeSortRule.Author to stringResource(R.string.home_sort_rule_author),
+        HomeSortRule.Narrator to stringResource(R.string.home_sort_rule_narrator),
+        HomeSortRule.Series to stringResource(R.string.home_sort_rule_series)
+    )
+    // Home Sort Direction Options (Bind in-cluster direction choices to compact labels)
+    // Direction only changes ordering inside C/J/K/E/Other clusters, preserving the global mixed-script cluster sequence.
+    val sortDirectionOptions = listOf(
+        HomeSortDirection.Ascending to stringResource(R.string.home_sort_direction_ascending),
+        HomeSortDirection.Descending to stringResource(R.string.home_sort_direction_descending)
     )
 
     APlayerDialogTemplate(
@@ -63,7 +74,7 @@ fun HomeViewPreferenceDialog(
         headerAlignment = Alignment.CenterHorizontally,
         title = {
             Text(
-                text = "首页视图",
+                text = stringResource(R.string.home_view_dialog_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.fillMaxWidth(),
@@ -78,7 +89,7 @@ fun HomeViewPreferenceDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "视图样式",
+                    text = stringResource(R.string.home_view_style_title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.fillMaxWidth(),
@@ -102,7 +113,7 @@ fun HomeViewPreferenceDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(
-                    text = "排序规则",
+                    text = stringResource(R.string.home_sort_rule_title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.fillMaxWidth(),
@@ -123,11 +134,35 @@ fun HomeViewPreferenceDialog(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = stringResource(R.string.home_sort_direction_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    sortDirectionOptions.forEachIndexed { index, (direction, label) ->
+                        SegmentedButton(
+                            selected = selectedSortDirection == direction,
+                            onClick = { onSortDirectionSelected(direction) },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = sortDirectionOptions.size
+                            )
+                        ) {
+                            Text(text = label, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
             }
         },
         actions = {
             TextButton(onClick = onDismissRequest) {
-                Text("关闭")
+                Text(stringResource(R.string.home_view_dialog_close))
             }
         }
     )

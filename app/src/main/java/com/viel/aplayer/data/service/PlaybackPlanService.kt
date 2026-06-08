@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
  * Playback Plan Service (Dedicated playback startup materializer)
  *
  * Builds BookPlaybackPlan models from Room book, file, and progress rows without expanding the generic
- * BookQueryGateway interface. This keeps playback startup logic local to a named playback-plan service.
+ * BookCatalogGateway interface. This keeps playback startup logic local to a named playback-plan service.
  */
 @OptIn(UnstableApi::class)
 class PlaybackPlanService(

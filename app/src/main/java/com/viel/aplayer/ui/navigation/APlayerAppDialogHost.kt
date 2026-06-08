@@ -9,7 +9,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.formatDate
@@ -43,7 +45,7 @@ fun APlayerAppDialogHost(
             scrollable = true,
             title = {
                 Text(
-                    text = "选择播放进度",
+                    text = stringResource(R.string.abs_progress_conflict_title),
                     style = MaterialTheme.typography.titleLarge
                 )
             },
@@ -51,25 +53,36 @@ fun APlayerAppDialogHost(
                 // ABS Progress Conflict Body (Render the local-vs-remote checkpoint comparison)
                 // The host owns the visual comparison while PlayerViewModel owns the conflict decision commands and pending playback request.
                 Column(modifier = Modifier.fillMaxWidth()) {
+                    val noneText = stringResource(R.string.abs_progress_none)
+                    val localProgressLabel = stringResource(R.string.abs_progress_local_label)
+                    val localUpdatedLabel = stringResource(R.string.abs_progress_local_updated_label)
+                    val remoteProgressLabel = stringResource(R.string.abs_progress_remote_label)
+                    val remoteUpdatedLabel = stringResource(R.string.abs_progress_remote_updated_label)
+                    val finishedSuffix = stringResource(R.string.abs_progress_finished_suffix)
                     Text(
-                        text = absProgressConflictState.bookTitle.ifBlank { "当前书籍" },
+                        text = absProgressConflictState.bookTitle.ifBlank {
+                            stringResource(R.string.abs_progress_current_book_fallback)
+                        },
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = buildString {
-                            append("本机进度：")
-                            append(absProgressConflictState.localPositionMs?.let(::formatTime) ?: "无")
-                            append(absFinishedSuffix(absProgressConflictState.localFinished))
+                            append(localProgressLabel)
+                            append(absProgressConflictState.localPositionMs?.let(::formatTime) ?: noneText)
+                            append(absFinishedSuffix(absProgressConflictState.localFinished, finishedSuffix))
                             absProgressConflictState.localUpdatedAt?.let { updatedAt ->
-                                append("\n本机更新：")
+                                append("\n")
+                                append(localUpdatedLabel)
                                 append(formatDate(updatedAt))
                             }
-                            append("\n\n服务器进度：")
+                            append("\n\n")
+                            append(remoteProgressLabel)
                             append(formatTime(absProgressConflictState.remotePositionMs))
-                            append(absFinishedSuffix(absProgressConflictState.remoteFinished))
+                            append(absFinishedSuffix(absProgressConflictState.remoteFinished, finishedSuffix))
                             absProgressConflictState.remoteUpdatedAt?.let { updatedAt ->
-                                append("\n服务器更新：")
+                                append("\n")
+                                append(remoteUpdatedLabel)
                                 append(formatDate(updatedAt))
                             }
                         },
@@ -79,10 +92,10 @@ fun APlayerAppDialogHost(
             },
             actions = {
                 TextButton(onClick = onAcceptLocalAbsProgressConflict) {
-                    Text("使用本机")
+                    Text(stringResource(R.string.abs_progress_use_local))
                 }
                 TextButton(onClick = onAcceptRemoteAbsProgressConflict) {
-                    Text("使用服务器")
+                    Text(stringResource(R.string.abs_progress_use_remote))
                 }
             }
         )
@@ -96,7 +109,7 @@ fun APlayerAppDialogHost(
             scrollable = true,
             title = {
                 Text(
-                    text = "分轨文件不可用",
+                    text = stringResource(R.string.track_unavailable_title),
                     style = MaterialTheme.typography.titleLarge
                 )
             },
@@ -104,13 +117,13 @@ fun APlayerAppDialogHost(
                 // Track Unavailable Body (Explain the forced skip consequence before mutating playback)
                 // The dialog stays app-level because unavailable-track events originate from playback service feedback rather than a specific page surface.
                 Text(
-                    text = "当前收听的分轨物理文件不存在或损坏。是否跳过该分轨并播放下一首可用分轨？\n\n注意：强制跳轨可能会打乱原本预定的收听进度。",
+                    text = stringResource(R.string.track_unavailable_body),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
             actions = {
                 TextButton(onClick = onDismissTrackUnavailable) {
-                    Text("取消")
+                    Text(stringResource(R.string.action_cancel))
                 }
                 TextButton(
                     onClick = {
@@ -121,7 +134,7 @@ fun APlayerAppDialogHost(
                         onDismissTrackUnavailable()
                     }
                 ) {
-                    Text("确认跳过", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.track_unavailable_confirm_skip), color = MaterialTheme.colorScheme.error)
                 }
             }
         )
@@ -133,5 +146,5 @@ fun APlayerAppDialogHost(
  *
  * Keeps the dialog text construction readable while making completed-vs-incomplete conflicts visible to users.
  */
-private fun absFinishedSuffix(isFinished: Boolean): String =
-    if (isFinished) "（已完成）" else ""
+private fun absFinishedSuffix(isFinished: Boolean, finishedSuffix: String): String =
+    if (isFinished) finishedSuffix else ""

@@ -1,8 +1,7 @@
 package com.viel.aplayer.ui.player
 
-import com.viel.aplayer.data.entity.BookWithProgress
-// Import Model: Import the RelatedSection model class from the relocated domain model package.
-import com.viel.aplayer.domain.model.RelatedSection
+import com.viel.aplayer.application.library.player.PlayerRelatedBook
+import com.viel.aplayer.application.library.player.PlayerRelatedSection
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 
 /**
@@ -17,13 +16,13 @@ data class PlayerUiState(
     /** Settings substate (To store visual parameters) */
     val settings: PlayerSettingsState = PlayerSettingsState(),
     /** Author sections (To display list of related author collections) */
-    val relatedAuthorSections: List<RelatedSection> = emptyList(),
+    val relatedAuthorSections: List<PlayerRelatedSection> = emptyList(),
     /** Narrator sections (To display list of related narrator collections) */
-    val relatedNarratorSections: List<RelatedSection> = emptyList(),
+    val relatedNarratorSections: List<PlayerRelatedSection> = emptyList(),
     /** Recently added books (To store list of imported audiobooks) */
-    val recentlyAddedBooks: List<BookWithProgress> = emptyList(),
+    val recentlyAddedBooks: List<PlayerRelatedBook> = emptyList(),
     // Recommended books (To store list of smart scored recommendation items)
-    val heuristicRecommendedBooks: List<BookWithProgress> = emptyList()
+    val heuristicRecommendedBooks: List<PlayerRelatedBook> = emptyList()
 ) {
     // --- Accessor delegates (To preserve backward compatibility for existing UI code) ---
     

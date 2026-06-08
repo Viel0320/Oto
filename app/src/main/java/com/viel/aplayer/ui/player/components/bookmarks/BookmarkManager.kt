@@ -1,7 +1,7 @@
 package com.viel.aplayer.ui.player.components.bookmarks
 
-import com.viel.aplayer.data.LibraryFacade
-import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.application.library.player.PlayerBookmarkCommands
+import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -11,9 +11,9 @@ import kotlinx.coroutines.launch
  * Responsible for bookmark addition, deletion, and modification operations.
  */
 class BookmarkManager(
-    // UI Facade Bookmark Access (Routes player-screen bookmark mutations through the same high-level facade used by ViewModels)
-    // This prevents UI helpers from depending directly on granular book-query gateways while preserving the existing bookmark behavior.
-    private val libraryFacade: LibraryFacade,
+    // Player Bookmark Command Access (Routes player-screen bookmark mutations through the scene command surface)
+    // This prevents UI helpers from depending on the broad library transition facade while preserving the existing bookmark behavior.
+    private val bookmarkCommands: PlayerBookmarkCommands,
     private val scope: CoroutineScope
 ) {
     /**
@@ -21,25 +21,25 @@ class BookmarkManager(
      */
     fun addBookmark(bookId: String, position: Long, title: String) {
         scope.launch {
-            libraryFacade.addBookmark(bookId, position, title)
+            bookmarkCommands.addBookmark(bookId, position, title)
         }
     }
 
     /**
      * Delete a bookmark.
      */
-    fun deleteBookmark(bookmark: BookmarkEntity) {
+    fun deleteBookmark(bookmark: PlayerBookmarkItem) {
         scope.launch {
-            libraryFacade.deleteBookmark(bookmark)
+            bookmarkCommands.deleteBookmark(bookmark)
         }
     }
 
     /**
      * Update a bookmark title.
      */
-    fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) {
+    fun updateBookmark(bookmark: PlayerBookmarkItem, newTitle: String) {
         scope.launch {
-            libraryFacade.updateBookmark(bookmark.copy(title = newTitle))
+            bookmarkCommands.updateBookmark(bookmark, newTitle)
         }
     }
 }

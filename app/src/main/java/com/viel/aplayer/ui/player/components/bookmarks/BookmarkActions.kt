@@ -1,10 +1,10 @@
 package com.viel.aplayer.ui.player.components.bookmarks
 
-import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 
 data class BookmarkActions(
-    val onDelete: (BookmarkEntity) -> Unit = {},
-    val onUpdate: (BookmarkEntity, String) -> Unit = { _, _ -> },
+    val onDelete: (PlayerBookmarkItem) -> Unit = {},
+    val onUpdate: (PlayerBookmarkItem, String) -> Unit = { _, _ -> },
     val onShowDialog: () -> Unit = {},
     val onDismissDialog: () -> Unit = {},
     val onTitleChange: (String) -> Unit = {},

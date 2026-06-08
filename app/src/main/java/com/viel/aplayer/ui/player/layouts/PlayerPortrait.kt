@@ -29,6 +29,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.application.library.player.PlayerBookmarkItem
+import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.ui.common.BottomNavTabs
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
@@ -51,12 +53,12 @@ import dev.chrisbanes.haze.HazeState
  * @param currentPosition The current physical playback progress of the player (in milliseconds).
  * @param totalDuration The current physical total duration of the player (in milliseconds).
  * @param isChapterMode Whether the progress bar is currently in chapter progress view mode.
- * @param currentChapter The chapter entity currently in the playing state.
+ * @param currentChapter The player chapter item currently in the playing state.
  * @param isPlaying Whether the player is currently playing.
  * @param playbackSpeed The current playback speed.
  * @param isSpeedManualMode Whether the playback speed is locked by manual adjustment.
- * @param bookmarkToDelete The bookmark entity pending deletion.
- * @param bookmarkToEdit The bookmark entity pending editing.
+ * @param bookmarkToDelete The bookmark item pending deletion.
+ * @param bookmarkToEdit The bookmark item pending editing.
  * @param bookmarkEditTitle The draft title in the input box when editing a bookmark.
  * @param onRequestDeleteBookmark Callback to trigger the delete bookmark confirmation dialog.
  * @param onRequestEditBookmark Callback to trigger the edit bookmark dialog.
@@ -70,15 +72,15 @@ fun PlayerPortrait(
     currentPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
-    currentChapter: com.viel.aplayer.data.entity.ChapterEntity?,
+    currentChapter: PlayerChapterItem?,
     isPlaying: Boolean,
     playbackSpeed: Float,
     isSpeedManualMode: Boolean,
-    bookmarkToDelete: com.viel.aplayer.data.entity.BookmarkEntity?,
-    bookmarkToEdit: com.viel.aplayer.data.entity.BookmarkEntity?,
+    bookmarkToDelete: PlayerBookmarkItem?,
+    bookmarkToEdit: PlayerBookmarkItem?,
     bookmarkEditTitle: String,
-    onRequestDeleteBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit,
-    onRequestEditBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit,
+    onRequestDeleteBookmark: (PlayerBookmarkItem) -> Unit,
+    onRequestEditBookmark: (PlayerBookmarkItem) -> Unit,
     onBookmarkEditTitleChange: (String) -> Unit,
     onConfirmDeleteBookmark: () -> Unit,
     onConfirmUpdateBookmark: () -> Unit,

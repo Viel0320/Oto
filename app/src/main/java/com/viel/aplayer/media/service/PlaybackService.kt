@@ -27,7 +27,9 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookmarkGateway
+import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import com.viel.aplayer.media.NotificationProgressPlayer
@@ -81,11 +83,17 @@ class PlaybackService : MediaSessionService() {
     private lateinit var rewindButton: CommandButton
     private lateinit var forwardButton: CommandButton
     private lateinit var bookmarkButton: CommandButton
-    // Playback Book Query Gateway (Limits the media service to book, chapter, and bookmark reads it actually needs)
-    // Keeping playback service on granular gateways prevents the foreground media core from depending on the broad UI-facing LibraryFacade.
-    private lateinit var bookQueryGateway: BookQueryGateway
+    // Playback Book Catalog Gateway (Limits foreground playback to book metadata and file inventory reads)
+    // Keeping catalog reads separate prevents notification and resume flows from inheriting bookmark or chapter mutation surfaces.
+    private lateinit var bookCatalogGateway: BookCatalogGateway
+    // Playback Chapter Gateway (Provides timeline chapters for notification and resume media sessions)
+    // The service resolves chapters through their own seam so catalog lookups remain read-only and chapter-specific.
+    private lateinit var chapterGateway: ChapterGateway
+    // Playback Bookmark Gateway (Provides notification bookmark creation only)
+    // Bookmark commands stay isolated from catalog and chapter dependencies used elsewhere in the service.
+    private lateinit var bookmarkGateway: BookmarkGateway
     // Playback Plan Gateway (Dedicated media-core read model for plan materialization)
-    // Separating plan construction from BookQueryGateway keeps playback startup semantics out of generic book queries.
+    // Separating plan construction from catalog reads keeps playback startup semantics out of generic book metadata queries.
     private lateinit var playbackPlanGateway: PlaybackPlanGateway
     // Playback Progress Gateway (Provides resume checkpoints and runtime progress state without routing through the UI facade)
     // This keeps progress persistence and playback recovery aligned with the media-core gateway seam.
@@ -125,7 +133,9 @@ class PlaybackService : MediaSessionService() {
         val playbackDependencies = APlayerApplication.getPlaybackRuntimeDependencies(applicationContext)
         // Playback Runtime Dependency Resolution (Resolve only the fine-grained media-core dependency view)
         // The service stores separate gateway references so future playback changes cannot accidentally reach unrelated library facade operations.
-        bookQueryGateway = playbackDependencies.bookQueryGateway
+        bookCatalogGateway = playbackDependencies.bookCatalogGateway
+        chapterGateway = playbackDependencies.chapterGateway
+        bookmarkGateway = playbackDependencies.bookmarkGateway
         playbackPlanGateway = playbackDependencies.playbackPlanGateway
         progressGateway = playbackDependencies.progressGateway
         bookAvailabilityGateway = playbackDependencies.bookAvailabilityGateway
@@ -361,10 +371,10 @@ class PlaybackService : MediaSessionService() {
         val bookId = mediaParts.bookId
 
         serviceScope.launch(Dispatchers.IO) {
-            // Notification Timeline Query (Fetches only book files and chapters through the playback query gateway)
-            // The notification player needs timeline metadata, not the full UI facade surface.
-            val files = bookQueryGateway.getFilesForBookSync(bookId)
-            val chapters = bookQueryGateway.getChaptersForBookSync(bookId)
+            // Notification Timeline Query (Fetches files and chapters through separate playback seams)
+            // The notification player needs timeline metadata without receiving bookmark, metadata edit, or catalog filter commands.
+            val files = bookCatalogGateway.getFilesForBookSync(bookId)
+            val chapters = chapterGateway.getChaptersForBookSync(bookId)
             if (files.isNotEmpty()) {
                 launch(Dispatchers.Main) {
                     notificationBookId = bookId
@@ -447,9 +457,9 @@ class PlaybackService : MediaSessionService() {
                             val positionMs = (session.player as? NotificationProgressPlayer)
                                 ?.currentGlobalPosition()
                                 ?: currentGlobalPosition(session.player, bookId)
-                            // Notification Bookmark Command (Persists bookmark changes through the playback query gateway)
-                            // Notification actions live in the media service, so they use the same granular gateway path as other playback metadata commands.
-                            bookQueryGateway.addBookmark(bookId, positionMs, "Bookmark")
+                            // Notification Bookmark Command (Persists bookmark changes through the bookmark seam)
+                            // Notification actions create bookmarks without inheriting catalog search, chapter replacement, or metadata editing methods.
+                            bookmarkGateway.addBookmark(bookId, positionMs, "Bookmark")
                             playbackEventSink.emit(PlaybackDomainEvent.BookmarkCreated(bookId, positionMs))
                         }
                     }
@@ -480,7 +490,7 @@ class PlaybackService : MediaSessionService() {
                         return@launch
                     }
                     val mediaItems = com.viel.aplayer.media.PlaybackPlanBuilder.buildMediaItems(plan)
-                    val chapters = bookQueryGateway.getChaptersForBookSync(lastProgress.bookId)
+                    val chapters = chapterGateway.getChaptersForBookSync(lastProgress.bookId)
                     val startIndex = if (lastProgress.currentFileIndex in mediaItems.indices) {
                         lastProgress.currentFileIndex
                     } else {
@@ -543,10 +553,10 @@ class PlaybackService : MediaSessionService() {
     private suspend fun currentGlobalPosition(player: Player, bookId: String): Long {
         val fileIndex = player.currentMediaItemIndex.coerceAtLeast(0)
         val positionInFile = player.currentPosition.coerceAtLeast(0L)
-        // Missing Cache Fetch (Retrieves the segments through the playback query gateway when cached files are missing)
-        // This fallback keeps global-position mapping local to the media gateway surface instead of reaching the UI facade.
+        // Missing Cache Fetch (Retrieves the segments through the catalog gateway when cached files are missing)
+        // This fallback keeps global-position mapping on the file inventory seam instead of reaching a broader library surface.
         val files = notificationFiles.takeIf { notificationBookId == bookId && it.isNotEmpty() }
-            ?: bookQueryGateway.getFilesForBookSync(bookId)
+            ?: bookCatalogGateway.getFilesForBookSync(bookId)
         
         return if (files.isNotEmpty()) {
             PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
@@ -582,9 +592,9 @@ class PlaybackService : MediaSessionService() {
                         .getGlanceIds(PlayerWidget::class.java)
                     if (glanceIds.isEmpty()) return@withContext
 
-                    // Widget Metadata Query (Loads active book details through the playback query gateway)
-                    // Widget updates are triggered from the media service and should not depend on the broad UI facade.
-                    val book = bookQueryGateway.getBookById(bookId)
+                    // Widget Metadata Query (Loads active book details through the catalog gateway)
+                    // Widget updates are triggered from the media service and require only display metadata from the catalog seam.
+                    val book = bookCatalogGateway.getBookById(bookId)
                     val title = book?.title ?: fallbackTitle
                     val author = book?.author ?: fallbackArtist
                     val coverPath = book?.thumbnailPath ?: book?.coverPath

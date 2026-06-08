@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.detail
 
-import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.application.library.detail.DetailSnapshot
 
 /**
  * Detail Entry Source (Detail overlay motion origin)
@@ -25,8 +25,11 @@ enum class DetailEntrySource {
  * UI State for the book details page.
  */
 data class DetailUiState(
-    /** Currently selected book entity */
-    val book: BookWithProgress? = null,
+    /**
+     * Selected Detail Snapshot (Transition boundary for the detail scene)
+     * Stores the module-produced snapshot and Room-free detail item so source location, availability, and metadata stay behind the detail scene boundary.
+     */
+    val book: DetailSnapshot? = null,
     /*
      * Detail Entry Source (Shared-element source selector)
      *

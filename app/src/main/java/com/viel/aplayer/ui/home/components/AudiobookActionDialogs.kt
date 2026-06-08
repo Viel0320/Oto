@@ -36,13 +36,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.viel.aplayer.R
+import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
@@ -60,7 +62,7 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun AudiobookActionDialogs(
     modifier: Modifier = Modifier,
-    bookWithProgress: BookWithProgress?,
+    book: HomeBookItem?,
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
     // Glass effect mode must be explicitly passed from the settings state by the host page, avoiding default values inside the dialog wrapper.
@@ -70,9 +72,8 @@ fun AudiobookActionDialogs(
     onForceRegenerate: (String) -> Unit,
     onDeleteBook: (String) -> Unit
 ) {
-    if (bookWithProgress == null) return
+    if (book == null) return
 
-    val book = bookWithProgress.book
     // Internally maintain visibility state of the second-level soft delete confirmation Dialog
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -160,7 +161,7 @@ fun AudiobookActionDialogs(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "标记阅读状态",
+                        text = stringResource(R.string.home_action_mark_read_status),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -176,17 +177,17 @@ fun AudiobookActionDialogs(
                         val statusList = listOf(
                             ReadStatusChipSpec(
                                 status = AudiobookSchema.ReadStatus.NOT_STARTED,
-                                label = "未开始",
+                                label = stringResource(R.string.filter_not_started),
                                 accentColor = Color(0xFF72D38A)
                             ),
                             ReadStatusChipSpec(
                                 status = AudiobookSchema.ReadStatus.IN_PROGRESS,
-                                label = "进行中",
+                                label = stringResource(R.string.filter_in_progress),
                                 accentColor = Color(0xFF7DB7FF)
                             ),
                             ReadStatusChipSpec(
                                 status = AudiobookSchema.ReadStatus.FINISHED,
-                                label = "已完成",
+                                label = stringResource(R.string.filter_finished),
                                 accentColor = Color(0xFFD49AEF)
                             )
                         )
@@ -238,12 +239,12 @@ fun AudiobookActionDialogs(
                         )
                         Column {
                             Text(
-                                text = "重建封面与元数据",
+                                text = stringResource(R.string.home_action_regenerate_title),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "强制从音频文件中重新提取封面和描述信息",
+                                text = stringResource(R.string.home_action_regenerate_subtitle),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -275,13 +276,13 @@ fun AudiobookActionDialogs(
                         )
                         Column {
                             Text(
-                                text = "从媒体库移除",
+                                text = stringResource(R.string.home_action_remove_title),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.error
                             )
                             Text(
-                                text = "仅从播放列表中移出此书籍，手机源文件仍保留",
+                                text = stringResource(R.string.home_action_remove_subtitle),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
                             )
@@ -295,7 +296,7 @@ fun AudiobookActionDialogs(
                 // Cancel Action (Close the action menu without mutating the selected audiobook)
                 // Keeps command placement inside the shared template action row while the actual dismissal remains a page-owned callback.
                 TextButton(onClick = onDismissRequest) {
-                    Text("取消")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -331,7 +332,7 @@ fun AudiobookActionDialogs(
 
                 // Confirmation Dialog title
                 Text(
-                    text = "确认从媒体库移除？",
+                    text = stringResource(R.string.home_action_remove_confirm_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.fillMaxWidth(),
@@ -343,7 +344,7 @@ fun AudiobookActionDialogs(
 
                 // Soft delete explanation text, reminding user that it only removes from playlist without deleting physical files
                 Text(
-                    text = "您确定要从 APlayer 媒体库中移除《${book.title}》吗？\n\n⚠️ 注意：此操作仅为软删除，将从播放列表中移出，但不会删除您手机存储中的物理音频文件。",
+                    text = stringResource(R.string.home_action_remove_confirm_body, book.title),
                     style = MaterialTheme.typography.bodyMedium
                 )
 
@@ -353,7 +354,7 @@ fun AudiobookActionDialogs(
                 TextButton(
                     onClick = { showDeleteConfirm = false }
                 ) {
-                    Text("取消")
+                    Text(stringResource(R.string.action_cancel))
                 }
                 Button(
                     onClick = {
@@ -366,7 +367,7 @@ fun AudiobookActionDialogs(
                         contentColor = MaterialTheme.colorScheme.onError
                     )
                 ) {
-                    Text("确认删除")
+                    Text(stringResource(R.string.home_action_remove_confirm_button))
                 }
             }
         )

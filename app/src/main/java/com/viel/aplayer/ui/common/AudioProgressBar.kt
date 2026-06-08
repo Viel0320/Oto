@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
@@ -28,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 
@@ -60,6 +62,7 @@ fun AudioProgressBar(
     // This perfectly resolves compilation errors caused by calling @Composable properties directly inside DrawScope.
     val secondaryColor = MaterialTheme.colorScheme.secondary
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    val progressContentDescription = stringResource(R.string.playback_progress_content_description)
 
     Canvas(
         modifier = modifier
@@ -70,7 +73,7 @@ fun AudioProgressBar(
             // Provide progressBarRangeInfo to allow TalkBack to recognize progress values and range.
             // setProgress custom action allows accessibility services to programmatically configure the progress.
             .semantics(mergeDescendants = true) {
-                contentDescription = "播放进度"
+                contentDescription = progressContentDescription
                 progressBarRangeInfo = ProgressBarRangeInfo(
                     current = progress(),
                     range = 0f..1f,

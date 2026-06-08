@@ -1,36 +1,68 @@
 package com.viel.aplayer.dependencies
 
 import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
-import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
-import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
+import com.viel.aplayer.application.library.detail.DetailBookCommands
+import com.viel.aplayer.application.library.detail.DetailBookReadModel
+import com.viel.aplayer.application.library.edit.EditBookCommands
+import com.viel.aplayer.application.library.edit.EditBookReadModel
+import com.viel.aplayer.application.library.player.PlayerBookmarkCommands
+import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
+import com.viel.aplayer.application.library.search.SearchLibraryCommands
+import com.viel.aplayer.application.library.search.SearchLibraryReadModel
+import com.viel.aplayer.application.library.settings.SettingsRootCommands
+import com.viel.aplayer.application.library.settings.SettingsRootReadModel
+import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryFacade
-import com.viel.aplayer.domain.usecase.AbsSettingsConnectionUseCase
-import com.viel.aplayer.domain.usecase.BuildPlaybackPlanUseCase
-import com.viel.aplayer.domain.usecase.DeleteBookUseCase
-import com.viel.aplayer.domain.usecase.DeleteLibraryRootUseCase
-import com.viel.aplayer.domain.usecase.SettingsLibraryMaintenanceUseCase
-import com.viel.aplayer.domain.usecase.SettingsQueryUseCase
+import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
+import com.viel.aplayer.application.usecase.DeleteBookUseCase
+import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
+import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.event.AppEventSink
-import com.viel.aplayer.library.readmodel.HomeLibraryReadModel
-import com.viel.aplayer.library.readmodel.HomeLibraryUseCases
+import com.viel.aplayer.application.library.home.HomeLibraryReadModel
+import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTester
 
 /**
- * Library Presentation Dependencies (Shared read/write facade view for library screens)
- * Gives simple book detail, search, and edit screens only the high-level library facade they already use.
+ * Search Screen Dependencies (Search-scene dependency view)
+ * Exposes only the search read model and history commands required by SearchViewModel.
  */
-interface LibraryPresentationDependencies {
+interface SearchScreenDependencies {
     /**
-     * UI-Facing Library Facade (Unified entry point for presentation callers)
-     * Keeps simple library screens away from granular gateways and container lifecycle entries.
+     * Search Library Read Model (Search-scoped query and history stream)
+     * Lets SearchViewModel observe search data without depending on the retired broad library seam.
      */
-    val libraryFacade: LibraryFacade
+    val searchLibraryReadModel: SearchLibraryReadModel
+
+    /**
+     * Search Library Commands (Search-scoped history mutations)
+     * Routes search-history writes through a small scene interface instead of the all-capability library facade.
+     */
+    val searchLibraryCommands: SearchLibraryCommands
+}
+
+/**
+ * Detail Screen Dependencies (Detail-scene dependency view)
+ * Exposes only detail source, live snapshot, and availability interfaces required by DetailViewModel.
+ */
+interface DetailScreenDependencies {
+    /**
+     * Detail Book Read Model (Detail-scoped read surface)
+     * Resolves source labels and observes live book updates without exposing file or root gateways to the UI layer.
+     */
+    val detailBookReadModel: DetailBookReadModel
+
+    /**
+     * Detail Book Commands (Detail-scoped mutation surface)
+     * Routes availability refreshes through a small scene command interface instead of a broad library facade.
+     */
+    val detailBookCommands: DetailBookCommands
 }
 
 /**
  * Home Screen Dependencies (Home-library screen dependency view)
- * Groups the home read model, settings, deletion use cases, and feedback sink consumed by LibraryViewModel.
+ * Groups the home read model, settings, book deletion use case, and feedback sink consumed by LibraryViewModel.
  */
 interface HomeScreenDependencies {
     /**
@@ -58,12 +90,6 @@ interface HomeScreenDependencies {
     val appEventSink: AppEventSink
 
     /**
-     * Library Root Deletion Use Case (Home root-removal coordinator)
-     * Lets the home screen remove roots safely without importing playback or root gateway internals.
-     */
-    val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
-
-    /**
      * Delete Book Use Case (Home book-removal coordinator)
      * Lets the home screen remove a book without reaching into availability gateways directly.
      */
@@ -72,26 +98,26 @@ interface HomeScreenDependencies {
 
 /**
  * Settings Screen Dependencies (Settings-page dependency view)
- * Collects the settings read models, connection operations, maintenance use cases, and feedback sink required by SettingsViewModel.
+ * Collects settings root scene interfaces, connection operations, maintenance use cases, and feedback sink required by SettingsViewModel.
  */
-interface SettingsScreenDependencies : LibraryPresentationDependencies {
+interface SettingsScreenDependencies {
+    /**
+     * Settings Root Read Model (Settings-scoped root display stream)
+     * Gives SettingsViewModel root display snapshots without reopening the broad library transition entry point.
+     */
+    val settingsRootReadModel: SettingsRootReadModel
+
+    /**
+     * Settings Root Commands (Settings-scoped root management operations)
+     * Routes root registration, status refresh, and manual scan triggers through the settings-root module.
+     */
+    val settingsRootCommands: SettingsRootCommands
+
     /**
      * Settings Repository (Settings persistence source)
      * Provides the reactive app settings flow and cached startup settings.
      */
     val settingsRepository: AppSettingsRepository
-
-    /**
-     * ABS Catalog Synchronizer (Manual preview and catalog sync dependency)
-     * Supports settings-side ABS operations without exposing playback session syncers.
-     */
-    val absCatalogSynchronizer: AbsCatalogSynchronizer
-
-    /**
-     * Application-Level ABS Sync Coordinator (Settings-triggered background sync scheduler)
-     * Lets settings enqueue ABS sync work while hiding worker implementation details.
-     */
-    val absSyncTaskCoordinator: AbsSyncTaskCoordinator
 
     /**
      * Settings Query Use Case (Settings read model seam)
@@ -132,9 +158,21 @@ interface SettingsScreenDependencies : LibraryPresentationDependencies {
 
 /**
  * Player Screen Dependencies (Player UI dependency view)
- * Gives PlayerViewModel the facade, settings, startup use case, ABS conflict coordinator, and feedback sink it consumes.
+ * Gives PlayerViewModel player scene interfaces, settings, startup use case, ABS conflict coordinator, and feedback sink it consumes.
  */
-interface PlayerScreenDependencies : LibraryPresentationDependencies {
+interface PlayerScreenDependencies {
+    /**
+     * Player Library Read Model (Player-scoped metadata and recovery reads)
+     * Keeps PlayerViewModel, MediaPlaybackDelegate, and subtitle loading off the broad library transition facade.
+     */
+    val playerLibraryReadModel: PlayerLibraryReadModel
+
+    /**
+     * Player Bookmark Commands (Player-scoped bookmark mutations)
+     * Lets BookmarkManager add, edit, and delete bookmarks through a compact scene command surface.
+     */
+    val playerBookmarkCommands: PlayerBookmarkCommands
+
     /**
      * Settings Repository (Player preference source)
      * Supplies playback UI and behavior preferences without exposing settings maintenance use cases.
@@ -158,4 +196,28 @@ interface PlayerScreenDependencies : LibraryPresentationDependencies {
      * Keeps PlayerViewModel on an application operation instead of media-core gateway details.
      */
     val buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase
+
+    /**
+     * Player Playback Controller (Player-scene playback runtime seam)
+     * Lets PlayerViewModel and helper classes control playback without resolving media singletons from Context.
+     */
+    val playerPlaybackController: PlayerPlaybackController
+}
+
+/**
+ * Edit Screen Dependencies (Edit-page dependency view)
+ * Gives EditBookViewModel only editable-book reads and edit commands for the metadata editing flow.
+ */
+interface EditScreenDependencies {
+    /**
+     * Edit Book Read Model (Edit-scoped selected book lookup)
+     * Lets EditBookViewModel load the target book without resolving the library presentation facade.
+     */
+    val editBookReadModel: EditBookReadModel
+
+    /**
+     * Edit Book Commands (Edit-scoped metadata and cover persistence)
+     * Routes text metadata and custom cover writes through the edit scene module.
+     */
+    val editBookCommands: EditBookCommands
 }

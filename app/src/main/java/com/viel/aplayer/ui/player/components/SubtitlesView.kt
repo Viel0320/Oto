@@ -23,11 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.viel.aplayer.R
 import com.viel.aplayer.media.subtitle.SubtitleLine
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import kotlin.time.Duration.Companion.milliseconds
@@ -39,6 +41,9 @@ fun SubtitlesView(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Localized Subtitle Empty State (Resolve the no-subtitles message through resources)
+    // Subtitle line content is media data, but the empty-state label belongs to the player UI.
+    val emptySubtitlesText = stringResource(R.string.subtitles_empty)
     val listState = rememberLazyListState()
     val density = androidx.compose.ui.platform.LocalDensity.current
     var autoScrollEnabled by remember(subtitles) { mutableStateOf(true) }
@@ -91,7 +96,7 @@ fun SubtitlesView(
         if (subtitles.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "No subtitles found",
+                    text = emptySubtitlesText,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     style = MaterialTheme.typography.bodyLarge
                 )

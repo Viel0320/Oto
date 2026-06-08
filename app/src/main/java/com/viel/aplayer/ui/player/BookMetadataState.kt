@@ -1,7 +1,7 @@
 package com.viel.aplayer.ui.player
 
-import com.viel.aplayer.data.entity.BookmarkEntity
-import com.viel.aplayer.data.entity.ChapterWithBookFile
+import com.viel.aplayer.application.library.player.PlayerBookmarkItem
+import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.media.subtitle.SubtitleLine
 
 /**
@@ -24,11 +24,11 @@ data class BookMetadataState(
     /** Cover modification timestamp (To trigger view recompositions when cover assets are self-healed) */
     val coverLastUpdated: Long = 0L,
     /** Track chapters (To store audiobook chapter boundaries with file availability status) */
-    val chapters: List<ChapterWithBookFile> = emptyList(),
+    val chapters: List<PlayerChapterItem> = emptyList(),
     /** External subtitle lines (To store parsed subtitle lists) */
     val subtitles: List<SubtitleLine> = emptyList(),
     /** User saved bookmarks (To store custom bookmark positions) */
-    val bookmarks: List<BookmarkEntity> = emptyList(),
+    val bookmarks: List<PlayerBookmarkItem> = emptyList(),
     // Deprecated: backgroundColorArgb is removed
 ) {
     /** Active track validator (To verify if track metadata is loaded and valid) */
@@ -40,7 +40,7 @@ data class BookMetadataState(
      */
     fun getChapterMarkers(totalDuration: Long): List<Float> {
         return if (totalDuration > 0) {
-            chapters.map { it.chapter.startPositionMs.toFloat() / totalDuration.toFloat() }
+            chapters.map { it.startPositionMs.toFloat() / totalDuration.toFloat() }
         } else {
             emptyList()
         }

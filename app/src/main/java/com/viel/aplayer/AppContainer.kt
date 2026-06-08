@@ -7,10 +7,23 @@ import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.abs.sync.AbsAuthorizedProgressSynchronizer
 import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
+import com.viel.aplayer.application.library.detail.DetailBookCommands
+import com.viel.aplayer.application.library.detail.DetailBookReadModel
+import com.viel.aplayer.application.library.edit.EditBookCommands
+import com.viel.aplayer.application.library.edit.EditBookReadModel
+import com.viel.aplayer.application.library.player.PlayerBookmarkCommands
+import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
+import com.viel.aplayer.application.library.search.SearchLibraryCommands
+import com.viel.aplayer.application.library.search.SearchLibraryReadModel
+import com.viel.aplayer.application.library.settings.DefaultSettingsRootModule
+import com.viel.aplayer.application.library.settings.SettingsRootCommands
+import com.viel.aplayer.application.library.settings.SettingsRootReadModel
+import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookmarkGateway
+import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
@@ -18,18 +31,21 @@ import com.viel.aplayer.data.gateway.SearchHistoryGateway
 import com.viel.aplayer.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.dependencies.AppFeedbackDependencies
 import com.viel.aplayer.dependencies.AppShellDependencies
+import com.viel.aplayer.dependencies.DetailScreenDependencies
+import com.viel.aplayer.dependencies.EditScreenDependencies
 import com.viel.aplayer.dependencies.HomeScreenDependencies
 import com.viel.aplayer.dependencies.LibrarySyncWorkerDependencies
 import com.viel.aplayer.dependencies.PlaybackRuntimeDependencies
 import com.viel.aplayer.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.dependencies.SearchScreenDependencies
 import com.viel.aplayer.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.dependencies.VfsPlaybackDependencies
-import com.viel.aplayer.domain.usecase.AbsSettingsConnectionUseCase
-import com.viel.aplayer.domain.usecase.BuildPlaybackPlanUseCase
-import com.viel.aplayer.domain.usecase.DeleteBookUseCase
-import com.viel.aplayer.domain.usecase.DeleteLibraryRootUseCase
-import com.viel.aplayer.domain.usecase.SettingsLibraryMaintenanceUseCase
-import com.viel.aplayer.domain.usecase.SettingsQueryUseCase
+import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
+import com.viel.aplayer.application.usecase.DeleteBookUseCase
+import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
+import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.graph.AbsGraph
 import com.viel.aplayer.graph.DataGraph
@@ -38,8 +54,8 @@ import com.viel.aplayer.graph.MediaGraph
 import com.viel.aplayer.graph.UiEventGraph
 import com.viel.aplayer.graph.closeAppGraphsInLifecycleOrder
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
-import com.viel.aplayer.library.readmodel.HomeLibraryReadModel
-import com.viel.aplayer.library.readmodel.HomeLibraryUseCases
+import com.viel.aplayer.application.library.home.HomeLibraryReadModel
+import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTester
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
@@ -58,8 +74,11 @@ interface AppContainer :
     LibrarySyncWorkerDependencies,
     AbsSyncWorkerDependencies,
     HomeScreenDependencies,
+    SearchScreenDependencies,
+    DetailScreenDependencies,
     SettingsScreenDependencies,
     PlayerScreenDependencies,
+    EditScreenDependencies,
     AppShellDependencies,
     AppFeedbackDependencies,
     java.io.Closeable {
@@ -76,6 +95,18 @@ interface AppContainer :
     override val playbackDomainEventSink: PlaybackDomainEventSink
 
     override val settingsRepository: AppSettingsRepository
+
+    /**
+     * Settings Root Read Model (Scene-level root display stream)
+     * Keeps SettingsViewModel root rows on the settings-root module rather than the broad library transition entry point.
+     */
+    override val settingsRootReadModel: SettingsRootReadModel
+
+    /**
+     * Settings Root Commands (Scene-level root management operations)
+     * Lets SettingsViewModel register roots, refresh reachability, and schedule scans through a compact settings interface.
+     */
+    override val settingsRootCommands: SettingsRootCommands
 
     /**
      * Settings Query Use Case (Read model and credential lookup seam for SettingsViewModel)
@@ -114,7 +145,7 @@ interface AppContainer :
 
     /**
      * Home Library Read Model (Scene-level catalog stream for LibraryViewModel)
-     * Keeps the home presentation path off the all-capability LibraryFacade while retaining the facade for transition screens.
+     * Keeps the home presentation path on a catalog-specific interface after the broad facade has been retired.
      */
     override val homeLibraryReadModel: HomeLibraryReadModel
 
@@ -125,20 +156,74 @@ interface AppContainer :
     override val homeLibraryUseCases: HomeLibraryUseCases
 
     /**
-     * UI-Facing Library Facade (Unified entry point for presentation and application use-case callers)
-     * Keeps screens and ViewModels on one high-level seam while delegating actual work to the focused gateway adapters below.
+     * Search Library Read Model (Scene-level search query stream)
+     * Keeps SearchViewModel on the search scene read model while preserving the existing search-result data shape.
      */
-    override val libraryFacade: LibraryFacade
+    override val searchLibraryReadModel: SearchLibraryReadModel
 
     /**
-     * Playback/Core Book Query Gateway (Fine-grained router for non-UI consumers that need only book metadata operations)
-     * Intended for media-core services and domain use cases that should avoid depending on the wider LibraryFacade interface.
+     * Search Library Commands (Scene-level search history mutations)
+     * Lets SearchViewModel save and prune history through a small command surface.
      */
-    override val bookQueryGateway: BookQueryGateway
+    override val searchLibraryCommands: SearchLibraryCommands
+
+    /**
+     * Detail Book Read Model (Scene-level source and live metadata read surface)
+     * Keeps DetailViewModel off broad library, root lookup, and file inventory gateways.
+     */
+    override val detailBookReadModel: DetailBookReadModel
+
+    /**
+     * Detail Book Commands (Scene-level availability refresh command)
+     * Lets DetailViewModel request status refresh through the detail scene boundary only.
+     */
+    override val detailBookCommands: DetailBookCommands
+
+    /**
+     * Player Library Read Model (Scene-level player metadata and recovery read surface)
+     * Keeps PlayerViewModel and player helpers on the player scene seam while preserving playback-page behavior.
+     */
+    override val playerLibraryReadModel: PlayerLibraryReadModel
+
+    /**
+     * Player Bookmark Commands (Scene-level bookmark mutation surface)
+     * Lets BookmarkManager write bookmark changes through a compact player command boundary.
+     */
+    override val playerBookmarkCommands: PlayerBookmarkCommands
+
+    /**
+     * Edit Book Read Model (Scene-level editable metadata read surface)
+     * Keeps EditBookViewModel from resolving the old library presentation dependency view.
+     */
+    override val editBookReadModel: EditBookReadModel
+
+    /**
+     * Edit Book Commands (Scene-level edit mutation surface)
+     * Routes metadata and custom cover saves through the edit scene module.
+     */
+    override val editBookCommands: EditBookCommands
+
+    /**
+     * Playback/Core Book Catalog Gateway (Read-only book metadata and file inventory seam)
+     * Intended for media-core services that need stored book rows and track lists without bookmark or metadata mutation commands.
+     */
+    override val bookCatalogGateway: BookCatalogGateway
+
+    /**
+     * Playback/Core Chapter Gateway (Playback timeline chapter seam)
+     * Lets media services read chapter timelines without receiving catalog filters or bookmark commands.
+     */
+    override val chapterGateway: ChapterGateway
+
+    /**
+     * Playback/Core Bookmark Gateway (Notification bookmark command seam)
+     * Lets media services create notification bookmarks without depending on catalog or chapter operations.
+     */
+    override val bookmarkGateway: BookmarkGateway
 
     /**
      * Playback/Core Book Availability Gateway (Fine-grained status-writing reachability seam)
-     * Exposed for media-core recovery flows that must refresh file/book availability without depending on LibraryFacade.
+     * Exposed for media-core recovery flows that must refresh file/book availability through a narrow adapter.
      */
     override val bookAvailabilityGateway: BookAvailabilityGateway
 
@@ -149,8 +234,14 @@ interface AppContainer :
     override val buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase
 
     /**
+     * Player Playback Controller (Player-scene playback runtime seam)
+     * Keeps PlayerViewModel and player helpers on a compact playback controller instead of media singleton lookups.
+     */
+    override val playerPlaybackController: PlayerPlaybackController
+
+    /**
      * Playback Plan Gateway (Fine-grained media-core playback startup read model)
-     * Lets foreground playback services build playable plans without depending on LibraryFacade or BookQueryGateway.
+     * Lets foreground playback services build playable plans without depending on broad library or book-query surfaces.
      */
     override val playbackPlanGateway: PlaybackPlanGateway
 
@@ -162,19 +253,19 @@ interface AppContainer :
 
     /**
      * Scanner Gateway Adapter (Fine-grained scheduler interface owned by the library application layer)
-     * Exposed for infrastructure coordinators while UI callers route scan commands through LibraryFacade.
+     * Exposed for infrastructure coordinators while UI callers route scan commands through scene-specific use cases.
      */
     override val scanScheduler: ScanScheduler
 
     /**
      * Library Root Gateway Adapter (Fine-grained maintenance interface for source root registration and reachability)
-     * Exposed for domain coordination and data services while presentation code consumes the LibraryFacade seam.
+     * Exposed for domain coordination and data services while presentation code consumes scene-specific root seams.
      */
     val libraryRootGateway: LibraryRootGateway
 
     /**
      * Search History Gateway Adapter (Fine-grained persistence interface for keyword lookup logs)
-     * Remains available for application services while screens reach search history through LibraryFacade.
+     * Remains available for application services while screens reach search history through the search scene module.
      */
     val searchHistoryGateway: SearchHistoryGateway
 
@@ -195,8 +286,8 @@ interface AppContainer :
     override val playbackSourcePreflight: PlaybackSourcePreflight
 
     /**
-     * Playback Manager Instance (Singleton registry for media controller coordination)
-     * Promotes decoupled architecture and simplifies component isolation during unit testing.
+     * Playback Manager Instance (MediaGraph-owned singleton registry for media controller coordination)
+     * Keeps playback lifecycle ownership in the media graph while preserving existing callers during the migration.
      */
     val playbackManager: com.viel.aplayer.media.PlaybackManager
 
@@ -206,13 +297,14 @@ interface AppContainer :
     val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore
 
     /**
-     * Auto Rewind Controller (Singleton manager tracking playback progress self-healing)
+     * Auto Rewind Controller (MediaGraph-owned playback progress self-healing manager)
+     * Keeps playback recovery lifecycle beside the runtime manager instead of the persistence graph.
      */
     val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
 
     /**
      * ABS Catalog Synchronizer (Dedicated mirror processor for Audiobookshelf servers)
-     * Kept separate from LibraryFacade to prevent remote REST details leaking into the local domain.
+     * Kept separate from local library seams to prevent remote REST details leaking into the local domain.
      */
     override val absCatalogSynchronizer: AbsCatalogSynchronizer
 
@@ -238,7 +330,7 @@ interface AppContainer :
      * Application-Level ABS Sync Coordinator (Coordinates background server synchronization)
      * Ensures sync events persist beyond SettingsActivity lifecycle, preventing unexpected interruptions.
      */
-    override val absSyncTaskCoordinator: AbsSyncTaskCoordinator
+    val absSyncTaskCoordinator: AbsSyncTaskCoordinator
 }
 
 @UnstableApi
@@ -284,6 +376,24 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         )
     }
 
+    private val settingsRootModule: DefaultSettingsRootModule by lazy {
+        // Settings Root Module Wiring (Compose settings root reads and commands from granular adapters)
+        // This keeps root registration, status refresh, and manual scan triggers inside the settings-root scene seam.
+        DefaultSettingsRootModule(
+            observeRootSnapshotsSource = settingsQueryUseCase::observeLibraryRootSnapshots,
+            libraryRootGateway = library.libraryRootGateway,
+            scanScheduler = library.scanScheduler,
+            inspectAbsSyncPlan = abs.absCatalogSynchronizer::inspectRootSyncPlan,
+            startAbsSyncTask = abs.absSyncTaskCoordinator::start
+        )
+    }
+
+    override val settingsRootReadModel: SettingsRootReadModel
+        get() = settingsRootModule
+
+    override val settingsRootCommands: SettingsRootCommands
+        get() = settingsRootModule
+
     override val settingsLibraryMaintenanceUseCase: SettingsLibraryMaintenanceUseCase by lazy {
         // Settings Maintenance Use Case Wiring (Centralizes edit follow-up work)
         // Root relocation, WebDAV edits, and ABS edit recovery no longer perform cache or recovery operations inside the UI layer.
@@ -326,17 +436,47 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     override val homeLibraryUseCases: HomeLibraryUseCases
         get() = library.homeLibraryUseCases
 
-    override val libraryFacade: LibraryFacade
-        get() = library.libraryFacade
+    override val searchLibraryReadModel: SearchLibraryReadModel
+        get() = library.searchLibraryReadModel
 
-    override val bookQueryGateway: BookQueryGateway
-        get() = library.bookQueryGateway
+    override val searchLibraryCommands: SearchLibraryCommands
+        get() = library.searchLibraryCommands
+
+    override val detailBookReadModel: DetailBookReadModel
+        get() = library.detailBookReadModel
+
+    override val detailBookCommands: DetailBookCommands
+        get() = library.detailBookCommands
+
+    override val playerLibraryReadModel: PlayerLibraryReadModel
+        get() = library.playerLibraryReadModel
+
+    override val playerBookmarkCommands: PlayerBookmarkCommands
+        get() = library.playerBookmarkCommands
+
+    override val editBookReadModel: EditBookReadModel
+        get() = library.editBookReadModel
+
+    override val editBookCommands: EditBookCommands
+        get() = library.editBookCommands
+
+    override val bookCatalogGateway: BookCatalogGateway
+        get() = library.bookCatalogGateway
+
+    override val chapterGateway: ChapterGateway
+        get() = library.chapterGateway
+
+    override val bookmarkGateway: BookmarkGateway
+        get() = library.bookmarkGateway
 
     override val bookAvailabilityGateway: BookAvailabilityGateway
         get() = library.bookAvailabilityGateway
 
     override val buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase
         get() = library.buildPlaybackPlanUseCase
+
+    override val playerPlaybackController: PlayerPlaybackController
+        get() = media.playerPlaybackController
 
     override val playbackPlanGateway: PlaybackPlanGateway
         get() = library.playbackPlanGateway
@@ -363,13 +503,13 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         get() = media.playbackSourcePreflight
 
     override val playbackManager: com.viel.aplayer.media.PlaybackManager
-        get() = data.playbackManager
+        get() = media.playbackManager
 
     override val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore
         get() = data.searchHistoryStore
 
     override val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
-        get() = data.autoRewindManager
+        get() = media.autoRewindManager
 
     override val absCatalogSynchronizer: AbsCatalogSynchronizer
         get() = abs.absCatalogSynchronizer

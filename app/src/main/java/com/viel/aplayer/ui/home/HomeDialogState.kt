@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.home
 
-import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.application.library.home.HomeBookItem
 
 /**
  * Home Dialog State (Page-owned dialog event model)
@@ -21,5 +21,5 @@ sealed interface HomeDialogState {
      *
      * Carries the selected audiobook for read-status updates, metadata regeneration, and soft-delete confirmation flows.
      */
-    data class AudiobookActions(val bookWithProgress: BookWithProgress) : HomeDialogState
+    data class AudiobookActions(val book: HomeBookItem) : HomeDialogState
 }

@@ -31,7 +31,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         @Suppress("UnstableApiUsage")
         androidResources {
-            localeFilters += listOf("zh", "en")
+            // App Locale Packaging (Keep every declared app-language resource in the APK)
+            // The filtered list mirrors locales_config.xml so Android settings and packaged resources stay in sync.
+            localeFilters += listOf("en", "zh-rCN", "zh-rHK", "zh-rTW", "ja", "fr", "de", "ru", "es", "pt")
         }
         vectorDrawables {
             useSupportLibrary = true

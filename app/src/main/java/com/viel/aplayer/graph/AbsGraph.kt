@@ -57,7 +57,8 @@ internal class AbsGraph(
         // Progress Conflict Coordinator: Arbitrates conflicting play timestamps.
         AbsProgressConflictCoordinator(
             apiClient = absApiClient,
-            bookQueryGateway = library.bookQueryGateway,
+            bookCatalogGateway = library.bookCatalogGateway,
+            bookMetadataGateway = library.bookMetadataGateway,
             progressGateway = library.progressGateway,
             credentialProvider = { book -> absPlaybackCredentialResolver.resolve(book) }
         )
@@ -71,7 +72,8 @@ internal class AbsGraph(
                 val credential = root.credentialId?.let { credentialId -> absCredentialStore.get(credentialId) }
                 credential?.let { AbsAuthorizedProgressSynchronizer.CredentialSnapshot(baseUrl = it.baseUrl, token = it.token) }
             },
-            bookQueryGateway = library.bookQueryGateway,
+            bookCatalogGateway = library.bookCatalogGateway,
+            bookMetadataGateway = library.bookMetadataGateway,
             progressGateway = library.progressGateway
         )
     }

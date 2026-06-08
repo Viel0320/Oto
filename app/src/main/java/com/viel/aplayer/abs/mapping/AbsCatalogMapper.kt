@@ -56,7 +56,10 @@ class AbsCatalogMapper(
             thumbnailPath = thumbnailPath,
             // Deprecated: backgroundColorArgb is removed
             series = series,
-            addedAt = existing?.addedAt ?: syncedAt,
+            // ABS Remote Added Time Preservation (Use the server catalog insertion timestamp for first local materialization)
+            // Recently Added depends on BookEntity.addedAt, so new ABS rows must not all inherit the same sync-run timestamp.
+            // Existing local rows keep their original value to avoid reshuffling the shelf during routine metadata refreshes.
+            addedAt = existing?.addedAt ?: item.addedAt ?: syncedAt,
             // Cover Cache Invalidation (Prevent unnecessary UI image reload cycles)
             // Allow callers to supply an updated scan timestamp explicitly.
             // If the cover or thumbnail path has actually changed, the UI loader requests a new cache key.

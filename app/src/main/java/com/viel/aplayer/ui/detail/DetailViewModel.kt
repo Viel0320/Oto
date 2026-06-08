@@ -5,10 +5,8 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.entity.BookFileEntity
-import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.application.library.detail.DetailBookItem
+import com.viel.aplayer.application.library.detail.DetailSnapshot
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,9 +23,11 @@ import kotlin.time.Duration.Companion.milliseconds
  * Separated from `LibraryViewModel` to respect single-responsibility principles and establish clean domains.
  */
 class DetailViewModel(application: Application) : AndroidViewModel(application) {
-    // Library Presentation Dependency View (Resolve only the facade required by the detail screen)
-    // DetailViewModel observes book data and does not need settings, playback, or worker dependencies.
-    private val libraryFacade = APlayerApplication.getLibraryPresentationDependencies(application).libraryFacade
+    // Detail Scene Dependency View (Resolve only detail-specific read and command interfaces)
+    // This keeps source lookup, availability refresh, and live metadata observation behind the detail scene boundary.
+    private val detailDependencies = APlayerApplication.getDetailScreenDependencies(application)
+    private val detailBookReadModel = detailDependencies.detailBookReadModel
+    private val detailBookCommands = detailDependencies.detailBookCommands
 
     // Relational Observer Job (Tracks database updates for the selected book)
     private var bookObserveJob: kotlinx.coroutines.Job? = null
@@ -71,16 +71,16 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Select Audiobook: Configures the details screen to focus on the selected book entity.
+     * Select Audiobook: Configures the details screen to focus on the selected detail item.
      *
      * Populates primary metadata fields immediately, then triggers asynchronous tasks to check
      * physical track availability via VFS and retrieve dominant cover colors.
      *
-     * @param book The target audiobook with progress. Pass `null` to close the details pane.
+     * @param book The target audiobook detail item. Pass `null` to close the details pane.
      * @param entrySource The UI surface that triggered this detail selection, used only for motion channel routing.
      */
     fun selectBook(
-        book: BookWithProgress?,
+        book: DetailBookItem?,
         entrySource: DetailEntrySource = DetailEntrySource.None
     ) {
         // Resource Cleanup (Cancel active database flow subscription to avoid leakage and crosstalk)
@@ -90,10 +90,13 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
         // Display Details (Render details pane for non-null target selection)
         if (book != null) {
+            // Detail Selection Snapshot (Lift the scene item into state with detail-owned async fields)
+            // Source location and availability are resolved after selection, so the initial snapshot starts with optimistic defaults.
+            val snapshot = DetailSnapshot(item = book)
             // Reset Protection State (Wipe timestamps to prevent crosstalk during selection changes)
             _playbackStartedAt.value = null
             _uiState.value = current.copy(
-                book = book,
+                book = snapshot,
                 /*
                  * Entry Source Capture (Shared-element route identity)
                  *
@@ -104,9 +107,9 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 isVisible = true,
                 // Optimistic Accessibility (Assume available initially to prevent blocking play during VFS evaluation)
                 isAvailable = true,
-                progressPercent = book.progressPercent,
+                progressPercent = snapshot.progressPercent,
                 // Synchronize Display progress (Align starting display values with selection progress)
-                displayProgressPercent = book.progressPercent,
+                displayProgressPercent = snapshot.progressPercent,
                 // Clear Previous Path (Flush physical path reference to prevent transient UI flashing)
                 fullSourcePath = ""
             )
@@ -114,19 +117,18 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             // Resolve User-Facing Source Location (Build a friendly source indicator from VFS metadata)
             // The detail page should not expose raw SAF tree fragments, remote URLs, or ABS playback API paths; it displays the registered library name plus the selected file's relative path instead.
             viewModelScope.launch {
-                val selectedBookId = book.book.id
-                val files = libraryFacade.getAllFilesForBookSync(book.book.id)
-                // Library Root Snapshot (Resolve the selected book's registered source root)
-                // Reading roots through the facade keeps DetailViewModel on the domain gateway boundary while giving the display formatter a user-owned source label.
-                val root = libraryFacade.getCachedLibraryRoots().firstOrNull { it.id == book.book.rootId }
-                    ?: libraryFacade.getAllRootsOnce().firstOrNull { it.id == book.book.rootId }
-                val finalPath = buildFriendlySourceLocation(book, files, root)
+                val selectedBookId = snapshot.bookId
+                val finalPath = detailBookReadModel.resolveSourceLocation(snapshot)
 
                 _uiState.update { state ->
+                    val currentSnapshot = state.book ?: return@update state
                     // Detail Source Race Guard (Ignore stale path work after the selected book changes)
                     // Source formatting runs asynchronously, so the book id is checked before applying the display label to prevent cross-book path flashes.
-                    if (state.book?.book?.id == selectedBookId) {
-                        state.copy(fullSourcePath = finalPath)
+                    if (currentSnapshot.bookId == selectedBookId) {
+                        state.copy(
+                            book = currentSnapshot.copy(sourceLocation = finalPath),
+                            fullSourcePath = finalPath
+                        )
                     } else {
                         state
                     }
@@ -135,14 +137,18 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
             viewModelScope.launch {
                 // Request Tracking (Tag checker action with selected bookId to avoid crosstalk on screen shifts)
-                val checkedBookId = book.book.id
+                val checkedBookId = snapshot.bookId
                 // Detail Availability Status Refresh (Verifies VFS readability and persists the latest book/file status)
-                // The facade method name makes the state-refreshing side effect explicit to the detail UI flow.
-                val isAvailable = libraryFacade.refreshDetailAvailabilityStatus(checkedBookId)
+                // The detail command name makes the state-refreshing side effect explicit to the detail UI flow.
+                val isAvailable = detailBookCommands.refreshAvailability(checkedBookId)
                 _uiState.update { state ->
+                    val currentSnapshot = state.book ?: return@update state
                     // Atomic State Resolution (Apply availability results only if selected target is unchanged)
-                    if (state.book?.book?.id == checkedBookId) {
-                        state.copy(isAvailable = isAvailable)
+                    if (currentSnapshot.bookId == checkedBookId) {
+                        state.copy(
+                            book = currentSnapshot.copy(isAvailable = isAvailable),
+                            isAvailable = isAvailable
+                        )
                     } else {
                         state
                     }
@@ -152,14 +158,20 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             // Live Metadata Binding (Observe database flow for live details updating)
             // Binds database streams to UI values. Allows manual edits (e.g. from EditBookActivity) to show up instantly.
             bookObserveJob = viewModelScope.launch {
-                libraryFacade.observeBookById(book.book.id).collect { updatedBook ->
-                    if (updatedBook != null) {
-                        _uiState.update { state ->
-                            state.book?.let { currentBwp ->
-                                state.copy(
-                                    book = currentBwp.copy(book = updatedBook)
+                detailBookReadModel.observeLiveSnapshot(snapshot).collect { updatedSnapshot ->
+                    _uiState.update { state ->
+                        val currentSnapshot = state.book ?: return@update state
+                        if (currentSnapshot.bookId == updatedSnapshot.bookId) {
+                            // Live Snapshot Merge (Keep detail-local source and availability fields during metadata refreshes)
+                            // The module emits updated book rows, while the ViewModel preserves async source and availability results already applied to the selected snapshot.
+                            state.copy(
+                                book = updatedSnapshot.copy(
+                                    isAvailable = currentSnapshot.isAvailable,
+                                    sourceLocation = currentSnapshot.sourceLocation
                                 )
-                            } ?: state
+                            )
+                        } else {
+                            state
                         }
                     }
                 }
@@ -223,7 +235,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
      * @param bookId The unique identifier of the deleted audiobook.
      */
     fun dismissIfShowing(bookId: String) {
-        if (_uiState.value.book?.book?.id == bookId) {
+        if (_uiState.value.book?.bookId == bookId) {
             _uiState.update {
                 it.copy(
                     isVisible = false,
@@ -250,7 +262,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun updatePlaybackProgress(bookId: String, progressPercent: Int) {
         val currentState = _uiState.value
-        if (currentState.book?.book?.id == bookId) {
+        if (currentState.book?.bookId == bookId) {
             _uiState.update { state ->
                 val startedAt = _playbackStartedAt.value
                 val isProtected = startedAt != null && (SystemClock.elapsedRealtime() - startedAt) < UNPLAYED_PROTECTION_WINDOW_MS
@@ -261,115 +273,6 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
-
-    /**
-     * Friendly Source Location Builder (Maps storage metadata into a user-readable breadcrumb)
-     *
-     * Uses a typed library prefix plus LibraryRootEntity.displayName as the stable source label and BookFileEntity.sourcePath as the VFS-relative location, avoiding raw content URIs, server URLs, and internal ABS content endpoints.
-     */
-    private fun buildFriendlySourceLocation(
-        book: BookWithProgress,
-        files: List<BookFileEntity>,
-        root: LibraryRootEntity?
-    ): String {
-        val displayFile = selectDisplayFile(book.book.sourceType, files)
-        val playableFileCount = files.count { it.fileRole == AudiobookSchema.FileRole.AUDIO }
-        val rootLabel = root?.displayName?.takeIf { it.isNotBlank() }
-            ?: book.book.sourceRoot.takeIf { it.isNotBlank() }
-            ?: "Library"
-        val sourceScheme = resolveSourceDisplayScheme(root, book.book.sourceType)
-        val segments = buildList {
-            // Detail Source Type Prefix (Expose the library protocol before the user-facing source name)
-            // Prefixing with SAF://, WEBDAV://, or ABS:// makes the same displayName understandable across local, remote, and server-backed libraries.
-            add("$sourceScheme://${rootLabel.toSourceSchemeLabel()}")
-            if (sourceScheme == "ABS") {
-                // ABS Source Privacy (Hide remote stream API paths)
-                // Audiobookshelf track content URLs are implementation details, so the indicator names the library and title instead of rendering content endpoints.
-                add(book.book.title.ifBlank { displayFile?.displayName.orEmpty() })
-            } else {
-                val pathSegments = displayFile?.sourcePath.orEmpty().toDisplayPathSegments(displayFile?.displayName)
-                // Legacy Source Path De-Duplication (Avoid repeating the library name in older imported records)
-                // Current VFS paths are relative to the root, but some historical records may already include the root folder name as their first segment.
-                addAll(pathSegments.dropLeadingDuplicate(rootLabel))
-            }
-        }.filter { it.isNotBlank() }
-        // Detail Source Path Separator (Render breadcrumbs as path-like slashes)
-        // The source indicator already uses protocol prefixes, so slash separators should stay compact without extra surrounding spaces.
-        val baseLocation = segments.joinToString("/")
-        return if (playableFileCount > 1) {
-            "$baseLocation · $playableFileCount tracks"
-        } else {
-            baseLocation
-        }
-    }
-
-    /**
-     * Detail Source File Selector (Chooses the file that best represents the book source)
-     *
-     * Manifest-based books display their manifest file when available, while generated playlists and regular books display the first playable audio track.
-     */
-    private fun selectDisplayFile(sourceType: String, files: List<BookFileEntity>): BookFileEntity? {
-        val playableFiles = files
-            .filter { it.fileRole == AudiobookSchema.FileRole.AUDIO }
-            .sortedBy { it.index }
-        return when (sourceType) {
-            AudiobookSchema.SourceType.CUE,
-            AudiobookSchema.SourceType.M3U8 -> {
-                files.firstOrNull { it.fileRole == AudiobookSchema.FileRole.SOURCE_MANIFEST }
-                    ?: playableFiles.firstOrNull()
-                    ?: files.minByOrNull { it.index }
-            }
-            AudiobookSchema.SourceType.GENERATED_M3U8 -> playableFiles.firstOrNull() ?: files.minByOrNull { it.index }
-            else -> playableFiles.firstOrNull() ?: files.minByOrNull { it.index }
-        }
-    }
-
-    /**
-     * VFS Path Segment Formatter (Converts a VFS-relative path into breadcrumb segments)
-     *
-     * Decodes percent-encoded names, normalizes slash direction, and falls back to the file displayName when the source path is empty.
-     */
-    private fun String.toDisplayPathSegments(fallbackDisplayName: String?): List<String> {
-        val normalizedPath = android.net.Uri.decode(this)
-            .replace('\\', '/')
-            .trim()
-            .trim('/')
-        val pathSegments = normalizedPath
-            .split('/')
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-        return pathSegments.ifEmpty {
-            fallbackDisplayName?.takeIf { it.isNotBlank() }?.let(::listOf) ?: emptyList()
-        }
-    }
-
-    /**
-     * Duplicate Root Segment Filter (Removes repeated root names from display breadcrumbs)
-     *
-     * Keeps the source indicator compact when legacy data stores paths like "Audiobooks/Book/file.mp3" while the root display label is already "Audiobooks".
-     */
-    private fun List<String>.dropLeadingDuplicate(rootLabel: String): List<String> =
-        if (firstOrNull()?.equals(rootLabel, ignoreCase = true) == true) drop(1) else this
-
-    /**
-     * Detail Source Scheme Resolver (Uses the library root sourceType as the display protocol)
-     *
-     * LibraryRootEntity.sourceType already stores SAF, WEBDAV, or ABS; BookEntity.sourceType is only a fallback because local books store content forms such as SINGLE_AUDIO, CUE, or M3U8.
-     */
-    private fun resolveSourceDisplayScheme(root: LibraryRootEntity?, bookSourceType: String): String =
-        root?.sourceType?.takeIf { it.isNotBlank() } ?: when {
-            bookSourceType == AudiobookSchema.SourceType.ABS_REMOTE -> "ABS"
-            else -> "SAF"
-        }
-
-    /**
-     * Source Scheme Label Normalizer (Keeps protocol-prefixed labels compact)
-     *
-     * Removes leading and trailing slashes from persisted labels so values like "/audiobooks" render as "webdav://audiobooks".
-     */
-    private fun String.toSourceSchemeLabel(): String =
-        trim().trim('/').ifBlank { "Library" }
-
 
     companion object {
         // Protection Time Constant (Central source of truth for debouncing initial playback transitions)

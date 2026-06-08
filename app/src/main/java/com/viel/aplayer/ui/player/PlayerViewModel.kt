@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.player
 
-// UseCase Import Update: Align imports with the standardized domain usecase layer package.
+// UseCase Import Update: Align imports with the standardized application usecase layer package.
 import android.content.Context
 import android.media.AudioManager
 import android.os.SystemClock
@@ -8,18 +8,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
+import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
+import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
+import com.viel.aplayer.application.library.player.PlayerBookmarkItem
+import com.viel.aplayer.application.library.player.PlayerChapterItem
+import com.viel.aplayer.application.library.player.PlayerRelatedData
+import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.LibraryFacade
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.entity.BookmarkEntity
-import com.viel.aplayer.domain.usecase.BuildPlaybackPlanUseCase
-import com.viel.aplayer.domain.usecase.GetRelatedBooksUseCase
-import com.viel.aplayer.domain.usecase.RelatedData
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
-import com.viel.aplayer.media.AutoRewindManager
-import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.media.PlaybackMediaId
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
@@ -49,12 +49,11 @@ class PlayerViewModel : ViewModel() {
         private val SLEEP_TIMER_OPTIONS = listOf(0, -1, -2, 15, 30, 60)
     }
 
-    private var playbackManager: PlaybackManager? = null
-    // UI Library Facade Access (Centralizes player-screen data reads through the high-level application facade)
-    // PlayerViewModel is a UI coordinator, so it keeps granular gateways out of this layer while playback core still owns gateway-level access.
-    private var libraryFacade: LibraryFacade? = null
+    private var playbackController: PlayerPlaybackController? = null
+    // Player Scene Read Model Access (Centralizes player-screen library reads through the stage-four scene module)
+    // PlayerViewModel remains a UI coordinator while the module owns book metadata, subtitles, recovery progress, and availability gateway calls.
+    private var playerLibraryReadModel: PlayerLibraryReadModel? = null
     private var settingsRepository: AppSettingsRepository? = null
-    private var getRelatedBooksUseCase: GetRelatedBooksUseCase? = null
     private var buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase? = null
     private var absProgressConflictCoordinator: AbsProgressConflictCoordinator? = null
     // Application Event Sink Reference (Routes player UI feedback to the shared app-shell event stream)
@@ -88,7 +87,7 @@ class PlayerViewModel : ViewModel() {
     private var appContext: Context? = null
     private val settingsManager: PlayerSettingsManager = PlayerSettingsManager(
         scope = viewModelScope,
-        playbackManager = { playbackManager },
+        playbackController = { playbackController },
         audioManager = { audioManager },
         contextProvider = { appContext },
         // Player Settings Feedback Hook (Forwards control tips to the centralized app event sink)
@@ -97,14 +96,14 @@ class PlayerViewModel : ViewModel() {
     )
 
     // =====================================================================
-    // M-16 Fix — Elevate bookmark dialog states (To preserve user edit text during orientation changes)
+    // M-16 Bookmark Dialog State (Elevate bookmark dialog states to preserve user edit text during orientation changes)
     // Manages edit state in ViewModel scopes rather than transient composables.
     // =====================================================================
 
     /** Dialog visual states (To aggregate active edits and deletions options) */
     data class BookmarkDialogsState(
-        val toDelete: BookmarkEntity? = null,
-        val toEdit: BookmarkEntity? = null,
+        val toDelete: PlayerBookmarkItem? = null,
+        val toEdit: PlayerBookmarkItem? = null,
         val editTitle: String = ""
     )
 
@@ -113,12 +112,12 @@ class PlayerViewModel : ViewModel() {
     val bookmarkDialogs: StateFlow<BookmarkDialogsState> = _bookmarkDialogs.asStateFlow()
 
     /** Request bookmark deletion (To display confirmation modal dialog) */
-    fun requestDeleteBookmark(b: BookmarkEntity) {
+    fun requestDeleteBookmark(b: PlayerBookmarkItem) {
         _bookmarkDialogs.update { it.copy(toDelete = b) }
     }
 
     /** Request bookmark modification (To display edit dialog autofilled with existing content) */
-    fun requestEditBookmark(b: BookmarkEntity) {
+    fun requestEditBookmark(b: PlayerBookmarkItem) {
         _bookmarkDialogs.update { it.copy(toEdit = b, editTitle = b.title) }
     }
 
@@ -200,30 +199,11 @@ class PlayerViewModel : ViewModel() {
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val metadataState: StateFlow<BookMetadataState> = _currentBookId
         .flatMapLatest { id ->
-            val facade = libraryFacade ?: return@flatMapLatest flowOf(BookMetadataState())
+            val readModel = playerLibraryReadModel ?: return@flatMapLatest flowOf(BookMetadataState())
             if (id == null) return@flatMapLatest flowOf(BookMetadataState())
  
-            combine(
-                facade.observeBookById(id),
-                facade.getChapters(id),
-                facade.getBookmarks(id),
-                _currentSubtitles
-            ) { entity: com.viel.aplayer.data.entity.BookEntity?, chapters: List<com.viel.aplayer.data.entity.ChapterWithBookFile>, bookmarks: List<BookmarkEntity>, subtitles: List<com.viel.aplayer.media.subtitle.SubtitleLine> ->
-                BookMetadataState(
-                    id = id,
-                    title = entity?.title ?: "",
-                    author = entity?.author ?: "",
-                    narrator = entity?.narrator ?: "",
-                    coverPath = entity?.coverPath,
-                    thumbnailPath = entity?.thumbnailPath,
-                    // Map database lastScannedAt timestamp (To force downstream updates when image caches are reconstructed)
-                    coverLastUpdated = entity?.lastScannedAt ?: 0L,
-                    chapters = chapters,
-                    bookmarks = bookmarks,
-                    subtitles = subtitles,
-                    // Deprecated: backgroundColorArgb is removed
-                )
-            }
+            readModel.observeMetadata(id, _currentSubtitles)
+                .map { metadata -> metadata.toBookMetadataState() }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BookMetadataState())
 
@@ -233,7 +213,7 @@ class PlayerViewModel : ViewModel() {
             val id = meta.id
             if (id.isBlank() || id == "Unknown") {
                 return@flatMapLatest flowOf(
-                    RelatedData(
+                    PlayerRelatedData(
                         emptyList(),
                         emptyList(),
                         emptyList(),
@@ -246,23 +226,23 @@ class PlayerViewModel : ViewModel() {
             val narrator = meta.narrator
             // Bind recommendations query (To query related catalog items reactively)
             // Relies on metadataState flows rather than reading snapshots to fetch data updates.
-            getRelatedBooksUseCase?.invoke(id, author, narrator)
-                ?: flowOf(RelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
+            playerLibraryReadModel?.relatedData(id, author, narrator)
+                ?: flowOf(PlayerRelatedData(emptyList(), emptyList(), emptyList(), emptyList()))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000),
-            RelatedData(emptyList(), emptyList(), emptyList(), emptyList())
+            PlayerRelatedData(emptyList(), emptyList(), emptyList(), emptyList())
         )
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val playbackState: StateFlow<PlaybackState> = _currentBookId
         .flatMapLatest { id ->
-            playbackManager?.let { manager ->
+            playbackController?.let { controller ->
                 val engineState = combine(
-                    manager.isPlaying,
-                    manager.playbackState,
-                    manager.currentPosition,
-                    manager.duration,
-                    manager.playbackSpeed
+                    controller.isPlaying,
+                    controller.playbackState,
+                    controller.currentPosition,
+                    controller.duration,
+                    controller.playbackSpeed
                 ) { isPlaying, _, pos, dur, speed ->
                     PlaybackState(
                         isPlaying = isPlaying,
@@ -274,13 +254,13 @@ class PlayerViewModel : ViewModel() {
                 }
                 combine(
                     engineState,
-                    manager.currentMediaItem,
+                    controller.observeCurrentMediaItemId(),
                     _restoredPlaybackSnapshot
-                ) { engine, mediaItem, restored ->
+                ) { engine, mediaItemId, restored ->
                     // Cold-Start Preview State (Prefer restored progress only while no media item has been prepared)
                     // Once MediaController owns a MediaItem, engine state becomes authoritative and the preview snapshot is ignored.
                     val snapshot = restored
-                    if (mediaItem == null && snapshot != null && snapshot.bookId == id) {
+                    if (mediaItemId == null && snapshot != null && snapshot.bookId == id) {
                         engine.copy(
                             isPlaying = false,
                             playWhenReady = false,
@@ -313,11 +293,11 @@ class PlayerViewModel : ViewModel() {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
 
     // Chapter mapping flow (To match timestamps dynamically into chapter entities)
-    val currentChapterState: StateFlow<com.viel.aplayer.data.entity.ChapterEntity?> = combine(
+    val currentChapterState: StateFlow<PlayerChapterItem?> = combine(
         playbackState.map { it.currentPosition }.distinctUntilChanged(),
         metadataState.map { it.chapters }.distinctUntilChanged()
     ) { pos, chapters ->
-        PlaybackStateMapper.currentChapter(chapters.map { it.chapter }, pos)
+        PlaybackStateMapper.currentChapter(chapters, pos)
     }
     .distinctUntilChanged()
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -346,7 +326,7 @@ class PlayerViewModel : ViewModel() {
         PlaybackStateMapper.calculateMiniPlayerProgress(
             currentPosition = state.currentPosition,
             duration = state.duration,
-            chapters = chapters.map { it.chapter },
+            chapters = chapters,
             isChapterMode = isChapterMode,
             fallbackProgress = state.progress
         )
@@ -393,32 +373,32 @@ class PlayerViewModel : ViewModel() {
     private var hasRestoredLastPlayedBook = false
 
     fun initialize(context: Context) {
-        if (playbackManager != null) return
+        if (playbackController != null) return
         val appContext = context.applicationContext
         this.appContext = appContext
         val playerDependencies = APlayerApplication.getPlayerScreenDependencies(appContext)
         
         // Player Screen Dependency Resolution (Resolve only UI-facing player dependencies)
-        // The media core continues to resolve granular runtime gateways separately, while this ViewModel and its UI helpers share LibraryFacade.
-        val facade = playerDependencies.libraryFacade
-        libraryFacade = facade
+        // The media core continues to resolve granular runtime gateways separately, while this ViewModel and its UI helpers consume player scene interfaces.
+        val readModel = playerDependencies.playerLibraryReadModel
+        val bookmarkCommands = playerDependencies.playerBookmarkCommands
+        playerLibraryReadModel = readModel
         settingsRepository = playerDependencies.settingsRepository
         absProgressConflictCoordinator = playerDependencies.absProgressConflictCoordinator
         appEventSink = playerDependencies.appEventSink
         buildPlaybackPlanUseCase = playerDependencies.buildPlaybackPlanUseCase
+        playbackController = playerDependencies.playerPlaybackController
 
-        getRelatedBooksUseCase = GetRelatedBooksUseCase(facade)
         audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        playbackManager = PlaybackManager.getInstance(appContext)
 
-        bookmarkManager = BookmarkManager(facade, viewModelScope)
+        bookmarkManager = BookmarkManager(bookmarkCommands, viewModelScope)
         playbackDelegate = MediaPlaybackDelegate(
-            playbackManager = { playbackManager },
-            libraryFacade = facade,
+            playbackController = { playbackController },
+            playerLibraryReadModel = readModel,
             scope = viewModelScope
         )
 
-        observePlaybackManager()
+        observePlaybackController()
         observeSettings()
         restoreLastPlayedBookToCompactPlayer()
     }
@@ -429,14 +409,12 @@ class PlayerViewModel : ViewModel() {
 
         viewModelScope.launch {
             // Perform progress self-healing (To resolve progress drift before restoring compact player UI)
-            appContext?.let { ctx ->
-                AutoRewindManager.getInstance(ctx).performColdStartSelfHealing()
-            }
+            playbackController?.performColdStartSelfHealing()
 
             // Query persistent playback checkpoint (To restore previous audiobook track coordinates)
-            val lastProgress = libraryFacade?.getLastPlayedProgressSync() ?: return@launch
+            val lastProgress = playerLibraryReadModel?.getLastPlayedSnapshot() ?: return@launch
             if (_currentBookId.value == null) {
-                restoreBookPreview(lastProgress.bookId, lastProgress.globalPositionMs)
+                restoreBookPreview(lastProgress.bookId, lastProgress.positionMs)
             }
         }
     }
@@ -446,14 +424,14 @@ class PlayerViewModel : ViewModel() {
      * Updates the active book ID and visual progress from Room without building a playback plan, preparing MediaController, or opening VFS media streams.
      */
     private suspend fun restoreBookPreview(bookId: String, positionMs: Long) {
-        val book = libraryFacade?.getBookById(bookId) ?: return
+        val preview = playerLibraryReadModel?.getBookPreview(bookId) ?: return
         subtitleLoadJob?.cancel()
         _currentBookId.value = bookId
         _currentSubtitles.value = emptyList()
         _restoredPlaybackSnapshot.value = RestoredPlaybackSnapshot(
             bookId = bookId,
             positionMs = positionMs,
-            durationMs = book.totalDurationMs
+            durationMs = preview.durationMs
         )
         // Compact Preview Visibility (Shows the last-played card without implying that media has been prepared)
         // The next explicit play action will still run the normal load pipeline and root preflight before touching ExoPlayer.
@@ -476,13 +454,13 @@ class PlayerViewModel : ViewModel() {
         }
     }
 
-    private fun observePlaybackManager() {
-        val manager = playbackManager ?: return
+    private fun observePlaybackController() {
+        val controller = playbackController ?: return
 
         viewModelScope.launch {
-            manager.currentMediaItem.collectLatest { mediaItem ->
-                if (mediaItem != null) {
-                    val mediaParts = PlaybackMediaId.parse(mediaItem.mediaId)
+            controller.observeCurrentMediaItemId().collectLatest { mediaItemId ->
+                if (mediaItemId != null) {
+                    val mediaParts = PlaybackMediaId.parse(mediaItemId)
                     if (mediaParts != null) {
                         val bookId = mediaParts.bookId
                         // Parse composite media identifier (To extract track path and book ID tokens)
@@ -500,7 +478,7 @@ class PlayerViewModel : ViewModel() {
                         // Wraps jobs in ViewModel scope to avoid leak or concurrency risks.
                         subtitleLoadJob = viewModelScope.launch {
                             val externalSubs = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                                libraryFacade?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
+                                playerLibraryReadModel?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
                             }
                             _currentSubtitles.value = externalSubs
                         }
@@ -520,11 +498,11 @@ class PlayerViewModel : ViewModel() {
         viewModelScope.launch {
             // Monitor track completions (To close active playback screen upon track end)
             // Delays for 5 seconds to synchronize UI dismissals with PlaybackService actions.
-            manager.playbackState.collectLatest { state ->
+            controller.playbackState.collectLatest { state ->
                 if (state == androidx.media3.common.Player.STATE_ENDED) {
                     delay(5000.milliseconds)
                     // Verify completion status (To ensure player is still idle before dismissing screen)
-                    val currentState = manager.playbackState.value
+                    val currentState = controller.playbackState.value
                     if (currentState == androidx.media3.common.Player.STATE_ENDED || 
                         currentState == androidx.media3.common.Player.STATE_IDLE) {
                         closeCurrentPlayback()
@@ -599,7 +577,7 @@ class PlayerViewModel : ViewModel() {
 
         val playbackPlanStart = SystemClock.elapsedRealtime()
         // Playback Plan Use Case (Build playable track plan through the playback application seam)
-        // PlayerViewModel no longer asks LibraryFacade or BookQueryGateway for playback startup semantics.
+        // PlayerViewModel no longer asks generic library queries for playback startup semantics.
         val plan = buildPlaybackPlanUseCase?.invoke(id)
         val playbackPlanCost = SystemClock.elapsedRealtime() - playbackPlanStart
         com.viel.aplayer.logger.PlaybackTimingLogger.logPlaybackPlanBuild(
@@ -686,8 +664,8 @@ class PlayerViewModel : ViewModel() {
             remoteFinished = remoteIsFinished == true
         )
 
-    fun deleteBookmark(bookmark: BookmarkEntity) = bookmarkManager?.deleteBookmark(bookmark)
-    fun updateBookmark(bookmark: BookmarkEntity, newTitle: String) = bookmarkManager?.updateBookmark(bookmark, newTitle)
+    fun deleteBookmark(bookmark: PlayerBookmarkItem) = bookmarkManager?.deleteBookmark(bookmark)
+    fun updateBookmark(bookmark: PlayerBookmarkItem, newTitle: String) = bookmarkManager?.updateBookmark(bookmark, newTitle)
     fun addBookmark(title: String) {
         val id = _currentBookId.value ?: return
         bookmarkManager?.addBookmark(id, playbackState.value.currentPosition, title)
@@ -701,7 +679,7 @@ class PlayerViewModel : ViewModel() {
             _currentBookId.value = null
             _restoredPlaybackSnapshot.value = null
             _currentSubtitles.value = emptyList()
-            playbackManager?.pause()
+            playbackController?.pause()
             settingsManager.setFullPlayerVisible(false)
             settingsManager.setMiniPlayerHidden(true)
         }
@@ -734,7 +712,7 @@ class PlayerViewModel : ViewModel() {
      * Reads the current MediaItem ID so duplicate-load protection does not suppress the first real play after cold-start preview restoration.
      */
     private fun isMediaSourceLoadedFor(bookId: String): Boolean {
-        val mediaId = playbackManager?.currentMediaItem?.value?.mediaId ?: return false
+        val mediaId = playbackController?.currentMediaItemId ?: return false
         return PlaybackMediaId.parse(mediaId)?.bookId == bookId
     }
 
@@ -824,8 +802,8 @@ class PlayerViewModel : ViewModel() {
             return@flow
         }
         // Current Playback Status Refresh (Updates persisted availability before emitting mini-player eligibility)
-        // The facade method name exposes that this read also refreshes file and book status rows.
-        emit(libraryFacade?.refreshCurrentPlaybackFileAvailabilityStatus(bookId) ?: false)
+        // The player scene method name exposes that this read also refreshes file and book status rows.
+        emit(playerLibraryReadModel?.refreshCurrentPlaybackAvailability(bookId) ?: false)
     }
     
     fun toggleProgressMode() {
@@ -836,19 +814,38 @@ class PlayerViewModel : ViewModel() {
     }
     fun onRouteChanged() = settingsManager.setMiniPlayerHidden(false)
 
-    fun skipToNextChapter() = playbackDelegate?.skipToNextChapter(metadataState.value.chapters.map { it.chapter }, playbackState.value.currentPosition)
-    fun skipToPreviousChapter() = playbackDelegate?.skipToPreviousChapter(metadataState.value.chapters.map { it.chapter }, playbackState.value.currentPosition)
+    fun skipToNextChapter() = playbackDelegate?.skipToNextChapter(metadataState.value.chapters, playbackState.value.currentPosition)
+    fun skipToPreviousChapter() = playbackDelegate?.skipToPreviousChapter(metadataState.value.chapters, playbackState.value.currentPosition)
 
     /**
      * Skip damaged tracks (To jump current playback session to next available track item)
      */
     fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
-        playbackManager?.skipToNextAvailableTrack(bookId, queueIndex)
+        playbackController?.skipToNextAvailableTrack(bookId, queueIndex)
     }
 
     // Keep cover path update triggers (Notify downstream state listeners without calculating or saving dominant color fields)
     fun updateCoverPath(path: String?) {
         // Since we retrieve colors dynamically via ImageProcessor inside Composable, database-persisted backgroundColorArgb is fully deprecated.
         settingsManager.setSelectedContentTab(settingsState.value.selectedContentTab)
+    }
+
+    /**
+     * Player Metadata UI Mapping (Adapt scene metadata into the existing UI state model)
+     * Keeps the application player module independent from UI package types while preserving the current PlayerUiState data shape.
+     */
+    private fun PlayerLibraryMetadata.toBookMetadataState(): BookMetadataState {
+        return BookMetadataState(
+            id = id,
+            title = title,
+            author = author,
+            narrator = narrator,
+            coverPath = coverPath,
+            thumbnailPath = thumbnailPath,
+            coverLastUpdated = coverLastUpdated,
+            chapters = chapters,
+            bookmarks = bookmarks,
+            subtitles = subtitles
+        )
     }
 }

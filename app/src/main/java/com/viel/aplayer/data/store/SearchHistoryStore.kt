@@ -53,11 +53,14 @@ class SearchHistoryStore private constructor(private val dataStore: DataStore<Pr
         }
     }
 
-    suspend fun delete(history: SearchHistoryEntry) {
+    suspend fun delete(query: String) {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return
         dataStore.edit { preferences ->
-            // Single-item deletion only compares the query text because it is the stable user-visible identity.
+            // Query Identity Deletion (Remove records using the user-visible stable key)
+            // DataStore keeps timestamps for ordering, but deletion intentionally ignores time so duplicate stale rows collapse together.
             val updated = decodeHistory(preferences[PreferencesKeys.ITEMS_JSON])
-                .filterNot { it.query == history.query }
+                .filterNot { it.query == normalizedQuery }
             if (updated.isEmpty()) {
                 preferences.remove(PreferencesKeys.ITEMS_JSON)
             } else {

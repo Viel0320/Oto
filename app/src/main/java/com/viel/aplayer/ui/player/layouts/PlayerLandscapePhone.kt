@@ -36,6 +36,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.application.library.player.PlayerBookmarkItem
+import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
 // Resolve window class dependencies (To replace redundant LocalWindowClass imports with the unified theme package structure)
@@ -63,15 +65,15 @@ fun PlayerLandscapePhone(
     currentPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
-    currentChapter: com.viel.aplayer.data.entity.ChapterEntity?,
+    currentChapter: PlayerChapterItem?,
     isPlaying: Boolean,
     playbackSpeed: Float,
     isSpeedManualMode: Boolean,
-    bookmarkToDelete: com.viel.aplayer.data.entity.BookmarkEntity?,
-    bookmarkToEdit: com.viel.aplayer.data.entity.BookmarkEntity?,
+    bookmarkToDelete: PlayerBookmarkItem?,
+    bookmarkToEdit: PlayerBookmarkItem?,
     bookmarkEditTitle: String,
-    onRequestDeleteBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit,
-    onRequestEditBookmark: (com.viel.aplayer.data.entity.BookmarkEntity) -> Unit,
+    onRequestDeleteBookmark: (PlayerBookmarkItem) -> Unit,
+    onRequestEditBookmark: (PlayerBookmarkItem) -> Unit,
     onBookmarkEditTitleChange: (String) -> Unit,
     onConfirmDeleteBookmark: () -> Unit,
     onConfirmUpdateBookmark: () -> Unit,

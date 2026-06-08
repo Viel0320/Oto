@@ -24,9 +24,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -49,6 +51,7 @@ fun SettingsOverlay(
     // Collect settings visibility state (To reactively trigger transition animations)
     // Synchronizes the show/hide state from SettingsViewModel to drive AnimatedVisibility scope.
     val isVisible by settingsViewModel.isVisible.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     // Settings Haze Source (Provide a local backdrop for settings chrome)
     // SettingsScreen registers its content layer with this state so the shared glass top bar samples settings content without changing the app-level dialog sampler.
@@ -143,6 +146,9 @@ fun SettingsOverlay(
                     val libraryRootDisplays by settingsViewModel.libraryRootDisplays.collectAsStateWithLifecycle()
                     val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
                     val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
+                    // Effective App Language (Reflect platform per-app language choices when Android owns the locale)
+                    // The settings row should show a system-selected app locale even if DataStore still contains the default System value.
+                    val effectiveAppLanguage = AppLocaleController.resolveEffectiveLanguage(context, settingsState.appLanguage)
 
                     Box(modifier = Modifier.fillMaxSize()) {
                         Box(
@@ -180,6 +186,10 @@ fun SettingsOverlay(
                                 onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) },
                                 sleepMode = settingsState.sleepMode,
                                 onSleepModeChange = { settingsViewModel.updateSleepMode(it) },
+                                appLanguage = effectiveAppLanguage,
+                                onLanguageClick = {
+                                    settingsDialogController.dialogState = SettingsDialogState.LanguagePicker
+                                },
                                 themeMode = settingsState.themeMode,
                                 onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
                                 // Pipe Dynamic Color Settings (Forward dynamic color configuration parameters to downstream SettingsScreen) Binds dynamic color state and callback.
@@ -202,6 +212,8 @@ fun SettingsOverlay(
                             controller = settingsDialogController,
                             glassEffectMode = settingsState.glassEffectMode,
                             settingsDialogHazeState = if (isBlur) appHazeState else null,
+                            appLanguage = effectiveAppLanguage,
+                            onAppLanguageChange = { settingsViewModel.updateAppLanguage(it) },
                             webDavConnectionState = webDavConnectionState,
                             onWebDavConnectionTest = { url, username, password, basePath, editingRootId ->
                                 settingsViewModel.testWebDavConnection(url, username, password, basePath, editingRootId)

@@ -17,7 +17,11 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.gateway.BookQueryGateway
+import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.gateway.BookDeletionGateway
+import com.viel.aplayer.data.gateway.BookMetadataGateway
+import com.viel.aplayer.data.gateway.BookmarkGateway
+import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -52,7 +56,10 @@ class AbsAuthorizedProgressSyncTest {
         val synchronizer = AbsAuthorizedProgressSynchronizer(
             apiClient = api,
             credentialProvider = { AbsAuthorizedProgressSynchronizer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
-            bookQueryGateway = bookGateway,
+            // Authorized Progress Gateway Fixture (Reuse one fake through the split catalog and metadata seams)
+            // The synchronizer reads mirrored book/file data through catalog and updates semantic readStatus through metadata.
+            bookCatalogGateway = bookGateway,
+            bookMetadataGateway = bookGateway,
             progressGateway = progressGateway
         )
 
@@ -113,7 +120,11 @@ class AbsAuthorizedProgressSyncTest {
 
     private class FakeBookQueryGateway(
         vararg initialBooks: BookEntity
-    ) : BookQueryGateway {
+    ) : BookCatalogGateway,
+        BookMetadataGateway,
+        BookmarkGateway,
+        ChapterGateway,
+        BookDeletionGateway {
         val books: MutableMap<String, BookEntity> = initialBooks.associateBy { it.id }.toMutableMap()
         override val audiobooks: Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
         override suspend fun getBookById(id: String): BookEntity? = books[id]

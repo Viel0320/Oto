@@ -63,7 +63,9 @@ class HomeLibraryReadModelArchitectureTest {
 
     @Test
     fun homeSceneAdapterDoesNotRewrapTheFullFacade() {
-        val readModelSource = resolveSourceRoot().resolve("library/readmodel/HomeLibraryReadModel.kt").readText()
+        val readModelSource = resolveSourceRoot().resolve("application/library/home/HomeLibraryReadModel.kt").readText()
+        val readModelInterface = readModelSource.substringAfter("interface HomeLibraryReadModel")
+            .substringBefore("/**\n * Home Library Use Cases")
 
         assertTrue(
             "HomeLibraryReadModel adapters must be backed by granular gateways rather than LibraryFacade.",
@@ -74,13 +76,46 @@ class HomeLibraryReadModelArchitectureTest {
         assertTrue(
             "HomeLibraryUseCases should stay small and scene-level.",
             listOf(
-                "BookQueryGateway",
+                // Home Gateway Split Guard (Require separate read and metadata seams)
+                // Home read models consume catalog streams while home commands update read status through metadata-only access.
+                "BookCatalogGateway",
+                "BookMetadataGateway",
                 "ScanScheduler",
                 "LibraryRootGateway",
                 "MetadataRefreshGateway",
                 "SearchHistoryGateway"
             ).all { gatewayName -> readModelSource.contains(gatewayName) }
         )
+        assertTrue(
+            "Home library interfaces must live under the application library home package.",
+            readModelSource.contains("package com.viel.aplayer.application.library.home")
+        )
+        assertTrue(
+            "HomeLibraryReadModel must expose the home scene projection rather than BookWithProgress.",
+            readModelInterface.contains("val audiobooks: Flow<List<HomeBookItem>>") &&
+                !readModelInterface.contains("BookWithProgress")
+        )
+    }
+
+    @Test
+    fun homeUiConsumesHomeBookProjectionInsteadOfRoomEntities() {
+        val sourceRoot = resolveSourceRoot()
+        val homeUiFiles = sourceRoot.resolve("ui/home")
+            .walkTopDown()
+            .filter { file -> file.isFile && file.name.endsWith(".kt") }
+            .toList()
+
+        assertTrue(
+            "Home UI files must exist before enforcing projection boundaries.",
+            homeUiFiles.isNotEmpty()
+        )
+        homeUiFiles.forEach { file ->
+            val source = file.readText()
+            assertTrue(
+                "${file.toRelativeString(sourceRoot)} must not import Room entity packages.",
+                !source.contains("import com.viel.aplayer.data.entity")
+            )
+        }
     }
 
     private fun resolveSourceRoot(): File {

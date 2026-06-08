@@ -126,13 +126,15 @@ class AutoRewindManager private constructor(context: Context) {
                 // Playback Recovery Dependency Ingestion (Resolve only timeline lookup and progress persistence)
                 // Cold-start self-healing does not need playback session, scanner, or screen-facing dependencies.
                 val recoveryDependencies = com.viel.aplayer.APlayerApplication.getPlaybackRecoveryDependencies(appContext)
-                val bookQueryGateway = recoveryDependencies.bookQueryGateway
+                // Recovery Catalog Gateway Resolution (Use the recovery dependency's catalog-only seam)
+                // Cold-start self-healing only needs file inventory for coordinate repair, not chapter or bookmark gateways.
+                val bookCatalogGateway = recoveryDependencies.bookCatalogGateway
                 val progressGateway = recoveryDependencies.progressGateway
 
                 val lastProgress = progressGateway.getLastPlayedProgressSync()
                 if (lastProgress != null) {
                     val rewindMs = settings.autoRewindSeconds * 1000L
-                    val files = bookQueryGateway.getFilesForBookSync(lastProgress.bookId)
+                    val files = bookCatalogGateway.getFilesForBookSync(lastProgress.bookId)
                     val healedProgress = AutoRewindPositionPolicy.rewoundProgress(
                         progress = lastProgress,
                         rewindMs = rewindMs,
