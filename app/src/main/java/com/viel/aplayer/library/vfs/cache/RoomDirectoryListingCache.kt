@@ -15,6 +15,7 @@ class RoomDirectoryListingCache(
     private val directoryChildCacheDao: DirectoryChildCacheDao,
     private val mapper: DirectoryCacheMapper = DirectoryCacheMapper,
     private val currentTimeMillis: () -> Long = { System.currentTimeMillis() },
+    private val maxCacheAgeMillis: Long = DEFAULT_MAX_CACHE_AGE_MILLIS,
     private val elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() }
 ) : DirectoryListingCache {
 
@@ -29,7 +30,8 @@ class RoomDirectoryListingCache(
         val startedAtElapsedMs = elapsedRealtimeMillis()
         val rows = directoryChildCacheDao.getChildren(
             rootId = directory.root.id,
-            parentSourcePath = directory.metadata.sourcePath
+            parentSourcePath = directory.metadata.sourcePath,
+            minCachedAt = directory.minimumFreshCachedAt()
         )
         val sourceHash = directory.cacheSourceHash()
         if (rows.isEmpty()) {
@@ -100,4 +102,18 @@ class RoomDirectoryListingCache(
 
     private fun VfsNode.cacheSourceHash(): String? =
         CacheDiagnosticsLogger.hashIdentifier("${root.id}:${metadata.sourcePath}")
+
+    private fun VfsNode.minimumFreshCachedAt(): Long {
+        // Directory Listing Freshness Window (Turns expired rows into cache misses before VFS replay)
+        // The lower bound lives in the WebDAV cache adapter so callers keep the simple hit-or-refresh contract.
+        return currentTimeMillis().minus(maxCacheAgeMillis).coerceAtLeast(0L)
+    }
+
+    private companion object {
+        /**
+         * Default Directory Listing TTL (Balances repeated WebDAV scan speed with remote tree freshness)
+         * One minute avoids reusing stale directory children across later scans while still reducing immediate retry traffic.
+         */
+        private const val DEFAULT_MAX_CACHE_AGE_MILLIS = 60_000L
+    }
 }

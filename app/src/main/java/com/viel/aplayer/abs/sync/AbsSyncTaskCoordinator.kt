@@ -77,7 +77,8 @@ class AbsSyncTaskCoordinator(
                 if (preflight != null && !preflight.isSyncAvailable) {
                     // Unavailable Root Short-Circuit (Stops ABS sync before remote catalog requests begin)
                     // Emits the same result channel and toast path as failures while preserving the refreshed root status in Room.
-                    val errMsg = buildRootUnavailableSyncMessage(preflight)
+                    val feedback = buildRootUnavailableSyncMessage(preflight)
+                    val errMsg = "ROOT_UNAVAILABLE:${preflight.availability.status}"
                     _events.emit(
                         AbsSyncTaskResult(
                             rootId = root.id,
@@ -87,7 +88,7 @@ class AbsSyncTaskCoordinator(
                             errorMessage = errMsg
                         )
                     )
-                    appEventSink.showToast(FeedbackMessages.absBackgroundSyncUnavailable(errMsg))
+                    appEventSink.showToast(FeedbackMessages.absBackgroundSyncUnavailable(feedback))
                     return@launch
                 }
                 val summary = synchronizer.syncRootWithSummary(root)

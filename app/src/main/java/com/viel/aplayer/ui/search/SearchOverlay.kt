@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.search
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -24,11 +25,16 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun SearchOverlay(
     visible: Boolean,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
     content: @Composable () -> Unit
 ) {
+    // Search Overlay Back Handling (Dismiss overlay state from Android system back)
+    // The search surface is rendered above Home instead of as a Nav3 destination, so the overlay must consume system back while it is visible.
+    BackHandler(enabled = visible, onBack = onBack)
+
     // Search Overlay Animation Policy (Adapt transition style for frosted glass rendering)
     // Haze mode uses fade-only transitions to avoid blur sampler clipping during slide movement.
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null

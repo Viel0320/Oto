@@ -5,11 +5,11 @@ package com.viel.aplayer.ui.home.components
 // Added ExperimentalFoundationApi import to shield compilation defects of experimental APIs.
 // Added getValue and setValue import extensions to support Composable property delegation.
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -194,13 +194,13 @@ private fun ListCoverSharedSource(
         ListSourceVisibility(
             visible = !isDetailTargetActive,
             /*
-             * List Source Visibility Clock (Keep exiting list source measurable)
+             * List Source Visibility Exit Policy (Remove standalone fade from the shared source)
              *
-             * Uses a short fade transition so the selected list thumbnail remains in the tree
-             * long enough for SharedTransitionLayout to pair it with the Detail target.
+             * Uses no enter or exit transition so Home-list and Search-result thumbnails stop
+             * rendering immediately instead of layering an independent fade over the shared motion.
              */
-            enter = fadeIn(animationSpec = tween(300)),
-            exit = fadeOut(animationSpec = tween(300)),
+            enter = EnterTransition.None,
+            exit = ExitTransition.None,
             modifier = Modifier.fillMaxSize()
         ) {
             val list2DetailSourceScope = this@ListSourceVisibility

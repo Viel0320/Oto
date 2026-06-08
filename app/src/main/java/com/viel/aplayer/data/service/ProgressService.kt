@@ -11,6 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Playback Progress Tracking Application Service (Implements ProgressGateway)
@@ -33,20 +34,29 @@ class ProgressService(
     // Dispatches persistent tasks onto the IO thread pool to isolate write latency from the Main UI thread.
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
+    // Progress Write Clock (Creates strictly increasing timestamps for asynchronous gateway writes)
+    // Multiple progress updates can be captured inside the same millisecond, so this clock prevents equal timestamps from reintroducing stale overwrite ambiguity.
+    private val progressWriteClock = AtomicLong(0L)
+
     override fun updateProgress(bookId: String, position: Long) {
+        val capturedAt = nextProgressWriteTime()
         // Asynchronous Non-Blocking Position Persistence (Thread-safety guard)
         // Offloads position calculations and Room operations to background tasks, avoiding main loop stutters.
         scope.launch {
             // Transactional Atomic Progress Updates (Race condition avoidance)
             // Invokes updateProgressWithReadStatus to atomize progress lookup, offset computations, and reading state updates.
             // Prevents dirty writes or progress rewinds caused by interleaved updates from concurrent threads.
-            bookDao.updateProgressWithReadStatus(bookId, position, System.currentTimeMillis())
+            bookDao.updateProgressWithReadStatus(bookId, position, capturedAt)
         }
     }
 
-    override suspend fun saveProgress(progress: BookProgressEntity) = withContext(Dispatchers.IO) {
-        // Synchronous Progress Force-Flush (Transactional consistency enforcement)
-        // Executes identical transactional operations to write progress synchronously, avoiding data tearing and updating read states.
+    override suspend fun saveProgress(progress: BookProgressEntity) {
+        saveProgressIfNewer(progress)
+    }
+
+    override suspend fun saveProgressIfNewer(progress: BookProgressEntity): Boolean = withContext(Dispatchers.IO) {
+        // Newer Checkpoint Persistence (Preserves playback ordering across delayed coroutine completions)
+        // The DAO returns false for stale lastPlayedAt values, allowing callers to skip follow-up side effects such as ABS progress uploads.
         bookDao.updateProgressWithReadStatus(progress.bookId, progress.globalPositionMs, progress.lastPlayedAt)
     }
 
@@ -60,6 +70,15 @@ class ProgressService(
         // Targeted Progress Fetch (Single-book conflict resolution lookup)
         // Reads the exact local checkpoint required by ABS progress arbitration without routing through broad catalog flows.
         bookDao.getProgressForBookSync(bookId)
+    }
+
+    private fun nextProgressWriteTime(): Long {
+        // Monotonic Progress Timestamp (Captures ordering before the coroutine is scheduled)
+        // Persisted freshness must represent the playback event order, not whichever IO coroutine happens to reach Room first.
+        val wallClockTime = System.currentTimeMillis()
+        return progressWriteClock.updateAndGet { previousTime ->
+            maxOf(wallClockTime, previousTime + 1L)
+        }
     }
 
     override fun close() {

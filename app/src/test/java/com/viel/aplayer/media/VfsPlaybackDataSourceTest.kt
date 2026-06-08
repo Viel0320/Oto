@@ -125,6 +125,26 @@ class VfsPlaybackDataSourceTest {
         assertTrue(error is InterruptedIOException)
     }
 
+    // EOF Clipped Length Regression (Locks Media3 open length reporting near the physical file end)
+    // A bounded request starting at byte 250 of a 256-byte file must report and expose only the six bytes that can actually be read.
+    @Test
+    fun `open returns EOF clipped readable length when requested length exceeds file size`() {
+        val source = VfsPlaybackDataSource(
+            fileLookup = StaticPlaybackFileLookup(testFile(fileSize = 256L)),
+            fileReader = StaticPlaybackStreamReader(ByteArrayInputStream(byteArrayOf(1, 2, 3, 4, 5, 6)))
+        )
+        val buffer = ByteArray(16)
+
+        val openedLength = source.open(dataSpec(position = 250L, length = 16L))
+        val firstRead = source.read(buffer, 0, buffer.size)
+        val secondRead = source.read(buffer, firstRead, buffer.size - firstRead)
+
+        assertEquals(6L, openedLength)
+        assertEquals(6, firstRead)
+        assertEquals(androidx.media3.common.C.RESULT_END_OF_INPUT, secondRead)
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), buffer.take(firstRead).map { it.toInt() })
+    }
+
     @Test
     fun `close interrupts the active read thread`() {
         val enteredRead = CountDownLatch(1)
@@ -189,10 +209,16 @@ class VfsPlaybackDataSourceTest {
         }
     }
 
-    private fun dataSpec(position: Long = 0L): DataSpec =
+    // Bounded Range Fixture (Allows DataSource tests to model explicit Media3 byte-range requests)
+    // EOF clipping regressions require a caller-provided length, while existing cancellation and open-error tests keep the default unbounded contract.
+    private fun dataSpec(
+        position: Long = 0L,
+        length: Long = androidx.media3.common.C.LENGTH_UNSET.toLong()
+    ): DataSpec =
         DataSpec.Builder()
             .setUri(VfsPlaybackUri.fromBookFile(testFile()))
             .setPosition(position)
+            .setLength(length)
             .build()
 
     private fun testFile(fileSize: Long = 256L): BookFileEntity =

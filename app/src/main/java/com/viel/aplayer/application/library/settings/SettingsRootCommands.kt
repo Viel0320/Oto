@@ -1,6 +1,7 @@
 package com.viel.aplayer.application.library.settings
 
 import android.net.Uri
+import com.viel.aplayer.event.feedback.FeedbackMessage
 
 /**
  * Settings ABS Sync Inspection Result (Entity-free preflight result for settings actions)
@@ -8,7 +9,7 @@ import android.net.Uri
  */
 sealed interface SettingsAbsSyncInspection {
     data object MissingRoot : SettingsAbsSyncInspection
-    data class Blocked(val message: String) : SettingsAbsSyncInspection
+    data class Blocked(val message: FeedbackMessage) : SettingsAbsSyncInspection
     data class Ready(
         val rootId: String,
         val displayName: String,

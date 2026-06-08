@@ -4,6 +4,7 @@ import com.viel.aplayer.R
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.media.PlaybackDomainEvent
+import com.viel.aplayer.media.PlaybackSourcePreflightBlockReason
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -15,31 +16,40 @@ class PlaybackFeedbackMappingTest {
         val message = PlaybackDomainEvent.PlaybackFinishedShutdownScheduled(delaySeconds = 5)
             .toFeedbackMessage()
 
-        val resource = message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_playback_finished_shutdown_scheduled, resource.resId)
+        val resource = message as FeedbackMessage.Quantity
+        // Counted Playback Feedback Mapping (Keep shutdown delay feedback on Android plural resources)
+        // The bridge must preserve the delay quantity separately from format arguments so localized plural rules can render the toast.
+        assertEquals(R.plurals.feedback_playback_finished_shutdown_scheduled, resource.resId)
+        assertEquals(5, resource.quantity)
         assertEquals(listOf(5), resource.args)
     }
 
     @Test
-    fun `playback source preflight keeps details as render arguments`() {
-        // Dynamic Detail Mapping (Keeps preflight detail text as a rendering argument)
-        // The resource key stays stable even when the unavailable root explanation varies at runtime.
-        val message = PlaybackDomainEvent.SourcePreflightBlocked("媒体库根不可用")
-            .toFeedbackMessage()
+    fun `playback source preflight maps typed block reasons to resource feedback`() {
+        // Typed Preflight Mapping (Keeps media-domain failure reasons language-neutral)
+        // The bridge translates a stable reason plus root name into the localized app-shell feedback key.
+        val message = PlaybackDomainEvent.SourcePreflightBlocked(
+            reason = PlaybackSourcePreflightBlockReason.UnavailableRoot,
+            rootName = "Shelf"
+        ).toFeedbackMessage()
 
         val resource = message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_playback_source_preflight_blocked, resource.resId)
-        assertEquals(listOf("媒体库根不可用"), resource.args)
+        assertEquals(R.string.feedback_playback_source_preflight_unavailable_root, resource.resId)
+        assertEquals(listOf("Shelf"), resource.args)
     }
 
     @Test
-    fun `settings root unavailable feedback keeps dynamic detail behind a resource key`() {
-        // Settings Dynamic Detail Mapping (Prevents manual sync preflight feedback from falling back to raw text)
-        // The detailed availability explanation remains data while the app shell owns the localized wrapper.
-        val message = FeedbackMessages.settingsRootUnavailableSyncBlocked("库根不可用，已跳过同步：Shelf")
+    fun `settings root unavailable feedback preserves resource backed detail`() {
+        // Settings Detail Preservation (Avoids wrapping already localized sync preflight feedback in raw text)
+        // Manual sync callers now pass the resource-backed detail through unchanged so availability codes stay typed.
+        val detail = FeedbackMessage.Resource(
+            R.string.feedback_sync_root_unavailable_not_found,
+            listOf("Shelf")
+        )
+        val message = FeedbackMessages.settingsRootUnavailableSyncBlocked(detail)
 
         val resource = message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_settings_root_unavailable_sync_blocked, resource.resId)
-        assertEquals(listOf("库根不可用，已跳过同步：Shelf"), resource.args)
+        assertEquals(R.string.feedback_sync_root_unavailable_not_found, resource.resId)
+        assertEquals(listOf("Shelf"), resource.args)
     }
 }

@@ -41,8 +41,12 @@ internal class AbsGraph(
     }
 
     val absCoverCache by lazy {
-        // ABS Cover Cache: Caches downloaded covers from Audiobookshelf servers locally.
-        AbsCoverCache(context.applicationContext)
+        // ABS Cover Cache Policy Wiring (Shares the app settings repository with standalone cover downloads)
+        // Cover images are fetched outside RealAbsApiClient, so the graph injects cached settings to enforce the same cleartext transport policy as catalog and media requests.
+        AbsCoverCache(
+            context = context.applicationContext,
+            settingsProvider = { data.settingsRepository.cachedSettings }
+        )
     }
 
     val absPlaybackCredentialResolver by lazy {

@@ -65,7 +65,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
     buildFeatures {
+        // Runtime Version Source (Expose Gradle-owned version metadata to UI code)
+        // AboutScreen reads BuildConfig.VERSION_NAME so translated resources only keep the localized display template.
+        buildConfig = true
         compose = true
+    }
+    testOptions {
+        unitTests {
+            // Robolectric Resource Rendering Tests (Package app resources for local JVM tests)
+            // Feedback plural rendering must exercise Android Resources directly, so unit tests need access to generated string and plurals tables.
+            isIncludeAndroidResources = true
+        }
     }
     packaging {
         resources {

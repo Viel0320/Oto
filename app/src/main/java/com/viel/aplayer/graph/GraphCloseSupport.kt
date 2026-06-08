@@ -6,15 +6,17 @@ import java.io.Closeable
 
 /**
  * App Graph Teardown Order (Centralizes root graph shutdown policy)
- * Closes local library work before remote ABS work, then cancels UI event bridges after all graph publishers are stopped.
+ * Closes dependent ABS work before local library resources, then cancels UI event bridges after all graph publishers are stopped.
  */
 internal fun closeAppGraphsInLifecycleOrder(
     library: Closeable,
     abs: Closeable,
     uiEvents: Closeable
 ) {
-    runCatching { library.close() }
+    // Dependent Graph Shutdown (Close ABS before the library resources it can call into)
+    // ABS sync coordination receives library-root gateway operations, so active ABS cancellation must observe live library dependencies.
     runCatching { abs.close() }
+    runCatching { library.close() }
     runCatching { uiEvents.close() }
 }
 

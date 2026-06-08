@@ -2,4 +2,10 @@
 <full-backup-content>
     <include domain="sharedpref" path="."/>
     <exclude domain="sharedpref" path="device.xml"/>
+    <!-- Exclude WebDAV Credentials (Prevent WebDAV secrets from leaking via cloud backups)
+         Explicitly exclude webdav_credentials.xml from backups to reduce secret leakage. -->
+    <exclude domain="sharedpref" path="webdav_credentials.xml"/>
+    <!-- Exclude ABS Credentials (Prevent Audiobookshelf tokens from leaking via backups)
+         Explicitly exclude abs_credentials.preferences_pb to protect credentials. -->
+    <exclude domain="files" path="datastore/abs_credentials.preferences_pb"/>
 </full-backup-content>

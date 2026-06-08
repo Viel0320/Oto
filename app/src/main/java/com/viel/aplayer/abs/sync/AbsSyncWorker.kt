@@ -4,6 +4,10 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.runCatchingCancellable
+import com.viel.aplayer.dependencies.AbsSyncWorkerDependencies
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
@@ -30,29 +34,44 @@ class AbsSyncWorker(
             AbsSyncLogger.logWorkerFailure(
                 rootId = rootId,
                 errorClass = "RootUnavailable",
-                message = message
+                message = message.mergeKey
             )
             // Worker Feedback Dispatch (Use the app-level sink instead of the playback event bus)
             // WorkManager runs outside the UI lifecycle, so user-facing sync messages must go through the process-wide feedback seam.
-            workerDependencies.appEventSink.showToast(message)
+            workerDependencies.appEventSink.showToast(FeedbackMessages.absBackgroundSyncUnavailable(message))
             return Result.failure()
         }
-        val root = preflight.root
-        return runCatching {
-            workerDependencies.absCatalogSynchronizer.syncRoot(root)
-            AbsSyncLogger.logWorkerSuccess(rootId)
-            Result.success()
-        }.getOrElse { error ->
-            AbsSyncLogger.logWorkerRetry(
-                rootId = rootId,
-                errorClass = error::class.java.simpleName,
-                message = error.message
-            )
-            Result.retry()
-        }
+        // Worker Retry Boundary Delegation (Route catalog execution through the cancellable retry adapter)
+        // Keeping this call explicit makes preflight failures and active sync failures use separate lifecycle decisions.
+        return runSync(rootId, preflight.root, workerDependencies)
     }
 
     companion object {
         const val KEY_ROOT_ID = "root_id"
+
+        /**
+         * Worker Sync Execution Boundary (Separates Android worker setup from ABS catalog execution)
+         * Keeping the retry adapter in this focused seam lets tests verify cancellation propagation without constructing WorkManager runtime objects.
+         */
+        internal suspend fun runSync(
+            rootId: String,
+            root: LibraryRootEntity,
+            workerDependencies: AbsSyncWorkerDependencies
+        ): Result {
+            return runCatchingCancellable {
+                // Worker Cancellation Propagation (Preserve WorkManager coroutine cancellation during ABS catalog sync)
+                // Transient sync failures should become retries, but cancellation must not be misreported as a retryable catalog error.
+                workerDependencies.absCatalogSynchronizer.syncRoot(root)
+                AbsSyncLogger.logWorkerSuccess(rootId)
+                Result.success()
+            }.getOrElse { error ->
+                AbsSyncLogger.logWorkerRetry(
+                    rootId = rootId,
+                    errorClass = error::class.java.simpleName,
+                    message = error.message
+                )
+                Result.retry()
+            }
+        }
     }
 }

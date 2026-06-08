@@ -11,6 +11,8 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
@@ -108,37 +110,32 @@ class LibraryRootStore(
         rootDao.getAllRootsOnce()
             .firstOrNull { existing -> existing.isSameWebDavRoot(normalizedEndpoint, normalizedBasePath) }
             ?.let { existing ->
-                val credential = webDavCredentialStore.save(
+                val updated = stageWebDavCredentialAndPersistRoot(
                     username = username,
                     password = password,
-                    credentialId = existing.credentialId ?: UUID.randomUUID().toString()
-                )
-                val updated = LibraryRootLifecyclePolicy.markBindingRefreshed(
-                    existing.copy(
-                        displayName = resolvedDisplayName,
-                        credentialId = credential.id,
-                        grantedAt = now
+                    root = LibraryRootLifecyclePolicy.markBindingRefreshed(
+                        existing.copy(
+                            displayName = resolvedDisplayName,
+                            grantedAt = now
+                        )
                     )
                 )
-                // WebDAV Ingest Deduplication (Record update strategy)
-                // Overwrites credentials and labels rather than creating duplicate rows if the same WebDAV target is added.
-                rootDao.insertRoot(updated)
                 return@withContext updated
             }
-        val credential = webDavCredentialStore.save(username = username, password = password)
         val root = LibraryRootEntity(
             id = UUID.randomUUID().toString(),
             sourceType = AudiobookSchema.LibrarySourceType.WEBDAV,
             sourceUri = normalizedEndpoint,
             basePath = normalizedBasePath,
-            credentialId = credential.id,
             displayName = resolvedDisplayName,
             grantedAt = now,
             status = AudiobookSchema.LibraryRootStatus.ACTIVE
         )
-        // Scanner availability: Permits SourceInventoryScanner to sweep files immediately after the record commits.
-        rootDao.insertRoot(root)
-        root
+        stageWebDavCredentialAndPersistRoot(
+            username = username,
+            password = password,
+            root = root
+        )
     }
 
     suspend fun addAbsRoot(
@@ -147,7 +144,7 @@ class LibraryRootStore(
         displayName: String
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
         val credential = requireNotNull(absCredentialStore.get(credentialId)) {
-            "ABS 凭据不存在: $credentialId"
+            "ABS_CREDENTIAL_NOT_FOUND:$credentialId"
         }
         val normalizedBaseUrl = credential.baseUrl
         // ABS Root Registration Policy (Reject cleartext server roots before library rows are persisted)
@@ -223,10 +220,17 @@ class LibraryRootStore(
 
     private fun normalizeWebDavEndpoint(parsed: Uri): String {
         val scheme = parsed.scheme?.lowercase()
-            ?: throw IllegalArgumentException("WebDAV URL 缺少协议")
+            ?: throw WebDavEndpointValidationException(WebDavEndpointValidationReason.MissingScheme)
         val authority = parsed.encodedAuthority
-            ?: throw IllegalArgumentException("WebDAV URL 缺少主机")
-        require(scheme == "http" || scheme == "https") { "WebDAV URL 仅支持 http/https" }
+            ?: throw WebDavEndpointValidationException(WebDavEndpointValidationReason.MissingHost)
+        if (!parsed.encodedUserInfo.isNullOrBlank()) {
+            // WebDAV Userinfo Rejection (Keep credentials in credential storage, not endpoint URLs)
+            // Endpoint URLs can flow into persistent root rows and diagnostics, so Basic Auth material must stay in WebDavCredentialStore instead of URI authority.
+            throw WebDavEndpointValidationException(WebDavEndpointValidationReason.UserInfoNotAllowed)
+        }
+        if (scheme != "http" && scheme != "https") {
+            throw WebDavEndpointValidationException(WebDavEndpointValidationReason.UnsupportedScheme)
+        }
         // Endpoint Scheme Split (Unified domain partitioning)
         // Restricts sourceUri to protocol scheme and host address, shifting paths into the basePath field.
         return "$scheme://$authority"
@@ -351,22 +355,18 @@ class LibraryRootStore(
             // Empty custom names resolve to the remote basePath so Settings and Detail use the same user-facing library label.
             normalizedBasePath.toWebDavDisplayNameFallback()
         }
-        val credentialId = existing.credentialId ?: UUID.randomUUID().toString()
-        webDavCredentialStore.save(
-            username = username,
-            password = password,
-            credentialId = credentialId
-        )
         val updated = LibraryRootLifecyclePolicy.markBindingRefreshed(
             existing.copy(
                 displayName = resolvedDisplayName,
                 sourceUri = normalizedEndpoint,
-                basePath = normalizedBasePath,
-                credentialId = credentialId
+                basePath = normalizedBasePath
             )
         )
-        rootDao.insertRoot(updated)
-        updated
+        stageWebDavCredentialAndPersistRoot(
+            username = username,
+            password = password,
+            root = updated
+        )
     }
 
     /**
@@ -387,7 +387,7 @@ class LibraryRootStore(
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
         val existing = rootDao.getRootById(id) ?: throw IllegalArgumentException("Root not found: $id")
         val credential = requireNotNull(absCredentialStore.get(credentialId)) {
-            "ABS 凭据不存在: $credentialId"
+            "ABS_CREDENTIAL_NOT_FOUND:$credentialId"
         }
         // ABS Root Update Policy (Apply cleartext validation before rebinding a root to a new server credential)
         // The selected credential owns the server URL, so updates must reject HTTP unless the global cleartext setting is enabled.
@@ -407,6 +407,31 @@ class LibraryRootStore(
         )
         rootDao.insertRoot(updated)
         updated
+    }
+
+    private suspend fun stageWebDavCredentialAndPersistRoot(
+        username: String,
+        password: String,
+        root: LibraryRootEntity
+    ): LibraryRootEntity {
+        val previousCredentialId = root.credentialId
+        val stagedCredential = webDavCredentialStore.save(username = username, password = password)
+        val updated = root.copy(credentialId = stagedCredential.id)
+        runCatching {
+            // Credential Binding Commit (Only bind staged credentials after the root row can be persisted)
+            // Room is the durable owner of credential references, so failed root writes must leave the previously bound credential untouched.
+            rootDao.insertRoot(updated)
+        }.onFailure {
+            // Staged Credential Rollback (Remove credentials that never became reachable from Room)
+            // This prevents failed WebDAV edits or deduplicated additions from leaking unbound username/password records.
+            webDavCredentialStore.delete(stagedCredential.id)
+        }.getOrThrow()
+        if (previousCredentialId != null && previousCredentialId != stagedCredential.id) {
+            // Previous Credential Retirement (Remove the replaced WebDAV secret after the new binding commits)
+            // WebDAV roots own independent credential IDs, so successful rebinds should not leave stale username/password records behind.
+            webDavCredentialStore.delete(previousCredentialId)
+        }
+        return updated
     }
 }
 

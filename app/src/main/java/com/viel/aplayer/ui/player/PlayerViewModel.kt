@@ -21,6 +21,7 @@ import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.media.PlaybackMediaId
+import com.viel.aplayer.media.subtitle.SubtitleParser
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
 import com.viel.aplayer.ui.settings.PlayerSettingsState
@@ -480,7 +481,9 @@ class PlayerViewModel : ViewModel() {
                             val externalSubs = kotlinx.coroutines.withContext(Dispatchers.IO) {
                                 playerLibraryReadModel?.loadSubtitlesForBookFile(bookFileId) ?: emptyList()
                             }
-                            _currentSubtitles.value = externalSubs
+                            // Subtitle State Budget Clamp (Keep external subtitle payloads bounded before publishing to Compose)
+                            // This defensive clamp protects the player if future subtitle gateways bypass parser-side cue and text budgets.
+                            _currentSubtitles.value = SubtitleParser.limitForPlayerState(externalSubs)
                         }
                     } else {
                         // Clear subtitle tasks (To wipe subtitle state when identifier parsing fails)

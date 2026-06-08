@@ -68,7 +68,7 @@ internal fun PlaybackDomainEvent.toFeedbackMessage(): FeedbackMessage =
         is PlaybackDomainEvent.BookmarkCreated ->
             FeedbackMessages.playbackBookmarkCreated()
         is PlaybackDomainEvent.SourcePreflightBlocked ->
-            FeedbackMessages.playbackSourcePreflightBlocked(message)
+            FeedbackMessages.playbackSourcePreflightBlocked(reason, rootName)
         is PlaybackDomainEvent.TrackUnavailable ->
             FeedbackMessages.playbackTrackUnavailable()
     }

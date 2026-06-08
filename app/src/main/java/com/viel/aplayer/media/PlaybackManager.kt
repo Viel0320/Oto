@@ -279,8 +279,13 @@ class PlaybackManager private constructor(context: Context) {
                     return@launch
                 }
                 is PlaybackSourcePreflightResult.Blocked -> {
-                    playbackEventSink.emit(PlaybackDomainEvent.SourcePreflightBlocked(preflight.message))
-                    PlaybackWorkflowLogger.warn("playbackManager source preflight blocked: bookId=${plan.bookId}, message=${preflight.message}")
+                    playbackEventSink.emit(
+                        PlaybackDomainEvent.SourcePreflightBlocked(
+                            reason = preflight.reason,
+                            rootName = preflight.rootName
+                        )
+                    )
+                    PlaybackWorkflowLogger.warn("playbackManager source preflight blocked: bookId=${plan.bookId}, reason=${preflight.reason}")
                     return@launch
                 }
             }

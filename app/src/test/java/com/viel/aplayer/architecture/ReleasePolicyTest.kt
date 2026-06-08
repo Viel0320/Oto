@@ -45,13 +45,19 @@ class ReleasePolicyTest {
 
         // Backup Exclusion Policy (Protects device-local preferences from cloud and transfer restore)
         // The manifest must point at both rule files, and both rule files must exclude sharedpref/device.xml.
+        // Update Test for Backup Rules (Ensure credentials are excluded from backups to protect secrets)
+        // Add assertions verifying that webdav_credentials.xml and abs_credentials.preferences_pb are excluded from backup_rules and data_extraction_rules.
         assertTrue(manifest.contains("""android:allowBackup="true""""))
         assertTrue(manifest.contains("""android:dataExtractionRules="@xml/data_extraction_rules""""))
         assertTrue(manifest.contains("""android:fullBackupContent="@xml/backup_rules""""))
         assertTrue(backupRules.contains("""<exclude domain="sharedpref" path="device.xml"/>"""))
+        assertTrue(backupRules.contains("""<exclude domain="sharedpref" path="webdav_credentials.xml"/>"""))
+        assertTrue(backupRules.contains("""<exclude domain="files" path="datastore/abs_credentials.preferences_pb"/>"""))
         assertTrue(extractionRules.contains("""<cloud-backup>"""))
         assertTrue(extractionRules.contains("""<device-transfer>"""))
         assertTrue(extractionRules.contains("""<exclude domain="sharedpref" path="device.xml"/>"""))
+        assertTrue(extractionRules.contains("""<exclude domain="sharedpref" path="webdav_credentials.xml"/>"""))
+        assertTrue(extractionRules.contains("""<exclude domain="files" path="datastore/abs_credentials.preferences_pb"/>"""))
     }
 
     @Test
@@ -73,12 +79,15 @@ class ReleasePolicyTest {
             repoFile("app/src/main/java/com/viel/aplayer/library/vfs/sourceProvider/webdav/WebDavConnectionTester.kt"),
             repoFile("app/src/main/java/com/viel/aplayer/library/vfs/sourceProvider/webdav/WebDavSourceProvider.kt"),
             repoFile("app/src/main/java/com/viel/aplayer/abs/net/AbsApiClient.kt"),
+            repoFile("app/src/main/java/com/viel/aplayer/abs/sync/AbsCoverCache.kt"),
             repoFile("app/src/main/java/com/viel/aplayer/abs/vfs/AbsSourceProvider.kt"),
             repoFile("app/src/main/java/com/viel/aplayer/media/PlaybackSourcePreflight.kt")
         )
 
         // Unsafe Network Runtime Gate (Allows platform sockets only with centralized runtime enforcement)
         // The socket layer remains compatible with user-owned HTTP libraries, but cleartext HTTP and insecure TLS default to blocked until the global settings switches allow them.
+        // ABS Cover Runtime Coverage (Includes standalone cover downloads in the transport gate inventory)
+        // Cover downloads attach bearer credentials outside RealAbsApiClient, so the release policy must fail if AbsCoverCache drops UnsafeNetworkPolicy enforcement.
         assertTrue(networkConfig.contains("""<base-config cleartextTrafficPermitted="true">"""))
         assertTrue(!defaults.isCleartextTrafficAllowed)
         assertTrue(!defaults.isAllowInsecureTls)

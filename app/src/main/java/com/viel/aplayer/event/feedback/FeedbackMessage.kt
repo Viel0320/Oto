@@ -1,8 +1,11 @@
 package com.viel.aplayer.event.feedback
 
 import android.content.Context
+import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import com.viel.aplayer.R
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.media.PlaybackSourcePreflightBlockReason
 
 /**
  * Feedback Message (Resource-backed transient copy contract)
@@ -26,6 +29,29 @@ sealed interface FeedbackMessage {
         override val mergeKey: String = buildString {
             append("res:")
             append(resId)
+            args.forEach { arg ->
+                append(':')
+                append(arg)
+            }
+        }
+    }
+
+    /**
+     * Quantity Resource Message (Defers counted localized text lookup to Android plural rules)
+     *
+     * The quantity drives resource selection while args supply the formatted values, keeping producers on
+     * language-neutral facts and allowing locales with complex plural forms to render correctly.
+     */
+    data class Quantity(
+        @PluralsRes val resId: Int,
+        val quantity: Int,
+        val args: List<Any> = listOf(quantity)
+    ) : FeedbackMessage {
+        override val mergeKey: String = buildString {
+            append("plural:")
+            append(resId)
+            append(':')
+            append(quantity)
             args.forEach { arg ->
                 append(':')
                 append(arg)
@@ -62,6 +88,43 @@ sealed interface FeedbackMessage {
 object FeedbackMessages {
     fun rawText(value: String): FeedbackMessage = FeedbackMessage.RawText(value)
 
+    fun messageSeparator(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_message_separator)
+
+    fun libraryRootsUnavailableNone(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_sync_roots_unavailable_none)
+
+    fun libraryRootsUnavailableSync(rootCount: Int): FeedbackMessage =
+        FeedbackMessage.Quantity(R.plurals.feedback_sync_roots_unavailable_multiple, rootCount)
+
+    fun libraryRootUnavailableSync(
+        rootName: String,
+        availabilityStatus: String,
+        fallbackCode: String
+    ): FeedbackMessage {
+        val args = listOf(rootName)
+        return when (availabilityStatus) {
+            AudiobookSchema.AvailabilityStatus.REVOKED ->
+                FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_revoked, args)
+            AudiobookSchema.AvailabilityStatus.AUTH_FAILED ->
+                FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_auth_failed, args)
+            AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE ->
+                FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_network_unavailable, args)
+            AudiobookSchema.AvailabilityStatus.TIMEOUT ->
+                FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_timeout, args)
+            AudiobookSchema.AvailabilityStatus.NOT_FOUND ->
+                FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_not_found, args)
+            AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED ->
+                FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_permission_denied, args)
+            AudiobookSchema.AvailabilityStatus.SERVER_ERROR ->
+                FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_server_error, args)
+            AudiobookSchema.AvailabilityStatus.UNSUPPORTED ->
+                FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_unsupported, args)
+            else ->
+                FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_status_code, listOf(rootName, fallbackCode))
+        }
+    }
+
     fun playbackCleartextBlocked(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_playback_cleartext_blocked)
 
@@ -72,7 +135,7 @@ object FeedbackMessages {
         FeedbackMessage.Resource(R.string.feedback_playback_no_available_track_after_failure)
 
     fun playbackFinishedShutdownScheduled(delaySeconds: Int): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_playback_finished_shutdown_scheduled, listOf(delaySeconds))
+        FeedbackMessage.Quantity(R.plurals.feedback_playback_finished_shutdown_scheduled, delaySeconds)
 
     fun playbackBookmarkCreated(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_playback_bookmark_created)
@@ -89,8 +152,19 @@ object FeedbackMessages {
     fun playbackSpeedChanged(speedText: String): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_playback_speed_changed, listOf(speedText))
 
-    fun playbackSourcePreflightBlocked(message: String): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_playback_source_preflight_blocked, listOf(message))
+    fun playbackSourcePreflightBlocked(
+        reason: PlaybackSourcePreflightBlockReason,
+        rootName: String?
+    ): FeedbackMessage =
+        when (reason) {
+            PlaybackSourcePreflightBlockReason.MissingRoot ->
+                FeedbackMessage.Resource(R.string.feedback_playback_source_preflight_missing_root)
+            PlaybackSourcePreflightBlockReason.UnavailableRoot ->
+                FeedbackMessage.Resource(
+                    R.string.feedback_playback_source_preflight_unavailable_root,
+                    listOf(rootName.orEmpty())
+                )
+        }
 
     fun playbackTrackUnavailable(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_playback_track_unavailable)
@@ -129,13 +203,13 @@ object FeedbackMessages {
         FeedbackMessage.Resource(R.string.feedback_settings_abs_server_save_failed, listOf(redactedMessage))
 
     fun settingsAbsConnectionSucceeded(libraryCount: Int): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_settings_abs_connection_succeeded, listOf(libraryCount))
+        FeedbackMessage.Quantity(R.plurals.feedback_settings_abs_connection_succeeded, libraryCount)
 
     fun settingsAbsConnectionFailed(friendlyMessage: String): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_settings_abs_connection_failed, listOf(friendlyMessage))
 
-    fun settingsRootUnavailableSyncBlocked(detailMessage: String): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_settings_root_unavailable_sync_blocked, listOf(detailMessage))
+    fun settingsRootUnavailableSyncBlocked(detailMessage: FeedbackMessage): FeedbackMessage =
+        detailMessage
 
     fun settingsAbsSyncStarted(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_settings_abs_sync_started)
@@ -183,17 +257,24 @@ object FeedbackMessages {
     fun absBackgroundSyncRootMissing(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_abs_background_sync_root_missing)
 
-    fun absBackgroundSyncUnavailable(detailMessage: String): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_abs_background_sync_unavailable, listOf(detailMessage))
+    fun absBackgroundSyncUnavailable(detailMessage: FeedbackMessage): FeedbackMessage =
+        detailMessage
 
     fun absBackgroundSyncCompleted(addedBooks: Int, failedItems: Int): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_abs_background_sync_completed, listOf(addedBooks, failedItems))
+        FeedbackMessage.Composite(
+            listOf(
+                FeedbackMessage.Resource(R.string.feedback_abs_background_sync_completed),
+                FeedbackMessage.Quantity(R.plurals.feedback_abs_background_sync_added_books, addedBooks),
+                FeedbackMessage.Resource(R.string.feedback_abs_background_sync_completed_separator),
+                FeedbackMessage.Quantity(R.plurals.feedback_abs_background_sync_failed_books, failedItems)
+            )
+        )
 
     fun absBackgroundSyncFailed(redactedMessage: String): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_abs_background_sync_failed, listOf(redactedMessage))
 
     fun scanCompletedWithDiscoveredBooks(discoveredCount: Int): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_scan_completed_with_discovered_books, listOf(discoveredCount))
+        FeedbackMessage.Quantity(R.plurals.feedback_scan_completed_with_discovered_books, discoveredCount)
 
     fun scanCompleted(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_scan_completed)
@@ -205,10 +286,10 @@ object FeedbackMessages {
         FeedbackMessage.Resource(R.string.feedback_scan_already_up_to_date)
 
     fun scanCompletedSuffixUpdated(updatedCount: Int): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_scan_suffix_updated, listOf(updatedCount))
+        FeedbackMessage.Quantity(R.plurals.feedback_scan_suffix_updated, updatedCount)
 
     fun scanCompletedSuffixPartial(partialCount: Int): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_scan_suffix_partial, listOf(partialCount))
+        FeedbackMessage.Quantity(R.plurals.feedback_scan_suffix_partial, partialCount)
 
     fun scanBlockedNoDirectoryRoots(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_scan_blocked_no_directory_roots)
@@ -253,7 +334,7 @@ object FeedbackMessages {
         FeedbackMessage.Resource(R.string.feedback_sleep_timer_end_of_chapter)
 
     fun sleepTimerMinutes(minutes: Int): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_sleep_timer_minutes, listOf(minutes))
+        FeedbackMessage.Quantity(R.plurals.feedback_sleep_timer_minutes, minutes)
 
     fun chapterPhysicalFileMissing(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_chapter_physical_file_missing)
@@ -269,5 +350,6 @@ fun FeedbackMessage.render(context: Context): String =
     when (this) {
         is FeedbackMessage.RawText -> value
         is FeedbackMessage.Resource -> context.getString(resId, *args.toTypedArray())
+        is FeedbackMessage.Quantity -> context.resources.getQuantityString(resId, quantity, *args.toTypedArray())
         is FeedbackMessage.Composite -> parts.joinToString(separator = "") { part -> part.render(context) }
     }

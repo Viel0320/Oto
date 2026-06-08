@@ -2,6 +2,8 @@ package com.viel.aplayer.logger
 
 import android.os.SystemClock
 import android.util.Log
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * VFS File I/O Performance Logger (Track latency and outcomes of VFS operations)
@@ -130,9 +132,41 @@ internal object VfsLogger {
     fun logWebDavError(url: String, status: String, errorClass: String) {
         Log.d(
             TAG,
-            "WebDAV error url=${compact(url)}, status=$status, exception=$errorClass"
+            buildWebDavErrorMessage(url = url, status = status, errorClass = errorClass)
         )
     }
+
+    /**
+     * Build WebDAV Error Message (Format network failures without leaking endpoint credentials)
+     *
+     * The pure builder keeps URL redaction testable on the JVM before the final Logcat write happens.
+     */
+    fun buildWebDavErrorMessage(url: String, status: String, errorClass: String): String =
+        "WebDAV error url=${compactWebDavUrl(url)}, status=$status, exception=$errorClass"
+
+    /**
+     * WebDAV Log URL Sanitizer (Remove username, password, query, and fragment from diagnostic URLs)
+     *
+     * WebDAV request URLs may originate from user input or OkHttp request objects, so diagnostics retain only scheme, host, port, and path.
+     */
+    private fun compactWebDavUrl(value: String): String =
+        compact(value.toHttpUrlOrNull()?.redactedForLog() ?: stripUrlTail(value))
+
+    /**
+     * WebDAV Fallback URL Tail Strip (Drop query and fragment from non-OkHttp-parsable text)
+     *
+     * Invalid URL strings should still lose common secret-bearing suffixes before length compaction is applied.
+     */
+    private fun stripUrlTail(value: String): String =
+        value.substringBefore('#').substringBefore('?')
+
+    /**
+     * WebDAV Log Sanitizer (Remove username, password, query, and fragment from diagnostic URLs)
+     *
+     * Clearing OkHttp's username and password fields prevents authority userinfo from surviving in exception and timeout diagnostics.
+     */
+    private fun HttpUrl.redactedForLog(): String =
+        newBuilder().username("").password("").query(null).fragment(null).build().toString()
 
     /**
      * Shorten Log Identifiers (Truncate overly long path and URL logs for readability)

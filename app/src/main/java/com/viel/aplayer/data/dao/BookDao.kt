@@ -241,8 +241,13 @@ interface BookDao {
      * This avoids read-modify-write race conditions under concurrent progress reports and maintains database consistency.
      */
     @Transaction
-    suspend fun updateProgressWithReadStatus(bookId: String, position: Long, currentTime: Long) {
+    suspend fun updateProgressWithReadStatus(bookId: String, position: Long, currentTime: Long): Boolean {
         val progress = getProgressForBookSync(bookId)
+        if (progress != null && currentTime < progress.lastPlayedAt) {
+            // Progress Ordering Guard (Reject stale checkpoints before they mutate progress or read state)
+            // Delayed polling, seek, track-switch, and remote-sync writes must not roll the persisted playback position back behind a newer checkpoint.
+            return false
+        }
         val files = getFilesForBookList(bookId)
         
         if (files.isNotEmpty()) {
@@ -284,5 +289,6 @@ interface BookDao {
                 updateBookReadStatus(bookId, nextStatus)
             }
         }
+        return true
     }
 }

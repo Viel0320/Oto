@@ -2,8 +2,20 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="device.xml"/>
+        <!-- Exclude WebDAV Credentials (Prevent WebDAV secrets from leaking via cloud backups)
+             Explicitly exclude webdav_credentials.xml from cloud backups. -->
+        <exclude domain="sharedpref" path="webdav_credentials.xml"/>
+        <!-- Exclude ABS Credentials (Prevent Audiobookshelf tokens from leaking via cloud backups)
+             Explicitly exclude abs_credentials.preferences_pb from cloud backups. -->
+        <exclude domain="files" path="datastore/abs_credentials.preferences_pb"/>
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="device.xml"/>
+        <!-- Exclude WebDAV Credentials (Prevent WebDAV secrets from leaking via device transfer)
+             Explicitly exclude webdav_credentials.xml from device transfer. -->
+        <exclude domain="sharedpref" path="webdav_credentials.xml"/>
+        <!-- Exclude ABS Credentials (Prevent Audiobookshelf tokens from leaking via device transfer)
+             Explicitly exclude abs_credentials.preferences_pb from device transfer. -->
+        <exclude domain="files" path="datastore/abs_credentials.preferences_pb"/>
     </device-transfer>
 </data-extraction-rules>

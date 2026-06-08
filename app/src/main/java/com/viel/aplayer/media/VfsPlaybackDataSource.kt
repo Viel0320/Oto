@@ -92,7 +92,9 @@ class VfsPlaybackDataSource internal constructor(
             totalMs = totalOpenCost,
             fileSize = file.fileSize
         )
-        return if (dataSpec.length != C.LENGTH_UNSET.toLong()) dataSpec.length else bytesRemaining
+        // Open Length Contract (Reports the actual readable byte count after EOF clipping)
+        // Media3 uses this return value as the opened range size, so near-EOF bounded requests must expose the clipped remaining bytes instead of the caller's original length.
+        return bytesRemaining
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {

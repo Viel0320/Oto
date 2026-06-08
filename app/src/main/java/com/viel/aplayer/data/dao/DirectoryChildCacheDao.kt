@@ -15,11 +15,23 @@ import com.viel.aplayer.data.entity.DirectoryChildCacheEntity
 @Dao
 abstract class DirectoryChildCacheDao {
     /**
-     * Get Cached Children (Reads a single parent directory snapshot)
-     * Orders by displayName to provide deterministic scanner traversal when WebDAV child listings are replayed from Room.
+     * Get Fresh Cached Children (Reads a single parent directory snapshot inside the accepted freshness window)
+     * Filters cachedAt at the DAO boundary so expired WebDAV listings become ordinary cache misses before the VFS can replay them.
      */
-    @Query("SELECT * FROM directory_child_cache WHERE rootId = :rootId AND parentSourcePath = :parentSourcePath ORDER BY displayName ASC")
-    abstract suspend fun getChildren(rootId: String, parentSourcePath: String): List<DirectoryChildCacheEntity>
+    @Query(
+        """
+        SELECT * FROM directory_child_cache
+        WHERE rootId = :rootId
+          AND parentSourcePath = :parentSourcePath
+          AND cachedAt >= :minCachedAt
+        ORDER BY displayName ASC
+        """
+    )
+    abstract suspend fun getChildren(
+        rootId: String,
+        parentSourcePath: String,
+        minCachedAt: Long
+    ): List<DirectoryChildCacheEntity>
 
     /**
      * Delete Cached Children (Clears one parent directory snapshot before replacement)

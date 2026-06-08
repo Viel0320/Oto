@@ -1,7 +1,6 @@
 <resources>
     <!-- Simplified Chinese Locale Resources (Provide Mainland Chinese copy for all default user-visible strings)
          This file mirrors the English base keys so Android can switch the whole app through per-app language selection. -->
-    <string name="app_name">APlayer</string>
     <string name="author_label">作者</string>
     <string name="narrator_label">朗读者</string>
     <string name="summary_label">概要</string>
@@ -70,12 +69,20 @@
     <string name="feedback_playback_cleartext_blocked">安全拦截：明文 HTTP 播放未授权。请先在设置中启用。</string>
     <string name="feedback_playback_initial_media_load_failed">媒体源载入失败：%1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">未找到后续可播放音轨，已停止播放</string>
-    <string name="feedback_playback_finished_shutdown_scheduled">播放结束，%1$d 秒后将自动关闭</string>
+    <!-- Counted Locale Feedback Copy (Mirror counted base resources for Android plural lookups)
+         Chinese copy does not change for singular counts, but using plurals keeps the resource type compatible with Quantity feedback rendering. -->
+    <plurals name="feedback_playback_finished_shutdown_scheduled">
+        <item quantity="one">播放结束，%1$d 秒后将自动关闭</item>
+        <item quantity="other">播放结束，%1$d 秒后将自动关闭</item>
+    </plurals>
     <string name="feedback_playback_bookmark_created">已在当前播放位置添加书签</string>
     <string name="feedback_playback_remote_progress_save_failed">服务器进度写入本机失败：%1$s</string>
     <string name="feedback_playback_speed_reset">播放速度已重置</string>
     <string name="feedback_playback_speed_changed">播放速度：%1$s 倍</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
+    <!-- Playback Preflight Feedback (Localized shell copy for typed playback block reasons emitted by the media domain) -->
+    <string name="feedback_playback_source_preflight_missing_root">媒体库根目录缺失，无法加载媒体源。</string>
+    <string name="feedback_playback_source_preflight_unavailable_root">媒体库根目录不可用，无法加载媒体源：%1$s</string>
     <string name="feedback_playback_track_unavailable">当前音轨文件不可用，请确认是否跳转到其他音轨</string>
     <string name="feedback_settings_local_library_relocated">本地媒体库位置已更新，开始扫描</string>
     <string name="feedback_settings_local_library_relocation_failed">更新位置失败：%1$s</string>
@@ -83,12 +90,41 @@
     <string name="feedback_settings_webdav_update_failed">修改 WebDAV 失败：%1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV 测试连接成功</string>
     <string name="feedback_settings_webdav_connection_failed">WebDAV 测试连接失败：%1$s</string>
+    <!-- WebDAV Connection Failure Details (Localized shell copy for typed endpoint and HTTP failure reasons) -->
+    <string name="feedback_settings_cleartext_http_blocked">明文 HTTP 已被全局设置拦截。请先在设置中允许明文 HTTP 后再使用此端点。</string>
+    <string name="feedback_settings_webdav_url_missing_scheme">WebDAV URL 缺少协议。</string>
+    <string name="feedback_settings_webdav_url_missing_host">WebDAV URL 缺少主机名。</string>
+    <string name="feedback_settings_webdav_url_userinfo_not_allowed">WebDAV URL 不能包含用户名或密码。请在 WebDAV 凭据字段中填写凭据。</string>
+    <string name="feedback_settings_webdav_url_unsupported_scheme">WebDAV URL 仅支持 http:// 或 https://。</string>
+    <string name="feedback_settings_webdav_auth_failed">身份验证失败，请检查用户名和密码。</string>
+    <string name="feedback_settings_webdav_forbidden">服务器拒绝访问。</string>
+    <string name="feedback_settings_webdav_not_found">未找到路径，请检查 URL 和媒体库路径。</string>
+    <string name="feedback_settings_webdav_http_status">连接失败。HTTP 状态码：%1$d</string>
     <string name="feedback_settings_abs_server_updated">ABS 服务器已更新，开始同步</string>
     <string name="feedback_settings_abs_server_added">ABS 服务器已添加，开始同步</string>
     <string name="feedback_settings_abs_server_save_failed">ABS 服务器保存失败：%1$s</string>
-    <string name="feedback_settings_abs_connection_succeeded">连接成功，发现 %1$d 个可用书库</string>
+    <plurals name="feedback_settings_abs_connection_succeeded">
+        <item quantity="one">连接成功，发现 %1$d 个可用书库</item>
+        <item quantity="other">连接成功，发现 %1$d 个可用书库</item>
+    </plurals>
     <string name="feedback_settings_abs_connection_failed">连接失败：%1$s</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
+    <!-- Library Root Sync Feedback (Resource-backed copy for availability status codes returned by sync preflight) -->
+    <string name="feedback_message_separator">\uFF1B</string>
+    <string name="feedback_sync_roots_unavailable_none">没有可同步的媒体库根目录</string>
+    <plurals name="feedback_sync_roots_unavailable_multiple">
+        <item quantity="one">部分媒体库根目录不可用，已跳过 %1$d 个根目录。</item>
+        <item quantity="other">部分媒体库根目录不可用，已跳过 %1$d 个根目录。</item>
+    </plurals>
+    <string name="feedback_sync_root_unavailable_revoked">媒体库根目录不可用，已跳过同步：%1$s（授权已过期）</string>
+    <string name="feedback_sync_root_unavailable_auth_failed">媒体库根目录不可用，已跳过同步：%1$s（身份验证失败）</string>
+    <string name="feedback_sync_root_unavailable_network_unavailable">媒体库根目录不可用，已跳过同步：%1$s（网络不可用）</string>
+    <string name="feedback_sync_root_unavailable_timeout">媒体库根目录不可用，已跳过同步：%1$s（连接超时）</string>
+    <string name="feedback_sync_root_unavailable_not_found">媒体库根目录不可用，已跳过同步：%1$s（路径不存在）</string>
+    <string name="feedback_sync_root_unavailable_permission_denied">媒体库根目录不可用，已跳过同步：%1$s（权限被拒绝）</string>
+    <string name="feedback_sync_root_unavailable_server_error">媒体库根目录不可用，已跳过同步：%1$s（服务器错误）</string>
+    <string name="feedback_sync_root_unavailable_unsupported">媒体库根目录不可用，已跳过同步：%1$s（来源不受支持）</string>
+    <string name="feedback_sync_root_unavailable_status_code">媒体库根目录不可用，已跳过同步：%1$s（%2$s）</string>
     <string name="feedback_settings_abs_sync_started">ABS 同步已开始</string>
     <string name="feedback_settings_abs_sync_already_running">ABS 同步已在进行中</string>
     <string name="feedback_settings_library_root_removed_playback_stopped">媒体库已移除，当前播放已停止</string>
@@ -107,14 +143,34 @@
     <string name="feedback_home_cover_metadata_regeneration_completed">封面与元数据重建已完成</string>
     <string name="feedback_abs_background_sync_root_missing">ABS 后台同步失败：找不到对应的 ABS 书库根</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
-    <string name="feedback_abs_background_sync_completed">ABS 后台同步完成：成功添加 %1$d 本，失败 %2$d 本</string>
+    <!-- Multi-Count ABS Sync Feedback (Split added and failed totals into independently formatted plural fragments)
+         Each count is rendered through its own plural resource so future Chinese variants and fallback locales stay type-compatible. -->
+    <string name="feedback_abs_background_sync_completed">ABS 后台同步完成：</string>
+    <plurals name="feedback_abs_background_sync_added_books">
+        <item quantity="one">成功添加 %1$d 本</item>
+        <item quantity="other">成功添加 %1$d 本</item>
+    </plurals>
+    <string name="feedback_abs_background_sync_completed_separator">，</string>
+    <plurals name="feedback_abs_background_sync_failed_books">
+        <item quantity="one">失败 %1$d 本</item>
+        <item quantity="other">失败 %1$d 本</item>
+    </plurals>
     <string name="feedback_abs_background_sync_failed">ABS 后台同步失败：%1$s</string>
-    <string name="feedback_scan_completed_with_discovered_books">媒体库同步已完成，新增 %1$d 本书籍</string>
+    <plurals name="feedback_scan_completed_with_discovered_books">
+        <item quantity="one">媒体库同步已完成，新增 %1$d 本书籍</item>
+        <item quantity="other">媒体库同步已完成，新增 %1$d 本书籍</item>
+    </plurals>
     <string name="feedback_scan_completed">媒体库同步已完成</string>
     <string name="feedback_scan_library_empty">媒体库为空，未扫描到有效书籍</string>
     <string name="feedback_scan_already_up_to_date">媒体库已是最新状态</string>
-    <string name="feedback_scan_suffix_updated">，更新了 %1$d 本书籍</string>
-    <string name="feedback_scan_suffix_partial">，其中 %1$d 本为部分导入</string>
+    <plurals name="feedback_scan_suffix_updated">
+        <item quantity="one">，更新了 %1$d 本书籍</item>
+        <item quantity="other">，更新了 %1$d 本书籍</item>
+    </plurals>
+    <plurals name="feedback_scan_suffix_partial">
+        <item quantity="one">，其中 %1$d 本为部分导入</item>
+        <item quantity="other">，其中 %1$d 本为部分导入</item>
+    </plurals>
     <string name="feedback_scan_blocked_no_directory_roots">没有可同步的本地或 WebDAV 库根</string>
     <string name="feedback_scan_retry_later">媒体库同步暂时失败，将稍后重试</string>
     <string name="feedback_scan_failed">媒体库同步失败：%1$s</string>
@@ -129,15 +185,38 @@
     <string name="feedback_sleep_timer_off">睡眠定时器已关闭</string>
     <string name="feedback_sleep_timer_five_seconds">5 秒后停止播放</string>
     <string name="feedback_sleep_timer_end_of_chapter">将在本章结束后停止播放</string>
-    <string name="feedback_sleep_timer_minutes">睡眠定时器：%1$d 分钟</string>
+    <plurals name="feedback_sleep_timer_minutes">
+        <item quantity="one">睡眠定时器：%1$d 分钟</item>
+        <item quantity="other">睡眠定时器：%1$d 分钟</item>
+    </plurals>
     <string name="feedback_chapter_physical_file_missing">该章节对应的物理文件已丢失，无法播放</string>
     <string name="bookmark_default_title">书签</string>
     <string name="settings_library_management_title">媒体库管理</string>
     <string name="settings_library_location_with_abs">位置：%1$s · 当前书库：%2$s</string>
     <string name="settings_library_location">位置：%1$s</string>
-    <string name="settings_library_sync_summary">最近同步：%1$s · 已导入：%2$d 本</string>
+    <!-- Counted Settings Copy (Keep settings-row count resources aligned with the default plural contract)
+         These settings strings are rendered directly from Compose, outside FeedbackMessage, so the locale file must expose plural resources too. -->
+    <plurals name="settings_library_sync_summary">
+        <item quantity="one">最近同步：%1$s · 已导入：%2$d 本</item>
+        <item quantity="other">最近同步：%1$s · 已导入：%2$d 本</item>
+    </plurals>
     <string name="settings_library_not_synced">未同步</string>
     <string name="settings_library_error">错误：%1$s</string>
+    <!-- Library Status Labels (Translate database and availability status codes before they reach Settings UI) -->
+    <string name="settings_library_status_active">已启用</string>
+    <string name="settings_library_status_available">可用</string>
+    <string name="settings_library_status_revoked">授权已过期</string>
+    <string name="settings_library_status_error">错误</string>
+    <string name="settings_library_status_unknown">未知</string>
+    <string name="settings_library_status_auth_failed">身份验证失败</string>
+    <string name="settings_library_status_network_unavailable">网络不可用</string>
+    <string name="settings_library_status_not_found">未找到</string>
+    <string name="settings_library_status_permission_denied">权限被拒绝</string>
+    <string name="settings_library_status_server_error">服务器错误</string>
+    <string name="settings_library_status_timeout">超时</string>
+    <string name="settings_library_status_unsupported">不受支持</string>
+    <string name="settings_library_status_synced">已同步</string>
+    <string name="settings_library_status_idle">空闲</string>
     <string name="settings_add_library_title">添加媒体库</string>
     <string name="settings_add_library_subtitle">支持本地 SAF、WebDAV、Audiobookshelf 服务器</string>
     <string name="settings_interface_effects_title">界面</string>
@@ -178,7 +257,10 @@
     <string name="settings_auto_rewind_toggle_title">暂停自动回放</string>
     <string name="settings_auto_rewind_subtitle">暂停或停止播放后自动回退的时长，通知避让除外</string>
     <string name="settings_auto_rewind_disabled">已关闭</string>
-    <string name="settings_seconds_value">%1$d 秒</string>
+    <plurals name="settings_seconds_value">
+        <item quantity="one">%1$d 秒</item>
+        <item quantity="other">%1$d 秒</item>
+    </plurals>
     <string name="settings_about_title">关于</string>
     <string name="settings_open_source_license_title">开源许可</string>
     <string name="settings_open_source_license_subtitle">查看应用使用的开源库与许可协议</string>
@@ -214,7 +296,7 @@
     <string name="settings_root_action_sync">同步</string>
     <string name="settings_root_action_rescan">重新扫描</string>
     <string name="settings_root_action_remove">移除媒体库</string>
-    <string name="about_version_text">版本 1.0 (Beta)</string>
+    <string name="about_version_text">版本 %1$s</string>
     <string name="about_app_description">APlayer 是一款为听书爱好者打造的本地有声书播放器。优秀产品离不开开源社区的基石贡献，谨向让本应用成为可能的库作者与组织致敬。</string>
     <string name="about_developer_credit">由 %1$s 提供</string>
     <string name="about_visit_project_homepage_content_description">访问项目主页</string>
@@ -274,6 +356,7 @@
     <string name="common_unknown">未知</string>
     <string name="common_unknown_title">未知标题</string>
     <string name="common_new_badge">新</string>
+    <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">删除</string>
     <string name="media_cover_content_description">封面</string>
@@ -290,7 +373,8 @@
     <string name="action_ok">确定</string>
     <string name="clear_content_description">清除</string>
     <string name="home_view_options_content_description">首页视图选项</string>
-    <string name="search_placeholder">搜索，或使用 year: author: narrator:</string>
+    <!-- Search Placeholder Template (%1$s is fixed query syntax owned by SearchQueryPlanner and must not be translated) -->
+    <string name="search_placeholder">搜索，或使用 %1$s</string>
     <string name="search_recent_title">最近搜索</string>
     <string name="search_clear_all">全部清除</string>
     <string name="search_remove_history_content_description">移除</string>

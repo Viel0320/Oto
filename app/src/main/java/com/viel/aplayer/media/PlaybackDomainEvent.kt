@@ -15,9 +15,12 @@ sealed interface PlaybackDomainEvent {
     /**
      * Source Preflight Blocked (Playback plan cannot be applied because its source root is inactive)
      *
-     * Carries the already domain-formatted availability message produced before media source creation.
+     * Carries typed preflight data so the app-shell bridge can render localized feedback.
      */
-    data class SourcePreflightBlocked(val message: String) : PlaybackDomainEvent
+    data class SourcePreflightBlocked(
+        val reason: PlaybackSourcePreflightBlockReason,
+        val rootName: String? = null
+    ) : PlaybackDomainEvent
 
     /**
      * Cleartext Playback Blocked (HTTP playback was rejected by the user's security preference)

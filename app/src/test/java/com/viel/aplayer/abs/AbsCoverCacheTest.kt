@@ -1,0 +1,116 @@
+package com.viel.aplayer.abs
+
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.abs.sync.AbsCoverCache
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.network.UnsafeNetworkPolicyViolation
+import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.fail
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
+import java.io.File
+import kotlin.io.path.createTempDirectory
+
+// Local Android Runtime Alignment (Runs cover cache tests against an Android-like context)
+// AbsCoverCache uses Context-backed cache directories and DataStore-backed credentials, so Robolectric keeps the test on the same code path as production without device instrumentation.
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [32])
+class AbsCoverCacheTest {
+
+    @Test
+    fun `http cover download should be blocked before bearer token request is sent`() = runBlocking {
+        MockWebServer().use { server ->
+            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val cache = createCoverCache(
+                credentialStore = credentialStore,
+                settingsProvider = { AppSettings() }
+            )
+
+            try {
+                cache.downloadCover(rootFor(server), "item-1")
+                fail("Expected cleartext ABS cover download to be blocked")
+            } catch (error: UnsafeNetworkPolicyViolation) {
+                // Cleartext Credential Egress Guard (Verifies policy failure happens before OkHttp dispatch)
+                // The operation label and zero server requests prove the bearer token never leaves the process when HTTP is disabled.
+                assertEquals("ABS cover download", error.operation)
+                assertEquals(0, server.requestCount)
+            }
+        }
+    }
+
+    @Test
+    fun `cover download should preserve base path encode item id and attach bearer when cleartext is allowed`() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "image/jpeg")
+                    .setBody("not-a-real-image-but-a-real-stream")
+            )
+            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val cache = createCoverCache(
+                credentialStore = credentialStore,
+                settingsProvider = { AppSettings(isCleartextTrafficAllowed = true) }
+            )
+
+            val result = cache.downloadCover(rootFor(server), "item/with space")
+            val request = server.takeRequest()
+
+            // Structural Cover URL Contract (Locks path segment construction after replacing raw string interpolation)
+            // The base sub-path is preserved, the remote item ID is encoded as one path segment, and the bearer header is added only after the cleartext guard passes.
+            assertEquals("GET", request.method)
+            assertEquals("/audiobookshelf/api/items/item%2Fwith%20space/cover", request.path)
+            assertEquals("Bearer token-1", request.getHeader("Authorization"))
+            assertNotNull(result.originalPath)
+        }
+    }
+
+    private fun createCoverCache(
+        credentialStore: AbsCredentialStore,
+        settingsProvider: () -> AppSettings
+    ): AbsCoverCache =
+        AbsCoverCache(
+            context = RuntimeEnvironment.getApplication(),
+            credentialStore = credentialStore,
+            settingsProvider = settingsProvider
+        )
+
+    private fun rootFor(server: MockWebServer): LibraryRootEntity =
+        LibraryRootEntity(
+            id = "root-1",
+            sourceType = AudiobookSchema.LibrarySourceType.ABS,
+            sourceUri = server.url("/audiobookshelf").toString().trimEnd('/'),
+            basePath = "lib-1",
+            credentialId = "cred-1",
+            displayName = "Audiobooks"
+        )
+
+    private fun createCredentialStore(baseUrl: String, token: String): AbsCredentialStore {
+        val tempDir = createTempDirectory(prefix = "abs-cover-cache").toFile()
+        val store = AbsCredentialStore.createForTesting(
+            PreferenceDataStoreFactory.create(
+                produceFile = { File(tempDir, "credentials.preferences_pb") }
+            )
+        )
+        runBlocking {
+            store.save(
+                baseUrl = baseUrl,
+                token = token,
+                userId = "user-1",
+                username = "demo-user",
+                credentialId = "cred-1"
+            )
+        }
+        return store
+    }
+}

@@ -33,4 +33,16 @@ internal object SubtitleLogger {
     fun logParseResult(lineCount: Int) {
         Log.d(TAG, "Parsed $lineCount lines")
     }
+
+    /**
+     * Log Subtitle Budget Truncation (Record parser-side early exits for oversized subtitle files)
+     *
+     * Captures the subtitle format that exceeded the bounded cue budget so playback diagnostics can distinguish
+     * malformed sidecar files from empty or unsupported subtitle inputs.
+     *
+     * @param extension The subtitle file extension whose parsed cue stream was truncated.
+     */
+    fun logSubtitleTruncated(extension: String) {
+        Log.w(TAG, "Truncated oversized $extension subtitle")
+    }
 }

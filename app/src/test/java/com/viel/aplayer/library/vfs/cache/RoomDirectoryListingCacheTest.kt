@@ -53,6 +53,23 @@ class RoomDirectoryListingCacheTest {
     }
 
     @Test
+    fun `webdav cache read should pass freshness lower bound to dao`() = runBlocking {
+        val dao = FakeDirectoryChildCacheDao()
+        val cache = RoomDirectoryListingCache(
+            directoryChildCacheDao = dao,
+            currentTimeMillis = { 10_000L },
+            maxCacheAgeMillis = 2_500L,
+            elapsedRealtimeMillis = { 1000L }
+        )
+
+        cache.getChildren(sampleDirectory(sourceType = AudiobookSchema.LibrarySourceType.WEBDAV))
+
+        // Freshness Query Boundary (Keeps TTL enforcement inside the Room-backed cache adapter)
+        // The DAO must receive a cachedAt lower bound so expired rows return as a cache miss instead of stale child metadata.
+        assertEquals(7_500L, dao.lastMinCachedAt)
+    }
+
+    @Test
     fun `saf and abs directories should not read or write directory child cache`() = runBlocking {
         val safDao = FakeDirectoryChildCacheDao()
         val safCache = RoomDirectoryListingCache(safDao)
@@ -129,10 +146,21 @@ class RoomDirectoryListingCacheTest {
         var replacedParentSourcePath: String? = null
         var replaceCallCount: Int = 0
         var deletedRootId: String? = null
+        var lastMinCachedAt: Long? = null
 
-        override suspend fun getChildren(rootId: String, parentSourcePath: String): List<DirectoryChildCacheEntity> =
-            rows.filter { row -> row.rootId == rootId && row.parentSourcePath == parentSourcePath }
+        override suspend fun getChildren(
+            rootId: String,
+            parentSourcePath: String,
+            minCachedAt: Long
+        ): List<DirectoryChildCacheEntity> {
+            lastMinCachedAt = minCachedAt
+            return rows.filter { row ->
+                row.rootId == rootId &&
+                    row.parentSourcePath == parentSourcePath &&
+                    row.cachedAt >= minCachedAt
+            }
                 .sortedBy { row -> row.displayName }
+        }
 
         override suspend fun deleteChildren(rootId: String, parentSourcePath: String) {
             rows.removeAll { row -> row.rootId == rootId && row.parentSourcePath == parentSourcePath }

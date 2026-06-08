@@ -1,9 +1,13 @@
 package com.viel.aplayer.library.vfs
 
 import android.os.ParcelFileDescriptor
+import com.viel.aplayer.data.dao.DirectoryChildCacheDao
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.DirectoryChildCacheEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
+import com.viel.aplayer.library.vfs.cache.DirectoryCacheMapper
+import com.viel.aplayer.library.vfs.cache.RoomDirectoryListingCache
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.aplayer.library.vfs.sourceProvider.SourceCapabilities
@@ -62,6 +66,43 @@ class VirtualFileSystemDirectoryListingCacheTest {
     }
 
     @Test
+    fun `stale directory cache should refresh provider listing and replace cached children`() = runBlocking {
+        val nowMillis = 1_000_000_000L
+        val directory = sampleNode(sampleRoot(), sampleMetadata(sourcePath = "folder", displayName = "folder", isDirectory = true))
+        val staleMetadata = sampleMetadata(sourcePath = "folder/stale.m4b", displayName = "stale.m4b")
+        val liveMetadata = sampleMetadata(sourcePath = "folder/live.m4b", displayName = "live.m4b")
+        val dao = FakeDirectoryChildCacheDao(
+            initialRows = listOf(
+                DirectoryCacheMapper.toEntity(
+                    rootId = directory.root.id,
+                    parentSourcePath = directory.metadata.sourcePath,
+                    metadata = staleMetadata,
+                    cachedAt = 1L
+                )
+            )
+        )
+        val cache = RoomDirectoryListingCache(
+            directoryChildCacheDao = dao,
+            currentTimeMillis = { nowMillis },
+            elapsedRealtimeMillis = { 0L }
+        )
+        val provider = FakeProvider(providerChildren = listOf(liveMetadata))
+        val vfs = VirtualFileSystem(
+            providerResolver = { provider },
+            directoryListingCache = cache
+        )
+
+        val children = vfs.listChildren(directory)
+
+        // Stale Directory Cache Refresh (Pins VFS fallback behavior when cachedAt falls outside the freshness window)
+        // Expired Room child rows must be treated as a cache miss so the provider listing replaces stale children with a fresh snapshot.
+        assertEquals(listOf("live.m4b"), children.map { node -> node.metadata.displayName })
+        assertEquals(1, provider.listChildrenCalls)
+        assertEquals(listOf("live.m4b"), dao.rows.map { row -> row.displayName })
+        assertEquals(nowMillis, dao.rows.single().cachedAt)
+    }
+
+    @Test
     fun `directory cache should not affect readRange`() = runBlocking {
         val provider = FakeProvider(rangeBytes = byteArrayOf(1, 2, 3))
         val cache = FakeDirectoryListingCache(
@@ -100,6 +141,36 @@ class VirtualFileSystemDirectoryListingCacheTest {
         }
 
         override suspend fun evictRoot(rootId: String) = Unit
+    }
+
+    private class FakeDirectoryChildCacheDao(
+        initialRows: List<DirectoryChildCacheEntity>
+    ) : DirectoryChildCacheDao() {
+        val rows = initialRows.toMutableList()
+
+        override suspend fun getChildren(
+            rootId: String,
+            parentSourcePath: String,
+            minCachedAt: Long
+        ): List<DirectoryChildCacheEntity> =
+            rows.filter { row ->
+                row.rootId == rootId &&
+                    row.parentSourcePath == parentSourcePath &&
+                    row.cachedAt >= minCachedAt
+            }
+                .sortedBy { row -> row.displayName }
+
+        override suspend fun deleteChildren(rootId: String, parentSourcePath: String) {
+            rows.removeAll { row -> row.rootId == rootId && row.parentSourcePath == parentSourcePath }
+        }
+
+        override suspend fun insertChildren(children: List<DirectoryChildCacheEntity>) {
+            rows += children
+        }
+
+        override suspend fun deleteByRootId(rootId: String) {
+            rows.removeAll { row -> row.rootId == rootId }
+        }
     }
 
     private class FakeProvider(

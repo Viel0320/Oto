@@ -1,7 +1,6 @@
 <resources>
     <!-- Japanese Locale Resources (Provide Japanese translations for all default user-visible strings)
          Complete key coverage lets Android and the in-app picker switch the whole app without partial fallback. -->
-    <string name="app_name">APlayer</string>
     <string name="author_label">著者</string>
     <string name="narrator_label">朗読者</string>
     <string name="summary_label">概要</string>
@@ -70,12 +69,18 @@
     <string name="feedback_playback_cleartext_blocked">セキュリティにより平文 HTTP 再生がブロックされました。先に設定で有効にしてください。</string>
     <string name="feedback_playback_initial_media_load_failed">メディアソースの読み込みに失敗しました：%1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">後続の再生可能な音声トラックが見つかりません。再生を停止しました。</string>
-    <string name="feedback_playback_finished_shutdown_scheduled">再生が終了しました。%1$d 秒後に自動終了します。</string>
+    <plurals name="feedback_playback_finished_shutdown_scheduled">
+        <item quantity="one">再生が終了しました。%1$d 秒後に自動終了します。</item>
+        <item quantity="other">再生が終了しました。%1$d 秒後に自動終了します。</item>
+    </plurals>
     <string name="feedback_playback_bookmark_created">現在の再生位置にブックマークを追加しました</string>
     <string name="feedback_playback_remote_progress_save_failed">リモート進捗をローカルに保存できませんでした：%1$s</string>
     <string name="feedback_playback_speed_reset">再生速度をリセットしました</string>
     <string name="feedback_playback_speed_changed">再生速度：%1$s 倍</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
+    <!-- Playback Preflight Feedback (Localized shell copy for typed playback block reasons emitted by the media domain) -->
+    <string name="feedback_playback_source_preflight_missing_root">ライブラリルートが見つからないため、メディアソースを読み込めません。</string>
+    <string name="feedback_playback_source_preflight_unavailable_root">ライブラリルートを利用できないため、メディアソースを読み込めません：%1$s</string>
     <string name="feedback_playback_track_unavailable">現在のトラックファイルは利用できません。別のトラックへスキップするか確認してください。</string>
     <string name="feedback_settings_local_library_relocated">ローカルメディアライブラリの場所を更新しました。スキャンを開始します。</string>
     <string name="feedback_settings_local_library_relocation_failed">場所の更新に失敗しました：%1$s</string>
@@ -83,12 +88,41 @@
     <string name="feedback_settings_webdav_update_failed">WebDAV の更新に失敗しました：%1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV テスト接続に成功しました</string>
     <string name="feedback_settings_webdav_connection_failed">WebDAV テスト接続に失敗しました：%1$s</string>
+    <!-- WebDAV Connection Failure Details (Localized shell copy for typed endpoint and HTTP failure reasons) -->
+    <string name="feedback_settings_cleartext_http_blocked">平文 HTTP は全体設定でブロックされています。このエンドポイントを使うには、設定で平文 HTTP を許可してください。</string>
+    <string name="feedback_settings_webdav_url_missing_scheme">WebDAV URL にスキームがありません。</string>
+    <string name="feedback_settings_webdav_url_missing_host">WebDAV URL にホストがありません。</string>
+    <string name="feedback_settings_webdav_url_userinfo_not_allowed">WebDAV URL にユーザー名やパスワードを含めないでください。認証情報は WebDAV の認証情報フィールドに入力してください。</string>
+    <string name="feedback_settings_webdav_url_unsupported_scheme">WebDAV URL は http:// または https:// のみサポートします。</string>
+    <string name="feedback_settings_webdav_auth_failed">認証に失敗しました。ユーザー名とパスワードを確認してください。</string>
+    <string name="feedback_settings_webdav_forbidden">サーバーがアクセスを拒否しました。</string>
+    <string name="feedback_settings_webdav_not_found">パスが見つかりません。URL とライブラリパスを確認してください。</string>
+    <string name="feedback_settings_webdav_http_status">接続に失敗しました。HTTP ステータス：%1$d</string>
     <string name="feedback_settings_abs_server_updated">ABS サーバーを更新しました。同期を開始します。</string>
     <string name="feedback_settings_abs_server_added">ABS サーバーを追加しました。同期を開始します。</string>
     <string name="feedback_settings_abs_server_save_failed">ABS サーバーの保存に失敗しました：%1$s</string>
-    <string name="feedback_settings_abs_connection_succeeded">接続に成功しました。%1$d 個の利用可能なライブラリが見つかりました。</string>
+    <plurals name="feedback_settings_abs_connection_succeeded">
+        <item quantity="one">接続に成功しました。%1$d 個の利用可能なライブラリが見つかりました。</item>
+        <item quantity="other">接続に成功しました。%1$d 個の利用可能なライブラリが見つかりました。</item>
+    </plurals>
     <string name="feedback_settings_abs_connection_failed">接続に失敗しました：%1$s</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
+    <!-- Library Root Sync Feedback (Resource-backed copy for availability status codes returned by sync preflight) -->
+    <string name="feedback_message_separator">\uFF1B</string>
+    <string name="feedback_sync_roots_unavailable_none">同期できるライブラリルートがありません</string>
+    <plurals name="feedback_sync_roots_unavailable_multiple">
+        <item quantity="one">ライブラリルートを利用できません。%1$d 件のルートをスキップしました。</item>
+        <item quantity="other">一部のライブラリルートを利用できません。%1$d 件のルートをスキップしました。</item>
+    </plurals>
+    <string name="feedback_sync_root_unavailable_revoked">ライブラリルートを利用できません。同期をスキップしました：%1$s（認可期限切れ）</string>
+    <string name="feedback_sync_root_unavailable_auth_failed">ライブラリルートを利用できません。同期をスキップしました：%1$s（認証失敗）</string>
+    <string name="feedback_sync_root_unavailable_network_unavailable">ライブラリルートを利用できません。同期をスキップしました：%1$s（ネットワーク利用不可）</string>
+    <string name="feedback_sync_root_unavailable_timeout">ライブラリルートを利用できません。同期をスキップしました：%1$s（接続タイムアウト）</string>
+    <string name="feedback_sync_root_unavailable_not_found">ライブラリルートを利用できません。同期をスキップしました：%1$s（パスが見つかりません）</string>
+    <string name="feedback_sync_root_unavailable_permission_denied">ライブラリルートを利用できません。同期をスキップしました：%1$s（権限が拒否されました）</string>
+    <string name="feedback_sync_root_unavailable_server_error">ライブラリルートを利用できません。同期をスキップしました：%1$s（サーバーエラー）</string>
+    <string name="feedback_sync_root_unavailable_unsupported">ライブラリルートを利用できません。同期をスキップしました：%1$s（ソース未対応）</string>
+    <string name="feedback_sync_root_unavailable_status_code">ライブラリルートを利用できません。同期をスキップしました：%1$s（%2$s）</string>
     <string name="feedback_settings_abs_sync_started">ABS 同期を開始しました</string>
     <string name="feedback_settings_abs_sync_already_running">ABS 同期はすでに実行中です</string>
     <string name="feedback_settings_library_root_removed_playback_stopped">メディアライブラリを削除しました。現在の再生を停止しました。</string>
@@ -107,14 +141,34 @@
     <string name="feedback_home_cover_metadata_regeneration_completed">表紙とメタデータの再構築が完了しました</string>
     <string name="feedback_abs_background_sync_root_missing">ABS バックグラウンド同期に失敗しました：対応する ABS ライブラリルートが見つかりません</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
-    <string name="feedback_abs_background_sync_completed">ABS バックグラウンド同期が完了しました：%1$d 冊追加、%2$d 冊失敗</string>
+    <!-- Multi-Count ABS Sync Feedback (Split added and failed totals into independently formatted plural fragments)
+         Each count is rendered through its own plural resource so the two book totals can evolve independently per locale. -->
+    <string name="feedback_abs_background_sync_completed">ABS バックグラウンド同期が完了しました：</string>
+    <plurals name="feedback_abs_background_sync_added_books">
+        <item quantity="one">%1$d 冊追加</item>
+        <item quantity="other">%1$d 冊追加</item>
+    </plurals>
+    <string name="feedback_abs_background_sync_completed_separator">、</string>
+    <plurals name="feedback_abs_background_sync_failed_books">
+        <item quantity="one">%1$d 冊失敗</item>
+        <item quantity="other">%1$d 冊失敗</item>
+    </plurals>
     <string name="feedback_abs_background_sync_failed">ABS バックグラウンド同期に失敗しました：%1$s</string>
-    <string name="feedback_scan_completed_with_discovered_books">メディアライブラリ同期が完了しました。%1$d 冊追加しました。</string>
+    <plurals name="feedback_scan_completed_with_discovered_books">
+        <item quantity="one">メディアライブラリ同期が完了しました。%1$d 冊追加しました。</item>
+        <item quantity="other">メディアライブラリ同期が完了しました。%1$d 冊追加しました。</item>
+    </plurals>
     <string name="feedback_scan_completed">メディアライブラリ同期が完了しました</string>
     <string name="feedback_scan_library_empty">メディアライブラリは空です。有効な本が見つかりませんでした。</string>
     <string name="feedback_scan_already_up_to_date">メディアライブラリは最新です</string>
-    <string name="feedback_scan_suffix_updated">、%1$d 冊更新しました</string>
-    <string name="feedback_scan_suffix_partial">、そのうち %1$d 冊は部分的にインポートされました</string>
+    <plurals name="feedback_scan_suffix_updated">
+        <item quantity="one">、%1$d 冊更新しました</item>
+        <item quantity="other">、%1$d 冊更新しました</item>
+    </plurals>
+    <plurals name="feedback_scan_suffix_partial">
+        <item quantity="one">、そのうち %1$d 冊は部分的にインポートされました</item>
+        <item quantity="other">、そのうち %1$d 冊は部分的にインポートされました</item>
+    </plurals>
     <string name="feedback_scan_blocked_no_directory_roots">同期可能なローカルまたは WebDAV ライブラリルートがありません</string>
     <string name="feedback_scan_retry_later">メディアライブラリ同期が一時的に失敗しました。後で再試行します。</string>
     <string name="feedback_scan_failed">メディアライブラリ同期に失敗しました：%1$s</string>
@@ -129,15 +183,36 @@
     <string name="feedback_sleep_timer_off">睡眠タイマーをオフにしました</string>
     <string name="feedback_sleep_timer_five_seconds">5 秒後に再生を停止します</string>
     <string name="feedback_sleep_timer_end_of_chapter">この章の終わりで再生を停止します</string>
-    <string name="feedback_sleep_timer_minutes">睡眠タイマー：%1$d 分</string>
+    <plurals name="feedback_sleep_timer_minutes">
+        <item quantity="one">睡眠タイマー：%1$d 分</item>
+        <item quantity="other">睡眠タイマー：%1$d 分</item>
+    </plurals>
     <string name="feedback_chapter_physical_file_missing">この章の物理ファイルが失われているため再生できません</string>
     <string name="bookmark_default_title">ブックマーク</string>
     <string name="settings_library_management_title">メディアライブラリ管理</string>
     <string name="settings_library_location_with_abs">場所：%1$s · 現在のライブラリ：%2$s</string>
     <string name="settings_library_location">場所：%1$s</string>
-    <string name="settings_library_sync_summary">最終同期：%1$s · インポート済み：%2$d 冊</string>
+    <plurals name="settings_library_sync_summary">
+        <item quantity="one">最終同期：%1$s · インポート済み：%2$d 冊</item>
+        <item quantity="other">最終同期：%1$s · インポート済み：%2$d 冊</item>
+    </plurals>
     <string name="settings_library_not_synced">未同期</string>
     <string name="settings_library_error">エラー：%1$s</string>
+    <!-- Library Status Labels (Translate database and availability status codes before they reach Settings UI) -->
+    <string name="settings_library_status_active">有効</string>
+    <string name="settings_library_status_available">利用可能</string>
+    <string name="settings_library_status_revoked">認可期限切れ</string>
+    <string name="settings_library_status_error">エラー</string>
+    <string name="settings_library_status_unknown">不明</string>
+    <string name="settings_library_status_auth_failed">認証失敗</string>
+    <string name="settings_library_status_network_unavailable">ネットワーク利用不可</string>
+    <string name="settings_library_status_not_found">見つかりません</string>
+    <string name="settings_library_status_permission_denied">権限が拒否されました</string>
+    <string name="settings_library_status_server_error">サーバーエラー</string>
+    <string name="settings_library_status_timeout">タイムアウト</string>
+    <string name="settings_library_status_unsupported">未対応</string>
+    <string name="settings_library_status_synced">同期済み</string>
+    <string name="settings_library_status_idle">待機中</string>
     <string name="settings_add_library_title">メディアライブラリを追加</string>
     <string name="settings_add_library_subtitle">ローカル SAF、WebDAV、Audiobookshelf サーバーに対応</string>
     <string name="settings_interface_effects_title">インターフェース</string>
@@ -178,7 +253,10 @@
     <string name="settings_auto_rewind_toggle_title">一時停止時の自動巻き戻し</string>
     <string name="settings_auto_rewind_subtitle">通知回避を除き、一時停止または停止後に再生位置を戻す秒数</string>
     <string name="settings_auto_rewind_disabled">オフ</string>
-    <string name="settings_seconds_value">%1$d 秒</string>
+    <plurals name="settings_seconds_value">
+        <item quantity="one">%1$d 秒</item>
+        <item quantity="other">%1$d 秒</item>
+    </plurals>
     <string name="settings_about_title">このアプリについて</string>
     <string name="settings_open_source_license_title">オープンソースライセンス</string>
     <string name="settings_open_source_license_subtitle">アプリで使用しているオープンソースライブラリとライセンスを表示します</string>
@@ -214,7 +292,7 @@
     <string name="settings_root_action_sync">同期</string>
     <string name="settings_root_action_rescan">再スキャン</string>
     <string name="settings_root_action_remove">メディアライブラリを削除</string>
-    <string name="about_version_text">バージョン 1.0 (Beta)</string>
+    <string name="about_version_text">バージョン %1$s</string>
     <string name="about_app_description">APlayer は熱心なリスナーのためのローカルオーディオブックプレーヤーです。優れた製品はオープンソースの基盤に支えられており、このアプリを可能にした作者と組織に感謝します。</string>
     <string name="about_developer_credit">%1$s 提供</string>
     <string name="about_visit_project_homepage_content_description">プロジェクトページを開く</string>
@@ -274,6 +352,7 @@
     <string name="common_unknown">不明</string>
     <string name="common_unknown_title">不明なタイトル</string>
     <string name="common_new_badge">新規</string>
+    <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">削除</string>
     <string name="media_cover_content_description">カバー</string>
@@ -290,7 +369,8 @@
     <string name="action_ok">OK</string>
     <string name="clear_content_description">クリア</string>
     <string name="home_view_options_content_description">ホーム表示オプション</string>
-    <string name="search_placeholder">検索、または year: author: narrator: を使用</string>
+    <!-- Search Placeholder Template (%1$s is fixed query syntax owned by SearchQueryPlanner and must not be translated) -->
+    <string name="search_placeholder">検索、または %1$s を使用</string>
     <string name="search_recent_title">最近の検索</string>
     <string name="search_clear_all">すべてクリア</string>
     <string name="search_remove_history_content_description">削除</string>

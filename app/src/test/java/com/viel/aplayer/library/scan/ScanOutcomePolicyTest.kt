@@ -28,8 +28,9 @@ class ScanOutcomePolicyTest {
         // Both manual scans and WorkManager observe this same success category and user-facing message.
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
         assertEquals(session, outcome.session)
-        val message = outcome.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_scan_completed_with_discovered_books, message.resId)
+        val message = outcome.message as FeedbackMessage.Quantity
+        assertEquals(R.plurals.feedback_scan_completed_with_discovered_books, message.resId)
+        assertEquals(2, message.quantity)
         assertEquals(listOf(2), message.args)
     }
 
@@ -57,13 +58,23 @@ class ScanOutcomePolicyTest {
         assertEquals(ScanOutcomeKind.PARTIAL, outcome.kind)
         val message = outcome.message as FeedbackMessage.Composite
         assertTrue(message.parts.any { part ->
-            part is FeedbackMessage.Resource && part.resId == R.string.feedback_scan_suffix_updated && part.args == listOf(1)
+            part is FeedbackMessage.Quantity &&
+                part.resId == R.plurals.feedback_scan_suffix_updated &&
+                part.quantity == 1 &&
+                part.args == listOf(1)
         })
         assertTrue(message.parts.any { part ->
-            part is FeedbackMessage.Resource && part.resId == R.string.feedback_scan_suffix_partial && part.args == listOf(1)
+            part is FeedbackMessage.Quantity &&
+                part.resId == R.plurals.feedback_scan_suffix_partial &&
+                part.quantity == 1 &&
+                part.args == listOf(1)
         })
+        // Skipped Root Feedback Mapping (Asserts availability status is resource-backed instead of raw localized text)
+        // The root name remains a formatting argument while the TIMEOUT status chooses the stable localized feedback key.
         assertTrue(message.parts.any { part ->
-            part is FeedbackMessage.RawText && part.value.contains("Remote Shelf")
+            part is FeedbackMessage.Resource &&
+                part.resId == R.string.feedback_sync_root_unavailable_timeout &&
+                part.args == listOf("Remote Shelf")
         })
     }
 

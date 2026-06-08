@@ -36,6 +36,8 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -164,7 +166,7 @@ fun SearchContent(
 ) {
     // Localized Search Screen Copy (Resolve runtime search labels, empty states, and icon accessibility text)
     // Search result titles and history queries are user data, while the surrounding search chrome is app-authored UI copy.
-    val searchPlaceholderText = stringResource(R.string.search_placeholder)
+    val searchPlaceholderText = stringResource(R.string.search_placeholder, SEARCH_DIRECTIVE_HINT)
     val backContentDescription = stringResource(R.string.back_content_description)
     val clearContentDescription = stringResource(R.string.clear_content_description)
     val recentSearchesText = stringResource(R.string.search_recent_title)
@@ -345,15 +347,20 @@ fun SearchContent(
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.align(Alignment.CenterStart)
                                     )
-                                    Text(
-                                        text = clearAllText,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.secondary,
+                                    TextButton(
+                                        onClick = onClearHistory,
                                         modifier = Modifier
                                             .align(Alignment.CenterEnd)
-                                            .clickable { onClearHistory() }
-                                            .padding(4.dp)
-                                    )
+                                            .minimumInteractiveComponentSize()
+                                    ) {
+                                        // Clear History Command (Expose standard button semantics and a 48dp target)
+                                        // TextButton supplies button role and click action, while minimumInteractiveComponentSize keeps the touch target at the accessibility floor.
+                                        Text(
+                                            text = clearAllText,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
                             items(
@@ -571,6 +578,10 @@ data class SearchCommand(
  */
 // Search Directive Syntax (Keep query command tokens stable while localizing their visible descriptions)
 // SearchQueryPlanner recognizes the English directive names, so suggestions insert those tokens even when the explanatory copy follows the active locale.
+// Search Placeholder Token Hint (Inject fixed parser syntax into the localized placeholder)
+// Translators localize the surrounding sentence only; the query planner still owns these command tokens as stable search syntax.
+private const val SEARCH_DIRECTIVE_HINT = "year: author: narrator:"
+
 private val searchCommands = listOf(
     SearchCommand("Year:", R.string.search_command_year_description),
     SearchCommand("Author:", R.string.search_command_author_description),

@@ -18,7 +18,12 @@ import com.viel.aplayer.application.usecase.AbsConnectionReuseSnapshot
 import com.viel.aplayer.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.i18n.AppLocaleController
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTestException
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTestFailureReason
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import com.viel.aplayer.logger.AbsSettingsLogger
+import com.viel.aplayer.network.UnsafeNetworkPolicyViolation
 import com.viel.aplayer.ui.common.formatDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,7 +107,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     credentialId = snapshot.credentialId,
                     displayName = snapshot.displayName,
                     title = resolveLibraryRootTitle(snapshot),
-                    statusText = resolveLibraryRootStatusText(snapshot),
+                    statusText = resolveLibraryRootStatusText(snapshot, getApplication()),
                     locationText = resolveLibraryRootLocation(snapshot),
                     selectedLibraryText = if (isAbsRoot) snapshot.displayName.ifBlank { snapshot.basePath } else null,
                     lastSyncText = formatLibraryRootSyncTime(
@@ -542,15 +547,51 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         return
     }
 
-    private fun resolveConnectionFailureMessage(error: Throwable): String =
-        when (error) {
+    private fun resolveConnectionFailureMessage(error: Throwable): String {
+        val app = getApplication<Application>()
+        return when (error) {
+            is UnsafeNetworkPolicyViolation ->
+                app.getString(R.string.feedback_settings_cleartext_http_blocked)
+            is WebDavEndpointValidationException ->
+                app.getString(error.reason.webDavEndpointValidationMessageRes())
+            is WebDavConnectionTestException ->
+                if (error.reason == WebDavConnectionTestFailureReason.HttpStatus) {
+                    app.getString(R.string.feedback_settings_webdav_http_status, error.httpCode ?: 0)
+                } else {
+                    app.getString(error.reason.webDavConnectionTestMessageRes())
+                }
             is javax.net.ssl.SSLHandshakeException ->
-                getApplication<Application>().getString(R.string.feedback_settings_ssl_certificate_untrusted)
+                app.getString(R.string.feedback_settings_ssl_certificate_untrusted)
             is javax.net.ssl.SSLPeerUnverifiedException ->
-                getApplication<Application>().getString(R.string.feedback_settings_ssl_hostname_mismatch)
-            else -> error.message ?: getApplication<Application>().getString(R.string.feedback_settings_connection_failed_fallback)
+                app.getString(R.string.feedback_settings_ssl_hostname_mismatch)
+            else -> error.message ?: app.getString(R.string.feedback_settings_connection_failed_fallback)
         }
+    }
 }
+
+/**
+ * WebDAV Endpoint Error Mapping (Maps endpoint validation reason codes to localized resources)
+ * The network and root-store layers throw stable codes, while SettingsViewModel owns the user-facing text selection.
+ */
+private fun WebDavEndpointValidationReason.webDavEndpointValidationMessageRes(): Int =
+    when (this) {
+        WebDavEndpointValidationReason.MissingScheme -> R.string.feedback_settings_webdav_url_missing_scheme
+        WebDavEndpointValidationReason.MissingHost -> R.string.feedback_settings_webdav_url_missing_host
+        WebDavEndpointValidationReason.UserInfoNotAllowed -> R.string.feedback_settings_webdav_url_userinfo_not_allowed
+        WebDavEndpointValidationReason.UnsupportedScheme -> R.string.feedback_settings_webdav_url_unsupported_scheme
+    }
+
+/**
+ * WebDAV Connection Error Mapping (Maps PROPFIND failure reason codes to localized resources)
+ * HTTP status values are kept as data so only the template, not the code, is translated.
+ */
+private fun WebDavConnectionTestFailureReason.webDavConnectionTestMessageRes(): Int =
+    when (this) {
+        WebDavConnectionTestFailureReason.Unauthorized -> R.string.feedback_settings_webdav_auth_failed
+        WebDavConnectionTestFailureReason.Forbidden -> R.string.feedback_settings_webdav_forbidden
+        WebDavConnectionTestFailureReason.NotFound -> R.string.feedback_settings_webdav_not_found
+        WebDavConnectionTestFailureReason.HttpStatus -> R.string.feedback_settings_webdav_http_status
+    }
 
 private fun String.redactAbsError(): String =
     replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
@@ -575,17 +616,57 @@ private fun resolveLibraryRootTitle(root: LibraryRootSettingsSnapshot): String =
  * Library Root Status Formatter (Normalizes storage availability and ABS sync error state)
  * Prioritizes unavailable root reachability over stale ABS sync timestamps so previously synced servers cannot appear healthy after a failed preflight.
  */
-private fun resolveLibraryRootStatusText(root: LibraryRootSettingsSnapshot): String =
-    when {
+private fun resolveLibraryRootStatusText(root: LibraryRootSettingsSnapshot, app: Application): String {
+    val resId = when {
         root.status != AudiobookSchema.LibraryRootStatus.ACTIVE ->
-            root.availabilityStatus.takeIf { status -> status != AudiobookSchema.AvailabilityStatus.UNKNOWN } ?: root.status
+            root.availabilityStatus
+                .takeIf { status -> status != AudiobookSchema.AvailabilityStatus.UNKNOWN }
+                ?.availabilityStatusMessageRes()
+                ?: root.status.libraryRootStatusMessageRes()
         root.availabilityStatus != AudiobookSchema.AvailabilityStatus.UNKNOWN &&
-            root.availabilityStatus != AudiobookSchema.AvailabilityStatus.AVAILABLE -> root.availabilityStatus
-        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && root.absLastError?.isNotBlank() == true -> "ERROR"
-        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && root.absLastFullSyncAt != null -> "SYNCED"
-        root.sourceType == AudiobookSchema.LibrarySourceType.ABS -> "IDLE"
-        root.availabilityStatus != AudiobookSchema.AvailabilityStatus.UNKNOWN -> root.availabilityStatus
-        else -> root.status
+            root.availabilityStatus != AudiobookSchema.AvailabilityStatus.AVAILABLE ->
+            root.availabilityStatus.availabilityStatusMessageRes()
+        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && root.absLastError?.isNotBlank() == true ->
+            R.string.settings_library_status_error
+        root.sourceType == AudiobookSchema.LibrarySourceType.ABS && root.absLastFullSyncAt != null ->
+            R.string.settings_library_status_synced
+        root.sourceType == AudiobookSchema.LibrarySourceType.ABS ->
+            R.string.settings_library_status_idle
+        root.availabilityStatus != AudiobookSchema.AvailabilityStatus.UNKNOWN ->
+            root.availabilityStatus.availabilityStatusMessageRes()
+        else -> root.status.libraryRootStatusMessageRes()
+    }
+    return app.getString(resId)
+}
+
+/**
+ * Library Root Status Resource Mapping (Converts persisted root status codes into display resources)
+ * Settings rows should never expose database codes such as ACTIVE, ERROR, or REVOKED directly to users.
+ */
+private fun String.libraryRootStatusMessageRes(): Int =
+    when (this) {
+        AudiobookSchema.LibraryRootStatus.ACTIVE -> R.string.settings_library_status_active
+        AudiobookSchema.LibraryRootStatus.REVOKED -> R.string.settings_library_status_revoked
+        AudiobookSchema.LibraryRootStatus.ERROR -> R.string.settings_library_status_error
+        else -> R.string.settings_library_status_unknown
+    }
+
+/**
+ * Availability Status Resource Mapping (Converts reachability status codes into display resources)
+ * Availability probes remain storage/network facts, while this presentation mapping owns localized labels.
+ */
+private fun String.availabilityStatusMessageRes(): Int =
+    when (this) {
+        AudiobookSchema.AvailabilityStatus.AVAILABLE -> R.string.settings_library_status_available
+        AudiobookSchema.AvailabilityStatus.REVOKED -> R.string.settings_library_status_revoked
+        AudiobookSchema.AvailabilityStatus.AUTH_FAILED -> R.string.settings_library_status_auth_failed
+        AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE -> R.string.settings_library_status_network_unavailable
+        AudiobookSchema.AvailabilityStatus.NOT_FOUND -> R.string.settings_library_status_not_found
+        AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED -> R.string.settings_library_status_permission_denied
+        AudiobookSchema.AvailabilityStatus.SERVER_ERROR -> R.string.settings_library_status_server_error
+        AudiobookSchema.AvailabilityStatus.TIMEOUT -> R.string.settings_library_status_timeout
+        AudiobookSchema.AvailabilityStatus.UNSUPPORTED -> R.string.settings_library_status_unsupported
+        else -> R.string.settings_library_status_unknown
     }
 
 /**

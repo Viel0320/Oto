@@ -1,7 +1,6 @@
 <resources>
     <!-- French Locale Resources (Provide French translations for all default user-visible strings)
          Full key coverage keeps the app language picker and Android locale API behavior consistent. -->
-    <string name="app_name">APlayer</string>
     <string name="author_label">Auteur</string>
     <string name="narrator_label">Narrateur</string>
     <string name="summary_label">Résumé</string>
@@ -70,12 +69,18 @@
     <string name="feedback_playback_cleartext_blocked">La sécurité a bloqué la lecture HTTP non chiffrée. Activez-la d’abord dans les paramètres.</string>
     <string name="feedback_playback_initial_media_load_failed">Échec du chargement de la source média : %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">Aucune piste audio lisible suivante n’a été trouvée. Lecture arrêtée.</string>
-    <string name="feedback_playback_finished_shutdown_scheduled">Lecture terminée. Arrêt dans %1$d secondes.</string>
+    <plurals name="feedback_playback_finished_shutdown_scheduled">
+        <item quantity="one">Lecture terminée. Arrêt dans %1$d seconde.</item>
+        <item quantity="other">Lecture terminée. Arrêt dans %1$d secondes.</item>
+    </plurals>
     <string name="feedback_playback_bookmark_created">Signet ajouté à la position de lecture actuelle</string>
     <string name="feedback_playback_remote_progress_save_failed">Impossible d’écrire localement la progression distante : %1$s</string>
     <string name="feedback_playback_speed_reset">Vitesse de lecture réinitialisée</string>
     <string name="feedback_playback_speed_changed">Vitesse de lecture : %1$sx</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
+    <!-- Playback Preflight Feedback (Localized shell copy for typed playback block reasons emitted by the media domain) -->
+    <string name="feedback_playback_source_preflight_missing_root">La racine de bibliothèque est manquante. La source média ne peut pas être chargée.</string>
+    <string name="feedback_playback_source_preflight_unavailable_root">La racine de bibliothèque est indisponible. La source média ne peut pas être chargée : %1$s</string>
     <string name="feedback_playback_track_unavailable">Le fichier de la piste actuelle est indisponible. Vérifiez si vous voulez passer à une autre piste.</string>
     <string name="feedback_settings_local_library_relocated">Emplacement de la médiathèque locale mis à jour. Analyse lancée.</string>
     <string name="feedback_settings_local_library_relocation_failed">Échec de la mise à jour de l’emplacement : %1$s</string>
@@ -83,12 +88,41 @@
     <string name="feedback_settings_webdav_update_failed">Échec de la mise à jour WebDAV : %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">Connexion de test WebDAV réussie</string>
     <string name="feedback_settings_webdav_connection_failed">Connexion de test WebDAV échouée : %1$s</string>
+    <!-- WebDAV Connection Failure Details (Localized shell copy for typed endpoint and HTTP failure reasons) -->
+    <string name="feedback_settings_cleartext_http_blocked">Le HTTP non chiffré est bloqué par les paramètres globaux. Activez-le manuellement dans les paramètres pour utiliser ce point d’accès.</string>
+    <string name="feedback_settings_webdav_url_missing_scheme">L’URL WebDAV n’a pas de schéma.</string>
+    <string name="feedback_settings_webdav_url_missing_host">L’URL WebDAV n’a pas d’hôte.</string>
+    <string name="feedback_settings_webdav_url_userinfo_not_allowed">L’URL WebDAV ne doit pas contenir de nom d’utilisateur ni de mot de passe. Saisissez les identifiants dans les champs WebDAV.</string>
+    <string name="feedback_settings_webdav_url_unsupported_scheme">L’URL WebDAV prend uniquement en charge http:// ou https://.</string>
+    <string name="feedback_settings_webdav_auth_failed">Échec de l’authentification. Vérifiez le nom d’utilisateur et le mot de passe.</string>
+    <string name="feedback_settings_webdav_forbidden">Le serveur a refusé l’accès.</string>
+    <string name="feedback_settings_webdav_not_found">Chemin introuvable. Vérifiez l’URL et le chemin de la bibliothèque.</string>
+    <string name="feedback_settings_webdav_http_status">Connexion échouée. Statut HTTP : %1$d</string>
     <string name="feedback_settings_abs_server_updated">Serveur ABS mis à jour. Synchronisation lancée.</string>
     <string name="feedback_settings_abs_server_added">Serveur ABS ajouté. Synchronisation lancée.</string>
     <string name="feedback_settings_abs_server_save_failed">Échec de l’enregistrement du serveur ABS : %1$s</string>
-    <string name="feedback_settings_abs_connection_succeeded">Connexion réussie. %1$d bibliothèques disponibles trouvées.</string>
+    <plurals name="feedback_settings_abs_connection_succeeded">
+        <item quantity="one">Connexion réussie. %1$d bibliothèque disponible trouvée.</item>
+        <item quantity="other">Connexion réussie. %1$d bibliothèques disponibles trouvées.</item>
+    </plurals>
     <string name="feedback_settings_abs_connection_failed">Connexion échouée : %1$s</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
+    <!-- Library Root Sync Feedback (Resource-backed copy for availability status codes returned by sync preflight) -->
+    <string name="feedback_message_separator">\u003B\u0020</string>
+    <string name="feedback_sync_roots_unavailable_none">Aucune racine de bibliothèque synchronisable</string>
+    <plurals name="feedback_sync_roots_unavailable_multiple">
+        <item quantity="one">Une racine de bibliothèque est indisponible. %1$d racine ignorée.</item>
+        <item quantity="other">Certaines racines de bibliothèque sont indisponibles. %1$d racines ignorées.</item>
+    </plurals>
+    <string name="feedback_sync_root_unavailable_revoked">Racine de bibliothèque indisponible. Synchronisation ignorée : %1$s (autorisation expirée)</string>
+    <string name="feedback_sync_root_unavailable_auth_failed">Racine de bibliothèque indisponible. Synchronisation ignorée : %1$s (authentification échouée)</string>
+    <string name="feedback_sync_root_unavailable_network_unavailable">Racine de bibliothèque indisponible. Synchronisation ignorée : %1$s (réseau indisponible)</string>
+    <string name="feedback_sync_root_unavailable_timeout">Racine de bibliothèque indisponible. Synchronisation ignorée : %1$s (délai de connexion dépassé)</string>
+    <string name="feedback_sync_root_unavailable_not_found">Racine de bibliothèque indisponible. Synchronisation ignorée : %1$s (chemin introuvable)</string>
+    <string name="feedback_sync_root_unavailable_permission_denied">Racine de bibliothèque indisponible. Synchronisation ignorée : %1$s (autorisation refusée)</string>
+    <string name="feedback_sync_root_unavailable_server_error">Racine de bibliothèque indisponible. Synchronisation ignorée : %1$s (erreur serveur)</string>
+    <string name="feedback_sync_root_unavailable_unsupported">Racine de bibliothèque indisponible. Synchronisation ignorée : %1$s (source non prise en charge)</string>
+    <string name="feedback_sync_root_unavailable_status_code">Racine de bibliothèque indisponible. Synchronisation ignorée : %1$s (%2$s)</string>
     <string name="feedback_settings_abs_sync_started">Synchronisation ABS lancée</string>
     <string name="feedback_settings_abs_sync_already_running">Une synchronisation ABS est déjà en cours</string>
     <string name="feedback_settings_library_root_removed_playback_stopped">Médiathèque supprimée. Lecture actuelle arrêtée.</string>
@@ -107,14 +141,34 @@
     <string name="feedback_home_cover_metadata_regeneration_completed">Couvertures et métadonnées reconstruites</string>
     <string name="feedback_abs_background_sync_root_missing">Synchronisation ABS en arrière-plan échouée : racine de bibliothèque ABS introuvable</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
-    <string name="feedback_abs_background_sync_completed">Synchronisation ABS terminée : %1$d livres ajoutés, %2$d échecs</string>
+    <!-- Multi-Count ABS Sync Feedback (Split added and failed totals into independently formatted plural fragments)
+         French needs separate singular handling for the added and failed book counts instead of one combined printf string. -->
+    <string name="feedback_abs_background_sync_completed">Synchronisation ABS terminée :\u0020</string>
+    <plurals name="feedback_abs_background_sync_added_books">
+        <item quantity="one">%1$d livre ajouté</item>
+        <item quantity="other">%1$d livres ajoutés</item>
+    </plurals>
+    <string name="feedback_abs_background_sync_completed_separator">,\u0020</string>
+    <plurals name="feedback_abs_background_sync_failed_books">
+        <item quantity="one">%1$d échec</item>
+        <item quantity="other">%1$d échecs</item>
+    </plurals>
     <string name="feedback_abs_background_sync_failed">Synchronisation ABS en arrière-plan échouée : %1$s</string>
-    <string name="feedback_scan_completed_with_discovered_books">Synchronisation de la médiathèque terminée. %1$d livres ajoutés.</string>
+    <plurals name="feedback_scan_completed_with_discovered_books">
+        <item quantity="one">Synchronisation de la médiathèque terminée. %1$d livre ajouté.</item>
+        <item quantity="other">Synchronisation de la médiathèque terminée. %1$d livres ajoutés.</item>
+    </plurals>
     <string name="feedback_scan_completed">Synchronisation de la médiathèque terminée</string>
     <string name="feedback_scan_library_empty">La médiathèque est vide. Aucun livre valide trouvé.</string>
     <string name="feedback_scan_already_up_to_date">La médiathèque est déjà à jour</string>
-    <string name="feedback_scan_suffix_updated">, %1$d livres mis à jour</string>
-    <string name="feedback_scan_suffix_partial">, dont %1$d importés partiellement</string>
+    <plurals name="feedback_scan_suffix_updated">
+        <item quantity="one">, %1$d livre mis à jour</item>
+        <item quantity="other">, %1$d livres mis à jour</item>
+    </plurals>
+    <plurals name="feedback_scan_suffix_partial">
+        <item quantity="one">, dont %1$d importé partiellement</item>
+        <item quantity="other">, dont %1$d importés partiellement</item>
+    </plurals>
     <string name="feedback_scan_blocked_no_directory_roots">Aucune racine locale ou WebDAV disponible pour la synchronisation</string>
     <string name="feedback_scan_retry_later">La synchronisation a échoué temporairement et réessaiera plus tard</string>
     <string name="feedback_scan_failed">Synchronisation de la médiathèque échouée : %1$s</string>
@@ -129,15 +183,36 @@
     <string name="feedback_sleep_timer_off">Minuteur de sommeil désactivé</string>
     <string name="feedback_sleep_timer_five_seconds">La lecture s’arrêtera dans 5 secondes</string>
     <string name="feedback_sleep_timer_end_of_chapter">La lecture s’arrêtera à la fin de ce chapitre</string>
-    <string name="feedback_sleep_timer_minutes">Minuteur de sommeil : %1$d minutes</string>
+    <plurals name="feedback_sleep_timer_minutes">
+        <item quantity="one">Minuteur de sommeil : %1$d minute</item>
+        <item quantity="other">Minuteur de sommeil : %1$d minutes</item>
+    </plurals>
     <string name="feedback_chapter_physical_file_missing">Le fichier physique de ce chapitre est manquant et ne peut pas être lu</string>
     <string name="bookmark_default_title">Signet</string>
     <string name="settings_library_management_title">Gestion de la médiathèque</string>
     <string name="settings_library_location_with_abs">Emplacement : %1$s · Bibliothèque actuelle : %2$s</string>
     <string name="settings_library_location">Emplacement : %1$s</string>
-    <string name="settings_library_sync_summary">Dernière sync : %1$s · Importés : %2$d livres</string>
+    <plurals name="settings_library_sync_summary">
+        <item quantity="one">Dernière sync : %1$s · Importé : %2$d livre</item>
+        <item quantity="other">Dernière sync : %1$s · Importés : %2$d livres</item>
+    </plurals>
     <string name="settings_library_not_synced">Non synchronisé</string>
     <string name="settings_library_error">Erreur : %1$s</string>
+    <!-- Library Status Labels (Translate database and availability status codes before they reach Settings UI) -->
+    <string name="settings_library_status_active">Actif</string>
+    <string name="settings_library_status_available">Disponible</string>
+    <string name="settings_library_status_revoked">Autorisation expirée</string>
+    <string name="settings_library_status_error">Erreur</string>
+    <string name="settings_library_status_unknown">Inconnu</string>
+    <string name="settings_library_status_auth_failed">Authentification échouée</string>
+    <string name="settings_library_status_network_unavailable">Réseau indisponible</string>
+    <string name="settings_library_status_not_found">Introuvable</string>
+    <string name="settings_library_status_permission_denied">Autorisation refusée</string>
+    <string name="settings_library_status_server_error">Erreur serveur</string>
+    <string name="settings_library_status_timeout">Délai dépassé</string>
+    <string name="settings_library_status_unsupported">Non pris en charge</string>
+    <string name="settings_library_status_synced">Synchronisé</string>
+    <string name="settings_library_status_idle">Inactif</string>
     <string name="settings_add_library_title">Ajouter une médiathèque</string>
     <string name="settings_add_library_subtitle">Prend en charge SAF local, WebDAV et les serveurs Audiobookshelf</string>
     <string name="settings_interface_effects_title">Interface</string>
@@ -178,7 +253,10 @@
     <string name="settings_auto_rewind_toggle_title">Retour automatique après pause</string>
     <string name="settings_auto_rewind_subtitle">Durée de retour après pause ou arrêt, sauf pour l’évitement des notifications</string>
     <string name="settings_auto_rewind_disabled">Désactivé</string>
-    <string name="settings_seconds_value">%1$d secondes</string>
+    <plurals name="settings_seconds_value">
+        <item quantity="one">%1$d seconde</item>
+        <item quantity="other">%1$d secondes</item>
+    </plurals>
     <string name="settings_about_title">À propos</string>
     <string name="settings_open_source_license_title">Licences open source</string>
     <string name="settings_open_source_license_subtitle">Voir les bibliothèques open source et licences utilisées par l’application</string>
@@ -214,7 +292,7 @@
     <string name="settings_root_action_sync">Synchroniser</string>
     <string name="settings_root_action_rescan">Réanalyser</string>
     <string name="settings_root_action_remove">Supprimer la médiathèque</string>
-    <string name="about_version_text">Version 1.0 (Beta)</string>
+    <string name="about_version_text">Version %1$s</string>
     <string name="about_app_description">APlayer est un lecteur local de livres audio conçu pour les auditeurs passionnés. Les grands produits reposent sur l’open source, et nous remercions les auteurs et organisations qui rendent cette app possible.</string>
     <string name="about_developer_credit">par %1$s</string>
     <string name="about_visit_project_homepage_content_description">Visiter la page du projet</string>
@@ -274,6 +352,7 @@
     <string name="common_unknown">Inconnu</string>
     <string name="common_unknown_title">Titre inconnu</string>
     <string name="common_new_badge">NOUVEAU</string>
+    <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">Supprimer</string>
     <string name="media_cover_content_description">Couverture</string>
@@ -290,7 +369,8 @@
     <string name="action_ok">OK</string>
     <string name="clear_content_description">Effacer</string>
     <string name="home_view_options_content_description">Options d’affichage de l’accueil</string>
-    <string name="search_placeholder">Rechercher ou utiliser year: author: narrator:</string>
+    <!-- Search Placeholder Template (%1$s is fixed query syntax owned by SearchQueryPlanner and must not be translated) -->
+    <string name="search_placeholder">Rechercher ou utiliser %1$s</string>
     <string name="search_recent_title">Recherches récentes</string>
     <string name="search_clear_all">Tout effacer</string>
     <string name="search_remove_history_content_description">Supprimer</string>

@@ -10,6 +10,7 @@ import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookMetadataGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.data.runCatchingCancellable
 import java.util.Collections
 
 /**
@@ -140,7 +141,9 @@ class AbsProgressConflictCoordinator(
         if (book.sourceType != AudiobookSchema.SourceType.ABS_REMOTE) return UploadDecision.Allow
         if (localOverrideBookIds.contains(book.id)) return UploadDecision.Allow
         val remoteItemId = remoteItemId(book) ?: return UploadDecision.Allow
-        val remote = runCatching {
+        val remote = runCatchingCancellable {
+            // Cancellation Propagation (Preserve structured concurrency while probing remote progress)
+            // Upload arbitration must classify transport failures, but coroutine cancellation must keep unwinding the parent job.
             apiClient.getProgressOrNull(
                 baseUrl = credential.baseUrl,
                 token = credential.token,
@@ -159,7 +162,9 @@ class AbsProgressConflictCoordinator(
     private suspend fun buildConflictSnapshot(book: BookEntity): ProgressConflict? {
         val remoteItemId = remoteItemId(book) ?: return null
         val credential = credentialProvider(book) ?: return null
-        val remote = runCatching {
+        val remote = runCatchingCancellable {
+            // Cancellation Propagation (Preserve structured concurrency while preparing remote playback progress)
+            // Playback startup should ignore ordinary probe failures, but cancellation must not be downgraded to missing remote progress.
             apiClient.getProgressOrNull(
                 baseUrl = credential.baseUrl,
                 token = credential.token,

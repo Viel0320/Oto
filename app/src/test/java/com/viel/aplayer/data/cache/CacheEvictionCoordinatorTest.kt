@@ -143,7 +143,11 @@ class CacheEvictionCoordinatorTest {
     private class FakeDirectoryChildCacheDao : DirectoryChildCacheDao() {
         var deletedRootId: String? = null
 
-        override suspend fun getChildren(rootId: String, parentSourcePath: String): List<DirectoryChildCacheEntity> =
+        override suspend fun getChildren(
+            rootId: String,
+            parentSourcePath: String,
+            minCachedAt: Long
+        ): List<DirectoryChildCacheEntity> =
             emptyList()
 
         override suspend fun deleteChildren(rootId: String, parentSourcePath: String) = Unit

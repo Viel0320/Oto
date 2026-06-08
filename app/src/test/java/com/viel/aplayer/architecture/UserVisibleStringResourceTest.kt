@@ -2,7 +2,9 @@ package com.viel.aplayer.architecture
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.w3c.dom.Element
 import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
 
 class UserVisibleStringResourceTest {
     @Test
@@ -72,10 +74,97 @@ class UserVisibleStringResourceTest {
         )
     }
 
+    @Test
+    fun localeStringResourcesStayKeyAndPlaceholderCompatible() {
+        val baseResources = readUserVisibleResources(repoFile(baseStringsPath))
+        val translatableBaseResources = baseResources.filterValues { resource -> resource.translatable }
+
+        val violations = localeResourceDirs.flatMap { dir ->
+            val localeResources = readUserVisibleResources(repoFile("app/src/main/res/$dir/strings.xml"))
+            val missingKeys = translatableBaseResources.keys - localeResources.keys
+            val extraKeys = localeResources.keys - translatableBaseResources.keys
+            val placeholderMismatches = translatableBaseResources.keys.intersect(localeResources.keys)
+                .mapNotNull { key ->
+                    val baseResource = translatableBaseResources.getValue(key)
+                    val localeResource = localeResources.getValue(key)
+                    val basePlaceholders = baseResource.placeholderContract()
+                    val localePlaceholders = localeResource.placeholderContract()
+                    if (baseResource.kind == localeResource.kind && basePlaceholders == localePlaceholders) {
+                        null
+                    } else {
+                        "$dir/$key base=${baseResource.kind}/$basePlaceholders locale=${localeResource.kind}/$localePlaceholders"
+                    }
+                }
+
+            buildList {
+                missingKeys.sorted().forEach { key -> add("$dir is missing $key") }
+                extraKeys.sorted().forEach { key -> add("$dir must not override non-translatable or unknown key $key") }
+                addAll(placeholderMismatches)
+            }
+        }
+
+        // Locale Resource Shape Guard (Keeps every translated strings.xml aligned with the English base contract)
+        // Non-translatable base resources such as the brand name stay in values/ only, while strings and plurals must preserve type and printf placeholders per key.
+        assertTrue(
+            buildString {
+                appendLine("Locale resources must mirror translatable base keys and preserve placeholders.")
+                violations.forEach { violation -> appendLine("- $violation") }
+            },
+            violations.isEmpty()
+        )
+    }
+
+    @Test
+    fun rawTextFeedbackEntryPointsStayExplicitAndNarrow() {
+        val violations = kotlinSourceFiles(repoFile("app/src/main/java"))
+            .mapNotNull { file ->
+                val relativePath = file.repoRelativePath()
+                val text = file.readText(Charsets.UTF_8)
+                if (relativePath !in allowedRawTextFiles && rawTextCallRegex.containsMatchIn(text)) {
+                    relativePath
+                } else {
+                    null
+                }
+            }
+
+        // Raw Feedback Compatibility Guard (Prevents new UI feedback from bypassing resource-backed FeedbackMessage keys)
+        // The only allowed rawText locations are the compatibility factory and the legacy String overload bridge.
+        assertTrue(
+            buildString {
+                appendLine("FeedbackMessages.rawText must stay limited to explicit compatibility entry points.")
+                violations.forEach { violation -> appendLine("- $violation") }
+            },
+            violations.isEmpty()
+        )
+    }
+
+    @Test
+    fun settingsComponentCopyUsesResourceLookups() {
+        val violations = kotlinSourceFiles(repoFile("app/src/main/java/com/viel/aplayer/ui/settings/components"))
+            .flatMap { file ->
+                val text = file.readText(Charsets.UTF_8).substringBefore("@Preview")
+                settingsComponentHardCodedCopyRegex.findAll(text).map { match ->
+                    "${file.repoRelativePath()} contains ${match.value.trim()}"
+                }
+            }
+
+        // Settings Component Copy Guard (Covers the extracted settings component package where user-facing labels live)
+        // Parser rules, preview sample data, and logs stay outside this guard so only reusable Settings UI components are constrained.
+        assertTrue(
+            buildString {
+                appendLine("Settings components must resolve visible copy through stringResource/getString.")
+                violations.forEach { violation -> appendLine("- $violation") }
+            },
+            violations.isEmpty()
+        )
+    }
+
     private fun guardedSourceFiles(): List<File> =
         listOf(
             "app/src/main/java/com/viel/aplayer/ui/settings/SleepTimerManager.kt",
-            "app/src/main/java/com/viel/aplayer/ui/settings/SettingsSections.kt",
+            // Settings Component Guard Path (Follow the extracted settings component package after UI decomposition)
+            // The old settings root path no longer owns the reusable section rows, so the guard tracks the current component boundary.
+            "app/src/main/java/com/viel/aplayer/ui/settings/components/SettingsSections.kt",
             "app/src/main/java/com/viel/aplayer/ui/settings/SettingsViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/PlayerViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/components/PlaybackControls.kt",
@@ -99,7 +188,95 @@ class UserVisibleStringResourceTest {
             .filterNot { line -> line.contains("android.util.Log.") || line.contains("Logger.") }
             .joinToString(separator = "\n")
 
+    private enum class ResourceKind {
+        STRING,
+        PLURAL
+    }
+
+    private data class UserVisibleResource(
+        val kind: ResourceKind,
+        val texts: List<String>,
+        val translatable: Boolean
+    )
+
+    private fun UserVisibleResource.placeholderContract(): Set<List<String>> =
+        // Resource Placeholder Contract Reader (Keep placeholder comparison on the test instance)
+        // UserVisibleResource is a static nested data holder, so placeholder parsing stays in an outer helper that can access the shared regex.
+        texts.map(::printfPlaceholders).toSet()
+
+    private fun readUserVisibleResources(file: File): Map<String, UserVisibleResource> {
+        val document = DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder()
+            .parse(file)
+
+        // User Visible Resource Reader (Parses XML instead of scanning text so comments and ordering do not affect guard results)
+        // Strings and plurals both participate because quantity-sensitive user copy must keep locale resources type-compatible.
+        val stringNodes = document.getElementsByTagName("string")
+        val strings = (0 until stringNodes.length).map { index ->
+            val element = stringNodes.item(index) as Element
+            val name = element.getAttribute("name")
+            val translatable = element.getAttribute("translatable") != "false"
+            name to UserVisibleResource(
+                kind = ResourceKind.STRING,
+                texts = listOf(element.textContent),
+                translatable = translatable
+            )
+        }
+        val pluralNodes = document.getElementsByTagName("plurals")
+        val plurals = (0 until pluralNodes.length).map { index ->
+            val element = pluralNodes.item(index) as Element
+            val name = element.getAttribute("name")
+            val translatable = element.getAttribute("translatable") != "false"
+            val itemNodes = element.getElementsByTagName("item")
+            val texts = (0 until itemNodes.length).map { itemIndex ->
+                itemNodes.item(itemIndex).textContent
+            }
+            name to UserVisibleResource(
+                kind = ResourceKind.PLURAL,
+                texts = texts,
+                translatable = translatable
+            )
+        }
+        return (strings + plurals).toMap()
+    }
+
+    private fun printfPlaceholders(value: String): List<String> =
+        printfPlaceholderRegex.findAll(value).map { match -> match.value }.toList()
+
+    private fun kotlinSourceFiles(root: File): List<File> =
+        root.walkTopDown()
+            .filter { file -> file.isFile && file.extension == "kt" }
+            .toList()
+
+    private fun File.repoRelativePath(): String =
+        invariantSeparatorsPath.removePrefix("./").removePrefix("../")
+
     companion object {
+        private const val baseStringsPath = "app/src/main/res/values/strings.xml"
+
+        private val localeResourceDirs = listOf(
+            "values-zh-rCN",
+            "values-zh-rHK",
+            "values-zh-rTW",
+            "values-ja",
+            "values-fr",
+            "values-de",
+            "values-ru",
+            "values-es",
+            "values-pt"
+        )
+
+        private val allowedRawTextFiles = setOf(
+            "app/src/main/java/com/viel/aplayer/event/feedback/FeedbackMessage.kt",
+            "app/src/main/java/com/viel/aplayer/event/AppEventSink.kt"
+        )
+
+        private val rawTextCallRegex = Regex("""\brawText\s*\(""")
+        private val printfPlaceholderRegex = Regex("""%\d+\$[sd]""")
+        private val settingsComponentHardCodedCopyRegex = Regex(
+            """(?:Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+"|contentDescription\s*=\s*"[^"\n]+"|title\s*=\s*"[^"\n]+"|subtitle\s*=\s*"[^"\n]+"|label\s*=\s*"[^"\n]+")"""
+        )
+
         private val commonMojibakeMarkers = listOf(
             "锛",
             "绛",

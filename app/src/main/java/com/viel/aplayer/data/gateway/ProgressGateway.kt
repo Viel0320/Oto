@@ -25,6 +25,15 @@ interface ProgressGateway {
     suspend fun saveProgress(progress: BookProgressEntity)
 
     /**
+     * Save Newer Progress Entity (Ordering-aware checkpoint persistence)
+     * Returns whether the checkpoint was accepted so playback sync callers can avoid propagating stale local snapshots to remote services.
+     */
+    suspend fun saveProgressIfNewer(progress: BookProgressEntity): Boolean {
+        saveProgress(progress)
+        return true
+    }
+
+    /**
      * Fetch Last Played Progress (Cold start resumption helper)
      * Synchronously queries the most recent playback progress record to restore player states upon application boot.
      */

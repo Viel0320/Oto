@@ -8,7 +8,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
 import okhttp3.Request
-import java.io.IOException
 
 data class WebDavConnectionTestResult(
     val endpoint: String,
@@ -62,15 +61,24 @@ class WebDavConnectionTester(
                     targetUrl = targetUrl
                 )
             }
-            throw IOException(response.toConnectionTestMessage())
+            throw response.toConnectionTestFailure()
         }
     }
 
     private fun normalizeWebDavEndpoint(url: String): String {
         val parsed = url.trim().toUri()
-        val scheme = parsed.scheme?.lowercase() ?: throw IllegalArgumentException("WebDAV URL 缺少协议")
-        val authority = parsed.encodedAuthority ?: throw IllegalArgumentException("WebDAV URL 缺少主机")
-        require(scheme == "http" || scheme == "https") { "WebDAV URL 仅支持 http/https" }
+        val scheme = parsed.scheme?.lowercase()
+            ?: throw WebDavEndpointValidationException(WebDavEndpointValidationReason.MissingScheme)
+        val authority = parsed.encodedAuthority
+            ?: throw WebDavEndpointValidationException(WebDavEndpointValidationReason.MissingHost)
+        if (!parsed.encodedUserInfo.isNullOrBlank()) {
+            // WebDAV Userinfo Rejection (Keep credentials in credential storage, not endpoint URLs)
+            // Connection tests share root normalization rules so secret-bearing endpoint URLs are blocked before any authenticated PROPFIND can be built.
+            throw WebDavEndpointValidationException(WebDavEndpointValidationReason.UserInfoNotAllowed)
+        }
+        if (scheme != "http" && scheme != "https") {
+            throw WebDavEndpointValidationException(WebDavEndpointValidationReason.UnsupportedScheme)
+        }
         return "$scheme://$authority"
     }
 
@@ -86,11 +94,14 @@ class WebDavConnectionTester(
             .orEmpty()
     }
 
-    private fun okhttp3.Response.toConnectionTestMessage(): String =
+    private fun okhttp3.Response.toConnectionTestFailure(): WebDavConnectionTestException =
         when (code) {
-            WebDavProtocol.HTTP_UNAUTHORIZED -> "认证失败（用户名或密码错误）"
-            WebDavProtocol.HTTP_FORBIDDEN -> "服务器拒绝访问（403 禁止访问）"
-            WebDavProtocol.HTTP_NOT_FOUND -> "未找到路径，请检查 URL 和库内路径"
-            else -> "连接失败，HTTP 状态码: $code"
+            WebDavProtocol.HTTP_UNAUTHORIZED ->
+                WebDavConnectionTestException(WebDavConnectionTestFailureReason.Unauthorized, code)
+            WebDavProtocol.HTTP_FORBIDDEN ->
+                WebDavConnectionTestException(WebDavConnectionTestFailureReason.Forbidden, code)
+            WebDavProtocol.HTTP_NOT_FOUND ->
+                WebDavConnectionTestException(WebDavConnectionTestFailureReason.NotFound, code)
+            else -> WebDavConnectionTestException(WebDavConnectionTestFailureReason.HttpStatus, code)
         }
 }

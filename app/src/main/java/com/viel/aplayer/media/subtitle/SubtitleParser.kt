@@ -1,9 +1,25 @@
 package com.viel.aplayer.media.subtitle
 
+import com.viel.aplayer.logger.SubtitleLogger
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.Locale
+
+/**
+ * Subtitle Cue Budget (Caps parsed sidecar entries before they reach playback state)
+ *
+ * Keeps external subtitle files from expanding into unbounded cue lists that would inflate PlayerViewModel and Compose
+ * state during active playback.
+ */
+private const val MAX_SUBTITLE_CUES = 10_000
+
+/**
+ * Subtitle Text Budget (Caps individual cue text before it reaches playback rendering)
+ *
+ * Bounds malformed single cues or binary-like subtitle rows while preserving normal multi-line subtitle content.
+ */
+private const val MAX_SUBTITLE_TEXT_CHARS = 8_192
 
 /**
  * Utility for parsing SRT and ASS subtitle files.
@@ -18,22 +34,39 @@ object SubtitleParser {
      * @return A list of parsed SubtitleLine objects.
      */
     fun parse(inputStream: InputStream, extension: String): List<SubtitleLine> {
-        com.viel.aplayer.logger.SubtitleLogger.logParseStart(extension)
+        SubtitleLogger.logParseStart(extension)
         return when (extension.lowercase(Locale.ROOT)) {
-            "srt" -> parseSrt(inputStream)
-            "ass", "ssa" -> parseAss(inputStream)
-            "vtt" -> parseVtt(inputStream)
-            "lrc" -> parseLrc(inputStream)
+            "srt" -> parseSrt(inputStream, extension)
+            "ass", "ssa" -> parseAss(inputStream, extension)
+            "vtt" -> parseVtt(inputStream, extension)
+            "lrc" -> parseLrc(inputStream, extension)
             else -> emptyList()
         }.also {
-            com.viel.aplayer.logger.SubtitleLogger.logParseResult(it.size)
+            SubtitleLogger.logParseResult(it.size)
+        }
+    }
+
+    /**
+     * Subtitle UI Budget Enforcement (Keep subtitle payloads bounded before they enter Compose state)
+     *
+     * Shared parser and ViewModel callers use one policy so oversized sidecar files cannot allocate unbounded cue
+     * lists or single-cue text blobs on the playback screen.
+     */
+    fun limitForPlayerState(lines: List<SubtitleLine>): List<SubtitleLine> {
+        val limitedCueCount = if (lines.size > MAX_SUBTITLE_CUES) {
+            lines.take(MAX_SUBTITLE_CUES)
+        } else {
+            lines
+        }
+        return limitedCueCount.map { line ->
+            line.copy(text = line.text.limitSubtitleText())
         }
     }
 
     /**
      * Parsing LRC (Lyrics) format.
      */
-    private fun parseLrc(inputStream: InputStream): List<SubtitleLine> {
+    private fun parseLrc(inputStream: InputStream, extension: String): List<SubtitleLine> {
         val lines = mutableListOf<SubtitleLine>()
         val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
         val lrcList = mutableListOf<Pair<Long, String>>()
@@ -48,12 +81,17 @@ object SubtitleParser {
                 val regex = Regex("\\[(\\d{2}):(\\d{2})[.:](\\d{2,3})](.*)")
                 val match = regex.find(trimmed)
                 if (match != null) {
+                    if (lrcList.size >= MAX_SUBTITLE_CUES) {
+                        // Subtitle Budget Guard (Stop parsing before oversized subtitle files inflate player state)
+                        SubtitleLogger.logSubtitleTruncated(extension)
+                        break
+                    }
                     val min = match.groupValues[1].toLong()
                     val sec = match.groupValues[2].toLong()
                     val msPart = match.groupValues[3]
                     val ms = if (msPart.length == 2) msPart.toLong() * 10 else msPart.toLong()
                     val time = min * 60000 + sec * 1000 + ms
-                    val text = match.groupValues[4].trim()
+                    val text = match.groupValues[4].trim().limitSubtitleText()
                     lrcList.add(time to text)
                 }
             }
@@ -76,7 +114,7 @@ object SubtitleParser {
      * Parsing VTT (WebVTT) format.
      * Simplified version, treats it similar to SRT.
      */
-    private fun parseVtt(inputStream: InputStream): List<SubtitleLine> {
+    private fun parseVtt(inputStream: InputStream, extension: String): List<SubtitleLine> {
         val lines = mutableListOf<SubtitleLine>()
         val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
 
@@ -96,7 +134,10 @@ object SubtitleParser {
                 // Time format: 00:00:20.000 --> 00:00:24.400
                 if (trimmed.contains(" --> ")) {
                     if (textBuilder.isNotEmpty()) {
-                        lines.add(SubtitleLine(startTime, endTime, textBuilder.toString().trim()))
+                        if (!lines.addSubtitleLine(startTime, endTime, textBuilder.toString(), extension)) {
+                            textBuilder.setLength(0)
+                            break
+                        }
                         textBuilder.setLength(0)
                     }
                     val times = trimmed.split(" --> ")
@@ -109,16 +150,18 @@ object SubtitleParser {
                 }
 
                 if (state == 1 && trimmed.isNotEmpty()) {
-                    if (textBuilder.isNotEmpty()) textBuilder.append("\n")
-                    textBuilder.append(trimmed)
+                    textBuilder.appendSubtitleTextLine(trimmed)
                 } else if (trimmed.isEmpty() && textBuilder.isNotEmpty()) {
-                    lines.add(SubtitleLine(startTime, endTime, textBuilder.toString().trim()))
+                    if (!lines.addSubtitleLine(startTime, endTime, textBuilder.toString(), extension)) {
+                        textBuilder.setLength(0)
+                        break
+                    }
                     textBuilder.setLength(0)
                     state = 0
                 }
             }
             if (textBuilder.isNotEmpty()) {
-                lines.add(SubtitleLine(startTime, endTime, textBuilder.toString().trim()))
+                lines.addSubtitleLine(startTime, endTime, textBuilder.toString(), extension)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -153,7 +196,7 @@ object SubtitleParser {
     /**
      * Parsing SRT (SubRip) format.
      */
-    private fun parseSrt(inputStream: InputStream): List<SubtitleLine> {
+    private fun parseSrt(inputStream: InputStream, extension: String): List<SubtitleLine> {
         val lines = mutableListOf<SubtitleLine>()
         // Using BufferedReader for memory efficiency
         val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
@@ -169,7 +212,10 @@ object SubtitleParser {
                 val trimmed = line?.trim() ?: ""
                 if (trimmed.isEmpty()) {
                     if (textBuilder.isNotEmpty()) {
-                        lines.add(SubtitleLine(startTime, endTime, textBuilder.toString().trim()))
+                        if (!lines.addSubtitleLine(startTime, endTime, textBuilder.toString(), extension)) {
+                            textBuilder.setLength(0)
+                            break
+                        }
                         textBuilder.setLength(0)
                     }
                     state = 0
@@ -194,14 +240,13 @@ object SubtitleParser {
                     }
                     2 -> {
                         // Text lines
-                        if (textBuilder.isNotEmpty()) textBuilder.append("\n")
-                        textBuilder.append(trimmed)
+                        textBuilder.appendSubtitleTextLine(trimmed)
                     }
                 }
             }
             // Add the last segment if the file doesn't end with an empty line
             if (textBuilder.isNotEmpty()) {
-                lines.add(SubtitleLine(startTime, endTime, textBuilder.toString().trim()))
+                lines.addSubtitleLine(startTime, endTime, textBuilder.toString(), extension)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -227,7 +272,7 @@ object SubtitleParser {
     /**
      * Parsing ASS (Advanced Substation Alpha) format.
      */
-    private fun parseAss(inputStream: InputStream): List<SubtitleLine> {
+    private fun parseAss(inputStream: InputStream, extension: String): List<SubtitleLine> {
         val lines = mutableListOf<SubtitleLine>()
         val reader = BufferedReader(InputStreamReader(inputStream, "UTF-8"))
         var line: String?
@@ -268,7 +313,9 @@ object SubtitleParser {
                             val cleanedText = cleanAssText(data[textIdx].trim())
 
                             if (cleanedText.isNotEmpty()) {
-                                lines.add(SubtitleLine(startTime, endTime, cleanedText))
+                                if (!lines.addSubtitleLine(startTime, endTime, cleanedText, extension)) {
+                                    break
+                                }
                             }
                         }
                     }
@@ -302,5 +349,64 @@ object SubtitleParser {
             .replace("\\n", "\n")
             .replace("\\h", " ")            // ASS hard space
             .trim()
+    }
+
+    /**
+     * Subtitle Budget Guard (Stop parsing before oversized subtitle files inflate player state)
+     *
+     * Adds one cue only when the shared cue budget still has capacity, and trims text to keep individual malformed
+     * cues from becoming large Compose text payloads.
+     */
+    private fun MutableList<SubtitleLine>.addSubtitleLine(
+        startTime: Long,
+        endTime: Long,
+        text: String,
+        extension: String
+    ): Boolean {
+        if (size >= MAX_SUBTITLE_CUES) {
+            SubtitleLogger.logSubtitleTruncated(extension)
+            return false
+        }
+        val limitedText = text.trim().limitSubtitleText()
+        if (limitedText.isNotEmpty()) {
+            add(SubtitleLine(startTime, endTime, limitedText))
+        }
+        return true
+    }
+
+    /**
+     * Subtitle Text Budget Guard (Trim pathological cue text before it reaches playback UI state)
+     *
+     * Keeps valid cue content intact within the budget while bounding malformed or binary-like subtitle rows.
+     */
+    private fun String.limitSubtitleText(): String =
+        if (length > MAX_SUBTITLE_TEXT_CHARS) {
+            take(MAX_SUBTITLE_TEXT_CHARS)
+        } else {
+            this
+        }
+
+    /**
+     * Subtitle Text Builder Budget (Avoid accumulating oversized multi-line cue text in parser buffers)
+     *
+     * Appends only the remaining text capacity so SRT and VTT cues are bounded while they are being read, not merely
+     * after the cue has already been assembled.
+     */
+    private fun StringBuilder.appendSubtitleTextLine(text: String) {
+        if (length >= MAX_SUBTITLE_TEXT_CHARS) return
+        appendSubtitleTextPart(if (isNotEmpty()) "\n" else "")
+        appendSubtitleTextPart(text)
+    }
+
+    /**
+     * Subtitle Text Part Budget (Clamp incremental parser appends to the per-cue text allowance)
+     *
+     * Centralizes the remaining-capacity calculation so multiline subtitles cannot overrun the shared text budget.
+     */
+    private fun StringBuilder.appendSubtitleTextPart(text: String) {
+        val remainingTextCapacity = MAX_SUBTITLE_TEXT_CHARS - length
+        if (remainingTextCapacity > 0) {
+            append(text.take(remainingTextCapacity))
+        }
     }
 }

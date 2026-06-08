@@ -3,6 +3,7 @@ package com.viel.aplayer.media
 import android.content.Context
 import androidx.media3.session.MediaController
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
+import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
@@ -12,6 +13,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -33,6 +37,14 @@ class ProgressSyncTracker(
 ) {
     // Polling Job Coordinator (Coroutine job reference for active player progress loop, managed dynamically via playback states)
     private var pollingJob: Job? = null
+
+    // Progress Write Mutex (Serializes local checkpoint commits emitted by this tracker)
+    // Polling, seeking, auto-rewind, and track transitions can enqueue writes in rapid succession; this lock keeps their local persistence side effects ordered.
+    private val progressWriteMutex = Mutex()
+
+    // Progress Snapshot Clock (Assigns strictly increasing creation timestamps to playback snapshots)
+    // System.currentTimeMillis can repeat within one millisecond, so this monotonic wrapper gives the DAO a deterministic freshness key.
+    private val progressSnapshotClock = AtomicLong(0L)
 
     /**
      * Start Polling Routine (Spawns the high-frequency progress polling coroutine)
@@ -110,46 +122,14 @@ class ProgressSyncTracker(
      */
     private fun saveProgressDirectly(controller: MediaController) {
         val mediaParts = PlaybackMediaId.parse(controller.currentMediaItem?.mediaId) ?: return
-        val bookId = mediaParts.bookId
-        val fileIndex = controller.currentMediaItemIndex.coerceAtLeast(0)
-        val positionInFile = controller.currentPosition.coerceAtLeast(0L)
-
-        scope.launch {
-            // Fetch Track Configurations (Resolve physical audio files through the catalog-only seam)
-            // Progress tracking needs track inventory and book metadata, not bookmarks, chapters, or metadata mutation commands.
-            val files = bookCatalogGateway.getFilesForBookSync(bookId)
-            if (files.isNotEmpty()) {
-                val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, files)
-                val bookFileId = files.getOrNull(fileIndex)?.id
-
-                // Write Progress Checkpoint (Persists calculated progress coordinates to the DB using progressGateway)
-                progressGateway.saveProgress(
-                    BookProgressEntity(
-                        bookId = bookId,
-                        globalPositionMs = globalPos,
-                        bookFileId = bookFileId,
-                        currentFileIndex = fileIndex,
-                        positionInFileMs = positionInFile,
-                        lastPlayedAt = System.currentTimeMillis()
-                    )
-                )
-                val book = bookCatalogGateway.getBookById(bookId)
-                if (book != null) {
-                    absPlaybackSessionSyncer.syncProgress(
-                        book = book,
-                        progress = BookProgressEntity(
-                            bookId = bookId,
-                            globalPositionMs = globalPos,
-                            bookFileId = bookFileId,
-                            currentFileIndex = fileIndex,
-                            positionInFileMs = positionInFile,
-                            lastPlayedAt = System.currentTimeMillis()
-                        ),
-                        durationMs = files.sumOf { it.durationMs }
-                    )
-                }
-            }
-        }
+        enqueueProgress(
+            ProgressSnapshot(
+                bookId = mediaParts.bookId,
+                fileIndex = controller.currentMediaItemIndex.coerceAtLeast(0),
+                positionInFileMs = controller.currentPosition.coerceAtLeast(0L),
+                lastPlayedAt = nextProgressSnapshotTime()
+            )
+        )
     }
 
     /**
@@ -161,44 +141,69 @@ class ProgressSyncTracker(
      * @param positionInFile Local offset in milliseconds relative to the track file
      */
     fun persistProgress(bookId: String, fileIndex: Int, positionInFile: Long) {
-        scope.launch {
-            // Fetch Track Configs Sync (Synchronously retrieves track configurations via the catalog gateway)
-            // Persisted seek updates stay on the read-only inventory seam before writing progress through ProgressGateway.
-            val files = bookCatalogGateway.getFilesForBookSync(bookId)
-            if (files.isNotEmpty()) {
-                val safeFileIndex = fileIndex.coerceIn(0, files.lastIndex)
-                val safePositionInFile = positionInFile.coerceAtLeast(0L)
-                val globalPos = PositionMapper.fileToGlobalPosition(safeFileIndex, safePositionInFile, files)
-                    .coerceIn(0L, files.sumOf { it.durationMs }.coerceAtLeast(0L))
-                val bookFileId = files.getOrNull(safeFileIndex)?.id
+        enqueueProgress(
+            ProgressSnapshot(
+                bookId = bookId,
+                fileIndex = fileIndex.coerceAtLeast(0),
+                positionInFileMs = positionInFile.coerceAtLeast(0L),
+                lastPlayedAt = nextProgressSnapshotTime()
+            )
+        )
+    }
 
-                // Commit Localization Checkpoint (Saves high-precision seek positions to the progress DB)
-                progressGateway.saveProgress(
-                    BookProgressEntity(
-                        bookId = bookId,
-                        globalPositionMs = globalPos,
-                        bookFileId = bookFileId,
-                        currentFileIndex = safeFileIndex,
-                        positionInFileMs = safePositionInFile,
-                        lastPlayedAt = System.currentTimeMillis()
-                    )
-                )
-                val book = bookCatalogGateway.getBookById(bookId)
-                if (book != null) {
-                    absPlaybackSessionSyncer.syncProgress(
-                        book = book,
-                        progress = BookProgressEntity(
-                            bookId = bookId,
-                            globalPositionMs = globalPos,
-                            bookFileId = bookFileId,
-                            currentFileIndex = safeFileIndex,
-                            positionInFileMs = safePositionInFile,
-                            lastPlayedAt = System.currentTimeMillis()
-                        ),
-                        durationMs = files.sumOf { it.durationMs }
-                    )
-                }
-            }
+    private fun enqueueProgress(snapshot: ProgressSnapshot): Job = scope.launch {
+        // Fetch Track Configurations (Resolve physical audio files before committing a snapshot)
+        // Progress persistence needs track inventory for global-position mapping while keeping catalog reads outside the serialized write section.
+        val files = bookCatalogGateway.getFilesForBookSync(snapshot.bookId)
+        val progress = snapshot.toEntity(files) ?: return@launch
+        val accepted = progressWriteMutex.withLock {
+            // Progress Ordering Guard (Prevent stale playback snapshots from overwriting newer checkpoints)
+            // The DAO also rejects older lastPlayedAt values so ordering survives delayed coroutine and process-level interleaving.
+            progressGateway.saveProgressIfNewer(progress)
+        }
+        if (!accepted) return@launch
+        val book = bookCatalogGateway.getBookById(snapshot.bookId)
+        if (book != null) {
+            absPlaybackSessionSyncer.syncProgress(
+                book = book,
+                progress = progress,
+                durationMs = files.sumOf { it.durationMs }
+            )
+        }
+    }
+
+    private fun nextProgressSnapshotTime(): Long {
+        // Monotonic Snapshot Timestamp (Creates a stable freshness key at event capture time)
+        // Capturing this before asynchronous file lookup ensures an older polling save remains older even if it completes after a seek save.
+        val wallClockTime = System.currentTimeMillis()
+        return progressSnapshotClock.updateAndGet { previousTime ->
+            maxOf(wallClockTime, previousTime + 1L)
+        }
+    }
+
+    private data class ProgressSnapshot(
+        val bookId: String,
+        val fileIndex: Int,
+        val positionInFileMs: Long,
+        val lastPlayedAt: Long
+    ) {
+        fun toEntity(files: List<BookFileEntity>): BookProgressEntity? {
+            if (files.isEmpty()) return null
+            // Snapshot Coordinate Projection (Maps the captured file-local offset into durable progress columns)
+            // The file index is clamped against the current catalog so stale controller indices cannot create invalid file anchors.
+            val safeFileIndex = fileIndex.coerceIn(0, files.lastIndex)
+            val safePositionInFile = positionInFileMs.coerceAtLeast(0L)
+            val totalDurationMs = files.sumOf { it.durationMs }.coerceAtLeast(0L)
+            val globalPositionMs = PositionMapper.fileToGlobalPosition(safeFileIndex, safePositionInFile, files)
+                .coerceIn(0L, totalDurationMs)
+            return BookProgressEntity(
+                bookId = bookId,
+                globalPositionMs = globalPositionMs,
+                bookFileId = files.getOrNull(safeFileIndex)?.id,
+                currentFileIndex = safeFileIndex,
+                positionInFileMs = safePositionInFile,
+                lastPlayedAt = lastPlayedAt
+            )
         }
     }
 }

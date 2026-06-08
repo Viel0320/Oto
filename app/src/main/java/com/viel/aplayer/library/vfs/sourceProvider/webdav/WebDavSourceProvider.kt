@@ -326,19 +326,20 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             throw error
         } catch (error: IOException) {
             val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
+            val diagnosticUrl = request.url.redactedForLog()
             // WebDAV Transport Failure Mapping (Shares timeout/connectivity classification with other remote sources)
             // The provider still logs WebDAV-specific request URLs and throws WebDavException for existing VFS callers.
             com.viel.aplayer.logger.VfsLogger.logWebDavError(
-                url = request.url.toString(),
+                url = diagnosticUrl,
                 status = failure.availabilityStatus,
                 errorClass = error.javaClass.simpleName
             )
             throw WebDavException(
                 availabilityStatus = failure.availabilityStatus,
                 message = if (failure.isTimeout) {
-                    "WebDAV request timed out: ${request.url}"
+                    "WebDAV request timed out: $diagnosticUrl"
                 } else {
-                    "WebDAV network request failed: ${request.url}"
+                    "WebDAV network request failed: $diagnosticUrl"
                 },
                 cause = error
             )
@@ -401,7 +402,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         )
         return WebDavException(
             availabilityStatus = status,
-            message = "WebDAV $method failed with HTTP $code for ${request.url}"
+            message = "WebDAV $method failed with HTTP $code for ${request.url.redactedForLog()}"
         )
     }
 
@@ -412,6 +413,10 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 message = "Invalid WebDAV sourceUri: ${root.sourceUri}"
             )
         val builder = base.newBuilder()
+            // WebDAV Request URL Sanitizer (Discard legacy userinfo before building network URLs)
+            // Previously persisted roots may still contain username:password authority data, so request construction strips it before logs or sockets can observe it.
+            .username("")
+            .password("")
             .query(null)
             .fragment(null)
             .encodedPath("/")
@@ -422,6 +427,14 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         }
         return builder.build()
     }
+
+    /**
+     * WebDAV Log Sanitizer (Remove username, password, query, and fragment from diagnostic URLs)
+     *
+     * Provider exceptions use this view so timeout and HTTP failure messages never echo URL-embedded credentials.
+     */
+    private fun HttpUrl.redactedForLog(): String =
+        newBuilder().username("").password("").query(null).fragment(null).build().toString()
 
     private fun rootFallbackResource(root: LibraryRootEntity): WebDavResource =
         WebDavResource(

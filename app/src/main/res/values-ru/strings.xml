@@ -1,7 +1,6 @@
 <resources>
     <!-- Russian Locale Resources (Provide Russian translations for all default user-visible strings)
          The file mirrors the base resource names to support Android per-app language switching. -->
-    <string name="app_name">APlayer</string>
     <string name="author_label">Автор</string>
     <string name="narrator_label">Чтец</string>
     <string name="summary_label">Описание</string>
@@ -70,12 +69,20 @@
     <string name="feedback_playback_cleartext_blocked">Незашифрованное HTTP-воспроизведение заблокировано безопасностью. Сначала включите его в настройках.</string>
     <string name="feedback_playback_initial_media_load_failed">Не удалось загрузить источник медиа: %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">Следующая доступная аудиодорожка не найдена. Воспроизведение остановлено.</string>
-    <string name="feedback_playback_finished_shutdown_scheduled">Воспроизведение завершено. Отключение через %1$d секунд.</string>
+    <plurals name="feedback_playback_finished_shutdown_scheduled">
+        <item quantity="one">Воспроизведение завершено. Отключение через %1$d секунду.</item>
+        <item quantity="few">Воспроизведение завершено. Отключение через %1$d секунды.</item>
+        <item quantity="many">Воспроизведение завершено. Отключение через %1$d секунд.</item>
+        <item quantity="other">Воспроизведение завершено. Отключение через %1$d секунды.</item>
+    </plurals>
     <string name="feedback_playback_bookmark_created">Закладка добавлена в текущей позиции воспроизведения</string>
     <string name="feedback_playback_remote_progress_save_failed">Не удалось локально записать удаленный прогресс: %1$s</string>
     <string name="feedback_playback_speed_reset">Скорость воспроизведения сброшена</string>
     <string name="feedback_playback_speed_changed">Скорость воспроизведения: %1$sx</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
+    <!-- Playback Preflight Feedback (Localized shell copy for typed playback block reasons emitted by the media domain) -->
+    <string name="feedback_playback_source_preflight_missing_root">Корень библиотеки отсутствует. Не удалось загрузить медиаисточник.</string>
+    <string name="feedback_playback_source_preflight_unavailable_root">Корень библиотеки недоступен. Не удалось загрузить медиаисточник: %1$s</string>
     <string name="feedback_playback_track_unavailable">Файл текущей дорожки недоступен. Проверьте, нужно ли перейти к другой дорожке.</string>
     <string name="feedback_settings_local_library_relocated">Расположение локальной медиатеки обновлено. Сканирование запущено.</string>
     <string name="feedback_settings_local_library_relocation_failed">Не удалось обновить расположение: %1$s</string>
@@ -83,12 +90,45 @@
     <string name="feedback_settings_webdav_update_failed">Не удалось обновить WebDAV: %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">Тестовое подключение WebDAV успешно</string>
     <string name="feedback_settings_webdav_connection_failed">Тестовое подключение WebDAV не удалось: %1$s</string>
+    <!-- WebDAV Connection Failure Details (Localized shell copy for typed endpoint and HTTP failure reasons) -->
+    <string name="feedback_settings_cleartext_http_blocked">Незашифрованный HTTP заблокирован глобальными настройками. Включите его вручную в настройках, чтобы использовать этот адрес.</string>
+    <string name="feedback_settings_webdav_url_missing_scheme">В URL WebDAV отсутствует схема.</string>
+    <string name="feedback_settings_webdav_url_missing_host">В URL WebDAV отсутствует хост.</string>
+    <string name="feedback_settings_webdav_url_userinfo_not_allowed">URL WebDAV не должен содержать имя пользователя или пароль. Введите учетные данные в поля WebDAV.</string>
+    <string name="feedback_settings_webdav_url_unsupported_scheme">URL WebDAV поддерживает только http:// или https://.</string>
+    <string name="feedback_settings_webdav_auth_failed">Ошибка аутентификации. Проверьте имя пользователя и пароль.</string>
+    <string name="feedback_settings_webdav_forbidden">Сервер отказал в доступе.</string>
+    <string name="feedback_settings_webdav_not_found">Путь не найден. Проверьте URL и путь библиотеки.</string>
+    <string name="feedback_settings_webdav_http_status">Подключение не удалось. Статус HTTP: %1$d</string>
     <string name="feedback_settings_abs_server_updated">Сервер ABS обновлен. Синхронизация запущена.</string>
     <string name="feedback_settings_abs_server_added">Сервер ABS добавлен. Синхронизация запущена.</string>
     <string name="feedback_settings_abs_server_save_failed">Не удалось сохранить сервер ABS: %1$s</string>
-    <string name="feedback_settings_abs_connection_succeeded">Подключение успешно. Найдено доступных библиотек: %1$d.</string>
+    <plurals name="feedback_settings_abs_connection_succeeded">
+        <item quantity="one">Подключение успешно. Найдена доступная библиотека: %1$d.</item>
+        <item quantity="few">Подключение успешно. Найдено доступных библиотек: %1$d.</item>
+        <item quantity="many">Подключение успешно. Найдено доступных библиотек: %1$d.</item>
+        <item quantity="other">Подключение успешно. Найдено доступных библиотек: %1$d.</item>
+    </plurals>
     <string name="feedback_settings_abs_connection_failed">Подключение не удалось: %1$s</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
+    <!-- Library Root Sync Feedback (Resource-backed copy for availability status codes returned by sync preflight) -->
+    <string name="feedback_message_separator">\u003B\u0020</string>
+    <string name="feedback_sync_roots_unavailable_none">Нет корней библиотеки для синхронизации</string>
+    <plurals name="feedback_sync_roots_unavailable_multiple">
+        <item quantity="one">Корень библиотеки недоступен. Пропущено: %1$d.</item>
+        <item quantity="few">Некоторые корни библиотеки недоступны. Пропущено: %1$d.</item>
+        <item quantity="many">Некоторые корни библиотеки недоступны. Пропущено: %1$d.</item>
+        <item quantity="other">Некоторые корни библиотеки недоступны. Пропущено: %1$d.</item>
+    </plurals>
+    <string name="feedback_sync_root_unavailable_revoked">Корень библиотеки недоступен. Синхронизация пропущена: %1$s (авторизация истекла)</string>
+    <string name="feedback_sync_root_unavailable_auth_failed">Корень библиотеки недоступен. Синхронизация пропущена: %1$s (ошибка аутентификации)</string>
+    <string name="feedback_sync_root_unavailable_network_unavailable">Корень библиотеки недоступен. Синхронизация пропущена: %1$s (сеть недоступна)</string>
+    <string name="feedback_sync_root_unavailable_timeout">Корень библиотеки недоступен. Синхронизация пропущена: %1$s (тайм-аут подключения)</string>
+    <string name="feedback_sync_root_unavailable_not_found">Корень библиотеки недоступен. Синхронизация пропущена: %1$s (путь не найден)</string>
+    <string name="feedback_sync_root_unavailable_permission_denied">Корень библиотеки недоступен. Синхронизация пропущена: %1$s (доступ запрещен)</string>
+    <string name="feedback_sync_root_unavailable_server_error">Корень библиотеки недоступен. Синхронизация пропущена: %1$s (ошибка сервера)</string>
+    <string name="feedback_sync_root_unavailable_unsupported">Корень библиотеки недоступен. Синхронизация пропущена: %1$s (источник не поддерживается)</string>
+    <string name="feedback_sync_root_unavailable_status_code">Корень библиотеки недоступен. Синхронизация пропущена: %1$s (%2$s)</string>
     <string name="feedback_settings_abs_sync_started">Синхронизация ABS запущена</string>
     <string name="feedback_settings_abs_sync_already_running">Синхронизация ABS уже выполняется</string>
     <string name="feedback_settings_library_root_removed_playback_stopped">Медиатека удалена. Текущее воспроизведение остановлено.</string>
@@ -107,14 +147,44 @@
     <string name="feedback_home_cover_metadata_regeneration_completed">Обложки и метаданные перестроены</string>
     <string name="feedback_abs_background_sync_root_missing">Фоновая синхронизация ABS не удалась: соответствующий корень библиотеки ABS не найден</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
-    <string name="feedback_abs_background_sync_completed">Фоновая синхронизация ABS завершена: добавлено %1$d, ошибок %2$d</string>
+    <!-- Multi-Count ABS Sync Feedback (Split added and failed totals into independently formatted plural fragments)
+         Russian has multiple plural categories, so each book count must choose its own grammatical form. -->
+    <string name="feedback_abs_background_sync_completed">Фоновая синхронизация ABS завершена:\u0020</string>
+    <plurals name="feedback_abs_background_sync_added_books">
+        <item quantity="one">добавлена %1$d книга</item>
+        <item quantity="few">добавлено %1$d книги</item>
+        <item quantity="many">добавлено %1$d книг</item>
+        <item quantity="other">добавлено %1$d книги</item>
+    </plurals>
+    <string name="feedback_abs_background_sync_completed_separator">,\u0020</string>
+    <plurals name="feedback_abs_background_sync_failed_books">
+        <item quantity="one">%1$d ошибка</item>
+        <item quantity="few">%1$d ошибки</item>
+        <item quantity="many">%1$d ошибок</item>
+        <item quantity="other">%1$d ошибки</item>
+    </plurals>
     <string name="feedback_abs_background_sync_failed">Фоновая синхронизация ABS не удалась: %1$s</string>
-    <string name="feedback_scan_completed_with_discovered_books">Синхронизация медиатеки завершена. Добавлено книг: %1$d.</string>
+    <plurals name="feedback_scan_completed_with_discovered_books">
+        <item quantity="one">Синхронизация медиатеки завершена. Добавлена книга: %1$d.</item>
+        <item quantity="few">Синхронизация медиатеки завершена. Добавлено книг: %1$d.</item>
+        <item quantity="many">Синхронизация медиатеки завершена. Добавлено книг: %1$d.</item>
+        <item quantity="other">Синхронизация медиатеки завершена. Добавлено книг: %1$d.</item>
+    </plurals>
     <string name="feedback_scan_completed">Синхронизация медиатеки завершена</string>
     <string name="feedback_scan_library_empty">Медиатека пуста. Действительные книги не найдены.</string>
     <string name="feedback_scan_already_up_to_date">Медиатека уже актуальна</string>
-    <string name="feedback_scan_suffix_updated">, обновлено книг: %1$d</string>
-    <string name="feedback_scan_suffix_partial">, из них частично импортировано: %1$d</string>
+    <plurals name="feedback_scan_suffix_updated">
+        <item quantity="one">, обновлена книга: %1$d</item>
+        <item quantity="few">, обновлено книг: %1$d</item>
+        <item quantity="many">, обновлено книг: %1$d</item>
+        <item quantity="other">, обновлено книг: %1$d</item>
+    </plurals>
+    <plurals name="feedback_scan_suffix_partial">
+        <item quantity="one">, из них частично импортировано: %1$d</item>
+        <item quantity="few">, из них частично импортировано: %1$d</item>
+        <item quantity="many">, из них частично импортировано: %1$d</item>
+        <item quantity="other">, из них частично импортировано: %1$d</item>
+    </plurals>
     <string name="feedback_scan_blocked_no_directory_roots">Нет локальных или WebDAV-корней для синхронизации</string>
     <string name="feedback_scan_retry_later">Синхронизация временно не удалась и будет повторена позже</string>
     <string name="feedback_scan_failed">Синхронизация медиатеки не удалась: %1$s</string>
@@ -129,15 +199,40 @@
     <string name="feedback_sleep_timer_off">Таймер сна выключен</string>
     <string name="feedback_sleep_timer_five_seconds">Воспроизведение остановится через 5 секунд</string>
     <string name="feedback_sleep_timer_end_of_chapter">Воспроизведение остановится в конце этой главы</string>
-    <string name="feedback_sleep_timer_minutes">Таймер сна: %1$d мин</string>
+    <plurals name="feedback_sleep_timer_minutes">
+        <item quantity="one">Таймер сна: %1$d минута</item>
+        <item quantity="few">Таймер сна: %1$d минуты</item>
+        <item quantity="many">Таймер сна: %1$d минут</item>
+        <item quantity="other">Таймер сна: %1$d минуты</item>
+    </plurals>
     <string name="feedback_chapter_physical_file_missing">Физический файл этой главы отсутствует и не может быть воспроизведен</string>
     <string name="bookmark_default_title">Закладка</string>
     <string name="settings_library_management_title">Управление медиатекой</string>
     <string name="settings_library_location_with_abs">Расположение: %1$s · Текущая библиотека: %2$s</string>
     <string name="settings_library_location">Расположение: %1$s</string>
-    <string name="settings_library_sync_summary">Последняя синхронизация: %1$s · Импортировано: %2$d</string>
+    <plurals name="settings_library_sync_summary">
+        <item quantity="one">Последняя синхронизация: %1$s · Импортирована: %2$d книга</item>
+        <item quantity="few">Последняя синхронизация: %1$s · Импортировано: %2$d книги</item>
+        <item quantity="many">Последняя синхронизация: %1$s · Импортировано: %2$d книг</item>
+        <item quantity="other">Последняя синхронизация: %1$s · Импортировано: %2$d книги</item>
+    </plurals>
     <string name="settings_library_not_synced">Не синхронизировано</string>
     <string name="settings_library_error">Ошибка: %1$s</string>
+    <!-- Library Status Labels (Translate database and availability status codes before they reach Settings UI) -->
+    <string name="settings_library_status_active">Активно</string>
+    <string name="settings_library_status_available">Доступно</string>
+    <string name="settings_library_status_revoked">Авторизация истекла</string>
+    <string name="settings_library_status_error">Ошибка</string>
+    <string name="settings_library_status_unknown">Неизвестно</string>
+    <string name="settings_library_status_auth_failed">Ошибка аутентификации</string>
+    <string name="settings_library_status_network_unavailable">Сеть недоступна</string>
+    <string name="settings_library_status_not_found">Не найдено</string>
+    <string name="settings_library_status_permission_denied">Доступ запрещен</string>
+    <string name="settings_library_status_server_error">Ошибка сервера</string>
+    <string name="settings_library_status_timeout">Тайм-аут</string>
+    <string name="settings_library_status_unsupported">Не поддерживается</string>
+    <string name="settings_library_status_synced">Синхронизировано</string>
+    <string name="settings_library_status_idle">Ожидание</string>
     <string name="settings_add_library_title">Добавить медиатеку</string>
     <string name="settings_add_library_subtitle">Поддерживает локальный SAF, WebDAV и серверы Audiobookshelf</string>
     <string name="settings_interface_effects_title">Интерфейс</string>
@@ -178,7 +273,12 @@
     <string name="settings_auto_rewind_toggle_title">Автоперемотка после паузы</string>
     <string name="settings_auto_rewind_subtitle">На сколько отматывать назад после паузы или остановки, кроме избегания уведомлений</string>
     <string name="settings_auto_rewind_disabled">Выкл.</string>
-    <string name="settings_seconds_value">%1$d сек</string>
+    <plurals name="settings_seconds_value">
+        <item quantity="one">%1$d секунда</item>
+        <item quantity="few">%1$d секунды</item>
+        <item quantity="many">%1$d секунд</item>
+        <item quantity="other">%1$d секунды</item>
+    </plurals>
     <string name="settings_about_title">О приложении</string>
     <string name="settings_open_source_license_title">Лицензии open source</string>
     <string name="settings_open_source_license_subtitle">Показать библиотеки open source и лицензии, используемые приложением</string>
@@ -214,7 +314,7 @@
     <string name="settings_root_action_sync">Синхронизировать</string>
     <string name="settings_root_action_rescan">Пересканировать</string>
     <string name="settings_root_action_remove">Удалить медиатеку</string>
-    <string name="about_version_text">Версия 1.0 (Beta)</string>
+    <string name="about_version_text">Версия %1$s</string>
     <string name="about_app_description">APlayer — локальный плеер аудиокниг для увлеченных слушателей. Хорошие продукты опираются на open source, и мы благодарим авторов библиотек и организации, которые делают это приложение возможным.</string>
     <string name="about_developer_credit">от %1$s</string>
     <string name="about_visit_project_homepage_content_description">Открыть страницу проекта</string>
@@ -275,6 +375,7 @@
     <string name="common_unknown">Неизвестно</string>
     <string name="common_unknown_title">Неизвестное название</string>
     <string name="common_new_badge">НОВОЕ</string>
+    <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">Удалить</string>
     <string name="media_cover_content_description">Обложка</string>
@@ -291,7 +392,8 @@
     <string name="action_ok">ОК</string>
     <string name="clear_content_description">Очистить</string>
     <string name="home_view_options_content_description">Параметры вида главной</string>
-    <string name="search_placeholder">Ищите или используйте year: author: narrator:</string>
+    <!-- Search Placeholder Template (%1$s is fixed query syntax owned by SearchQueryPlanner and must not be translated) -->
+    <string name="search_placeholder">Ищите или используйте %1$s</string>
     <string name="search_recent_title">Недавние поиски</string>
     <string name="search_clear_all">Очистить все</string>
     <string name="search_remove_history_content_description">Удалить</string>

@@ -11,6 +11,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.Closeable
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Graph Lifecycle Regression Tests (Protects application graph ownership boundaries)
@@ -28,9 +31,30 @@ class GraphLifecycleTest {
             uiEvents = RecordingCloseable("uiEvents", closeOrder)
         )
 
-        // Root Graph Shutdown Order (Keeps publisher lifetimes aligned)
-        // Library resources close first, ABS background work closes next, and UI event bridges close last even if an earlier graph fails.
-        assertEquals(listOf("library", "abs", "uiEvents"), closeOrder)
+        // Dependent Graph Shutdown Order (Closes ABS before the library resources it can call into)
+        // UI event bridges still close last so graph teardown can publish final feedback without losing the process-wide event channel.
+        assertEquals(listOf("abs", "library", "uiEvents"), closeOrder)
+    }
+
+    @Test
+    fun `running abs sync shutdown should keep library dependency open until abs graph closes`() {
+        val closeOrder = Collections.synchronizedList(mutableListOf<String>())
+        val library = LibraryDependencyCloseable(closeOrder)
+        val abs = RunningAbsSyncCloseable(
+            closeOrder = closeOrder,
+            library = library
+        )
+
+        closeAppGraphsInLifecycleOrder(
+            library = library,
+            abs = abs,
+            uiEvents = RecordingCloseable("uiEvents", closeOrder)
+        )
+
+        // Active ABS Work Shutdown (Models a sync task observing LibraryGraph state while AbsGraph.close cancels it)
+        // The library dependency must still be open during ABS shutdown because AbsGraph injects library-root operations into ABS synchronization.
+        assertTrue(abs.libraryWasOpenDuringShutdown)
+        assertEquals(listOf("abs", "absSync:libraryOpen", "library", "uiEvents"), closeOrder)
     }
 
     @Test
@@ -161,6 +185,65 @@ class GraphLifecycleTest {
             if (shouldThrow) {
                 error("close failed for $name")
             }
+        }
+    }
+
+    private class LibraryDependencyCloseable(
+        private val closeOrder: MutableList<String>
+    ) : Closeable {
+        @Volatile
+        private var closed = false
+
+        val isOpen: Boolean
+            get() = !closed
+
+        override fun close() {
+            // Library Dependency Close Fixture (Marks the library graph dependency unavailable)
+            // ABS shutdown tests use this state to prove dependent sync work observes LibraryGraph before it is torn down.
+            closeOrder += "library"
+            closed = true
+        }
+    }
+
+    private class RunningAbsSyncCloseable(
+        private val closeOrder: MutableList<String>,
+        private val library: LibraryDependencyCloseable
+    ) : Closeable {
+        private val shutdownStarted = CountDownLatch(1)
+        private val workerObservedLibrary = CountDownLatch(1)
+
+        @Volatile
+        var libraryWasOpenDuringShutdown: Boolean = false
+            private set
+
+        private val runningSyncWorker = Thread(
+            {
+                // Running Sync Observation (Waits until AbsGraph.close begins before touching LibraryGraph state)
+                // This simulates an in-flight ABS sync task that can still call the injected library-root gateway during shutdown.
+                if (shutdownStarted.await(1, TimeUnit.SECONDS)) {
+                    libraryWasOpenDuringShutdown = library.isOpen
+                    closeOrder += if (libraryWasOpenDuringShutdown) {
+                        "absSync:libraryOpen"
+                    } else {
+                        "absSync:libraryClosed"
+                    }
+                }
+                workerObservedLibrary.countDown()
+            },
+            "GraphLifecycleTest-AbsSyncWorker"
+        )
+
+        init {
+            runningSyncWorker.start()
+        }
+
+        override fun close() {
+            // ABS Sync Shutdown Fixture (Starts cancellation and waits for active sync work to observe dependencies)
+            // The lifecycle helper swallows close failures, so the fixture records observable state instead of throwing assertions.
+            closeOrder += "abs"
+            shutdownStarted.countDown()
+            workerObservedLibrary.await(1, TimeUnit.SECONDS)
+            runningSyncWorker.join(1_000)
         }
     }
 }

@@ -22,6 +22,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
@@ -95,8 +97,9 @@ fun LibraryDirectoriesSection(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = stringResource(
-                            R.string.settings_library_sync_summary,
+                        text = pluralStringResource(
+                            R.plurals.settings_library_sync_summary,
+                            display.importedBookCount,
                             display.lastSyncText,
                             display.importedBookCount
                         ),
@@ -218,7 +221,7 @@ fun PlaybackBehaviorSection(
             onCheckedChange = onSkipSilenceEnabledChange
         )
         val disabledText = stringResource(R.string.settings_auto_rewind_disabled)
-        val secondsTemplate = stringResource(R.string.settings_seconds_value)
+        val resources = LocalContext.current.resources
         SettingsSliderItem(
             title = stringResource(R.string.settings_auto_rewind_toggle_title),
             subtitle = stringResource(R.string.settings_auto_rewind_subtitle),
@@ -228,10 +231,13 @@ fun PlaybackBehaviorSection(
             valueRange = 0f..30f,
             steps = 29,
             valueFormatter = {
-                if (it.toInt() == 0) {
+                val seconds = it.toInt()
+                if (seconds == 0) {
                     disabledText
                 } else {
-                    String.format(java.util.Locale.US, secondsTemplate, it.toInt())
+                    // Counted Slider Value (Resolve plural text inside the ordinary formatter callback)
+                    // The formatter is not composable, so it uses the current Resources instance to keep second labels on Android plural rules without changing the reusable slider row API.
+                    resources.getQuantityString(R.plurals.settings_seconds_value, seconds, seconds)
                 }
             },
             enabled = true

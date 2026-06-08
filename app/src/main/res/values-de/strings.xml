@@ -1,7 +1,6 @@
 <resources>
     <!-- German Locale Resources (Provide German translations for all default user-visible strings)
          The complete table prevents mixed-language UI when the app locale is set to German. -->
-    <string name="app_name">APlayer</string>
     <string name="author_label">Autor</string>
     <string name="narrator_label">Sprecher</string>
     <string name="summary_label">Zusammenfassung</string>
@@ -70,12 +69,18 @@
     <string name="feedback_playback_cleartext_blocked">Klartext-HTTP-Wiedergabe wurde aus Sicherheitsgründen blockiert. Aktivieren Sie sie zuerst in den Einstellungen.</string>
     <string name="feedback_playback_initial_media_load_failed">Medienquelle konnte nicht geladen werden: %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">Kein weiterer abspielbarer Audiotitel gefunden. Wiedergabe gestoppt.</string>
-    <string name="feedback_playback_finished_shutdown_scheduled">Wiedergabe beendet. Herunterfahren in %1$d Sekunden.</string>
+    <plurals name="feedback_playback_finished_shutdown_scheduled">
+        <item quantity="one">Wiedergabe beendet. Herunterfahren in %1$d Sekunde.</item>
+        <item quantity="other">Wiedergabe beendet. Herunterfahren in %1$d Sekunden.</item>
+    </plurals>
     <string name="feedback_playback_bookmark_created">Lesezeichen an der aktuellen Wiedergabeposition hinzugefügt</string>
     <string name="feedback_playback_remote_progress_save_failed">Remote-Fortschritt konnte lokal nicht geschrieben werden: %1$s</string>
     <string name="feedback_playback_speed_reset">Wiedergabegeschwindigkeit zurückgesetzt</string>
     <string name="feedback_playback_speed_changed">Wiedergabegeschwindigkeit: %1$sx</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
+    <!-- Playback Preflight Feedback (Localized shell copy for typed playback block reasons emitted by the media domain) -->
+    <string name="feedback_playback_source_preflight_missing_root">Der Bibliotheksstamm fehlt. Die Medienquelle kann nicht geladen werden.</string>
+    <string name="feedback_playback_source_preflight_unavailable_root">Der Bibliotheksstamm ist nicht verfügbar. Die Medienquelle kann nicht geladen werden: %1$s</string>
     <string name="feedback_playback_track_unavailable">Die aktuelle Titeldatei ist nicht verfügbar. Prüfen Sie, ob Sie zu einem anderen Titel springen möchten.</string>
     <string name="feedback_settings_local_library_relocated">Lokaler Medienbibliotheksort aktualisiert. Scan gestartet.</string>
     <string name="feedback_settings_local_library_relocation_failed">Ort konnte nicht aktualisiert werden: %1$s</string>
@@ -83,12 +88,41 @@
     <string name="feedback_settings_webdav_update_failed">WebDAV konnte nicht aktualisiert werden: %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV-Testverbindung erfolgreich</string>
     <string name="feedback_settings_webdav_connection_failed">WebDAV-Testverbindung fehlgeschlagen: %1$s</string>
+    <!-- WebDAV Connection Failure Details (Localized shell copy for typed endpoint and HTTP failure reasons) -->
+    <string name="feedback_settings_cleartext_http_blocked">Unverschlüsseltes HTTP ist durch die globalen Einstellungen blockiert. Aktivieren Sie es manuell in den Einstellungen, um diesen Endpunkt zu verwenden.</string>
+    <string name="feedback_settings_webdav_url_missing_scheme">Der WebDAV-URL fehlt ein Schema.</string>
+    <string name="feedback_settings_webdav_url_missing_host">Der WebDAV-URL fehlt ein Host.</string>
+    <string name="feedback_settings_webdav_url_userinfo_not_allowed">Die WebDAV-URL darf keinen Benutzernamen oder kein Passwort enthalten. Gib die Zugangsdaten in die WebDAV-Zugangsdatenfelder ein.</string>
+    <string name="feedback_settings_webdav_url_unsupported_scheme">WebDAV-URLs unterstützen nur http:// oder https://.</string>
+    <string name="feedback_settings_webdav_auth_failed">Authentifizierung fehlgeschlagen. Prüfen Sie Benutzername und Passwort.</string>
+    <string name="feedback_settings_webdav_forbidden">Der Server hat den Zugriff verweigert.</string>
+    <string name="feedback_settings_webdav_not_found">Pfad nicht gefunden. Prüfen Sie URL und Bibliothekspfad.</string>
+    <string name="feedback_settings_webdav_http_status">Verbindung fehlgeschlagen. HTTP-Status: %1$d</string>
     <string name="feedback_settings_abs_server_updated">ABS-Server aktualisiert. Synchronisierung gestartet.</string>
     <string name="feedback_settings_abs_server_added">ABS-Server hinzugefügt. Synchronisierung gestartet.</string>
     <string name="feedback_settings_abs_server_save_failed">ABS-Server konnte nicht gespeichert werden: %1$s</string>
-    <string name="feedback_settings_abs_connection_succeeded">Verbindung erfolgreich. %1$d verfügbare Bibliotheken gefunden.</string>
+    <plurals name="feedback_settings_abs_connection_succeeded">
+        <item quantity="one">Verbindung erfolgreich. %1$d verfügbare Bibliothek gefunden.</item>
+        <item quantity="other">Verbindung erfolgreich. %1$d verfügbare Bibliotheken gefunden.</item>
+    </plurals>
     <string name="feedback_settings_abs_connection_failed">Verbindung fehlgeschlagen: %1$s</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
+    <!-- Library Root Sync Feedback (Resource-backed copy for availability status codes returned by sync preflight) -->
+    <string name="feedback_message_separator">\u003B\u0020</string>
+    <string name="feedback_sync_roots_unavailable_none">Keine synchronisierbaren Bibliotheksstämme</string>
+    <plurals name="feedback_sync_roots_unavailable_multiple">
+        <item quantity="one">Ein Bibliotheksstamm ist nicht verfügbar. %1$d Stamm übersprungen.</item>
+        <item quantity="other">Einige Bibliotheksstämme sind nicht verfügbar. %1$d Stämme übersprungen.</item>
+    </plurals>
+    <string name="feedback_sync_root_unavailable_revoked">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Autorisierung abgelaufen)</string>
+    <string name="feedback_sync_root_unavailable_auth_failed">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Authentifizierung fehlgeschlagen)</string>
+    <string name="feedback_sync_root_unavailable_network_unavailable">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Netzwerk nicht verfügbar)</string>
+    <string name="feedback_sync_root_unavailable_timeout">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Verbindungstimeout)</string>
+    <string name="feedback_sync_root_unavailable_not_found">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Pfad nicht gefunden)</string>
+    <string name="feedback_sync_root_unavailable_permission_denied">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Berechtigung verweigert)</string>
+    <string name="feedback_sync_root_unavailable_server_error">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Serverfehler)</string>
+    <string name="feedback_sync_root_unavailable_unsupported">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Quelle nicht unterstützt)</string>
+    <string name="feedback_sync_root_unavailable_status_code">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (%2$s)</string>
     <string name="feedback_settings_abs_sync_started">ABS-Synchronisierung gestartet</string>
     <string name="feedback_settings_abs_sync_already_running">ABS-Synchronisierung läuft bereits</string>
     <string name="feedback_settings_library_root_removed_playback_stopped">Medienbibliothek entfernt. Aktuelle Wiedergabe gestoppt.</string>
@@ -107,14 +141,34 @@
     <string name="feedback_home_cover_metadata_regeneration_completed">Cover und Metadaten neu aufgebaut</string>
     <string name="feedback_abs_background_sync_root_missing">ABS-Hintergrundsync fehlgeschlagen: passende ABS-Bibliothekswurzel nicht gefunden</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
-    <string name="feedback_abs_background_sync_completed">ABS-Hintergrundsync abgeschlossen: %1$d Bücher hinzugefügt, %2$d fehlgeschlagen</string>
+    <!-- Multi-Count ABS Sync Feedback (Split added and failed totals into independently formatted plural fragments)
+         German needs separate singular handling for the added and failed book counts instead of one combined printf string. -->
+    <string name="feedback_abs_background_sync_completed">ABS-Hintergrundsync abgeschlossen:\u0020</string>
+    <plurals name="feedback_abs_background_sync_added_books">
+        <item quantity="one">%1$d Buch hinzugefügt</item>
+        <item quantity="other">%1$d Bücher hinzugefügt</item>
+    </plurals>
+    <string name="feedback_abs_background_sync_completed_separator">,\u0020</string>
+    <plurals name="feedback_abs_background_sync_failed_books">
+        <item quantity="one">%1$d Buch fehlgeschlagen</item>
+        <item quantity="other">%1$d Bücher fehlgeschlagen</item>
+    </plurals>
     <string name="feedback_abs_background_sync_failed">ABS-Hintergrundsync fehlgeschlagen: %1$s</string>
-    <string name="feedback_scan_completed_with_discovered_books">Medienbibliothek synchronisiert. %1$d Bücher hinzugefügt.</string>
+    <plurals name="feedback_scan_completed_with_discovered_books">
+        <item quantity="one">Medienbibliothek synchronisiert. %1$d Buch hinzugefügt.</item>
+        <item quantity="other">Medienbibliothek synchronisiert. %1$d Bücher hinzugefügt.</item>
+    </plurals>
     <string name="feedback_scan_completed">Medienbibliothek synchronisiert</string>
     <string name="feedback_scan_library_empty">Medienbibliothek ist leer. Keine gültigen Bücher gefunden.</string>
     <string name="feedback_scan_already_up_to_date">Medienbibliothek ist bereits aktuell</string>
-    <string name="feedback_scan_suffix_updated">, %1$d Bücher aktualisiert</string>
-    <string name="feedback_scan_suffix_partial">, davon %1$d teilweise importiert</string>
+    <plurals name="feedback_scan_suffix_updated">
+        <item quantity="one">, %1$d Buch aktualisiert</item>
+        <item quantity="other">, %1$d Bücher aktualisiert</item>
+    </plurals>
+    <plurals name="feedback_scan_suffix_partial">
+        <item quantity="one">, davon %1$d teilweise importiert</item>
+        <item quantity="other">, davon %1$d teilweise importiert</item>
+    </plurals>
     <string name="feedback_scan_blocked_no_directory_roots">Keine lokalen oder WebDAV-Bibliothekswurzeln für die Synchronisierung verfügbar</string>
     <string name="feedback_scan_retry_later">Synchronisierung vorübergehend fehlgeschlagen und wird später erneut versucht</string>
     <string name="feedback_scan_failed">Synchronisierung der Medienbibliothek fehlgeschlagen: %1$s</string>
@@ -129,15 +183,36 @@
     <string name="feedback_sleep_timer_off">Sleeptimer ausgeschaltet</string>
     <string name="feedback_sleep_timer_five_seconds">Wiedergabe stoppt in 5 Sekunden</string>
     <string name="feedback_sleep_timer_end_of_chapter">Wiedergabe stoppt am Ende dieses Kapitels</string>
-    <string name="feedback_sleep_timer_minutes">Sleeptimer: %1$d Minuten</string>
+    <plurals name="feedback_sleep_timer_minutes">
+        <item quantity="one">Sleeptimer: %1$d Minute</item>
+        <item quantity="other">Sleeptimer: %1$d Minuten</item>
+    </plurals>
     <string name="feedback_chapter_physical_file_missing">Die physische Datei für dieses Kapitel fehlt und kann nicht abgespielt werden</string>
     <string name="bookmark_default_title">Lesezeichen</string>
     <string name="settings_library_management_title">Medienbibliothek verwalten</string>
     <string name="settings_library_location_with_abs">Ort: %1$s · Aktuelle Bibliothek: %2$s</string>
     <string name="settings_library_location">Ort: %1$s</string>
-    <string name="settings_library_sync_summary">Letzte Sync: %1$s · Importiert: %2$d Bücher</string>
+    <plurals name="settings_library_sync_summary">
+        <item quantity="one">Letzte Sync: %1$s · Importiert: %2$d Buch</item>
+        <item quantity="other">Letzte Sync: %1$s · Importiert: %2$d Bücher</item>
+    </plurals>
     <string name="settings_library_not_synced">Nicht synchronisiert</string>
     <string name="settings_library_error">Fehler: %1$s</string>
+    <!-- Library Status Labels (Translate database and availability status codes before they reach Settings UI) -->
+    <string name="settings_library_status_active">Aktiv</string>
+    <string name="settings_library_status_available">Verfügbar</string>
+    <string name="settings_library_status_revoked">Autorisierung abgelaufen</string>
+    <string name="settings_library_status_error">Fehler</string>
+    <string name="settings_library_status_unknown">Unbekannt</string>
+    <string name="settings_library_status_auth_failed">Authentifizierung fehlgeschlagen</string>
+    <string name="settings_library_status_network_unavailable">Netzwerk nicht verfügbar</string>
+    <string name="settings_library_status_not_found">Nicht gefunden</string>
+    <string name="settings_library_status_permission_denied">Berechtigung verweigert</string>
+    <string name="settings_library_status_server_error">Serverfehler</string>
+    <string name="settings_library_status_timeout">Zeitüberschreitung</string>
+    <string name="settings_library_status_unsupported">Nicht unterstützt</string>
+    <string name="settings_library_status_synced">Synchronisiert</string>
+    <string name="settings_library_status_idle">Leerlauf</string>
     <string name="settings_add_library_title">Medienbibliothek hinzufügen</string>
     <string name="settings_add_library_subtitle">Unterstützt lokales SAF, WebDAV und Audiobookshelf-Server</string>
     <string name="settings_interface_effects_title">Oberfläche</string>
@@ -178,7 +253,10 @@
     <string name="settings_auto_rewind_toggle_title">Automatisch zurückspulen nach Pause</string>
     <string name="settings_auto_rewind_subtitle">Rücksprungdauer nach Pause oder Stopp, außer bei Benachrichtigungsvermeidung</string>
     <string name="settings_auto_rewind_disabled">Aus</string>
-    <string name="settings_seconds_value">%1$d Sekunden</string>
+    <plurals name="settings_seconds_value">
+        <item quantity="one">%1$d Sekunde</item>
+        <item quantity="other">%1$d Sekunden</item>
+    </plurals>
     <string name="settings_about_title">Über</string>
     <string name="settings_open_source_license_title">Open-Source-Lizenzen</string>
     <string name="settings_open_source_license_subtitle">Verwendete Open-Source-Bibliotheken und Lizenzen anzeigen</string>
@@ -214,7 +292,7 @@
     <string name="settings_root_action_sync">Synchronisieren</string>
     <string name="settings_root_action_rescan">Erneut scannen</string>
     <string name="settings_root_action_remove">Medienbibliothek entfernen</string>
-    <string name="about_version_text">Version 1.0 (Beta)</string>
+    <string name="about_version_text">Version %1$s</string>
     <string name="about_app_description">APlayer ist ein lokaler Hörbuchplayer für engagierte Hörer. Gute Produkte stehen auf Open-Source-Grundlagen, und wir danken den Autoren und Organisationen, die diese App ermöglichen.</string>
     <string name="about_developer_credit">von %1$s</string>
     <string name="about_visit_project_homepage_content_description">Projektseite besuchen</string>
@@ -274,6 +352,7 @@
     <string name="common_unknown">Unbekannt</string>
     <string name="common_unknown_title">Unbekannter Titel</string>
     <string name="common_new_badge">NEU</string>
+    <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">Löschen</string>
     <string name="media_cover_content_description">Cover</string>
@@ -290,7 +369,8 @@
     <string name="action_ok">OK</string>
     <string name="clear_content_description">Leeren</string>
     <string name="home_view_options_content_description">Startseiten-Ansichtsoptionen</string>
-    <string name="search_placeholder">Suchen oder year: author: narrator: verwenden</string>
+    <!-- Search Placeholder Template (%1$s is fixed query syntax owned by SearchQueryPlanner and must not be translated) -->
+    <string name="search_placeholder">Suchen oder %1$s verwenden</string>
     <string name="search_recent_title">Letzte Suchen</string>
     <string name="search_clear_all">Alle leeren</string>
     <string name="search_remove_history_content_description">Entfernen</string>

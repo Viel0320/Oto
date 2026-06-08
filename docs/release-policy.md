@@ -32,9 +32,11 @@ Verbose, debug, and info calls to `android.util.Log` are treated as release nois
 The app permits Android backup, but device-scoped preferences are excluded from both cloud backup and
 device transfer:
 
-- `app/src/main/res/xml/backup_rules.xml` excludes `sharedpref/device.xml`.
-- `app/src/main/res/xml/data_extraction_rules.xml` excludes `sharedpref/device.xml` from cloud backup.
-- `app/src/main/res/xml/data_extraction_rules.xml` excludes `sharedpref/device.xml` from device transfer.
+<!-- Update Backup Policy (Document WebDAV and ABS credentials backup exclusion to prevent secrets leak)
+     Update release-policy.md to note that webdav_credentials.xml and abs_credentials.preferences_pb are excluded from backup and device transfer. -->
+- `app/src/main/res/xml/backup_rules.xml` excludes `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, and `files/datastore/abs_credentials.preferences_pb`.
+- `app/src/main/res/xml/data_extraction_rules.xml` excludes `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, and `files/datastore/abs_credentials.preferences_pb` from cloud backup.
+- `app/src/main/res/xml/data_extraction_rules.xml` excludes `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, and `files/datastore/abs_credentials.preferences_pb` from device transfer.
 
 ## Unsafe Network
 

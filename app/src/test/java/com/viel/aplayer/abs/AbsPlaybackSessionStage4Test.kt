@@ -35,13 +35,16 @@ import com.viel.aplayer.data.gateway.BookMetadataGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
 import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class AbsPlaybackSessionStage4Test {
@@ -275,6 +278,51 @@ class AbsPlaybackSessionStage4Test {
     }
 
     @Test
+    fun `upload decision should propagate cancelled remote progress probe`() = kotlinx.coroutines.runBlocking {
+        val book = absBook()
+        val localProgress = BookProgressEntity(bookId = book.id, globalPositionMs = 12_500L, lastPlayedAt = 2_000L)
+        val cancellation = CancellationException("remote progress probe cancelled")
+        val coordinator = conflictCoordinator(
+            api = SuccessfulPlaybackApi(remoteProgressFailure = cancellation),
+            book = book,
+            localProgress = localProgress
+        )
+
+        try {
+            // Remote Probe Cancellation Regression (Keeps upload arbitration from converting coroutine cancellation into RemoteProbeFailed)
+            // A cancelled ABS progress request must escape the decision boundary so parent playback sync jobs can stop promptly.
+            coordinator.resolveUploadDecision(
+                book = book,
+                localProgress = localProgress,
+                credential = AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1")
+            )
+            fail("Expected CancellationException to propagate from upload arbitration")
+        } catch (error: CancellationException) {
+            assertSame(cancellation, error)
+        }
+    }
+
+    @Test
+    fun `playback preparation should propagate cancelled remote progress probe`() = kotlinx.coroutines.runBlocking {
+        val book = absBook()
+        val cancellation = CancellationException("playback progress probe cancelled")
+        val coordinator = conflictCoordinator(
+            api = SuccessfulPlaybackApi(remoteProgressFailure = cancellation),
+            book = book,
+            localProgress = BookProgressEntity(bookId = book.id, globalPositionMs = 12_500L, lastPlayedAt = 2_000L)
+        )
+
+        try {
+            // Playback Probe Cancellation Regression (Prevents cancelled startup probes from being treated as absent remote progress)
+            // The player should not continue local preparation after the coroutine hierarchy has requested cancellation.
+            coordinator.preparePlayback(book.id)
+            fail("Expected CancellationException to propagate from playback preparation")
+        } catch (error: CancellationException) {
+            assertSame(cancellation, error)
+        }
+    }
+
+    @Test
     fun `conflict resolver should tolerate thirty seconds of progress drift`() {
         // Thirty-Second Drift Tolerance (Documents the maximum accepted local-vs-remote progress delta)
         // Exactly thirty seconds is treated as in-sync, while any larger delta requires explicit conflict handling.
@@ -316,7 +364,8 @@ class AbsPlaybackSessionStage4Test {
     )
 
     private class SuccessfulPlaybackApi(
-        private val remoteProgress: AbsUserProgressDto? = null
+        private val remoteProgress: AbsUserProgressDto? = null,
+        private val remoteProgressFailure: Throwable? = null
     ) : AbsApiClient {
         var openCallCount = 0
         var syncCallCount = 0
@@ -327,7 +376,12 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun getLibraries(baseUrl: String, token: String) = emptyList<AbsLibraryDto>()
         override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String) = AbsLibraryItemsResponseDto()
         override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>) = emptyList<AbsLibraryItemDto>()
-        override suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? = remoteProgress
+        override suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? {
+            // Remote Progress Failure Fixture (Allows tests to distinguish cancellation from ordinary null progress)
+            // Existing success-path tests keep returning remoteProgress, while cancellation tests inject the exact throwable instance.
+            remoteProgressFailure?.let { error -> throw error }
+            return remoteProgress
+        }
         override suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto): AbsPlaybackSessionDto {
             openCallCount += 1
             return AbsPlaybackSessionDto(id = "session-1", libraryItemId = itemId, audioTracks = listOf(AbsTrackDto(index = 1, contentUrl = "/hls/session-1/output.m3u8")))

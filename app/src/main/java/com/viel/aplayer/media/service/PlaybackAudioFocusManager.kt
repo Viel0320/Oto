@@ -1,6 +1,7 @@
 package com.viel.aplayer.media.service
 
-// Import alignment: Add delay utility to support timer offsets for notification avoidance.
+// Import Alignment (Keep focus recovery free from timer dependencies)
+// Playback recovery now waits for Android focus gain instead of scheduling delayed resume jobs.
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -9,10 +10,66 @@ import androidx.media3.common.Player
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.media.AutoRewindManager
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
+
+/**
+ * Audio Focus Playback Action (Represents side effects selected by the focus policy)
+ * Keeps policy tests independent from Android Player instances while the manager still owns real playback calls.
+ */
+internal enum class AudioFocusPlaybackAction {
+    None,
+    Pause,
+    Play
+}
+
+/**
+ * Audio Focus Recovery Policy (Stores passive pause intent until Android grants focus again)
+ * Separates focus-state decisions from service, player, and AudioManager side effects so recovery rules are directly unit-testable.
+ */
+internal class AudioFocusRecoveryPolicy {
+    private var isPausedByLossOfFocus = false
+
+    // Passive Pause Retention (Prevents player pause callbacks from abandoning focus during system-caused interruptions)
+    // The manager reads this flag when playback changes to distinguish user pauses from focus-loss pauses.
+    val isHoldingFocusLossPause: Boolean
+        get() = isPausedByLossOfFocus
+
+    // Playback Start Reset (Clears stale passive-pause state when playback begins from a user or controller action)
+    // A fresh playback start must own a new focus request instead of inheriting an old transient-loss recovery.
+    fun onPlaybackStarted() {
+        isPausedByLossOfFocus = false
+    }
+
+    // Focus Loss Hold (Pause until Android explicitly grants focus again)
+    // A transient loss records that playback should resume only if the player was active or already paused by focus loss.
+    fun onTransientLoss(isPlayerPlaying: Boolean): AudioFocusPlaybackAction {
+        isPausedByLossOfFocus = isPlayerPlaying || isPausedByLossOfFocus
+        return AudioFocusPlaybackAction.Pause
+    }
+
+    // Permanent Focus Loss Reset (Forget passive resume intent on unrecoverable focus loss)
+    // Permanent loss means another owner has taken playback priority, so automatic resume must be blocked.
+    fun onPermanentLoss(): AudioFocusPlaybackAction {
+        isPausedByLossOfFocus = false
+        return AudioFocusPlaybackAction.Pause
+    }
+
+    // Focus Gain Gate (Resume only after Android gain and a successful focus request)
+    // A denied request keeps the passive-pause flag intact and prevents playback from restarting without system focus.
+    fun onFocusGain(requestFocus: () -> Boolean): AudioFocusPlaybackAction {
+        if (!isPausedByLossOfFocus) return AudioFocusPlaybackAction.None
+        if (!requestFocus()) return AudioFocusPlaybackAction.None
+        isPausedByLossOfFocus = false
+        return AudioFocusPlaybackAction.Play
+    }
+
+    // Policy Reset (Clears passive interruption state when the service lifecycle resets)
+    // This mirrors focus abandonment so a stopped service cannot resume playback from stale focus events.
+    fun reset() {
+        isPausedByLossOfFocus = false
+    }
+}
 
 /**
  * Audio Focus & Notification Ducking Coordinator (Manages system-level audio focus states and handles ducking dynamics)
@@ -29,11 +86,9 @@ class PlaybackAudioFocusManager(
     private val appContext = context.applicationContext
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
 
-    // Interruption State Flag (Indicates if playback was paused passively due to transient audio focus loss)
-    // Directs the system to restore the previous state silently when focus is regained.
-    private var isPausedByLossOfFocus = false
-    // Avoidance delay Job cache: Retains the active 3s timer job for notification avoidance.
-    private var avoidanceJob: kotlinx.coroutines.Job? = null
+    // Focus Recovery Policy (Owns passive pause state and focus-gated resume decisions)
+    // The manager delegates state transitions here so Android callbacks cannot restart playback on a timer.
+    private val focusRecoveryPolicy = AudioFocusRecoveryPolicy()
 
     // AudioFocusRequest Cache (Caches request parameters for API 26+ to coordinate dynamic binding)
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -47,42 +102,30 @@ class PlaybackAudioFocusManager(
             if (settings.isNotificationAvoidanceEnabled) {
                 when (focusChange) {
                     AudioManager.AUDIOFOCUS_LOSS -> {
-                        // Permanent loss: reset states, cancel timer, and pause player.
-                        avoidanceJob?.cancel()
-                        avoidanceJob = null
-                        isPausedByLossOfFocus = false
-                        player.pause()
+                        // Permanent Focus Loss Action (Pause and clear passive resume intent)
+                        // The policy rejects future automatic recovery until a new playback start establishes focus again.
+                        if (focusRecoveryPolicy.onPermanentLoss() == AudioFocusPlaybackAction.Pause) {
+                            player.pause()
+                        }
                         com.viel.aplayer.logger.AudioFocusLogger.logPermanentLoss()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                        // Transient loss: cancel previous timer to reset the 3s avoidance window on repeating signals.
-                        avoidanceJob?.cancel()
-                        if (player.isPlaying || isPausedByLossOfFocus) {
-                            if (player.isPlaying) {
-                                isPausedByLossOfFocus = true
-                                // Critical Interaction: Instruct AutoRewindManager to bypass the upcoming automatic rewind trigger.
-                                // Ensures smooth continuity without repeating audio segments after small notifications.
+                        val wasPlaying = player.isPlaying
+                        if (focusRecoveryPolicy.onTransientLoss(wasPlaying) == AudioFocusPlaybackAction.Pause) {
+                            if (wasPlaying) {
+                                // Auto-Rewind Suppression (Mark the system-caused pause before notifying the player)
+                                // This avoids treating a temporary focus interruption like a user pause that should rewind on resume.
                                 AutoRewindManager.getInstance(appContext).ignoreNextAutoRewind = true
-                                player.pause()
                                 com.viel.aplayer.logger.AudioFocusLogger.logTransientLoss()
                             }
-                            // Start a fixed 3s delay job before executing automatic recovery.
-                            avoidanceJob = serviceScope.launch {
-                                delay(3000.milliseconds)
-                                if (isPausedByLossOfFocus) {
-                                    isPausedByLossOfFocus = false
-                                    playerProvider()?.play()
-                                    com.viel.aplayer.logger.AudioFocusLogger.logFocusRegained()
-                                }
-                                avoidanceJob = null
-                            }
+                            player.pause()
                         }
                     }
                     AudioManager.AUDIOFOCUS_GAIN -> {
-                        // Focus Regained: Resume immediately if paused passively and no timer is running.
-                        if (isPausedByLossOfFocus && avoidanceJob == null) {
-                            isPausedByLossOfFocus = false
+                        // Focus Gain Recovery (Resume only after Android gain and explicit focus request success)
+                        // This blocks timer-based recovery and keeps playback paused when the system rejects focus.
+                        if (focusRecoveryPolicy.onFocusGain(::requestMyAudioFocus) == AudioFocusPlaybackAction.Play) {
                             player.play()
                             com.viel.aplayer.logger.AudioFocusLogger.logFocusRegained()
                         }
@@ -100,14 +143,14 @@ class PlaybackAudioFocusManager(
             val settings = settingsRepository.settingsFlow.first()
             if (settings.isNotificationAvoidanceEnabled) {
                 if (isPlaying) {
-                    // Playback started: clear transient flags and request audio focus.
-                    isPausedByLossOfFocus = false
+                    // Playback Start Focus Sync (Reset passive interruption state before requesting active focus)
+                    // A user-initiated start should not be mistaken for recovery from an old transient loss.
+                    focusRecoveryPolicy.onPlaybackStarted()
                     requestMyAudioFocus()
                 } else {
-                    // Playback paused: abandon focus and cancel active timers if not passively interrupted.
-                    if (!isPausedByLossOfFocus) {
-                        avoidanceJob?.cancel()
-                        avoidanceJob = null
+                    // Playback Pause Focus Sync (Abandon focus only for non-passive pauses)
+                    // Focus-loss pauses keep ownership state until Android sends gain or permanent loss.
+                    if (!focusRecoveryPolicy.isHoldingFocusLossPause) {
                         abandonMyAudioFocus()
                     }
                 }
@@ -119,9 +162,9 @@ class PlaybackAudioFocusManager(
      * Focus Manager Reset (Clears local flags and abandons system audio focus request)
      */
     fun reset() {
-        avoidanceJob?.cancel()
-        avoidanceJob = null
-        isPausedByLossOfFocus = false
+        // Focus Policy Reset (Clear passive resume state before releasing the system focus request)
+        // This prevents late focus callbacks from replaying audio after the service resets.
+        focusRecoveryPolicy.reset()
         abandonMyAudioFocus()
     }
 

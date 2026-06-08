@@ -37,9 +37,13 @@ fun SearchRoute(
     val query by searchViewModel.query.collectAsStateWithLifecycle()
     val searchResults by searchViewModel.searchResults.collectAsStateWithLifecycle()
     val searchHistory by searchViewModel.searchHistory.collectAsStateWithLifecycle()
+    // Search Overlay Dismiss Intent (Share one close command across system back and in-screen navigation)
+    // Keeping this callback in the route preserves SearchScreen as a stateless UI surface while letting SearchOverlay handle Android back directly.
+    val dismissSearchOverlay = { searchViewModel.setVisible(false) }
 
     SearchOverlay(
         visible = isVisible,
+        onBack = dismissSearchOverlay,
         hazeState = hazeState,
         glassEffectMode = glassEffectMode,
         modifier = modifier
@@ -61,7 +65,7 @@ fun SearchRoute(
             onClearQuery = searchViewModel::clearQuery,
             onDeleteHistory = searchViewModel::deleteHistory,
             onClearHistory = searchViewModel::clearHistory,
-            onBack = { searchViewModel.setVisible(false) },
+            onBack = dismissSearchOverlay,
             activeSearchDetailBookId = activeSearchDetailBookId,
             onNavigateToDetail = { id ->
                 // Search History Save Effect (Persist query before leaving search results for details)

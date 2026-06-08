@@ -22,10 +22,15 @@ class PlaybackSourcePreflight(
         val rootIds = plan.files.map { file -> file.rootId }.distinct()
         for (rootId in rootIds) {
             val root = libraryRootDao.getRootById(rootId)
-                ?: return@withContext PlaybackSourcePreflightResult.Blocked("媒体库根不存在，无法载入媒体源")
+                ?: return@withContext PlaybackSourcePreflightResult.Blocked(
+                    reason = PlaybackSourcePreflightBlockReason.MissingRoot
+                )
             if (root.status != AudiobookSchema.LibraryRootStatus.ACTIVE) {
                 val rootName = root.displayName.ifBlank { root.sourceUri }
-                return@withContext PlaybackSourcePreflightResult.Blocked("媒体库根不可用，无法载入媒体源：$rootName")
+                return@withContext PlaybackSourcePreflightResult.Blocked(
+                    reason = PlaybackSourcePreflightBlockReason.UnavailableRoot,
+                    rootName = rootName
+                )
             }
             // Playback Cleartext Root Gate (Blocks HTTP-backed remote roots before MediaController receives media items)
             // VFS playback URIs hide provider URLs, so the preflight checks persisted root endpoints instead of relying on generated media item schemes.
@@ -39,12 +44,24 @@ class PlaybackSourcePreflight(
 
 /**
  * Playback Source Preflight Result (Represents a DB-only gate decision)
- * Keeps the caller independent from Room entities while preserving a user-facing block message for immediate feedback.
+ * Keeps the caller independent from Room entities while preserving a typed block reason for localized feedback mapping.
  */
 sealed class PlaybackSourcePreflightResult {
     data object Available : PlaybackSourcePreflightResult()
-    data class Blocked(val message: String) : PlaybackSourcePreflightResult()
+    data class Blocked(
+        val reason: PlaybackSourcePreflightBlockReason,
+        val rootName: String? = null
+    ) : PlaybackSourcePreflightResult()
     // Cleartext HTTP Blocked (Distinguishes security-policy blocks from unavailable storage roots)
     // PlaybackManager maps this result to the existing CleartextPlaybackBlocked domain event so the app shell can render the dedicated feedback message.
     data object CleartextHttpBlocked : PlaybackSourcePreflightResult()
+}
+
+/**
+ * Playback Source Preflight Block Reason (Stable media-core block code)
+ * The app-shell event bridge maps these codes to localized feedback instead of receiving preformatted text from playback.
+ */
+enum class PlaybackSourcePreflightBlockReason {
+    MissingRoot,
+    UnavailableRoot
 }

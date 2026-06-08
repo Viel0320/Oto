@@ -37,7 +37,7 @@ object UnsafeNetworkPolicy {
             throw UnsafeNetworkPolicyViolation(
                 kind = UnsafeNetworkViolationKind.CleartextHttp,
                 operation = operation,
-                message = "不安全网络已被全局设置拦截：$operation 需要明文 HTTP。请在设置中手动允许明文 HTTP。"
+                message = "UNSAFE_NETWORK_CLEARTEXT_HTTP_BLOCKED"
             )
         }
     }

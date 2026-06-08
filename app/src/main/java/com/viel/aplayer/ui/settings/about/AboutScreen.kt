@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import com.viel.aplayer.BuildConfig
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
@@ -305,6 +306,9 @@ fun AboutLibrariesScreen(
 private fun BrandHeaderCard() {
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.tertiary
+    // Runtime Version Label (Read Gradle-owned app version metadata instead of storing a release value in translations)
+    // The localized string resource owns only the "Version %s" template, while build.gradle.kts owns the actual version name.
+    val versionName = remember { BuildConfig.VERSION_NAME }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -352,7 +356,7 @@ private fun BrandHeaderCard() {
             )
 
             Text(
-                text = stringResource(R.string.about_version_text),
+                text = stringResource(R.string.about_version_text, versionName),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 fontWeight = FontWeight.Medium

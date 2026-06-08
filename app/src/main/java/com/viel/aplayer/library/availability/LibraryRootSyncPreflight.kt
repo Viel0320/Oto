@@ -2,6 +2,8 @@ package com.viel.aplayer.library.availability
 
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 
 /**
@@ -33,35 +35,24 @@ internal fun LibraryRootEntity.isDirectorySyncRoot(): Boolean =
     }
 
 /**
- * Unavailable Root Toast Builder (Creates a user-facing skip message for one blocked root)
- * Translates storage and network availability codes into short Chinese reasons while keeping sensitive endpoint details out of toast text.
+ * Unavailable Root Feedback Builder (Creates a resource-backed skip message for one blocked root)
+ * Keeps availability status as stable codes here while FeedbackMessages owns the localized wording and formatting.
  */
-internal fun buildRootUnavailableSyncMessage(update: LibraryRootAvailabilityUpdate): String {
+internal fun buildRootUnavailableSyncMessage(update: LibraryRootAvailabilityUpdate): FeedbackMessage {
     val rootName = update.root.displayName.ifBlank { update.root.sourceUri }
-    val reason = when (update.availability.status) {
-        AudiobookSchema.AvailabilityStatus.REVOKED -> "授权已失效"
-        AudiobookSchema.AvailabilityStatus.AUTH_FAILED -> "认证失败"
-        AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE -> "网络不可用"
-        AudiobookSchema.AvailabilityStatus.TIMEOUT -> "连接超时"
-        AudiobookSchema.AvailabilityStatus.NOT_FOUND -> "路径或远程书库不存在"
-        AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED -> "权限不足"
-        AudiobookSchema.AvailabilityStatus.SERVER_ERROR -> "服务器错误"
-        AudiobookSchema.AvailabilityStatus.UNSUPPORTED -> "来源不受支持"
-        else -> update.availability.errorCode ?: update.availability.status
-    }
-    return "库根不可用，已跳过同步：$rootName（$reason）"
+    return FeedbackMessages.libraryRootUnavailableSync(
+        rootName = rootName,
+        availabilityStatus = update.availability.status,
+        fallbackCode = update.availability.errorCode ?: update.availability.status
+    )
 }
 
 /**
- * Unavailable Roots Summary Builder (Creates a compact user-facing skip message for global scans)
- * Collapses multiple blocked roots into a bounded name list so repeated background checks do not produce oversized toast text.
+ * Unavailable Roots Feedback Builder (Creates a compact resource-backed skip message for global scans)
+ * Multiple-root feedback reports a count instead of joining localized names with hard-coded punctuation.
  */
-internal fun buildUnavailableRootsSyncMessage(updates: List<LibraryRootAvailabilityUpdate>): String {
-    if (updates.isEmpty()) return "没有可同步的库根"
+internal fun buildUnavailableRootsSyncMessage(updates: List<LibraryRootAvailabilityUpdate>): FeedbackMessage {
+    if (updates.isEmpty()) return FeedbackMessages.libraryRootsUnavailableNone()
     if (updates.size == 1) return buildRootUnavailableSyncMessage(updates.first())
-    val names = updates
-        .take(3)
-        .joinToString("、") { update -> update.root.displayName.ifBlank { update.root.sourceUri } }
-    val suffix = if (updates.size > 3) "等 ${updates.size} 个库根" else names
-    return "部分库根不可用，已跳过同步：$suffix"
+    return FeedbackMessages.libraryRootsUnavailableSync(updates.size)
 }

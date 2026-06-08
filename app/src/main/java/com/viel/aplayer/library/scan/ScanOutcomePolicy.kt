@@ -60,7 +60,12 @@ object ScanOutcomePolicy {
                 FeedbackMessages.scanCompletedSuffixPartial(session.partialBookCount)
             }
             .appendIf(skippedRoots.isNotEmpty()) {
-                FeedbackMessages.rawText("；${buildUnavailableRootsSyncMessage(skippedRoots)}")
+                FeedbackMessage.Composite(
+                    listOf(
+                        FeedbackMessages.messageSeparator(),
+                        buildUnavailableRootsSyncMessage(skippedRoots)
+                    )
+                )
             }
         val kind = if (session.partialBookCount > 0 || session.unavailableBookCount > 0 || skippedRoots.isNotEmpty()) {
             ScanOutcomeKind.PARTIAL
@@ -82,7 +87,7 @@ object ScanOutcomePolicy {
         val message = if (unavailableRoots.isEmpty()) {
             FeedbackMessages.scanBlockedNoDirectoryRoots()
         } else {
-            FeedbackMessages.rawText(buildUnavailableRootsSyncMessage(unavailableRoots))
+            buildUnavailableRootsSyncMessage(unavailableRoots)
         }
         return ScanOutcome(
             kind = ScanOutcomeKind.BLOCKED,

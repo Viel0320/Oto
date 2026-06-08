@@ -4,11 +4,11 @@ package com.viel.aplayer.ui.home.components
 // Added getValue and setValue import extensions to perfectly support Composable's 'by' property delegation logic.
 // Introduce Haze related dependencies to draw high-performance frosted glass effects.
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -194,13 +194,13 @@ private fun RecentCoverSharedSource(
         SharedSourceVisibility(
             visible = !isDetailTargetActive,
             /*
-             * Source Visibility Clock (Keep exiting source measurable)
+             * Source Visibility Exit Policy (Remove standalone fade from the shared source)
              *
-             * Uses a 300ms fade transition so AnimatedVisibility keeps the selected source cover
-             * in the tree while SharedTransitionLayout morphs it into the Detail target.
+             * Uses no enter or exit transition so the recent-card source stops rendering
+             * immediately instead of layering an independent fade over the shared-element motion.
              */
-            enter = fadeIn(animationSpec = tween(300)),
-            exit = fadeOut(animationSpec = tween(300)),
+            enter = EnterTransition.None,
+            exit = ExitTransition.None,
             modifier = Modifier.fillMaxSize()
         ) {
             /*
