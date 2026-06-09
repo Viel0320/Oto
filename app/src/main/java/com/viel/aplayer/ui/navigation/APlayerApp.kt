@@ -6,6 +6,8 @@ package com.viel.aplayer.ui.navigation
 // Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
@@ -49,8 +51,11 @@ import com.viel.aplayer.ui.player.components.PlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.search.SearchRoute
 import com.viel.aplayer.ui.search.SearchViewModel
+import com.viel.aplayer.ui.settings.SettingsDialogHost
+import com.viel.aplayer.ui.settings.SettingsDialogState
 import com.viel.aplayer.ui.settings.SettingsOverlay
 import com.viel.aplayer.ui.settings.SettingsViewModel
+import com.viel.aplayer.ui.settings.rememberSettingsDialogController
 import dev.chrisbanes.haze.HazeState
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -180,6 +185,20 @@ fun APlayerApp(
         // SettingsViewModel Lifecycle (Host Lifecycle Management)
         // Instantiate the settings ViewModel hosted and destroyed by MainActivity.
         val settingsViewModel: SettingsViewModel = viewModel()
+        val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
+        val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
+        // Home Add Library Dialog Controller (Reuse Settings modal state outside the Settings overlay)
+        // The empty Home FAB opens the same SettingsDialogHost add-library flow without showing the full settings page or duplicating source-specific forms.
+        val homeAddLibraryDialogController = rememberSettingsDialogController()
+        val homeAddLibraryRootLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree()
+        ) { uri ->
+            uri?.let { selectedRoot ->
+                // Home SAF Root Submission (Route local folder registration through SettingsViewModel)
+                // Using the settings command path keeps Home FAB behavior aligned with Settings add-library and avoids restoring the old direct SAF-only import shortcut.
+                settingsViewModel.onLibraryRootSelected(selectedRoot)
+            }
+        }
 
         val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
         // Collect Detail UI State (Coordinate route interactions without rebinding mini player glass)
@@ -220,9 +239,10 @@ fun APlayerApp(
         // Consume the external request passed from MainActivity via the desktop app widget, immediately switching back to the main playback page and showing the full-screen player overlay.
         LaunchedEffect(openPlayerOverlayRequest) {
             if (openPlayerOverlayRequest) {
-                playerViewModel.setSelectedContentTab(-1)
-                playerViewModel.setMiniPlayerHidden(false)
-                playerViewModel.setFullPlayerVisible(true)
+                // Widget Direct Open (Bypass mini-player transition channels)
+                // External widget requests do not originate from an on-screen mini player, so the
+                // full player must open directly on the main playback surface without shared mini motion.
+                playerViewModel.openFullPlayerFromDirect()
                 onOpenPlayerOverlayConsumed()
             }
         }
@@ -246,10 +266,12 @@ fun APlayerApp(
 
         // App Event Collection (Single app-shell renderer for transient feedback)
         // Consumes process-wide AppShellEvent values so Home, Settings, scan, ABS sync, and playback no longer expose parallel event streams.
-        LaunchedEffect(appEventSink, appFeedbackRenderer, playerViewModel) {
+        // Localized Feedback Dispatch (Resolve transient feedback through the same context used by Compose)
+        // Toast resources follow the in-app language on Android 12L because the renderer now receives the localized configuration context instead of the Activity base context.
+        LaunchedEffect(appEventSink, appFeedbackRenderer, playerViewModel, localizedContext) {
             appEventSink.events.collect { event ->
                 appFeedbackRenderer.render(event).dispatch(
-                    context = context,
+                    context = localizedContext,
                     onTrackUnavailableDialog = playerViewModel::showTrackUnavailableDialog
                 )
             }
@@ -369,6 +391,11 @@ fun APlayerApp(
                         onNavigateToSettings = {
                             settingsViewModel.setVisible(true)
                         },
+                        onAddLibraryRequested = {
+                            // Home Empty-State Add Library Entry (Open Settings source-type picker in place)
+                            // This keeps the existing Home FAB affordance while reusing the Settings add-library dialog and all provider-specific follow-up logic.
+                            homeAddLibraryDialogController.dialogState = SettingsDialogState.AddLibraryType
+                        },
                         onOpenDetail = detailTransitionGate::request,
                         onHomeViewStyleSelected = libraryViewModel::setHomeViewStyle,
                         onHomeSortRuleSelected = libraryViewModel::setHomeSortRule,
@@ -386,7 +413,10 @@ fun APlayerApp(
                     detailHazeState = detailHazeState,
                     onPlayBook = { bookId ->
                         playerViewModel.loadBook(bookId)
-                        playerViewModel.setFullPlayerVisible(true)
+                        // Detail Direct Playback Open (Avoid stale mini-player source reuse)
+                        // Detail playback starts from the detail command surface, so the player opens
+                        // through the direct path until a dedicated detail->player transition exists.
+                        playerViewModel.openFullPlayerFromDirect()
                     },
                     onNavigateToSearch = { query ->
                         searchViewModel.setVisible(true)
@@ -505,7 +535,10 @@ fun APlayerApp(
                         playerViewModel.loadBook(bookId)
                     },
                     onNavigateToPlayer = {
-                        playerViewModel.setFullPlayerVisible(true)
+                        // Search Direct Playback Open (Keep search playback outside mini motion)
+                        // Search currently owns a dedicated Search->Detail transition only; direct
+                        // playback should open the full player without claiming the mini source.
+                        playerViewModel.openFullPlayerFromDirect()
                     }
                 )
 
@@ -515,6 +548,49 @@ fun APlayerApp(
                     settingsViewModel = settingsViewModel,
                     glassEffectMode = activeGlassEffectMode,
                     appHazeState = hazeState
+                )
+
+                // Home Add Library Dialog Host (Share Settings add-library dialogs with the empty Home FAB)
+                // Hosting this beside the Settings overlay lets Home open the source-type picker directly while reusing SAF, WebDAV, and Audiobookshelf form handling from SettingsDialogHost.
+                SettingsDialogHost(
+                    controller = homeAddLibraryDialogController,
+                    glassEffectMode = activeGlassEffectMode,
+                    settingsDialogHazeState = if (activeGlassEffectMode == GlassEffectMode.Haze) hazeState else null,
+                    appLanguage = effectiveAppLanguage,
+                    onAppLanguageChange = { settingsViewModel.updateAppLanguage(it) },
+                    webDavConnectionState = webDavConnectionState,
+                    onWebDavConnectionTest = { url, username, password, basePath, editingRootId ->
+                        settingsViewModel.testWebDavConnection(url, username, password, basePath, editingRootId)
+                    },
+                    onResetWebDavConnectionState = {
+                        settingsViewModel.resetWebDavConnectionState()
+                    },
+                    onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
+                        settingsViewModel.onWebDavRootSubmitted(url, username, password, displayName, basePath)
+                    },
+                    onWebDavRootUpdated = { id, url, username, password, displayName, basePath ->
+                        settingsViewModel.updateWebDavRoot(id, url, username, password, displayName, basePath)
+                    },
+                    absConnectionState = absConnectionState,
+                    onAbsConnectionTest = { baseUrl, username, password, editingRootId ->
+                        settingsViewModel.testAbsConnection(baseUrl, username, password, editingRootId)
+                    },
+                    onResetAbsConnectionState = {
+                        settingsViewModel.resetAbsConnectionState()
+                    },
+                    onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName, editingRootId ->
+                        settingsViewModel.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
+                    },
+                    getWebDavCredentials = { credentialId ->
+                        settingsViewModel.getWebDavCredentials(credentialId)
+                    },
+                    getAbsCredential = { credentialId ->
+                        settingsViewModel.getAbsCredential(credentialId)
+                    },
+                    onAbsSync = { rootId -> settingsViewModel.syncAbsRoot(rootId) },
+                    onRescan = { settingsViewModel.triggerRescan() },
+                    onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
+                    onLaunchSafRootPicker = { homeAddLibraryRootLauncher.launch(null) }
                 )
 
                 // Track Unavailable Confirm Dialog (Avoid Interruptions)

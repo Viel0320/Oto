@@ -43,6 +43,8 @@ internal object SubtitleLogger {
      * @param extension The subtitle file extension whose parsed cue stream was truncated.
      */
     fun logSubtitleTruncated(extension: String) {
-        Log.w(TAG, "Truncated oversized $extension subtitle")
+        // Release Warning Boundary (Sanitize parser-controlled subtitle diagnostics)
+        // The extension is low risk today, but routing warnings through SecureLog prevents future parser text from bypassing the policy.
+        SecureLog.warn(TAG, "Truncated oversized $extension subtitle")
     }
 }

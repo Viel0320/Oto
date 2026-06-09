@@ -22,10 +22,14 @@ internal object ScanWorkflowLogger {
     }
 
     fun warn(message: String, error: Throwable? = null) {
-        runCatching { Log.w(TAG, message, error) }
+        // Release Warning Boundary (Route retained scan diagnostics through SecureLog)
+        // Library scans traverse user-controlled storage coordinates, so warnings must not emit raw paths in release builds.
+        SecureLog.warn(TAG, message, error)
     }
 
     fun error(message: String, error: Throwable? = null) {
-        runCatching { Log.e(TAG, message, error) }
+        // Release Error Boundary (Route retained scan failures through SecureLog)
+        // Error logs remain available for triage while the final emitter strips filesystem, VFS, and credential-bearing text.
+        SecureLog.error(TAG, message, error)
     }
 }

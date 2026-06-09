@@ -34,10 +34,12 @@ credentials, search history, device markers, and playback/runtime sync state sta
 
 <!-- Portable Settings Backup Policy (Document the only persistence artifact allowed to migrate)
      app_settings.preferences_pb contains user configuration, while Room rows and runtime sync state must be rebuilt after install. -->
-- `app/src/main/res/xml/backup_rules.xml` includes only `files/datastore/app_settings.preferences_pb` and excludes the Room `aplayer_database` files.
+<!-- Lint-Compatible Backup Allowlist (Explain why non-portable stores are omitted rather than excluded)
+     Android lint rejects excludes outside the included path set, so the backup contract protects sensitive state by including only app_settings.preferences_pb. -->
+- `app/src/main/res/xml/backup_rules.xml` includes only `files/datastore/app_settings.preferences_pb` for legacy Android auto-backup.
 - `app/src/main/res/xml/data_extraction_rules.xml` includes only `files/datastore/app_settings.preferences_pb` for cloud backup and device transfer.
-- Both rule files exclude `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, `files/datastore/abs_credentials.preferences_pb`, and `files/datastore/search_history.preferences_pb`.
-- Both rule files exclude `database/aplayer_database`, `database/aplayer_database-shm`, `database/aplayer_database-wal`, and `database/aplayer_database-journal`.
+- Both rule files intentionally avoid out-of-scope `exclude` nodes because `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, `files/datastore/abs_credentials.preferences_pb`, and `files/datastore/search_history.preferences_pb` are not included.
+- Both rule files intentionally avoid out-of-scope `exclude` nodes because `database/aplayer_database`, `database/aplayer_database-shm`, `database/aplayer_database-wal`, and `database/aplayer_database-journal` are not included.
 
 ## Room Schema Baseline
 

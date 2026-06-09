@@ -69,6 +69,9 @@ fun APlayerNavHost(
     // Settings Navigation Event (To delegate settings launch routing to upper controller)
     // Abstract callback parameter to notify parent overlay scope when user requests setting screen.
     onNavigateToSettings: () -> Unit,
+    // Home Add Library Event (Delegate empty-state source creation to the app shell)
+    // The NavHost only bridges the Home FAB intent; SettingsDialogHost and activity result launchers remain owned by APlayerApp.
+    onAddLibraryRequested: () -> Unit,
     // Detail Open Request (Route Home detail intents through the app-level transition gate)
     // APlayerNavHost owns Home route composition, while APlayerApp owns the overlay transition gate that protects shared-element return chains.
     onOpenDetail: (DetailOpenRequest) -> Unit,
@@ -97,7 +100,7 @@ fun APlayerNavHost(
     // Setup Entry Provider (Resolve NavKeys to Screen composables)
     // Declares the mapping of serializable NavKey to their respective Compose screen contents.
     // Explicit NavKey Provider (Fix Nav3 type parameter matching issue) Explicitly parameterize entryProvider with NavKey to bypass Kotlin contravariance compile errors.
-    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, onOpenDetail, homeDialogHazeState, homeTopBarHeightPx, homeTopBarScrollToTopRequest) {
+    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, onOpenDetail, onAddLibraryRequested, homeDialogHazeState, homeTopBarHeightPx, homeTopBarScrollToTopRequest) {
         entryProvider<NavKey> {
             entry<HomeRoute> {
                 /*
@@ -113,7 +116,8 @@ fun APlayerNavHost(
                     onOpenDetail = onOpenDetail,
                     homeDialogHazeState = homeDialogHazeState,
                     homeTopBarHeightPx = homeTopBarHeightPx,
-                    homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest
+                    homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest,
+                    onAddLibraryRequested = onAddLibraryRequested
                 )
             }
         }

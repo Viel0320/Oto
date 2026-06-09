@@ -12,6 +12,7 @@ import android.util.LruCache
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.scale
 import androidx.palette.graphics.Palette
+import com.viel.aplayer.logger.SecureLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -74,7 +75,9 @@ object ImageProcessor {
             val color = getDominantColor(thumbPath ?: originalFile.absolutePath)
             CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, color)
         } catch (e: Exception) {
-            Log.e(TAG, "保存有声书 $bookId 的自定义封面失败", e)
+            // Release Error Boundary (Sanitize custom cover persistence failures)
+            // Cover save failures can expose cache paths through Throwable text, so retained errors use SecureLog.
+            SecureLog.error(TAG, "保存有声书 $bookId 的自定义封面失败", e)
             CoverExtractor.CoverResult(null, null)
         }
     }
@@ -107,7 +110,9 @@ object ImageProcessor {
             val color = getDominantColor(thumbnailPath ?: originalPath)
             CoverExtractor.CoverResult(originalPath, thumbnailPath, color)
         } catch (e: Exception) {
-            Log.e(TAG, "保存内嵌封面字节失败", e)
+            // Release Error Boundary (Sanitize embedded cover persistence failures)
+            // Embedded artwork exceptions may include decoder or output path details, so release-retained errors use SecureLog.
+            SecureLog.error(TAG, "保存内嵌封面字节失败", e)
             CoverExtractor.CoverResult(null, null)
         }
     }
@@ -135,7 +140,9 @@ object ImageProcessor {
             val color = getDominantColor(thumbPath ?: originalFile.absolutePath)
             CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, color)
         } catch (e: Exception) {
-            Log.e(TAG, "处理外部 sidecar 图片失败", e)
+            // Release Error Boundary (Sanitize sidecar image processing failures)
+            // Sidecar file processing crosses user storage, so retained error diagnostics must scrub paths and exception text.
+            SecureLog.error(TAG, "处理外部 sidecar 图片失败", e)
             CoverExtractor.CoverResult(null, null)
         }
     }
@@ -172,7 +179,9 @@ object ImageProcessor {
             colorCache.put(path, color)
             return@withContext color
         } catch (e: Exception) {
-            Log.e(TAG, "提取主色失败: $path", e)
+            // Release Error Boundary (Sanitize dominant-color path failures)
+            // The input path can be a local cover cache or user file path, so SecureLog removes it before Logcat output.
+            SecureLog.error(TAG, "提取主色失败: $path", e)
             return@withContext DEFAULT_BACKGROUND_ARGB
         }
     }
@@ -208,7 +217,9 @@ object ImageProcessor {
         return try {
             Palette.from(bitmap).generate().getDominantColor(DEFAULT_BACKGROUND_ARGB)
         } catch (e: Exception) {
-            Log.e(TAG, "从 Bitmap 提取主色失败", e)
+            // Release Error Boundary (Sanitize bitmap color extraction failures)
+            // Palette exceptions are retained only after SecureLog removes any sensitive nested diagnostic text.
+            SecureLog.error(TAG, "从 Bitmap 提取主色失败", e)
             DEFAULT_BACKGROUND_ARGB
         }
     }
@@ -282,7 +293,9 @@ object ImageProcessor {
                     )
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Drawable 转换 Bitmap 异常", e)
+                // Release Error Boundary (Sanitize drawable conversion failures)
+                // Drawable wrappers can originate from file or network loaders, so retained errors must use SecureLog.
+                SecureLog.error(TAG, "Drawable 转换 Bitmap 异常", e)
                 null
             } ?: return DEFAULT_BACKGROUND_ARGB
 
@@ -297,7 +310,9 @@ object ImageProcessor {
 
             color
         } catch (e: Exception) {
-            Log.e(TAG, "从 Drawable 提取主色失败", e)
+            // Release Error Boundary (Sanitize drawable color extraction failures)
+            // The final color fallback keeps UI stable while SecureLog prevents retained exception text from leaking source data.
+            SecureLog.error(TAG, "从 Drawable 提取主色失败", e)
             DEFAULT_BACKGROUND_ARGB
         }
     }
@@ -412,7 +427,9 @@ object ImageProcessor {
             }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "保存位图失败: ${outputFile.absolutePath}", e)
+            // Release Error Boundary (Sanitize bitmap output file failures)
+            // The absolute output path is user/device-specific, so SecureLog strips it from release-retained diagnostics.
+            SecureLog.error(TAG, "保存位图失败: ${outputFile.absolutePath}", e)
             false
         }
     }
@@ -460,7 +477,9 @@ object ImageProcessor {
 
             thumbFile.absolutePath
         } catch (e: Exception) {
-            Log.e(TAG, "从文件生成缩略图失败", e)
+            // Release Error Boundary (Sanitize thumbnail generation failures)
+            // Thumbnail creation touches cache files, so retained errors must scrub any filesystem detail in Throwable text.
+            SecureLog.error(TAG, "从文件生成缩略图失败", e)
             null
         }
     }

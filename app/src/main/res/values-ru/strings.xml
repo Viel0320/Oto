@@ -377,6 +377,10 @@
     <string name="track_unavailable_body">Физический файл текущей дорожки отсутствует или поврежден. Пропустить эту дорожку и воспроизвести следующую доступную?\n\nПримечание: принудительный пропуск может нарушить запланированный прогресс прослушивания.</string>
     <string name="track_unavailable_confirm_skip">Подтвердить пропуск</string>
     <string name="home_action_mark_read_status">Отметить статус чтения</string>
+    <!-- Choice State Accessibility Copy (Localize selectable chip state descriptions)
+         Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
+    <string name="accessibility_choice_selected">Выбрано</string>
+    <string name="accessibility_choice_unselected">Не выбрано</string>
     <string name="home_action_regenerate_title">Перестроить обложки и метаданные</string>
     <string name="home_action_regenerate_subtitle">Принудительно извлечь обложку и описание из аудиофайлов</string>
     <string name="home_action_remove_title">Удалить из медиатеки</string>
@@ -384,6 +388,12 @@
     <string name="home_action_remove_confirm_title">Удалить из медиатеки?</string>
     <string name="home_action_remove_confirm_body">Удалить «%1$s» из медиатеки APlayer?\n\nПримечание: это мягкое удаление. Книга удаляется из плейлиста, но физические аудиофайлы в памяти телефона не удаляются.</string>
     <string name="home_action_remove_confirm_button">Подтвердить удаление</string>
+    <!-- Related Books Header Resources (Localize player recommendation section headings)
+         Creator-name templates stay separate for authors and narrators so each locale can express the relationship accurately. -->
+    <string name="player_related_recommended">Рекомендовано вам</string>
+    <string name="player_related_more_by_author">Другие книги автора %1$s</string>
+    <string name="player_related_more_by_narrator">Другие книги в озвучке %1$s</string>
+    <string name="player_related_recently_added">Недавно добавлено</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->
     <string name="common_unknown">Неизвестно</string>
     <string name="common_unknown_title">Неизвестное название</string>

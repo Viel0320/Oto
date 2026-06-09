@@ -235,6 +235,9 @@ class LibraryRootStoreTest {
         override suspend fun getActiveRootsOnce(): List<LibraryRootEntity> =
             roots.filter { root -> root.status == AudiobookSchema.LibraryRootStatus.ACTIVE }
 
+        override suspend fun getActiveAbsRootsOnce(): List<LibraryRootEntity> =
+            roots.filter(::isActiveAbsRoot)
+
         override suspend fun getRootById(id: String): LibraryRootEntity? =
             roots.firstOrNull { root -> root.id == id }
 
@@ -268,6 +271,13 @@ class LibraryRootStoreTest {
 
         override suspend fun deleteRoot(root: LibraryRootEntity) {
             roots.removeAll { existing -> existing.id == root.id }
+        }
+
+        private fun isActiveAbsRoot(root: LibraryRootEntity): Boolean {
+            // Active ABS Root Fixture Filter (Keep the fake aligned with the Room DAO warmup query)
+            // LibraryRootStore tests use one in-memory fake for all root queries, so the ABS-specific path must preserve both active-status and source-type predicates.
+            return root.status == AudiobookSchema.LibraryRootStatus.ACTIVE &&
+                root.sourceType == AudiobookSchema.LibrarySourceType.ABS
         }
     }
 

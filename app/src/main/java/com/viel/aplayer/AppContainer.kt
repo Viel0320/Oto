@@ -65,8 +65,8 @@ import com.viel.aplayer.media.PlaybackPlanGateway
 import com.viel.aplayer.media.PlaybackSourcePreflight
 
 /**
- * Global Dependency Container (Manages lifecycle and instantiation of core gateway services)
- * Serves as a lightweight DI provider for unified coordination across application domains.
+ * Public Dependency View Surface (Expose only narrow caller-facing contracts)
+ * Keeps graph-owned implementations out of the public application container so callers must use typed dependency views.
  */
 interface AppContainer :
     PlaybackRuntimeDependencies,
@@ -258,18 +258,6 @@ interface AppContainer :
     override val scanScheduler: ScanScheduler
 
     /**
-     * Library Root Gateway Adapter (Fine-grained maintenance interface for source root registration and reachability)
-     * Exposed for domain coordination and data services while presentation code consumes scene-specific root seams.
-     */
-    val libraryRootGateway: LibraryRootGateway
-
-    /**
-     * Search History Gateway Adapter (Fine-grained persistence interface for keyword lookup logs)
-     * Remains available for application services while screens reach search history through the search scene module.
-     */
-    val searchHistoryGateway: SearchHistoryGateway
-
-    /**
      * Virtual File System Interface (Single I/O access point for file path abstractions)
      */
     override val vfsFileInterface: VfsFileInterface
@@ -284,23 +272,6 @@ interface AppContainer :
      * Reads persisted library root rows without opening files or probing remote endpoints.
      */
     override val playbackSourcePreflight: PlaybackSourcePreflight
-
-    /**
-     * Playback Manager Instance (MediaGraph-owned singleton registry for media controller coordination)
-     * Keeps playback lifecycle ownership in the media graph while preserving existing callers during the migration.
-     */
-    val playbackManager: com.viel.aplayer.media.PlaybackManager
-
-    /**
-     * Search History Storage (Singleton reference to search term DataStore backend)
-     */
-    val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore
-
-    /**
-     * Auto Rewind Controller (MediaGraph-owned playback progress self-healing manager)
-     * Keeps playback recovery lifecycle beside the runtime manager instead of the persistence graph.
-     */
-    val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
 
     /**
      * ABS Catalog Synchronizer (Dedicated mirror processor for Audiobookshelf servers)
@@ -320,21 +291,58 @@ interface AppContainer :
      */
     override val absProgressConflictCoordinator: AbsProgressConflictCoordinator
 
+}
+
+/**
+ * Process Container Surface (Expose graph-owned implementations only to composition-root wiring)
+ * Keeps startup and process-level orchestration able to reach concrete graph adapters without widening the public AppContainer contract.
+ */
+internal interface ProcessContainer : AppContainer {
     /**
-     * ABS Authorized Progress Synchronizer (Reusable remote progress merge service)
-     * Pulls authorize.user.mediaProgress for existing ABS books and applies the shared progress conflict rules across startup, manual sync, and worker sync.
+     * Library Root Gateway Adapter (Internal source-root maintenance seam)
+     * Allows process wiring to coordinate root registration and reachability without making the gateway available through the public container type.
+     */
+    val libraryRootGateway: LibraryRootGateway
+
+    /**
+     * Search History Gateway Adapter (Internal keyword-history persistence seam)
+     * Preserves composition-root access to search-history storage while screen callers stay on search scene dependencies.
+     */
+    val searchHistoryGateway: SearchHistoryGateway
+
+    /**
+     * Playback Manager Instance (Internal media graph runtime owner)
+     * Keeps direct playback runtime access inside process wiring so foreground callers keep using playback dependency views.
+     */
+    val playbackManager: com.viel.aplayer.media.PlaybackManager
+
+    /**
+     * Search History Store (Internal DataStore backend reference)
+     * Prevents raw persistence storage from leaking through the public container while leaving graph wiring able to share the singleton.
+     */
+    val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore
+
+    /**
+     * Auto Rewind Controller (Internal playback recovery coordinator)
+     * Lets startup invoke cold-start self-healing without exposing MediaGraph-owned recovery machinery to general callers.
+     */
+    val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
+
+    /**
+     * ABS Authorized Progress Synchronizer (Internal remote progress merge adapter)
+     * Keeps authorized progress refresh mechanics available to graph wiring without adding them to the public dependency view union.
      */
     val absAuthorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer
 
     /**
-     * Application-Level ABS Sync Coordinator (Coordinates background server synchronization)
-     * Ensures sync events persist beyond SettingsActivity lifecycle, preventing unexpected interruptions.
+     * ABS Sync Task Coordinator (Internal application-level synchronization coordinator)
+     * Allows process-owned settings wiring to start root sync work while external callers use worker or scene dependency views.
      */
     val absSyncTaskCoordinator: AbsSyncTaskCoordinator
 }
 
 @UnstableApi
-class DefaultAppContainer(private val context: Context) : AppContainer {
+internal class DefaultAppContainer(private val context: Context) : ProcessContainer {
 
     internal val uiEvents = UiEventGraph()
     internal val data = DataGraph(context)

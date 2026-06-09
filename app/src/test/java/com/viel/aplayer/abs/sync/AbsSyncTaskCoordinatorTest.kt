@@ -301,6 +301,8 @@ class AbsSyncTaskCoordinatorTest {
     ) : LibraryRootDao {
         override fun getAllRoots(): Flow<List<LibraryRootEntity>> = flowOf(listOf(root))
         override suspend fun getActiveRootsOnce(): List<LibraryRootEntity> = listOf(root)
+        override suspend fun getActiveAbsRootsOnce(): List<LibraryRootEntity> =
+            root.takeIf(::isActiveAbsRoot)?.let(::listOf).orEmpty()
         override suspend fun getRootById(id: String): LibraryRootEntity? = root.takeIf { it.id == id }
         override suspend fun getAllRootsOnce(): List<LibraryRootEntity> = listOf(root)
         override suspend fun insertRoot(root: LibraryRootEntity) = Unit
@@ -319,6 +321,13 @@ class AbsSyncTaskCoordinatorTest {
             errorCode: String?
         ) = Unit
         override suspend fun deleteRoot(root: LibraryRootEntity) = Unit
+
+        private fun isActiveAbsRoot(root: LibraryRootEntity): Boolean {
+            // Active ABS Root Fixture Filter (Mirror the DAO predicate introduced for startup warmup)
+            // Keeps this fake compatible with LibraryRootDao while returning only roots that production would include in the active ABS query.
+            return root.status == AudiobookSchema.LibraryRootStatus.ACTIVE &&
+                root.sourceType == AudiobookSchema.LibrarySourceType.ABS
+        }
     }
 
     private class RecordingAppEventSink : AppEventSink {

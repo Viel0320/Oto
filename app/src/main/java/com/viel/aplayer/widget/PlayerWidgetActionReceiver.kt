@@ -4,11 +4,11 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.service.PlaybackService
 
 /**
@@ -74,13 +74,17 @@ class PlayerWidgetActionReceiver : BroadcastReceiver() {
                         // 4. Safely release the MediaController connection once completed.
                         MediaController.releaseFuture(controllerFuture)
                     } catch (e: Exception) {
-                        Log.e(TAG, "MediaController exception during widget command dispatch: ${e.message}", e)
+                        // Release Error Boundary (Sanitize widget command dispatch failures)
+                        // MediaController exceptions can include service or URI details, so retained errors must pass through SecureLog.
+                        SecureLog.error(TAG, "MediaController exception during widget command dispatch: ${e.message}", e)
                     } finally {
                         pendingResult.finish() // Explicitly terminate async broadcast cycle to prevent intent receiver leaks.
                     }
                 }, context.mainExecutor)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize widget media controller: ${e.message}", e)
+                // Release Error Boundary (Sanitize widget controller initialization failures)
+                // Initialization errors are useful for diagnostics but should not retain raw platform exception text.
+                SecureLog.error(TAG, "Failed to initialize widget media controller: ${e.message}", e)
                 pendingResult.finish()
             }
         }

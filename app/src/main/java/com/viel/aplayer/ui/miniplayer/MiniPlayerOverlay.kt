@@ -28,6 +28,7 @@ import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.settings.FullPlayerOpenSource
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -59,6 +60,15 @@ fun MiniPlayerOverlay(
     // Only monitor manually hidden state of the mini player
     val isMiniPlayerHidden by remember(playerViewModel) {
         playerViewModel.settingsState.map { it.isMiniPlayerHidden }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
+
+    // Mini Motion Source Eligibility (Expose mini shared scopes only for mini-origin transitions)
+    // Direct playback entries may still hide the mini-player visually, but they must not borrow
+    // its cover or bounds as a shared-element source.
+    val isMiniPlayerMotionSource by remember(playerViewModel) {
+        playerViewModel.settingsState
+            .map { it.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer }
+            .distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
 
     // Use global LocalWindowClass to obtain adaptive configuration details, determining alignment and whether to use a pill player, enhancing responsiveness and cohesion.
@@ -101,7 +111,11 @@ fun MiniPlayerOverlay(
                      * Publishes only the mini-player visibility scope for mini2player cover and
                      * bounds sources, keeping playback motion separate from Home->Detail motion.
                      */
-                    LocalMini2PlayerSourceScope provides this@AnimatedVisibility,
+                    LocalMini2PlayerSourceScope provides if (isMiniPlayerMotionSource) {
+                        this@AnimatedVisibility
+                    } else {
+                        null
+                    },
                     LocalAnimatedVisibilityScope provides this@AnimatedVisibility
                 ) {
                     // Component Isolation (Scope Down Recomposition)
@@ -179,7 +193,9 @@ private fun MiniPlayerContent(
                     isMediaAvailable = isMediaAvailable,
                     actions = actions,
                     hazeState = hazeState,
-                    onClick = { viewModel.setFullPlayerVisible(true) },
+                    // Mini Player Expand Command (Claim the mini-player transition source)
+                    // Only this click path should enable mini->player shared bounds and cover motion.
+                    onClick = { viewModel.openFullPlayerFromMini() },
                     glassEffectMode = glassEffectMode,
                     onColorExtracted = { coverColor = it }
                 )
@@ -196,7 +212,9 @@ private fun MiniPlayerContent(
                     isMediaAvailable = isMediaAvailable,
                     actions = actions,
                     hazeState = hazeState,
-                    onClick = { viewModel.setFullPlayerVisible(true) },
+                    // Mini Player Expand Command (Claim the mini-player transition source)
+                    // Only this click path should enable mini->player shared bounds and cover motion.
+                    onClick = { viewModel.openFullPlayerFromMini() },
                     glassEffectMode = glassEffectMode,
                     onColorExtracted = { coverColor = it }
                 )

@@ -1,7 +1,6 @@
 package com.viel.aplayer.widget
 
 import android.content.Context
-import android.util.Log
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -9,6 +8,7 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.glance.state.PreferencesGlanceStateDefinition
+import com.viel.aplayer.logger.SecureLog
 
 /**
  * Desktop widget state synchronization helper.
@@ -80,7 +80,9 @@ object PlayerWidgetStateHelper {
             // 3. Request actual UI recomposition.
             PlayerWidget().updateAll(context)
         } catch (e: Exception) {
-            Log.e(TAG, "Encountered physical exception when updating widget DataStore state: ${e.message}", e)
+            // Release Error Boundary (Sanitize widget DataStore update failures)
+            // Glance persistence exceptions may include file paths, so retained errors must flow through SecureLog.
+            SecureLog.error(TAG, "Encountered physical exception when updating widget DataStore state: ${e.message}", e)
         }
     }
 }

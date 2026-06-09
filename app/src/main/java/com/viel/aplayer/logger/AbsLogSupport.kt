@@ -81,6 +81,8 @@ internal object AbsLogEmitter {
     }
 
     fun warn(tag: String, message: String) {
-        runCatching { Log.w(tag, AbsLogSanitizer.sanitizeText(message)) }
+        // Release Warning Boundary (Reuse the secure retained-log emitter)
+        // ABS callers already sanitize domain values, and SecureLog performs the final path and throwable-safe scrub before Log.w.
+        SecureLog.warn(tag, message)
     }
 }

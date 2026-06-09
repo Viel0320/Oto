@@ -124,6 +124,9 @@ fun SettingsToggleItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        // Toggle Text-to-Switch Gap (Reserve a compact separation between setting copy and the trailing switch)
+        // The fixed 4.dp gap keeps long localized text from pressing directly into the switch while preserving the dense settings-row rhythm.
+        Spacer(modifier = Modifier.width(4.dp))
         Switch(
             checked = checked,
             onCheckedChange = null,

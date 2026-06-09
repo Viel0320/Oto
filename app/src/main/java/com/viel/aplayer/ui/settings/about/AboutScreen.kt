@@ -460,7 +460,9 @@ private fun LibraryCard(
                 // Anchor web hyperlink (To navigate users to project host site)
                 IconButton(
                     onClick = { onVisitUrl(library.url) },
-                    modifier = Modifier.size(36.dp)
+                    // Project Link Target (Keep the icon-only link at the 48.dp accessibility floor)
+                    // The visible OpenInNew glyph stays small, while the button surface remains reliable for touch, TalkBack, and Switch Access.
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.OpenInNew,

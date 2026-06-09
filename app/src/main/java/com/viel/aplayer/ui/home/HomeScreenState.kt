@@ -57,6 +57,9 @@ fun HomeScreen(
     // Home Top Bar Scroll Request (Consume title double-tap events from the NavHost-owned header)
     // The header lives outside Home content, so scroll-to-top is bridged as an incrementing event instead of sharing LazyGridState upward.
     homeTopBarScrollToTopRequest: Int = 0,
+    // Add Library Request (Forward Home empty-state FAB clicks to the app shell)
+    // The shell owns the Settings dialog controller and source pickers, keeping HomeScreen focused on catalog state and actions.
+    onAddLibraryRequested: () -> Unit = {},
 ) {
     val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
@@ -116,6 +119,11 @@ fun HomeScreen(
         homeTopBarHeightPx = homeTopBarHeightPx,
         homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest,
         isMiniPlayerVisible = playerUiState.hasActiveTrack,
+        // Empty Library FAB Rule (Show only after Home has resolved and there are no roots or no scanned books)
+        // Checking selectedFilter avoids first-frame flashes, while the root/book OR condition matches the onboarding requirement.
+        shouldShowAddLibraryFab = libraryUiState.selectedFilter != null &&
+            (!libraryUiState.hasRegisteredLibraryRoots || libraryUiState.audiobooks.isEmpty()),
+        onAddLibraryRequested = onAddLibraryRequested,
         onFilterSelected = { libraryViewModel.setFilter(it) },
         onNavigateToDetail = { id: String, entrySource: DetailEntrySource ->
             val book = libraryUiState.audiobooks.find { it.id == id }?.let { libraryBook ->
@@ -149,9 +157,11 @@ fun HomeScreen(
             playerViewModel.loadBook(id)
         },
         onNavigateToPlayer = {
-            playerViewModel.setFullPlayerVisible(true)
+            // Home Direct Playback Open (Keep catalog play buttons out of mini-player motion)
+            // The catalog play command does not have a full-player shared-element source, so it
+            // opens the player directly and resets to the primary cover view for a stable target.
+            playerViewModel.openFullPlayerFromDirect()
         },
-        onLibraryRootSelected = { uri -> libraryViewModel.onLibraryRootSelected(uri) },
         onBookActionsRequested = { homeBook ->
             // Home Dialog Request (Route long-press actions to the page dialog host)
             // Stores only the selected audiobook payload and lets HomeDialogHost derive the concrete dialog tree.

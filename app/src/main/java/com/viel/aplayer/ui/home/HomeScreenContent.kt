@@ -1,8 +1,5 @@
 package com.viel.aplayer.ui.home
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +25,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -115,7 +113,12 @@ fun HomeScreenContent(
     onNavigateToDetail: (String, DetailEntrySource) -> Unit = { _, _ -> },
     onNavigateToPlayer: () -> Unit = {},
     onLoadBook: (String) -> Unit = {},
-    onLibraryRootSelected: (Uri) -> Unit = {},
+    // Empty Library FAB Visibility (Expose the parent-owned onboarding decision)
+    // The content layer keeps the existing floating action button styling but only renders it when Home state says no library roots exist or the catalog is empty.
+    shouldShowAddLibraryFab: Boolean = false,
+    // Add Library Dialog Request (Delegate source-type selection to the app-level Settings dialog host)
+    // Home no longer opens SAF directly; it asks the shell to reuse the Settings add-library flow for SAF, WebDAV, and Audiobookshelf.
+    onAddLibraryRequested: () -> Unit = {},
     // Book Actions Request Event (Report long-press user intent to the Home dialog host)
     // The content layer no longer owns dialog visibility or dialog rendering, keeping bookshelf layout independent from concrete modal implementations.
     onBookActionsRequested: (HomeBookItem) -> Unit = {},
@@ -133,12 +136,6 @@ fun HomeScreenContent(
     // Localized Home Badge Copy (Share the new-item label between list rows and grid-rendered catalog cards)
     // Progress percentages are runtime values, but the fallback NEW marker is authored app UI copy.
     val newBadgeText = stringResource(R.string.common_new_badge)
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        uri?.let(onLibraryRootSelected)
-    }
-
     // WindowClass Adaptation Setup (Determine Adaptation Configuration)
     // Use the unified WindowClass interface to obtain current window size class, columns count, and horizontal margins.
     // This avoids hard-coded layout judgments by reading configurations directly through LocalConfiguration, improving high cohesion and scalability for multi-device adaptation.
@@ -198,27 +195,29 @@ fun HomeScreenContent(
             // Explicitly exclude the software keyboard (IME) from default contentWindowInsets.
             // This cuts off layout re-measurement and unnecessary home page recombinations caused by innerPadding changes from software keyboard popups.
             contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { 
-                    launcher.launch(null)
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape,
-                modifier = Modifier
-                    .padding(bottom = if (isMiniPlayerVisible) 80.dp else 16.dp)
-                    .navigationBarsPadding()
-                    .size(64.dp)
-            ) {
-                Icon(
-                    Icons.Rounded.Add,
-                    contentDescription = stringResource(R.string.import_content_description),
-                    modifier = Modifier.size(32.dp)
-                )
+            floatingActionButton = {
+                if (shouldShowAddLibraryFab) {
+                    // Empty Catalog Add Library FAB (Reuse the familiar Home creation affordance only for onboarding/empty states)
+                    // Clicking this FAB opens the same source-type dialog as Settings, so local SAF is no longer the only path available from Home.
+                    FloatingActionButton(
+                        onClick = onAddLibraryRequested,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .padding(bottom = if (isMiniPlayerVisible) 80.dp else 16.dp)
+                            .navigationBarsPadding()
+                            .size(64.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Add,
+                            contentDescription = stringResource(R.string.settings_add_library_title),
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
             }
-        }
-    ) { innerPadding ->
+        ) { innerPadding ->
         // Overlay Top Bar Padding (Use measured top bar height because top bar is no longer a Scaffold slot) Lets scroll content move behind the glass bar after the initial reserved space scrolls away.
         Column(
             modifier = Modifier.fillMaxSize()
@@ -257,6 +256,9 @@ fun HomeScreenContent(
                         LazyRow(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                // Filter Choice Group Semantics (Mark Home filters as one mutually exclusive choice row)
+                                // TalkBack and Switch Access can traverse the custom Haze chips as related alternatives instead of unrelated clickable labels.
+                                .selectableGroup()
                                 // Chip Bottom Spacing (Add extra bottom padding to separate filter chips from underneath lists) Ensure layout breathing distance.
                                 .padding(bottom = 8.dp),
                             // Align Filter Row (Apply Horizontal Margins)

@@ -2,6 +2,27 @@ package com.viel.aplayer.ui.settings
 
 import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 
+/**
+ * Full Player Open Source (Separates visual transition origins)
+ * Records which UI surface requested the current full-player visibility change so direct
+ * playback entries cannot accidentally reuse the mini-player shared element channel.
+ */
+enum class FullPlayerOpenSource {
+    /**
+     * Direct Playback Entry (Use ordinary full-player presentation)
+     * Home, Search, Detail, widget, and other non-mini commands open the player without
+     * claiming a mini-player source cover or bounds transition.
+     */
+    Direct,
+
+    /**
+     * Mini Player Entry (Allow mini-to-player shared motion)
+     * Mini-player taps and full-player minimization keep the compact player as the visual
+     * source or target, enabling the dedicated mini <-> player animation only for that flow.
+     */
+    MiniPlayer
+}
+
 
 /**
  * UI setting state model (Container for UI view states)
@@ -26,6 +47,12 @@ data class PlayerSettingsState(
     val isChapterProgressMode: Boolean = false,
     /** Short seek step configuration (To render and execute rewind/forward transport controls) */
     val playbackSeekStepConfig: PlaybackSeekStepConfig = PlaybackSeekStepConfig(),
+    /**
+     * Full player open source (To isolate shared-element eligibility by caller)
+     * This UI-only state keeps direct playback openings away from the mini-player motion channel
+     * while preserving the mini <-> player animation for compact-player expand and collapse.
+     */
+    val fullPlayerOpenSource: FullPlayerOpenSource = FullPlayerOpenSource.Direct,
     /** Fullscreen player visibility (To control whether the full player screen is displayed) */
     val isFullPlayerVisible: Boolean = false
 )

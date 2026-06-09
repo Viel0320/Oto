@@ -1,7 +1,5 @@
 package com.viel.aplayer.ui.common
 
-// Setup Haze Snackbar Integration (Replace old blur implementation with dev.chrisbanes.haze) Replaced backdrop APIs with HazeState, hazeChild, and HazeMaterials.
-// Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,25 +21,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
+import com.viel.aplayer.ui.common.theme.LocalDarkTheme
+import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * BlurSnackbar — A generic Snackbar wrapper supporting real-time dual-state switching between Material 3 native styling and Haze frosted glass.
+ * BlurSnackbar (Material-compatible snackbar with app-owned Haze glass rendering)
  *
- * Core Principles:
- * 1. Color Adaptation and Blur:
- *    - Haze mode: Sets the Surface container color to fully transparent, relying on hazeChild to render the blurred background.
- *    - Material mode: Uses standard native colors and container corner radiuses to guarantee the peak performance and pure experience of native styling.
+ * Haze mode keeps the Material snackbar layout but routes the background through the shared
+ * liquid-glass renderer used by dialogs, sheets, menus, and top bars. This avoids old raw
+ * snackbar presets applying an overly dark tint when the app forces dark Haze mode.
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurSnackbar(
     modifier: Modifier = Modifier,
-    // Support Nullable HazeState (Provide fallback when hazeState is not ready)
-    // Make hazeState optional and default to null so the snackbar can degrade gracefully in previews or when parent has no blur context.
+    // Snackbar Backdrop Input (Accept the caller-owned sampling source)
+    // The caller decides which page or overlay layer registers hazeSource; this component only consumes the already-resolved source.
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
     action: @Composable (() -> Unit)? = null,
@@ -54,85 +50,50 @@ fun BlurSnackbar(
     dismissActionContentColor: Color = SnackbarDefaults.dismissActionContentColor,
     content: @Composable () -> Unit
 ) {
-    // Limit Snackbar max width.
-    //
-    // Constrain the maximum width to 480.dp to provide better visual layout and readability on large-screen/landscape devices.
+    // Snackbar Width Bound (Match Material readability on wide and landscape screens)
+    // The component still fills available compact width while preventing long desktop/tablet lines from becoming hard to scan.
     val constrainedModifier = modifier.widthIn(max = 480.dp)
 
-    // Align with the Haze mode, using hazeChild on the fly to render the frosted glass effect when hazeState is available.
     if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
-        // Obtain the current dark mode status of the system for dual-state frosted glass color adaptation.
+        // Snackbar Glass Tint (Use a light wash in forced-dark Haze mode)
+        // The shared liquid renderer defaults to a dark tint, so snackbar supplies a lighter local tint to avoid reading as a black background.
+        val snackbarGlassTint = if (LocalDarkTheme.current) {
+            Color.White.copy(alpha = 0.10f)
+        } else {
+            Color.Black.copy(alpha = 0.08f)
+        }
+        // Haze Snackbar Glass Layer (Use the shared liquid-glass renderer instead of old raw presets)
+        // Raw material presets can tint the snackbar black under forced-dark Haze mode, while this path keeps blur and tint consistent with the rest of the app chrome.
         val glassModifier = Modifier
-            // Remove Specular and Border (Clean up glass effect decoration) Remove extra linear gradient background overlay and border properties for minimalist design.
-            // Clip snackbar shape before applying hazeChild
             .clip(shape)
-            .hazeEffect(
+            .liquidGlassCompatEffect(
                 state = hazeState,
-                style = HazeMaterials.ultraThick()
+                style = LiquidGlassStyle(
+                    tint = snackbarGlassTint,
+                    shape = shape
+                )
             )
 
-        // Custom shadowless Surface.
-        //
-        // Force shadow and tonal elevation to 0.dp to eliminate black edge projection artifacts.
-        // It draws the blurred background and adaptive light/dark semi-transparent base color by mounting Haze, achieving a gorgeous, clear, and high-end frosted glass effect.
+        // Haze Snackbar Surface (Let the effect provide the visible glass body)
+        // A transparent Surface avoids stacking Material's opaque snackbar container on top of the sampled backdrop.
         Surface(
-            modifier = constrainedModifier
-                .then(glassModifier),
+            modifier = constrainedModifier.then(glassModifier),
             shape = shape,
             color = Color.Transparent,
             contentColor = contentColor,
             shadowElevation = 0.dp,
             tonalElevation = 0.dp
         ) {
-            // High-precision simulation of the official M3 Snackbar layout. Force the minimum height constraint using defaultMinSize, and support actionOnNewLine and dismissAction.
-            if (actionOnNewLine) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .defaultMinSize(minHeight = 68.dp)
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        content()
-                    }
-                    Row(
-                        modifier = Modifier.align(Alignment.End),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (action != null) action()
-                        if (dismissAction != null) dismissAction()
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .defaultMinSize(minHeight = 48.dp)
-                        .padding(
-                            start = 16.dp,
-                            end = if (action != null || dismissAction != null) 8.dp else 16.dp
-                        ),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            // Dynamically assign vertical padding (10.dp or 14.dp) based on the presence of actions to prevent padding accumulation between Row and internal child items.
-                            .padding(vertical = if (action != null || dismissAction != null) 10.dp else 14.dp)
-                    ) {
-                        content()
-                    }
-
-                    if (action != null) action()
-                    if (dismissAction != null) dismissAction()
-                }
-            }
+            BlurSnackbarContent(
+                action = action,
+                dismissAction = dismissAction,
+                actionOnNewLine = actionOnNewLine,
+                content = content
+            )
         }
     } else {
-        // Material native mode, directly using the official standard Snackbar to preserve optimal rendering compatibility.
+        // Material Snackbar Fallback (Use the official component when glass is disabled or unavailable)
+        // This preserves platform snackbar layout, colors, and action handling outside Haze mode.
         Snackbar(
             modifier = constrainedModifier,
             action = action,
@@ -145,5 +106,62 @@ fun BlurSnackbar(
             dismissActionContentColor = dismissActionContentColor,
             content = content
         )
+    }
+}
+
+@Composable
+private fun BlurSnackbarContent(
+    action: @Composable (() -> Unit)?,
+    dismissAction: @Composable (() -> Unit)?,
+    actionOnNewLine: Boolean,
+    content: @Composable () -> Unit
+) {
+    if (actionOnNewLine) {
+        // Two-Line Action Layout (Mirror Material snackbar behavior for long messages or multiple actions)
+        // The action row moves below the message while preserving the same spacing contract as the previous custom snackbar body.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 68.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                content()
+            }
+            Row(
+                modifier = Modifier.align(Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (action != null) action()
+                if (dismissAction != null) dismissAction()
+            }
+        }
+    } else {
+        // Single-Line Action Layout (Mirror Material snackbar density for compact feedback)
+        // Message and actions stay in one row while vertical padding adapts to whether trailing actions are present.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 48.dp)
+                .padding(
+                    start = 16.dp,
+                    end = if (action != null || dismissAction != null) 8.dp else 16.dp
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = if (action != null || dismissAction != null) 10.dp else 14.dp)
+            ) {
+                content()
+            }
+
+            if (action != null) action()
+            if (dismissAction != null) dismissAction()
+        }
     }
 }

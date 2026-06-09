@@ -13,6 +13,7 @@ import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.MetadataSuggestion
 import com.viel.aplayer.library.orchestrator.draftmodels.BookDraft
 import com.viel.aplayer.library.vfsFileKey
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.AudiobookMetadata
 import com.viel.aplayer.media.manifest.AudioMetadataRef
 import com.viel.aplayer.media.manifest.HeuristicAggregationPlan
@@ -258,7 +259,9 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         return runCatchingCancellable {
             ManifestAudioMetadata(firstAudio, metadataResolver.extract(firstAudio))
         }.onFailure { error ->
-            Log.w(TAG, "Failed to read manifest fallback metadata: ${firstAudio.vfsDisplayId()}", error)
+            // Release Warning Boundary (Sanitize manifest fallback metadata failures)
+            // The VFS display identifier may include source coordinates, so retained warnings must pass through SecureLog.
+            SecureLog.warn(TAG, "Failed to read manifest fallback metadata: ${firstAudio.vfsDisplayId()}", error)
         }.getOrNull()
     }
 

@@ -367,6 +367,10 @@
     <string name="track_unavailable_body">The physical file for the current track is missing or corrupted. Skip this track and play the next available one?\n\nNote: forced skipping may disrupt the planned listening progress.</string>
     <string name="track_unavailable_confirm_skip">Confirm Skip</string>
     <string name="home_action_mark_read_status">Mark Reading Status</string>
+    <!-- Choice State Accessibility Copy (Localize selectable chip state descriptions)
+         Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
+    <string name="accessibility_choice_selected">Selected</string>
+    <string name="accessibility_choice_unselected">Not selected</string>
     <string name="home_action_regenerate_title">Rebuild Covers and Metadata</string>
     <string name="home_action_regenerate_subtitle">Force cover and description extraction from audio files</string>
     <string name="home_action_remove_title">Remove from Media Library</string>
@@ -386,6 +390,12 @@
     <string name="media_session_forward_20">Forward 20 seconds</string>
     <string name="media_session_forward_30">Forward 30 seconds</string>
     <string name="media_session_add_bookmark">Add Bookmark</string>
+    <!-- Related Books Header Resources (Localize player recommendation section headings)
+         Creator-name templates stay separate for authors and narrators so each locale can express the relationship accurately. -->
+    <string name="player_related_recommended">Recommended for You</string>
+    <string name="player_related_more_by_author">More by %1$s</string>
+    <string name="player_related_more_by_narrator">More narrated by %1$s</string>
+    <string name="player_related_recently_added">Recently Added</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->
     <string name="common_unknown">Unknown</string>
     <string name="common_unknown_title">Unknown Title</string>

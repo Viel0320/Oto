@@ -22,10 +22,14 @@ internal object LibraryWorkflowLogger {
     }
 
     fun warn(message: String, error: Throwable? = null) {
-        runCatching { Log.w(TAG, message, error) }
+        // Release Warning Boundary (Route retained library diagnostics through SecureLog)
+        // Cross-root workflows can include source identifiers, so the shared emitter hashes or removes sensitive coordinates.
+        SecureLog.warn(TAG, message, error)
     }
 
     fun error(message: String, error: Throwable? = null) {
-        runCatching { Log.e(TAG, message, error) }
+        // Release Error Boundary (Route retained library failures through SecureLog)
+        // This keeps operational failure types visible without preserving user file names or provider paths.
+        SecureLog.error(TAG, message, error)
     }
 }

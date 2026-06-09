@@ -70,6 +70,7 @@ import com.viel.aplayer.application.library.edit.EditBookDraft
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.library.vfs.VfsExternalInputReader
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -774,7 +775,9 @@ private fun cropToSquareAndSave(
         bitmap.recycle()
         return true
     } catch (e: Exception) {
-        android.util.Log.e("EditBookScreen", "居中裁剪正方形封面失败，原因: ", e)
+        // Release Error Boundary (Sanitize manual cover crop failures)
+        // Cover editing reads user-selected image streams, so retained errors must not emit provider paths or raw exception text.
+        SecureLog.error("EditBookScreen", "居中裁剪正方形封面失败，原因: ", e)
         try { inputStream?.close() } catch (_: Exception) {}
         return false
     }

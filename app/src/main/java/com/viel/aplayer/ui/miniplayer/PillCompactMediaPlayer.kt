@@ -310,7 +310,9 @@ fun PillCompactMediaPlayer(
 
                 IconButton(
                     onClick = actions.onPlayPauseClick,
-                    modifier = Modifier.size(40.dp)
+                    // Compact Transport Target (Preserve the pill's small visual control while restoring a 48.dp accessible command area)
+                    // The IconButton owns focus, touch, and Switch Access bounds, and the inner glyph keeps the compact transport appearance.
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = if (isPlaying) {

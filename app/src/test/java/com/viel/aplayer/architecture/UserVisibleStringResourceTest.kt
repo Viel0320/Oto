@@ -47,7 +47,13 @@ class UserVisibleStringResourceTest {
             "player_widget_fallback_author",
             "media_session_add_bookmark",
             "chapter_file_unavailable_description",
-            "bookmark_default_title"
+            "bookmark_default_title",
+            // Related Books Header Resource Snapshot (Pins player related-section titles after recommendation localization)
+            // These keys keep static and creator-name headings available to Compose and locale compatibility tests.
+            "player_related_recommended",
+            "player_related_more_by_author",
+            "player_related_more_by_narrator",
+            "player_related_recently_added"
         ).forEach { key ->
             assertTrue("strings.xml must define $key.", strings.contains("""name="$key""""))
         }
@@ -201,6 +207,27 @@ class UserVisibleStringResourceTest {
         )
     }
 
+    @Test
+    fun relatedBooksComponentResolvesAppOwnedVisibleCopyThroughResources() {
+        val violations = relatedBooksComponentSourceFiles()
+            .flatMap { file ->
+                val text = file.readText(Charsets.UTF_8).substringBefore("@Preview")
+                relatedBooksHardCodedCopyRegex.findAll(text).map { match ->
+                    "${file.repoRelativePath()} contains ${match.value.trim()}"
+                }
+            }
+
+        // Related Books Copy Guard (Locks recommendation section headings to Android resources)
+        // The related-books component owns player-provided headers, while book metadata and preview fixtures stay outside this scan.
+        assertTrue(
+            buildString {
+                appendLine("Related books components must resolve app-owned visible copy through stringResource/getString.")
+                violations.forEach { violation -> appendLine("- $violation") }
+            },
+            violations.isEmpty()
+        )
+    }
+
     private fun guardedSourceFiles(): List<File> =
         listOf(
             "app/src/main/java/com/viel/aplayer/ui/settings/SleepTimerManager.kt",
@@ -210,6 +237,9 @@ class UserVisibleStringResourceTest {
             "app/src/main/java/com/viel/aplayer/ui/settings/SettingsViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/PlayerViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/components/PlaybackControls.kt",
+            // Related Books Guard Path (Track player recommendation section titles after localization)
+            // This component owns app-provided related-book headings, so it must stay under migrated copy guard coverage.
+            "app/src/main/java/com/viel/aplayer/ui/player/components/RelatedBooksView.kt",
             "app/src/main/java/com/viel/aplayer/ui/home/LibraryViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/components/ChapterList.kt",
             "app/src/main/java/com/viel/aplayer/widget/PlayerWidget.kt",
@@ -226,6 +256,13 @@ class UserVisibleStringResourceTest {
             // These files own blank metadata labels and playback actions, so hard-coded English here would bypass localization and TalkBack review.
             "app/src/main/java/com/viel/aplayer/ui/detail/components/DetailHeader.kt",
             "app/src/main/java/com/viel/aplayer/ui/detail/components/DetailControlPanel.kt"
+        ).map(::repoFile)
+
+    private fun relatedBooksComponentSourceFiles(): List<File> =
+        listOf(
+            // Related Books Presentation Guard Path (Limit hard-coded copy scanning to app-owned recommendation headers)
+            // RelatedAudiobookItem renders imported metadata through shared list rows, so this guard focuses on the player tab shell.
+            "app/src/main/java/com/viel/aplayer/ui/player/components/RelatedBooksView.kt"
         ).map(::repoFile)
 
     private data class ForbiddenPattern(
@@ -329,6 +366,9 @@ class UserVisibleStringResourceTest {
         )
         private val settingsComponentHardCodedCopyRegex = Regex(
             """(?:Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+"|contentDescription\s*=\s*"[^"\n]+"|title\s*=\s*"[^"\n]+"|subtitle\s*=\s*"[^"\n]+"|label\s*=\s*"[^"\n]+")"""
+        )
+        private val relatedBooksHardCodedCopyRegex = Regex(
+            """(?:RelatedSectionHeader\s*\(\s*"[^"\n]+"|Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+")"""
         )
 
         private val commonMojibakeMarkers = listOf(

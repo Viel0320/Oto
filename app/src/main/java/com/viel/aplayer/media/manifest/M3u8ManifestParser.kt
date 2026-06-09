@@ -1,6 +1,6 @@
 package com.viel.aplayer.media.manifest
 
-import android.util.Log
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.MetadataSuggestion
 import kotlinx.coroutines.Dispatchers
@@ -111,7 +111,9 @@ object M3u8ManifestParser {
                 }
             }
         } catch (e: Exception) {
-            Log.e("M3u8Parser", "Failed to parse M3U8: $displayName", e)
+            // Release Error Boundary (Sanitize M3U8 parse failures)
+            // Playlist names and parser exception text are user-controlled, so retained errors must use SecureLog.
+            SecureLog.error("M3u8Parser", "Failed to parse M3U8: $displayName", e)
         }
         return M3u8Result(
             // Parsed playlist metadata is sparse by design; ImportOrchestrator fills gaps from first audio.

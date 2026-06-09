@@ -1,49 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Portable Settings Backup Scope (Limit cloud backup to user preferences only)
-             Only app_settings.preferences_pb is intended to survive reinstall; database and runtime stores are excluded below to prevent stale playback state restoration. -->
+        <!-- Cloud Backup Portable Settings Allowlist (Keep cloud restore limited to user preferences)
+             Android lint treats out-of-scope excludes as invalid when an include allowlist is present, so only app_settings.preferences_pb is included and non-portable stores remain outside cloud backup by absence. -->
         <include domain="file" path="datastore/app_settings.preferences_pb"/>
-        <!-- Database Restore Boundary (Exclude Room files that contain library, progress, and ABS runtime records)
-             ABS playback sessions and pending progress uploads are runtime state, so restoring these SQLite artifacts could revive stale remote sync work. -->
-        <exclude domain="database" path="aplayer_database"/>
-        <exclude domain="database" path="aplayer_database-shm"/>
-        <exclude domain="database" path="aplayer_database-wal"/>
-        <exclude domain="database" path="aplayer_database-journal"/>
-        <!-- Exclude Device Preferences (Prevent device identity state from cloud restore)
-             Device-scoped preferences must be regenerated per installation rather than restored as portable settings. -->
-        <exclude domain="sharedpref" path="device.xml"/>
-        <!-- Exclude WebDAV Credentials (Prevent WebDAV secrets from leaking via cloud backups)
-             Explicitly exclude webdav_credentials.xml from cloud backups. -->
-        <exclude domain="sharedpref" path="webdav_credentials.xml"/>
-        <!-- Exclude ABS Credentials (Prevent Audiobookshelf tokens from leaking via cloud backups)
-             Explicitly exclude abs_credentials.preferences_pb from cloud backups. -->
-        <exclude domain="file" path="datastore/abs_credentials.preferences_pb"/>
-        <!-- Exclude Search History (Keep ephemeral UI query history out of cloud restore)
-             Search history is local interaction state rather than portable user configuration. -->
-        <exclude domain="file" path="datastore/search_history.preferences_pb"/>
     </cloud-backup>
     <device-transfer>
-        <!-- Portable Settings Transfer Scope (Limit device transfer to user preferences only)
-             Device-to-device migration may carry app settings, but must not carry Room or transient playback/sync state. -->
+        <!-- Device Transfer Portable Settings Allowlist (Keep device migration limited to user preferences)
+             The transfer path mirrors cloud backup so Room files, credentials, search history, and device markers are never selected for migration in the first place. -->
         <include domain="file" path="datastore/app_settings.preferences_pb"/>
-        <!-- Database Transfer Boundary (Exclude Room files from direct device migration)
-             Restoring SQLite files across devices could resurrect stale ABS sessions and pending progress sync rows before the new root is validated. -->
-        <exclude domain="database" path="aplayer_database"/>
-        <exclude domain="database" path="aplayer_database-shm"/>
-        <exclude domain="database" path="aplayer_database-wal"/>
-        <exclude domain="database" path="aplayer_database-journal"/>
-        <!-- Exclude Device Preferences (Prevent local identity markers from crossing devices)
-             Device-scoped preferences are regenerated on the target device instead of transferred. -->
-        <exclude domain="sharedpref" path="device.xml"/>
-        <!-- Exclude WebDAV Credentials (Prevent WebDAV secrets from leaking via device transfer)
-             Explicitly exclude webdav_credentials.xml from device transfer. -->
-        <exclude domain="sharedpref" path="webdav_credentials.xml"/>
-        <!-- Exclude ABS Credentials (Prevent Audiobookshelf tokens from leaking via device transfer)
-             Explicitly exclude abs_credentials.preferences_pb from device transfer. -->
-        <exclude domain="file" path="datastore/abs_credentials.preferences_pb"/>
-        <!-- Exclude Search History (Keep ephemeral UI query history out of device transfer)
-             Recent searches are local usage traces and should not be treated as user settings. -->
-        <exclude domain="file" path="datastore/search_history.preferences_pb"/>
     </device-transfer>
 </data-extraction-rules>

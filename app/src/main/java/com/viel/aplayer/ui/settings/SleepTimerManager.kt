@@ -4,6 +4,7 @@ import android.content.Context
 import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackState
 import kotlinx.coroutines.CoroutineScope
@@ -189,7 +190,9 @@ class SleepTimerManager(
                 vibrator.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
             }
         } catch (e: Exception) {
-            android.util.Log.e("SleepTimerManager", "震动反馈失败", e)
+            // Release Error Boundary (Sanitize haptic feedback failures)
+            // Platform vibrator exceptions can contain OEM-specific diagnostic text, so retained errors use SecureLog.
+            SecureLog.error("SleepTimerManager", "震动反馈失败", e)
         }
     }
 

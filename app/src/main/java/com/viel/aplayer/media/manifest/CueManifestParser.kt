@@ -1,9 +1,9 @@
 package com.viel.aplayer.media.manifest
 
-import android.util.Log
 import com.viel.aplayer.library.ChapterCandidate
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.MetadataSuggestion
+import com.viel.aplayer.logger.SecureLog
 import java.io.BufferedInputStream
 import java.io.BufferedReader
 import java.io.InputStream
@@ -167,7 +167,9 @@ object CueManifestParser {
                 sidecarCoverFile = sidecarPayload.coverFile
             )
         } catch (e: Exception) {
-            Log.e("CueParser", "Error parsing CUE: $displayName", e)
+            // Release Error Boundary (Sanitize CUE parse failures)
+            // CUE filenames and parser failures can include local paths, so release-retained errors use SecureLog.
+            SecureLog.error("CueParser", "Error parsing CUE: $displayName", e)
             return null
         }
     }

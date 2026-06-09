@@ -37,7 +37,7 @@
 -dontwarn javax.annotation.**
 
 # Release Log Stripping (Remove verbose, debug, and info logs from release artifacts)
-# Sensitive paths and diagnostic details are kept out of release binaries by letting R8 erase these calls.
+# Warning and error diagnostics remain available for release triage and must route through SecureLog to scrub paths, URLs, and exception text.
 -assumenosideeffects class android.util.Log {
     public static boolean isLoggable(java.lang.String, int);
     public static int v(...);

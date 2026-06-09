@@ -6,8 +6,8 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
-import android.util.Log
 import com.viel.aplayer.data.store.AppLanguage
+import com.viel.aplayer.logger.SecureLog
 
 object AppLocaleController {
     private const val TAG = "AppLocaleController"
@@ -23,7 +23,9 @@ object AppLocaleController {
                 LocaleList.forLanguageTags(SUPPORTED_LOCALE_TAGS)
             )
         }.onFailure { error ->
-            Log.w(TAG, "Failed to publish app locale config", error)
+            // Release Warning Boundary (Sanitize platform locale publication failures)
+            // OEM locale APIs can return platform exception text, so retained warnings use the secure emitter.
+            SecureLog.warn(TAG, "Failed to publish app locale config", error)
         }
     }
 
@@ -36,7 +38,9 @@ object AppLocaleController {
             val localeManager = context.getSystemService(LocaleManager::class.java)
             localeManager.applicationLocales = LocaleList.forLanguageTags(language.localeTag)
         }.onFailure { error ->
-            Log.w(TAG, "Failed to apply app locale ${language.localeTag}", error)
+            // Release Warning Boundary (Sanitize platform locale application failures)
+            // The selected locale tag is safe context, while SecureLog removes sensitive text from the Throwable chain.
+            SecureLog.warn(TAG, "Failed to apply app locale ${language.localeTag}", error)
         }
     }
 
@@ -52,7 +56,9 @@ object AppLocaleController {
                 .trim()
             AppLanguage.fromLocaleTag(firstLocaleTag) ?: AppLanguage.System
         }.getOrElse { error ->
-            Log.w(TAG, "Failed to read platform app locale", error)
+            // Release Warning Boundary (Sanitize platform locale readback failures)
+            // Readback warnings remain useful for OEM compatibility triage without preserving raw exception payloads.
+            SecureLog.warn(TAG, "Failed to read platform app locale", error)
             null
         }
     }

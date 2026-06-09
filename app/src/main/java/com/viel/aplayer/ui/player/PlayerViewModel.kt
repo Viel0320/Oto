@@ -24,6 +24,7 @@ import com.viel.aplayer.media.PlaybackMediaId
 import com.viel.aplayer.media.PlaybackSeekStepPolicy
 import com.viel.aplayer.media.subtitle.SubtitleParser
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
+import com.viel.aplayer.ui.settings.FullPlayerOpenSource
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import kotlinx.coroutines.Dispatchers
@@ -687,7 +688,10 @@ class PlayerViewModel : ViewModel() {
             _restoredPlaybackSnapshot.value = null
             _currentSubtitles.value = emptyList()
             playbackController?.pause()
-            settingsManager.setFullPlayerVisible(false)
+            settingsManager.setFullPlayerVisible(
+                visible = false,
+                openSource = FullPlayerOpenSource.Direct
+            )
             settingsManager.setMiniPlayerHidden(true)
         }
     }
@@ -810,13 +814,57 @@ class PlayerViewModel : ViewModel() {
             ?: error("PlayerViewModel must be initialized before resolving the default bookmark title.")
     }
     fun setSelectedContentTab(tab: Int) = settingsManager.setSelectedContentTab(tab)
-    fun setFullPlayerVisible(visible: Boolean) {
-        settingsManager.setFullPlayerVisible(visible)
+    /**
+     * Full Player Visibility Routing (Default non-mini callers to direct presentation)
+     * Existing callers remain source-safe: opening defaults to Direct, while hiding defaults to
+     * MiniPlayer so the normal full-player minimization path can still animate back to compact UI.
+     */
+    fun setFullPlayerVisible(
+        visible: Boolean,
+        openSource: FullPlayerOpenSource = if (visible) {
+            FullPlayerOpenSource.Direct
+        } else {
+            FullPlayerOpenSource.MiniPlayer
+        }
+    ) {
+        settingsManager.setFullPlayerVisible(
+            visible = visible,
+            openSource = openSource
+        )
         if (visible) {
             // Restore mini-player visibility (To reveal compact playback controls in root layout)
             // Ensures bottom control panel is restored when leaving full-screen views.
             settingsManager.setMiniPlayerHidden(false)
         }
+    }
+
+    /**
+     * Direct Full Player Open (Open playback from non-mini surfaces without shared mini motion)
+     * Home, Search, Detail, and widget playback commands should land on the main player surface
+     * and must not reuse the mini-player cover or bounds transition from an older playback card.
+     */
+    fun openFullPlayerFromDirect() {
+        settingsManager.setSelectedContentTab(PlayerScreenMode.PLAYER.index)
+        setFullPlayerVisible(
+            visible = true,
+            openSource = FullPlayerOpenSource.Direct
+        )
+    }
+
+    /**
+     * Mini Full Player Open (Open playback from the compact player with shared motion enabled)
+     * Only mini-player taps can claim the mini-player source scope, preserving the dedicated
+     * mini <-> player animation while keeping direct playback entries isolated.
+     */
+    fun openFullPlayerFromMini() {
+        // Mini Target Cover Preparation (Ensure the shared cover target is mounted)
+        // The mini-player expands into the main artwork surface, so stale bookmark, subtitle,
+        // or related tabs must be cleared before the full-player visibility transition starts.
+        settingsManager.setSelectedContentTab(PlayerScreenMode.PLAYER.index)
+        setFullPlayerVisible(
+            visible = true,
+            openSource = FullPlayerOpenSource.MiniPlayer
+        )
     }
     fun setMiniPlayerHidden(hidden: Boolean) = settingsManager.setMiniPlayerHidden(hidden)
 

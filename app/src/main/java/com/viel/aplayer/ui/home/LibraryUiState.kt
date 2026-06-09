@@ -21,6 +21,10 @@ data class LibraryUiState(
     /** List of all books on the bookshelf (unfiltered raw) */
     val audiobooks: List<HomeBookItem> = emptyList(),
 
+    // Registered Library Roots State (Track whether any media source has been added)
+    // Home uses this alongside the catalog list so the add-library FAB appears when the app has no roots or when existing roots have produced an empty book list.
+    val hasRegisteredLibraryRoots: Boolean = false,
+
     /** Current active filter type. null means combine pipeline has not produced first decision, UI should temporarily skip rendering FilterChip row */
     val selectedFilter: HomeFilter? = null,
 

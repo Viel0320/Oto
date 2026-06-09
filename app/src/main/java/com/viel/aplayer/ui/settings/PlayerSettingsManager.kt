@@ -111,7 +111,20 @@ class PlayerSettingsManager(
     fun dismissBookmarkDialog() = _settingsState.update { it.copy(isBookmarkDialogVisible = false, bookmarkTitle = "") }
     fun updateBookmarkTitle(title: String) = _settingsState.update { it.copy(bookmarkTitle = title) }
     fun setSelectedContentTab(tab: Int) = _settingsState.update { it.copy(selectedContentTab = tab) }
-    fun setFullPlayerVisible(visible: Boolean) = _settingsState.update { it.copy(isFullPlayerVisible = visible) }
+    /**
+     * Full Player Visibility Source Update (Keep motion origin and visibility in one state frame)
+     * Updating the open source with the visibility flag prevents direct playback entries from
+     * briefly inheriting stale mini-player transition eligibility during the same recomposition.
+     */
+    fun setFullPlayerVisible(
+        visible: Boolean,
+        openSource: FullPlayerOpenSource = FullPlayerOpenSource.Direct
+    ) = _settingsState.update {
+        it.copy(
+            isFullPlayerVisible = visible,
+            fullPlayerOpenSource = openSource
+        )
+    }
     fun setMiniPlayerHidden(hidden: Boolean) = _settingsState.update { it.copy(isMiniPlayerHidden = hidden) }
     fun toggleProgressMode() = _settingsState.update { it.copy(isChapterProgressMode = !it.isChapterProgressMode) }
     fun setChapterProgressMode(enabled: Boolean) = _settingsState.update { it.copy(isChapterProgressMode = enabled) }

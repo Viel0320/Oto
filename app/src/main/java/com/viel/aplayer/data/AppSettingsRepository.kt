@@ -41,13 +41,25 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    init {
-        // Collect Settings Flow Asynchronously (Continuously cache newly persisted settings in the background)
-        scope.launch {
-            settingsFlow.collect {
-                _cachedSettings = it
-            }
-        }
+    private object PlaybackSettingsBounds {
+        private const val DEFAULT_PLAYBACK_SPEED = 1.0f
+        private const val MIN_PLAYBACK_SPEED = 0.25f
+        private const val MAX_PLAYBACK_SPEED = 2.0f
+        private const val DEFAULT_AUTO_REWIND_SECONDS = 0
+        private const val MIN_AUTO_REWIND_SECONDS = 0
+        private const val MAX_AUTO_REWIND_SECONDS = 30
+
+        // Playback Speed Normalization (Keeps portable speed settings inside Media3-supported product bounds)
+        // Restored DataStore payloads can contain NaN, infinities, or stale floats, so invalid values fall back to the neutral 1x rate.
+        fun speedOrDefault(value: Float?): Float =
+            value?.takeIf { it.isFinite() && it in MIN_PLAYBACK_SPEED..MAX_PLAYBACK_SPEED }
+                ?: DEFAULT_PLAYBACK_SPEED
+
+        // Auto-Rewind Normalization (Keeps portable rewind settings inside the settings slider contract)
+        // Restored or manually edited values are clamped because 0 disables the feature and 30 seconds is the largest supported resume offset.
+        fun autoRewindSecondsOrDefault(value: Int?): Int =
+            value?.coerceIn(MIN_AUTO_REWIND_SECONDS, MAX_AUTO_REWIND_SECONDS)
+                ?: DEFAULT_AUTO_REWIND_SECONDS
     }
 
     private object PreferencesKeys {
@@ -135,7 +147,9 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
                 ?.let { runCatching { HomeSortDirection.valueOf(it) }.getOrNull() }
                 ?: HomeSortDirection.Ascending,
             isGlobalSpeedEnabled = preferences[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] ?: false,
-            globalPlaybackSpeed = preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] ?: 1.0f,
+            // Read Global Playback Speed (Normalize portable speed values before playback consumers observe settings)
+            // Backup restore and direct preference edits can bypass UI controls, so repository reads expose only playable speed values.
+            globalPlaybackSpeed = PlaybackSettingsBounds.speedOrDefault(preferences[PreferencesKeys.GLOBAL_PLAYBACK_SPEED]),
             isChapterProgressMode = preferences[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] ?: false,
             // Read Insecure TLS Option: Load insecure TLS bypass configuration from preferences, defaulting to false.
             isAllowInsecureTls = preferences[PreferencesKeys.IS_ALLOW_INSECURE_TLS] ?: false,
@@ -158,8 +172,9 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             glassEffectMode = preferences[PreferencesKeys.GLASS_EFFECT_MODE]
                 ?.let { runCatching { GlassEffectMode.valueOf(it) }.getOrNull() }
                 ?: AppSettings.DEFAULT_GLASS_EFFECT_MODE,
-            // Read Auto Rewind (Expose rewind duration, defaulting to 0 for disabled state)
-            autoRewindSeconds = preferences[PreferencesKeys.AUTO_REWIND_SECONDS] ?: 0,
+            // Read Auto Rewind (Normalize portable rewind values before playback resumption observes settings)
+            // Damaged backups may contain negative or oversized seconds, so repository reads expose only the supported 0-30 range.
+            autoRewindSeconds = PlaybackSettingsBounds.autoRewindSecondsOrDefault(preferences[PreferencesKeys.AUTO_REWIND_SECONDS]),
             // Read Short Seek Steps (Validate persisted values before they leave the settings boundary)
             // Invalid backward values fall back to 10 seconds and invalid forward values fall back to 20 seconds, matching the product contract.
             playbackSeekStepConfig = PlaybackSeekStepConfig.fromStored(
@@ -172,6 +187,17 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             isNotificationAvoidanceEnabled = preferences[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] ?: false
         )
     }
+
+    init {
+        // Settings Flow Initialization Boundary (Start the cache collector only after settingsFlow has been assigned)
+        // Kotlin runs property initializers and init blocks in source order, so this init block must stay below settingsFlow to prevent fast Dispatchers.IO execution from dereferencing a null flow during app startup.
+        scope.launch {
+            settingsFlow.collect {
+                _cachedSettings = it
+            }
+        }
+    }
+
     suspend fun updateHomeFilter(filter: String) {
         dataStore.edit { it[PreferencesKeys.HOME_FILTER] = filter }
     }
@@ -198,8 +224,10 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         dataStore.edit { it[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] = enabled }
     }
 
+    // Write Global Playback Speed (Persist only repository-normalized speed values)
+    // Direct repository callers can pass values outside UI lists, so this boundary stores a playable 0.25x-2.0x speed or the neutral default.
     suspend fun updateGlobalPlaybackSpeed(speed: Float) {
-        dataStore.edit { it[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] = speed }
+        dataStore.edit { it[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] = PlaybackSettingsBounds.speedOrDefault(speed) }
     }
 
     suspend fun updateChapterProgressMode(enabled: Boolean) {
@@ -244,9 +272,10 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         dataStore.edit { it[PreferencesKeys.GLASS_EFFECT_MODE] = mode.name }
     }
 
-    // Write Auto Rewind (Persist rewind offset in seconds to offset post-interruption session restarts)
+    // Write Auto Rewind (Persist only repository-normalized rewind seconds)
+    // Clamping at write time keeps direct callers and restored settings aligned with the 0-30 second playback resume contract.
     suspend fun updateAutoRewindSeconds(seconds: Int) {
-        dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = seconds }
+        dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = PlaybackSettingsBounds.autoRewindSecondsOrDefault(seconds) }
     }
 
     // Write Seek Backward Step (Persist validated rewind increments only)
@@ -290,6 +319,11 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     companion object {
         @Volatile
         private var INSTANCE: AppSettingsRepository? = null
+
+        // JVM Unit Test Constructor (Allows repository tests to inject an isolated Preferences DataStore)
+        // Playback-settings boundary tests need to seed raw restored values without touching the process-wide Android singleton.
+        internal fun createForTesting(dataStore: DataStore<Preferences>): AppSettingsRepository =
+            AppSettingsRepository(dataStore = dataStore)
 
         fun getInstance(context: Context): AppSettingsRepository {
             return INSTANCE ?: synchronized(this) {

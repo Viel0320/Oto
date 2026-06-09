@@ -2,9 +2,9 @@ package com.viel.aplayer.widget
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.Log
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
+import com.viel.aplayer.logger.SecureLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -74,10 +74,14 @@ internal object WidgetCoverArtRenderer {
             latestCover = CachedCover(cacheKey, blurred)
             blurred
         } catch (oom: OutOfMemoryError) {
-            Log.w(TAG, "decode widget cover skipped because bitmap memory is insufficient: ${file.name}", oom)
+            // Release Warning Boundary (Sanitize widget cover decode failures)
+            // Decoder errors can include image source details, so retained warnings use SecureLog before reaching Logcat.
+            SecureLog.warn(TAG, "decode widget cover skipped because bitmap memory is insufficient: ${file.name}", oom)
             null
         } catch (error: Exception) {
-            Log.w(TAG, "decode widget cover failed: ${file.name}", error)
+            // Release Warning Boundary (Sanitize widget cover decode exceptions)
+            // Keeping the leaf file name is useful, while SecureLog removes any sensitive Throwable path or credential text.
+            SecureLog.warn(TAG, "decode widget cover failed: ${file.name}", error)
             null
         }
     }

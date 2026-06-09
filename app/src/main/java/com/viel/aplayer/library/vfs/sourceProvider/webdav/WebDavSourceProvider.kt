@@ -24,6 +24,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.w3c.dom.Element
+import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import org.xml.sax.InputSource
 import java.io.ByteArrayOutputStream
@@ -53,6 +54,13 @@ private data class WebDavResource(
     val lastModified: Long,
     val etag: String?,
     val mimeType: String?
+)
+
+// Content Range Window (Parsed HTTP byte interval returned by WebDAV partial responses)
+// The provider validates only the start and inclusive end offsets because VFS callers already know the requested byte window and do not need total-size coupling here.
+private data class ContentRangeWindow(
+    val start: Long,
+    val end: Long
 )
 
 // WebDavSourceProvider (OkHttp-powered provider implementing PROPFIND, GET, and Range reads as the primary remote source path)
@@ -143,6 +151,16 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             response.close()
             throw response.toWebDavException("GET")
         }
+        if (offset > 0L) {
+            // Offset Stream Integrity (Validate open-ended partial responses before exposing the stream)
+            // Seek playback uses this stream as if it starts exactly at the requested offset, so a missing or shifted Content-Range must close the response and fail.
+            try {
+                response.requireMatchingContentRange(start = offset, end = null, operation = "GET")
+            } catch (error: WebDavException) {
+                response.close()
+                throw error
+            }
+        }
 
         // Obtains the response payload body, verified as non-null.
         val body = response.body
@@ -215,6 +233,9 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                     }
                     !response.isSuccessful -> throw response.toWebDavException("GET Range")
                 }
+                // Closed Range Integrity (Validate bounded partial responses before filling metadata buffers)
+                // Range cache and parsers key bytes by the requested interval, so a 206 response must prove both the start and inclusive end offsets.
+                response.requireMatchingContentRange(start = offset, end = rangeEnd, operation = "GET Range")
                 val body = response.body
                 val result = body.byteStream().use { stream -> stream.readAtMost(length) }
                 // Logs successful range query metrics with read byte counts.
@@ -357,14 +378,17 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             val document = factory.newDocumentBuilder().parse(InputSource(xml.reader()))
             val responseNodes = document.documentElement.elementsByLocalName("response")
             responseNodes.mapNotNull { response ->
+                // PROPFIND Response Status Gate (Skip failed resources inside mixed Multi-Status payloads)
+                // WebDAV 207 responses can contain per-resource 403/404 entries, and those entries must not become scanner-visible or cacheable children.
+                if (!response.hasSuccessfulResponseStatus()) return@mapNotNull null
                 val href = response.firstText("href") ?: return@mapNotNull null
                 val sourcePath = sourcePathFromHref(root, href)
-                val prop = response.elementsByLocalName("prop").firstOrNull()
-                val isDirectory = prop?.elementsByLocalName("collection")?.isNotEmpty() == true || href.endsWith("/")
-                val size = prop?.firstText("getcontentlength")?.toLongOrNull() ?: 0L
-                val lastModified = parseWebDavDate(prop?.firstText("getlastmodified"))
-                val etag = prop?.firstText("getetag")?.trim()?.trim('"')
-                val mimeType = prop?.firstText("getcontenttype")
+                val prop = response.successfulPropElement() ?: return@mapNotNull null
+                val isDirectory = prop.elementsByLocalName("collection").isNotEmpty() || href.endsWith("/")
+                val size = prop.firstText("getcontentlength")?.toLongOrNull() ?: 0L
+                val lastModified = parseWebDavDate(prop.firstText("getlastmodified"))
+                val etag = prop.firstText("getetag")?.trim()?.trim('"')
+                val mimeType = prop.firstText("getcontenttype")
                 WebDavResource(
                     sourcePath = sourcePath,
                     href = href,
@@ -385,6 +409,39 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             )
         }
 
+    private fun Element.hasSuccessfulResponseStatus(): Boolean {
+        // PROPFIND Resource Status Gate (Trust absent response status but reject explicit non-2xx statuses)
+        // Some servers rely only on propstat statuses, while explicit response-level failures describe the entire resource and must be filtered.
+        val status = directFirstText("status") ?: return true
+        return status.isSuccessfulWebDavStatus()
+    }
+
+    private fun Element.successfulPropElement(): Element? {
+        // PROPFIND Propstat Selection (Use only successful WebDAV property blocks)
+        // Multi-Status entries may report failed optional properties before successful ones, so parser output must come from the first 2xx propstat block only.
+        val propstats = directElementsByLocalName("propstat")
+        if (propstats.isEmpty()) {
+            // Legacy Prop Fallback (Accept non-standard flat prop blocks only when no propstat wrapper exists)
+            // This keeps compatibility with minimal servers while avoiding accidental selection of failed propstat descendants.
+            return directElementsByLocalName("prop").firstOrNull()
+        }
+        return propstats
+            .firstOrNull { propstat -> propstat.directFirstText("status")?.isSuccessfulWebDavStatus() == true }
+            ?.directElementsByLocalName("prop")
+            ?.firstOrNull()
+    }
+
+    private fun String.isSuccessfulWebDavStatus(): Boolean {
+        // WebDAV Status Parser (Extract HTTP status code from response and propstat status lines)
+        // Numeric parsing is stricter than substring matching, preventing malformed status text from authorizing failed resources.
+        val statusCode = HTTP_STATUS_LINE_PATTERN.matchEntire(trim())
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+            ?: return false
+        return statusCode in 200..299
+    }
+
     private fun Request.Builder.applyAuth(root: LibraryRootEntity): Request.Builder = apply {
         val credential = credentialStore.get(root.credentialId)
         if (credential != null && (credential.username.isNotBlank() || credential.password.isNotBlank())) {
@@ -404,6 +461,30 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             availabilityStatus = status,
             message = "WebDAV $method failed with HTTP $code for ${request.url.redactedForLog()}"
         )
+    }
+
+    private fun Response.requireMatchingContentRange(start: Long, end: Long?, operation: String) {
+        // Content Range Validation (Guarantee that 206 responses match the requested byte window)
+        // VFS seek, metadata parsing, and range caching trust byte offsets, so mismatched WebDAV partial responses must fail before bytes reach callers.
+        if (code != HTTP_PARTIAL_CONTENT) return
+        val parsed = header("Content-Range")?.parseContentRangeWindow()
+        val endMatches = end == null || parsed?.end == end
+        if (parsed?.start != start || !endMatches) {
+            throw WebDavException(
+                availabilityStatus = AudiobookSchema.AvailabilityStatus.SERVER_ERROR,
+                message = "WebDAV $operation returned mismatched Content-Range"
+            )
+        }
+    }
+
+    private fun String.parseContentRangeWindow(): ContentRangeWindow? {
+        // Content Range Parser (Extract the byte interval from RFC-style Content-Range values)
+        // Invalid, missing, or unsatisfiable forms return null so the validator treats them as untrusted partial content.
+        val match = CONTENT_RANGE_PATTERN.matchEntire(trim()) ?: return null
+        val start = match.groupValues[1].toLongOrNull() ?: return null
+        val end = match.groupValues[2].toLongOrNull() ?: return null
+        if (start > end) return null
+        return ContentRangeWindow(start = start, end = end)
     }
 
     private fun urlFor(root: LibraryRootEntity, sourcePath: String, directory: Boolean): HttpUrl {
@@ -554,17 +635,42 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             ?.trim()
             ?.takeIf { it.isNotBlank() }
 
+    private fun Element.directElementsByLocalName(localName: String): List<Element> =
+        // Direct Child Element Lookup (Avoid descendant status leakage across response and propstat levels)
+        // WebDAV response status and propstat status have different meanings, so status lookup must not climb into nested property blocks.
+        (0 until childNodes.length).mapNotNull { index ->
+            val child = childNodes.item(index)
+            // Namespace-Compatible Name Match (Support both DAV-prefixed XML and minimal unprefixed XML)
+            // DOM localName is ideal for namespaced documents, while nodeName keeps non-namespaced test and server payloads readable.
+            val childName = child.localName ?: child.nodeName
+            if (child.nodeType == Node.ELEMENT_NODE && childName == localName) child as? Element else null
+        }
+
+    private fun Element.directFirstText(localName: String): String? =
+        directElementsByLocalName(localName)
+            .firstOrNull()
+            ?.textContent
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+
     private fun NodeList.toElements(): List<Element> =
         (0 until length).mapNotNull { index -> item(index) as? Element }
 
     private companion object {
         private const val HTTP_OK = 200
+        private const val HTTP_PARTIAL_CONTENT = 206
         private const val HTTP_MULTI_STATUS = 207
         private const val HTTP_NOT_FOUND = 404
         private const val HTTP_RANGE_NOT_SATISFIABLE = 416
         private const val DEFAULT_RANGE_BUFFER_SIZE = 16 * 1024
         // Safety Limit (Defines 8MB upper bound for PROPFIND responses to prevent out-of-memory states from large XML inputs)
         private const val MAX_PROPFIND_RESPONSE_SIZE = 8 * 1024 * 1024
+        // Content Range Pattern (Accept only byte-unit partial ranges with numeric start and end offsets)
+        // Total size may be numeric or unknown because offset integrity depends on the served interval, not the declared resource length.
+        private val CONTENT_RANGE_PATTERN = Regex("""^bytes\s+(\d+)-(\d+)/(?:\d+|\*)$""")
+        // WebDAV Status Line Pattern (Capture the three-digit code from HTTP status lines embedded in 207 XML)
+        // PROPFIND response and propstat gates use this parser so mixed Multi-Status bodies cannot authorize failed entries via loose text matching.
+        private val HTTP_STATUS_LINE_PATTERN = Regex("""^HTTP/\S+\s+(\d{3})(?:\s+.*)?$""")
 
         // SimpleDateFormat is thread-unsafe; uses ThreadLocal to support concurrent callback resolutions during scans.
         private val WEB_DAV_DATE_FORMAT = ThreadLocal.withInitial {

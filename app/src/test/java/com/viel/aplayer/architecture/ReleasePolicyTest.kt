@@ -41,25 +41,27 @@ class ReleasePolicyTest {
     }
 
     @Test
-    fun backupRulesExcludeDeviceScopedPreferences() {
+    fun backupRulesUseLintCompatiblePortableSettingsAllowlist() {
         val manifest = repoFile("app/src/main/AndroidManifest.xml").readText()
         val backupRules = repoFile("app/src/main/res/xml/backup_rules.xml").readText()
         val extractionRules = repoFile("app/src/main/res/xml/data_extraction_rules.xml").readText()
         val legacyBackupRules = parseBackupRules(backupRules)
         val android12ExtractionRules = parseBackupRules(extractionRules)
 
-        // Backup Exclusion Policy (Protects device-local preferences from cloud and transfer restore)
-        // The manifest must point at both rule files, and both rule files must exclude sharedpref/device.xml.
+        // Backup Allowlist Policy (Protects device-local persistence from cloud and transfer restore)
+        // Android lint rejects excludes outside an included path, so production rules must use a narrow include-only allowlist instead of invalid domain-level exclusions.
         // Portable Settings Boundary (Allow only app settings to participate in backup and transfer)
-        // Room databases, credentials, search history, and runtime playback state are device-local persistence domains and must be excluded.
+        // Room databases, credentials, search history, and runtime playback state stay device-local because no include rule covers their storage paths.
         assertTrue(manifest.contains("""android:allowBackup="true""""))
         assertTrue(manifest.contains("""android:dataExtractionRules="@xml/data_extraction_rules""""))
         assertTrue(manifest.contains("""android:fullBackupContent="@xml/backup_rules""""))
         assertOnlyPortableSettingsAreIncluded(legacyBackupRules, "full-backup-content")
-        assertBackupStateIsExcluded(legacyBackupRules, "full-backup-content")
+        assertNonPortableStateIsNotIncluded(legacyBackupRules, "full-backup-content")
+        assertNoBackupExcludesAreRequired(legacyBackupRules, "full-backup-content")
         listOf("cloud-backup", "device-transfer").forEach { section ->
             assertOnlyPortableSettingsAreIncluded(android12ExtractionRules, section)
-            assertBackupStateIsExcluded(android12ExtractionRules, section)
+            assertNonPortableStateIsNotIncluded(android12ExtractionRules, section)
+            assertNoBackupExcludesAreRequired(android12ExtractionRules, section)
         }
     }
 
@@ -98,6 +100,30 @@ class ReleasePolicyTest {
         // Manifest Placeholder Permission Guard (Prevents fake service permissions from reaching release builds)
         // MediaSessionService access is enforced by PlaybackService controller verification, so the manifest must not advertise a TODO permission.
         assertTrue(!manifest.contains("""android:permission="TODO""""))
+    }
+
+    @Test
+    fun readMediaAudioPermissionRequiresMediaStoreRuntimeImportFlow() {
+        val manifest = repoFile("app/src/main/AndroidManifest.xml").readText()
+        val productionSources = kotlinSourceFiles(repoFile("app/src/main/java/com/viel/aplayer"))
+        val declaresReadMediaAudio = manifest.contains("android.permission.READ_MEDIA_AUDIO")
+        val mediaStoreSourcePaths = productionSources
+            .filter { file -> file.readText().containsMediaStoreAccess() }
+            .map { file -> file.repoRelativePath() }
+        val runtimePermissionSourcePaths = productionSources
+            .filter { file -> file.readText().containsMediaPermissionRequest() }
+            .map { file -> file.repoRelativePath() }
+
+        // Shared Audio Permission Boundary (Keep broad media access paired with an explicit platform import path)
+        // The local library currently relies on SAF tree grants, so READ_MEDIA_AUDIO may only return when production code both reads MediaStore and requests the dangerous permission at runtime.
+        assertTrue(
+            buildString {
+                appendLine("READ_MEDIA_AUDIO must stay absent unless a MediaStore import flow requests it at runtime.")
+                appendLine("MediaStore sources: ${mediaStoreSourcePaths.joinToString().ifBlank { "none" }}")
+                appendLine("Runtime permission sources: ${runtimePermissionSourcePaths.joinToString().ifBlank { "none" }}")
+            },
+            !declaresReadMediaAudio || (mediaStoreSourcePaths.isNotEmpty() && runtimePermissionSourcePaths.isNotEmpty())
+        )
     }
 
     @Test
@@ -146,6 +172,23 @@ class ReleasePolicyTest {
     }
 
     @Test
+    fun releaseRetainedWarningAndErrorLogsUseSecureLogBoundary() {
+        val sourceRoot = repoFile("app/src/main/java/com/viel/aplayer")
+        val violations = sourceRoot.walkTopDown()
+            .filter { file -> file.isFile && file.extension == "kt" }
+            .filterNot { file -> file.relativeTo(sourceRoot).invariantSeparatorsPath in releaseRetainedLogAllowlist }
+            .flatMap { file -> findDirectReleaseRetainedLogCalls(sourceRoot, file).asSequence() }
+            .toList()
+
+        // Secure Release Log Boundary Policy (Forbid bypassing the sanitizer for retained Logcat levels)
+        // Release builds keep warning and error logs, so every direct Log.w/e call outside SecureLog would risk leaking paths or exception text.
+        assertTrue(
+            "Direct release-retained Log.w/e calls must route through SecureLog:\n${violations.joinToString("\n")}",
+            violations.isEmpty()
+        )
+    }
+
+    @Test
     fun ciWorkflowRunsDebugLintReleaseLintAndReleaseR8AsSeparateGates() {
         val workflow = repoFile(".github/workflows/ci.yml").readText()
 
@@ -180,11 +223,57 @@ class ReleasePolicyTest {
             ?: error("Could not locate $path from ${File(".").absolutePath}")
     }
 
+    // Release Retained Log Scanner (Find direct warning and error Logcat calls in production Kotlin sources)
+    // The scanner checks both imported Log.w/e and fully qualified android.util.Log.w/e forms so call sites cannot bypass SecureLog by changing import style.
+    private fun findDirectReleaseRetainedLogCalls(sourceRoot: File, file: File): List<String> =
+        file.readLines().mapIndexedNotNull { index, line ->
+            val codeOnly = line.substringBefore("//")
+            if (directReleaseRetainedLogRegex.containsMatchIn(codeOnly)) {
+                "${file.relativeTo(sourceRoot).invariantSeparatorsPath}:${index + 1} uses direct retained Logcat output"
+            } else {
+                null
+            }
+        }
+
+    // Production Kotlin Source Scanner (Limit architecture guards to checked-in app code)
+    // Manifest policy tests use this helper to avoid counting unit tests or generated build artifacts as production permission evidence.
+    private fun kotlinSourceFiles(root: File): List<File> =
+        root.walkTopDown()
+            .filter { file -> file.isFile && file.extension == "kt" }
+            .toList()
+
+    // Repository Path Formatter (Report stable paths from either repository-root or module-root test execution)
+    // Assertion messages should name the same source location regardless of the Gradle working directory.
+    private fun File.repoRelativePath(): String =
+        invariantSeparatorsPath.removePrefix("./").removePrefix("../")
+
+    // MediaStore Access Detector (Recognize production code that reads Android's shared media index)
+    // A READ_MEDIA_AUDIO declaration is only justified when code imports or directly references MediaStore as part of a real audio import path.
+    private fun String.containsMediaStoreAccess(): Boolean =
+        contains("android.provider.MediaStore") || contains("MediaStore.")
+
+    // Dangerous Permission Request Detector (Recognize runtime permission request surfaces)
+    // Android 13+ media permissions are dangerous permissions, so manifest declaration alone is insufficient proof of an active user-facing import flow.
+    private fun String.containsMediaPermissionRequest(): Boolean =
+        contains("android.permission.READ_MEDIA_AUDIO") && (
+            contains("requestPermissions") ||
+                contains("RequestPermission") ||
+                contains("RequestMultiplePermissions") ||
+                contains("rememberLauncherForActivityResult")
+            )
+
     // Backup XML Parsing Model (Represent one include or exclude node with its containing rule section)
     // Parsing the XML avoids brittle string snapshots and lets policy tests reason about backup domains and paths directly.
     private data class BackupRule(
         val section: String,
         val elementName: String,
+        val domain: String,
+        val path: String
+    )
+
+    // Backup Path Model (Represent one persistence artifact that must remain outside migration)
+    // The model lets tests compare Android backup domains and relative paths without hard-coding string parsing at each assertion site.
+    private data class BackupPath(
         val domain: String,
         val path: String
     )
@@ -230,31 +319,43 @@ class ReleasePolicyTest {
         )
     }
 
-    // Volatile Backup Exclusion Guard (Require every non-portable persistence file to be excluded per section)
-    // This documents the intended restore boundary for Room runtime rows, credentials, device-local preferences, and local UI traces.
-    private fun assertBackupStateIsExcluded(rules: List<BackupRule>, section: String) {
-        assertHasExclude(rules, section, "sharedpref", "device.xml")
-        assertHasExclude(rules, section, "sharedpref", "webdav_credentials.xml")
-        assertHasExclude(rules, section, "file", "datastore/abs_credentials.preferences_pb")
-        assertHasExclude(rules, section, "file", "datastore/search_history.preferences_pb")
-        ROOM_DATABASE_PATHS.forEach { path ->
-            assertHasExclude(rules, section, "database", path)
+    // Non-Portable Backup Boundary Guard (Ensure sensitive and volatile stores are never included)
+    // The production XML is an include-only allowlist, so this assertion checks whether any include rule would cover credentials, Room files, search history, or device markers.
+    private fun assertNonPortableStateIsNotIncluded(rules: List<BackupRule>, section: String) {
+        val includes = rules.filter { rule -> rule.section == section && rule.elementName == "include" }
+        val coveredPaths = NON_PORTABLE_BACKUP_PATHS.filter { path ->
+            includes.any { include -> include.covers(path) }
         }
-    }
-
-    // Backup Exclusion Assertion (Check one domain/path pair inside the expected backup mode)
-    // The message points directly at the missing XML contract so future policy regressions are quick to repair.
-    private fun assertHasExclude(rules: List<BackupRule>, section: String, domain: String, path: String) {
         assertTrue(
-            "$section must exclude $domain/$path.",
-            rules.any { rule ->
-                rule.section == section &&
-                    rule.elementName == "exclude" &&
-                    rule.domain == domain &&
-                    rule.path == path
-            }
+            "$section must not include non-portable backup paths: ${coveredPaths.joinToString { it.displayName() }}.",
+            coveredPaths.isEmpty()
         )
     }
+
+    // Lint-Compatible Backup Rule Guard (Keep the XML free of out-of-scope exclude nodes)
+    // When the allowlist already names only app_settings.preferences_pb, extra excludes would be invalid under Android lint and would not add protection.
+    private fun assertNoBackupExcludesAreRequired(rules: List<BackupRule>, section: String) {
+        val excludes = rules.filter { rule -> rule.section == section && rule.elementName == "exclude" }
+        assertTrue(
+            "$section must use the include-only backup allowlist without invalid excludes: ${excludes.joinToString { it.domain + "/" + it.path }}.",
+            excludes.isEmpty()
+        )
+    }
+
+    // Backup Include Coverage Check (Detect broad includes that would accidentally migrate device-local state)
+    // A root include or parent-directory include covers the target path, while the exact app_settings file include remains narrow enough to pass.
+    private fun BackupRule.covers(target: BackupPath): Boolean {
+        if (domain != target.domain) return false
+        val normalizedIncludePath = path.trimEnd('/')
+        val normalizedTargetPath = target.path.trimEnd('/')
+        return normalizedIncludePath == "." ||
+            normalizedIncludePath == normalizedTargetPath ||
+            normalizedTargetPath.startsWith("$normalizedIncludePath/")
+    }
+
+    // Backup Path Display Name (Make assertion failures point at the Android backup domain and relative path)
+    // The readable form keeps release policy failures actionable when a future include accidentally broadens migration scope.
+    private fun BackupPath.displayName(): String = "$domain/$path"
 
     // DOM Element Iterator (Expose direct XML child elements without pulling in Android resource parsers)
     // JVM tests can inspect platform XML resources quickly while avoiding Android framework dependencies.
@@ -276,12 +377,27 @@ class ReleasePolicyTest {
         private const val PORTABLE_SETTINGS_PATH = "datastore/app_settings.preferences_pb"
 
         // Room Database Restore Boundary (List every SQLite sidecar that must stay out of backup and transfer)
-        // WAL, shared-memory, and rollback journal files are excluded with the main database so no partial Room runtime state can revive.
+        // WAL, shared-memory, and rollback journal files are tracked with the main database so broad include rules cannot revive partial Room runtime state.
         private val ROOM_DATABASE_PATHS = listOf(
             "aplayer_database",
             "aplayer_database-shm",
             "aplayer_database-wal",
             "aplayer_database-journal"
         )
+
+        // Non-Portable Backup Inventory (Centralize persistence paths that must never be covered by backup includes)
+        // The list mirrors production stores for device identity, WebDAV credentials, ABS credentials, search history, and Room runtime state.
+        private val NON_PORTABLE_BACKUP_PATHS = listOf(
+            BackupPath("sharedpref", "device.xml"),
+            BackupPath("sharedpref", "webdav_credentials.xml"),
+            BackupPath("file", "datastore/abs_credentials.preferences_pb"),
+            BackupPath("file", "datastore/search_history.preferences_pb")
+        ) + ROOM_DATABASE_PATHS.map { path -> BackupPath("database", path) }
+
+        // Secure Log Allowlist (Permit only the central retained-log boundary to call Log.w/e directly)
+        // Keeping this list narrow makes new release-visible logging paths fail tests until they choose SecureLog explicitly.
+        private val releaseRetainedLogAllowlist = setOf("logger/SecureLog.kt")
+        private val directReleaseRetainedLogRegex =
+            Regex("(^|[^A-Za-z0-9_.])Log\\.(w|e)\\s*\\(|android\\.util\\.Log\\.(w|e)\\s*\\(")
     }
 }

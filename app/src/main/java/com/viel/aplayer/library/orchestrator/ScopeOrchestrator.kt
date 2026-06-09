@@ -1,7 +1,6 @@
 package com.viel.aplayer.library.orchestrator
 
 import android.content.Context
-import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.entity.BookEntity
@@ -14,6 +13,7 @@ import com.viel.aplayer.library.orchestrator.draftmodels.ImportFailure
 import com.viel.aplayer.library.orchestrator.draftmodels.ImportRunResult
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.logger.ImportTimingLogger
+import com.viel.aplayer.logger.SecureLog
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -249,7 +249,9 @@ internal class ScopeOrchestrator(
                     )
                 )
             } catch (e: Exception) {
-                Log.e("ScopeOrchestrator", "Failed to cache directory lastModified for ${directory.root.id}:${directory.sourcePath}", e)
+                // Release Error Boundary (Sanitize directory cache timestamp failures)
+                // Directory sourcePath is a user storage coordinate, so retained errors must not write it directly to Logcat.
+                SecureLog.error("ScopeOrchestrator", "Failed to cache directory lastModified for ${directory.root.id}:${directory.sourcePath}", e)
             }
         }
         // Pipeline Finalization Step (Lifecycle Finalize)

@@ -355,6 +355,10 @@
     <string name="track_unavailable_body">O ficheiro físico da faixa atual está em falta ou corrompido. Saltar esta faixa e reproduzir a próxima disponível?\n\nNota: saltar de forma forçada pode perturbar o progresso de audição planeado.</string>
     <string name="track_unavailable_confirm_skip">Confirmar salto</string>
     <string name="home_action_mark_read_status">Marcar estado de leitura</string>
+    <!-- Choice State Accessibility Copy (Localize selectable chip state descriptions)
+         Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
+    <string name="accessibility_choice_selected">Selecionado</string>
+    <string name="accessibility_choice_unselected">Não selecionado</string>
     <string name="home_action_regenerate_title">Reconstruir capas e metadados</string>
     <string name="home_action_regenerate_subtitle">Forçar extração de capa e descrição a partir dos ficheiros de áudio</string>
     <string name="home_action_remove_title">Remover da biblioteca multimédia</string>
@@ -362,6 +366,12 @@
     <string name="home_action_remove_confirm_title">Remover da biblioteca multimédia?</string>
     <string name="home_action_remove_confirm_body">Remover “%1$s” da biblioteca multimédia do APlayer?\n\nNota: isto é uma eliminação suave. O livro é removido da lista de reprodução, mas os ficheiros de áudio físicos no armazenamento do telefone não são eliminados.</string>
     <string name="home_action_remove_confirm_button">Confirmar eliminação</string>
+    <!-- Related Books Header Resources (Localize player recommendation section headings)
+         Creator-name templates stay separate for authors and narrators so each locale can express the relationship accurately. -->
+    <string name="player_related_recommended">Recomendado para você</string>
+    <string name="player_related_more_by_author">Mais de %1$s</string>
+    <string name="player_related_more_by_narrator">Mais narrados por %1$s</string>
+    <string name="player_related_recently_added">Adicionados recentemente</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->
     <string name="common_unknown">Desconhecido</string>
     <string name="common_unknown_title">Título desconhecido</string>

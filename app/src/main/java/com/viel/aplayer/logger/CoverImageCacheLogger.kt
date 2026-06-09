@@ -179,7 +179,9 @@ object CoverImageCacheLogger {
         decodeCostMs: Long,
         error: Throwable
     ) {
-        Log.e(
+        // Release Error Boundary (Sanitize retained Coil pipeline failures)
+        // Image loading exceptions may include provider paths or request URLs, so the release-visible error path must use SecureLog.
+        SecureLog.error(
             TAG,
             "pipeline error: scene=$scene, variant=$variant, sourceKeyHash=${hashSource(source)}, key=${cacheKey ?: "none"}, decodeCostMs=$decodeCostMs, error=${error::class.java.simpleName}: ${error.message}",
             error

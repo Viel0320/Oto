@@ -344,6 +344,10 @@
     <string name="track_unavailable_body">現在のトラックの物理ファイルが見つからないか破損しています。このトラックをスキップして次の利用可能なトラックを再生しますか？\n\n注意：強制スキップにより予定していた再生進捗が乱れる場合があります。</string>
     <string name="track_unavailable_confirm_skip">スキップを確認</string>
     <string name="home_action_mark_read_status">読書状態をマーク</string>
+    <!-- Choice State Accessibility Copy (Localize selectable chip state descriptions)
+         Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
+    <string name="accessibility_choice_selected">選択済み</string>
+    <string name="accessibility_choice_unselected">未選択</string>
     <string name="home_action_regenerate_title">表紙とメタデータを再構築</string>
     <string name="home_action_regenerate_subtitle">音声ファイルから表紙と説明を再抽出します</string>
     <string name="home_action_remove_title">メディアライブラリから削除</string>
@@ -361,6 +365,12 @@
     <string name="media_session_forward_20">20 秒進む</string>
     <string name="media_session_forward_30">30 秒進む</string>
     <string name="media_session_add_bookmark">ブックマークを追加</string>
+    <!-- Related Books Header Resources (Localize player recommendation section headings)
+         Creator-name templates stay separate for authors and narrators so each locale can express the relationship accurately. -->
+    <string name="player_related_recommended">おすすめ</string>
+    <string name="player_related_more_by_author">%1$s の他の作品</string>
+    <string name="player_related_more_by_narrator">%1$s の朗読による他の作品</string>
+    <string name="player_related_recently_added">最近追加</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->
     <string name="common_unknown">不明</string>
     <string name="common_unknown_title">不明なタイトル</string>

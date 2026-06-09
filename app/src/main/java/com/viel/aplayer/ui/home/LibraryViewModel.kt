@@ -44,9 +44,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
         homeLibraryReadModel.audiobooks,
+        homeLibraryReadModel.hasRegisteredLibraryRoots,
         _selectedFilter,
         settingsRepository.settingsFlow
-    ) { audiobooks, userSelection, appSettings ->
+    ) { audiobooks, hasRegisteredLibraryRoots, userSelection, appSettings ->
         // Centralized Filter Resolution (Dispatches final filter state once all input streams are ready)
         // Prevents intermediate visual state jumps in home filter chips.
         // Priority hierarchy: Explicit User Selection > Persisted Cache Settings > NotStarted Default.
@@ -105,6 +106,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
         LibraryUiState(
             audiobooks = audiobooks,
+            // Registered Root Propagation (Carry media-source presence into Home presentation state)
+            // This keeps the empty-home add-library FAB keyed to real root registration instead of inferring setup state only from scanned books.
+            hasRegisteredLibraryRoots = hasRegisteredLibraryRoots,
             selectedFilter = activeFilter,
             filteredAudiobooks = sortedAudiobooks,
             groupedAudiobooks = groupedAudiobooks,

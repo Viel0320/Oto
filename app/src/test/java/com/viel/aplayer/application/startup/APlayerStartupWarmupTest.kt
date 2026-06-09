@@ -11,22 +11,19 @@ class APlayerStartupWarmupTest {
     fun `startup warmup should schedule only stale active abs roots`() = runBlocking {
         val scheduledRootIds = mutableListOf<String>()
         val warmup = APlayerStartupWarmup(
-            getAllRootsOnce = {
-                listOf(
+            dependencies = RecordingStartupWarmupDependencies(
+                activeAbsRoots = listOf(
                     sampleRoot(id = "fresh-abs"),
-                    sampleRoot(id = "stale-abs"),
-                    sampleRoot(id = "inactive-abs", status = AudiobookSchema.LibraryRootStatus.REVOKED),
-                    sampleRoot(id = "local-root", sourceType = AudiobookSchema.LibrarySourceType.SAF)
-                )
-            },
-            isAuthorizedProgressRefreshDue = { rootId, nowMillis ->
-                // Startup Gate Fixture (Models root-level freshness without constructing ABS network dependencies)
-                // The fixed clock proves the coordinator asks the freshness policy per active ABS root and schedules only stale results.
-                assertEquals(10_000L, nowMillis)
-                rootId == "stale-abs"
-            },
-            enqueueAbsRootSync = { rootId -> scheduledRootIds += rootId },
-            performColdStartSelfHealing = {}
+                    sampleRoot(id = "stale-abs")
+                ),
+                refreshDue = { rootId, nowMillis ->
+                    // Startup Gate Fixture (Models root-level freshness without constructing ABS network dependencies)
+                    // The fixed clock proves the coordinator asks the freshness policy per active ABS root and schedules only stale results.
+                    assertEquals(10_000L, nowMillis)
+                    rootId == "stale-abs"
+                }
+            ),
+            enqueueAbsRootSync = { rootId -> scheduledRootIds += rootId }
         )
 
         val staleRootIds = warmup.warmUpAbsProgressIfStale(nowMillis = 10_000L)
@@ -42,10 +39,12 @@ class APlayerStartupWarmupTest {
         val scheduledRootIds = mutableListOf<String>()
         var selfHealCount = 0
         val warmup = APlayerStartupWarmup(
-            getAllRootsOnce = { listOf(sampleRoot(id = "fresh-abs")) },
-            isAuthorizedProgressRefreshDue = { _, _ -> false },
-            enqueueAbsRootSync = { rootId -> scheduledRootIds += rootId },
-            performColdStartSelfHealing = { selfHealCount += 1 }
+            dependencies = RecordingStartupWarmupDependencies(
+                activeAbsRoots = listOf(sampleRoot(id = "fresh-abs")),
+                refreshDue = { _, _ -> false },
+                selfHeal = { selfHealCount += 1 }
+            ),
+            enqueueAbsRootSync = { rootId -> scheduledRootIds += rootId }
         )
 
         warmup.run(nowMillis = 10_000L)
@@ -54,6 +53,28 @@ class APlayerStartupWarmupTest {
         // Skipping ABS scheduling because the root is fresh must not skip the cold-start local recovery pass.
         assertEquals(emptyList<String>(), scheduledRootIds)
         assertEquals(1, selfHealCount)
+    }
+
+    @Test
+    fun `startup warmup should not ask freshness policy when there are no active abs roots`() = runBlocking {
+        var freshnessChecks = 0
+        val warmup = APlayerStartupWarmup(
+            dependencies = RecordingStartupWarmupDependencies(
+                activeAbsRoots = emptyList(),
+                refreshDue = { _, _ ->
+                    freshnessChecks += 1
+                    true
+                }
+            ),
+            enqueueAbsRootSync = {}
+        )
+
+        val staleRootIds = warmup.warmUpAbsProgressIfStale(nowMillis = 10_000L)
+
+        // Empty Root Gate (Keeps freshness policy adapters unresolved when no ABS root can be scheduled)
+        // This guards the construction path that previously touched ABS synchronization even before stale roots existed.
+        assertEquals(emptyList<String>(), staleRootIds)
+        assertEquals(0, freshnessChecks)
     }
 
     private fun sampleRoot(
@@ -70,4 +91,22 @@ class APlayerStartupWarmupTest {
             displayName = id,
             status = status
         )
+
+    private class RecordingStartupWarmupDependencies(
+        private val activeAbsRoots: List<LibraryRootEntity>,
+        private val refreshDue: suspend (rootId: String, nowMillis: Long) -> Boolean = { _, _ -> false },
+        private val selfHeal: suspend () -> Unit = {}
+    ) : StartupWarmupDependencies {
+        override suspend fun activeAbsRoots(): List<LibraryRootEntity> =
+            activeAbsRoots
+
+        override suspend fun isAuthorizedProgressRefreshDue(rootId: String, nowMillis: Long): Boolean =
+            refreshDue(rootId, nowMillis)
+
+        override suspend fun performColdStartSelfHealing() {
+            // Startup Dependencies Fixture (Records only the commands each test cares about)
+            // Keeping the fake inside this test prevents coordinator behavior from depending on production graph adapters.
+            selfHeal()
+        }
+    }
 }

@@ -1,6 +1,8 @@
 package com.viel.aplayer.event.feedback
 
 import com.viel.aplayer.R
+import com.viel.aplayer.data.store.AppLanguage
+import com.viel.aplayer.i18n.AppLocaleController
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,5 +61,18 @@ class FeedbackMessageRenderingTest {
 
         assertEquals("Sleep timer: 1 minute", one.render(context))
         assertEquals("Sleep timer: 2 minutes", many.render(context))
+    }
+
+    @Test
+    fun `feedback render follows localized context resources`() {
+        val context = RuntimeEnvironment.getApplication()
+        val localizedContext = AppLocaleController.wrapContext(context, AppLanguage.Japanese)
+
+        // Localized Feedback Resource Rendering (Verifies the renderer consumes the supplied configuration context)
+        // Android 12L routes in-app language through wrapContext, so Toast feedback must resolve copy from that context instead of the Activity base resources.
+        assertEquals(
+            "\u518D\u751F\u901F\u5EA6\u3092\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3057\u305F",
+            FeedbackMessages.playbackSpeedReset().render(localizedContext)
+        )
     }
 }

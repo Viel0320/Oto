@@ -348,6 +348,10 @@
     <string name="track_unavailable_body">目前收聽的分軌實體檔案不存在或損壞。是否跳過此分軌並播放下一首可用分軌？\n\n注意：強制跳軌可能會打亂原本預定的收聽進度。</string>
     <string name="track_unavailable_confirm_skip">確認跳過</string>
     <string name="home_action_mark_read_status">標記閱讀狀態</string>
+    <!-- Choice State Accessibility Copy (Localize selectable chip state descriptions)
+         Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
+    <string name="accessibility_choice_selected">已選取</string>
+    <string name="accessibility_choice_unselected">未選取</string>
     <string name="home_action_regenerate_title">重建封面與詮釋資料</string>
     <string name="home_action_regenerate_subtitle">強制從音訊檔案重新提取封面和描述資訊</string>
     <string name="home_action_remove_title">從媒體庫移除</string>
@@ -365,6 +369,12 @@
     <string name="media_session_forward_20">快轉 20 秒</string>
     <string name="media_session_forward_30">快轉 30 秒</string>
     <string name="media_session_add_bookmark">新增書籤</string>
+    <!-- Related Books Header Resources (Localize player recommendation section headings)
+         Creator-name templates stay separate for authors and narrators so each locale can express the relationship accurately. -->
+    <string name="player_related_recommended">為你推薦</string>
+    <string name="player_related_more_by_author">%1$s 的更多作品</string>
+    <string name="player_related_more_by_narrator">由 %1$s 朗讀的更多作品</string>
+    <string name="player_related_recently_added">最近新增</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->
     <string name="common_unknown">未知</string>
     <string name="common_unknown_title">未知標題</string>

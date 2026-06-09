@@ -8,6 +8,10 @@ import com.viel.aplayer.application.library.detail.DetailBookReadModel
 import com.viel.aplayer.application.library.edit.DefaultEditBookModule
 import com.viel.aplayer.application.library.edit.EditBookCommands
 import com.viel.aplayer.application.library.edit.EditBookReadModel
+import com.viel.aplayer.application.library.home.DefaultHomeLibraryReadModel
+import com.viel.aplayer.application.library.home.DefaultHomeLibraryUseCases
+import com.viel.aplayer.application.library.home.HomeLibraryReadModel
+import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.application.library.player.DefaultPlayerLibraryModule
 import com.viel.aplayer.application.library.player.PlayerBookmarkCommands
 import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
@@ -15,6 +19,9 @@ import com.viel.aplayer.application.library.search.DefaultSearchLibraryModule
 import com.viel.aplayer.application.library.search.SearchLibraryCommands
 import com.viel.aplayer.application.library.search.SearchLibraryReadModel
 import com.viel.aplayer.application.library.search.SearchQueryPlanner
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
+import com.viel.aplayer.application.usecase.DeleteBookUseCase
+import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
@@ -42,14 +49,7 @@ import com.viel.aplayer.data.service.RemotePlaybackCleanupService
 import com.viel.aplayer.data.service.ScanService
 import com.viel.aplayer.data.service.SearchService
 import com.viel.aplayer.data.service.SubtitleService
-import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
-import com.viel.aplayer.application.usecase.DeleteBookUseCase
-import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.library.availability.AvailabilityChecker
-import com.viel.aplayer.application.library.home.DefaultHomeLibraryReadModel
-import com.viel.aplayer.application.library.home.DefaultHomeLibraryUseCases
-import com.viel.aplayer.application.library.home.HomeLibraryReadModel
-import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.media.PlaybackPlanGateway
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
@@ -254,7 +254,10 @@ internal class LibraryGraph(
             libraryRootDao = data.database.libraryRootDao(),
             bookDao = data.database.bookDao(),
             scanScheduler = scanScheduler,
-            cacheEvictionCoordinator = cacheEvictionCoordinator
+            cacheEvictionCoordinator = cacheEvictionCoordinator,
+            // Root Delete Transaction Database (Bind LibraryRootService to the same Room owner as its DAOs)
+            // Passing the graph database explicitly keeps ABS cleanup transactions aligned with the DAO instances injected above.
+            databaseOverride = data.database
         )
     }
 
@@ -378,7 +381,10 @@ internal class LibraryGraph(
         // Home Read Model Wiring (Provides the home screen with its catalog stream through a narrow read model)
         // The read model is intentionally backed by the narrow book query gateway so future home projections can deepen here.
         DefaultHomeLibraryReadModel(
-            bookCatalogGateway = bookCatalogGateway
+            bookCatalogGateway = bookCatalogGateway,
+            // Home Root Presence Wiring (Supply the narrow root gateway only to project registered-source presence)
+            // Home still reads catalog rows through BookCatalogGateway, while this extra dependency avoids using book emptiness as a proxy for whether a media library exists.
+            libraryRootGateway = libraryRootGateway
         )
     }
 

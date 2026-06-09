@@ -1,17 +1,21 @@
 package com.viel.aplayer.ui.home.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +41,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,7 +68,6 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun AudiobookActionDialogs(
-    modifier: Modifier = Modifier,
     book: HomeBookItem?,
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
@@ -169,7 +175,11 @@ fun AudiobookActionDialogs(
                         textAlign = TextAlign.Center
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // Read Status Choice Group Semantics (Expose the three status chips as one exclusive group)
+                            // Grouping lets assistive services understand Not Started, In Progress, and Finished as alternatives within the same read-status domain decision.
+                            .selectableGroup(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         // Read Status Color Mapping (Bind each status to a restrained semantic accent)
@@ -401,45 +411,84 @@ private fun ReadStatusChip(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val choiceStateDescription = stringResource(
+        if (selected) {
+            R.string.accessibility_choice_selected
+        } else {
+            R.string.accessibility_choice_unselected
+        }
+    )
+    // Read Status Press Feedback Source (Disable the default selectable ripple while keeping press state scoped)
+    // The chip already exposes selection through its fill, border, dot, text weight, and semantics, so the extra background indication would make the compact visual area feel heavier.
+    val interactionSource = remember { MutableInteractionSource() }
 
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(42.dp),
-        shape = RoundedCornerShape(14.dp),
-        // Read Status Chip Tonal Fill (Replace saturated button blocks with a quiet selected wash)
-        // The selected state still receives a semantic fill, but low alpha keeps it aligned with the glass dialog surface.
-        color = containerColor,
-        // Read Status Chip Hairline Border (Keep status color without heavy visual weight)
-        // A softer border preserves the requested green/blue/purple affordance while reducing the boxed-button feeling.
-        border = BorderStroke(0.8.dp, borderColor)
+    Box(
+        modifier = modifier
+            // Read Status Accessibility Shell (Separate the touch target from the compact visual chip)
+            // The outer node owns the 48.dp radio semantics while the inner Surface keeps the existing status style at a 32.dp Material-like height.
+            .defaultMinSize(
+                minWidth = ReadStatusChipMinimumTouchTarget,
+                minHeight = ReadStatusChipMinimumTouchTarget
+            )
+            .selectable(
+                selected = selected,
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.RadioButton,
+                onClick = onClick
+            )
+            .semantics {
+                stateDescription = choiceStateDescription
+            },
+        contentAlignment = Alignment.Center
     ) {
-        Row(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+                // Read Status Visual Height (Keep the rendered pill compact while preserving the outer 48.dp hit area)
+                // This mirrors the Home filter chip split without changing the dialog's existing equal-width row layout.
+                .height(ReadStatusChipVisualHeight),
+            shape = RoundedCornerShape(14.dp),
+            // Read Status Chip Tonal Fill (Replace saturated button blocks with a quiet selected wash)
+            // The selected state still receives a semantic fill, but low alpha keeps it aligned with the glass dialog surface.
+            color = containerColor,
+            // Read Status Chip Hairline Border (Keep status color without heavy visual weight)
+            // A softer border preserves the requested green/blue/purple affordance while reducing the boxed-button feeling.
+            border = BorderStroke(0.8.dp, borderColor)
         ) {
-            // Read Status Accent Dot (Use a small selection cue instead of a loud full button fill)
-            // The dot makes the active state scannable while keeping each chip visually lightweight.
-            Surface(
-                modifier = Modifier.size(if (selected) 7.dp else 5.dp),
-                shape = CircleShape,
-                color = accentColor.copy(alpha = if (selected) 1f else 0.5f)
-            ) {}
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                color = textColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                // Read Status Accent Dot (Use a small selection cue instead of a loud full button fill)
+                // The dot makes the active state scannable while keeping each chip visually lightweight.
+                Surface(
+                    modifier = Modifier.size(if (selected) 7.dp else 5.dp),
+                    shape = CircleShape,
+                    color = accentColor.copy(alpha = if (selected) 1f else 0.5f)
+                ) {}
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = textColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
+
+// Read Status Chip Dimension Tokens (Separate visual compactness from accessible interaction size)
+// The dialog keeps its existing pill style while matching the Home filter chip contract of 32.dp visuals inside a 48.dp selectable target.
+private val ReadStatusChipVisualHeight = 32.dp
+private val ReadStatusChipMinimumTouchTarget = 48.dp
 
 @Composable
 private fun AudiobookActionCover(

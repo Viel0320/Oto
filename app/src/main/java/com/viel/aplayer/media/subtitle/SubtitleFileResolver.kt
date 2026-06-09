@@ -2,13 +2,13 @@ package com.viel.aplayer.media.subtitle
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.VfsNode
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.PlaybackSubtitle
 import com.viel.aplayer.media.VfsPlaybackUri
 import kotlinx.coroutines.Dispatchers
@@ -78,7 +78,9 @@ class SubtitleFileResolver(
                 lines = lines
             )
         } catch (e: Exception) {
-            Log.e("SubtitleFileResolver", "Failed to parse VFS subtitle file: $sourceId", e)
+            // Release Error Boundary (Sanitize subtitle VFS parse failures)
+            // The sourceId combines root and source path, so retained errors must hash or remove it before Logcat output.
+            SecureLog.error("SubtitleFileResolver", "Failed to parse VFS subtitle file: $sourceId", e)
             null
         }
 

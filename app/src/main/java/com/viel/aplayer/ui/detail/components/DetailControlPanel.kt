@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Event
@@ -30,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -247,10 +249,14 @@ fun DetailInfoChip(
 ) {
     // Detect whether Haze glass effect mode is enabled and sampling source is not null
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    // Detail Chip Width Boundary (Cap metadata pills before they can dominate narrow panels)
+    // Year, duration, and size are summary values, so long localized fallback text should truncate inside the chip instead of widening the FlowRow indefinitely.
+    val chipMaxWidth = 168.dp
 
     // Using a custom Surface instead of SuggestionChip for tighter spacing and no extra transparent clickable area
     Surface(
         modifier = modifier
+            .widthIn(max = chipMaxWidth)
             .let {
                 if (isBlur) {
                     val chipShape = RoundedCornerShape(12.dp)
@@ -293,11 +299,16 @@ fun DetailInfoChip(
             )
             Text(
                 text = value,
+                // Detail Chip Text Boundary (Measure metadata text only within the remaining chip row space)
+                // Weight gives the text a finite width after the icon, and clipToBounds prevents large-font glyphs from painting outside the pill.
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .clipToBounds(),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = LocalContentColor.current,
                 maxLines = 1,
-                overflow = TextOverflow.Visible,
+                overflow = TextOverflow.Ellipsis,
                 softWrap = false
             )
         }

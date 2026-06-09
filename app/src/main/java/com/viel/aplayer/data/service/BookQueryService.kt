@@ -1,6 +1,5 @@
 package com.viel.aplayer.data.service
 
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
@@ -18,6 +17,7 @@ import com.viel.aplayer.data.gateway.BookDeletionGateway
 import com.viel.aplayer.data.gateway.BookMetadataGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
 import com.viel.aplayer.data.gateway.ChapterGateway
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.timeline.PositionMapper
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -57,7 +57,9 @@ class BookQueryService(
     // Private Coroutine Exception Handler (Asynchronous tracking fault barrier)
     // Captures failures during async metadata updates to prevent uncaught scope terminations.
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        Log.e("BookQueryService", "协程在 BookQueryService 运行中捕获到未处理异常", exception)
+        // Release Error Boundary (Sanitize asynchronous query-service failures)
+        // Background DAO and cover repair exceptions may include physical paths, so release-retained errors use SecureLog.
+        SecureLog.error("BookQueryService", "协程在 BookQueryService 运行中捕获到未处理异常", exception)
     }
 
     // Private Service Coroutine Scope (Background operations thread pool)

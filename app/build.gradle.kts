@@ -150,6 +150,9 @@ dependencies {
     // API Testing Support (Utilize MockWebServer for local integration testing)
     // Solidifies API behaviors including HTTP methods, path routing, and authentication headers.
     testImplementation(libs.mockwebserver)
+    // Search Flow Backpressure Test Support (Enable deterministic virtual-time assertions)
+    // The search scene uses debounce to shield Room from keystroke churn, so JVM tests need TestScope scheduler controls.
+    testImplementation(libs.kotlinx.coroutines.test)
     // AndroidX DataStore JVM Runtime (Runs Android API-dependent storage tests against a realistic SDK)
     // Prevents local unit tests from exercising android.jar stub defaults that never occur on the app's supported devices.
     testImplementation(libs.robolectric)

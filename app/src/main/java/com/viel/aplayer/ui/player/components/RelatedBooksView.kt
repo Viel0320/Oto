@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.player.components
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,9 +11,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.application.library.player.PlayerRelatedBook
 import com.viel.aplayer.application.library.player.PlayerRelatedSection
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
@@ -39,7 +43,9 @@ fun RelatedBooksView(
         // Uses composite prefix keys like "h:${book.book.id}" to guarantee layout uniqueness across sections.
         if (heuristicBooks.isNotEmpty()) {
             item {
-                RelatedSectionHeader("Recommended for You")
+                // Related Header Resources (Resolve recommendation headers through localized resources)
+                // Resource-backed labels let each playback tab locale translate static headings while creator names stay formatted at the UI boundary.
+                RelatedSectionHeader(stringResource(R.string.player_related_recommended))
             }
             items(heuristicBooks, key = { "h:${it.id}" }) { book ->
                 RelatedAudiobookItem(book, onBookClick)
@@ -49,7 +55,7 @@ fun RelatedBooksView(
         authorSections.forEach { section ->
             if (section.books.isNotEmpty()) {
                 item {
-                    RelatedSectionHeader("More by ${section.name}")
+                    RelatedSectionHeader(stringResource(R.string.player_related_more_by_author, section.name))
                 }
                 // M-20 Fix — Configure list key (To assign unique key to prevent index recycling glitches)
                 items(section.books, key = { it.id }) { book ->
@@ -61,7 +67,7 @@ fun RelatedBooksView(
         narratorSections.forEach { section ->
             if (section.books.isNotEmpty()) {
                 item {
-                    RelatedSectionHeader("More by ${section.name}")
+                    RelatedSectionHeader(stringResource(R.string.player_related_more_by_narrator, section.name))
                 }
                 // M-20 Fix — Configure narrator list key (To assign compound keys to avoid key duplicate errors)
                 items(section.books, key = { "n:${it.id}" }) { book ->
@@ -72,7 +78,7 @@ fun RelatedBooksView(
 
         if (recentBooks.isNotEmpty()) {
             item {
-                RelatedSectionHeader("Recently Added")
+                RelatedSectionHeader(stringResource(R.string.player_related_recently_added))
             }
             // M-20 Fix — Configure recent list key (To assign prefix keys to prevent section key collisions)
             items(recentBooks, key = { "r:${it.id}" }) { book ->
@@ -88,7 +94,13 @@ private fun RelatedSectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 8.dp)
+        // Related Header Overflow Clamp (Keep long creator names from expanding the player panel)
+        // The bounded width, single-line limit, and ellipsis preserve section rhythm under narrow widths and large font scales.
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 8.dp)
     )
 }
 

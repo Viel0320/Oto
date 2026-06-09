@@ -1,11 +1,11 @@
 package com.viel.aplayer.media.service
 
-import android.util.Log
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.PlaybackDomainEvent
 import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackMediaId
@@ -74,7 +74,9 @@ class PlaybackFailureHandler(
                     playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked)
                     player.pause()
                     player.stop()
-                    Log.w("FailureHandler", "安全拦截：用户未授权播放明文 HTTP 协议音频流")
+                    // Release Warning Boundary (Sanitize cleartext playback policy diagnostics)
+                    // The branch intentionally keeps only the policy outcome and routes retained warnings through SecureLog.
+                    SecureLog.warn("FailureHandler", "安全拦截：用户未授权播放明文 HTTP 协议音频流")
                     return@launch
                 }
             }
@@ -106,7 +108,9 @@ class PlaybackFailureHandler(
                 ?: error.message?.takeIf { it.isNotBlank() }
                 ?: "未知错误"
             playbackEventSink.emit(PlaybackDomainEvent.InitialMediaLoadFailed(message))
-            Log.w("FailureHandler", "媒体源载入前失败，已跳过播放中恢复流程: code=${error.errorCode}, message=$message")
+            // Release Warning Boundary (Sanitize initial media load failure diagnostics)
+            // Media3 messages can carry source URLs or provider paths, so the retained warning uses SecureLog.
+            SecureLog.warn("FailureHandler", "媒体源载入前失败，已跳过播放中恢复流程: code=${error.errorCode}, message=$message", error)
         }
     }
 

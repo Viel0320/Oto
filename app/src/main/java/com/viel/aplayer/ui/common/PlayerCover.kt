@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
@@ -112,8 +113,20 @@ fun PlayerCover(
         var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
         var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
 
-        // Construct the gesture recognition modifier. The pointerInput logic is appended only when gesturesEnabled is true.
-        val gestureModifier = if (gesturesEnabled) {
+        // Cover Gesture Transition Gate (Disable drag commands while the host overlay is moving)
+        // Full-player entry animations can place the cover under an in-flight finger, so gestures are
+        // enabled only after the nearest AnimatedVisibility host has fully reached the Visible state.
+        val hostVisibilityScope = LocalAnimatedVisibilityScope.current
+        val isHostVisibilitySettled = hostVisibilityScope?.transition?.let { transition ->
+            transition.currentState == EnterExitState.Visible &&
+                transition.targetState == EnterExitState.Visible
+        } ?: true
+        val effectiveGesturesEnabled = gesturesEnabled && isHostVisibilitySettled
+
+        // Cover Gesture Modifier Assembly (Attach pointer input only after caller and transition gates allow it)
+        // The caller controls scene-level gesture eligibility, while the transition gate blocks accidental
+        // drags during overlay enter/exit frames.
+        val gestureModifier = if (effectiveGesturesEnabled) {
             Modifier.pointerInput(Unit) {
                 // Detect gestures: drag up/down to adjust volume, drag left/right to skip chapters.
                 detectDragGestures(

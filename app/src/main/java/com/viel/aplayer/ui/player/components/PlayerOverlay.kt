@@ -26,6 +26,7 @@ import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerFloatingSurfaceHost
 import com.viel.aplayer.ui.player.PlayerScreen
 import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.settings.FullPlayerOpenSource
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -83,10 +84,16 @@ fun PlayerOverlay(
                 /*
                  * Mini To Player Target Scope Provider (Full-player target isolation)
                  *
-                 * Publishes the full-player visibility scope through the mini2player-specific
-                 * target local so PlayerScreen shared elements do not consume route/detail scopes.
+                 * Publishes the full-player visibility scope only when the current visibility
+                 * change was requested by MiniPlayer, so direct playback entries render normally.
                  */
-                LocalMini2PlayerTargetScope provides this@AnimatedVisibility,
+                LocalMini2PlayerTargetScope provides if (
+                    settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer
+                ) {
+                    this@AnimatedVisibility
+                } else {
+                    null
+                },
                 LocalAnimatedVisibilityScope provides this@AnimatedVisibility
             ) {
                 val darkTheme = LocalDarkTheme.current

@@ -4,10 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
+import androidx.room.withTransaction
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
+import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
@@ -39,7 +41,10 @@ class LibraryRootService(
     private val cacheEvictionCoordinator: CacheEvictionCoordinator,
     private val rootStoreOverride: LibraryRootStore? = null,
     private val webDavCredentialStoreOverride: WebDavCredentialStore? = null,
-    private val absCredentialStoreOverride: AbsCredentialStore? = null
+    private val absCredentialStoreOverride: AbsCredentialStore? = null,
+    // Database Coordinator Override (Keeps Room transaction tests on the same in-memory database)
+    // Production callers omit this parameter and continue to use the process-wide AppDatabase singleton.
+    private val databaseOverride: AppDatabase? = null
 ) : LibraryRootGateway, java.io.Closeable {
 
     // Application Context Binding (Lifecycle leak prevention)
@@ -51,7 +56,11 @@ class LibraryRootService(
     private val rootStore = rootStoreOverride ?: LibraryRootStore(appContext)
     private val webDavCredentialStore = webDavCredentialStoreOverride ?: WebDavCredentialStore(appContext)
     private val absCredentialStore = absCredentialStoreOverride ?: AbsCredentialStore.getInstance(appContext)
-    private val database by lazy { com.viel.aplayer.data.db.AppDatabase.getInstance(appContext) }
+    private val database by lazy {
+        // Database Instance Selection (Align injected DAOs with transaction ownership)
+        // Tests can supply the exact Room instance backing the DAOs so rollback assertions exercise real SQLite behavior.
+        databaseOverride ?: AppDatabase.getInstance(appContext)
+    }
 
     // Private Exception Handler (Background thread failure barrier)
     // Intercepts background failures during reactive root cache synchronization.
@@ -189,11 +198,67 @@ class LibraryRootService(
             ScanWorkflowLogger.error("libraryRootService cache eviction failed: rootId=${root.id}", e)
         }
 
-        // 2. Revoke permissions or remove secrets based on the root type (SAF tree release, or credential purge).
-        when (LibrarySourceKind.from(root.sourceType)) {
-            LibrarySourceKind.SAF -> {
+        val sourceKind = LibrarySourceKind.from(root.sourceType)
+        val postCommitCleanup = database.withTransaction {
+            // Root Delete Transaction (Commit Room-owned cleanup and root deletion together)
+            // ABS mirror, sync, session, pending progress, and root rows must succeed or roll back as one SQLite unit.
+            val cleanup = buildPostCommitRootCleanup(root = root, sourceKind = sourceKind)
+            deleteRoomOwnedRootData(root = root, sourceKind = sourceKind)
+            // Room Root Deletion (Cascade root-owned book/file rows after manual ABS rows are staged for deletion)
+            // The final root delete is inside the same transaction so failures cannot leave partial ABS cleanup committed.
+            libraryRootDao.deleteRoot(root)
+            cleanup
+        }
+        runPostCommitRootCleanup(root = root, cleanup = postCommitCleanup)
+    }
+
+    private suspend fun buildPostCommitRootCleanup(
+        root: LibraryRootEntity,
+        sourceKind: LibrarySourceKind?
+    ): PostCommitRootCleanup {
+        return when (sourceKind) {
+            LibrarySourceKind.SAF -> PostCommitRootCleanup.ReleaseSafPermission(root.sourceUri)
+            LibrarySourceKind.WEBDAV -> PostCommitRootCleanup.DeleteWebDavCredential(root.credentialId)
+            LibrarySourceKind.ABS -> {
+                // ABS Credential Reference Check (Multi-root secret isolation)
+                // The credential is selected inside the Room transaction but deleted only after the root delete commits.
+                if (shouldDeleteAbsCredential(root, libraryRootDao.getAllRootsOnce())) {
+                    PostCommitRootCleanup.DeleteAbsCredential(root.credentialId)
+                } else {
+                    PostCommitRootCleanup.None
+                }
+            }
+            null -> {
+                ScanWorkflowLogger.warn("libraryRootService unknown sourceType during delete: sourceType=${root.sourceType}")
+                PostCommitRootCleanup.None
+            }
+        }
+    }
+
+    private suspend fun deleteRoomOwnedRootData(
+        root: LibraryRootEntity,
+        sourceKind: LibrarySourceKind?
+    ) {
+        if (sourceKind != LibrarySourceKind.ABS) return
+        val bookIds = bookDao.getBooksByRootId(root.id).map { book -> book.id }
+        // ABS Manual Room Cleanup (Remove tables that do not yet have SQLite cascade ownership)
+        // These deletes run before the root row delete but stay inside the same transaction, so root delete failures roll them back.
+        database.absSyncStateDao().deleteByRootId(root.id)
+        database.absItemMirrorDao().deleteByRootId(root.id)
+        if (bookIds.isNotEmpty()) {
+            database.absPlaybackSessionDao().deleteByBookIds(bookIds)
+            database.absPendingProgressSyncDao().deleteByBookIds(bookIds)
+        }
+    }
+
+    private suspend fun runPostCommitRootCleanup(
+        root: LibraryRootEntity,
+        cleanup: PostCommitRootCleanup
+    ) {
+        when (cleanup) {
+            is PostCommitRootCleanup.ReleaseSafPermission -> {
                 try {
-                    val uri = root.sourceUri.toUri()
+                    val uri = cleanup.sourceUri.toUri()
                     appContext.contentResolver.releasePersistableUriPermission(
                         uri,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -202,30 +267,14 @@ class LibraryRootService(
                     ScanWorkflowLogger.error("libraryRootService release SAF permission failed: rootId=${root.id}", e)
                 }
             }
-            LibrarySourceKind.WEBDAV -> {
-                webDavCredentialStore.delete(root.credentialId)
+            is PostCommitRootCleanup.DeleteWebDavCredential -> {
+                webDavCredentialStore.delete(cleanup.credentialId)
             }
-            LibrarySourceKind.ABS -> {
-                // ABS Credential Reference Check (Multi-root secret isolation)
-                // Only removes ABS credentials if no other registered ABS roots share the same credential ID.
-                if (shouldDeleteAbsCredential(root, libraryRootDao.getAllRootsOnce())) {
-                    absCredentialStore.delete(root.credentialId)
-                }
-                val bookIds = bookDao.getBooksByRootId(root.id).map { book -> book.id }
-                database.absSyncStateDao().deleteByRootId(root.id)
-                database.absItemMirrorDao().deleteByRootId(root.id)
-                if (bookIds.isNotEmpty()) {
-                    database.absPlaybackSessionDao().deleteByBookIds(bookIds)
-                    database.absPendingProgressSyncDao().deleteByBookIds(bookIds)
-                }
+            is PostCommitRootCleanup.DeleteAbsCredential -> {
+                absCredentialStore.delete(cleanup.credentialId)
             }
-            null -> {
-                ScanWorkflowLogger.warn("libraryRootService unknown sourceType during delete: sourceType=${root.sourceType}")
-            }
+            PostCommitRootCleanup.None -> Unit
         }
-
-        // 3. Room root deletion: Removes the database row, triggering SQLite CASCADE deletes for child files and books.
-        libraryRootDao.deleteRoot(root)
     }
 
     override fun close() {
@@ -269,4 +318,22 @@ internal fun shouldDeleteAbsCredential(
             otherRoot.sourceType == com.viel.aplayer.data.db.AudiobookSchema.LibrarySourceType.ABS &&
             otherRoot.credentialId == root.credentialId
     }
+}
+
+private sealed class PostCommitRootCleanup {
+    // Post-Commit SAF Cleanup (Releases platform URI grants only after SQLite no longer has a live root)
+    // This prevents database failures from leaving an active SAF root without its persisted permission.
+    data class ReleaseSafPermission(val sourceUri: String) : PostCommitRootCleanup()
+
+    // Post-Commit WebDAV Cleanup (Removes external credentials after the root row has been deleted)
+    // WebDAV secrets live outside Room, so they must not be erased until the database commit succeeds.
+    data class DeleteWebDavCredential(val credentialId: String?) : PostCommitRootCleanup()
+
+    // Post-Commit ABS Cleanup (Removes an unshared ABS credential after the root row has been deleted)
+    // Shared credentials remain available for sibling ABS roots that still reference the same credential ID.
+    data class DeleteAbsCredential(val credentialId: String?) : PostCommitRootCleanup()
+
+    // No External Cleanup (Represents unknown or shared-credential roots with no post-commit side effect)
+    // Keeping this explicit avoids encoding no-op cleanup as nullable control flow.
+    data object None : PostCommitRootCleanup()
 }

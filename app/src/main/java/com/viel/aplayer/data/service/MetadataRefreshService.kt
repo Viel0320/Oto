@@ -1,6 +1,5 @@
 package com.viel.aplayer.data.service
 
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.room.withTransaction
@@ -9,6 +8,7 @@ import com.viel.aplayer.data.dao.ChapterDao
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.gateway.MetadataRefreshGateway
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.media.parser.MetadataResolver
 import kotlinx.coroutines.Dispatchers
@@ -77,7 +77,9 @@ class MetadataRefreshService (
             // Some media files provide embedded artwork only through the metadata scan path.
             coverRecoveryHelper.forceRegenerateCover(bookId)
         } catch (e: Exception) {
-            Log.e("MetadataRefreshService", "物理强制重建有声书 $bookId 的封面与元数据发生异常", e)
+            // Release Error Boundary (Sanitize metadata refresh failures)
+            // Tag parsing and cover recovery can surface source paths, so retained errors must pass through SecureLog.
+            SecureLog.error("MetadataRefreshService", "物理强制重建有声书 $bookId 的封面与元数据发生异常", e)
         }
     }
 }

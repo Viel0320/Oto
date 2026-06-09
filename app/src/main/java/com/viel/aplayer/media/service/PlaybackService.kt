@@ -38,6 +38,7 @@ import com.viel.aplayer.media.PlaybackDomainEvent
 import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackMediaId
 import com.viel.aplayer.media.PlaybackPlanGateway
+import com.viel.aplayer.media.PlaybackSourcePreflight
 import com.viel.aplayer.media.SeekStepPresentation
 import com.viel.aplayer.media.session.PlaybackSessionErrorDecision
 import com.viel.aplayer.media.session.PlaybackSessionState
@@ -50,6 +51,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
@@ -97,6 +99,9 @@ class PlaybackService : MediaSessionService() {
     // Playback Plan Gateway (Dedicated media-core read model for plan materialization)
     // Separating plan construction from catalog reads keeps playback startup semantics out of generic book metadata queries.
     private lateinit var playbackPlanGateway: PlaybackPlanGateway
+    // Playback Source Preflight Gate (Shared root-policy validator for foreground play and MediaSession resume)
+    // The service uses the same narrow dependency as PlaybackManager so VFS root lifecycle and cleartext policy stay consistent.
+    private lateinit var playbackSourcePreflight: PlaybackSourcePreflight
     // Playback Progress Gateway (Provides resume checkpoints and runtime progress state without routing through the UI facade)
     // This keeps progress persistence and playback recovery aligned with the media-core gateway seam.
     private lateinit var progressGateway: ProgressGateway
@@ -107,6 +112,9 @@ class PlaybackService : MediaSessionService() {
     // Playback Domain Event Sink (Publishes media-service outcomes for the application bridge)
     // Foreground service commands no longer construct Toasts directly, keeping media code presentation-free.
     private lateinit var playbackEventSink: PlaybackDomainEventSink
+    // MediaSession Resume Preflight Coordinator (Owns policy-event emission before resumption media items are exposed)
+    // Keeping this as a small coordinator prevents the callback from mixing Room settings reads, VFS policy checks, and Media3 response construction.
+    private lateinit var resumptionPreflight: PlaybackResumptionPreflight
     private lateinit var notificationPlayer: NotificationProgressPlayer
 
     // Notification Layer Book Metadata Cache (Stores the active book identifier to prevent track index cross-pollution during transitions)
@@ -139,11 +147,19 @@ class PlaybackService : MediaSessionService() {
         chapterGateway = playbackDependencies.chapterGateway
         bookmarkGateway = playbackDependencies.bookmarkGateway
         playbackPlanGateway = playbackDependencies.playbackPlanGateway
+        playbackSourcePreflight = playbackDependencies.playbackSourcePreflight
         progressGateway = playbackDependencies.progressGateway
         bookAvailabilityGateway = playbackDependencies.bookAvailabilityGateway
         settingsRepository = AppSettingsRepository.getInstance(this)
         // Playback Domain Event Sink Resolution (Route service-originated playback facts through the media event stream)
         playbackEventSink = playbackDependencies.playbackDomainEventSink
+        // Resumption Preflight Wiring (Bridge service-owned settings reads into the playback root-policy validator)
+        // MediaSession resume uses this before building MediaItems so blocked sources fail with typed domain events.
+        resumptionPreflight = PlaybackResumptionPreflight(
+            playbackSourcePreflight = playbackSourcePreflight,
+            settingsProvider = { settingsRepository.settingsFlow.first() },
+            playbackEventSink = playbackEventSink
+        )
 
         // 1. Instantiate the dedicated audio focus manager component.
         audioFocusManager = PlaybackAudioFocusManager(
@@ -512,6 +528,9 @@ class PlaybackService : MediaSessionService() {
                         future.setException(UnsupportedOperationException("Playback plan is empty for book: ${lastProgress.bookId}"))
                         return@launch
                     }
+                    // Resumption Source Preflight (Reject unavailable or policy-blocked roots before Media3 item creation)
+                    // This mirrors PlaybackManager startup behavior and prevents system resume from turning typed VFS policy failures into generic loader errors.
+                    resumptionPreflight.requireAvailable(plan)
                     val mediaItems = com.viel.aplayer.media.PlaybackPlanBuilder.buildMediaItems(plan)
                     val chapters = chapterGateway.getChaptersForBookSync(lastProgress.bookId)
                     val startIndex = if (lastProgress.currentFileIndex in mediaItems.indices) {

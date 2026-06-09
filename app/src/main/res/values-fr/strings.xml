@@ -344,6 +344,10 @@
     <string name="track_unavailable_body">Le fichier physique de la piste actuelle est manquant ou corrompu. Ignorer cette piste et lire la suivante disponible ?\n\nNote : le saut forcé peut perturber la progression d’écoute prévue.</string>
     <string name="track_unavailable_confirm_skip">Confirmer le saut</string>
     <string name="home_action_mark_read_status">Marquer l’état de lecture</string>
+    <!-- Choice State Accessibility Copy (Localize selectable chip state descriptions)
+         Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
+    <string name="accessibility_choice_selected">Sélectionné</string>
+    <string name="accessibility_choice_unselected">Non sélectionné</string>
     <string name="home_action_regenerate_title">Reconstruire couvertures et métadonnées</string>
     <string name="home_action_regenerate_subtitle">Forcer l’extraction de la couverture et de la description depuis les fichiers audio</string>
     <string name="home_action_remove_title">Retirer de la médiathèque</string>
@@ -361,6 +365,12 @@
     <string name="media_session_forward_20">Avancer de 20 secondes</string>
     <string name="media_session_forward_30">Avancer de 30 secondes</string>
     <string name="media_session_add_bookmark">Ajouter un signet</string>
+    <!-- Related Books Header Resources (Localize player recommendation section headings)
+         Creator-name templates stay separate for authors and narrators so each locale can express the relationship accurately. -->
+    <string name="player_related_recommended">Recommandé pour vous</string>
+    <string name="player_related_more_by_author">Plus de livres de %1$s</string>
+    <string name="player_related_more_by_narrator">Plus de livres narrés par %1$s</string>
+    <string name="player_related_recently_added">Ajoutés récemment</string>
     <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->
     <string name="common_unknown">Inconnu</string>
     <string name="common_unknown_title">Titre inconnu</string>

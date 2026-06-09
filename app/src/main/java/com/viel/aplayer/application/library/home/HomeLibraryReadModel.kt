@@ -45,6 +45,12 @@ data class HomeBookItem(
  */
 interface HomeLibraryReadModel {
     val audiobooks: Flow<List<HomeBookItem>>
+
+    /**
+     * Registered Library Presence Stream (Home-level media source availability)
+     * Exposes a boolean root-presence signal so Home can distinguish an unconfigured app from an empty scanned catalog without depending on SettingsRootItem or persistence entities.
+     */
+    val hasRegisteredLibraryRoots: Flow<Boolean>
 }
 
 /**
@@ -70,13 +76,21 @@ interface HomeLibraryUseCases {
  * Keeps Home callers off the broad transition facade while the composition root still owns it for other screens.
  */
 class DefaultHomeLibraryReadModel(
-    private val bookCatalogGateway: BookCatalogGateway
+    private val bookCatalogGateway: BookCatalogGateway,
+    private val libraryRootGateway: LibraryRootGateway
 ) : HomeLibraryReadModel {
     override val audiobooks: Flow<List<HomeBookItem>>
         get() = bookCatalogGateway.audiobooks.map { books ->
             // Home Catalog Projection Mapping (Keep Room relationship rows behind the home adapter)
             // Home UI needs only renderable catalog fields and progress flags, so the adapter strips persistence wrappers here.
             books.map { it.toHomeBookItem() }
+        }
+
+    override val hasRegisteredLibraryRoots: Flow<Boolean>
+        get() = libraryRootGateway.observeLibraryRoots().map { roots ->
+            // Home Library Root Presence Projection (Expose only whether any media source has been registered)
+            // The Home scene needs this boolean to decide if the onboarding FAB should remain visible without importing settings rows or Room root entities.
+            roots.isNotEmpty()
         }
 }
 

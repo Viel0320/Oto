@@ -9,14 +9,23 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.library.search.SearchHistoryItem
 import com.viel.aplayer.application.library.search.SearchResultSnapshot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
+
+// Search Input Debounce Window (Balance typing responsiveness against Room scan fan-out)
+// A short pause keeps the overlay feeling live while collapsing fast keystrokes before leading-wildcard queries begin.
+internal const val SEARCH_INPUT_DEBOUNCE_MILLIS = 250L
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
     // Search Scene Dependency View (Resolve only search-specific read and command interfaces)
@@ -48,10 +57,9 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
-    @OptIn(ExperimentalCoroutinesApi::class)
+    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val searchResults: StateFlow<List<SearchResultSnapshot>> = _query
-        .map { it.text }
-        .flatMapLatest(searchLibraryReadModel::search)
+        .toBackpressuredSearchResults(searchLibraryReadModel::search)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -96,4 +104,16 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             searchLibraryCommands.clearSearchHistory()
         }
     }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+internal fun Flow<TextFieldValue>.toBackpressuredSearchResults(
+    search: (String) -> Flow<List<SearchResultSnapshot>>
+): Flow<List<SearchResultSnapshot>> {
+    // Search Input Backpressure (Prevent text-entry churn from becoming Room query churn)
+    // Trims TextFieldValue down to semantic query text, waits for a short typing pause, and suppresses repeated queries before DAO-backed search flows start.
+    return map { fieldValue -> fieldValue.text.trim() }
+        .debounce(SEARCH_INPUT_DEBOUNCE_MILLIS.milliseconds)
+        .distinctUntilChanged()
+        .flatMapLatest(search)
 }

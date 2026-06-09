@@ -26,13 +26,20 @@ class AbsCatalogSynchronizer(
     private val batchSize: Int = 20
 ) {
     /**
+     * Sync Cancellation Boundary (Preserve WorkManager and coordinator cancellation semantics)
+     * ABS catalog synchronization can recover ordinary remote or item failures, but coroutine cancellation must stop the whole sync immediately.
+     */
+    private inline fun <T> catalogRunCatching(block: () -> T): Result<T> =
+        runCatchingCancellable(block)
+
+    /**
      * Documented Sync Entrypoint (Executes synchronization and constructs a descriptive summary for setting toast prompts)
      * Does not alter synchronization behavior, solely extending output to record detailed book statistics.
      */
     suspend fun syncRootWithSummary(root: LibraryRootEntity): AbsSyncSummary {
         val start = AbsSyncLogger.mark()
         AbsSyncLogger.logSyncRootStart(rootId = root.id, libraryId = root.basePath)
-        return runCatching {
+        return catalogRunCatching {
             syncRootInternal(root)
         }.onFailure { error ->
             val redacted = error.message?.replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
@@ -94,11 +101,7 @@ class AbsCatalogSynchronizer(
      */
     suspend fun isAuthorizedProgressRefreshDue(rootId: String, nowMillis: Long): Boolean {
         val syncState = catalogStore.getSyncState(rootId)
-        return !OnlineSourceCachePolicy.isFresh(
-            cachedAtMillis = syncState?.lastIncrementalSyncAt ?: syncState?.lastFullSyncAt,
-            nowMillis = nowMillis,
-            ttlMillis = OnlineSourceCachePolicy.ABS_AUTHORIZED_PROGRESS_TTL_MS
-        )
+        return isAbsAuthorizedProgressRefreshDue(syncState = syncState, nowMillis = nowMillis)
     }
 
     private suspend fun syncRootInternal(root: LibraryRootEntity): AbsSyncSummary {
@@ -156,7 +159,7 @@ class AbsCatalogSynchronizer(
             val batchStart = AbsSyncLogger.mark()
             // Logging Batch Transports (Logs batch-level parameters to identify transport issues during batch queries)
             AbsSyncLogger.logBatchRequest(rootId = root.id, batchIndex = batchIndex, batchSize = ids.size, itemIds = ids)
-            runCatching {
+            catalogRunCatching {
                 apiClient.batchGetItems(credential.baseUrl, credential.token, ids)
             }.fold(
                 onSuccess = { items ->
@@ -219,7 +222,7 @@ class AbsCatalogSynchronizer(
                     AbsSyncLogger.logSkipUnplayableItem(rootId = root.id, itemId = detail.id, mediaType = detail.mediaType)
                     continue
                 }
-                runCatching {
+                catalogRunCatching {
                     upsertItem(
                         root = root,
                         serverKey = serverKey,
@@ -315,7 +318,7 @@ class AbsCatalogSynchronizer(
         )
         // Authorized Progress Final Merge (Routes the full user progress snapshot through the shared merger after catalog materialization)
         // Catalog sync now materializes only books, files, chapters, mirrors, and sync state before this dedicated progress pass runs.
-        val authorizedProgressSummary = runCatching {
+        val authorizedProgressSummary = catalogRunCatching {
             authorizedProgressSynchronizer?.mergeAuthorizedProgress(
                 root = root,
                 baseUrl = credential.baseUrl,
@@ -519,7 +522,7 @@ class AbsCatalogSynchronizer(
             var lastFailureReason: String? = null
             for (attempt in 1..MAX_DETAIL_RETRY_ATTEMPTS) {
                 AbsSyncLogger.logItemRetryStart(rootId = root.id, itemId = itemId, attempt = attempt, maxAttempts = MAX_DETAIL_RETRY_ATTEMPTS)
-                val result = runCatching {
+                val result = catalogRunCatching {
                     apiClient.batchGetItems(baseUrl, token, listOf(itemId))
                 }
                 result.onSuccess { items ->
@@ -594,6 +597,17 @@ class AbsCatalogSynchronizer(
 internal fun isAbsPlayableBook(item: AbsLibraryItemDto): Boolean =
     item.mediaType.equals("book", ignoreCase = true) &&
         (item.media?.tracks?.isNotEmpty() == true)
+
+/**
+ * Authorized Progress Freshness Policy (Evaluates startup progress refresh age without constructing sync adapters)
+ * Startup warmup and catalog synchronization share this pure rule so freshness reads can stay on DAO data until stale roots need WorkManager scheduling.
+ */
+internal fun isAbsAuthorizedProgressRefreshDue(syncState: AbsSyncStateEntity?, nowMillis: Long): Boolean =
+    !OnlineSourceCachePolicy.isFresh(
+        cachedAtMillis = syncState?.lastIncrementalSyncAt ?: syncState?.lastFullSyncAt,
+        nowMillis = nowMillis,
+        ttlMillis = OnlineSourceCachePolicy.ABS_AUTHORIZED_PROGRESS_TTL_MS
+    )
 
 /**
  * Sync Candidate Filter (Analyzes minified lists and timestamps to identify entries requiring deep details)

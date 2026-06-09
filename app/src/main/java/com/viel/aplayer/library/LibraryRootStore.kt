@@ -14,6 +14,7 @@ import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
+import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -299,7 +300,9 @@ class LibraryRootStore(
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         } catch (e: Exception) {
-            android.util.Log.e("LibraryRootStore", "Failed to release old SAF permission for root $id", e)
+            // Release Error Boundary (Sanitize SAF permission release failures)
+            // SAF provider exceptions can include tree URI details, so retained errors must flow through SecureLog.
+            SecureLog.error("LibraryRootStore", "Failed to release old SAF permission for root $id", e)
         }
         context.contentResolver.takePersistableUriPermission(
             newUri,

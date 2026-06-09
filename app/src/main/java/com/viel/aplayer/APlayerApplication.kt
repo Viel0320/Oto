@@ -11,6 +11,8 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.viel.aplayer.abs.sync.AbsSyncWorkScheduler
 import com.viel.aplayer.application.startup.APlayerStartupWarmup
+import com.viel.aplayer.application.startup.DefaultStartupWarmupDependencies
+import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.dependencies.AppFeedbackDependencies
 import com.viel.aplayer.dependencies.AppShellDependencies
@@ -68,17 +70,17 @@ class APlayerApplication : Application(), ImageLoaderFactory {
             )
         }
 
-        // Early Container Initialization (Trigger AppContainer instantiation on the main thread during onCreate)
-        // This ensures all dependency components are fully initialized before any activities or background services connect.
-        val appContainer = getContainer(this)
+        // Early Process Container Initialization (Trigger composition-root instantiation on the main thread during onCreate)
+        // The process-only view preserves startup access to graph-owned wiring while keeping the public AppContainer surface narrow.
+        val processContainer = getProcessContainer(this)
         
         // Async Warmup (Warm up database/settings components on background thread during application startup)
         // Dispatches the pre-caching of preferences and progress recovery self-healing to a dedicated background thread.
         appScope.launch {
-            appContainer.settingsRepository
+            processContainer.settingsRepository
             // Startup Warmup Coordinator (Gate remote ABS work before local progress recovery)
             // Cold start now enqueues stale ABS roots through root-scoped WorkManager instead of performing authorize progress refreshes inline on every process creation.
-            createStartupWarmup(appContainer).run()
+            createStartupWarmup(processContainer).run()
         }
     }
 
@@ -86,15 +88,24 @@ class APlayerApplication : Application(), ImageLoaderFactory {
      * Startup Warmup Wiring (Build the application-level startup coordinator from the process container)
      * Keeping construction here leaves the coordinator testable with small function seams while the Application owns Android-specific scheduler creation.
      */
-    internal fun createStartupWarmup(appContainer: AppContainer): APlayerStartupWarmup {
+    internal fun createStartupWarmup(processContainer: ProcessContainer): APlayerStartupWarmup {
+        // Startup Warmup Database Provider (Resolve only Room when the freshness gate actually reads persisted root state)
+        // This keeps warmup construction away from LibraryGraph and AbsGraph properties that would otherwise allocate scanner, VFS, cover, and remote sync adapters.
+        val startupDatabase = lazy { AppDatabase.getInstance(this) }
+        val startupWarmupDependencies = DefaultStartupWarmupDependencies(
+            libraryRootDaoProvider = { startupDatabase.value.libraryRootDao() },
+            absCatalogStoreProvider = { startupDatabase.value.absCatalogDao() },
+            coldStartSelfHealing = {
+                processContainer.autoRewindManager.performColdStartSelfHealing()
+            }
+        )
+
         // Lazy ABS Work Scheduler (Avoid initializing WorkManager when every ABS root is still fresh)
         // The startup coordinator resolves this scheduler only after the freshness gate selects at least one stale remote root.
         val absSyncWorkScheduler = lazy { AbsSyncWorkScheduler(this) }
         return APlayerStartupWarmup(
-            getAllRootsOnce = appContainer.libraryRootGateway::getAllRootsOnce,
-            isAuthorizedProgressRefreshDue = appContainer.absCatalogSynchronizer::isAuthorizedProgressRefreshDue,
+            dependencies = startupWarmupDependencies,
             enqueueAbsRootSync = { rootId -> absSyncWorkScheduler.value.enqueue(rootId) },
-            performColdStartSelfHealing = appContainer.autoRewindManager::performColdStartSelfHealing,
             onAbsProgressWarmupFailure = { error ->
                 AbsSyncLogger.logAuthorizedProgressSyncFailure(error::class.java.simpleName, error.message)
             }
@@ -126,7 +137,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
 
     companion object {
         @Volatile
-        private var instance: AppContainer? = null
+        private var instance: ProcessContainer? = null
 
         /**
          * Thread-Safe Container Factory (Thread-safely resolve or instantiate the global AppContainer singleton)
@@ -139,6 +150,20 @@ class APlayerApplication : Application(), ImageLoaderFactory {
          */
         @OptIn(UnstableApi::class)
         fun getContainer(context: Context): AppContainer {
+            // Public Container Provider (Return only the dependency-view union)
+            // Hiding the process-only subtype prevents public callers from resolving graph-owned implementation properties.
+            return getProcessContainer(context)
+        }
+
+        /**
+         * Process Container Provider (Return the internal composition-root view)
+         * Gives Application startup wiring access to graph-owned implementations without expanding AppContainer's public contract.
+         *
+         * @param context Component Context
+         * @return The global singleton ProcessContainer
+         */
+        @OptIn(UnstableApi::class)
+        internal fun getProcessContainer(context: Context): ProcessContainer {
             return instance ?: synchronized(this) {
                 instance ?: DefaultAppContainer(context.applicationContext).also { instance = it }
             }

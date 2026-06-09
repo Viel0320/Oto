@@ -1,0 +1,240 @@
+package com.viel.aplayer.data.service
+
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.room.Room
+import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.abs.playback.AbsPendingProgressSyncEntity
+import com.viel.aplayer.abs.playback.AbsPlaybackSessionEntity
+import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
+import com.viel.aplayer.abs.sync.AbsSyncStateEntity
+import com.viel.aplayer.data.cache.CacheEvictionCoordinator
+import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.gateway.ScanScheduler
+import com.viel.aplayer.library.scan.ScanOutcome
+import com.viel.aplayer.library.scan.ScanOutcomeKind
+import java.io.File
+import kotlin.io.path.createTempDirectory
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
+
+/**
+ * ABS Root Deletion Persistence Test (Locks failure ordering for remote root cleanup)
+ * Exercises the real Room database and ABS credential DataStore so root deletion cannot regress into
+ * deleting external secrets before the SQLite root deletion has committed.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [32])
+class LibraryRootServiceAbsDeleteTest {
+
+    @Test
+    fun `abs root deletion should remove room-owned rows and credential after commit`() = runBlocking {
+        val database = inMemoryDatabase()
+        val credentialStore = testCredentialStore("abs-root-delete-success")
+        val credential = credentialStore.save(
+            baseUrl = "https://abs.example.test",
+            token = "token-success",
+            credentialId = CREDENTIAL_ID
+        )
+        val root = absRoot(credential.id)
+        val service = serviceFor(database = database, credentialStore = credentialStore)
+
+        try {
+            database.seedAbsRootGraph(root)
+
+            service.deleteLibraryRootDataOnly(root)
+
+            // Successful Delete Contract (Commits Room-owned cleanup before removing the external ABS credential)
+            // The root, book cascade, ABS sync mirror, playback session, pending progress, and DataStore secret must all disappear together after a successful command.
+            assertNull(database.libraryRootDao().getRootById(ROOT_ID))
+            assertNull(database.bookDao().getBookById(BOOK_ID))
+            assertNull(database.absSyncStateDao().getByRootId(ROOT_ID))
+            assertTrue(database.absItemMirrorDao().getByRootId(ROOT_ID).isEmpty())
+            assertNull(database.absPlaybackSessionDao().getByBookId(BOOK_ID))
+            assertNull(database.absPendingProgressSyncDao().getByBookId(BOOK_ID))
+            assertNull(credentialStore.get(CREDENTIAL_ID))
+        } finally {
+            service.close()
+            database.close()
+            credentialStore.delete(CREDENTIAL_ID)
+        }
+    }
+
+    @Test
+    fun `abs credential and room rows should survive when root delete transaction fails`() = runBlocking {
+        val database = inMemoryDatabase()
+        val credentialStore = testCredentialStore("abs-root-delete-failure")
+        val credential = credentialStore.save(
+            baseUrl = "https://abs.example.test",
+            token = "token-failure",
+            credentialId = CREDENTIAL_ID
+        )
+        val root = absRoot(credential.id)
+        val service = serviceFor(database = database, credentialStore = credentialStore)
+
+        try {
+            database.seedAbsRootGraph(root)
+            database.installRootDeleteFailureTrigger()
+
+            val failure = runCatching {
+                service.deleteLibraryRootDataOnly(root)
+            }.exceptionOrNull()
+
+            // Failed Delete Rollback Contract (Preserves both Room rows and the external ABS credential)
+            // A root-delete failure must roll back ABS manual cleanup and must not erase the credential while the root row remains live.
+            assertNotNull(failure)
+            assertNotNull(database.libraryRootDao().getRootById(ROOT_ID))
+            assertNotNull(database.bookDao().getBookById(BOOK_ID))
+            assertNotNull(database.absSyncStateDao().getByRootId(ROOT_ID))
+            assertEquals(1, database.absItemMirrorDao().getByRootId(ROOT_ID).size)
+            assertNotNull(database.absPlaybackSessionDao().getByBookId(BOOK_ID))
+            assertNotNull(database.absPendingProgressSyncDao().getByBookId(BOOK_ID))
+            assertNotNull(credentialStore.get(CREDENTIAL_ID))
+        } finally {
+            service.close()
+            database.close()
+            credentialStore.delete(CREDENTIAL_ID)
+        }
+    }
+
+    private fun inMemoryDatabase(): AppDatabase =
+        Room.inMemoryDatabaseBuilder(
+            RuntimeEnvironment.getApplication(),
+            AppDatabase::class.java
+        )
+            .allowMainThreadQueries()
+            .build()
+
+    private fun testCredentialStore(testName: String): AbsCredentialStore {
+        val tempDir = createTempDirectory(testName).toFile()
+        // Test Credential Store (Uses a unique DataStore file per test case)
+        // Isolating the preferences file prevents credential state from leaking across deletion-ordering tests.
+        return AbsCredentialStore.createForTesting(
+            PreferenceDataStoreFactory.create(
+                produceFile = { File(tempDir, "credentials.preferences_pb") }
+            )
+        )
+    }
+
+    private fun serviceFor(
+        database: AppDatabase,
+        credentialStore: AbsCredentialStore
+    ): LibraryRootService {
+        val context = RuntimeEnvironment.getApplication()
+        // Real Room Service Fixture (Injects one database into every DAO and transaction entry point)
+        // This avoids false positives where cleanup DAO calls and withTransaction belong to different SQLite instances.
+        return LibraryRootService(
+            context = context,
+            libraryRootDao = database.libraryRootDao(),
+            bookDao = database.bookDao(),
+            scanScheduler = NoOpScanScheduler,
+            cacheEvictionCoordinator = CacheEvictionCoordinator(
+                context = context,
+                bookDao = database.bookDao(),
+                directoryCacheDao = database.directoryCacheDao(),
+                directoryChildCacheDao = database.directoryChildCacheDao()
+            ),
+            absCredentialStoreOverride = credentialStore,
+            databaseOverride = database
+        )
+    }
+
+    private suspend fun AppDatabase.seedAbsRootGraph(root: LibraryRootEntity) {
+        libraryRootDao().insertRoot(root)
+        bookDao().insertBook(
+            BookEntity(
+                id = BOOK_ID,
+                rootId = ROOT_ID,
+                sourceType = AudiobookSchema.SourceType.ABS_REMOTE,
+                title = "ABS Book"
+            )
+        )
+        absSyncStateDao().insertOrReplace(
+            AbsSyncStateEntity(
+                rootId = ROOT_ID,
+                serverKey = "server-key",
+                libraryId = "library-id"
+            )
+        )
+        absItemMirrorDao().insertOrReplaceAll(
+            listOf(
+                AbsItemMirrorEntity(
+                    localBookId = BOOK_ID,
+                    rootId = ROOT_ID,
+                    serverKey = "server-key",
+                    remoteItemId = "remote-item-id",
+                    state = AudiobookSchema.AbsMirrorState.ACTIVE
+                )
+            )
+        )
+        absPlaybackSessionDao().insertOrReplace(
+            AbsPlaybackSessionEntity(
+                bookId = BOOK_ID,
+                remoteItemId = "remote-item-id",
+                sessionId = "session-id",
+                currentTimeSec = 12.0,
+                timeListenedSec = 12.0,
+                openedAt = 1_000L,
+                state = "OPEN"
+            )
+        )
+        absPendingProgressSyncDao().insertOrReplace(
+            AbsPendingProgressSyncEntity(
+                bookId = BOOK_ID,
+                remoteItemId = "remote-item-id",
+                currentTimeSec = 12.0,
+                timeListenedSec = 12.0,
+                durationSec = 120.0,
+                updatedAt = 2_000L
+            )
+        )
+    }
+
+    private fun AppDatabase.installRootDeleteFailureTrigger() {
+        // Root Delete Failure Trigger (Forces SQLite to abort the final root deletion statement)
+        // The trigger recreates the production failure window without replacing Room DAOs with shallow fakes.
+        openHelper.writableDatabase.execSQL(
+            """
+            CREATE TRIGGER fail_abs_root_delete
+            BEFORE DELETE ON library_roots
+            WHEN OLD.id = '$ROOT_ID'
+            BEGIN
+                SELECT RAISE(ABORT, 'root delete failed');
+            END
+            """.trimIndent()
+        )
+    }
+
+    private fun absRoot(credentialId: String): LibraryRootEntity =
+        LibraryRootEntity(
+            id = ROOT_ID,
+            sourceType = AudiobookSchema.LibrarySourceType.ABS,
+            sourceUri = "https://abs.example.test",
+            basePath = "library-id",
+            credentialId = credentialId,
+            displayName = "ABS Library"
+        )
+
+    private object NoOpScanScheduler : ScanScheduler {
+        override suspend fun syncLibrary(trigger: String): ScanOutcome =
+            ScanOutcome(kind = ScanOutcomeKind.SUCCESS, message = null)
+
+        override fun scheduleLibrarySync(trigger: String, requiresNetwork: Boolean) = Unit
+    }
+
+    private companion object {
+        private const val ROOT_ID = "abs-root-delete-root"
+        private const val BOOK_ID = "abs-root-delete-book"
+        private const val CREDENTIAL_ID = "abs-root-delete-credential"
+    }
+}
