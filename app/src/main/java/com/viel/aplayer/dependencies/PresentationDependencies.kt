@@ -5,23 +5,25 @@ import com.viel.aplayer.application.library.detail.DetailBookCommands
 import com.viel.aplayer.application.library.detail.DetailBookReadModel
 import com.viel.aplayer.application.library.edit.EditBookCommands
 import com.viel.aplayer.application.library.edit.EditBookReadModel
+import com.viel.aplayer.application.library.home.HomeLibraryReadModel
+import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.application.library.player.PlayerBookmarkCommands
 import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
+import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryCommands
+import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryReadModel
 import com.viel.aplayer.application.library.search.SearchLibraryCommands
 import com.viel.aplayer.application.library.search.SearchLibraryReadModel
 import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootReadModel
 import com.viel.aplayer.application.playback.PlayerPlaybackController
-import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.application.usecase.DeleteBookUseCase
 import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.event.AppEventSink
-import com.viel.aplayer.application.library.home.HomeLibraryReadModel
-import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTester
 
 /**
@@ -112,6 +114,18 @@ interface SettingsScreenDependencies {
      * Routes root registration, status refresh, and manual scan triggers through the settings-root module.
      */
     val settingsRootCommands: SettingsRootCommands
+
+    /**
+     * Deleted Book Recovery Read Model (Settings-scoped recoverable book stream)
+     * Gives the settings recovery page a focused list feed without exposing the full home catalog.
+     */
+    val deletedBookRecoveryReadModel: DeletedBookRecoveryReadModel
+
+    /**
+     * Deleted Book Recovery Commands (Settings-scoped restore operations)
+     * Routes soft-delete restore workflows through the recovery scene instead of SettingsRootCommands.
+     */
+    val deletedBookRecoveryCommands: DeletedBookRecoveryCommands
 
     /**
      * Settings Repository (Settings persistence source)

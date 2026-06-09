@@ -23,6 +23,22 @@ data class BookCoverCachePaths(
     val thumbnailPath: String?
 )
 
+/**
+ * Deleted Book Recovery Projection (Carries only list-row fields needed by the recovery scene)
+ * Keeps the restore page from observing full Room entities while preserving cover cache busting and retained progress display.
+ */
+data class DeletedBookRecoveryProjection(
+    val bookId: String,
+    val title: String,
+    val author: String,
+    val narrator: String,
+    val durationMs: Long,
+    val coverPath: String?,
+    val coverLastUpdated: Long,
+    val progressPercent: Int,
+    val sourceLabel: String
+)
+
 @Dao
 interface BookDao {
     // UI lists hide soft-deleted books while their BookFile claims stay reserved.
@@ -38,6 +54,33 @@ interface BookDao {
     @Transaction
     @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title ASC")
     fun getAllBooksWithProgress(): Flow<List<BookWithProgress>>
+
+    /**
+     * Deleted Books Recovery Stream (Projects soft-deleted catalog rows for manual recovery)
+     * Joins retained progress and root labels without exposing full entity graphs to the settings recovery page.
+     */
+    @Query("""
+        SELECT
+            books.id AS bookId,
+            books.title AS title,
+            books.author AS author,
+            books.narrator AS narrator,
+            books.totalDurationMs AS durationMs,
+            books.coverPath AS coverPath,
+            books.lastScannedAt AS coverLastUpdated,
+            CASE
+                WHEN books.totalDurationMs > 0 AND book_progress.globalPositionMs IS NOT NULL
+                THEN CAST(((book_progress.globalPositionMs * 100) + books.totalDurationMs - 1) / books.totalDurationMs AS INTEGER)
+                ELSE 0
+            END AS progressPercent,
+            COALESCE(NULLIF(library_roots.displayName, ''), library_roots.sourceType, books.sourceType) AS sourceLabel
+        FROM books
+        LEFT JOIN book_progress ON book_progress.bookId = books.id
+        LEFT JOIN library_roots ON library_roots.id = books.rootId
+        WHERE books.status = 'DELETED'
+        ORDER BY books.title ASC
+    """)
+    fun observeDeletedBookRecoveryProjections(): Flow<List<DeletedBookRecoveryProjection>>
 
     @Query("SELECT * FROM books WHERE id = :id")
     suspend fun getBookById(id: String): BookEntity?
@@ -186,6 +229,42 @@ interface BookDao {
     // Prevents repetitive database writes from lagging UI threads during library verification.
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id IN (:ids)")
     suspend fun updateBookFileStatuses(ids: List<String>, status: String, scanId: String? = null)
+
+    /**
+     * Ready Restore Transaction (Reactivates a still-deleted book and marks readable audio rows ready)
+     * Returns false when the row no longer exists or has already left DELETED, preventing stale dialogs from rewriting current state.
+     */
+    @Transaction
+    suspend fun restoreDeletedBookReady(bookId: String, readyFileIds: List<String>): Boolean {
+        val book = getBookById(bookId)
+        if (book?.status != AudiobookSchema.BookStatus.DELETED) return false
+        updateBookStatus(bookId, AudiobookSchema.BookStatus.READY)
+        if (readyFileIds.isNotEmpty()) {
+            updateBookFileStatuses(readyFileIds, AudiobookSchema.FileStatus.READY)
+        }
+        return true
+    }
+
+    /**
+     * Partial Restore Transaction (Reactivates a still-deleted book with split READY and MISSING audio rows)
+     * Preserves existing progress and metadata while committing the partial-playability decision atomically.
+     */
+    @Transaction
+    suspend fun restoreDeletedBookPartial(
+        bookId: String,
+        readyFileIds: List<String>,
+        missingFileIds: List<String>
+    ): Boolean {
+        val book = getBookById(bookId)
+        if (book?.status != AudiobookSchema.BookStatus.DELETED) return false
+        if (readyFileIds.isEmpty()) return false
+        updateBookStatus(bookId, AudiobookSchema.BookStatus.PARTIAL)
+        updateBookFileStatuses(readyFileIds, AudiobookSchema.FileStatus.READY)
+        if (missingFileIds.isNotEmpty()) {
+            updateBookFileStatuses(missingFileIds, AudiobookSchema.FileStatus.MISSING)
+        }
+        return true
+    }
 
     // BookProgress is created only when playback/seek/save actually happens.
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")

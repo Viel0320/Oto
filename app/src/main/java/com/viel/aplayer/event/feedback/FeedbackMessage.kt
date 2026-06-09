@@ -226,6 +226,14 @@ object FeedbackMessages {
             }
         )
 
+    // Deleted Book Recovery Success Toasts (Expose resource-backed restore completion messages)
+    // Recovery ViewModel emits typed success facts while the app-shell renderer remains responsible for localization.
+    fun deletedBookRecoveryRestoredReady(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_deleted_book_recovery_restored_ready)
+
+    fun deletedBookRecoveryRestoredPartial(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_deleted_book_recovery_restored_partial)
+
     fun homeBookDeleted(sourceFileKept: Boolean): FeedbackMessage =
         FeedbackMessage.Resource(
             if (sourceFileKept) {

@@ -29,6 +29,13 @@
     <string name="home_sort_direction_title">Направление сортировки</string>
     <string name="home_sort_direction_ascending">По возрастанию</string>
     <string name="home_sort_direction_descending">По убыванию</string>
+    <!-- Home Book Status Filter Resources (Localized labels for the Home view dialog status segment)
+         These strings mirror the default BookStatus filter keys while keeping persisted enum names language-independent. -->
+    <string name="home_book_status_filter_title">Статус книги</string>
+    <string name="home_book_status_all">Все</string>
+    <string name="home_book_status_ready">Доступно</string>
+    <string name="home_book_status_partial">Частично</string>
+    <string name="home_book_status_unavailable">Недоступно</string>
     <string name="home_view_dialog_close">Закрыть</string>
     <string name="import_content_description">Импортировать медиа</string>
     <string name="rescan_library_title">Пересканировать медиатеку</string>
@@ -469,4 +476,24 @@
     <string name="bookmark_edit_title">Изменить закладку</string>
     <string name="bookmark_update_label">Обновить закладку:</string>
     <string name="bookmark_delete_content_description">Удалить закладку</string>
+
+    <!-- Add Missing Keys (Complement missing i18n keys for the deleted book recovery feature)
+         These strings are added to support the deleted book recovery UI and feedback actions. -->
+    <string name="deleted_book_recovery_empty">Нет удаленных книг для восстановления</string>
+    <string name="deleted_book_recovery_failure_abs_remote_deleted">Этот элемент Audiobookshelf был удален на сервере. Восстановите или добавьте его заново на сервере, затем снова синхронизируйте APlayer.</string>
+    <string name="deleted_book_recovery_failure_all_files_unavailable">Все аудиофайлы для этой книги недоступны: %1$s</string>
+    <string name="deleted_book_recovery_failure_missing_book">Запись о книге больше не существует или уже была восстановлена.</string>
+    <string name="deleted_book_recovery_failure_missing_root">Корневая папка библиотеки для этой книги больше не существует.</string>
+    <string name="deleted_book_recovery_failure_no_audio_files">Для этой книги нет записей о восстанавливаемых аудиофайлах.</string>
+    <string name="deleted_book_recovery_failure_root_unavailable">Корневой каталог библиотеки недоступен: %1$s</string>
+    <string name="deleted_book_recovery_failure_title">Ошибка восстановления</string>
+    <string name="deleted_book_recovery_failure_unexpected">Не удалось завершить восстановление: %1$s</string>
+    <string name="deleted_book_recovery_partial_body">Только некоторые аудиофайлы этой книги все еще могут быть прочитаны. После восстановления APlayer отметит книгу как частично доступную, а отсутствующее аудио останется невоспроизводимым.</string>
+    <string name="deleted_book_recovery_partial_confirm">Подтвердить восстановление</string>
+    <string name="deleted_book_recovery_partial_title">Некоторые аудиофайлы недоступны</string>
+    <string name="deleted_book_recovery_restore_action">Восстановить книгу</string>
+    <string name="deleted_book_recovery_settings_subtitle">Восстановление книг, удаленных из APlayer, если их аудиофайлы все еще доступны</string>
+    <string name="deleted_book_recovery_title">Восстановление удаленных книг</string>
+    <string name="feedback_deleted_book_recovery_restored_partial">Книга частично восстановлена</string>
+    <string name="feedback_deleted_book_recovery_restored_ready">Книга восстановлена</string>
 </resources>

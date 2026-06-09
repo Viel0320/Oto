@@ -11,14 +11,24 @@ import com.viel.aplayer.application.library.detail.DetailBookCommands
 import com.viel.aplayer.application.library.detail.DetailBookReadModel
 import com.viel.aplayer.application.library.edit.EditBookCommands
 import com.viel.aplayer.application.library.edit.EditBookReadModel
+import com.viel.aplayer.application.library.home.HomeLibraryReadModel
+import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.application.library.player.PlayerBookmarkCommands
 import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
+import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryCommands
+import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryReadModel
 import com.viel.aplayer.application.library.search.SearchLibraryCommands
 import com.viel.aplayer.application.library.search.SearchLibraryReadModel
 import com.viel.aplayer.application.library.settings.DefaultSettingsRootModule
 import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootReadModel
 import com.viel.aplayer.application.playback.PlayerPlaybackController
+import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
+import com.viel.aplayer.application.usecase.DeleteBookUseCase
+import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
+import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
@@ -40,12 +50,6 @@ import com.viel.aplayer.dependencies.PlayerScreenDependencies
 import com.viel.aplayer.dependencies.SearchScreenDependencies
 import com.viel.aplayer.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.dependencies.VfsPlaybackDependencies
-import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
-import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
-import com.viel.aplayer.application.usecase.DeleteBookUseCase
-import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
-import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
-import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.graph.AbsGraph
 import com.viel.aplayer.graph.DataGraph
@@ -54,8 +58,6 @@ import com.viel.aplayer.graph.MediaGraph
 import com.viel.aplayer.graph.UiEventGraph
 import com.viel.aplayer.graph.closeAppGraphsInLifecycleOrder
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
-import com.viel.aplayer.application.library.home.HomeLibraryReadModel
-import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTester
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
@@ -107,6 +109,18 @@ interface AppContainer :
      * Lets SettingsViewModel register roots, refresh reachability, and schedule scans through a compact settings interface.
      */
     override val settingsRootCommands: SettingsRootCommands
+
+    /**
+     * Deleted Book Recovery Read Model (Scene-level deleted catalog stream)
+     * Lets the recovery page list soft-deleted books without widening settings root dependencies.
+     */
+    override val deletedBookRecoveryReadModel: DeletedBookRecoveryReadModel
+
+    /**
+     * Deleted Book Recovery Commands (Scene-level restore command surface)
+     * Keeps restore preflight and partial confirmation outside root management workflows.
+     */
+    override val deletedBookRecoveryCommands: DeletedBookRecoveryCommands
 
     /**
      * Settings Query Use Case (Read model and credential lookup seam for SettingsViewModel)
@@ -401,6 +415,12 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
 
     override val settingsRootCommands: SettingsRootCommands
         get() = settingsRootModule
+
+    override val deletedBookRecoveryReadModel: DeletedBookRecoveryReadModel
+        get() = library.deletedBookRecoveryReadModel
+
+    override val deletedBookRecoveryCommands: DeletedBookRecoveryCommands
+        get() = library.deletedBookRecoveryCommands
 
     override val settingsLibraryMaintenanceUseCase: SettingsLibraryMaintenanceUseCase by lazy {
         // Settings Maintenance Use Case Wiring (Centralizes edit follow-up work)

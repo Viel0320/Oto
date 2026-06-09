@@ -106,6 +106,7 @@ fun SettingsScreen(
     // SettingsScreen emits root and add-library intents so SettingsOverlay can render dialogs beside the page hazeSource.
     onRootClick: (SettingsRootItem) -> Unit = {},
     onAddLibraryClick: () -> Unit = {},
+    onDeletedBookRecoveryClick: () -> Unit = {},
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
     autoRewindSeconds: Int,
     onAutoRewindSecondsChange: (Int) -> Unit,
@@ -177,7 +178,10 @@ fun SettingsScreen(
                         LibraryDirectoriesSection(
                             libraryRootDisplays = libraryRootDisplays,
                             onRootClick = onRootClick,
-                            onAddLibraryClick = onAddLibraryClick
+                            onAddLibraryClick = onAddLibraryClick,
+                            // Deleted Book Recovery Entry (Forward settings row clicks to overlay-owned sub-navigation)
+                            // The page remains stateless; SettingsOverlay decides which settings sub-screen is currently active.
+                            onDeletedBookRecoveryClick = onDeletedBookRecoveryClick
                         )
                     }
                     item {
@@ -656,6 +660,7 @@ fun SettingsScreenPreview() {
                 onSleepModeChange = {},
                 appLanguage = AppLanguage.System,
                 onLanguageClick = {},
+                onDeletedBookRecoveryClick = {},
                 themeMode = ThemeMode.System,
                 onThemeModeChange = {},
                 isDynamicColorEnabled = true,

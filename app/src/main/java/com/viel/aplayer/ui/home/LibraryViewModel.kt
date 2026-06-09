@@ -41,13 +41,17 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     // When null, the combine stream resolves filter attributes via a strict priority chain.
     // This blocks competing updates from asynchronous settings during cold starts, preventing filter chips animation flickering.
     private val _selectedFilter = MutableStateFlow<HomeFilter?>(null)
+    // User Book Status Filter (Initially null so DataStore can provide the restored dialog selection)
+    // Explicit selections are kept in memory immediately, then persisted through SettingsRepository for future launches.
+    private val _selectedBookStatusFilter = MutableStateFlow<HomeBookStatusFilter?>(null)
 
     val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
         homeLibraryReadModel.audiobooks,
         homeLibraryReadModel.hasRegisteredLibraryRoots,
         _selectedFilter,
+        _selectedBookStatusFilter,
         settingsRepository.settingsFlow
-    ) { audiobooks, hasRegisteredLibraryRoots, userSelection, appSettings ->
+    ) { audiobooks, hasRegisteredLibraryRoots, userSelection, userBookStatusSelection, appSettings ->
         // Centralized Filter Resolution (Dispatches final filter state once all input streams are ready)
         // Prevents intermediate visual state jumps in home filter chips.
         // Priority hierarchy: Explicit User Selection > Persisted Cache Settings > NotStarted Default.
@@ -59,12 +63,23 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 } catch (_: Exception) {
                     HomeFilter.NotStarted
                 }
+        // Home Book Status Filter Resolution (Restore the dialog filter with a non-restrictive default)
+        // BookStatus filtering is independent from read-progress chips, so it uses its own user override and DataStore key.
+        val activeBookStatusFilter =
+            userBookStatusSelection ?: HomeBookStatusFilter.fromStoredName(appSettings.homeBookStatusFilter)
 
         // Flow Pipeline Calculations (Handles grouping, filtering, and sorting in backend thread flows)
         // Ensures that the Composable UI layers remain completely stateless and focus strictly on rendering tasks.
 
-        // Segment 1: Apply chosen filter to book collection
-        val filteredAudiobooks = audiobooks.filter { it.matchesFilter(activeFilter) }
+        // Segment 1: Apply chosen BookStatus filter before read-progress filtering
+        // This makes the Home view dialog constrain the entire catalog surface, including recent sections and grouped lists.
+        val statusFilteredAudiobooks = audiobooks.filter { book ->
+            activeBookStatusFilter.matches(book.status)
+        }
+
+        // Segment 2: Apply chosen read-progress filter to the already status-filtered book collection
+        // Keeping the two filters sequential preserves the existing HomeFilter semantics while adding availability narrowing.
+        val filteredAudiobooks = statusFilteredAudiobooks.filter { it.matchesFilter(activeFilter) }
 
         // Home Catalog Sort Application (Build the selected script-clustered order before grouping)
         // Sorting before groupBy preserves section order and item order through Kotlin's insertion-ordered LinkedHashMap result.
@@ -82,10 +97,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
         // Segment 3: Filter recent book slots (Takes up to 10 for NotStarted, 5 for InProgress)
         val recentBooks = when (activeFilter) {
-            HomeFilter.NotStarted -> audiobooks.filter { it.isNotStarted }
+            HomeFilter.NotStarted -> statusFilteredAudiobooks.filter { it.isNotStarted }
                 .sortedByDescending { it.addedAt }
                 .take(10)
-            HomeFilter.InProgress -> audiobooks.filter { it.isInProgress && it.lastPlayedAt > 0 }
+            HomeFilter.InProgress -> statusFilteredAudiobooks.filter { it.isInProgress && it.lastPlayedAt > 0 }
                 .sortedByDescending { it.lastPlayedAt }
                 .take(5)
             else -> emptyList()
@@ -107,6 +122,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             // This keeps the empty-home add-library FAB keyed to real root registration instead of inferring setup state only from scanned books.
             hasRegisteredLibraryRoots = hasRegisteredLibraryRoots,
             selectedFilter = activeFilter,
+            homeBookStatusFilter = activeBookStatusFilter,
             filteredAudiobooks = sortedAudiobooks,
             groupedAudiobooks = groupedAudiobooks,
             recentBooks = recentBooks,
@@ -191,6 +207,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _selectedFilter.value = filter
         viewModelScope.launch {
             settingsRepository.updateHomeFilter(filter.name)
+        }
+    }
+
+    fun setHomeBookStatusFilter(filter: HomeBookStatusFilter) {
+        // Home Book Status Filter Update (Persist the dialog availability filter)
+        // The in-memory override updates Home immediately while DataStore keeps the selection stable after restart.
+        _selectedBookStatusFilter.value = filter
+        viewModelScope.launch {
+            settingsRepository.updateHomeBookStatusFilter(filter.name)
         }
     }
 

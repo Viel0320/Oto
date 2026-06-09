@@ -15,6 +15,9 @@ import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.application.library.player.DefaultPlayerLibraryModule
 import com.viel.aplayer.application.library.player.PlayerBookmarkCommands
 import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
+import com.viel.aplayer.application.library.recovery.DefaultDeletedBookRecoveryModule
+import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryCommands
+import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryReadModel
 import com.viel.aplayer.application.library.search.DefaultSearchLibraryModule
 import com.viel.aplayer.application.library.search.SearchLibraryCommands
 import com.viel.aplayer.application.library.search.SearchLibraryReadModel
@@ -399,6 +402,23 @@ internal class LibraryGraph(
             searchHistoryGateway = searchHistoryGateway
         )
     }
+
+    private val deletedBookRecoveryModule: DefaultDeletedBookRecoveryModule by lazy {
+        // Deleted Book Recovery Wiring (Compose the restore scene from Room projections and provider availability checks)
+        // The module stays separate from SettingsRootModule so restoring books cannot inherit root registration or sync commands.
+        DefaultDeletedBookRecoveryModule(
+            bookDao = data.database.bookDao(),
+            libraryRootDao = data.database.libraryRootDao(),
+            absItemMirrorDao = data.database.absItemMirrorDao(),
+            availabilityChecker = availabilityChecker
+        )
+    }
+
+    val deletedBookRecoveryReadModel: DeletedBookRecoveryReadModel
+        get() = deletedBookRecoveryModule
+
+    val deletedBookRecoveryCommands: DeletedBookRecoveryCommands
+        get() = deletedBookRecoveryModule
 
     val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
         // Library Root Deletion Wiring (Provide playback stopping through the media lifecycle seam)

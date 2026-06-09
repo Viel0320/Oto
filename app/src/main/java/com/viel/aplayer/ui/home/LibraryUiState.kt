@@ -28,6 +28,10 @@ data class LibraryUiState(
     /** Current active filter type. null means combine pipeline has not produced first decision, UI should temporarily skip rendering FilterChip row */
     val selectedFilter: HomeFilter? = null,
 
+    // Home Book Status Filter State (Expose the active availability filter to the Home view dialog)
+    // The default remains All so the initial UI state never hides visible books before DataStore emits.
+    val homeBookStatusFilter: HomeBookStatusFilter = HomeBookStatusFilter.All,
+
     /** List of filtered books according to current filter and current Home sorting rule */
     val filteredAudiobooks: List<HomeBookItem> = emptyList(),
 

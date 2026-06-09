@@ -94,7 +94,10 @@ fun ListItem(
     // Defaults keep existing call sites accessible while specialized scenes can override the action text if a command means something narrower.
     openActionLabel: String? = null,
     playActionLabel: String? = null,
-    moreActionsLabel: String? = null
+    moreActionsLabel: String? = null,
+    // Replaceable Trailing Action (Allows non-home scenes to reuse the book row body with their own command)
+    // Home keeps the default play button, while recovery can render a restore button without duplicating cover and metadata layout.
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
     // Localized List Row Copy (Resolve badge, metadata fallback, metadata separator, and play-button accessibility text)
     // Book titles and people names are library data, while NEW, row separators, and Play are app-authored UI labels.
@@ -191,11 +194,15 @@ fun ListItem(
             )
         },
         trailingContent = {
-            IconButton(
-                onClick = onPlayClick,
-                modifier = Modifier.offset(x = 8.dp)
-            ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = playContentDescription)
+            if (trailingContent != null) {
+                trailingContent()
+            } else {
+                IconButton(
+                    onClick = onPlayClick,
+                    modifier = Modifier.offset(x = 8.dp)
+                ) {
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = playContentDescription)
+                }
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)

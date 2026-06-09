@@ -437,6 +437,7 @@ fun HomeScreenNotStartedPreview() {
             // This preview avoids rebuilding Room rows and keeps the content renderer aligned with the scene boundary.
             rootId = "preview-root",
             sourceType = "SINGLE_AUDIO",
+            status = "READY",
             title = "In the Megachurch",
             author = "Ryo Asai",
             narrator = "Narrator A",

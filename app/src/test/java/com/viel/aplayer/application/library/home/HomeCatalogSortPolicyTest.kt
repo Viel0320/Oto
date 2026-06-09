@@ -115,6 +115,7 @@ class HomeCatalogSortPolicyTest {
             id = id,
             rootId = "root",
             sourceType = "LOCAL",
+            status = "READY",
             title = title,
             author = author,
             narrator = narrator,

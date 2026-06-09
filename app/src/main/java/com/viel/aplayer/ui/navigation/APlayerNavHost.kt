@@ -19,6 +19,7 @@ import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.detail.DetailViewModel
+import com.viel.aplayer.ui.home.HomeBookStatusFilter
 import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.home.components.HomeAppBar
@@ -63,6 +64,9 @@ fun APlayerNavHost(
     // Home Sort Direction Selection (Current in-cluster order for the Home app bar dialog)
     // The navigation host passes this through without altering the fixed C/J/K/E/Other cluster sequence.
     homeSortDirection: HomeSortDirection,
+    // Home Book Status Filter Selection (Current availability filter for the Home app bar dialog)
+    // The navigation host owns dialog chrome only, so it receives and forwards this value without filtering the catalog itself.
+    homeBookStatusFilter: HomeBookStatusFilter,
     // Home Dialog Backdrop Source (Route app-level sampling into Home dialogs)
     // Dialog windows need the same app-level backdrop used by Search and mini-player overlays so their blur is not clipped by Home's page-local scrolling source.
     homeDialogHazeState: HazeState? = null,
@@ -86,7 +90,10 @@ fun APlayerNavHost(
     onHomeSortRuleSelected: (HomeSortRule) -> Unit,
     // Home Sort Direction Selection Callback (Persist in-cluster direction changes through the parent ViewModel)
     // Direction updates re-run sorting in LibraryViewModel without changing the script cluster order.
-    onHomeSortDirectionSelected: (HomeSortDirection) -> Unit
+    onHomeSortDirectionSelected: (HomeSortDirection) -> Unit,
+    // Home Book Status Filter Callback (Persist availability filter changes through the parent ViewModel)
+    // The ViewModel applies the filter to its Home scene projection after the DataStore-backed state updates.
+    onHomeBookStatusFilterSelected: (HomeBookStatusFilter) -> Unit
 ) {
     val isHomeRoute = navigationState.topLevelRoute == HomeRoute
     val isHazeMode = glassEffectMode == GlassEffectMode.Haze
@@ -184,6 +191,7 @@ fun APlayerNavHost(
                 selectedViewStyle = homeViewStyle,
                 selectedSortRule = homeSortRule,
                 selectedSortDirection = homeSortDirection,
+                selectedBookStatusFilter = homeBookStatusFilter,
                 // Home View Dialog Backdrop (Prefer the app-level Home dialog haze source)
                 // Falls back to the top-bar haze state in isolated hosts so previews and tests can still render the dialog safely.
                 hazeState = homeDialogHazeState ?: resolvedHomeTopBarHazeState,
@@ -191,6 +199,7 @@ fun APlayerNavHost(
                 onViewStyleSelected = onHomeViewStyleSelected,
                 onSortRuleSelected = onHomeSortRuleSelected,
                 onSortDirectionSelected = onHomeSortDirectionSelected,
+                onBookStatusFilterSelected = onHomeBookStatusFilterSelected,
                 onDismissRequest = {
                     isHomeViewPreferenceDialogVisible = false
                 }

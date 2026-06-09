@@ -32,6 +32,13 @@
     <string name="home_sort_direction_title">Sort Direction</string>
     <string name="home_sort_direction_ascending">Ascending</string>
     <string name="home_sort_direction_descending">Descending</string>
+    <!-- Home Book Status Filter Resources (Labels for the Home view dialog availability menu)
+         These strings keep BookStatus storage values separate from user-facing copy and default the visible choice to All. -->
+    <string name="home_book_status_filter_title">Book Status</string>
+    <string name="home_book_status_all">All</string>
+    <string name="home_book_status_ready">Ready</string>
+    <string name="home_book_status_partial">Partial</string>
+    <string name="home_book_status_unavailable">Unavailable</string>
     <string name="home_view_dialog_close">Close</string>
     <string name="import_content_description">Import Media</string>
     <string name="rescan_library_title">Rescan Library</string>
@@ -140,6 +147,10 @@
     <string name="feedback_settings_abs_sync_already_running">ABS sync is already running</string>
     <string name="feedback_settings_library_root_removed_playback_stopped">Media library removed. Current playback stopped.</string>
     <string name="feedback_settings_library_root_removed">Media library removed</string>
+    <!-- Deleted Book Recovery Feedback (Success messages emitted after local soft-delete recovery writes complete)
+         These toasts describe local database visibility changes only and do not imply physical file restoration or ABS progress sync. -->
+    <string name="feedback_deleted_book_recovery_restored_ready">Book recovered</string>
+    <string name="feedback_deleted_book_recovery_restored_partial">Book partially recovered</string>
     <string name="feedback_settings_ssl_certificate_untrusted">SSL/TLS certificate verification failed. The certificate chain is not trusted.</string>
     <string name="feedback_settings_ssl_hostname_mismatch">SSL/TLS hostname verification failed. The domain does not match the certificate.</string>
     <string name="feedback_settings_connection_failed_fallback">Connection failed</string>
@@ -232,6 +243,23 @@
     <string name="settings_library_status_idle">Idle</string>
     <string name="settings_add_library_title">Add Media Library</string>
     <string name="settings_add_library_subtitle">Supports local SAF, WebDAV, and Audiobookshelf servers</string>
+    <!-- Deleted Book Recovery Settings Copy (Labels the manual restore workflow inside media library management)
+         The entry is navigation-only, so the subtitle avoids suggesting that scans, imports, or remote ABS syncs start here. -->
+    <string name="deleted_book_recovery_title">Deleted Book Recovery</string>
+    <string name="deleted_book_recovery_settings_subtitle">Restore books removed from APlayer when their audio files are still available</string>
+    <string name="deleted_book_recovery_empty">No deleted books can be recovered</string>
+    <string name="deleted_book_recovery_restore_action">Restore book</string>
+    <string name="deleted_book_recovery_failure_title">Recovery failed</string>
+    <string name="deleted_book_recovery_failure_missing_book">The book record no longer exists or has already been restored.</string>
+    <string name="deleted_book_recovery_failure_missing_root">The media library root for this book no longer exists.</string>
+    <string name="deleted_book_recovery_failure_root_unavailable">The media library root is unavailable: %1$s</string>
+    <string name="deleted_book_recovery_failure_abs_remote_deleted">This Audiobookshelf item was deleted on the server. Restore or re-add it on the server, then sync APlayer again.</string>
+    <string name="deleted_book_recovery_failure_no_audio_files">This book has no recoverable audio file records.</string>
+    <string name="deleted_book_recovery_failure_all_files_unavailable">All audio files for this book are unavailable: %1$s</string>
+    <string name="deleted_book_recovery_failure_unexpected">Recovery could not finish: %1$s</string>
+    <string name="deleted_book_recovery_partial_title">Some audio files are unavailable</string>
+    <string name="deleted_book_recovery_partial_body">Only some audio files for this book can still be read. After recovery, APlayer will mark the book as partially available and missing audio will remain unplayable.</string>
+    <string name="deleted_book_recovery_partial_confirm">Confirm recovery</string>
     <string name="settings_interface_effects_title">Interface</string>
     <string name="settings_theme_mode_title">Theme Mode</string>
     <string name="settings_theme_mode_subtitle">Choose the color mode: follow system, always light, or always dark.</string>

@@ -30,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
+import com.viel.aplayer.ui.settings.recovery.DeletedBookRecoveryRoute
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
@@ -59,6 +60,9 @@ fun SettingsOverlay(
     // About Haze Source (Separate license-page sampling from settings-page transitions)
     // AnimatedContent can keep Settings and About composed briefly at the same time, so About uses its own source to avoid competing registrations on one HazeState.
     val aboutHazeState = remember { HazeState() }
+    // Recovery Haze Source (Separate deleted-book recovery sampling from other settings sub-pages)
+    // Local sub-pages can overlap during AnimatedContent transitions, so the recovery list owns its own top-bar sampler.
+    val deletedRecoveryHazeState = remember { HazeState() }
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     // Settings Dialog Overlay Controller (Own settings modal state above the sampled page content)
     // Keeping this in SettingsOverlay lets dialogs render as siblings of SettingsScreen instead of being held by the page that registers hazeSource.
@@ -97,16 +101,16 @@ fun SettingsOverlay(
         exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)),
         modifier = modifier
     ) {
-        // Track interior navigation state (To switch between settings main menu and licenses panel)
-        // Decoupled sub-navigation boolean parameter to manage local transition switches.
-        var showAboutLibraries by remember { mutableStateOf(false) }
+        // Settings Sub-Page Navigation (Track local overlay destinations without expanding the app navigation graph)
+        // Settings, About, and Deleted Book Recovery remain inside one overlay lifecycle while each page keeps its own UI state.
+        var activeSettingsPage by remember { mutableStateOf(SettingsOverlayPage.Main) }
 
         // Handle physical back gestures (To prevent closing MainActivity accidentally)
         // Intercepts Android back operations when SettingsOverlay is active.
-        // If licenses page is shown, resets back to settings list; otherwise, hides the overlay.
+        // If a settings sub-page is shown, resets back to settings list; otherwise, hides the overlay.
         BackHandler(enabled = isVisible) {
-            if (showAboutLibraries) {
-                showAboutLibraries = false
+            if (activeSettingsPage != SettingsOverlayPage.Main) {
+                activeSettingsPage = SettingsOverlayPage.Main
             } else {
                 settingsViewModel.setVisible(false)
             }
@@ -118,12 +122,12 @@ fun SettingsOverlay(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            // Apply horizontal navigation transitions (To switch settings sub-screens fluidly)
-            // Utilizes AnimatedContent to animate between main SettingsScreen and AboutLibrariesScreen with slide transitions.
+            // Apply Horizontal Sub-Page Transitions (Switch settings sub-screens fluidly)
+            // AnimatedContent moves between the main settings page and local child pages without adding app-wide routes.
             AnimatedContent(
-                targetState = showAboutLibraries,
+                targetState = activeSettingsPage,
                 transitionSpec = {
-                    if (targetState) {
+                    if (targetState != SettingsOverlayPage.Main) {
                         (slideInHorizontally(animationSpec = tween(300)) { width -> width } + fadeIn(animationSpec = tween(300)))
                             .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { width -> -width } + fadeOut(animationSpec = tween(300)))
                     } else {
@@ -131,15 +135,24 @@ fun SettingsOverlay(
                             .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { width -> width } + fadeOut(animationSpec = tween(300)))
                     }
                 },
-                label = "AboutLibrariesTransition"
-            ) { showAbout ->
-                if (showAbout) {
-                    AboutLibrariesScreen(
-                        onBack = { showAboutLibraries = false },
-                        glassEffectMode = glassEffectMode,
-                        aboutHazeState = if (isBlur) aboutHazeState else null
-                    )
-                } else {
+                label = "SettingsSubPageTransition"
+            ) { page ->
+                when (page) {
+                    SettingsOverlayPage.AboutLibraries -> {
+                        AboutLibrariesScreen(
+                            onBack = { activeSettingsPage = SettingsOverlayPage.Main },
+                            glassEffectMode = glassEffectMode,
+                            aboutHazeState = if (isBlur) aboutHazeState else null
+                        )
+                    }
+                    SettingsOverlayPage.DeletedBookRecovery -> {
+                        DeletedBookRecoveryRoute(
+                            onBack = { activeSettingsPage = SettingsOverlayPage.Main },
+                            glassEffectMode = glassEffectMode,
+                            recoveryHazeState = if (isBlur) deletedRecoveryHazeState else null
+                        )
+                    }
+                    SettingsOverlayPage.Main -> {
                     // Collect settings business data (To populate settings menu and capture actions)
                     // Listens to settings state parameters reactively from SettingsViewModel.
                     val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
@@ -171,6 +184,11 @@ fun SettingsOverlay(
                                 // The page no longer renders modal surfaces; it only announces which settings flow should open.
                                 onRootClick = { settingsDialogController.dialogState = SettingsDialogState.RootActions(it) },
                                 onAddLibraryClick = { settingsDialogController.dialogState = SettingsDialogState.AddLibraryType },
+                                // Deleted Book Recovery Navigation (Open the local recovery sub-page without triggering scan or sync)
+                                // This keeps the settings entry as pure navigation into the restore workflow.
+                                onDeletedBookRecoveryClick = {
+                                    activeSettingsPage = SettingsOverlayPage.DeletedBookRecovery
+                                },
                                 isChapterProgressMode = settingsState.isChapterProgressMode,
                                 onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },
                                 isCleartextTrafficAllowed = settingsState.isCleartextTrafficAllowed,
@@ -205,7 +223,7 @@ fun SettingsOverlay(
                                 onSeekForwardStepChange = { settingsViewModel.updateSeekForwardSeconds(it) },
                                 isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
                                 onNotificationAvoidanceEnabledChange = { settingsViewModel.toggleNotificationAvoidanceEnabled(it) },
-                                onAboutLibrariesClick = { showAboutLibraries = true }
+                                onAboutLibrariesClick = { activeSettingsPage = SettingsOverlayPage.AboutLibraries }
                             )
                         }
 
@@ -252,8 +270,19 @@ fun SettingsOverlay(
                             onLaunchSafRootPicker = { libraryRootLauncher.launch(null) }
                         )
                     }
+                    }
                 }
             }
         }
     }
+}
+
+/**
+ * Settings Overlay Page (Local navigation state for pages hosted inside SettingsOverlay)
+ * Avoids adding app-wide routes for settings-only panels while keeping back behavior explicit and testable.
+ */
+private enum class SettingsOverlayPage {
+    Main,
+    AboutLibraries,
+    DeletedBookRecovery
 }

@@ -29,6 +29,13 @@
     <string name="home_sort_direction_title">排序方向</string>
     <string name="home_sort_direction_ascending">遞增</string>
     <string name="home_sort_direction_descending">遞減</string>
+    <!-- Home Book Status Filter Resources (Localized labels for the Home view dialog status segment)
+         These strings mirror the default BookStatus filter keys while keeping persisted enum names language-independent. -->
+    <string name="home_book_status_filter_title">書籍狀態</string>
+    <string name="home_book_status_all">全部</string>
+    <string name="home_book_status_ready">可用</string>
+    <string name="home_book_status_partial">部分可用</string>
+    <string name="home_book_status_unavailable">不可用</string>
     <string name="home_view_dialog_close">關閉</string>
     <string name="import_content_description">匯入媒體</string>
     <string name="rescan_library_title">重新掃描媒體庫</string>
@@ -450,4 +457,24 @@
     <string name="bookmark_edit_title">編輯書籤</string>
     <string name="bookmark_update_label">更新書籤：</string>
     <string name="bookmark_delete_content_description">刪除書籤</string>
+
+    <!-- Add Missing Keys (Complement missing i18n keys for the deleted book recovery feature)
+         These strings are added to support the deleted book recovery UI and feedback actions. -->
+    <string name="deleted_book_recovery_empty">沒有可復原的已刪除書籍</string>
+    <string name="deleted_book_recovery_failure_abs_remote_deleted">此 Audiobookshelf 書籍已在伺服器上刪除。請在伺服器上復原或重新加入，然後再次同步 APlayer。</string>
+    <string name="deleted_book_recovery_failure_all_files_unavailable">此書籍的所有音訊檔案均無法使用：%1$s</string>
+    <string name="deleted_book_recovery_failure_missing_book">該書籍紀錄已不存在或已被復原。</string>
+    <string name="deleted_book_recovery_failure_missing_root">該書籍的媒體庫根目錄已不存在。</string>
+    <string name="deleted_book_recovery_failure_no_audio_files">此書籍沒有可復原的音訊檔案紀錄。</string>
+    <string name="deleted_book_recovery_failure_root_unavailable">媒體庫根目錄無法使用：%1$s</string>
+    <string name="deleted_book_recovery_failure_title">復原失敗</string>
+    <string name="deleted_book_recovery_failure_unexpected">無法完成復原：%1$s</string>
+    <string name="deleted_book_recovery_partial_body">此書籍僅有部分音訊檔案可讀。復原後，APlayer 會將該書籍標記為部分可用，且缺失的音訊將無法播放。</string>
+    <string name="deleted_book_recovery_partial_confirm">確認復原</string>
+    <string name="deleted_book_recovery_partial_title">部分音訊檔案無法使用</string>
+    <string name="deleted_book_recovery_restore_action">復原書籍</string>
+    <string name="deleted_book_recovery_settings_subtitle">當音訊檔案仍可用時，復原從 APlayer 中移除的書籍</string>
+    <string name="deleted_book_recovery_title">已刪除書籍復原</string>
+    <string name="feedback_deleted_book_recovery_restored_partial">書籍已部分復原</string>
+    <string name="feedback_deleted_book_recovery_restored_ready">書籍已復原</string>
 </resources>

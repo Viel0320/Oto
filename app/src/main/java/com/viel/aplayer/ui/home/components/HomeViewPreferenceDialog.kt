@@ -12,11 +12,12 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -24,6 +25,7 @@ import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
+import com.viel.aplayer.ui.home.HomeBookStatusFilter
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -38,11 +40,13 @@ fun HomeViewPreferenceDialog(
     selectedViewStyle: HomeViewStyle,
     selectedSortRule: HomeSortRule,
     selectedSortDirection: HomeSortDirection,
+    selectedBookStatusFilter: HomeBookStatusFilter,
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode,
     onViewStyleSelected: (HomeViewStyle) -> Unit,
     onSortRuleSelected: (HomeSortRule) -> Unit,
     onSortDirectionSelected: (HomeSortDirection) -> Unit,
+    onBookStatusFilterSelected: (HomeBookStatusFilter) -> Unit,
     onDismissRequest: () -> Unit
 ) {
     // Home View Style Options (Bind stable enum values to compact user-facing labels)
@@ -63,6 +67,14 @@ fun HomeViewPreferenceDialog(
     val sortDirectionOptions = listOf(
         HomeSortDirection.Ascending to stringResource(R.string.home_sort_direction_ascending),
         HomeSortDirection.Descending to stringResource(R.string.home_sort_direction_descending)
+    )
+    // Home Book Status Segment Options (Bind the four active BookStatus filter values to localized labels)
+    // Conflict is intentionally omitted because the current catalog workflow no longer exposes that state, and deleted books are hidden at the DAO boundary.
+    val bookStatusFilterOptions = listOf(
+        HomeBookStatusFilter.All to stringResource(R.string.home_book_status_all),
+        HomeBookStatusFilter.Ready to stringResource(R.string.home_book_status_ready),
+        HomeBookStatusFilter.Partial to stringResource(R.string.home_book_status_partial),
+        HomeBookStatusFilter.Unavailable to stringResource(R.string.home_book_status_unavailable)
     )
 
     APlayerDialogTemplate(
@@ -155,6 +167,35 @@ fun HomeViewPreferenceDialog(
                             )
                         ) {
                             Text(text = label, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = stringResource(R.string.home_book_status_filter_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    bookStatusFilterOptions.forEachIndexed { index, (filter, label) ->
+                        SegmentedButton(
+                            selected = selectedBookStatusFilter == filter,
+                            onClick = { onBookStatusFilterSelected(filter) },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = bookStatusFilterOptions.size
+                            )
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }

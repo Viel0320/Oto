@@ -149,6 +149,9 @@ data class AppSettings(
     val isDynamicColorEnabled: Boolean = true,
     /** Filter state on the home screen */
     val homeFilter: String = "NotStarted",
+    // Home Book Status Filter Setting (Persist the Home dialog availability filter)
+    // Defaults to All so the new BookStatus filter does not hide any existing catalog entries until the user chooses a narrower status.
+    val homeBookStatusFilter: String = "All",
     // Home View Style Setting (Persist the selected Home catalog renderer)
     // Defaults to List so existing users keep the current listgroup-based home layout until they explicitly switch to cardgroup rows.
     val homeViewStyle: HomeViewStyle = HomeViewStyle.List,

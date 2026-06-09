@@ -19,6 +19,9 @@ data class HomeBookItem(
     val id: String,
     val rootId: String,
     val sourceType: String,
+    // Book Availability Status (Expose the persisted BookStatus needed by Home-only filtering)
+    // This field lets the Home scene filter Ready, Partial, Conflict, and Unavailable books without leaking Room entities into UI.
+    val status: String,
     val title: String,
     val author: String,
     val narrator: String,
@@ -146,6 +149,7 @@ private fun BookWithProgress.toHomeBookItem(): HomeBookItem {
         id = book.id,
         rootId = book.rootId,
         sourceType = book.sourceType,
+        status = book.status,
         title = book.title,
         author = book.author,
         narrator = book.narrator,

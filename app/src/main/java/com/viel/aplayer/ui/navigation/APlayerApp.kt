@@ -46,8 +46,8 @@ import com.viel.aplayer.ui.miniplayer.MiniPlayerOverlay
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.navigation.shell.DefaultAppFeedbackRenderer
 import com.viel.aplayer.ui.navigation.shell.dispatch
-import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.PlayerOverlay
+import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.search.SearchRoute
 import com.viel.aplayer.ui.search.SearchViewModel
@@ -383,6 +383,9 @@ fun APlayerApp(
                         // Home Sort Direction State (Route in-cluster sort direction into the NavHost-owned preference dialog)
                         // The Home catalog policy keeps cluster order fixed while this value controls ascending or descending comparisons inside clusters.
                         homeSortDirection = libraryUiState.homeSortDirection,
+                        // Home Book Status Filter State (Route availability filter into the NavHost-owned preference dialog)
+                        // The shell forwards the value only; LibraryViewModel remains responsible for applying the filter to Home catalog data.
+                        homeBookStatusFilter = libraryUiState.homeBookStatusFilter,
                         // Home Dialog Haze Routing (Use the same app backdrop source as Search route)
                         // Passing the top-level source prevents Home dialogs from sampling the clipped LazyGrid-local fallback source.
                         homeDialogHazeState = hazeState,
@@ -404,7 +407,8 @@ fun APlayerApp(
                         onOpenDetail = detailTransitionGate::request,
                         onHomeViewStyleSelected = libraryViewModel::setHomeViewStyle,
                         onHomeSortRuleSelected = libraryViewModel::setHomeSortRule,
-                        onHomeSortDirectionSelected = libraryViewModel::setHomeSortDirection
+                        onHomeSortDirectionSelected = libraryViewModel::setHomeSortDirection,
+                        onHomeBookStatusFilterSelected = libraryViewModel::setHomeBookStatusFilter
                     )
                 }
 

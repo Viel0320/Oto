@@ -29,6 +29,13 @@
     <string name="home_sort_direction_title">並び順</string>
     <string name="home_sort_direction_ascending">昇順</string>
     <string name="home_sort_direction_descending">降順</string>
+    <!-- Home Book Status Filter Resources (Localized labels for the Home view dialog status segment)
+         These strings mirror the default BookStatus filter keys while keeping persisted enum names language-independent. -->
+    <string name="home_book_status_filter_title">本の状態</string>
+    <string name="home_book_status_all">すべて</string>
+    <string name="home_book_status_ready">利用可能</string>
+    <string name="home_book_status_partial">一部のみ</string>
+    <string name="home_book_status_unavailable">利用不可</string>
     <string name="home_view_dialog_close">閉じる</string>
     <string name="import_content_description">メディアをインポート</string>
     <string name="rescan_library_title">ライブラリを再スキャン</string>
@@ -446,4 +453,24 @@
     <string name="bookmark_edit_title">ブックマークを編集</string>
     <string name="bookmark_update_label">ブックマークを更新:</string>
     <string name="bookmark_delete_content_description">ブックマークを削除</string>
+
+    <!-- Add Missing Keys (Complement missing i18n keys for the deleted book recovery feature)
+         These strings are added to support the deleted book recovery UI and feedback actions. -->
+    <string name="deleted_book_recovery_empty">復元可能な削除された本はありません</string>
+    <string name="deleted_book_recovery_failure_abs_remote_deleted">このAudiobookshelfアイテムはサーバー上で削除されました。サーバー上で復元または再追加し、再度APlayerを同期してください。</string>
+    <string name="deleted_book_recovery_failure_all_files_unavailable">この本のすべてのオーディオファイルが利用できません：%1$s</string>
+    <string name="deleted_book_recovery_failure_missing_book">本レコードが存在しないか、すでに復元されています。</string>
+    <string name="deleted_book_recovery_failure_missing_root">この本に対応するメディアライブラリルートが存在しません。</string>
+    <string name="deleted_book_recovery_failure_no_audio_files">この本には復元可能なオーディオファイルの記録がありません。</string>
+    <string name="deleted_book_recovery_failure_root_unavailable">メディアライブラリルートを利用できません：%1$s</string>
+    <string name="deleted_book_recovery_failure_title">復元失敗</string>
+    <string name="deleted_book_recovery_failure_unexpected">復元を完了できませんでした：%1$s</string>
+    <string name="deleted_book_recovery_partial_body">この本の一部のオーディオファイルのみ読み取り可能です。復元後、APlayerはこの本を「一部のみ利用可能」とマークし、見つからないオーディオは再生できないままになります。</string>
+    <string name="deleted_book_recovery_partial_confirm">復元を確認</string>
+    <string name="deleted_book_recovery_partial_title">一部のオーディオファイルが利用できません</string>
+    <string name="deleted_book_recovery_restore_action">本を復元</string>
+    <string name="deleted_book_recovery_settings_subtitle">オーディオファイルがまだ利用可能な場合に、APlayerから削除された本を復元します</string>
+    <string name="deleted_book_recovery_title">削除された本の復元</string>
+    <string name="feedback_deleted_book_recovery_restored_partial">本を部分的に復元しました</string>
+    <string name="feedback_deleted_book_recovery_restored_ready">本を復元しました</string>
 </resources>

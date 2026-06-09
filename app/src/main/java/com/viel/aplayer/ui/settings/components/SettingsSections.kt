@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Vibration
@@ -58,6 +59,7 @@ fun LibraryDirectoriesSection(
     libraryRootDisplays: List<SettingsRootItem>,
     onRootClick: (SettingsRootItem) -> Unit,
     onAddLibraryClick: () -> Unit,
+    onDeletedBookRecoveryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -139,6 +141,14 @@ fun LibraryDirectoriesSection(
             // The row opens a new-library flow rather than representing an existing folder, so the plus icon communicates an additive action more directly.
             icon = Icons.Rounded.Add,
             onClick = onAddLibraryClick
+        )
+        SettingsItem(
+            title = stringResource(R.string.deleted_book_recovery_title),
+            subtitle = stringResource(R.string.deleted_book_recovery_settings_subtitle),
+            // Deleted Book Recovery Icon (Use the restore symbol for manual soft-delete reversal)
+            // This row opens a dedicated recovery scene instead of scanning roots or registering new media sources.
+            icon = Icons.Rounded.Restore,
+            onClick = onDeletedBookRecoveryClick
         )
     }
 }

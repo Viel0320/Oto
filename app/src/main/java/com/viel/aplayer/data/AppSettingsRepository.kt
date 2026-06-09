@@ -71,6 +71,9 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         // Dynamic Color Storage Key (Preference key to track whether dynamic Monet coloring is enabled) Adds preferences key for dynamic color option.
         val IS_DYNAMIC_COLOR_ENABLED = booleanPreferencesKey("is_dynamic_color_enabled")
         val HOME_FILTER = stringPreferencesKey("home_filter")
+        // Home Book Status Filter Storage Key (Tracks the Home dialog's availability filter)
+        // The value stores HomeBookStatusFilter enum names while this repository stays independent from the UI enum type.
+        val HOME_BOOK_STATUS_FILTER = stringPreferencesKey("home_book_status_filter")
         // Home View Style Storage Key (Tracks the user's catalog renderer preference)
         // Stores enum names instead of localized labels so preference data stays stable across language changes.
         val HOME_VIEW_STYLE = stringPreferencesKey("home_view_style")
@@ -131,6 +134,9 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             // Read Dynamic Color Setting (Load persisted dynamic color option, defaulting to true) Reads dynamic color setting from DataStore.
             isDynamicColorEnabled = preferences[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] ?: true,
             homeFilter = preferences[PreferencesKeys.HOME_FILTER] ?: "NotStarted",
+            // Read Home Book Status Filter (Load the availability filter with a non-restrictive fallback)
+            // The ViewModel validates the stored enum name, so repository reads can preserve the raw preference string.
+            homeBookStatusFilter = preferences[PreferencesKeys.HOME_BOOK_STATUS_FILTER] ?: "All",
             // Read Home View Style (Parse persisted catalog renderer, defaulting to List for backward-compatible first launch behavior)
             // Invalid values are ignored so stale preference names cannot break Home screen rendering after enum changes.
             homeViewStyle = preferences[PreferencesKeys.HOME_VIEW_STYLE]
@@ -200,6 +206,12 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
 
     suspend fun updateHomeFilter(filter: String) {
         dataStore.edit { it[PreferencesKeys.HOME_FILTER] = filter }
+    }
+
+    // Write Home Book Status Filter (Persist the Home dialog availability filter)
+    // The caller passes a stable enum name so the stored value remains language-independent across localized labels.
+    suspend fun updateHomeBookStatusFilter(filter: String) {
+        dataStore.edit { it[PreferencesKeys.HOME_BOOK_STATUS_FILTER] = filter }
     }
 
     // Write Home View Style (Persist the selected Home catalog renderer)

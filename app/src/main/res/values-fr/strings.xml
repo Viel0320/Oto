@@ -29,6 +29,13 @@
     <string name="home_sort_direction_title">Sens du tri</string>
     <string name="home_sort_direction_ascending">Croissant</string>
     <string name="home_sort_direction_descending">Décroissant</string>
+    <!-- Home Book Status Filter Resources (Localized labels for the Home view dialog status segment)
+         These strings mirror the default BookStatus filter keys while keeping persisted enum names language-independent. -->
+    <string name="home_book_status_filter_title">Statut du livre</string>
+    <string name="home_book_status_all">Tous</string>
+    <string name="home_book_status_ready">Disponible</string>
+    <string name="home_book_status_partial">Partiel</string>
+    <string name="home_book_status_unavailable">Indisponible</string>
     <string name="home_view_dialog_close">Fermer</string>
     <string name="import_content_description">Importer des médias</string>
     <string name="rescan_library_title">Réanalyser la médiathèque</string>
@@ -446,4 +453,24 @@
     <string name="bookmark_edit_title">Modifier le signet</string>
     <string name="bookmark_update_label">Mettre à jour le signet :</string>
     <string name="bookmark_delete_content_description">Supprimer le signet</string>
+
+    <!-- Add Missing Keys (Complement missing i18n keys for the deleted book recovery feature)
+         These strings are added to support the deleted book recovery UI and feedback actions. -->
+    <string name="deleted_book_recovery_empty">Aucun livre supprimé ne peut être récupéré</string>
+    <string name="deleted_book_recovery_failure_abs_remote_deleted">Cet élément Audiobookshelf a été supprimé sur le serveur. Restaurez-le ou rajoutez-le sur le serveur, puis synchronisez à nouveau APlayer.</string>
+    <string name="deleted_book_recovery_failure_all_files_unavailable">Tous les fichiers audio de ce livre sont indisponibles : %1$s</string>
+    <string name="deleted_book_recovery_failure_missing_book">L\'enregistrement du livre n\'existe plus ou a déjà été restauré.</string>
+    <string name="deleted_book_recovery_failure_missing_root">Le dossier racine de la bibliothèque pour ce livre n\'existe plus.</string>
+    <string name="deleted_book_recovery_failure_no_audio_files">Ce livre ne contient aucun enregistrement de fichier audio récupérable.</string>
+    <string name="deleted_book_recovery_failure_root_unavailable">La racine de la bibliothèque est indisponible : %1$s</string>
+    <string name="deleted_book_recovery_failure_title">Échec de la récupération</string>
+    <string name="deleted_book_recovery_failure_unexpected">La récupération n\'a pas pu se terminer : %1$s</string>
+    <string name="deleted_book_recovery_partial_body">Seuls certains fichiers audio de ce livre peuvent encore être lus. Après la récupération, APlayer marquera le livre comme partiellement disponible et l\'audio manquant restera injouable.</string>
+    <string name="deleted_book_recovery_partial_confirm">Confirmer la récupération</string>
+    <string name="deleted_book_recovery_partial_title">Certains fichiers audio sont indisponibles</string>
+    <string name="deleted_book_recovery_restore_action">Restaurer le livre</string>
+    <string name="deleted_book_recovery_settings_subtitle">Restaurer les livres supprimés d\'APlayer lorsque leurs fichiers audio sont encore disponibles</string>
+    <string name="deleted_book_recovery_title">Récupération des livres supprimés</string>
+    <string name="feedback_deleted_book_recovery_restored_partial">Livre partiellement récupéré</string>
+    <string name="feedback_deleted_book_recovery_restored_ready">Livre récupéré</string>
 </resources>
