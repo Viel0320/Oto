@@ -60,6 +60,9 @@ fun HomeScreen(
     // Add Library Request (Forward Home empty-state FAB clicks to the app shell)
     // The shell owns the Settings dialog controller and source pickers, keeping HomeScreen focused on catalog state and actions.
     onAddLibraryRequested: () -> Unit = {},
+    // Edit Book Request (Forward Home action-menu edit intents to the app shell)
+    // Home owns the selected catalog item, while APlayerApp owns EditBookViewModel and the edit overlay route.
+    onEditBookRequested: (String) -> Unit = {},
 ) {
     val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
@@ -143,7 +146,10 @@ fun HomeScreen(
                     coverPath = libraryBook.coverPath,
                     thumbnailPath = libraryBook.thumbnailPath,
                     lastScannedAt = libraryBook.lastScannedAt,
-                    progressPercent = libraryBook.progressPercent
+                    progressPercent = libraryBook.progressPercent,
+                    // Home Detail Read Status Projection (Pass the catalog status into the detail scene)
+                    // Detail's action dialog is built from DetailBookItem, so Home must include readStatus when it opens Detail from a known catalog row.
+                    readStatus = libraryBook.readStatus
                 )
             }
             onOpenDetail(
@@ -178,6 +184,7 @@ fun HomeScreen(
             // Centralizes dismissal so first-level and nested confirmation dialogs clear through the same page-owned state.
             homeDialogState = HomeDialogState.None
         },
+        onEditBook = onEditBookRequested,
         onUpdateReadStatus = { bookId, status ->
             libraryViewModel.updateBookReadStatus(bookId, status)
         },

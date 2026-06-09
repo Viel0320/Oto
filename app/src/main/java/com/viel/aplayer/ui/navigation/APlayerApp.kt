@@ -47,7 +47,7 @@ import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.navigation.shell.DefaultAppFeedbackRenderer
 import com.viel.aplayer.ui.navigation.shell.dispatch
 import com.viel.aplayer.ui.player.PlayerViewModel
-import com.viel.aplayer.ui.player.components.PlayerOverlay
+import com.viel.aplayer.ui.player.PlayerOverlay
 import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.search.SearchRoute
 import com.viel.aplayer.ui.search.SearchViewModel
@@ -396,6 +396,11 @@ fun APlayerApp(
                             // This keeps the existing Home FAB affordance while reusing the Settings add-library dialog and all provider-specific follow-up logic.
                             homeAddLibraryDialogController.dialogState = SettingsDialogState.AddLibraryType
                         },
+                        onEditBookRequested = { bookId ->
+                            // Home Action Menu Edit Entry (Open the edit overlay from the selected catalog row)
+                            // Home and Detail both route shared action-dialog edit intents into the same app-owned EditBookViewModel lifecycle.
+                            editViewModel.startEdit(bookId)
+                        },
                         onOpenDetail = detailTransitionGate::request,
                         onHomeViewStyleSelected = libraryViewModel::setHomeViewStyle,
                         onHomeSortRuleSelected = libraryViewModel::setHomeSortRule,
@@ -422,10 +427,27 @@ fun APlayerApp(
                         searchViewModel.setVisible(true)
                         searchViewModel.onQueryChange(TextFieldValue(query))
                     },
-                    // Handle Edit Click (Launch EditBookRoute)
-                    // Receive the book editing click event from the detail page, and open the edit route without delay.
-                    onEditClick = { bookId ->
+                    onEditBookRequested = { bookId ->
+                        // Detail Action Menu Edit Entry (Open the edit overlay from the selected detail projection)
+                        // Detail now owns a shared action dialog, while the app shell keeps EditBookViewModel lifecycle and route ownership centralized.
                         editViewModel.startEdit(bookId)
+                    },
+                    onUpdateReadStatus = { bookId, status ->
+                        // Detail Action Menu Read Status Update (Reuse the library scene command path)
+                        // Manual status changes from Detail should emit the same persistence and feedback behavior as Home action-menu updates.
+                        libraryViewModel.updateBookReadStatus(bookId, status)
+                    },
+                    onForceRegenerate = { bookId ->
+                        // Detail Action Menu Metadata Refresh (Reuse the library scene regeneration command)
+                        // The Detail dialog only supplies the selected id; cover and metadata rebuilding remain behind LibraryViewModel.
+                        libraryViewModel.forceRegenerateCoverAndMetadata(bookId)
+                    },
+                    onDeleteBook = { bookId ->
+                        // Detail Action Menu Delete Coordination (Close playback and dismiss Detail before library removal)
+                        // Keeping cleanup in the app shell avoids duplicating destructive side effects inside the Detail UI or shared dialog component.
+                        playerViewModel.closePlayback(bookId)
+                        detailViewModel.dismissIfShowing(bookId)
+                        libraryViewModel.deleteBook(bookId)
                     },
                     onTransitionIdleChanged = detailTransitionGate::onTransitionIdleChanged
                 )
@@ -505,7 +527,10 @@ fun APlayerApp(
                                 coverPath = libraryBook.coverPath,
                                 thumbnailPath = libraryBook.thumbnailPath,
                                 lastScannedAt = libraryBook.lastScannedAt,
-                                progressPercent = libraryBook.progressPercent
+                                progressPercent = libraryBook.progressPercent,
+                                // Search Detail Read Status Projection (Preserve status when opening Detail from search results)
+                                // The Detail action dialog derives its payload from DetailBookItem, so search-to-detail mapping must carry the same readStatus field as Home.
+                                readStatus = libraryBook.readStatus
                             )
                         }
                         detailTransitionGate.request(

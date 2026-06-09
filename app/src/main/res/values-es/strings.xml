@@ -359,6 +359,7 @@
          Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
     <string name="accessibility_choice_selected">Seleccionado</string>
     <string name="accessibility_choice_unselected">No seleccionado</string>
+    <string name="home_action_edit_subtitle">Editar manualmente título, creadores, descripción y portada</string>
     <string name="home_action_regenerate_title">Reconstruir portadas y metadatos</string>
     <string name="home_action_regenerate_subtitle">Forzar la extracción de portada y descripción desde los archivos de audio</string>
     <string name="home_action_remove_title">Eliminar de la biblioteca multimedia</string>

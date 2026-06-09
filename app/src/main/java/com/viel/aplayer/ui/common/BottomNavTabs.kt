@@ -63,7 +63,7 @@ fun BottomNavTabs(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 60.dp)
         ) {
             val tabs = listOf(
                 // Player Tab Labels (Resolve player content tabs through resources)

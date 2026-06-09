@@ -91,7 +91,7 @@ fun PlayerPortrait(
     fullUiState: PlayerUiState,
     currentMode: PlayerScreenMode,
     onModeChange: (PlayerScreenMode) -> Unit,
-    animatedBgColor: androidx.compose.ui.graphics.Color,
+    animatedBgColor: Color,
     glassEffectMode: GlassEffectMode,
     // Player Floating Haze Source (Use the stable app-level sampler for player glass surfaces)
     // PlayerScreen passes the resolved app-level source so chapter sheets, bookmark dialogs, controls, and header menus stay on one HazeState.

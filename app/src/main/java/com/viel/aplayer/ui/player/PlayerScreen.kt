@@ -181,7 +181,7 @@ fun PlayerScreen(
     )
 
     val settings = if (isPreview) {
-        com.viel.aplayer.ui.settings.PlayerSettingsState(
+        PlayerSettingsState(
             isFullPlayerVisible = true,
             selectedContentTab = -1,
             isChapterProgressMode = false,

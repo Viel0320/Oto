@@ -53,7 +53,8 @@ fun PlayerVerticalAppBar(
             navigationActions.onMinimize()
         },
         onToggleProgressMode = actions.content.onToggleProgressMode,
-        onDeleteBook = actions.content.onDeleteBook,
+        // Player Menu Scope (Keep the portrait dropdown non-destructive)
+        // PlayerAppBar no longer accepts the library-delete action because deletion is intentionally removed from the playback page dropdown.
         isChapterProgressMode = settings.isChapterProgressMode,
         glassEffectMode = glassEffectMode,
         hazeState = hazeState,

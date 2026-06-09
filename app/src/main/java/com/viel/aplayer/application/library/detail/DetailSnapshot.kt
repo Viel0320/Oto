@@ -18,7 +18,10 @@ data class DetailBookItem(
     val coverPath: String? = null,
     val thumbnailPath: String? = null,
     val lastScannedAt: Long = 0L,
-    val progressPercent: Int = 0
+    val progressPercent: Int = 0,
+    // Detail Read Status Projection (Carry optional manual status for detail-owned action dialogs)
+    // Keeping the value nullable lets callers that do not have read-status data open the detail action menu without marking any status as selected.
+    val readStatus: String? = null
 )
 
 /**

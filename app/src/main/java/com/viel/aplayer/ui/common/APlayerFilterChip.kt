@@ -80,7 +80,7 @@ fun APlayerFilterChip(
         // Liquid Glass Visual Layer (Apply Haze only to the visible 32.dp chip body)
         // The outer selectable node remains 48.dp for touch and accessibility, while the glass sample stays clipped to the Material-like container.
         Modifier.liquidGlassCompatEffect(
-            state = requireNotNull(hazeState),
+            state = hazeState,
             style = LiquidGlassStyle(shape = chipShape)
         )
     } else {

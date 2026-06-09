@@ -71,7 +71,10 @@ class DefaultDetailBookModule(
                             coverPath = updatedBook.coverPath,
                             thumbnailPath = updatedBook.thumbnailPath,
                             lastScannedAt = updatedBook.lastScannedAt,
-                            progressPercent = snapshot.progressPercent
+                            progressPercent = snapshot.progressPercent,
+                            // Live Detail Read Status Projection (Refresh manual read status with live book metadata)
+                            // The action dialog consumes DetailBookItem only, so live database updates must carry readStatus through the same projection boundary.
+                            readStatus = updatedBook.readStatus
                         )
                     )
                 } else {

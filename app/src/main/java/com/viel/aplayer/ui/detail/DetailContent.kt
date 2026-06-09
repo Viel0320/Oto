@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,7 +56,8 @@ import com.viel.aplayer.application.library.detail.DetailSnapshot
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
-import com.viel.aplayer.ui.common.BlurDropdownMenu
+import com.viel.aplayer.ui.common.AudiobookActionDialog
+import com.viel.aplayer.ui.common.AudiobookActionDialogBook
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -91,11 +91,22 @@ fun DetailContent(
     onPlayPressed: () -> Unit = {},
     onPlayClick: () -> Unit = {}, // Official playback action callback
     onSearchClick: (String) -> Unit = {}, // Callback for clicking a specific tag to search for related books
+    // Detail Action Edit Command (Forward selected Detail projection id to the app shell)
+    // DetailContent owns only the action dialog presentation, while the edit overlay route remains hosted by APlayerApp.
+    onEditBook: (String) -> Unit = {},
+    // Detail Action Read Status Command (Forward manual read-status changes)
+    // The command uses the selected DetailBookItem id so status updates do not depend on Home dialog state.
+    onUpdateReadStatus: (String, String) -> Unit = { _, _ -> },
+    // Detail Action Metadata Refresh Command (Forward forced regeneration from the shared action dialog)
+    // DetailContent does not perform library work directly; it only bridges the selected projection id.
+    onForceRegenerate: (String) -> Unit = {},
+    // Detail Action Delete Command (Forward destructive removal to the app shell)
+    // The app shell coordinates playback cleanup, detail dismissal, and library deletion outside the stateless detail renderer.
+    onDeleteBook: (String) -> Unit = {},
     glassEffectMode: GlassEffectMode, // Precise control of dynamic switching between Material design and frosted glass Haze mode
-    // Detail Floating Surface Haze Source (Use app-level sampling for menus and dialogs)
-    // DetailOverlay registers visible Detail content into the stable app source, so these floating surfaces avoid local HazeState rebinding.
+    // Detail Floating Dialog Haze Source (Use app-level sampling for detail dialogs)
+    // DetailOverlay registers visible Detail content into the stable app source, so floating dialogs avoid local HazeState rebinding.
     fullPageHazeState: HazeState? = null,
-    onEditClick: (String) -> Unit = {}, // Callback for clicking to edit book metadata details
     // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
     // Accepts the active cover color extracted from Coil bitmap memory.
     coverColor: Color?,
@@ -112,13 +123,13 @@ fun DetailContent(
     var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
+    // Detail Action Dialog Visibility (Own only the local modal presentation state)
+    // The selected book payload still comes from DetailBookItem, and all mutations are delegated through callbacks.
+    var showActionDialog by remember { mutableStateOf(false) }
     // Localized Detail Dialog Action Copy (Resolve the generic acknowledgement button through resources)
     // Info dialog titles and body text are selected book metadata, while the closing action is app-authored UI copy.
     val okActionText = stringResource(R.string.action_ok)
-    
-    // Top-right dropdown menu visibility management
-    var showMenu by remember { mutableStateOf(false) }
-    
+
     val backdropCoverPath = CoverImageSourceSelector.backdrop(
         thumbnailPath = book?.thumbnailPath,
         coverPath = book?.coverPath
@@ -214,28 +225,13 @@ fun DetailContent(
                             }
                         },
                         actions = {
-                            Box {
-                                IconButton(onClick = { showMenu = true }) {
+                            // Detail Action Dialog Entry (Open shared audiobook actions from the selected Detail projection)
+                            // The top-right control renders only when a DetailBookItem exists, preventing empty overlays from exposing commands without a target book.
+                            if (book != null) {
+                                IconButton(onClick = { showActionDialog = true }) {
                                     Icon(
                                         Icons.Rounded.MoreVert,
                                         contentDescription = stringResource(R.string.more_content_description)
-                                    )
-                                }
-                                // Setup Dropdown Menu Haze State (Link dropdown menu blur state) Replaced backdrop parameter with hazeState.
-                                BlurDropdownMenu(
-                                    expanded = showMenu,
-                                    onDismissRequest = { showMenu = false },
-                                    hazeState = fullPageHazeState ?: coverHazeState,
-                                    glassEffectMode = glassEffectMode
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.edit_book_title)) },
-                                        onClick = {
-                                            showMenu = false
-                                            book?.id?.let { bookId ->
-                                                onEditClick(bookId)
-                                            }
-                                        }
                                     )
                                 }
                             }
@@ -341,6 +337,22 @@ fun DetailContent(
         }
     }
 
+    if (showActionDialog) {
+        // Detail Action Dialog Payload (Project the selected Detail item into the shared audiobook action contract)
+        // The dialog receives only DetailBookItem-derived data; nullable readStatus is preserved so missing status data leaves every chip unselected.
+        AudiobookActionDialog(
+            book = book?.toAudiobookActionDialogBook(),
+            hazeState = fullPageHazeState ?: coverHazeState,
+            glassEffectMode = glassEffectMode,
+            coverRequestScene = DETAIL_ACTION_DIALOG_COVER_SCENE,
+            onDismissRequest = { showActionDialog = false },
+            onEditBook = onEditBook,
+            onUpdateReadStatus = onUpdateReadStatus,
+            onForceRegenerate = onForceRegenerate,
+            onDeleteBook = onDeleteBook
+        )
+    }
+
     if (infoDialogText != null) {
         APlayerDialogTemplate(
             onDismissRequest = {
@@ -386,6 +398,27 @@ fun DetailContent(
         )
     }
 }
+
+/**
+ * Detail Action Dialog Projection (Adapt DetailBookItem to the shared audiobook action payload)
+ *
+ * Keeps the action dialog data source inside the Detail scene projection, including nullable readStatus so callers without status data do not receive a fake selected chip.
+ */
+private fun DetailBookItem.toAudiobookActionDialogBook(): AudiobookActionDialogBook =
+    AudiobookActionDialogBook(
+        id = id,
+        title = title,
+        author = author,
+        narrator = narrator,
+        coverPath = coverPath,
+        thumbnailPath = thumbnailPath,
+        lastScannedAt = lastScannedAt,
+        readStatus = readStatus
+    )
+
+// Detail Action Dialog Cover Scene (Preserve cover-cache diagnostics for Detail-origin action dialogs)
+// The shared dialog builds the Coil request, while this scene name keeps Detail menu cover loads distinguishable from Home action dialogs.
+private const val DETAIL_ACTION_DIALOG_COVER_SCENE = "detail-action-dialog-cover"
 
 @Preview(name = "Phone Portrait", showBackground = true, apiLevel = 36)
 @Composable

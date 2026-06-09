@@ -72,6 +72,9 @@ fun APlayerNavHost(
     // Home Add Library Event (Delegate empty-state source creation to the app shell)
     // The NavHost only bridges the Home FAB intent; SettingsDialogHost and activity result launchers remain owned by APlayerApp.
     onAddLibraryRequested: () -> Unit,
+    // Home Edit Book Event (Delegate action-menu edits to the app shell)
+    // EditBookRoute is mounted beside other overlays in APlayerApp, so the NavHost only forwards the selected book id.
+    onEditBookRequested: (String) -> Unit,
     // Detail Open Request (Route Home detail intents through the app-level transition gate)
     // APlayerNavHost owns Home route composition, while APlayerApp owns the overlay transition gate that protects shared-element return chains.
     onOpenDetail: (DetailOpenRequest) -> Unit,
@@ -100,7 +103,7 @@ fun APlayerNavHost(
     // Setup Entry Provider (Resolve NavKeys to Screen composables)
     // Declares the mapping of serializable NavKey to their respective Compose screen contents.
     // Explicit NavKey Provider (Fix Nav3 type parameter matching issue) Explicitly parameterize entryProvider with NavKey to bypass Kotlin contravariance compile errors.
-    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, onOpenDetail, onAddLibraryRequested, homeDialogHazeState, homeTopBarHeightPx, homeTopBarScrollToTopRequest) {
+    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, onOpenDetail, onAddLibraryRequested, onEditBookRequested, homeDialogHazeState, homeTopBarHeightPx, homeTopBarScrollToTopRequest) {
         entryProvider<NavKey> {
             entry<HomeRoute> {
                 /*
@@ -117,7 +120,8 @@ fun APlayerNavHost(
                     homeDialogHazeState = homeDialogHazeState,
                     homeTopBarHeightPx = homeTopBarHeightPx,
                     homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest,
-                    onAddLibraryRequested = onAddLibraryRequested
+                    onAddLibraryRequested = onAddLibraryRequested,
+                    onEditBookRequested = onEditBookRequested
                 )
             }
         }

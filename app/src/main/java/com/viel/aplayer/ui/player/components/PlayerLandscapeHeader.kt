@@ -37,7 +37,7 @@ import dev.chrisbanes.haze.HazeState
 
 // Landscape player header component.
 //
-// Decoupled to an independent file to display the book title, author information, and a "more options" menu (containing "toggle progress mode", "delete book", etc.).
+// Decoupled to an independent file to display the book title, author information, and a "more options" menu focused on playback-display controls.
 // In landscape mode, to maximize immersion, this header floats directly on top of the background gradient without utilizing any extra background cards.
 @Composable
 fun PlayerLandscapeHeader(
@@ -50,13 +50,12 @@ fun PlayerLandscapeHeader(
     modifier: Modifier = Modifier
 ) {
     // Localized Landscape Header Copy (Share player chrome resources with the portrait app bar)
-    // Landscape mode renders its own menu, so it resolves the same progress/delete labels locally instead of duplicating English strings.
+    // Landscape mode renders its own menu, but the dropdown stays non-destructive and only resolves the progress-mode label locally.
     val unknownText = stringResource(R.string.common_unknown)
     val unknownTitle = stringResource(R.string.common_unknown_title)
     val showProgressText = stringResource(
         if (settings.isChapterProgressMode) R.string.player_show_total_progress else R.string.player_show_chapter_progress
     )
-    val deleteFromLibraryText = stringResource(R.string.player_delete_from_library)
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -96,21 +95,14 @@ fun PlayerLandscapeHeader(
                 hazeState = hazeState,
                 glassEffectMode = glassEffectMode
             ) {
+                // Landscape Progress Mode Entry (Keep player chrome dropdown aligned with portrait)
+                // The menu no longer exposes library deletion, so landscape playback controls remain focused on display-mode switching.
                 DropdownMenuItem(
                     text = {
                         Text(showProgressText)
                     },
                     onClick = {
                         actions.content.onToggleProgressMode()
-                        showLandscapeMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(deleteFromLibraryText, color = MaterialTheme.colorScheme.error)
-                    },
-                    onClick = {
-                        actions.content.onDeleteBook()
                         showLandscapeMenu = false
                     }
                 )

@@ -51,17 +51,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         // Centralized Filter Resolution (Dispatches final filter state once all input streams are ready)
         // Prevents intermediate visual state jumps in home filter chips.
         // Priority hierarchy: Explicit User Selection > Persisted Cache Settings > NotStarted Default.
-        val activeFilter = if (userSelection != null) {
-            // Priority 1: Direct user selection took precedence.
+        val activeFilter = // Priority 1: Direct user selection took precedence.
             userSelection
-        } else {
-            // Priority 2: Restore previous state from cache. Falls back to `NotStarted` on failure.
-            try {
-                HomeFilter.valueOf(appSettings.homeFilter)
-            } catch (_: Exception) {
-                HomeFilter.NotStarted
-            }
-        }
+                ?: // Priority 2: Restore previous state from cache. Falls back to `NotStarted` on failure.
+                try {
+                    HomeFilter.valueOf(appSettings.homeFilter)
+                } catch (_: Exception) {
+                    HomeFilter.NotStarted
+                }
 
         // Flow Pipeline Calculations (Handles grouping, filtering, and sorting in backend thread flows)
         // Ensures that the Composable UI layers remain completely stateless and focus strictly on rendering tasks.

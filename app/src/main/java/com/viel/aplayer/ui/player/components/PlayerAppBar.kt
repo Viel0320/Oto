@@ -53,7 +53,6 @@ fun PlayerAppBar(
     modifier: Modifier = Modifier,
     navigationIcon: ImageVector? = null,
     onToggleProgressMode: (() -> Unit)? = null,
-    onDeleteBook: (() -> Unit)? = null,
     isChapterProgressMode: Boolean = false,
     // Glass effect mode must be explicitly passed from the settings state by the player page; the player top bar no longer declares a Material default.
     glassEffectMode: GlassEffectMode,
@@ -65,12 +64,11 @@ fun PlayerAppBar(
     val navIcon = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
     // Localized Player Menu Copy (Resolve top-bar labels inside composition)
-    // The same menu appears in portrait and landscape player chrome, so these resources keep progress and delete actions translatable.
+    // The player dropdown now exposes only playback-display controls, keeping destructive library removal out of the transient player chrome.
     val unknownText = stringResource(R.string.common_unknown)
     val showProgressText = stringResource(
         if (isChapterProgressMode) R.string.player_show_total_progress else R.string.player_show_chapter_progress
     )
-    val deleteFromLibraryText = stringResource(R.string.player_delete_from_library)
 
     // Left-Align Player Top Bar Title (Shift layout structure to left alignment)
     // Replace CenterAlignedTopAppBar with TopAppBar and adjust Column alignment to Start,
@@ -133,7 +131,8 @@ fun PlayerAppBar(
                     // The player's "more" menu switches between Material and Haze depending on the selection in the settings page.
                     glassEffectMode = glassEffectMode
                 ) {
-                    // 1. Toggle progress mode
+                    // Player Progress Mode Entry (Keep dropdown focused on display-mode switching)
+                    // Removing the former delete entry leaves the player menu as a non-destructive control surface while preserving the existing progress toggle behavior.
                     DropdownMenuItem(
                         text = {
                             Text(showProgressText)
@@ -144,19 +143,6 @@ fun PlayerAppBar(
                         },
                         enabled = onToggleProgressMode != null
                     )
-
-                    // 2. Delete book
-                    if (onDeleteBook != null) {
-                        DropdownMenuItem(
-                            text = { 
-                                Text(deleteFromLibraryText, color = MaterialTheme.colorScheme.error) 
-                            },
-                            onClick = {
-                                onDeleteBook.invoke()
-                                showMenu = false
-                            }
-                        )
-                    }
                 }
             }
         },

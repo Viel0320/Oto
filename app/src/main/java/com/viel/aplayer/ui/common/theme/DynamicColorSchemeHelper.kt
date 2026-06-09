@@ -34,8 +34,8 @@ object DynamicColorSchemeHelper {
                     val primaryColor = colors.primaryColor
                     return Color(primaryColor.toArgb())
                 }
-            } catch (e: Exception) {
-                // Fail-safe fallbacks: Suppress unexpected wallpaper manager crashes on custom ROMs
+            } catch (e: Throwable) {
+                // Fail-safe fallbacks: Suppress unexpected wallpaper manager crashes on custom ROMs or Unsupported Service in Preview
             }
         }
         return null

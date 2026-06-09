@@ -10,12 +10,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.FormatListNumbered
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Http
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.LinearScale
+import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -159,7 +172,9 @@ fun InterfaceSettingsSection(
         SettingsSegmentedThemeModeItem(
             title = stringResource(R.string.settings_theme_mode_title),
             subtitle = stringResource(R.string.settings_theme_mode_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Theme Mode Icon (Represent light, dark, and system appearance selection)
+            // A dark-mode glyph is more recognizable than the previous generic scale symbol for this segmented appearance control.
+            icon = Icons.Rounded.DarkMode,
             selectedMode = if (isHaze) ThemeMode.Dark else themeMode,
             onModeSelected = onThemeModeChange,
             enabled = !isHaze
@@ -172,7 +187,9 @@ fun InterfaceSettingsSection(
             } else {
                 stringResource(R.string.settings_dynamic_color_unsupported_subtitle)
             },
-            icon = Icons.Rounded.LinearScale,
+            // Dynamic Color Icon (Use a Material palette symbol for wallpaper-driven color sampling)
+            // The setting changes the app color source, so the palette icon matches the visual customization domain.
+            icon = Icons.Rounded.Palette,
             checked = isDynamicColorEnabled,
             onCheckedChange = onDynamicColorEnabledChange,
             enabled = isDynamicColorSupported
@@ -180,7 +197,9 @@ fun InterfaceSettingsSection(
         SettingsToggleItem(
             title = stringResource(R.string.settings_haze_effect_title),
             subtitle = stringResource(R.string.settings_haze_effect_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Blur Effect Icon (Use the Material blur glyph for the experimental Haze rendering path)
+            // This distinguishes the visual blur toggle from ordinary theme controls while keeping it inside the interface section.
+            icon = Icons.Rounded.BlurOn,
             checked = glassEffectMode == GlassEffectMode.Haze,
             onCheckedChange = { isChecked ->
                 val newMode = if (isChecked) GlassEffectMode.Haze else GlassEffectMode.Material
@@ -214,28 +233,36 @@ fun PlaybackBehaviorSection(
         SettingsToggleItem(
             title = stringResource(R.string.chapter_progress_title),
             subtitle = stringResource(R.string.chapter_progress_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Chapter Progress Icon (Use a numbered-list glyph for chapter-scoped progress display)
+            // The setting changes progress reporting from whole-book scope to chapter scope, so a structured list better suggests chapter boundaries.
+            icon = Icons.Rounded.FormatListNumbered,
             checked = isChapterProgressMode,
             onCheckedChange = onChapterProgressModeChange
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_skip_silence_toggle_title),
             subtitle = stringResource(R.string.settings_skip_silence_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Skip Silence Icon (Use the audio waveform glyph for narrator-pause detection)
+            // The row controls playback analysis rather than visual scale, so the waveform icon points to audio content processing.
+            icon = Icons.Rounded.GraphicEq,
             checked = isSkipSilenceEnabled,
             onCheckedChange = onSkipSilenceEnabledChange
         )
         SettingsSegmentedSeekStepItem(
             title = stringResource(R.string.settings_seek_backward_step_title),
             subtitle = stringResource(R.string.settings_seek_backward_step_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Rewind Step Icon (Use the standard media rewind glyph for backward seek distance)
+            // The configured seconds are variable, so the generic rewind control avoids implying a fixed 10-second preset.
+            icon = Icons.Rounded.FastRewind,
             selectedStep = playbackSeekStepConfig.backward,
             onStepSelected = onSeekBackwardStepChange
         )
         SettingsSegmentedSeekStepItem(
             title = stringResource(R.string.settings_seek_forward_step_title),
             subtitle = stringResource(R.string.settings_seek_forward_step_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Fast-Forward Step Icon (Use the standard media forward glyph for forward seek distance)
+            // The control configures the player skip button, making the media-forward symbol more direct than a generic settings scale.
+            icon = Icons.Rounded.FastForward,
             selectedStep = playbackSeekStepConfig.forward,
             onStepSelected = onSeekForwardStepChange
         )
@@ -244,7 +271,9 @@ fun PlaybackBehaviorSection(
         SettingsSliderItem(
             title = stringResource(R.string.settings_auto_rewind_toggle_title),
             subtitle = stringResource(R.string.settings_auto_rewind_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Auto-Rewind Icon (Use the replay glyph for rewind-after-pause behavior)
+            // The slider controls how far playback rolls back after interruption, so the replay arrow communicates that automatic return.
+            icon = Icons.Rounded.Replay,
             value = autoRewindSeconds.toFloat(),
             onValueChange = { onAutoRewindSecondsChange(it.toInt()) },
             valueRange = 0f..30f,
@@ -264,7 +293,9 @@ fun PlaybackBehaviorSection(
         SettingsToggleItem(
             title = stringResource(R.string.settings_notification_avoidance_title),
             subtitle = stringResource(R.string.settings_notification_avoidance_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Notification Avoidance Icon (Use the muted-notification glyph for focus-loss interruption handling)
+            // The setting protects spoken content from notification ducking, so the notification-off symbol matches the user-facing behavior.
+            icon = Icons.Rounded.NotificationsOff,
             checked = isNotificationAvoidanceEnabled,
             onCheckedChange = onNotificationAvoidanceEnabledChange
         )
@@ -289,7 +320,9 @@ fun NetworkSecuritySection(
         SettingsToggleItem(
             title = stringResource(R.string.settings_cleartext_title),
             subtitle = stringResource(R.string.settings_cleartext_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Cleartext HTTP Icon (Use the HTTP glyph for insecure plaintext endpoint permission)
+            // This makes the transport protocol explicit before the user enables a weaker network boundary.
+            icon = Icons.Rounded.Http,
             checked = isCleartextTrafficAllowed,
             onCheckedChange = onCleartextTrafficAllowedChange
         )
@@ -298,7 +331,9 @@ fun NetworkSecuritySection(
         SettingsToggleItem(
             title = stringResource(R.string.settings_insecure_tls_title),
             subtitle = stringResource(R.string.settings_insecure_tls_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Insecure TLS Icon (Use the security shield glyph for certificate-validation risk)
+            // The row controls a security exception, so the shield keeps it visually tied to transport trust decisions.
+            icon = Icons.Rounded.Security,
             checked = isAllowInsecureTls,
             onCheckedChange = onAllowInsecureTlsChange
         )
@@ -323,21 +358,27 @@ fun SleepTimerSection(
         SettingsSegmentedSleepModeItem(
             title = stringResource(R.string.settings_sleep_mode_title),
             subtitle = stringResource(R.string.settings_sleep_mode_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Sleep Mode Icon (Use the bedtime glyph for timer modes that infer or manage sleep)
+            // The row selects how the app counts down before resting playback, so the bedtime icon matches the listening-at-night workflow.
+            icon = Icons.Rounded.Bedtime,
             selectedMode = sleepMode,
             onModeSelected = onSleepModeChange
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_sleep_fade_title),
             subtitle = stringResource(R.string.settings_sleep_fade_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Sleep Fade Icon (Use the volume-down glyph for countdown fade-out behavior)
+            // The toggle gradually lowers audio before pausing, so volume-down describes the audible effect directly.
+            icon = Icons.AutoMirrored.Rounded.VolumeDown,
             checked = isSleepFadeOutEnabled,
             onCheckedChange = onSleepFadeOutEnabledChange
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_shake_reset_title),
             subtitle = stringResource(R.string.settings_shake_reset_subtitle),
-            icon = Icons.Rounded.LinearScale,
+            // Shake Reset Icon (Use the vibration glyph for motion-triggered timer reset)
+            // The setting listens for phone movement and gives haptic feedback, making vibration the closest Material symbol.
+            icon = Icons.Rounded.Vibration,
             checked = isShakeToResetEnabled,
             onCheckedChange = onShakeToResetEnabledChange
         )

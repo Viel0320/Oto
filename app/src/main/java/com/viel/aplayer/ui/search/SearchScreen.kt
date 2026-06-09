@@ -571,7 +571,7 @@ fun SearchContent(
  */
 data class SearchCommand(
     val token: String,
-    @StringRes val descriptionRes: Int
+    @field:StringRes val descriptionRes: Int
 )
 
 /**

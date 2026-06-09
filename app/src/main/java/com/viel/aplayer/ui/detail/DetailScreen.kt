@@ -18,16 +18,25 @@ fun DetailScreen(
     modifier: Modifier = Modifier,
     onPlayPressed: () -> Unit = {},
     onPlayClick: () -> Unit = {}, // Callback to confirm triggering audio playback
-    onMoreClick: () -> Unit = {}, // Callback for clicking top-right more control button
     onSearchClick: (String) -> Unit = {}, // Callback for tag click navigating to search
+    // Detail Action Edit Bridge (Forward action-dialog edit intents)
+    // The screen remains a stateless bridge and leaves edit overlay ownership to the route/app shell.
+    onEditBook: (String) -> Unit = {},
+    // Detail Action Read Status Bridge (Forward action-dialog read-status updates)
+    // Keeping the callback here lets DetailContent report selected ids without depending on LibraryViewModel.
+    onUpdateReadStatus: (String, String) -> Unit = { _, _ -> },
+    // Detail Action Regeneration Bridge (Forward action-dialog metadata refresh)
+    // DetailScreen only relays the command so library regeneration stays outside UI rendering.
+    onForceRegenerate: (String) -> Unit = {},
+    // Detail Action Delete Bridge (Forward action-dialog deletion)
+    // Deletion cleanup stays centralized in the app shell instead of being performed inside Detail UI components.
+    onDeleteBook: (String) -> Unit = {},
     // Glass effect mode passed from outside
     glassEffectMode: GlassEffectMode,
     // Detail HazeState Arguments (Separate inline controls from floating app surfaces)
     // hazeState is the stable app-level sampler, while fullPageHazeState is forwarded to menus and dialogs that must not rebind to a page-local source.
     hazeState: HazeState? = null,
     fullPageHazeState: HazeState? = null,
-    // Callback for launching edit metadata overlay
-    onEditClick: (String) -> Unit = {},
     // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
     // Accepts the active cover color extracted from Coil bitmap memory.
     coverColor: androidx.compose.ui.graphics.Color?,
@@ -43,9 +52,12 @@ fun DetailScreen(
         onPlayPressed = onPlayPressed,
         onPlayClick = onPlayClick,
         onSearchClick = onSearchClick,
+        onEditBook = onEditBook,
+        onUpdateReadStatus = onUpdateReadStatus,
+        onForceRegenerate = onForceRegenerate,
+        onDeleteBook = onDeleteBook,
         glassEffectMode = glassEffectMode,
         fullPageHazeState = fullPageHazeState,
-        onEditClick = onEditClick,
         coverColor = coverColor,
         onColorExtracted = onColorExtracted
     )

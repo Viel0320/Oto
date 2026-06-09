@@ -348,6 +348,7 @@
          Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
     <string name="accessibility_choice_selected">選択済み</string>
     <string name="accessibility_choice_unselected">未選択</string>
+    <string name="home_action_edit_subtitle">タイトル、制作者、説明、表紙を手動で編集します</string>
     <string name="home_action_regenerate_title">表紙とメタデータを再構築</string>
     <string name="home_action_regenerate_subtitle">音声ファイルから表紙と説明を再抽出します</string>
     <string name="home_action_remove_title">メディアライブラリから削除</string>

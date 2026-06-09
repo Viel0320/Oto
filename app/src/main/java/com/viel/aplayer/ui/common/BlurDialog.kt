@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -50,6 +51,9 @@ fun BlurDialog(
     hazeState: HazeState? = null,
     // Parameter Injection Guard (The glass effect mode must be explicitly provided by the caller to avoid declaring implicit defaults)
     glassEffectMode: GlassEffectMode,
+    // Dialog Width Cap (Expose the shell width limit for adaptive dialog variants)
+    // The default value preserves the previous fixed cap, while callers with landscape-specific layouts can widen the same dialog container intentionally.
+    dialogMaxWidth: Dp = 460.dp,
     // Dismiss Policy Control (Allow form dialogs to preserve drafts)
     // Keeps the previous default dismiss behavior while giving WebDAV, ABS, and other input-heavy dialogs a way to block accidental back dismissal.
     dismissOnBackPress: Boolean = true,
@@ -113,7 +117,7 @@ fun BlurDialog(
             // - Focus Interceptor: Attaches a custom clickable modifier to prevent gesture events propagating upward and closing the dialog.
             Surface(
                 modifier = Modifier
-                    .widthIn(min = 280.dp, max = 460.dp)
+                    .widthIn(min = 280.dp, max = dialogMaxWidth)
                     .then(glassModifier)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },

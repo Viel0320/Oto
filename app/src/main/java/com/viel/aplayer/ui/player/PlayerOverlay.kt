@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.player.components
+package com.viel.aplayer.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -17,15 +17,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
-import com.viel.aplayer.ui.player.PlayerActions
-import com.viel.aplayer.ui.player.PlayerFloatingSurfaceHost
-import com.viel.aplayer.ui.player.PlayerScreen
-import com.viel.aplayer.ui.player.PlayerViewModel
 import com.viel.aplayer.ui.settings.FullPlayerOpenSource
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -38,6 +35,7 @@ import kotlinx.coroutines.flow.map
  */
 @Composable
 fun PlayerOverlay(
+    modifier: Modifier = Modifier,
     playerViewModel: PlayerViewModel,
     playerActions: PlayerActions,
     playerNavigationActions: PlayerNavigationActions,
@@ -45,8 +43,8 @@ fun PlayerOverlay(
     glassEffectMode: GlassEffectMode,
     // App-Level Haze Source (Stable sampler shared by app chrome, Search, and dialogs)
     // When provided by APlayerApp, the expanded player registers into this long-lived source so foreground overlays do not rebind or sample stale pages.
-    appHazeState: HazeState? = null,
-    modifier: Modifier = Modifier
+    appHazeState: HazeState? = null
+
 ) {
     // Only listen to the player visibility (low-frequency signal)
     val isFullPlayerVisible by remember(playerViewModel) {
@@ -102,7 +100,7 @@ fun PlayerOverlay(
 
                 // Reset Color State on Cover Path Changes: Re-initialize coverColor state whenever the coverPath changes using remember(coverPath) and load the cached color synchronously if available.
                 var coverColor by remember(coverPath) {
-                    mutableStateOf<Color?>(com.viel.aplayer.media.parser.ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
+                    mutableStateOf<Color?>(ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
                 }
 
                 val playerColorScheme = remember(coverColor, darkTheme) {

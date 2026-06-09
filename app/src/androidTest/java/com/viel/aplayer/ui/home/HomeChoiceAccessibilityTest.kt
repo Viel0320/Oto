@@ -14,11 +14,11 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.viel.aplayer.R
-import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.AudiobookActionDialog
+import com.viel.aplayer.ui.common.AudiobookActionDialogBook
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.home.components.AudiobookActionDialogs
 import dev.chrisbanes.haze.HazeState
 import org.junit.Rule
 import org.junit.Test
@@ -134,9 +134,9 @@ class HomeChoiceAccessibilityTest {
         composeRule.setContent {
             APlayerTheme(dynamicColor = false) {
                 // Read Status Dialog Fixture (Render only the long-press action dialog)
-                // A minimal HomeBookItem keeps the test focused on the read-status choice group without mounting Home navigation or persistence state.
-                AudiobookActionDialogs(
-                    book = homeBookItem(readStatus = AudiobookSchema.ReadStatus.IN_PROGRESS),
+                // A minimal shared dialog payload keeps the test focused on the read-status choice group without mounting Home navigation or persistence state.
+                AudiobookActionDialog(
+                    book = audiobookActionDialogBook(readStatus = AudiobookSchema.ReadStatus.IN_PROGRESS),
                     glassEffectMode = GlassEffectMode.Material,
                     onDismissRequest = {},
                     onUpdateReadStatus = { _, _ -> },
@@ -168,32 +168,54 @@ class HomeChoiceAccessibilityTest {
             .assertHeightIsAtLeast(48.dp)
     }
 
+    @Test
+    fun readStatusDialogWithMissingStatusDoesNotSelectAnyChoice() {
+        val notStartedLabel = composeRule.activity.getString(R.string.filter_not_started)
+        val inProgressLabel = composeRule.activity.getString(R.string.filter_in_progress)
+        val finishedLabel = composeRule.activity.getString(R.string.filter_finished)
+        val unselectedStateDescription = composeRule.activity.getString(R.string.accessibility_choice_unselected)
+
+        composeRule.setContent {
+            APlayerTheme(dynamicColor = false) {
+                // Missing Read Status Fixture (Render the shared action dialog without a current status)
+                // Detail projections may intentionally omit readStatus, so the shared chips must expose no selected radio item instead of defaulting to Not Started.
+                AudiobookActionDialog(
+                    book = audiobookActionDialogBook(readStatus = null),
+                    glassEffectMode = GlassEffectMode.Material,
+                    onDismissRequest = {},
+                    onUpdateReadStatus = { _, _ -> },
+                    onForceRegenerate = {}
+                ) {}
+            }
+        }
+
+        // Missing Status Group Contract (Keep the status choices grouped while leaving every option unselected)
+        // This locks the Detail action-dialog requirement that absent readStatus data must not synthesize a selected state.
+        composeRule.onAllNodes(hasSelectableGroup(), useUnmergedTree = true).assertCountEquals(1)
+
+        listOf(notStartedLabel, inProgressLabel, finishedLabel).forEach { label ->
+            composeRule
+                .onNode(hasText(label) and hasRole(Role.RadioButton))
+                .assertHasClickAction()
+                .assert(hasSelectedState(selected = false))
+                .assert(hasStateDescription(unselectedStateDescription))
+                .assertHeightIsAtLeast(48.dp)
+        }
+    }
+
     private companion object {
-        // Home Book Fixture (Build the smallest catalog projection needed by the action dialog)
-        // Status booleans are derived from the supplied readStatus so the dialog receives a coherent Home domain object.
-        private fun homeBookItem(readStatus: String): HomeBookItem =
-            HomeBookItem(
+        // Shared Action Dialog Fixture (Build the smallest payload needed by the common audiobook action dialog)
+        // The test no longer depends on Home catalog projections, so failures point at the shared read-status control contract.
+        private fun audiobookActionDialogBook(readStatus: String?): AudiobookActionDialogBook =
+            AudiobookActionDialogBook(
                 id = "accessibility-book-id",
-                rootId = "accessibility-root-id",
-                sourceType = "local",
                 title = "Accessibility Test Book",
                 author = "",
                 narrator = "",
-                description = "",
-                year = "",
-                series = "",
-                totalDurationMs = 0L,
-                totalFileSize = 0L,
                 coverPath = null,
                 thumbnailPath = null,
                 lastScannedAt = 0L,
-                addedAt = 0L,
-                readStatus = readStatus,
-                progressPercent = 0,
-                lastPlayedAt = 0L,
-                isFinished = readStatus == AudiobookSchema.ReadStatus.FINISHED,
-                isInProgress = readStatus == AudiobookSchema.ReadStatus.IN_PROGRESS,
-                isNotStarted = readStatus == AudiobookSchema.ReadStatus.NOT_STARTED
+                readStatus = readStatus
             )
 
         // Role Matcher (Read the public Compose semantics role property directly)

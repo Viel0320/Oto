@@ -32,6 +32,9 @@ fun APlayerDialogTemplate(
     dismissOnBackPress: Boolean = true,
     dismissOnClickOutside: Boolean = true,
     contentPadding: PaddingValues = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
+    // Dialog Width Override (Allow specialized dialogs to use adaptive horizontal room)
+    // Keeps the legacy 460.dp Material-style cap for existing callers while letting landscape-specific surfaces request a wider shell without forking BlurDialog behavior.
+    dialogMaxWidth: Dp = 460.dp,
     headerAlignment: Alignment.Horizontal = Alignment.Start,
     sectionSpacing: Dp = 16.dp,
     actionsSpacing: Dp = 8.dp,
@@ -46,6 +49,7 @@ fun APlayerDialogTemplate(
         glassEffectMode = glassEffectMode,
         dismissOnBackPress = dismissOnBackPress,
         dismissOnClickOutside = dismissOnClickOutside,
+        dialogMaxWidth = dialogMaxWidth,
         scrollable = scrollable
     ) {
         // Dialog Template Layout (Centralize spacing without owning business content)

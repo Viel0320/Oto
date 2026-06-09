@@ -27,6 +27,18 @@ fun DetailRoute(
     canStartNavigation: () -> Boolean,
     onPlayBook: (String) -> Unit,
     onNavigateToSearch: (String) -> Unit,
+    // Detail Action Edit Route (Delegate selected-book editing to the app shell)
+    // DetailRoute forwards the Detail action-dialog command without owning EditBookViewModel or overlay lifecycle.
+    onEditBookRequested: (String) -> Unit,
+    // Detail Action Read Status Route (Delegate manual status changes)
+    // The home/library scene still owns the persistence command, while DetailRoute only carries the selected Detail id.
+    onUpdateReadStatus: (String, String) -> Unit,
+    // Detail Action Metadata Refresh Route (Delegate forced regeneration)
+    // Regeneration remains a library command so DetailRoute avoids media parsing or cache work.
+    onForceRegenerate: (String) -> Unit,
+    // Detail Action Delete Route (Delegate destructive removal)
+    // App-level cleanup coordinates playback, Detail visibility, and catalog deletion around this callback.
+    onDeleteBook: (String) -> Unit,
     // Glass Effect Route Input (Receives app-level visual mode without hard-coded defaults)
     // DetailRoute passes this value through to both the overlay shell and stateless screen.
     glassEffectMode: GlassEffectMode,
@@ -35,7 +47,6 @@ fun DetailRoute(
     // Route-level wiring keeps glass source ownership explicit while DetailScreen remains stateless.
     hazeState: HazeState? = null,
     detailHazeState: HazeState? = null,
-    onEditClick: (String) -> Unit = {},
     // Detail Transition Idle Callback (Expose overlay animation lifecycle to the app shell)
     // The navigation layer uses this signal to defer rapid Detail re-entry until the previous shared-element return chain finishes.
     onTransitionIdleChanged: (Boolean) -> Unit = {},
@@ -86,10 +97,13 @@ fun DetailRoute(
                         onPlayBook(snapshot.bookId)
                     }
                 },
+                onEditBook = onEditBookRequested,
+                onUpdateReadStatus = onUpdateReadStatus,
+                onForceRegenerate = onForceRegenerate,
+                onDeleteBook = onDeleteBook,
                 glassEffectMode = glassEffectMode,
                 hazeState = hazeState,
                 fullPageHazeState = hazeState,
-                onEditClick = onEditClick,
                 coverColor = coverColor,
                 onColorExtracted = { coverColor = it }
             )
