@@ -27,6 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -70,6 +73,12 @@ fun BookmarkListView(
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     currentPosition: Long = 0L
 ) {
+    // Bookmark Assistive Action Labels (Expose row commands through named semantics)
+    // Bookmark rows contain seek, edit, and delete commands, so the row advertises custom actions in addition to the visible delete button.
+    val bookmarkOpenActionLabel = stringResource(R.string.bookmark_open_action)
+    val bookmarkEditActionLabel = stringResource(R.string.bookmark_edit_action)
+    val bookmarkDeleteActionLabel = stringResource(R.string.bookmark_delete_content_description)
+
     // Deletion confirmation overlay (To show alert layout using primitive variables passed from container)
     if (bookmarkToDelete != null) {
         APlayerDialogTemplate(
@@ -153,10 +162,30 @@ fun BookmarkListView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .combinedClickable(
+                        onClickLabel = bookmarkOpenActionLabel,
                         onClick = { onBookmarkClick(bookmark.globalPositionMs) },
                         // Long click triggers modification (To route long-press edit commands directly to ViewModel)
+                        onLongClickLabel = bookmarkEditActionLabel,
                         onLongClick = { onRequestEdit(bookmark) }
                     )
+                    .semantics {
+                        // Bookmark Row Custom Actions (Mirror row-level and trailing commands for assistive tech)
+                        // Switch Access users can jump, edit, or delete the bookmark from the row action menu without locating hidden long-press gestures or the nested icon.
+                        customActions = listOf(
+                            CustomAccessibilityAction(bookmarkOpenActionLabel) {
+                                onBookmarkClick(bookmark.globalPositionMs)
+                                true
+                            },
+                            CustomAccessibilityAction(bookmarkEditActionLabel) {
+                                onRequestEdit(bookmark)
+                                true
+                            },
+                            CustomAccessibilityAction(bookmarkDeleteActionLabel) {
+                                onRequestDelete(bookmark)
+                                true
+                            }
+                        )
+                    }
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween

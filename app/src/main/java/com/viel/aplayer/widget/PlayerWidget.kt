@@ -220,7 +220,10 @@ class PlayerWidget : GlanceAppWidget() {
                     val playPauseIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
                         action = PlayerWidgetActionReceiver.ACTION_PLAY_PAUSE
                     }
-                    val playPauseIconRes = if (isPlaying) R.drawable.ic_widget_pause else R.drawable.ic_widget_play
+                    // Widget Play/Pause Presentation (Resolve icon and TalkBack action copy from the same playback state)
+                    // This prevents the widget from showing a state-specific glyph while announcing the older generic "Play or pause" label.
+                    val playPauseIconRes = PlayerWidgetPlaybackPresentation.playPauseIcon(isPlaying)
+                    val playPauseLabelRes = PlayerWidgetPlaybackPresentation.playPauseContentDescription(isPlaying)
                     Box(
                         modifier = GlanceModifier
                             .size(34.dp)
@@ -231,7 +234,7 @@ class PlayerWidget : GlanceAppWidget() {
                     ) {
                         Image(
                             provider = ImageProvider(playPauseIconRes),
-                            contentDescription = context.getString(R.string.player_widget_play_pause),
+                            contentDescription = context.getString(playPauseLabelRes),
                             modifier = GlanceModifier.size(22.dp),
                             colorFilter = ColorFilter.tint(GlanceTheme.colors.onPrimary)
                         )

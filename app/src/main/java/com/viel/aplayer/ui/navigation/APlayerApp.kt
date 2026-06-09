@@ -169,13 +169,6 @@ fun APlayerApp(
         // Separation of DetailViewModel (Single Responsibility)
         // Independent ViewModel for the audiobook details page, split from LibraryViewModel to make each ViewModel have a single responsibility.
         val detailViewModel: DetailViewModel = viewModel()
-        /*
-         * Detail Transition Gate Ownership (Centralize rapid re-entry coordination)
-         *
-         * Keeps Home and Search detail-open commands behind the same app-shell gate so a new
-         * selection waits for any running Detail exit animation and preserves the source return chain.
-         */
-        val detailTransitionGate = rememberDetailTransitionGate(detailViewModel)
         // EditBookViewModel Lifecycle (Host Lifecycle Management)
         // Instantiate the independent ViewModel for editing book metadata, which is hosted and destroyed by the current Activity.
         val editViewModel: EditBookViewModel = viewModel()
@@ -192,6 +185,22 @@ fun APlayerApp(
         // Collect Detail UI State (Coordinate route interactions without rebinding mini player glass)
         // Detail visibility still drives Search route handoff, while MiniPlayerOverlay intentionally keeps the stable app-level HazeState to avoid effect flashes.
         val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
+        /*
+         * Detail Transition Gate Adapter (Bind generic gating to Detail selection)
+         *
+         * The gate owns only idle and queued-request ordering; this adapter keeps DetailViewModel
+         * mutation and overlay-start detection inside the app shell where the Detail state is known.
+         */
+        val detailTransitionGate = rememberTransitionGate<DetailOpenRequest>(
+            detailViewModel
+        ) { request ->
+            val startsOverlayTransition = request.book != null && !detailViewModel.uiState.value.isVisible
+            detailViewModel.selectBook(
+                book = request.book,
+                entrySource = request.entrySource
+            )
+            startsOverlayTransition
+        }
 
         // Collect Search Visibility State (Control MiniPlayer Rendering)
         // Responsively collect the visibility state flow of the Search route to control mini-player mounting under layer occlusion.
@@ -360,7 +369,7 @@ fun APlayerApp(
                         onNavigateToSettings = {
                             settingsViewModel.setVisible(true)
                         },
-                        onOpenDetail = detailTransitionGate::requestOpen,
+                        onOpenDetail = detailTransitionGate::request,
                         onHomeViewStyleSelected = libraryViewModel::setHomeViewStyle,
                         onHomeSortRuleSelected = libraryViewModel::setHomeSortRule,
                         onHomeSortDirectionSelected = libraryViewModel::setHomeSortDirection
@@ -469,7 +478,7 @@ fun APlayerApp(
                                 progressPercent = libraryBook.progressPercent
                             )
                         }
-                        detailTransitionGate.requestOpen(
+                        detailTransitionGate.request(
                             DetailOpenRequest(
                                 book = book,
                                 /*
@@ -480,7 +489,7 @@ fun APlayerApp(
                                  */
                                 entrySource = DetailEntrySource.Search
                             ),
-                            beforeOpen = {
+                            beforeExecute = {
                                 /*
                                  * Search Source Lifetime (Close search only when the handoff starts)
                                  *

@@ -20,15 +20,18 @@ import com.viel.aplayer.abs.net.dto.AbsPlaybackSessionDto
 import com.viel.aplayer.abs.net.dto.AbsStatusDto
 import com.viel.aplayer.abs.sync.AbsCatalogStore
 import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
+import com.viel.aplayer.abs.sync.AbsCoverStore
 import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
 import com.viel.aplayer.abs.sync.AbsSyncStateEntity
 import com.viel.aplayer.abs.sync.buildAbsIncrementalErrorSummary
 import com.viel.aplayer.abs.sync.selectAbsDetailCandidateIds
+import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.media.parser.CoverExtractor
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -52,6 +55,7 @@ class AbsIncrementalStage6Test {
                 rootId = "root-1",
                 serverKey = "server-1",
                 remoteItemId = "item-1",
+                lastSeenAt = 10_000L,
                 remoteUpdatedAt = 100L,
                 state = AudiobookSchema.AbsMirrorState.ACTIVE
             ),
@@ -60,6 +64,7 @@ class AbsIncrementalStage6Test {
                 rootId = "root-1",
                 serverKey = "server-1",
                 remoteItemId = "item-2",
+                lastSeenAt = 10_000L,
                 remoteUpdatedAt = 200L,
                 state = AudiobookSchema.AbsMirrorState.ACTIVE
             )
@@ -80,7 +85,8 @@ class AbsIncrementalStage6Test {
                 minifiedItems = unchangedItems,
                 existingMirrors = existingMirrors,
                 previousFullListFingerprint = "item-1:100|item-2:200",
-                currentFullListFingerprint = "item-1:100|item-2:200"
+                currentFullListFingerprint = "item-1:100|item-2:200",
+                nowMillis = 10_000L
             ).isEmpty()
         )
 
@@ -91,9 +97,80 @@ class AbsIncrementalStage6Test {
                 minifiedItems = changedItems,
                 existingMirrors = existingMirrors,
                 previousFullListFingerprint = "item-1:100|item-2:200",
-                currentFullListFingerprint = "item-1:100|item-2:201|item-3:50"
+                currentFullListFingerprint = "item-1:100|item-2:201|item-3:50",
+                nowMillis = 10_000L
             )
         )
+    }
+
+    @Test
+    fun `incremental selector should refetch unchanged mirror after catalog ttl`() {
+        val now = OnlineSourceCachePolicy.ABS_CATALOG_MIRROR_TTL_MS + 10_000L
+        val item = AbsLibraryItemDto(id = "item-1", mediaType = "book", updatedAt = 100L)
+        val freshMirrors = mapOf(
+            "item-1" to AbsItemMirrorEntity(
+                localBookId = "book-1",
+                rootId = "root-1",
+                serverKey = "server-1",
+                remoteItemId = "item-1",
+                lastSeenAt = now - OnlineSourceCachePolicy.ABS_CATALOG_MIRROR_TTL_MS,
+                remoteUpdatedAt = 100L,
+                state = AudiobookSchema.AbsMirrorState.ACTIVE
+            )
+        )
+        val staleMirrors = mapOf(
+            "item-1" to freshMirrors.getValue("item-1")
+                .copy(lastSeenAt = now - OnlineSourceCachePolicy.ABS_CATALOG_MIRROR_TTL_MS - 1L)
+        )
+
+        // ABS Mirror TTL Fallback (Forces detail refresh after the catalog mirror freshness window)
+        // Fingerprint and updatedAt checks still allow fresh mirrors to be reused, while old mirrors must be revalidated.
+        assertTrue(
+            selectAbsDetailCandidateIds(
+                minifiedItems = listOf(item),
+                existingMirrors = freshMirrors,
+                previousFullListFingerprint = "item-1:100",
+                currentFullListFingerprint = "item-1:100",
+                nowMillis = now
+            ).isEmpty()
+        )
+        assertEquals(
+            listOf("item-1"),
+            selectAbsDetailCandidateIds(
+                minifiedItems = listOf(item),
+                existingMirrors = staleMirrors,
+                previousFullListFingerprint = "item-1:100",
+                currentFullListFingerprint = "item-1:100",
+                nowMillis = now
+            )
+        )
+    }
+
+    @Test
+    fun `authorized progress refresh due should follow root sync freshness`() = runBlocking {
+        val now = OnlineSourceCachePolicy.ABS_AUTHORIZED_PROGRESS_TTL_MS + 10_000L
+        val freshStore = FakeCatalogStore(
+            syncState = AbsSyncStateEntity(
+                rootId = "fresh-root",
+                serverKey = "server-1",
+                libraryId = "lib-1",
+                lastIncrementalSyncAt = now - OnlineSourceCachePolicy.ABS_AUTHORIZED_PROGRESS_TTL_MS
+            )
+        )
+        val staleStore = FakeCatalogStore(
+            syncState = AbsSyncStateEntity(
+                rootId = "stale-root",
+                serverKey = "server-1",
+                libraryId = "lib-1",
+                lastIncrementalSyncAt = now - OnlineSourceCachePolicy.ABS_AUTHORIZED_PROGRESS_TTL_MS - 1L
+            )
+        )
+
+        // Authorized Progress Startup TTL (Uses the persisted root sync stamp as the cold-start freshness marker)
+        // Fresh roots should skip WorkManager enqueueing, while missing or expired root sync state must be treated as due.
+        assertTrue(!AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/audiobookshelf", "token-1"), freshStore).isAuthorizedProgressRefreshDue("fresh-root", now))
+        assertTrue(AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/audiobookshelf", "token-1"), staleStore).isAuthorizedProgressRefreshDue("stale-root", now))
+        assertTrue(AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/audiobookshelf", "token-1"), FakeCatalogStore()).isAuthorizedProgressRefreshDue("missing-root", now))
     }
 
     @Test
@@ -141,6 +218,7 @@ class AbsIncrementalStage6Test {
                     rootId = root.id,
                     serverKey = serverKey,
                     remoteItemId = "item-1",
+                    lastSeenAt = System.currentTimeMillis(),
                     remoteUpdatedAt = 100L,
                     state = AudiobookSchema.AbsMirrorState.REMOTE_DELETED
                 )
@@ -188,6 +266,67 @@ class AbsIncrementalStage6Test {
         assertEquals(1, summary.syncedBooks)
         assertEquals(1, summary.failedItems)
         assertEquals(0, summary.reusedBooks)
+    }
+
+    @Test
+    fun `catalog sync should refresh expired cover even when metadata fingerprint is unchanged`() = runBlocking {
+        val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
+        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val root = sampleRoot()
+        val existingBookId = idMapper.bookId(serverKey, "item-1")
+        val now = System.currentTimeMillis()
+        val store = FakeCatalogStore(
+            books = linkedMapOf(
+                existingBookId to BookEntity(
+                    id = existingBookId,
+                    rootId = root.id,
+                    sourceType = AudiobookSchema.SourceType.ABS_REMOTE,
+                    sourceRoot = root.sourceUri,
+                    title = "Persisted Book",
+                    coverPath = "/cache/old-cover.jpg",
+                    thumbnailPath = "/cache/old-thumb.jpg",
+                    lastScannedAt = now - OnlineSourceCachePolicy.ABS_COVER_TTL_MS - 1L
+                )
+            ),
+            mirrors = linkedMapOf(
+                "item-1" to AbsItemMirrorEntity(
+                    localBookId = existingBookId,
+                    rootId = root.id,
+                    serverKey = serverKey,
+                    remoteItemId = "item-1",
+                    lastSeenAt = now - OnlineSourceCachePolicy.ABS_CATALOG_MIRROR_TTL_MS - 1L,
+                    remoteUpdatedAt = 100L,
+                    state = AudiobookSchema.AbsMirrorState.ACTIVE
+                )
+            ),
+            syncState = AbsSyncStateEntity(
+                rootId = root.id,
+                serverKey = serverKey,
+                libraryId = root.basePath,
+                fullListFingerprint = "item-1:100"
+            )
+        )
+        val coverStore = FakeCoverStore(
+            result = CoverExtractor.CoverResult(
+                originalPath = "/cache/refreshed-cover.jpg",
+                thumbnailPath = "/cache/refreshed-thumb.jpg"
+            )
+        )
+        val synchronizer = AbsCatalogSynchronizer(
+            apiClient = CoverRefreshApi(),
+            credentialStore = credentialStore,
+            catalogStore = store,
+            coverCache = coverStore
+        )
+
+        synchronizer.syncRoot(root)
+
+        // ABS Cover TTL Fallback (Refreshes old artwork even when the catalog fingerprint did not expose a change)
+        // The stale mirror is refetched to revalidate detail data, and the stale cover stamp triggers one cover download with a fresh UI cache version.
+        assertEquals(listOf("item-1"), coverStore.downloadedItemIds)
+        assertEquals("/cache/refreshed-cover.jpg", store.books[existingBookId]?.coverPath)
+        assertEquals("/cache/refreshed-thumb.jpg", store.books[existingBookId]?.thumbnailPath)
+        assertTrue((store.books[existingBookId]?.lastScannedAt ?: 0L) >= now)
     }
 
     @Test
@@ -399,6 +538,72 @@ class AbsIncrementalStage6Test {
                 duration = 30.0
             )
         )
+    }
+
+    private class CoverRefreshApi : AbsApiClient {
+        override suspend fun status(baseUrl: String) = AbsStatusDto(serverVersion = "2.35.1", isInit = true)
+        override suspend fun login(baseUrl: String, username: String, password: String) = throw UnsupportedOperationException()
+        override suspend fun authorize(baseUrl: String, token: String) =
+            AbsAuthorizeResponseDto(user = AbsAuthorizedUserDto(id = "user-1", username = "demo-user", token = token))
+        override suspend fun getLibraries(baseUrl: String, token: String) = emptyList<AbsLibraryDto>()
+        override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String) =
+            AbsLibraryItemsResponseDto(
+                results = listOf(AbsLibraryItemDto(id = "item-1", libraryId = libraryId, mediaType = "book", updatedAt = 100L)),
+                total = 1,
+                limit = 0,
+                page = 0
+            )
+        override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>): List<AbsLibraryItemDto> =
+            itemIds.map { itemId ->
+                AbsLibraryItemDto(
+                    id = itemId,
+                    libraryId = "lib-1",
+                    mediaType = "book",
+                    title = "Detail $itemId",
+                    updatedAt = 100L,
+                    media = AbsItemMediaDto(
+                        metadata = AbsMediaMetadataDto(title = "Detail $itemId"),
+                        tracks = listOf(
+                            com.viel.aplayer.abs.net.dto.AbsTrackDto(
+                                index = 1,
+                                duration = 30.0,
+                                contentUrl = "/api/items/$itemId/file/1",
+                                metadata = com.viel.aplayer.abs.net.dto.AbsTrackMetadataDto(filename = "$itemId.mp3")
+                            )
+                        ),
+                        duration = 30.0
+                    )
+                )
+            }
+        override suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto) =
+            AbsPlaybackSessionDto(id = "session-1", libraryItemId = itemId)
+        override suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) = Unit
+        override suspend fun closeSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) = Unit
+    }
+
+    private class UnsupportedApi : AbsApiClient {
+        override suspend fun status(baseUrl: String): AbsStatusDto = throw UnsupportedOperationException()
+        override suspend fun login(baseUrl: String, username: String, password: String) = throw UnsupportedOperationException()
+        override suspend fun authorize(baseUrl: String, token: String): AbsAuthorizeResponseDto = throw UnsupportedOperationException()
+        override suspend fun getLibraries(baseUrl: String, token: String): List<AbsLibraryDto> = throw UnsupportedOperationException()
+        override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String): AbsLibraryItemsResponseDto = throw UnsupportedOperationException()
+        override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>): List<AbsLibraryItemDto> = throw UnsupportedOperationException()
+        override suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto): AbsPlaybackSessionDto = throw UnsupportedOperationException()
+        override suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) = throw UnsupportedOperationException()
+        override suspend fun closeSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) = throw UnsupportedOperationException()
+    }
+
+    private class FakeCoverStore(
+        private val result: CoverExtractor.CoverResult
+    ) : AbsCoverStore {
+        val downloadedItemIds = mutableListOf<String>()
+
+        override suspend fun downloadCover(root: LibraryRootEntity, remoteItemId: String): CoverExtractor.CoverResult {
+            // Cover TTL Fixture (Records cover refresh calls without performing network or image processing)
+            // The synchronizer test only needs to verify whether the online cache policy decides to refresh artwork.
+            downloadedItemIds += remoteItemId
+            return result
+        }
     }
 
     private class FakeCatalogStore(

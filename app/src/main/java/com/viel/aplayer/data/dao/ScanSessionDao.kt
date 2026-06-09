@@ -23,8 +23,9 @@ interface ScanSessionDao {
         summaryJson: String = ""
     )
 
-    // Failed scans are abandoned; RUNNING results are not applied as valid output.
-    @Query("UPDATE scan_sessions SET abandonedAt = :abandonedAt WHERE id = :id")
+    // Scan Failure State Recording (Persist an explicit abandoned status before returning the session)
+    // The outcome mapper can then distinguish failed scan lifecycles from completed empty scans.
+    @Query("UPDATE scan_sessions SET status = 'ABANDONED', abandonedAt = :abandonedAt WHERE id = :id")
     suspend fun markAbandoned(id: String, abandonedAt: Long = System.currentTimeMillis())
 
     @Query("SELECT * FROM scan_sessions WHERE id = :id")

@@ -12,6 +12,7 @@ data class VfsRangeCacheKey(
     val rootIdHash: String,
     val sourcePathHash: String,
     val version: String,
+    val hasProviderVersion: Boolean,
     val offset: Long,
     val length: Int
 ) {
@@ -37,6 +38,9 @@ data class VfsRangeCacheKey(
                     lastModified = file.metadata.lastModified,
                     fileSize = file.metadata.fileSize
                 ),
+                // Provider Version Presence (Separates metadata-versioned blocks from truly versionless remote reads)
+                // Either an ETag or a positive modified time can participate in the key, while sources lacking both use the shorter TTL fallback.
+                hasProviderVersion = file.metadata.etag?.isNotBlank() == true || file.metadata.lastModified > 0L,
                 offset = offset,
                 length = length
             )

@@ -45,11 +45,18 @@ class ContainerAccessArchitectureTest {
             closeMethod.contains("closeAppGraphsInLifecycleOrder(")
         )
 
-        // Data and Media Graph Lifetime Check (Keep non-closeable graph ownership explicit)
-        // DataGraph and MediaGraph currently expose process-wide lazy singletons, so closing them here would be a new lifecycle decision.
+        // Media Graph Lifetime Check (Keep playback runtime teardown routed through the lifecycle helper)
+        // MediaGraph now owns initialized playback resources, so DefaultAppContainer.close() must pass it into the shared graph close policy.
         assertTrue(
-            "DefaultAppContainer.close() should not close data or media graphs until they own closeable resources.",
-            !closeMethod.contains("data.close()") && !closeMethod.contains("media.close()")
+            "DefaultAppContainer.close() must include MediaGraph now that it owns playback runtime resources.",
+            closeMethod.contains("media = media")
+        )
+
+        // Data Graph Lifetime Check (Keep persistence graph non-closeable until it owns explicit shutdown resources)
+        // DataGraph still exposes database and store providers only, so the container should not invent a data close path in this change.
+        assertTrue(
+            "DefaultAppContainer.close() should not close DataGraph until it owns closeable resources.",
+            !closeMethod.contains("data.close()") && !closeMethod.contains("data = data")
         )
     }
 

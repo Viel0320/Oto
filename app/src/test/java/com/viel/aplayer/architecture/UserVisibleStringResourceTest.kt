@@ -159,6 +159,48 @@ class UserVisibleStringResourceTest {
         )
     }
 
+    @Test
+    fun editScreenSavePathDoesNotPersistEnglishUnknownFallback() {
+        val source = repoFile("app/src/main/java/com/viel/aplayer/ui/edit/EditBookScreen.kt")
+            .readText(Charsets.UTF_8)
+            .substringBefore("@Preview")
+
+        val violations = editSavePathUnknownFallbackRegex.findAll(source)
+            .map { match -> match.value.trim() }
+            .toList()
+
+        // Edit Save Fallback Guard (Keeps localized display placeholders out of persisted metadata)
+        // The edit screen may render resource-backed placeholders, but save callbacks must forward the user's title for application policy validation.
+        assertTrue(
+            buildString {
+                appendLine("EditBookScreen save paths must not convert blank titles to the English Unknown fallback.")
+                violations.forEach { violation -> appendLine("- $violation") }
+            },
+            violations.isEmpty()
+        )
+    }
+
+    @Test
+    fun detailComponentsResolveAppOwnedVisibleCopyThroughResources() {
+        val violations = detailComponentSourceFiles()
+            .flatMap { file ->
+                val text = file.readText(Charsets.UTF_8).substringBefore("@Preview")
+                detailComponentHardCodedCopyRegex.findAll(text).map { match ->
+                    "${file.repoRelativePath()} contains ${match.value.trim()}"
+                }
+            }
+
+        // Detail Component Copy Guard (Locks detail-shell labels to Android resources)
+        // The guard targets app-owned fallbacks and action labels while leaving imported book metadata and preview sample data outside the scan.
+        assertTrue(
+            buildString {
+                appendLine("Detail components must resolve app-owned visible copy through stringResource/getString.")
+                violations.forEach { violation -> appendLine("- $violation") }
+            },
+            violations.isEmpty()
+        )
+    }
+
     private fun guardedSourceFiles(): List<File> =
         listOf(
             "app/src/main/java/com/viel/aplayer/ui/settings/SleepTimerManager.kt",
@@ -176,6 +218,14 @@ class UserVisibleStringResourceTest {
             "app/src/main/java/com/viel/aplayer/abs/net/AbsApiClient.kt",
             "app/src/main/java/com/viel/aplayer/library/scan/ScanOutcomePolicy.kt",
             "app/proguard-rules.pro"
+        ).map(::repoFile)
+
+    private fun detailComponentSourceFiles(): List<File> =
+        listOf(
+            // Detail Presentation Shell Guard Path (Track the detail header and action panel where fallback labels are rendered)
+            // These files own blank metadata labels and playback actions, so hard-coded English here would bypass localization and TalkBack review.
+            "app/src/main/java/com/viel/aplayer/ui/detail/components/DetailHeader.kt",
+            "app/src/main/java/com/viel/aplayer/ui/detail/components/DetailControlPanel.kt"
         ).map(::repoFile)
 
     private data class ForbiddenPattern(
@@ -272,7 +322,11 @@ class UserVisibleStringResourceTest {
         )
 
         private val rawTextCallRegex = Regex("""\brawText\s*\(""")
+        private val editSavePathUnknownFallbackRegex = Regex("""title\.ifBlank\s*\{\s*"Unknown"\s*}""")
         private val printfPlaceholderRegex = Regex("""%\d+\$[sd]""")
+        private val detailComponentHardCodedCopyRegex = Regex(
+            """(?:Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+"|contentDescription\s*=\s*"[^"\n]+"|onClickLabel\s*=\s*"[^"\n]+"|onLongClickLabel\s*=\s*"[^"\n]+"|\?:\s*"[^"\n]+")"""
+        )
         private val settingsComponentHardCodedCopyRegex = Regex(
             """(?:Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+"|contentDescription\s*=\s*"[^"\n]+"|title\s*=\s*"[^"\n]+"|subtitle\s*=\s*"[^"\n]+"|label\s*=\s*"[^"\n]+")"""
         )

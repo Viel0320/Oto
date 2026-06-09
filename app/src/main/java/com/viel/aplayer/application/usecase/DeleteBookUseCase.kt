@@ -4,6 +4,7 @@ package com.viel.aplayer.application.usecase
 import com.viel.aplayer.application.playback.PlaybackStopper
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookDeletionGateway
+import com.viel.aplayer.data.gateway.RemotePlaybackCleanupGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -16,7 +17,8 @@ import kotlinx.coroutines.withContext
 class DeleteBookUseCase(
     private val playbackStopper: PlaybackStopper,
     private val bookAvailabilityGateway: BookAvailabilityGateway,
-    private val bookDeletionGateway: BookDeletionGateway
+    private val bookDeletionGateway: BookDeletionGateway,
+    private val remotePlaybackCleanupGateway: RemotePlaybackCleanupGateway
 ) {
 
     /**
@@ -39,6 +41,10 @@ class DeleteBookUseCase(
         // Book Deletion Command (Use the destructive command seam only after guards complete)
         // Deletion does not need catalog filters, chapters, bookmarks, or metadata writes, so the use case depends on BookDeletionGateway.
         bookDeletionGateway.deleteBook(bookId)
+
+        // Remote Playback Residue Cleanup (Prune remote session state after the local soft delete)
+        // ABS sessions and pending progress are not cascaded by the book status update, so the book deletion workflow removes them explicitly.
+        remotePlaybackCleanupGateway.deletePlaybackStateForBook(bookId)
 
         fileExists
     }

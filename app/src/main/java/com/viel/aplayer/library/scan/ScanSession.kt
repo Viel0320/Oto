@@ -74,6 +74,13 @@ class ScanSession(
             type = command.toRescanType(),
             allowedRootIds = availableDirectoryRootIds
         )
+        if (session.status != AudiobookSchema.ScanStatus.COMPLETED) {
+            // Completed Session Guard (Only completed sessions can use success or partial scan messages)
+            // Abandoned or running sessions become failed outcomes before WorkManager mapping and before empty-library snapshot reads.
+            return ScanOutcomePolicy.fromFailure(
+                IllegalStateException("Scan session ended as ${session.status}")
+            )
+        }
         return ScanOutcomePolicy.fromCompletedSession(
             session = session,
             isLibraryEmpty = librarySnapshotAdapter.isLibraryEmpty(),

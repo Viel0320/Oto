@@ -544,12 +544,15 @@ fun SearchContent(
                                     onClick = { 
                                         focusManager.clearFocus()
                                         onNavigateToDetail(result.id)
+                                    },
+                                    // Named Play Action Binding (Keep search result play command aligned with ListItem's expanded signature)
+                                    // The reusable row now has optional accessibility label parameters after the play lambda, so this callback must be named to avoid binding it as label text.
+                                    onPlayClick = {
+                                        focusManager.clearFocus()
+                                        onLoadBook(result.id)
+                                        onNavigateToPlayer()
                                     }
-                                ) {
-                                    focusManager.clearFocus()
-                                    onLoadBook(result.id)
-                                    onNavigateToPlayer()
-                                }
+                                )
                             }
                         }
                     }

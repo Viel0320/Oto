@@ -493,10 +493,11 @@ fun EditBookScreen(
                             // and maps a 1.dp border (0.25f) around the container.
                             Surface(
                                 onClick = {
-                                    val finalTitle = title.ifBlank { "Unknown" }
+                                    // Edit Save Title Forwarding (Leave title validation to the edit command policy)
+                                    // The screen forwards raw input so localized display fallback cannot be persisted as metadata.
                                     // Trigger save callback, passing all modified metadata properties up to the stateful Overlay container.
                                     onSave(
-                                        finalTitle,
+                                        title,
                                         author,
                                         narrator,
                                         year,
@@ -547,10 +548,11 @@ fun EditBookScreen(
                             // Fallback Material Button (Graceful degradation to standard opaque component)
                             Button(
                                 onClick = {
-                                    val finalTitle = title.ifBlank { "Unknown" }
+                                    // Edit Save Title Forwarding (Leave title validation to the edit command policy)
+                                    // The screen forwards raw input so localized display fallback cannot be persisted as metadata.
                                     // Trigger save callback, dispatching the complete modified metadata upwards.
                                     onSave(
-                                        finalTitle,
+                                        title,
                                         author,
                                         narrator,
                                         year,

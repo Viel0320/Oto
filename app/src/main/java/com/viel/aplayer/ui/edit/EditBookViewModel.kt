@@ -82,15 +82,24 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     ) {
         val currentBook = _bookState.value ?: return
         viewModelScope.launch {
-            editBookCommands.updateBookDetails(
-                id = currentBook.id,
-                title = title.trim(),
-                author = author.trim(),
-                narrator = narrator.trim(),
-                description = description.trim(),
-                year = year.trim(),
-                series = series.trim()
-            )
+            try {
+                editBookCommands.updateBookDetails(
+                    id = currentBook.id,
+                    title = title.trim(),
+                    author = author.trim(),
+                    narrator = narrator.trim(),
+                    description = description.trim(),
+                    year = year.trim(),
+                    series = series.trim()
+                )
+            } catch (error: IllegalArgumentException) {
+                // Edit Title Rejection Containment (Keep validation failure inside the edit flow)
+                // The application edit policy rejects blank titles, so the route stays open and avoids saving cover changes after a failed metadata write.
+                if (error.message == "EDIT_TITLE_REQUIRED") {
+                    return@launch
+                }
+                throw error
+            }
             if (newCoverPath != null) {
                 editBookCommands.saveCustomCover(currentBook.id, newCoverPath)
             }

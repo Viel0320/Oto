@@ -145,6 +145,10 @@ fun CompactMediaPlayer(
     val playPauseContentDescription = stringResource(
         if (isPlaying) R.string.playback_pause_content_description else R.string.playback_play_content_description
     )
+    // Mini Player Cover Assistive Actions (Expose cover gestures as named actions)
+    // The artwork owns the hide shortcut, so labeling both click and long-click semantics makes the cover usable beyond touch-only gestures.
+    val openMiniPlayerActionLabel = stringResource(R.string.mini_player_open_action)
+    val hideMiniPlayerActionLabel = stringResource(R.string.mini_player_hide_action)
 
     Surface(
         onClick = onClick,
@@ -221,7 +225,9 @@ fun CompactMediaPlayer(
                         .then(coverModifier)
                         .clip(RoundedCornerShape(animatedCoverCornerRadius))
                         .combinedClickable(
-                            onClick = {},
+                            onClickLabel = openMiniPlayerActionLabel,
+                            onClick = onClick,
+                            onLongClickLabel = hideMiniPlayerActionLabel,
                             onLongClick = actions.onHide
                         )
                 ) {

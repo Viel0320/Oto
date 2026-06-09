@@ -37,11 +37,14 @@ class SubtitleParserTest {
 
     @Test
     fun `player state limiter should cap externally supplied subtitle lists`() {
+        // Oversized Fixture Memory Bound (Keep regression setup focused on limiter behavior)
+        // Reuses one pathological text instance so the test exercises clipping without exhausting heap during setup.
+        val oversizedText = "B".repeat(50_000)
         val oversizedLines = List(50_000) { index ->
             SubtitleLine(
                 startTime = index.toLong(),
                 endTime = index + 1L,
-                text = "B".repeat(50_000)
+                text = oversizedText
             )
         }
 

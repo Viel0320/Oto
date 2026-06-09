@@ -167,7 +167,7 @@ class AbsSourceProvider(
             if (offset < 0L || length <= 0) return@withContext ByteArray(0)
             val rangeStart = AbsStreamLogger.mark()
             AbsStreamLogger.logRangeReadStart(rootId = file.root.id, sourcePath = file.metadata.sourcePath, offset = offset, length = length)
-            val requestRangeEnd = offset + length - 1L
+            val requestRangeEnd = boundedRangeEnd(offset, length) ?: return@withContext ByteArray(0)
             val response = executeRequest(
                 file = file,
                 method = "GET",
@@ -350,6 +350,14 @@ class AbsSourceProvider(
         if (code == HTTP_PARTIAL_CONTENT) return true
         val contentRange = header("Content-Range") ?: return false
         return contentRange.startsWith("bytes $offset-")
+    }
+
+    private fun boundedRangeEnd(offset: Long, length: Int): Long? {
+        // ABS Range Bound Guard (Prevent wrapped byte intervals in HTTP headers)
+        // Saturating the inclusive range end keeps pathological metadata probes from emitting malformed Range headers when offset plus length crosses Long.MAX_VALUE.
+        if (offset < 0L || length <= 0) return null
+        val delta = length.toLong() - 1L
+        return if (offset > Long.MAX_VALUE - delta) Long.MAX_VALUE else offset + delta
     }
 
     private fun Response.toAbsApiError(method: String): AbsApiError {

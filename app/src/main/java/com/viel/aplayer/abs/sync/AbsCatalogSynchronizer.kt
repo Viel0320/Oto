@@ -6,7 +6,9 @@ import com.viel.aplayer.abs.mapping.AbsRemoteIdMapper
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.dto.AbsLibraryItemDto
 import com.viel.aplayer.data.cache.CoverCacheInvalidationPolicy
+import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.logger.AbsSyncLogger
@@ -86,6 +88,19 @@ class AbsCatalogSynchronizer(
         return
     }
 
+    /**
+     * Authorized Progress Refresh Due Check (Applies a root-scoped startup freshness gate)
+     * The catalog sync state is the durable root-level remote refresh marker, so cold start can skip WorkManager enqueueing while the last successful ABS sync is still fresh.
+     */
+    suspend fun isAuthorizedProgressRefreshDue(rootId: String, nowMillis: Long): Boolean {
+        val syncState = catalogStore.getSyncState(rootId)
+        return !OnlineSourceCachePolicy.isFresh(
+            cachedAtMillis = syncState?.lastIncrementalSyncAt ?: syncState?.lastFullSyncAt,
+            nowMillis = nowMillis,
+            ttlMillis = OnlineSourceCachePolicy.ABS_AUTHORIZED_PROGRESS_TTL_MS
+        )
+    }
+
     private suspend fun syncRootInternal(root: LibraryRootEntity): AbsSyncSummary {
         require(root.sourceType == AudiobookSchema.LibrarySourceType.ABS) { "Only ABS roots are supported" }
         // Internal Timing Marker (Establishes a localized stopwatch baseline to secure precise latency recordings in logs)
@@ -110,7 +125,8 @@ class AbsCatalogSynchronizer(
             minifiedItems = minifiedItems,
             existingMirrors = existingMirrors,
             previousFullListFingerprint = existingSync?.fullListFingerprint,
-            currentFullListFingerprint = currentFingerprint
+            currentFullListFingerprint = currentFingerprint,
+            nowMillis = now
         )
         AbsSyncLogger.logIncrementalSelection(
             rootId = root.id,
@@ -223,8 +239,14 @@ class AbsCatalogSynchronizer(
                         }
                     },
                     onFailure = { error ->
-                        // Single Item Sync Failure: Log the parsing/upsert exception and increment failedBookCount instead of breaking the entire sync run.
-                        android.util.Log.w("AbsSync", "Failed to upsert ABS item: itemId=${detail.id}, error=${error.message}", error)
+                        // ABS Item Failure Logging (Routes item-level failures through the shared sanitizer)
+                        // The sync loop preserves best-effort catalog materialization while Logcat output receives the final ABS redaction pass.
+                        AbsSyncLogger.logItemMaterializationFailure(
+                            rootId = root.id,
+                            itemId = detail.id,
+                            errorClass = error::class.java.simpleName,
+                            message = error.message
+                        )
                         failedBookCount += 1
                     }
                 )
@@ -343,24 +365,29 @@ class AbsCatalogSynchronizer(
         fullListFingerprint: String
     ) {
         val existingBookEntity = catalogStore.getBookById(idMapper.bookId(serverKey, requireNotNull(item.id)))
-        val cachedCover = runCatchingCancellable {
-            coverCache?.downloadCover(root, requireNotNull(item.id))
-        }.getOrNull()
-        // Cover Expiration Strategy (Aligns syncedAt parameters with true layout changes to secure UI image caches)
-        // Returns fresh syncedAt values only for new books or if paths shift; otherwise returns cached stamps.
-        val resolvedCoverPath = cachedCover?.originalPath ?: existingBookEntity?.coverPath
-        val resolvedThumbnailPath = cachedCover?.thumbnailPath ?: existingBookEntity?.thumbnailPath
         // Remote Version Invalidation (Propagates catalog-level cover changes even when cached file paths are stable)
         // ABS may update cover bytes behind the same local cache paths, so matching updatedAt against the existing mirror supplies a safe UI-key refresh signal.
         val remoteVersionChanged = item.updatedAt != null &&
             existingMirror?.remoteUpdatedAt != null &&
             item.updatedAt != existingMirror.remoteUpdatedAt
+        val shouldRefreshCover = remoteVersionChanged || shouldRefreshAbsCover(existingBookEntity, now)
+        val cachedCover = if (shouldRefreshCover) {
+            runCatchingCancellable {
+                coverCache?.downloadCover(root, requireNotNull(item.id))
+            }.getOrNull()
+        } else {
+            null
+        }
+        // Cover Expiration Strategy (Aligns syncedAt parameters with true layout changes to secure UI image caches)
+        // Returns fresh syncedAt values only for new books or if paths shift; otherwise returns cached stamps.
+        val resolvedCoverPath = cachedCover?.originalPath ?: existingBookEntity?.coverPath
+        val resolvedThumbnailPath = cachedCover?.thumbnailPath ?: existingBookEntity?.thumbnailPath
         val resolvedLastScannedAt = CoverCacheInvalidationPolicy.resolveLastScannedAt(
             existing = existingBookEntity,
             nextCoverPath = resolvedCoverPath,
             nextThumbnailPath = resolvedThumbnailPath,
             syncedAt = now,
-            remoteVersionChanged = remoteVersionChanged
+            remoteVersionChanged = remoteVersionChanged || cachedCover != null
         )
         // Catalog-Only Book Mapping (Builds metadata without applying remote progress or read-status overrides)
         // Playback state reconciliation is centralized in AbsAuthorizedProgressSynchronizer to keep catalog writes deterministic.
@@ -539,6 +566,17 @@ class AbsCatalogSynchronizer(
     private fun minifiedFingerprint(items: List<AbsLibraryItemDto>): String =
         items.joinToString(separator = "|") { item -> "${item.id}:${item.updatedAt}" }
 
+    private fun shouldRefreshAbsCover(existingBookEntity: BookEntity?, now: Long): Boolean {
+        // ABS Cover TTL Fallback (Refreshes remote artwork periodically even when catalog paths remain stable)
+        // New books and version-changed items still refresh through normal materialization; this guard prevents old local cover files from being trusted beyond the shared online policy window.
+        if (existingBookEntity?.coverPath == null && existingBookEntity?.thumbnailPath == null) return true
+        return !OnlineSourceCachePolicy.isFresh(
+            cachedAtMillis = existingBookEntity.lastScannedAt,
+            nowMillis = now,
+            ttlMillis = OnlineSourceCachePolicy.ABS_COVER_TTL_MS
+        )
+    }
+
     private data class DetailRetryResult(
         val items: List<AbsLibraryItemDto>,
         val failures: Map<String, String>
@@ -565,13 +603,14 @@ internal fun selectAbsDetailCandidateIds(
     minifiedItems: List<AbsLibraryItemDto>,
     existingMirrors: Map<String, AbsItemMirrorEntity>,
     previousFullListFingerprint: String?,
-    currentFullListFingerprint: String
+    currentFullListFingerprint: String,
+    nowMillis: Long = System.currentTimeMillis()
 ): List<String> {
     val fingerprintUnchanged = previousFullListFingerprint != null && previousFullListFingerprint == currentFullListFingerprint
     return minifiedItems.mapNotNull { item ->
         val remoteItemId = item.id ?: return@mapNotNull null
         val existingMirror = existingMirrors[remoteItemId]
-        if (shouldFetchAbsItemDetail(item, existingMirror, fingerprintUnchanged)) {
+        if (shouldFetchAbsItemDetail(item, existingMirror, fingerprintUnchanged, nowMillis)) {
             remoteItemId
         } else {
             null
@@ -589,10 +628,21 @@ internal fun selectAbsDetailCandidateIds(
 internal fun shouldFetchAbsItemDetail(
     item: AbsLibraryItemDto,
     existingMirror: AbsItemMirrorEntity?,
-    fingerprintUnchanged: Boolean
+    fingerprintUnchanged: Boolean,
+    nowMillis: Long = System.currentTimeMillis()
 ): Boolean {
     if (item.id == null) return false
     if (existingMirror == null) return true
+    // ABS Catalog Mirror TTL Fallback (Forces periodic detail refreshes even when the minified list fingerprint is unchanged)
+    // The remote updatedAt and fingerprint checks remain primary, while this bound protects against server-side timestamp omissions or missed minified changes.
+    if (!OnlineSourceCachePolicy.isFresh(
+            cachedAtMillis = existingMirror.lastSeenAt,
+            nowMillis = nowMillis,
+            ttlMillis = OnlineSourceCachePolicy.ABS_CATALOG_MIRROR_TTL_MS
+        )
+    ) {
+        return true
+    }
     if (fingerprintUnchanged) return false
     val remoteUpdatedAt = item.updatedAt
     val localUpdatedAt = existingMirror.remoteUpdatedAt

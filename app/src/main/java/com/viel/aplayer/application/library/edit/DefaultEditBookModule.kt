@@ -28,11 +28,16 @@ class DefaultEditBookModule(
         year: String,
         series: String
     ) {
+        // Edit Title Validation Policy (Keep localized display fallback out of persisted metadata)
+        // Blank titles are rejected at the edit command boundary so UI placeholders such as Unknown never become book data.
+        val normalizedTitle = title.trim()
+        require(normalizedTitle.isNotBlank()) { "EDIT_TITLE_REQUIRED" }
+
         // Edit Metadata Delegation (Route text writes through the metadata-only gateway)
         // The edit scene still reads selected books from the catalog seam but no longer inherits catalog search operations for writes.
         bookMetadataGateway.updateBookDetails(
             id = id,
-            title = title,
+            title = normalizedTitle,
             author = author,
             narrator = narrator,
             description = description,

@@ -29,14 +29,15 @@ Verbose, debug, and info calls to `android.util.Log` are treated as release nois
 
 ## Backup And Transfer
 
-The app permits Android backup, but device-scoped preferences are excluded from both cloud backup and
-device transfer:
+The app permits Android backup, but only portable app settings are allowed to cross installs. Room data,
+credentials, search history, device markers, and playback/runtime sync state stay device-local:
 
-<!-- Update Backup Policy (Document WebDAV and ABS credentials backup exclusion to prevent secrets leak)
-     Update release-policy.md to note that webdav_credentials.xml and abs_credentials.preferences_pb are excluded from backup and device transfer. -->
-- `app/src/main/res/xml/backup_rules.xml` excludes `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, and `files/datastore/abs_credentials.preferences_pb`.
-- `app/src/main/res/xml/data_extraction_rules.xml` excludes `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, and `files/datastore/abs_credentials.preferences_pb` from cloud backup.
-- `app/src/main/res/xml/data_extraction_rules.xml` excludes `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, and `files/datastore/abs_credentials.preferences_pb` from device transfer.
+<!-- Portable Settings Backup Policy (Document the only persistence artifact allowed to migrate)
+     app_settings.preferences_pb contains user configuration, while Room rows and runtime sync state must be rebuilt after install. -->
+- `app/src/main/res/xml/backup_rules.xml` includes only `files/datastore/app_settings.preferences_pb` and excludes the Room `aplayer_database` files.
+- `app/src/main/res/xml/data_extraction_rules.xml` includes only `files/datastore/app_settings.preferences_pb` for cloud backup and device transfer.
+- Both rule files exclude `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, `files/datastore/abs_credentials.preferences_pb`, and `files/datastore/search_history.preferences_pb`.
+- Both rule files exclude `database/aplayer_database`, `database/aplayer_database-shm`, `database/aplayer_database-wal`, and `database/aplayer_database-journal`.
 
 ## Unsafe Network
 

@@ -21,6 +21,7 @@ import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.abs.sync.AbsCatalogStore
 import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
 import com.viel.aplayer.abs.sync.AbsSyncStateEntity
+import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
@@ -87,6 +88,7 @@ class AbsPlaybackSessionStage4Test {
                 sessionId = "session-1",
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
+                openedAt = freshSessionOpenedAt(),
                 state = "OPEN"
             )
         }
@@ -134,6 +136,78 @@ class AbsPlaybackSessionStage4Test {
     }
 
     @Test
+    fun `open session should replace expired local runtime session`() = kotlinx.coroutines.runBlocking {
+        val now = OnlineSourceCachePolicy.ABS_PLAYBACK_SESSION_TTL_MS + 50_000L
+        val book = absBook()
+        val playbackSessionDao = FakePlaybackSessionDao().apply {
+            saved[book.id] = AbsPlaybackSessionEntity(
+                bookId = book.id,
+                remoteItemId = "item-1",
+                sessionId = "expired-session",
+                currentTimeSec = 0.0,
+                timeListenedSec = 0.0,
+                openedAt = now - OnlineSourceCachePolicy.ABS_PLAYBACK_SESSION_TTL_MS - 1L,
+                state = "OPEN"
+            )
+        }
+        val api = SuccessfulPlaybackApi(sessionId = "fresh-session")
+        val syncer = AbsPlaybackSessionSyncer(
+            apiClient = api,
+            absPlaybackSessionDao = playbackSessionDao,
+            absPendingProgressSyncDao = FakePendingSyncDao(),
+            catalogStore = FakeCatalogStore(),
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            currentTimeMillis = { now }
+        )
+
+        syncer.openSession(book, remoteItemId = "item-1")
+
+        // Playback Session TTL Fallback (Recreates old ABS runtime sessions instead of trusting persisted ids forever)
+        // The TTL is applied when reusing a local session row, so long playback is not cut off but stale app-restored rows cannot suppress a new server open.
+        assertEquals(1, api.openCallCount)
+        val session = playbackSessionDao.getByBookId(book.id)
+        assertEquals("fresh-session", session?.sessionId)
+        assertEquals(now, session?.openedAt)
+    }
+
+    @Test
+    fun `sync should discard expired local session instead of posting progress`() = kotlinx.coroutines.runBlocking {
+        val now = OnlineSourceCachePolicy.ABS_PLAYBACK_SESSION_TTL_MS + 50_000L
+        val book = absBook()
+        val playbackSessionDao = FakePlaybackSessionDao().apply {
+            saved[book.id] = AbsPlaybackSessionEntity(
+                bookId = book.id,
+                remoteItemId = "item-1",
+                sessionId = "expired-session",
+                currentTimeSec = 0.0,
+                timeListenedSec = 0.0,
+                openedAt = now - OnlineSourceCachePolicy.ABS_PLAYBACK_SESSION_TTL_MS - 1L,
+                state = "OPEN"
+            )
+        }
+        val api = SuccessfulPlaybackApi()
+        val syncer = AbsPlaybackSessionSyncer(
+            apiClient = api,
+            absPlaybackSessionDao = playbackSessionDao,
+            absPendingProgressSyncDao = FakePendingSyncDao(),
+            catalogStore = FakeCatalogStore(),
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            currentTimeMillis = { now }
+        )
+
+        syncer.syncProgress(
+            book = book,
+            progress = BookProgressEntity(bookId = book.id, globalPositionMs = 12_500L, lastPlayedAt = now),
+            durationMs = 200_000L
+        )
+
+        // Expired Session Sync Guard (Avoids sending progress to an ABS session id outside the fallback freshness window)
+        // The next play/open command can create a replacement session; this direct sync call should only remove the stale local row.
+        assertEquals(0, api.syncCallCount)
+        assertNull(playbackSessionDao.getByBookId(book.id))
+    }
+
+    @Test
     fun `sync should skip upload when remote progress conflicts`() = kotlinx.coroutines.runBlocking {
         // Remote Conflict Upload Guard (Verifies live sync does not overwrite a divergent ABS checkpoint)
         // The server position is intentionally far ahead of the local position, so the sync call must be skipped instead of queued or sent.
@@ -146,6 +220,7 @@ class AbsPlaybackSessionStage4Test {
                 sessionId = "session-1",
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
+                openedAt = freshSessionOpenedAt(),
                 state = "OPEN"
             )
         }
@@ -161,7 +236,8 @@ class AbsPlaybackSessionStage4Test {
             absPendingProgressSyncDao = pendingDao,
             catalogStore = FakeCatalogStore(),
             credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
-            progressConflictCoordinator = coordinator
+            progressConflictCoordinator = coordinator,
+            currentTimeMillis = { 3_000L }
         )
 
         syncer.syncProgress(
@@ -214,6 +290,41 @@ class AbsPlaybackSessionStage4Test {
     }
 
     @Test
+    fun `pending flush should discard retry outside pending progress ttl`() = kotlinx.coroutines.runBlocking {
+        val now = 700_000_000L
+        val book = absBook()
+        val api = SuccessfulPlaybackApi()
+        val pendingDao = FakePendingSyncDao().apply {
+            insertOrReplace(
+                AbsPendingProgressSyncEntity(
+                    bookId = book.id,
+                    remoteItemId = "item-1",
+                    currentTimeSec = 12.5,
+                    timeListenedSec = 12.5,
+                    durationSec = 200.0,
+                    updatedAt = now - OnlineSourceCachePolicy.ABS_PENDING_PROGRESS_TTL_MS - 1L
+                )
+            )
+        }
+        val syncer = AbsPlaybackSessionSyncer(
+            apiClient = api,
+            absPlaybackSessionDao = FakePlaybackSessionDao(),
+            absPendingProgressSyncDao = pendingDao,
+            catalogStore = FakeCatalogStore(),
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            currentTimeMillis = { now }
+        )
+
+        syncer.openSession(book, remoteItemId = "item-1")
+
+        // Pending Progress TTL Fallback (Drops old retry payloads before automatic flush)
+        // Retry rows are local recovery data, so expired rows must be removed without posting stale progress to the newly opened ABS session.
+        assertEquals(1, api.openCallCount)
+        assertEquals(0, api.syncCallCount)
+        assertNull(pendingDao.getByBookId(book.id))
+    }
+
+    @Test
     fun `conflict resolver should prefer remote only when newer and not currently playing`() {
         val resolver = AbsProgressConflictResolver()
         val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 1000L, lastPlayedAt = 2000L)
@@ -247,6 +358,7 @@ class AbsPlaybackSessionStage4Test {
                 sessionId = "session-1",
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
+                openedAt = freshSessionOpenedAt(),
                 state = "OPEN"
             )
         }
@@ -347,6 +459,12 @@ class AbsPlaybackSessionStage4Test {
         title = "ABS Book"
     )
 
+    private fun freshSessionOpenedAt(): Long {
+        // Fresh Session Fixture Timestamp (Keeps preloaded session rows inside the runtime TTL during tests)
+        // These fixtures target progress conflict behavior, so the session TTL must not become the failing condition.
+        return System.currentTimeMillis()
+    }
+
     private fun conflictCoordinator(
         api: AbsApiClient,
         book: BookEntity,
@@ -365,7 +483,8 @@ class AbsPlaybackSessionStage4Test {
 
     private class SuccessfulPlaybackApi(
         private val remoteProgress: AbsUserProgressDto? = null,
-        private val remoteProgressFailure: Throwable? = null
+        private val remoteProgressFailure: Throwable? = null,
+        private val sessionId: String = "session-1"
     ) : AbsApiClient {
         var openCallCount = 0
         var syncCallCount = 0
@@ -384,7 +503,7 @@ class AbsPlaybackSessionStage4Test {
         }
         override suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto): AbsPlaybackSessionDto {
             openCallCount += 1
-            return AbsPlaybackSessionDto(id = "session-1", libraryItemId = itemId, audioTracks = listOf(AbsTrackDto(index = 1, contentUrl = "/hls/session-1/output.m3u8")))
+            return AbsPlaybackSessionDto(id = sessionId, libraryItemId = itemId, audioTracks = listOf(AbsTrackDto(index = 1, contentUrl = "/hls/session-1/output.m3u8")))
         }
         override suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) {
             syncCallCount += 1

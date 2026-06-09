@@ -113,6 +113,35 @@ class ScanSessionTest {
     }
 
     @Test
+    fun `abandoned import session should fail instead of reporting successful scan`() = runBlocking {
+        var librarySnapshotCalls = 0
+        val abandonedSession = scanEntity(status = AudiobookSchema.ScanStatus.ABANDONED)
+        val session = scanSession(
+            roots = listOf(
+                rootUpdate(
+                    id = "saf-1",
+                    sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
+                )
+            ),
+            importBlock = { _, _ -> abandonedSession },
+            librarySnapshotBlock = {
+                librarySnapshotCalls += 1
+                false
+            }
+        )
+
+        val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.USER))
+
+        // Abandoned Session Outcome Guard (Prevents incomplete scan lifecycles from becoming WorkManager success classes)
+        // A returned ABANDONED session represents a failed import path, so ScanSession must stop before empty-library success mapping runs.
+        assertEquals(ScanOutcomeKind.FAILED, outcome.kind)
+        assertNull(outcome.session)
+        assertTrue(outcome.cause is IllegalStateException)
+        assertEquals(0, librarySnapshotCalls)
+    }
+
+    @Test
     fun `io failure from adapters should map to retry without swallowing cancellation policy`() = runBlocking {
         val session = scanSession(
             roots = listOf(
@@ -138,12 +167,13 @@ class ScanSessionTest {
     private fun scanSession(
         roots: List<LibraryRootAvailabilityUpdate>,
         importBlock: suspend (RescanType, Set<String>) -> ScanSessionEntity,
-        isLibraryEmpty: Boolean = false
+        isLibraryEmpty: Boolean = false,
+        librarySnapshotBlock: suspend () -> Boolean = { isLibraryEmpty }
     ): ScanSession =
         ScanSession(
             rootStatusAdapter = ScanRootStatusAdapter { roots },
             importAdapter = ScanImportAdapter(importBlock),
-            librarySnapshotAdapter = ScanLibrarySnapshotAdapter { isLibraryEmpty }
+            librarySnapshotAdapter = ScanLibrarySnapshotAdapter(librarySnapshotBlock)
         )
 
     private fun rootUpdate(
@@ -166,11 +196,14 @@ class ScanSessionTest {
             availability = AvailabilityResult(status = availabilityStatus)
         )
 
-    private fun scanEntity(discovered: Int = 0): ScanSessionEntity =
+    private fun scanEntity(
+        discovered: Int = 0,
+        status: String = AudiobookSchema.ScanStatus.COMPLETED
+    ): ScanSessionEntity =
         ScanSessionEntity(
             id = "scan-1",
             trigger = AudiobookSchema.ScanTrigger.USER,
-            status = AudiobookSchema.ScanStatus.COMPLETED,
+            status = status,
             discoveredBookCount = discovered
         )
 }

@@ -164,6 +164,7 @@ class CacheEvictionCoordinatorTest {
             rootIdHash = rootHash,
             sourcePathHash = VfsRangeCacheKey.hashIdentifier(source),
             version = VfsRangeCacheKey.hashIdentifier("etag-$source"),
+            hasProviderVersion = true,
             offset = 0L,
             length = 1
         )

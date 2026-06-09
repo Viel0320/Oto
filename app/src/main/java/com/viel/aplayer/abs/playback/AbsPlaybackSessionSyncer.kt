@@ -4,6 +4,7 @@ import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.dto.AbsDeviceInfoDto
 import com.viel.aplayer.abs.net.dto.AbsPlayRequestDto
 import com.viel.aplayer.abs.sync.AbsCatalogStore
+import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
@@ -18,7 +19,8 @@ class AbsPlaybackSessionSyncer(
     private val absPendingProgressSyncDao: AbsPendingProgressSyncDao,
     private val catalogStore: AbsCatalogStore,
     private val credentialProvider: suspend (BookEntity) -> CredentialSnapshot?,
-    private val progressConflictCoordinator: AbsProgressConflictCoordinator? = null
+    private val progressConflictCoordinator: AbsProgressConflictCoordinator? = null,
+    private val currentTimeMillis: () -> Long = { System.currentTimeMillis() }
 ) {
     // ABS Session Operation Mutex (Serializes open, sync, and close calls for one playback syncer)
     // Playback controls can issue pause, stop, switch-book, and progress sync requests concurrently; this lock preserves server session ordering without blocking local player commands.
@@ -33,11 +35,17 @@ class AbsPlaybackSessionSyncer(
             AbsPlaybackLogger.logOpenSessionSkipped(bookId = book.id, reason = "NOT_ABS_REMOTE")
             return
         }
-        if (absPlaybackSessionDao.getByBookId(book.id) != null) {
+        val existingSession = absPlaybackSessionDao.getByBookId(book.id)
+        if (existingSession != null && existingSession.isFreshSession()) {
             // Idempotent Session Open (Avoids creating duplicate server sessions during resume or repeated play commands)
             // PlaybackManager may ask to ensure an ABS session after local play resumes; an existing local session row means the remote session is already active.
             AbsPlaybackLogger.logOpenSessionSkipped(bookId = book.id, reason = "SESSION_ALREADY_OPEN")
             return
+        }
+        if (existingSession != null) {
+            // Stale Session Cleanup (Drops expired local session rows before asking ABS for a new server session)
+            // ABS playback sessions are remote runtime state, so a row older than the policy window must not suppress session creation.
+            absPlaybackSessionDao.deleteByBookId(book.id)
         }
         val credential = credentialProvider(book)
         if (credential == null) {
@@ -61,6 +69,7 @@ class AbsPlaybackSessionSyncer(
                 sessionId = requireNotNull(response.id),
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
+                openedAt = currentTimeMillis(),
                 state = "OPEN"
             )
         )
@@ -79,7 +88,7 @@ class AbsPlaybackSessionSyncer(
 
     private suspend fun syncProgressLocked(book: BookEntity, progress: BookProgressEntity, durationMs: Long) {
         if (book.sourceType != AudiobookSchema.SourceType.ABS_REMOTE) return
-        val session = absPlaybackSessionDao.getByBookId(book.id) ?: return
+        val session = getFreshSessionOrDelete(book.id) ?: return
         val credential = credentialProvider(book) ?: return
         val currentTimeSec = progress.globalPositionMs / 1000.0
         val timeListenedSec = currentTimeSec
@@ -168,7 +177,7 @@ class AbsPlaybackSessionSyncer(
 
     private suspend fun closeSessionLocked(book: BookEntity, progress: BookProgressEntity?, durationMs: Long) {
         if (book.sourceType != AudiobookSchema.SourceType.ABS_REMOTE) return
-        val session = absPlaybackSessionDao.getByBookId(book.id) ?: return
+        val session = getFreshSessionOrDelete(book.id) ?: return
         val credential = credentialProvider(book) ?: return
         val currentTimeSec = (progress?.globalPositionMs ?: 0L) / 1000.0
         val timeListenedSec = currentTimeSec
@@ -251,7 +260,7 @@ class AbsPlaybackSessionSyncer(
 
     private suspend fun flushPendingIfAny(book: BookEntity, credential: CredentialSnapshot) {
         val bookId = book.id
-        val pending = absPendingProgressSyncDao.getByBookId(bookId)
+        val pending = absPendingProgressSyncDao.getByBookId(bookId)?.takeIfFreshPending(bookId)
         if (pending == null) {
             AbsPlaybackLogger.logFlushPendingSkipped(bookId = bookId, reason = "NO_PENDING")
             return
@@ -325,9 +334,41 @@ class AbsPlaybackSessionSyncer(
                 currentTimeSec = currentTimeSec,
                 timeListenedSec = timeListenedSec,
                 durationSec = durationSec,
-                updatedAt = System.currentTimeMillis()
+                updatedAt = currentTimeMillis()
             )
         )
+    }
+
+    private fun AbsPlaybackSessionEntity.isFreshSession(): Boolean =
+        OnlineSourceCachePolicy.isFresh(
+            cachedAtMillis = openedAt,
+            nowMillis = currentTimeMillis(),
+            ttlMillis = OnlineSourceCachePolicy.ABS_PLAYBACK_SESSION_TTL_MS
+        )
+
+    private suspend fun getFreshSessionOrDelete(bookId: String): AbsPlaybackSessionEntity? {
+        val session = absPlaybackSessionDao.getByBookId(bookId) ?: return null
+        if (session.isFreshSession()) return session
+        // Stale Session Read Guard (Prevents sync and close requests from using expired ABS runtime sessions)
+        // Open-session already recreates stale rows, while direct sync or close callers should simply drop the unusable local session id.
+        absPlaybackSessionDao.deleteByBookId(bookId)
+        return null
+    }
+
+    private suspend fun AbsPendingProgressSyncEntity.takeIfFreshPending(bookId: String): AbsPendingProgressSyncEntity? {
+        // Pending Progress TTL Fallback (Drops retry payloads that are too old to upload automatically)
+        // Pending progress is a local recovery fact, not a normal cache, so it keeps the longer seven-day window before being discarded.
+        return if (OnlineSourceCachePolicy.isFresh(
+                cachedAtMillis = updatedAt,
+                nowMillis = currentTimeMillis(),
+                ttlMillis = OnlineSourceCachePolicy.ABS_PENDING_PROGRESS_TTL_MS
+            )
+        ) {
+            this
+        } else {
+            absPendingProgressSyncDao.deleteByBookId(bookId)
+            null
+        }
     }
 
     /**

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -66,7 +67,7 @@ class EditBookModuleTest {
 
         module.updateBookDetails(
             id = BOOK_ID,
-            title = "Title",
+            title = "  Title  ",
             author = "Author",
             narrator = "Narrator",
             description = "Description",
@@ -74,6 +75,8 @@ class EditBookModuleTest {
             series = "Series"
         )
 
+        // Edit Title Boundary Normalization (Pins title trimming to the application edit module)
+        // Direct command callers can bypass EditBookViewModel, so this assertion verifies the persistence gateway receives canonical title metadata.
         assertEquals(
             listOf(
                 UpdateBookDetailsCall(
@@ -88,6 +91,30 @@ class EditBookModuleTest {
             ),
             queryGateway.updateCalls
         )
+    }
+
+    @Test
+    fun blankTitleUpdateIsRejectedBeforePersistence() = runBlocking {
+        val queryGateway = FakeBookQueryGateway()
+        val module = moduleFor(queryGateway = queryGateway)
+
+        val failure = runCatching {
+            module.updateBookDetails(
+                id = BOOK_ID,
+                title = "   ",
+                author = "Author",
+                narrator = "Narrator",
+                description = "Description",
+                year = "2026",
+                series = "Series"
+            )
+        }.exceptionOrNull()
+
+        // Blank Edit Title Rejection (Prevents English UI fallback text from becoming real book metadata)
+        // The edit command must fail before gateway writes so empty user input cannot persist as the localized display placeholder.
+        assertTrue(failure is IllegalArgumentException)
+        assertEquals("EDIT_TITLE_REQUIRED", failure?.message)
+        assertEquals(emptyList<UpdateBookDetailsCall>(), queryGateway.updateCalls)
     }
 
     @Test

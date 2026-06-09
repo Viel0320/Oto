@@ -32,10 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.viel.aplayer.R
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.formatFileSize
@@ -69,6 +71,14 @@ fun DetailControlPanel(
     // Setup Haze Effect Switch (Check configured visual style) Aligned to renamed Haze option.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     val displayProgress = uiState.displayProgressPercent
+    // Detail Action Copy (Move app-owned labels into resources)
+    // Resource-backed text lets localization and accessibility review validate TalkBack output and large-font fit.
+    val unknownText = stringResource(R.string.common_unknown)
+    val actionText = when {
+        !uiState.isAvailable -> stringResource(R.string.detail_file_not_found)
+        displayProgress > 0 -> stringResource(R.string.detail_continue_at_progress, displayProgress)
+        else -> stringResource(R.string.detail_start_listening)
+    }
 
     val buttonHeight = if (isLandscape) 48.dp else 56.dp
     val cornerRadius = if (isLandscape) 12.dp else 16.dp
@@ -86,7 +96,7 @@ fun DetailControlPanel(
         ) {
             DetailInfoChip(
                 icon = Icons.Rounded.Event,
-                value = book?.year?.takeIf { it.isNotBlank() } ?: "Unknown",
+                value = book?.year?.takeIf { it.isNotBlank() } ?: unknownText,
                 glassEffectMode = glassEffectMode,
                 hazeState = hazeState
             )
@@ -154,7 +164,7 @@ fun DetailControlPanel(
                     )
                     Spacer(modifier = Modifier.width(if (isLandscape) 6.dp else 8.dp))
                     Text(
-                        text = if (displayProgress > 0) "Continue at $displayProgress%" else "Start Listening",
+                        text = actionText,
                         style = if (isLandscape) {
                             MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         } else {
@@ -194,9 +204,7 @@ fun DetailControlPanel(
                 )
                 Spacer(modifier = Modifier.width(if (isLandscape) 6.dp else 8.dp))
                 Text(
-                    text = if (!uiState.isAvailable) "File not found"
-                           else if (displayProgress > 0) "Continue at $displayProgress%" 
-                           else "Start Listening",
+                    text = actionText,
                     style = if (isLandscape) {
                         MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     } else {

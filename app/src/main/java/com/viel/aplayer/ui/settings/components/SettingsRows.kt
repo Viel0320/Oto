@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -19,6 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 
@@ -78,10 +83,28 @@ fun SettingsToggleItem(
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true
 ) {
+    // Settings Toggle State Description (Provide localized row-owned switch state text)
+    // TalkBack reads this value from the merged settings row, so the visual Switch does not need to expose its own duplicate state node.
+    val toggleStateDescription = stringResource(
+        if (checked) {
+            R.string.settings_toggle_state_on
+        } else {
+            R.string.settings_toggle_state_off
+        }
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            )
+            .semantics(mergeDescendants = true) {
+                stateDescription = toggleStateDescription
+            }
             .then(if (enabled) Modifier else Modifier.alpha(0.38f))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -103,8 +126,11 @@ fun SettingsToggleItem(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled
+            onCheckedChange = null,
+            enabled = enabled,
+            // Settings Toggle Visual Switch Semantics (Hide the decorative child switch from accessibility)
+            // The parent row owns the only toggle action and checked state, preventing duplicate focus stops for one setting.
+            modifier = Modifier.clearAndSetSemantics {}
         )
     }
 }

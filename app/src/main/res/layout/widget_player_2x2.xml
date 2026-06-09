@@ -106,13 +106,14 @@
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_replay_10" />
 
+            <!-- Play Pause Control Fallback (Initial widget layout defaults to the play icon before Glance receives playback state, so the static accessibility label announces the same concrete action) -->
             <ImageButton
                 android:id="@+id/widget_play_pause"
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
                 android:background="@drawable/widget_play_control_background"
-                android:contentDescription="@string/player_widget_play_pause"
+                android:contentDescription="@string/playback_play_content_description"
                 android:padding="10dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_widget_play" />

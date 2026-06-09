@@ -44,6 +44,9 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -103,11 +106,17 @@ fun cardgroup(
     // cardgroup Width Mode (Allow specialized callers to override the standard horizontal-row width)
     // Home cardgroup rows keep the fixed 160.dp width so every section remains a single horizontal carousel.
     fillAvailableWidth: Boolean = false,
-    preferredWidth: Dp = 160.dp
+    preferredWidth: Dp = 160.dp,
+    // Card Assistive Action Labels (Keep card commands discoverable across list surfaces)
+    // Callers can override these labels when a card is reused for a scene-specific command set.
+    openActionLabel: String? = null,
+    moreActionsLabel: String? = null
 ) {
     // Localized Card Metadata Fallback (Keep blank author/narrator placeholders translatable)
     // The card receives book data from the catalog, but empty metadata fallback text is owned by the app UI.
     val unknownText = stringResource(R.string.common_unknown)
+    val resolvedOpenActionLabel = openActionLabel ?: stringResource(R.string.book_open_action)
+    val resolvedMoreActionsLabel = moreActionsLabel ?: stringResource(R.string.book_more_actions_action)
 
     // Reset Color State on Cover Path Changes: Re-initialize coverColor state whenever the coverPath changes using remember(coverPath) and load the cached color synchronously if available.
     var coverColor by remember(coverPath) {
@@ -120,9 +129,25 @@ fun cardgroup(
             .clip(RoundedCornerShape(16.dp))
             // Use combinedClickable gesture listener instead to handle click and long-press events
             .combinedClickable(
+                onClickLabel = resolvedOpenActionLabel,
                 onClick = onClick,
+                onLongClickLabel = resolvedMoreActionsLabel,
                 onLongClick = onLongClick
             )
+            .semantics {
+                // Card Custom Actions (Expose open and action-menu shortcuts on the card node)
+                // Switch Access and TalkBack users can discover the same menu previously hidden behind long press.
+                customActions = listOf(
+                    CustomAccessibilityAction(resolvedOpenActionLabel) {
+                        onClick()
+                        true
+                    },
+                    CustomAccessibilityAction(resolvedMoreActionsLabel) {
+                        onLongClick()
+                        true
+                    }
+                )
+            }
             .padding(8.dp)
     ) {
         RecentCoverSharedSource(

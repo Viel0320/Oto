@@ -271,6 +271,7 @@ class AbsCatalogStage2Test {
                     rootId = root.id,
                     serverKey = serverKey,
                     remoteItemId = "item-1",
+                    lastSeenAt = System.currentTimeMillis(),
                     remoteUpdatedAt = existingItem.updatedAt,
                     state = AudiobookSchema.AbsMirrorState.ACTIVE
                 )

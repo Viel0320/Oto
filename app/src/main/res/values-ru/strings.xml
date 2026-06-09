@@ -278,6 +278,10 @@
     <string name="settings_auto_rewind_toggle_title">Автоперемотка после паузы</string>
     <string name="settings_auto_rewind_subtitle">На сколько отматывать назад после паузы или остановки, кроме избегания уведомлений</string>
     <string name="settings_auto_rewind_disabled">Выкл.</string>
+    <!-- Settings Toggle Accessibility State (Mirrors row-level switch state labels for Russian TalkBack)
+         SettingsToggleItem uses these values as stateDescription so the merged settings row announces one localized state. -->
+    <string name="settings_toggle_state_on">Вкл.</string>
+    <string name="settings_toggle_state_off">Выкл.</string>
     <plurals name="settings_seconds_value">
         <item quantity="one">%1$d секунда</item>
         <item quantity="few">%1$d секунды</item>
@@ -384,6 +388,28 @@
     <string name="common_unknown">Неизвестно</string>
     <string name="common_unknown_title">Неизвестное название</string>
     <string name="common_new_badge">НОВОЕ</string>
+    <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
+         The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests validate non-metadata text. -->
+    <string name="detail_author_search_action">Искать автора</string>
+    <string name="detail_author_info_action">Показать сведения об авторе</string>
+    <string name="detail_narrator_search_action">Искать рассказчика</string>
+    <string name="detail_narrator_info_action">Показать сведения о рассказчике</string>
+    <string name="detail_file_not_found">Файл не найден</string>
+    <string name="detail_continue_at_progress">Продолжить с %1$d%%</string>
+    <string name="detail_start_listening">Начать прослушивание</string>
+    <!-- Shared Accessibility Action Copy (Back newly labeled gestures with localized resources)
+         Home rows, mini-player covers, playback controls, and bookmark rows already expose these commands through semantics, so resource keys keep compilation, TalkBack, and locale coverage aligned. -->
+    <string name="book_open_action">Открыть книгу</string>
+    <string name="book_play_action">Воспроизвести книгу</string>
+    <string name="book_more_actions_action">Другие действия с книгой</string>
+    <string name="mini_player_open_action">Открыть плеер</string>
+    <string name="mini_player_hide_action">Скрыть мини-плеер</string>
+    <string name="playback_speed_cycle_action">Изменить скорость воспроизведения</string>
+    <string name="playback_speed_reset_action">Сбросить скорость воспроизведения</string>
+    <string name="sleep_timer_cycle_action">Изменить таймер сна</string>
+    <string name="sleep_timer_cancel_action">Отменить таймер сна</string>
+    <string name="bookmark_open_action">Открыть закладку</string>
+    <string name="bookmark_edit_action">Редактировать закладку</string>
     <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">Удалить</string>

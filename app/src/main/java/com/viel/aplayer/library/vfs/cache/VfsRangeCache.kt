@@ -1,6 +1,7 @@
 package com.viel.aplayer.library.vfs.cache
 
 import android.content.Context
+import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.data.runCatchingCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,16 +15,19 @@ import java.io.File
 class VfsRangeCache(
     private val cacheDir: File,
     private val maxBlockBytes: Int = MAX_BLOCK_BYTES,
-    private val maxTotalBytes: Long = MAX_TOTAL_BYTES
+    private val maxTotalBytes: Long = MAX_TOTAL_BYTES,
+    private val currentTimeMillis: () -> Long = { System.currentTimeMillis() }
 ) {
     constructor(
         context: Context,
         maxBlockBytes: Int = MAX_BLOCK_BYTES,
-        maxTotalBytes: Long = MAX_TOTAL_BYTES
+        maxTotalBytes: Long = MAX_TOTAL_BYTES,
+        currentTimeMillis: () -> Long = { System.currentTimeMillis() }
     ) : this(
         cacheDir = File(context.applicationContext.cacheDir, CACHE_DIR_NAME),
         maxBlockBytes = maxBlockBytes,
-        maxTotalBytes = maxTotalBytes
+        maxTotalBytes = maxTotalBytes,
+        currentTimeMillis = currentTimeMillis
     )
 
     /**
@@ -33,8 +37,14 @@ class VfsRangeCache(
     suspend fun read(key: VfsRangeCacheKey): ByteArray? = withContext(Dispatchers.IO) {
         val file = key.toCacheFile()
         if (!file.exists() || !file.isFile) return@withContext null
+        if (!key.isFresh(file.lastModified())) {
+            // Range Cache TTL Expiry (Deletes stale online byte blocks before replay)
+            // Versioned blocks rely primarily on hashed provider versions, while versionless blocks use the shorter fallback window from OnlineSourceCachePolicy.
+            runCatching { file.delete() }
+            return@withContext null
+        }
         runCatchingCancellable {
-            file.setLastModified(System.currentTimeMillis())
+            file.setLastModified(currentTimeMillis())
             file.readBytes()
         }.getOrNull()
     }
@@ -54,6 +64,7 @@ class VfsRangeCache(
                 target.delete()
                 temp.renameTo(target)
             }
+            target.setLastModified(currentTimeMillis())
             trimToSizeBlocking()
         }
     }
@@ -80,6 +91,13 @@ class VfsRangeCache(
 
     private fun VfsRangeCacheKey.toCacheFile(): File =
         File(cacheDir, toFileName())
+
+    private fun VfsRangeCacheKey.isFresh(cachedAtMillis: Long): Boolean =
+        OnlineSourceCachePolicy.isFresh(
+            cachedAtMillis = cachedAtMillis,
+            nowMillis = currentTimeMillis(),
+            ttlMillis = OnlineSourceCachePolicy.rangeTtlMillis(hasProviderVersion)
+        )
 
     private fun trimToSizeBlocking() {
         val files = cacheDir.listFiles()

@@ -142,6 +142,10 @@ fun PillCompactMediaPlayer(
     val playPauseContentDescription = stringResource(
         if (isPlaying) R.string.playback_pause_content_description else R.string.playback_play_content_description
     )
+    // Pill Mini Player Assistive Actions (Name cover click and hide gestures)
+    // The pill layout exposes only artwork and transport icons, so cover semantics must carry the open and hide commands explicitly.
+    val openMiniPlayerActionLabel = stringResource(R.string.mini_player_open_action)
+    val hideMiniPlayerActionLabel = stringResource(R.string.mini_player_hide_action)
 
     val rotation = remember { Animatable(0f) }
 
@@ -262,7 +266,9 @@ fun PillCompactMediaPlayer(
                             }
                         }
                         .combinedClickable(
+                            onClickLabel = openMiniPlayerActionLabel,
                             onClick = onClick,
+                            onLongClickLabel = hideMiniPlayerActionLabel,
                             onLongClick = actions.onHide
                         )
                 ) {

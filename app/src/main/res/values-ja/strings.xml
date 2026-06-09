@@ -258,6 +258,10 @@
     <string name="settings_auto_rewind_toggle_title">一時停止時の自動巻き戻し</string>
     <string name="settings_auto_rewind_subtitle">通知回避を除き、一時停止または停止後に再生位置を戻す秒数</string>
     <string name="settings_auto_rewind_disabled">オフ</string>
+    <!-- Settings Toggle Accessibility State (Mirrors row-level switch state labels for Japanese TalkBack)
+         SettingsToggleItem uses these values as stateDescription so the merged settings row announces one localized state. -->
+    <string name="settings_toggle_state_on">オン</string>
+    <string name="settings_toggle_state_off">オフ</string>
     <plurals name="settings_seconds_value">
         <item quantity="one">%1$d 秒</item>
         <item quantity="other">%1$d 秒</item>
@@ -361,6 +365,28 @@
     <string name="common_unknown">不明</string>
     <string name="common_unknown_title">不明なタイトル</string>
     <string name="common_new_badge">新規</string>
+    <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
+         The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests validate non-metadata text. -->
+    <string name="detail_author_search_action">著者を検索</string>
+    <string name="detail_author_info_action">著者の詳細を表示</string>
+    <string name="detail_narrator_search_action">ナレーターを検索</string>
+    <string name="detail_narrator_info_action">ナレーターの詳細を表示</string>
+    <string name="detail_file_not_found">ファイルが見つかりません</string>
+    <string name="detail_continue_at_progress">%1$d%% から続ける</string>
+    <string name="detail_start_listening">聴き始める</string>
+    <!-- Shared Accessibility Action Copy (Back newly labeled gestures with localized resources)
+         Home rows, mini-player covers, playback controls, and bookmark rows already expose these commands through semantics, so resource keys keep compilation, TalkBack, and locale coverage aligned. -->
+    <string name="book_open_action">本を開く</string>
+    <string name="book_play_action">本を再生</string>
+    <string name="book_more_actions_action">その他の本の操作</string>
+    <string name="mini_player_open_action">プレーヤーを開く</string>
+    <string name="mini_player_hide_action">ミニプレーヤーを隠す</string>
+    <string name="playback_speed_cycle_action">再生速度を変更</string>
+    <string name="playback_speed_reset_action">再生速度をリセット</string>
+    <string name="sleep_timer_cycle_action">スリープタイマーを変更</string>
+    <string name="sleep_timer_cancel_action">スリープタイマーをキャンセル</string>
+    <string name="bookmark_open_action">ブックマークを開く</string>
+    <string name="bookmark_edit_action">ブックマークを編集</string>
     <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">削除</string>

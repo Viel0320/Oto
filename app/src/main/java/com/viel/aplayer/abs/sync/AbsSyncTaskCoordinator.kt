@@ -1,12 +1,13 @@
 package com.viel.aplayer.abs.sync
 
-// Resource Cleanup Support: Import Closeable and cancel extensions for proper background scope lifecycle management.
+// Resource Cleanup Support: Import Closeable, CancellationException, and cancel extensions for proper background scope lifecycle management.
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -104,6 +105,10 @@ class AbsSyncTaskCoordinator(
                 appEventSink.showToast(
                     FeedbackMessages.absBackgroundSyncCompleted(summary.addedBooks, summary.failedItems)
                 )
+            } catch (error: CancellationException) {
+                // Coroutine Cancellation Propagation (Treat lifecycle cancellation as coordinator control flow)
+                // Graph teardown, test cleanup, and future caller-initiated cancellation should stop ABS work without emitting user-facing failure events.
+                throw error
             } catch (error: Exception) {
                 val errMsg = error.message ?: "ABS_BACKGROUND_SYNC_FAILED"
                 _events.emit(

@@ -262,6 +262,10 @@
     <string name="settings_auto_rewind_toggle_title">暂停自动回放</string>
     <string name="settings_auto_rewind_subtitle">暂停或停止播放后自动回退的时长，通知避让除外</string>
     <string name="settings_auto_rewind_disabled">已关闭</string>
+    <!-- Settings Toggle Accessibility State (Mirrors row-level switch state labels for Simplified Chinese TalkBack)
+         SettingsToggleItem uses these values as stateDescription so the merged settings row announces one localized state. -->
+    <string name="settings_toggle_state_on">已开启</string>
+    <string name="settings_toggle_state_off">已关闭</string>
     <plurals name="settings_seconds_value">
         <item quantity="one">%1$d 秒</item>
         <item quantity="other">%1$d 秒</item>
@@ -365,6 +369,28 @@
     <string name="common_unknown">未知</string>
     <string name="common_unknown_title">未知标题</string>
     <string name="common_new_badge">新</string>
+    <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
+         The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests validate non-metadata text. -->
+    <string name="detail_author_search_action">搜索作者</string>
+    <string name="detail_author_info_action">查看作者详情</string>
+    <string name="detail_narrator_search_action">搜索朗读者</string>
+    <string name="detail_narrator_info_action">查看朗读者详情</string>
+    <string name="detail_file_not_found">文件未找到</string>
+    <string name="detail_continue_at_progress">继续收听 %1$d%%</string>
+    <string name="detail_start_listening">开始收听</string>
+    <!-- Shared Accessibility Action Copy (Back newly labeled gestures with localized resources)
+         Home rows, mini-player covers, playback controls, and bookmark rows already expose these commands through semantics, so resource keys keep compilation, TalkBack, and locale coverage aligned. -->
+    <string name="book_open_action">打开书籍</string>
+    <string name="book_play_action">播放书籍</string>
+    <string name="book_more_actions_action">更多书籍操作</string>
+    <string name="mini_player_open_action">打开播放器</string>
+    <string name="mini_player_hide_action">隐藏迷你播放器</string>
+    <string name="playback_speed_cycle_action">切换播放速度</string>
+    <string name="playback_speed_reset_action">重置播放速度</string>
+    <string name="sleep_timer_cycle_action">切换睡眠定时</string>
+    <string name="sleep_timer_cancel_action">取消睡眠定时</string>
+    <string name="bookmark_open_action">打开书签</string>
+    <string name="bookmark_edit_action">编辑书签</string>
     <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">删除</string>

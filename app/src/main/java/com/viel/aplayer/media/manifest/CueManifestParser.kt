@@ -52,9 +52,9 @@ object CueManifestParser {
             var isTrackSection = false
 
             reader.useLines { lines ->
-                lines.forEach { rawLine ->
+                for (rawLine in lines) {
                     var line = rawLine.trim()
-                    if (line.isEmpty()) return@forEach
+                    if (line.isEmpty()) continue
                     if (line.startsWith("\uFEFF")) line = line.substring(1).trim()
 
                     val parts = line.split(Regex("\\s+"), limit = 2)
@@ -63,7 +63,7 @@ object CueManifestParser {
 
                     when (command) {
                         "TITLE" -> {
-                            val value = extractQuotedValue(remainder)
+                            val value = extractQuotedValue(remainder).limitManifestText()
                             if (!isTrackSection) {
                                 globalTitle = value
                             } else {
@@ -71,14 +71,14 @@ object CueManifestParser {
                             }
                         }
                         "PERFORMER" -> {
-                            val value = extractQuotedValue(remainder)
+                            val value = extractQuotedValue(remainder).limitManifestText()
                             if (!isTrackSection) {
                                 globalArtist = value
                             }
                         }
                         "COMPOSER", "NARRATOR" -> {
                             // Book-level CUE narrator fields win before falling back to the first audio file.
-                            val value = extractQuotedValue(remainder)
+                            val value = extractQuotedValue(remainder).limitManifestText()
                             if (!isTrackSection) {
                                 globalNarrator = value
                             }
@@ -95,9 +95,14 @@ object CueManifestParser {
                             }
                         }
                         "FILE" -> {
-                            currentFile = extractQuotedValue(remainder)
+                            // Manifest Text Budget (Bound CUE file references before they enter parser state)
+                            // FILE paths are user-controlled sidecar strings and can otherwise be retained by both file and chapter lists.
+                            val parsedFile = extractQuotedValue(remainder).limitManifestText()
+                            currentFile = parsedFile
                             // FILE always yields a parsed path here.
-                            files.add(currentFile)
+                            // Manifest Entry Budget (Stop referenced-file accumulation before parser state grows without bound)
+                            // Large CUE sheets keep the first deterministic file references and skip later entries.
+                            if (!files.addWithinManifestBudget(parsedFile)) break
                         }
                         "TRACK" -> {
                             isTrackSection = true
@@ -109,11 +114,16 @@ object CueManifestParser {
                                 val timeStr = indexParts[1]
                                 val offsetMs = parseCueTime(timeStr)
                                 if (currentFile != null) {
-                                    chapterCandidates.add(ChapterCandidate(
-                                        title = currentTrackTitle ?: "Track ${chapterCandidates.size + 1}",
-                                        fileKey = currentFile,
-                                        fileOffsetMs = offsetMs
-                                    ))
+                                    // Manifest Chapter Budget (Stop CUE chapter accumulation before processed chapters are built)
+                                    // Limiting the intermediate candidate list prevents memory growth before duration post-processing.
+                                    val accepted = chapterCandidates.addWithinManifestBudget(
+                                        ChapterCandidate(
+                                            title = currentTrackTitle ?: "Track ${chapterCandidates.size + 1}",
+                                            fileKey = currentFile,
+                                            fileOffsetMs = offsetMs
+                                        )
+                                    )
+                                    if (!accepted) break
                                 }
                             }
                         }
@@ -177,7 +187,9 @@ object CueManifestParser {
         // REM is "KEY value"; for comments we keep the whole unquoted value instead of only one token.
         val parts = text.trim().split(Regex("\\s+"), limit = 2)
         val key = parts.getOrNull(0)?.uppercase()?.takeIf { it.isNotBlank() } ?: return null
-        val value = parts.getOrNull(1)?.let { extractMetadataValue(it) }.orEmpty()
+        // Manifest Metadata Budget (Bound REM metadata before MetadataSuggestion retains it)
+        // REM COMMENT and date fields are user-controlled text and should not expand import state without limit.
+        val value = parts.getOrNull(1)?.let { extractMetadataValue(it).limitManifestText() }.orEmpty()
         return key to value
     }
 

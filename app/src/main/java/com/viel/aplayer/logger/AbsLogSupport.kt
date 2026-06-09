@@ -27,10 +27,14 @@ internal object AbsLogSanitizer {
     private val passwordJsonRegex = Regex("\"password\"\\s*:\\s*\"[^\"]*\"", RegexOption.IGNORE_CASE)
     private val authorizationRegex = Regex("(Authorization\\s*[:=]\\s*Bearer\\s+)(\\S+)", RegexOption.IGNORE_CASE)
     private val tokenQueryRegex = Regex("((?:token|password)=)([^&#\\s]+)", RegexOption.IGNORE_CASE)
+    // Embedded URL Detection Pattern (Finds full HTTP URLs inside free-form exception messages)
+    // Dedicated URL fields already call sanitizeUrl; this fallback catches URLs that arrive inside mapper, parser, or transport error text.
+    private val embeddedHttpUrlRegex = Regex("https?://[^\\s]+", RegexOption.IGNORE_CASE)
 
     fun sanitizeText(raw: String?): String {
         val value = raw.orEmpty()
         return value
+            .replace(embeddedHttpUrlRegex) { matchResult -> stripEmbeddedUrlSecrets(matchResult.value) }
             .replace(bearerRegex, "Bearer <redacted>")
             .replace(tokenJsonRegex, "\"token\":\"<redacted>\"")
             .replace(passwordJsonRegex, "\"password\":\"<redacted>\"")
@@ -57,6 +61,13 @@ internal object AbsLogSanitizer {
     }
 
     fun shortId(raw: String?, maxLength: Int = 48): String = compact(raw, maxLength)
+
+    /**
+     * Embedded URL Secret Stripping (Removes query and fragment values from exception text URLs)
+     * Exception messages can contain full request URLs outside dedicated URL fields, so the general text sanitizer drops secret-bearing URL tails before token-specific redaction runs.
+     */
+    private fun stripEmbeddedUrlSecrets(value: String): String =
+        value.substringBefore('#').substringBefore('?')
 }
 
 /**

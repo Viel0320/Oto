@@ -123,6 +123,29 @@ internal object AbsSyncLogger {
         )
     }
 
+    /**
+     * Item Materialization Failure Log (Routes per-item catalog write failures through the shared ABS sanitizer)
+     * Best-effort sync can continue after one item fails, while the emitted diagnostic still retains the root, item, exception type, and redacted exception message.
+     */
+    fun logItemMaterializationFailure(rootId: String, itemId: String?, errorClass: String, message: String?) {
+        AbsLogEmitter.warn(
+            TAG,
+            buildItemMaterializationFailureMessage(
+                rootId = rootId,
+                itemId = itemId,
+                errorClass = errorClass,
+                message = message
+            )
+        )
+    }
+
+    /**
+     * Item Materialization Failure Message Builder (Formats item-level failures without touching Android Logcat)
+     * JVM tests assert this builder directly so sensitive exception payloads cannot regress before the final emitter redaction pass.
+     */
+    internal fun buildItemMaterializationFailureMessage(rootId: String, itemId: String?, errorClass: String, message: String?): String =
+        "item materialization failure: rootId=${AbsLogSanitizer.shortId(rootId)}, itemId=${AbsLogSanitizer.shortId(itemId)}, errorClass=$errorClass, message=${AbsLogSanitizer.compact(message)}"
+
     // Catalog Upsert Log Scope (Keeps catalog sync logging aligned with structural writes only)
     // Remote progress is reported by authorized progress logs, so this message records only the book, file, and chapter materialization counts.
     fun logUpsertItem(rootId: String, itemId: String?, bookId: String, fileCount: Int, chapterCount: Int) {

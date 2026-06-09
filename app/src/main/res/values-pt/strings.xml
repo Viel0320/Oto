@@ -258,6 +258,10 @@
     <string name="settings_auto_rewind_toggle_title">Recuo automático ao pausar</string>
     <string name="settings_auto_rewind_subtitle">Quanto recuar após pausa ou paragem, exceto ao evitar notificações</string>
     <string name="settings_auto_rewind_disabled">Desativado</string>
+    <!-- Settings Toggle Accessibility State (Mirrors row-level switch state labels for Portuguese TalkBack)
+         SettingsToggleItem uses these values as stateDescription so the merged settings row announces one localized state. -->
+    <string name="settings_toggle_state_on">Ativado</string>
+    <string name="settings_toggle_state_off">Desativado</string>
     <plurals name="settings_seconds_value">
         <item quantity="one">%1$d segundo</item>
         <item quantity="other">%1$d segundos</item>
@@ -362,6 +366,28 @@
     <string name="common_unknown">Desconhecido</string>
     <string name="common_unknown_title">Título desconhecido</string>
     <string name="common_new_badge">NOVO</string>
+    <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
+         The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests validate non-metadata text. -->
+    <string name="detail_author_search_action">Pesquisar autor</string>
+    <string name="detail_author_info_action">Ver detalhes do autor</string>
+    <string name="detail_narrator_search_action">Pesquisar narrador</string>
+    <string name="detail_narrator_info_action">Ver detalhes do narrador</string>
+    <string name="detail_file_not_found">Ficheiro não encontrado</string>
+    <string name="detail_continue_at_progress">Continuar em %1$d%%</string>
+    <string name="detail_start_listening">Começar a ouvir</string>
+    <!-- Shared Accessibility Action Copy (Back newly labeled gestures with localized resources)
+         Home rows, mini-player covers, playback controls, and bookmark rows already expose these commands through semantics, so resource keys keep compilation, TalkBack, and locale coverage aligned. -->
+    <string name="book_open_action">Abrir livro</string>
+    <string name="book_play_action">Reproduzir livro</string>
+    <string name="book_more_actions_action">Mais ações do livro</string>
+    <string name="mini_player_open_action">Abrir leitor</string>
+    <string name="mini_player_hide_action">Ocultar mini leitor</string>
+    <string name="playback_speed_cycle_action">Alterar velocidade de reprodução</string>
+    <string name="playback_speed_reset_action">Repor velocidade de reprodução</string>
+    <string name="sleep_timer_cycle_action">Alterar temporizador de sono</string>
+    <string name="sleep_timer_cancel_action">Cancelar temporizador de sono</string>
+    <string name="bookmark_open_action">Abrir marcador</string>
+    <string name="bookmark_edit_action">Editar marcador</string>
     <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">Eliminar</string>

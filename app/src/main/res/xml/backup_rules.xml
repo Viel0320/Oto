@@ -1,11 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <include domain="sharedpref" path="."/>
+    <!-- Portable Settings Backup Scope (Limit legacy Android auto-backup to user preferences only)
+         Only app_settings.preferences_pb is portable across installs; Room data, credentials, search history, and playback runtime state must remain device-local. -->
+    <include domain="file" path="datastore/app_settings.preferences_pb"/>
+    <!-- Database Restore Boundary (Exclude Room files that contain library, progress, and ABS runtime records)
+         These database artifacts include volatile playback sessions and pending sync rows that must not be restored on another device. -->
+    <exclude domain="database" path="aplayer_database"/>
+    <exclude domain="database" path="aplayer_database-shm"/>
+    <exclude domain="database" path="aplayer_database-wal"/>
+    <exclude domain="database" path="aplayer_database-journal"/>
+    <!-- Exclude Device Preferences (Prevent device identity state from moving through legacy auto-backup)
+         Device-scoped SharedPreferences are not portable settings and must be regenerated per install. -->
     <exclude domain="sharedpref" path="device.xml"/>
     <!-- Exclude WebDAV Credentials (Prevent WebDAV secrets from leaking via cloud backups)
          Explicitly exclude webdav_credentials.xml from backups to reduce secret leakage. -->
     <exclude domain="sharedpref" path="webdav_credentials.xml"/>
     <!-- Exclude ABS Credentials (Prevent Audiobookshelf tokens from leaking via backups)
-         Explicitly exclude abs_credentials.preferences_pb to protect credentials. -->
-    <exclude domain="files" path="datastore/abs_credentials.preferences_pb"/>
+         Credential DataStore files remain outside the portable settings allowlist and are excluded explicitly as a defense-in-depth marker. -->
+    <exclude domain="file" path="datastore/abs_credentials.preferences_pb"/>
+    <!-- Exclude Search History (Keep ephemeral UI query history out of device migration)
+         Search history is local interaction state rather than a user setting, so it should not be restored with preferences. -->
+    <exclude domain="file" path="datastore/search_history.preferences_pb"/>
 </full-backup-content>

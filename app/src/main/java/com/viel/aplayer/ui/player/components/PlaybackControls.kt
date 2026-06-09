@@ -81,6 +81,12 @@ fun PlaybackControls(
     )
     val forwardContentDescription = stringResource(SeekStepPresentation.forwardLabel(playbackSeekStepConfig.forward))
     val sleepTimerContentDescription = stringResource(R.string.settings_sleep_timer_title)
+    // Playback Assistive Action Labels (Name hidden click and long-press commands)
+    // These labels let TalkBack, Switch Access, and keyboard-driven accessibility services discover reset and cancel commands without relying on gesture memory.
+    val playbackSpeedCycleActionLabel = stringResource(R.string.playback_speed_cycle_action)
+    val playbackSpeedResetActionLabel = stringResource(R.string.playback_speed_reset_action)
+    val sleepTimerCycleActionLabel = stringResource(R.string.sleep_timer_cycle_action)
+    val sleepTimerCancelActionLabel = stringResource(R.string.sleep_timer_cancel_action)
 
     // Speed Toast logic (Debounced)
     var lastSpeed by remember { mutableFloatStateOf(playbackSpeed) }
@@ -135,7 +141,9 @@ fun PlaybackControls(
                 .size(56.dp)
                 .clip(CircleShape)
                 .combinedClickable(
+                    onClickLabel = playbackSpeedCycleActionLabel,
                     onClick = actions.onCyclePlaybackSpeed,
+                    onLongClickLabel = playbackSpeedResetActionLabel,
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         actions.onResetPlaybackSpeed()
@@ -252,7 +260,9 @@ fun PlaybackControls(
                 .size(56.dp)
                 .clip(CircleShape)
                 .combinedClickable(
+                    onClickLabel = sleepTimerCycleActionLabel,
                     onClick = actions.onCycleSleepTimer,
+                    onLongClickLabel = sleepTimerCancelActionLabel,
                     onLongClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         actions.onCancelSleepTimer()

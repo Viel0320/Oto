@@ -1,5 +1,6 @@
 package com.viel.aplayer.library.scan
 
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
@@ -45,6 +46,13 @@ object ScanOutcomePolicy {
         isLibraryEmpty: Boolean,
         skippedRoots: List<LibraryRootAvailabilityUpdate> = emptyList()
     ): ScanOutcome {
+        if (session.status != AudiobookSchema.ScanStatus.COMPLETED) {
+            // Completed Session Policy Guard (Rejects sessions that never reached the scanner completion state)
+            // Direct policy callers receive a failed outcome instead of mapping ABANDONED or RUNNING rows into success or partial results.
+            return fromFailure(
+                IllegalStateException("Scan session ended as ${session.status}")
+            )
+        }
         val changedCount = session.discoveredBookCount + session.updatedBookCount + session.partialBookCount
         val baseMessage = when {
             session.discoveredBookCount > 0 -> FeedbackMessages.scanCompletedWithDiscoveredBooks(session.discoveredBookCount)

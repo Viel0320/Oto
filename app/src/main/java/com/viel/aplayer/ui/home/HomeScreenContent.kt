@@ -367,14 +367,17 @@ fun HomeScreenContent(
                                     */
                                     sharedElementKey = SharedElementKeys.homeList2DetailCover(book.id),
                                     onClick = { onNavigateToDetail(book.id, DetailEntrySource.HomeList) },
+                                    // Named Play Action Binding (Keep ListItem call sites stable after accessibility-label parameters)
+                                    // ListItem now ends with optional label strings, so the play command must be passed by name instead of using a trailing lambda.
+                                    onPlayClick = {
+                                        onLoadBook(book.id)
+                                        onNavigateToPlayer()
+                                    },
                                     // Book Actions Request (Forward long-press intent to the parent Home dialog host)
                                     // HomeScreenContent reports the selected audiobook without deciding which dialog should render.
                                     onLongClick = { onBookActionsRequested(book) },
                                     modifier = itemModifier
-                                ) {
-                                    onLoadBook(book.id)
-                                    onNavigateToPlayer()
-                                }
+                                )
                             }
                         }
                         HomeViewStyle.Grid -> {

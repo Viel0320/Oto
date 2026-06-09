@@ -145,6 +145,41 @@ class AbsSourceProviderStage3Test {
     }
 
     @Test
+    fun `readRange should saturate overflowing range end`() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "audio/mpeg")
+                    .setHeader("Content-Range", "bytes ${Long.MAX_VALUE - 1L}-${Long.MAX_VALUE}/*")
+                    .setBody("xy")
+            )
+            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val provider = AbsSourceProvider(
+                context = null,
+                credentialStore = credentialStore,
+                settingsProvider = ::allowCleartextSettings
+            )
+            val root = LibraryRootEntity(
+                id = "root-1",
+                sourceType = AudiobookSchema.LibrarySourceType.ABS,
+                sourceUri = server.url("/audiobookshelf").toString().trimEnd('/'),
+                basePath = "lib-1",
+                credentialId = "cred-1",
+                displayName = "Audiobooks"
+            )
+            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+
+            provider.readRange(node, offset = Long.MAX_VALUE - 1L, length = 8)
+
+            val request = server.takeRequest()
+            // ABS Range Overflow Regression (Locks pathological metadata probes to a saturated HTTP byte interval)
+            // A near-Long.MAX_VALUE offset plus a positive bounded length used to wrap the request end into a negative number, producing malformed Range headers.
+            assertEquals("bytes=${Long.MAX_VALUE - 1L}-${Long.MAX_VALUE}", request.getHeader("Range"))
+        }
+    }
+
+    @Test
     fun `catalog synchronizer should write cached cover paths into book`() = runBlocking {
         val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
         val store = FakeCatalogStore()

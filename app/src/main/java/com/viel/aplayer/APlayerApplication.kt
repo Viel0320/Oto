@@ -9,7 +9,8 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.abs.sync.AbsSyncWorkScheduler
+import com.viel.aplayer.application.startup.APlayerStartupWarmup
 import com.viel.aplayer.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.dependencies.AppFeedbackDependencies
 import com.viel.aplayer.dependencies.AppShellDependencies
@@ -75,24 +76,29 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         // Dispatches the pre-caching of preferences and progress recovery self-healing to a dedicated background thread.
         appScope.launch {
             appContainer.settingsRepository
-            runCatching {
-                // ABS Authorized Progress Warmup (Refresh reusable remote user progress before local playback self-healing)
-                // Running the shared progress synchronizer first preserves timestamp authority before auto-rewind recovery mutates local checkpoints.
-                val roots = appContainer.libraryRootGateway.getAllRootsOnce()
-                    .filter { root -> root.status == AudiobookSchema.LibraryRootStatus.ACTIVE && root.sourceType == AudiobookSchema.LibrarySourceType.ABS }
-                val summary = appContainer.absAuthorizedProgressSynchronizer.sync(roots)
-                AbsSyncLogger.logAuthorizedProgressSyncSuccess(
-                    remoteProgressCount = summary.remoteProgressCount,
-                    appliedCount = summary.appliedCount,
-                    skippedByResolverCount = summary.skippedByResolverCount,
-                    skippedMissingBookCount = summary.skippedMissingBookCount,
-                    failedRootCount = summary.failedRootCount
-                )
-            }.onFailure { error ->
+            // Startup Warmup Coordinator (Gate remote ABS work before local progress recovery)
+            // Cold start now enqueues stale ABS roots through root-scoped WorkManager instead of performing authorize progress refreshes inline on every process creation.
+            createStartupWarmup(appContainer).run()
+        }
+    }
+
+    /**
+     * Startup Warmup Wiring (Build the application-level startup coordinator from the process container)
+     * Keeping construction here leaves the coordinator testable with small function seams while the Application owns Android-specific scheduler creation.
+     */
+    internal fun createStartupWarmup(appContainer: AppContainer): APlayerStartupWarmup {
+        // Lazy ABS Work Scheduler (Avoid initializing WorkManager when every ABS root is still fresh)
+        // The startup coordinator resolves this scheduler only after the freshness gate selects at least one stale remote root.
+        val absSyncWorkScheduler = lazy { AbsSyncWorkScheduler(this) }
+        return APlayerStartupWarmup(
+            getAllRootsOnce = appContainer.libraryRootGateway::getAllRootsOnce,
+            isAuthorizedProgressRefreshDue = appContainer.absCatalogSynchronizer::isAuthorizedProgressRefreshDue,
+            enqueueAbsRootSync = { rootId -> absSyncWorkScheduler.value.enqueue(rootId) },
+            performColdStartSelfHealing = appContainer.autoRewindManager::performColdStartSelfHealing,
+            onAbsProgressWarmupFailure = { error ->
                 AbsSyncLogger.logAuthorizedProgressSyncFailure(error::class.java.simpleName, error.message)
             }
-            appContainer.autoRewindManager.performColdStartSelfHealing()
-        }
+        )
     }
 
     override fun newImageLoader(): ImageLoader {

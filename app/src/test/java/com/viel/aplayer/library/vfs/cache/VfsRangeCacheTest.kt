@@ -54,6 +54,23 @@ class VfsRangeCacheTest {
     }
 
     @Test
+    fun `read should expire blocks outside range ttl`() = runBlocking {
+        var now = 1_000L
+        val cache = VfsRangeCache(
+            cacheDir = createTempDirectory("range-cache-expire").toFile(),
+            currentTimeMillis = { now }
+        )
+        val key = sampleKey()
+
+        cache.write(key, byteArrayOf(4, 5, 6))
+        now += com.viel.aplayer.data.cache.OnlineSourceCachePolicy.ONLINE_METADATA_RANGE_TTL_MS + 1L
+
+        // Range Cache TTL Fallback (Prevents remote byte blocks from being reused indefinitely)
+        // Even provider-versioned blocks must expire eventually so metadata caches recover from stale or misreported upstream version data.
+        assertNull(cache.read(key))
+    }
+
+    @Test
     fun `evict root should delete only matching root files`() = runBlocking {
         val cache = VfsRangeCache(cacheDir = createTempDirectory("range-cache-evict").toFile())
         val rootOne = VfsRangeCacheKey.hashIdentifier("root-1")
@@ -79,6 +96,7 @@ class VfsRangeCacheTest {
         rootIdHash = root,
         sourcePathHash = source,
         version = VfsRangeCacheKey.hashIdentifier("etag-1"),
+        hasProviderVersion = true,
         offset = 0L,
         length = 4
     )

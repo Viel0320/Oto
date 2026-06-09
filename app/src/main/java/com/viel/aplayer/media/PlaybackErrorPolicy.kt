@@ -1,6 +1,7 @@
 package com.viel.aplayer.media
 
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
 import com.viel.aplayer.abs.net.AbsApiError
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -17,6 +18,9 @@ import java.net.UnknownHostException
  * Playback Error Policy (Maps VFS and remote-source failures into Media3 playback error categories)
  * Keeps DataSource I/O mechanics separate from provider availability, cancellation, and seek-range classification rules.
  */
+// Media3 Error API Boundary (Document the narrow unstable API boundary for playback exception mapping)
+// DataSourceException is the Media3-facing error type that preserves playback error codes, so this mapper accepts the unstable contract in one focused place.
+@UnstableApi
 object PlaybackErrorPolicy {
     /**
      * Playback Open Error Classification (Keeps cancellation, network failure, and range overflow on separate Media3 paths)

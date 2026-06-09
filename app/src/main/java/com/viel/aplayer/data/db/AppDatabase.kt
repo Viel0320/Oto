@@ -52,7 +52,8 @@ import java.io.File
     // Version 37 introduces series column to the books table.
     // Upgrade database version to 39 to add high-frequency search index configurations on books table (readStatus, series, author, narrator).
     // Upgrade database version to 40 to remove obsolete local scan pending-action storage after conflicts became deterministic imports.
-    version = 40,
+    // Upgrade database version to 41 to timestamp ABS playback sessions for online cache TTL fallback.
+    version = 41,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -141,6 +142,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Schema Migration 40 to 41 (Adds ABS playback session opening timestamp)
+        // Existing rows receive zero so the TTL policy treats them as stale and recreates remote runtime sessions safely.
+        private val MIGRATION_40_41 = object : androidx.room.migration.Migration(40, 41) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE abs_playback_session ADD COLUMN openedAt INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -148,7 +157,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
-                .addMigrations(MIGRATION_36_37, MIGRATION_39_40)
+                .addMigrations(MIGRATION_36_37, MIGRATION_39_40, MIGRATION_40_41)
                 // Destructive Migration Strategy (Wipe databases and rebuild layout if schema versions mismatch)
                 .fallbackToDestructiveMigration(true)
                 .addCallback(object : Callback() {

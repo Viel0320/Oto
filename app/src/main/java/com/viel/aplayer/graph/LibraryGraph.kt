@@ -38,6 +38,7 @@ import com.viel.aplayer.data.service.LibraryRootService
 import com.viel.aplayer.data.service.MetadataRefreshService
 import com.viel.aplayer.data.service.PlaybackPlanService
 import com.viel.aplayer.data.service.ProgressService
+import com.viel.aplayer.data.service.RemotePlaybackCleanupService
 import com.viel.aplayer.data.service.ScanService
 import com.viel.aplayer.data.service.SearchService
 import com.viel.aplayer.data.service.SubtitleService
@@ -177,6 +178,15 @@ internal class LibraryGraph(
      */
     val bookDeletionGateway: BookDeletionGateway
         get() = bookQueryService
+
+    val remotePlaybackCleanupGateway by lazy {
+        // Remote Playback Cleanup Wiring (Keep ABS playback table pruning behind a narrow persistence seam)
+        // DeleteBookUseCase only needs book-scoped cleanup, so the graph wires the two Room DAOs without exposing ABS syncers.
+        RemotePlaybackCleanupService(
+            absPlaybackSessionDao = data.database.absPlaybackSessionDao(),
+            absPendingProgressSyncDao = data.database.absPendingProgressSyncDao()
+        )
+    }
 
     val playbackPlanGateway: PlaybackPlanGateway by lazy {
         // Playback Plan Service Adapter (Dedicated playback-start materialization implementation)
@@ -400,7 +410,8 @@ internal class LibraryGraph(
         DeleteBookUseCase(
             playbackStopper = media.playbackStopper,
             bookAvailabilityGateway = bookAvailabilityService,
-            bookDeletionGateway = bookDeletionGateway
+            bookDeletionGateway = bookDeletionGateway,
+            remotePlaybackCleanupGateway = remotePlaybackCleanupGateway
         )
     }
 

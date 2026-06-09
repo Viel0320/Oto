@@ -2,6 +2,7 @@ package com.viel.aplayer.library.vfs.cache
 
 import android.os.SystemClock
 import com.viel.aplayer.data.dao.DirectoryChildCacheDao
+import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.library.vfs.VfsNode
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
@@ -15,7 +16,7 @@ class RoomDirectoryListingCache(
     private val directoryChildCacheDao: DirectoryChildCacheDao,
     private val mapper: DirectoryCacheMapper = DirectoryCacheMapper,
     private val currentTimeMillis: () -> Long = { System.currentTimeMillis() },
-    private val maxCacheAgeMillis: Long = DEFAULT_MAX_CACHE_AGE_MILLIS,
+    private val maxCacheAgeMillis: Long = OnlineSourceCachePolicy.ONLINE_DIRECTORY_LISTING_TTL_MS,
     private val elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() }
 ) : DirectoryListingCache {
 
@@ -106,14 +107,9 @@ class RoomDirectoryListingCache(
     private fun VfsNode.minimumFreshCachedAt(): Long {
         // Directory Listing Freshness Window (Turns expired rows into cache misses before VFS replay)
         // The lower bound lives in the WebDAV cache adapter so callers keep the simple hit-or-refresh contract.
-        return currentTimeMillis().minus(maxCacheAgeMillis).coerceAtLeast(0L)
-    }
-
-    private companion object {
-        /**
-         * Default Directory Listing TTL (Balances repeated WebDAV scan speed with remote tree freshness)
-         * One minute avoids reusing stale directory children across later scans while still reducing immediate retry traffic.
-         */
-        private const val DEFAULT_MAX_CACHE_AGE_MILLIS = 60_000L
+        return OnlineSourceCachePolicy.minCachedAt(
+            nowMillis = currentTimeMillis(),
+            ttlMillis = maxCacheAgeMillis
+        )
     }
 }

@@ -55,6 +55,9 @@ object AudiobookSchema {
     object ScanStatus {
         const val RUNNING = "RUNNING"
         const val COMPLETED = "COMPLETED"
+        // Abandoned Scan Status (Represents scan lifecycles that stopped before durable completion)
+        // Failed imports persist this explicit terminal state so command outcome mapping cannot mistake them for completed empty scans.
+        const val ABANDONED = "ABANDONED"
     }
 
     object LibraryRootStatus {

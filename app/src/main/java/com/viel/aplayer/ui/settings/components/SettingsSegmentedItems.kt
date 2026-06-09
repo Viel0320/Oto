@@ -67,6 +67,8 @@ fun SettingsSegmentedSleepModeItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
+            // Sleep Mode Selection Group Semantics (Rely on Material3's built-in selectable group row)
+            // The surrounding settings row stays a passive layout container because only an individual segment can identify the requested sleep mode.
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 modes.forEachIndexed { index, mode ->
                     SegmentedButton(
@@ -136,6 +138,8 @@ fun SettingsSegmentedThemeModeItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
+            // Theme Mode Selection Group Semantics (Rely on Material3's built-in selectable group row)
+            // Keeping the group marker inside the segmented button row lets accessibility services announce radio-style choices without making the full settings row clickable.
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 modes.forEachIndexed { index, mode ->
                     SegmentedButton(
@@ -194,6 +198,8 @@ fun SettingsSegmentedSeekStepItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
+            // Seek Step Selection Group Semantics (Rely on Material3's built-in selectable group row)
+            // The row title and subtitle remain descriptive context while each segment owns the concrete step-change action.
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 steps.forEachIndexed { index, step ->
                     SegmentedButton(

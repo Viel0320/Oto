@@ -62,12 +62,12 @@ object M3u8ManifestParser {
             var currentDurationMs: Long? = null
 
             reader.useLines { lines ->
-                lines.forEach { rawLine ->
+                for (rawLine in lines) {
                     var line = rawLine.trim()
                     if (line.startsWith("\uFEFF")) {
                         line = line.substring(1).trim()
                     }
-                    if (line.isBlank()) return@forEach
+                    if (line.isBlank()) continue
 
                     if (line.startsWith("#EXTINF:", ignoreCase = true)) {
                         // EXTINF Layout Match: #EXTINF:duration,Title
@@ -76,7 +76,9 @@ object M3u8ManifestParser {
                         if (commaIndex != -1) {
                             val durPart = content.substring(0, commaIndex).trim()
                             currentDurationMs = durPart.toDoubleOrNull()?.let { (it * 1000).toLong() }
-                            currentTitle = content.substring(commaIndex + 1).trim()
+                            // Manifest Text Budget (Bound EXTINF titles before they enter item state)
+                            // User-controlled playlist titles are clipped while preserving the current item association.
+                            currentTitle = content.substring(commaIndex + 1).limitManifestText()
                         }
                     } else if (line.startsWith("#")) {
                         // Playlist-level tags are book metadata; item titles still come from EXTINF.
@@ -92,7 +94,16 @@ object M3u8ManifestParser {
                     } else if (!line.startsWith("#")) {
                         if (!line.startsWith("http://", ignoreCase = true) &&
                             !line.startsWith("https://", ignoreCase = true)) {
-                            items.add(M3u8Item(uri = line, title = currentTitle, durationMs = currentDurationMs))
+                            // Manifest Entry Budget (Stop local playlist accumulation at the parser boundary)
+                            // Oversized M3U8 files keep a deterministic partial import instead of retaining every URI.
+                            val accepted = items.addWithinManifestBudget(
+                                M3u8Item(
+                                    uri = line.limitManifestText(),
+                                    title = currentTitle,
+                                    durationMs = currentDurationMs
+                                )
+                            )
+                            if (!accepted) break
                         }
                         currentTitle = null
                         currentDurationMs = null
@@ -125,7 +136,9 @@ object M3u8ManifestParser {
             .minOrNull()
             ?: return null
         val key = content.take(separatorIndex).trim().uppercase()
-        val value = content.drop(separatorIndex + 1).trim().trim('"')
+        // Manifest Metadata Budget (Bound playlist-level text before MetadataSuggestion retains it)
+        // User-controlled metadata tags can be much larger than normal audiobook fields, so values are clipped early.
+        val value = content.drop(separatorIndex + 1).trim().trim('"').limitManifestText()
         if (key.isBlank() || value.isBlank()) return null
         return key to value
     }

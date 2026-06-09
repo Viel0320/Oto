@@ -34,6 +34,7 @@ class VfsRangeCacheKeyTest {
         assertFalse(fileName.contains("root-secret"))
         assertFalse(fileName.contains("Books"))
         assertFalse(fileName.contains("raw-etag-secret"))
+        assertTrue(key.hasProviderVersion)
     }
 
     @Test
@@ -50,12 +51,25 @@ class VfsRangeCacheKeyTest {
     fun `version hash should fall back to modified time and file size without etag`() {
         val first = VfsRangeCacheKey.versionHash(etag = null, lastModified = 100L, fileSize = 200L)
         val second = VfsRangeCacheKey.versionHash(etag = null, lastModified = 101L, fileSize = 200L)
+        val key = VfsRangeCacheKey.from(sampleNode(etag = null), offset = 0L, length = 1)
 
         // Fallback Version Rule (Keeps non-etag sources cacheable through stable metadata)
         // Changing lastModified or fileSize must produce a different hashed version for providers that do not expose etags.
         assertTrue(first != second)
         assertFalse(first.contains("100"))
         assertFalse(first.contains("200"))
+        assertNotNull(key)
+        assertTrue(key!!.hasProviderVersion)
+    }
+
+    @Test
+    fun `range key should mark truly versionless metadata without etag or modified time`() {
+        val key = VfsRangeCacheKey.from(sampleNode(etag = null, lastModified = 0L), offset = 0L, length = 1)
+
+        // Versionless Range Detection (Applies the shorter TTL only when no remote version coordinate exists)
+        // A positive modified time participates in the version hash, so only missing ETag plus zero modified time should be considered versionless.
+        assertNotNull(key)
+        assertFalse(key!!.hasProviderVersion)
     }
 
     private fun sampleNode(

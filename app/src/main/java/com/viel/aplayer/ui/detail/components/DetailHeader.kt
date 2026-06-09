@@ -77,9 +77,19 @@ fun DetailHeader(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Detail People Assistive Action Labels (Name metadata shortcut commands)
+        // Author and narrator chips support both search and detail-info shortcuts, so each gesture receives an explicit accessibility label.
+        val authorSearchActionLabel = stringResource(R.string.detail_author_search_action)
+        val authorInfoActionLabel = stringResource(R.string.detail_author_info_action)
+        val narratorSearchActionLabel = stringResource(R.string.detail_narrator_search_action)
+        val narratorInfoActionLabel = stringResource(R.string.detail_narrator_info_action)
+        // Detail Metadata Fallback Copy (Keep blank metadata announcements localized)
+        // Imported book metadata remains untouched, while app-owned blank fallbacks use resources for TalkBack and locale review.
+        val unknownText = stringResource(R.string.common_unknown)
+
         // Use internal SelectableTextView to display the book title.
         SelectableTextView(
-            text = title.takeIf { it.isNotBlank() } ?: "Unknown",
+            text = title.takeIf { it.isNotBlank() } ?: unknownText,
             modifier = Modifier.fillMaxWidth(),
             textColor = MaterialTheme.colorScheme.onSurface,
             textSizeSp = if (isLandscape) 22f else 28f,
@@ -103,7 +113,9 @@ fun DetailHeader(
                     .weight(1f)
                     .clip(RoundedCornerShape(cornerRadius))
                     .combinedClickable(
+                        onClickLabel = authorSearchActionLabel,
                         onClick = onAuthorClick,
+                        onLongClickLabel = authorInfoActionLabel,
                         onLongClick = onAuthorLongClick
                     )
                     .padding(vertical = itemPadding),
@@ -115,7 +127,7 @@ fun DetailHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = author.takeIf { it.isNotBlank() } ?: "Unknown",
+                    text = author.takeIf { it.isNotBlank() } ?: unknownText,
                     style = if (isLandscape) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold) 
                            else MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
@@ -137,7 +149,9 @@ fun DetailHeader(
                     .weight(1f)
                     .clip(RoundedCornerShape(cornerRadius))
                     .combinedClickable(
+                        onClickLabel = narratorSearchActionLabel,
                         onClick = onNarratorClick,
+                        onLongClickLabel = narratorInfoActionLabel,
                         onLongClick = onNarratorLongClick
                     )
                     .padding(vertical = itemPadding),
@@ -149,7 +163,7 @@ fun DetailHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = narrator.takeIf { it.isNotBlank() } ?: "Unknown",
+                    text = narrator.takeIf { it.isNotBlank() } ?: unknownText,
                     style = if (isLandscape) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
                            else MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,

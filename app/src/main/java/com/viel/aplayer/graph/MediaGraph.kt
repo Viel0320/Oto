@@ -12,6 +12,7 @@ import com.viel.aplayer.media.AutoRewindManager
 import com.viel.aplayer.media.PlaybackFileLookup
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.media.PlaybackSourcePreflight
+import java.io.Closeable
 
 /**
  * Media Graph (Owns VFS, playback runtime, and playback-file infrastructure)
@@ -21,7 +22,7 @@ import com.viel.aplayer.media.PlaybackSourcePreflight
 internal class MediaGraph(
     val context: Context,
     val data: DataGraph
-) {
+) : Closeable {
     val vfsRangeCache by lazy {
         // Range Cache Initialization: Prepares a dedicated cache registry for metadata extraction blocks.
         VfsRangeCache(context.applicationContext)
@@ -34,11 +35,13 @@ internal class MediaGraph(
         )
     }
 
-    val playbackManager: PlaybackManager by lazy {
+    private val playbackManagerLazy = lazy {
         // Playback Manager Initialization (Own media-runtime singleton in the media graph)
         // This keeps foreground playback lifecycle ownership out of DataGraph's persistence-focused responsibilities.
         PlaybackManager.getInstance(context)
     }
+
+    val playbackManager: PlaybackManager by playbackManagerLazy
 
     val autoRewindManager: AutoRewindManager by lazy {
         // Auto Rewind Manager Initialization (Own recovery playback collaborator in the media graph)
@@ -87,5 +90,13 @@ internal class MediaGraph(
     val playbackSourcePreflight: PlaybackSourcePreflight by lazy {
         // Playback Preflight Guard: Evaluates book root availability before constructing media sources.
         PlaybackSourcePreflight(data.database.libraryRootDao())
+    }
+
+    override fun close() {
+        // Playback Runtime Teardown (Release initialized playback resources during container close)
+        // The lazy guard prevents diagnostics or tests from constructing PlaybackManager solely to shut it down.
+        releaseInitializedMediaGraphResource(playbackManagerLazy) { playbackRuntime ->
+            playbackRuntime.release()
+        }
     }
 }

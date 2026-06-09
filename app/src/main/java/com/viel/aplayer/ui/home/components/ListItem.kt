@@ -42,6 +42,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -86,7 +89,12 @@ fun ListItem(
     sharedElementKey: String? = null,
     // New onLongClick parameter to receive long-press events callback
     onLongClick: () -> Unit = {},
-    onPlayClick: () -> Unit = {}
+    onPlayClick: () -> Unit = {},
+    // Book Row Assistive Action Labels (Allow callers to specialize row command names)
+    // Defaults keep existing call sites accessible while specialized scenes can override the action text if a command means something narrower.
+    openActionLabel: String? = null,
+    playActionLabel: String? = null,
+    moreActionsLabel: String? = null
 ) {
     // Localized List Row Copy (Resolve badge, metadata fallback, metadata separator, and play-button accessibility text)
     // Book titles and people names are library data, while NEW, row separators, and Play are app-authored UI labels.
@@ -94,13 +102,37 @@ fun ListItem(
     val unknownText = stringResource(R.string.common_unknown)
     val metadataSeparator = stringResource(R.string.common_metadata_separator)
     val playContentDescription = stringResource(R.string.playback_play_content_description)
+    val resolvedOpenActionLabel = openActionLabel ?: stringResource(R.string.book_open_action)
+    val resolvedPlayActionLabel = playActionLabel ?: stringResource(R.string.book_play_action)
+    val resolvedMoreActionsLabel = moreActionsLabel ?: stringResource(R.string.book_more_actions_action)
 
     ListItem(
         // Replace original clickable with combinedClickable to listen to onClick and onLongClick gestures
-        modifier = modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick
-        ),
+        modifier = modifier
+            .combinedClickable(
+                onClickLabel = resolvedOpenActionLabel,
+                onClick = onClick,
+                onLongClickLabel = resolvedMoreActionsLabel,
+                onLongClick = onLongClick
+            )
+            .semantics {
+                // Book Row Custom Actions (Aggregate hidden and nested commands on the row)
+                // Assistive technologies can open, play, or reveal the book action menu from the row without hunting for a nested icon or hidden long-press gesture.
+                customActions = listOf(
+                    CustomAccessibilityAction(resolvedOpenActionLabel) {
+                        onClick()
+                        true
+                    },
+                    CustomAccessibilityAction(resolvedPlayActionLabel) {
+                        onPlayClick()
+                        true
+                    },
+                    CustomAccessibilityAction(resolvedMoreActionsLabel) {
+                        onLongClick()
+                        true
+                    }
+                )
+            },
         headlineContent = {
             Column(verticalArrangement = Arrangement.Center) {
                 Text(

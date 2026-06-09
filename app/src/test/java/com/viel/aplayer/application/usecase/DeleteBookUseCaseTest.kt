@@ -11,6 +11,7 @@ import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookDeletionGateway
 import com.viel.aplayer.data.gateway.BookMetadataGateway
+import com.viel.aplayer.data.gateway.RemotePlaybackCleanupGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
 import com.viel.aplayer.data.gateway.ChapterGateway
 import kotlinx.coroutines.flow.Flow
@@ -36,7 +37,12 @@ class DeleteBookUseCaseTest {
 
         assertTrue(fileExists)
         assertEquals(
-            listOf("stopPlayback", "checkPrimaryAudioFile:$BOOK_ID", "deleteBook:$BOOK_ID"),
+            listOf(
+                "stopPlayback",
+                "checkPrimaryAudioFile:$BOOK_ID",
+                "deleteBook:$BOOK_ID",
+                "deletePlaybackStateForBook:$BOOK_ID"
+            ),
             events
         )
     }
@@ -50,7 +56,11 @@ class DeleteBookUseCaseTest {
 
         assertFalse(fileExists)
         assertEquals(
-            listOf("checkPrimaryAudioFile:$BOOK_ID", "deleteBook:$BOOK_ID"),
+            listOf(
+                "checkPrimaryAudioFile:$BOOK_ID",
+                "deleteBook:$BOOK_ID",
+                "deletePlaybackStateForBook:$BOOK_ID"
+            ),
             events
         )
     }
@@ -67,7 +77,10 @@ class DeleteBookUseCaseTest {
             bookAvailabilityGateway = RecordingBookAvailabilityGateway(fileExists, events),
             // Deletion Gateway Fixture (Pass the fake through the narrowed destructive command slot)
             // The use case no longer receives catalog, chapter, bookmark, or metadata methods just to soft-delete a book.
-            bookDeletionGateway = RecordingBookQueryGateway(events)
+            bookDeletionGateway = RecordingBookQueryGateway(events),
+            // Remote Playback Cleanup Fixture (Expose only book-scoped remote playback state pruning)
+            // Recording this call protects the delete-after-soft-delete ordering for stale ABS session and pending progress rows.
+            remotePlaybackCleanupGateway = RecordingRemotePlaybackCleanupGateway(events)
         )
     }
 
@@ -130,6 +143,14 @@ class DeleteBookUseCaseTest {
         override suspend fun addBookmark(bookId: String, position: Long, title: String): Unit = unexpected("addBookmark")
         override suspend fun updateBookmark(bookmark: BookmarkEntity): Unit = unexpected("updateBookmark")
         override suspend fun deleteBookmark(bookmark: BookmarkEntity): Unit = unexpected("deleteBookmark")
+    }
+
+    private class RecordingRemotePlaybackCleanupGateway(
+        private val events: MutableList<String>
+    ) : RemotePlaybackCleanupGateway {
+        override suspend fun deletePlaybackStateForBook(bookId: String) {
+            events += "deletePlaybackStateForBook:$bookId"
+        }
     }
 
     private companion object {

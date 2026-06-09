@@ -530,6 +530,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         // Graph Teardown Delegation (Close graphs in the application lifecycle order)
         // The composition root owns cross-graph order while each graph owns its own initialized resources.
         closeAppGraphsInLifecycleOrder(
+            media = media,
             library = library,
             abs = abs,
             uiEvents = uiEvents

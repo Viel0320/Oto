@@ -15,5 +15,10 @@ data class AbsPlaybackSessionEntity(
     val sessionId: String,
     val currentTimeSec: Double,
     val timeListenedSec: Double,
+    /**
+     * Session Open Timestamp (Bounds persisted ABS runtime sessions with the online cache policy)
+     * The syncer uses this local wall-clock value to decide whether a restored session row can still suppress a fresh server open.
+     */
+    val openedAt: Long,
     val state: String
 )

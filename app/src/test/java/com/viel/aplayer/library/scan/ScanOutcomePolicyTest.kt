@@ -79,6 +79,22 @@ class ScanOutcomePolicyTest {
     }
 
     @Test
+    fun `non completed session should map to failure outcome`() {
+        val session = scanSession(status = AudiobookSchema.ScanStatus.ABANDONED)
+
+        val outcome = ScanOutcomePolicy.fromCompletedSession(
+            session = session,
+            isLibraryEmpty = false
+        )
+
+        // Completed Session Policy Guard (Rejects sessions that never reached the scanner completion state)
+        // This keeps direct policy callers from mapping ABANDONED or RUNNING rows into success or partial command results.
+        assertEquals(ScanOutcomeKind.FAILED, outcome.kind)
+        assertNull(outcome.session)
+        assertTrue(outcome.cause is IllegalStateException)
+    }
+
+    @Test
     fun `blocked scan without reachable roots maps to blocked outcome without session`() {
         val outcome = ScanOutcomePolicy.blocked(emptyList())
 
@@ -110,12 +126,13 @@ class ScanOutcomePolicyTest {
         discovered: Int = 0,
         unavailable: Int = 0,
         partial: Int = 0,
-        updated: Int = 0
+        updated: Int = 0,
+        status: String = AudiobookSchema.ScanStatus.COMPLETED
     ): ScanSessionEntity =
         ScanSessionEntity(
             id = "scan-1",
             trigger = AudiobookSchema.ScanTrigger.USER,
-            status = AudiobookSchema.ScanStatus.COMPLETED,
+            status = status,
             discoveredBookCount = discovered,
             unavailableBookCount = unavailable,
             partialBookCount = partial,

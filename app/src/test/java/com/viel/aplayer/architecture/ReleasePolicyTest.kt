@@ -5,6 +5,8 @@ import com.viel.aplayer.network.UnsafeNetworkPolicy
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
 
 class ReleasePolicyTest {
     @Test
@@ -42,22 +44,22 @@ class ReleasePolicyTest {
         val manifest = repoFile("app/src/main/AndroidManifest.xml").readText()
         val backupRules = repoFile("app/src/main/res/xml/backup_rules.xml").readText()
         val extractionRules = repoFile("app/src/main/res/xml/data_extraction_rules.xml").readText()
+        val legacyBackupRules = parseBackupRules(backupRules)
+        val android12ExtractionRules = parseBackupRules(extractionRules)
 
         // Backup Exclusion Policy (Protects device-local preferences from cloud and transfer restore)
         // The manifest must point at both rule files, and both rule files must exclude sharedpref/device.xml.
-        // Update Test for Backup Rules (Ensure credentials are excluded from backups to protect secrets)
-        // Add assertions verifying that webdav_credentials.xml and abs_credentials.preferences_pb are excluded from backup_rules and data_extraction_rules.
+        // Portable Settings Boundary (Allow only app settings to participate in backup and transfer)
+        // Room databases, credentials, search history, and runtime playback state are device-local persistence domains and must be excluded.
         assertTrue(manifest.contains("""android:allowBackup="true""""))
         assertTrue(manifest.contains("""android:dataExtractionRules="@xml/data_extraction_rules""""))
         assertTrue(manifest.contains("""android:fullBackupContent="@xml/backup_rules""""))
-        assertTrue(backupRules.contains("""<exclude domain="sharedpref" path="device.xml"/>"""))
-        assertTrue(backupRules.contains("""<exclude domain="sharedpref" path="webdav_credentials.xml"/>"""))
-        assertTrue(backupRules.contains("""<exclude domain="files" path="datastore/abs_credentials.preferences_pb"/>"""))
-        assertTrue(extractionRules.contains("""<cloud-backup>"""))
-        assertTrue(extractionRules.contains("""<device-transfer>"""))
-        assertTrue(extractionRules.contains("""<exclude domain="sharedpref" path="device.xml"/>"""))
-        assertTrue(extractionRules.contains("""<exclude domain="sharedpref" path="webdav_credentials.xml"/>"""))
-        assertTrue(extractionRules.contains("""<exclude domain="files" path="datastore/abs_credentials.preferences_pb"/>"""))
+        assertOnlyPortableSettingsAreIncluded(legacyBackupRules, "full-backup-content")
+        assertBackupStateIsExcluded(legacyBackupRules, "full-backup-content")
+        listOf("cloud-backup", "device-transfer").forEach { section ->
+            assertOnlyPortableSettingsAreIncluded(android12ExtractionRules, section)
+            assertBackupStateIsExcluded(android12ExtractionRules, section)
+        }
     }
 
     @Test
@@ -147,5 +149,110 @@ class ReleasePolicyTest {
         val candidates = listOf(File(path), File("../$path"))
         return candidates.firstOrNull { file -> file.exists() }
             ?: error("Could not locate $path from ${File(".").absolutePath}")
+    }
+
+    // Backup XML Parsing Model (Represent one include or exclude node with its containing rule section)
+    // Parsing the XML avoids brittle string snapshots and lets policy tests reason about backup domains and paths directly.
+    private data class BackupRule(
+        val section: String,
+        val elementName: String,
+        val domain: String,
+        val path: String
+    )
+
+    // Backup XML Parser (Extract include and exclude rules from legacy and Android 12+ backup resources)
+    // Legacy full-backup-content stores rules at the root, while data-extraction-rules nests them under cloud-backup and device-transfer.
+    private fun parseBackupRules(xml: String): List<BackupRule> {
+        val document = DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder()
+            .parse(xml.byteInputStream())
+        val root = document.documentElement
+        return if (root.tagName == "full-backup-content") {
+            collectBackupRules(root, root.tagName)
+        } else {
+            root.childElements()
+                .filter { element -> element.tagName == "cloud-backup" || element.tagName == "device-transfer" }
+                .flatMap { element -> collectBackupRules(element, element.tagName) }
+        }
+    }
+
+    // Backup Section Collector (Read direct include and exclude children for a single backup section)
+    // Restricting collection to direct children keeps nested sections from accidentally borrowing rules from another transfer mode.
+    private fun collectBackupRules(parent: Element, section: String): List<BackupRule> {
+        return parent.childElements()
+            .filter { element -> element.tagName == "include" || element.tagName == "exclude" }
+            .map { element ->
+                BackupRule(
+                    section = section,
+                    elementName = element.tagName,
+                    domain = element.getAttribute("domain"),
+                    path = element.getAttribute("path")
+                )
+            }
+    }
+
+    // Portable Settings Include Guard (Allow only the app_settings DataStore file to be restored)
+    // Any additional include would broaden backup scope beyond user settings and could reintroduce Room or runtime state migration.
+    private fun assertOnlyPortableSettingsAreIncluded(rules: List<BackupRule>, section: String) {
+        val includes = rules.filter { rule -> rule.section == section && rule.elementName == "include" }
+        assertTrue(
+            "$section must include only portable app settings.",
+            includes == listOf(BackupRule(section, "include", "file", PORTABLE_SETTINGS_PATH))
+        )
+    }
+
+    // Volatile Backup Exclusion Guard (Require every non-portable persistence file to be excluded per section)
+    // This documents the intended restore boundary for Room runtime rows, credentials, device-local preferences, and local UI traces.
+    private fun assertBackupStateIsExcluded(rules: List<BackupRule>, section: String) {
+        assertHasExclude(rules, section, "sharedpref", "device.xml")
+        assertHasExclude(rules, section, "sharedpref", "webdav_credentials.xml")
+        assertHasExclude(rules, section, "file", "datastore/abs_credentials.preferences_pb")
+        assertHasExclude(rules, section, "file", "datastore/search_history.preferences_pb")
+        ROOM_DATABASE_PATHS.forEach { path ->
+            assertHasExclude(rules, section, "database", path)
+        }
+    }
+
+    // Backup Exclusion Assertion (Check one domain/path pair inside the expected backup mode)
+    // The message points directly at the missing XML contract so future policy regressions are quick to repair.
+    private fun assertHasExclude(rules: List<BackupRule>, section: String, domain: String, path: String) {
+        assertTrue(
+            "$section must exclude $domain/$path.",
+            rules.any { rule ->
+                rule.section == section &&
+                    rule.elementName == "exclude" &&
+                    rule.domain == domain &&
+                    rule.path == path
+            }
+        )
+    }
+
+    // DOM Element Iterator (Expose direct XML child elements without pulling in Android resource parsers)
+    // JVM tests can inspect platform XML resources quickly while avoiding Android framework dependencies.
+    private fun Element.childElements(): List<Element> {
+        return buildList {
+            val children = childNodes
+            for (index in 0 until children.length) {
+                val child = children.item(index)
+                if (child is Element) {
+                    add(child)
+                }
+            }
+        }
+    }
+
+    private companion object {
+        // Portable Settings Path (Centralize the single DataStore file allowed to cross installs)
+        // This constant mirrors AppSettingsRepository's preferencesDataStore name and keeps backup policy tests focused on settings.
+        private const val PORTABLE_SETTINGS_PATH = "datastore/app_settings.preferences_pb"
+
+        // Room Database Restore Boundary (List every SQLite sidecar that must stay out of backup and transfer)
+        // WAL, shared-memory, and rollback journal files are excluded with the main database so no partial Room runtime state can revive.
+        private val ROOM_DATABASE_PATHS = listOf(
+            "aplayer_database",
+            "aplayer_database-shm",
+            "aplayer_database-wal",
+            "aplayer_database-journal"
+        )
     }
 }
