@@ -96,23 +96,21 @@
 
 ### P0-4 Room 生产路径允许静默清库
 
-证据：
+当前状态（2026-06-09）：
 
-- `AppDatabase.kt:55` schema version 已到 40。
-- `AppDatabase.kt:80`、`AppDatabase.kt:88` 只声明 `36->37`、`39->40`。
-- `AppDatabase.kt:151-153` 注册有限迁移后仍启用 `.fallbackToDestructiveMigration(true)`。
-- `app/schemas/...` 已存在多个历史版本 schema。
+<!-- Room Baseline Remediation Status (Record the version-41 policy change)
+     The production database no longer uses destructive migration, and pre-41 schema fixtures were removed so follow-up work does not recreate unsupported historical migration paths. -->
+- 已修复。`AppDatabase` 移除了 `36->37`、`39->40`、`40->41` 等 41 之前迁移，以及 `.fallbackToDestructiveMigration(true)`。
+- `app/schemas/com.viel.aplayer.data.db.AppDatabase/` 只保留 `41.json` 作为发布后迁移基线。
+- `ReleasePolicyTest.roomSchemaPolicyStartsAtVersion41AndRejectsDestructiveFallback` 已断言只保留 `41.json`，并禁止 `fallbackToDestructiveMigration*` API。
 
-影响：
+后续规则：
 
-- 用户从 27-35、37、38 等版本升级到 40 时可能整库重建。
-- 书库根、书籍、进度、书签、ABS mirror、待同步进度都属于长期用户资产，不能默认丢弃。
-
-建议：
-
-- 拆出 `MigrationRegistry`，补齐至少 `37->38`、`38->39`，并明确生产版本迁移链。
-- release 禁止 destructive fallback；debug 可单独放宽。
-- 引入 `MigrationTestHelper` 覆盖 `27->40`、`36->40`、`37->40`、`38->40`、`39->40`。
+<!-- Future Room Migration Rule (Replace the earlier historical-chain recommendation)
+     New schema versions must migrate forward from the retained baseline instead of restoring 27-to-40 compatibility work that this release intentionally dropped. -->
+- 41 之后的 schema 变更必须新增显式 forward migration，并导出新的 schema 文件。
+- 不再补齐 `27->40`、`36->40`、`37->40`、`38->40`、`39->40` 历史迁移链。
+- 不允许通过 debug/release 分支重新启用 destructive fallback。
 
 ## P1 高风险项
 
@@ -376,7 +374,7 @@
 
 影响：
 
-- 能挡一部分回归，但挡不住硬编码签名、Manifest TODO、destructive migration、凭据备份。
+- 能挡一部分回归；Room destructive migration 已由 `ReleasePolicyTest` 纳入守护，硬编码签名等其他发布风险仍需继续补测试。
 - 注释或格式重排可能误报，新增包路径也可能漏掉。
 
 建议：
@@ -390,7 +388,7 @@
 - `ReleasePolicyTest` 新增 R8 规则断言，禁止重新引入 `-dontwarn androidx.media3.**` 与 `-dontwarn coil.**`。
 - `UserVisibleStringResourceTest` 已纳入 `PlayerViewModel` 与 `PlaybackControls`，防止播放器 toast 文案回退为硬编码字符串。
 - `WorkSchedulingPolicyTest` 与 `VisualEffectPolicyTest` 将 WorkManager 策略和低端/省电降级策略从字符串快照提升为行为断言。
-- 未完成项：P0 中 release signing、destructive migration、敏感凭据备份仍需后续完成后再加入“必须通过”的发布策略断言。
+- 未完成项：P0 中 release signing、敏感凭据备份仍需后续完成后再加入“必须通过”的发布策略断言；destructive migration 已由 Room 41 基线策略覆盖。
 
 ### P2-4 R8 规则过宽
 
@@ -494,12 +492,14 @@
 
 目标：保护用户长期资产。
 
-- 建立 `MigrationRegistry`。
-- 补齐历史 schema 到 40 的迁移链。
-- release 禁止 destructive fallback。
-- 引入 Room migration fixture 测试。
+<!-- Room Phase 1 Revision (Align the roadmap with the retained version-41 baseline)
+     The remediation path is now forward-only migration from 41, so the rollback-friendly phase should test the guardrail and future migrations rather than resurrecting removed historical schemas. -->
+- 以 `41.json` 作为 Room 发布迁移基线。
+- 禁止 destructive fallback。
+- 后续版本新增 `MigrationRegistry` 或等价迁移注册点时，从 41 之后开始显式串接。
+- 引入 Room migration fixture 测试覆盖 41 之后的每次 schema 变更。
 
-回归重点：从多个历史版本升级后，书库根、书籍、章节、书签、进度、ABS mirror 不丢失。
+回归重点：从 41 之后的受支持版本升级时，书库根、书籍、章节、书签、进度、ABS mirror 不丢失。
 
 ### Phase 2：远程播放正确性
 
@@ -536,4 +536,4 @@
 
 ## 首要建议
 
-先做 Phase 0。理由很直接：签名材料、明文策略、凭据备份、Manifest TODO、destructive migration 都是发布前必须止血的问题，且改动面相对小、可回归、收益最高。等这些生产边界稳住后，再推进 ABS 播放时序和架构边界收口。
+先做 Phase 0。理由很直接：签名材料、明文策略、凭据备份、Manifest TODO 都是发布前必须止血的问题；Room destructive migration 已按 41 基线策略收口。等这些生产边界稳住后，再推进 ABS 播放时序和架构边界收口。

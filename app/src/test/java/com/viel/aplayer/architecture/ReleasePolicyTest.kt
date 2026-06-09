@@ -20,6 +20,7 @@ class ReleasePolicyTest {
             "Debug And Release Differences",
             "Logs",
             "Backup And Transfer",
+            "Room Schema Baseline",
             "Unsafe Network",
             "Dependency Upgrade Rule"
         ).forEach { heading ->
@@ -59,6 +60,34 @@ class ReleasePolicyTest {
         listOf("cloud-backup", "device-transfer").forEach { section ->
             assertOnlyPortableSettingsAreIncluded(android12ExtractionRules, section)
             assertBackupStateIsExcluded(android12ExtractionRules, section)
+        }
+    }
+
+    @Test
+    fun roomSchemaPolicyStartsAtVersion41AndRejectsDestructiveFallback() {
+        val database = repoFile("app/src/main/java/com/viel/aplayer/data/db/AppDatabase.kt").readText()
+        val policy = repoFile("docs/release-policy.md").readText()
+        val schemaDir = repoFile("app/schemas/com.viel.aplayer.data.db.AppDatabase")
+        val schemaFiles = schemaDir.listFiles()
+            ?.filter { file -> file.extension == "json" }
+            ?.map { file -> file.name }
+            ?.sorted()
+            ?: emptyList()
+
+        // Room Baseline Release Guard (Locks version 41 as the first supported production schema)
+        // Older schema fixtures were removed with the destructive rebuild policy, so future database changes must add explicit forward migrations instead of resurrecting pre-41 compatibility paths.
+        assertTrue(policy.contains("Room schema version `41` is the first supported production migration baseline."))
+        assertTrue(database.contains("version = 41"))
+        assertTrue("Only schema 41 should remain as the migration baseline.", schemaFiles == listOf("41.json"))
+
+        // Destructive Migration Ban (Prevent silent loss of progress, bookmarks, roots, and ABS mirror state)
+        // Room must fail fast on unsupported schema gaps until a deliberate migration is added.
+        listOf(
+            "fallbackToDestructiveMigration",
+            "fallbackToDestructiveMigrationFrom",
+            "fallbackToDestructiveMigrationOnDowngrade"
+        ).forEach { forbiddenApi ->
+            assertTrue("AppDatabase must not call $forbiddenApi.", !database.contains(forbiddenApi))
         }
     }
 

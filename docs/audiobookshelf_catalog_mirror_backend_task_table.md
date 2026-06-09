@@ -40,7 +40,7 @@
 | `LibrarySourceProviderFactory` | 只持有 `SafSourceProvider`、`WebDavSourceProvider` | 阶段 1 必须注册 `AbsSourceProvider` 占位或真实实现 |
 | `AvailabilityChecker` | 按 `LibrarySourceKind` 分支；WebDAV 失败通过 provider 异常映射为统一状态 | ABS 可用性错误也必须映射为 `AvailabilityStatus` |
 | `LibraryRootService` | 删除 root 时按 source kind 分支释放 SAF 授权或删除 WebDAV 凭据 | ABS root 删除必须删除 ABS 凭据，不释放 SAF 授权 |
-| `AppDatabase.kt` | 当前版本 `33`，使用 destructive migration；实体列表不含 ABS 表 | 新增 ABS 表必须提高版本并导出 schema |
+| `AppDatabase.kt` | 当前版本 `41`，已包含 ABS 表，并以 `41.json` 作为第一条生产迁移基线；destructive migration 已禁用 | 后续新增 Room 表或字段必须从 41 之后提高版本、添加显式 migration，并导出 schema |
 | `build.gradle.kts` | 已有 OkHttp；没有结构化 JSON 库；已有 WorkManager、DataStore、Room | 阶段 1 先选择并接入 JSON 库，API client 不写字符串解析 |
 | `BookEntity.kt` | 有 `sourceType`、`sourceRoot`、`coverPath`、`thumbnailPath`、`status`、`readStatus` | ABS item 映射为普通 `BookEntity`，不要新增 UI 专用 DTO |
 | `BookFileEntity.kt` | 播放顺序字段是 `index`；没有 `sortOrder` | Mapper 写入 `index`，禁止新增 `sortOrder` |
@@ -215,7 +215,7 @@ flowchart TB
 
 | 任务 | 修改模块 | 具体改动 | 回归验证 |
 |---|---|---|---|
-| 2.1 新增 ABS 同步表 | 新增 `AbsSyncStateEntity.kt`、`AbsItemMirrorEntity.kt`、对应 DAO；修改 `AppDatabase.kt` | 增加 `abs_sync_state`、`abs_item_mirror`；数据库版本从 `33` 提升到 `34`；导出 schema `34.json` | Room schema 导出成功 |
+| 2.1 新增 ABS 同步表 | 新增 `AbsSyncStateEntity.kt`、`AbsItemMirrorEntity.kt`、对应 DAO；修改 `AppDatabase.kt` | 已并入当前 `41` 基线；若未来调整该表结构，必须从当前版本提升并添加显式 migration | Room schema 导出成功 |
 | 2.2 同步事务 DAO | 新增 `AbsCatalogDao.kt` 或扩展现有 DAO | 提供 `upsertCatalogMirror(...)` 事务：upsert book、files、chapters、progress、mirror state、sync state | DAO 事务测试验证异常时不留下半本书 |
 | 2.3 远程 ID 映射 | 新增 `abs/mapping/AbsRemoteIdMapper.kt` | 生成 `serverKey`、`rootId`、`bookId`、`bookFileId`、`sessionLocalId`；所有 ABS ID 只从该类生成 | 单元测试验证同输入稳定、不同 user/server/library 不冲突 |
 | 2.4 catalog mapper | 新增 `abs/mapping/AbsCatalogMapper.kt` | 映射 `BookEntity`、`BookFileEntity`、`ChapterEntity`；`BookFileEntity.index` 使用 track 顺序；`sourcePath` 写 `media.tracks[].contentUrl`；`audioFiles[]` 只补 size/mtime 等可用字段 | 样本映射测试验证 Pi book：1 track、56 chapters、sourcePath 为 `/api/items/.../file/...` |
@@ -265,7 +265,7 @@ flowchart TB
 
 | 任务 | 修改模块 | 具体改动 | 回归验证 |
 |---|---|---|---|
-| 4.1 播放会话状态表 | 新增 `AbsPlaybackSessionEntity.kt`、`AbsPendingProgressSyncEntity.kt`、DAO；修改 `AppDatabase.kt` | 数据库版本从 `34` 提升到 `35`；记录 `bookId`、`remoteItemId`、`sessionId`、`currentTimeSec`、`timeListenedSec`、`state` | Room schema `35.json` 导出 |
+| 4.1 播放会话状态表 | 新增 `AbsPlaybackSessionEntity.kt`、`AbsPendingProgressSyncEntity.kt`、DAO；修改 `AppDatabase.kt` | 已并入当前 `41` 基线；后续新增字段从 41 之后显式迁移，并导出新的 Room schema | Room schema 导出 |
 | 4.2 session syncer | 新增 `abs/playback/AbsPlaybackSessionSyncer.kt` | 封装 `openSession()`、`sync()`、`close()`；sync/close 只看 HTTP 2xx；正文 `OK`、空体、JSON 都视为成功 | MockWebServer 验证 `OK` 不被 JSON 解析失败 |
 | 4.3 播放开始挂接 | `PlaybackManager.kt` 或播放计划应用点 | 当当前 `BookEntity.sourceType == ABS_REMOTE` 时打开 ABS session；普通 SAF/WebDAV 书不触发 | 单元测试或 fake gateway 验证只有 ABS book 调用 open |
 | 4.4 复用本地进度节奏 | `ProgressSyncTracker.kt` | 在每 10 秒本地保存成功后，向 `AbsPlaybackSessionSyncer` 提交 ABS book 的远端 sync 事件；不把 REST 逻辑放进 `ProgressService` | 测试验证本地 `BookProgressEntity` 仍先落库 |

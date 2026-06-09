@@ -39,6 +39,17 @@ credentials, search history, device markers, and playback/runtime sync state sta
 - Both rule files exclude `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, `files/datastore/abs_credentials.preferences_pb`, and `files/datastore/search_history.preferences_pb`.
 - Both rule files exclude `database/aplayer_database`, `database/aplayer_database-shm`, `database/aplayer_database-wal`, and `database/aplayer_database-journal`.
 
+## Room Schema Baseline
+
+Room schema version `41` is the first supported production migration baseline.
+
+<!-- Room Schema Baseline Policy (Document the point where destructive rebuilds stop being allowed)
+     Version 41 is kept as the only historical schema fixture, and later schema changes must add explicit migrations plus exported schema files without reviving pre-41 upgrade paths. -->
+- `app/schemas/com.viel.aplayer.data.db.AppDatabase/41.json` is the retained baseline fixture.
+- Schema files before `41.json` are intentionally removed from source control.
+- `AppDatabase` must not call `fallbackToDestructiveMigration`, `fallbackToDestructiveMigrationFrom`, or `fallbackToDestructiveMigrationOnDowngrade`.
+- Future schema versions must add explicit forward migrations from the previous retained version and keep `exportSchema = true`.
+
 ## Unsafe Network
 
 The platform network security config permits cleartext traffic at the socket layer so WebDAV and LAN libraries

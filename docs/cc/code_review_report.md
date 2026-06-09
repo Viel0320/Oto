@@ -50,7 +50,7 @@ APlayer 是一个架构相当完整、工程化程度高的有声书播放器：
 ### 1.2 Top 风险（按优先级）
 
 1. **C-01** — 发布签名 keystore 与口令入库（`app/release.jks` + `build.gradle.kts:38-45`）。
-2. **C-02** — `fallbackToDestructiveMigration(true)` 静默清库（`AppDatabase.kt:60`）。
+2. ~~**C-02** — `fallbackToDestructiveMigration(true)` 静默清库（`AppDatabase.kt:60`）。~~ 已按 Room 41 基线策略修复。
 3. **H-06** — 数据层零写事务，多写非原子导致数据丢失/撕裂。
 4. **H-03 / H-04** — 导出组件暴露面（widget 接收器 + `permission="TODO"`）。
 5. **H-01 / H-02** — WebDAV 凭据可逆存储+入备份；明文 HTTP 传输凭据。
@@ -130,7 +130,11 @@ APlayer 是一个架构相当完整、工程化程度高的有声书播放器：
      ```
   3. 将 `*.jks`、`*.keystore` 加入 `.gitignore`。
 
-### C-02 — 数据库唯一初始化路径启用 `fallbackToDestructiveMigration(true)`
+### C-02 — 数据库唯一初始化路径启用 `fallbackToDestructiveMigration(true)`（已按 41 基线策略修复）
+
+<!-- Room Destructive Migration Remediation (Preserve the original review evidence while recording the new release baseline)
+     The fix removes destructive rebuilds and pre-41 schema fixtures; future Room work should migrate forward from version 41 instead of following the old 27-to-current recommendation. -->
+当前状态（2026-06-09）：`AppDatabase` 已移除 `fallbackToDestructiveMigration(true)`、`onDestructiveMigration` 回调和 41 之前迁移常量；`app/schemas/com.viel.aplayer.data.db.AppDatabase/` 只保留 `41.json`；`ReleasePolicyTest` 已加入 Room 41 基线与 destructive fallback 禁用断言。
 
 - **维度**：D9 数据完整性 ｜ **位置**：`app/src/main/java/com/viel/aplayer/data/db/AppDatabase.kt:60`
 - **证据**：
@@ -143,9 +147,9 @@ APlayer 是一个架构相当完整、工程化程度高的有声书播放器：
 - **影响**：任何 schema 版本不匹配（例如开发者忘记升 version、或安装了旧版后再装新版）都会**静默删除整库重建**——用户的**收听进度、书签、书库根配置、扫描状态**全部丢失，且无任何提示或备份。对一个核心价值就是"记住你听到哪儿"的应用，这是灾难性的数据丢失风险。版本号已达 33，说明历史上经历过多次结构变更。
 - **关联**：见 M-09（破坏性重建还会遗留磁盘上的封面/缩略图文件，永久无法回收）。
 - **修复**：
-  1. 为生产发布提供真实的 `Migration` 链；保留 `exportSchema=true` 已导出的 schema 用于编写迁移。
-  2. 若确需兜底，至少改为 `fallbackToDestructiveMigrationOnDowngrade()` 仅在降级时清库，升级走显式迁移。
-  3. 发布前对关键表（progress/bookmark/library_root）增加导出/恢复能力。
+  1. 以 Room schema version `41` 作为第一条受支持生产迁移基线。
+  2. 删除 41 之前 schema fixture 和旧迁移常量，不再补 27 到 40 的历史迁移链。
+  3. 禁止 `fallbackToDestructiveMigration*`，后续版本只能通过显式 forward migration 升级。
 
 ---
 

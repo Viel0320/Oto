@@ -42,7 +42,7 @@ DI      (AppContainer 手写依赖容器)
 
 - 签名口令与密钥别名硬编码于 `app/build.gradle.kts`；`app/release.jks` 已被 git 跟踪。
 - `local.properties` 已被 git 跟踪。
-- `AppDatabase` 生产唯一初始化路径启用 `fallbackToDestructiveMigration(true)`（schema 不匹配即静默清库）。
+- ~~`AppDatabase` 生产唯一初始化路径启用 `fallbackToDestructiveMigration(true)`（schema 不匹配即静默清库）。~~ 已按 2026-06-09 的 Room 41 基线策略移除 destructive fallback，并删除 41 之前 schema fixture。
 - `PlaybackService` 在 manifest 中 `exported="true"` 且 `android:permission="TODO"`（占位字符串）。
 - `PlayerWidgetReceiver` `exported="true"`、自定义媒体控制广播无权限保护。
 - WebDAV 密码以 Base64（非加密）存入 `SharedPreferences`，且 `allowBackup="true"`。
