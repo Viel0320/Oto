@@ -35,7 +35,9 @@ class PlayerMotionSourceArchitectureTest {
     fun miniPlayerExpansionIsTheOnlyMiniMotionSource() {
         val sourceRoot = resolveSourceRoot()
         val miniOverlaySource = sourceRoot.resolve("ui/miniplayer/MiniPlayerOverlay.kt").readText()
-        val playerOverlaySource = sourceRoot.resolve("ui/player/components/PlayerOverlay.kt").readText()
+        // Player Overlay Path Alignment (Update source file path to reflect the correct layout package)
+        // Corrected PlayerOverlay.kt resolution path to ui/player/PlayerOverlay.kt after package refactoring.
+        val playerOverlaySource = sourceRoot.resolve("ui/player/PlayerOverlay.kt").readText()
 
         // Mini Source Scope Gate (Expose source scopes only for MiniPlayer-origin transitions)
         // MiniPlayerOverlay may remain composed during direct opens, but its cover and container

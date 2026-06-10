@@ -190,9 +190,9 @@ class SleepTimerManager(
                 vibrator.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
             }
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize haptic feedback failures)
-            // Platform vibrator exceptions can contain OEM-specific diagnostic text, so retained errors use SecureLog.
-            SecureLog.error("SleepTimerManager", "震动反馈失败", e)
+            // Vibration Feedback Failure Log (Fix lint rule violation by avoiding non-English hardcoded logs)
+            // Changed the log error message from Chinese to English to pass UserVisibleStringResourceTest.
+            SecureLog.error("SleepTimerManager", "Vibration feedback failed", e)
         }
     }
 
