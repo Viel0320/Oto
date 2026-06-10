@@ -30,7 +30,6 @@ object AudiobookSchema {
     object BookStatus {
         const val READY = "READY"
         const val PARTIAL = "PARTIAL"
-        const val CONFLICT = "CONFLICT"
         const val UNAVAILABLE = "UNAVAILABLE"
         const val DELETED = "DELETED"
     }
