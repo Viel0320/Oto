@@ -14,9 +14,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
+// Import Canvas and Blur APIs (Allow drawing blurred cover images natively)
+// Import Compose Canvas, draw.blur, geometry.Size, and Coil's rememberAsyncImagePainter to replace AsyncImage with Canvas-based blur.
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
-import coil.compose.AsyncImage
+import androidx.compose.ui.unit.dp
+import coil.compose.rememberAsyncImagePainter
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import dev.chrisbanes.haze.HazeState
@@ -86,19 +92,45 @@ fun CoverBackground(
                 )
             }
 
-            AsyncImage(
-                model = bgRequest,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                // Render Clear Background (Do not pre-blur image under Haze)
-                // Let the background image render clearly. Haze will dynamically blur it using hazeChild on the upper layer.
+            // Render Canvas-based Blur Background (Draw cover on canvas and apply native blur modifier)
+            // Use rememberAsyncImagePainter to load cover and render it via Canvas with Modifier.blur to implement hardware-accelerated cover background blur.
+            val painter = rememberAsyncImagePainter(model = bgRequest)
+            Canvas(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
                         scaleX = 1.02f
                         scaleY = 1.02f
                     }
-            )
+                    .blur(64.dp)
+            ) {
+                val canvasSize = size
+                val painterSize = painter.intrinsicSize
+                if (painterSize.width.isFinite() && painterSize.width > 0 && 
+                    painterSize.height.isFinite() && painterSize.height > 0) {
+                    val srcRatio = painterSize.width / painterSize.height
+                    val dstRatio = canvasSize.width / canvasSize.height
+                    val scale = if (srcRatio > dstRatio) {
+                        canvasSize.height / painterSize.height
+                    } else {
+                        canvasSize.width / painterSize.width
+                    }
+                    val drawWidth = painterSize.width * scale
+                    val drawHeight = painterSize.height * scale
+                    val dx = (canvasSize.width - drawWidth) / 2f
+                    val dy = (canvasSize.height - drawHeight) / 2f
+
+                    translate(left = dx, top = dy) {
+                        with(painter) {
+                            draw(size = Size(drawWidth, drawHeight))
+                        }
+                    }
+                } else {
+                    with(painter) {
+                        draw(size = canvasSize)
+                    }
+                }
+            }
 
             Box(
                 modifier = Modifier

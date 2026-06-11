@@ -202,17 +202,6 @@ fun DetailContent(
                 hazeState = coverHazeState
             )
 
-            if (isBlur) {
-                // Background Blur Layer (Render dynamic ultra-thin blur on top of clear cover background)
-                // Draw a full-screen box configured with hazeChild using ultra-thin style to blur the backdrop.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .hazeEffect(
-                            state = coverHazeState,
-                            style = HazeMaterials.ultraThin())
-                )
-            }
 
             Scaffold(
                 topBar = {

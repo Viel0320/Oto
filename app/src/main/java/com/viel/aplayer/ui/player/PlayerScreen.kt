@@ -330,7 +330,9 @@ fun PlayerScreen(
         }
             ?: remember(endCornerRadius) { mutableStateOf(endCornerRadius) }
 
-        val boundsModifier = if (sharedTransitionScope != null && mini2PlayerTargetScope != null) {
+        // Conditional Bounds Transition: Only apply shared bounds morphing on widescreen/tablet layouts.
+        // This ensures the player sheet on standard phones slides up/down cleanly without morphing the background, while still allowing the cover shared element to animate.
+        val boundsModifier = if (sharedTransitionScope != null && mini2PlayerTargetScope != null && windowClass.isWideScreen) {
             with(sharedTransitionScope) {
                 Modifier.sharedBounds(
                     /*
@@ -412,18 +414,6 @@ fun PlayerScreen(
                         glassEffectMode = glassEffectMode,
                         hazeState = coverHazeState
                     )
-
-                    // Background Blur Layer (Render dynamic ultra-thin blur on top of clear cover background)
-                    // Draw a full-screen box configured with hazeChild using ultra-thin style to blur the backdrop.
-                    if (glassEffectMode == GlassEffectMode.Haze) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .hazeEffect(
-                                    state = coverHazeState,
-                                    style = HazeMaterials.ultraThin())
-                        )
-                    }
                 }
 
                 // 2. Forefront controls layer (Sibling forefront node)
