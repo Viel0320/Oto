@@ -30,6 +30,15 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
     private val _isVisible = MutableStateFlow(false)
     val isVisible = _isVisible.asStateFlow()
 
+    /*
+     * Reactive save states (Expose metadata saving and success state flows)
+     * Provides UI observables to represent background write tasks without imperative callbacks.
+     */
+    private val _isSaving = MutableStateFlow(false)
+
+    private val _saveSuccess = MutableStateFlow(false)
+    val saveSuccess = _saveSuccess.asStateFlow()
+
     /**
      * Start Edit Flow (Initialize edit target and overlay visibility)
      *
@@ -37,6 +46,11 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
      * or the resolved metadata without owning repository access.
      */
     fun startEdit(bookId: String) {
+        /*
+         * Reset success status (Purge state of prior successful save flows)
+         * Guarantees that LaunchedEffect triggers only on new save results.
+         */
+        _saveSuccess.value = false
         loadBook(bookId)
         setVisible(true)
     }
@@ -77,11 +91,16 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
         year: String,
         description: String,
         series: String,
-        newCoverPath: String?,
-        onComplete: () -> Unit
+        newCoverPath: String?
     ) {
         val currentBook = _bookState.value ?: return
         viewModelScope.launch {
+            /*
+             * Update saving states (Indicate active write operation on coroutine start)
+             * Flushes former success flags and turns on the busy state for the edit overlay.
+             */
+            _isSaving.value = true
+            _saveSuccess.value = false
             try {
                 editBookCommands.updateBookDetails(
                     id = currentBook.id,
@@ -92,6 +111,14 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
                     year = year.trim(),
                     series = series.trim()
                 )
+                if (newCoverPath != null) {
+                    editBookCommands.saveCustomCover(currentBook.id, newCoverPath)
+                }
+                /*
+                 * Mark save success (Trigger reactive dismissals via state flow)
+                 * Signifies successful persistence of both metadata properties and custom cover images.
+                 */
+                _saveSuccess.value = true
             } catch (error: IllegalArgumentException) {
                 // Edit Title Rejection Containment (Keep validation failure inside the edit flow)
                 // The application edit policy rejects blank titles, so the route stays open and avoids saving cover changes after a failed metadata write.
@@ -99,11 +126,9 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
                     return@launch
                 }
                 throw error
+            } finally {
+                _isSaving.value = false
             }
-            if (newCoverPath != null) {
-                editBookCommands.saveCustomCover(currentBook.id, newCoverPath)
-            }
-            onComplete()
         }
     }
 }

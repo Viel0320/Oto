@@ -40,6 +40,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -194,6 +195,10 @@ fun HomeContent(
         Scaffold(
             modifier = Modifier
                 .fillMaxSize(),
+            // Title: Avoid Scaffold Background Overdraw (Ensure transparent background container)
+            // By overriding containerColor to transparent, the Scaffold does not render its own default background color,
+            // preventing overdraw of background color layers over APlayerApp surface and home backdrop.
+            containerColor = Color.Transparent,
             // Exclude Keyboard Insets (Prevent Layout Re-measurement)
             // Explicitly exclude the software keyboard (IME) from default contentWindowInsets.
             // This cuts off layout re-measurement and unnecessary home page recombinations caused by innerPadding changes from software keyboard popups.

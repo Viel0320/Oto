@@ -1,9 +1,5 @@
 package com.viel.aplayer.ui.navigation
 
-// Setup Haze Backdrop (Enhance Blur Visuals)
-// Import Haze's backdrop mechanism API to completely replace the legacy blur library dependency, achieving a clearer viewport-level Gaussian blur refraction effect.
-// Setup Haze Core (Import dev.chrisbanes.haze modifiers) Import HazeState and haze modifier for Compose-based blur.
-// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,8 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
@@ -28,7 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.savedstate.compose.LocalSavedStateRegistryOwner
-import com.viel.aplayer.application.library.detail.DetailBookItem
+import com.viel.aplayer.application.library.home.toDetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.i18n.AppLocaleController
@@ -41,13 +40,13 @@ import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.edit.EditBookRoute
 import com.viel.aplayer.ui.edit.EditBookViewModel
 import com.viel.aplayer.ui.home.LibraryViewModel
-// Remove miniplayer imports
-// The mini-player is now unified inside PlayerOverlay, so its imports are no longer needed.
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.navigation.shell.DefaultAppFeedbackRenderer
 import com.viel.aplayer.ui.navigation.shell.dispatch
+import com.viel.aplayer.ui.player.BookmarkViewModel
+import com.viel.aplayer.ui.player.PlaybackViewModel
 import com.viel.aplayer.ui.player.PlayerOverlay
-import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.player.PlayerSettingsViewModel
 import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.search.SearchRoute
 import com.viel.aplayer.ui.search.SearchViewModel
@@ -57,6 +56,8 @@ import com.viel.aplayer.ui.settings.SettingsOverlay
 import com.viel.aplayer.ui.settings.SettingsViewModel
 import com.viel.aplayer.ui.settings.rememberSettingsDialogController
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -64,10 +65,28 @@ fun APlayerApp(
     openPlayerOverlayRequest: Boolean = false,
     onOpenPlayerOverlayConsumed: () -> Unit = {}
 ) {
-    val libraryViewModel: LibraryViewModel = viewModel()
+    val context = LocalContext.current
+    val application = context.applicationContext as android.app.Application
+    val appScope = androidx.compose.runtime.rememberCoroutineScope()
+
+    val libraryViewModel: LibraryViewModel = viewModel(
+        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                // Initialize LibraryViewModel (Inject application into ViewModel factory context)
+                // Supplies the application context explicitly to construct LibraryViewModel safely.
+                return LibraryViewModel(application) as T
+            }
+        }
+    )
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
 
-    val context = LocalContext.current
+    // Cache Mapped Detail Items (Optimize navigation mapping performance across recompositions)
+    // Converts the list of home audiobooks to detail projections only when the list changes, avoiding redundant mapping in lambda execution or on every recomposition.
+    val detailBookItems = remember(libraryUiState.audiobooks) {
+        libraryUiState.audiobooks.associate { it.id to it.toDetailBookItem() }
+    }
+
     val appShellDependencies = remember(context) {
         // App Shell Dependency Resolution (Resolve only settings and app-event stream for the top-level shell)
         // The navigation host renders global feedback and theme state without needing screen-specific or playback dependencies.
@@ -170,21 +189,89 @@ fun APlayerApp(
         val navigator = remember { Navigator(navigationState) }
         val currentRoute = navigationState.topLevelRoute
 
-        val playerViewModel: PlayerViewModel = viewModel()
+        val playbackViewModel: PlaybackViewModel = viewModel(
+            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                // Title: Suppress unchecked cast for PlaybackViewModel (Allows casting ViewModel inside provider factory without warning)
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                    // Update ViewModel Factory Initialization (Provides application and coroutine scope to specialized ViewModels)
+                    // Configures PlaybackViewModel with scoped dependencies and external coroutine context.
+                    return PlaybackViewModel(application, appScope) as T
+                }
+            }
+        )
+        val bookmarkViewModel: BookmarkViewModel = viewModel(
+            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                // Title: Suppress unchecked cast for BookmarkViewModel (Allows casting ViewModel inside provider factory without warning)
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                    // Update ViewModel Factory Initialization (Provides application and coroutine scope to specialized ViewModels)
+                    // Configures BookmarkViewModel with scoped dependencies and external coroutine context.
+                    return BookmarkViewModel(application, appScope) as T
+                }
+            }
+        )
+        val playerSettingsViewModel: PlayerSettingsViewModel = viewModel(
+            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                // Title: Suppress unchecked cast for PlayerSettingsViewModel (Allows casting ViewModel inside provider factory without warning)
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                    // Update ViewModel Factory Initialization (Provides application and coroutine scope to specialized ViewModels)
+                    // Configures PlayerSettingsViewModel with scoped dependencies and external coroutine context.
+                    return PlayerSettingsViewModel(application, appScope) as T
+                }
+            }
+        )
         // Separation of DetailViewModel (Single Responsibility)
         // Independent ViewModel for the audiobook details page, split from LibraryViewModel to make each ViewModel have a single responsibility.
-        val detailViewModel: DetailViewModel = viewModel()
+        val detailViewModel: DetailViewModel = viewModel(
+            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                // Title: Initialize DetailViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
+                // Description: Explicitly constructs DetailViewModel with the active application instance.
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                    return DetailViewModel(application) as T
+                }
+            }
+        )
         // EditBookViewModel Lifecycle (Host Lifecycle Management)
         // Instantiate the independent ViewModel for editing book metadata, which is hosted and destroyed by the current Activity.
-        val editViewModel: EditBookViewModel = viewModel()
+        val editViewModel: EditBookViewModel = viewModel(
+            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                // Title: Initialize EditBookViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
+                // Description: Explicitly constructs EditBookViewModel with the active application instance.
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                    return EditBookViewModel(application) as T
+                }
+            }
+        )
         
         // SearchViewModel Lifecycle (Host Lifecycle Management)
         // Instantiate the non-independent SearchViewModel, hosted and destroyed by the current Activity.
-        val searchViewModel: SearchViewModel = viewModel()
+        val searchViewModel: SearchViewModel = viewModel(
+            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                // Title: Initialize SearchViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
+                // Description: Explicitly constructs SearchViewModel with the active application instance.
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                    return SearchViewModel(application) as T
+                }
+            }
+        )
 
         // SettingsViewModel Lifecycle (Host Lifecycle Management)
         // Instantiate the settings ViewModel hosted and destroyed by MainActivity.
-        val settingsViewModel: SettingsViewModel = viewModel()
+        val settingsViewModel: SettingsViewModel = viewModel(
+            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                // Title: Initialize SettingsViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
+                // Description: Explicitly constructs SettingsViewModel with the active application instance.
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                    return SettingsViewModel(application) as T
+                }
+            }
+        )
         val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
         val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
         // Home Add Library Dialog Controller (Reuse Settings modal state outside the Settings overlay)
@@ -200,7 +287,7 @@ fun APlayerApp(
             }
         }
 
-        val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
+        val playerSettings by playerSettingsViewModel.settingsState.collectAsStateWithLifecycle()
         // Collect Detail UI State (Coordinate route interactions without rebinding mini player glass)
         // Detail visibility still drives Search route handoff, while MiniPlayerOverlay intentionally keeps the stable app-level HazeState to avoid effect flashes.
         val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
@@ -225,15 +312,32 @@ fun APlayerApp(
         // Responsively collect the visibility state flow of the Search route to control mini-player mounting under layer occlusion.
         val isSearchVisible by searchViewModel.isVisible.collectAsStateWithLifecycle()
 
+        // Title: Collect Settings and Edit overlay visibility states
+        // Description: Collects settings and edit overlay visibility state flows to coordinate overall layout occlusion and culling decisions.
+        val isSettingsVisible by settingsViewModel.isVisible.collectAsStateWithLifecycle()
+        val isEditVisible by editViewModel.isVisible.collectAsStateWithLifecycle()
+
+        // Title: Compute aggregate overlay visibility and manage bottom layer drawing culling state
+        // Description: Calculates if any full-screen overlay (Detail, Search, Settings, Edit) is visible. Launches a coroutine effect that delays setting the culling state to true (e.g. 350ms) to allow enter transitions to finish, but instantly resets it to false to allow exit transitions.
+        val isAnyOverlayVisible = detailUiState.isVisible || isSearchVisible || isSettingsVisible || isEditVisible
+        var isBottomLayerCelled by remember { mutableStateOf(false) }
+
+        LaunchedEffect(isAnyOverlayVisible) {
+            if (isAnyOverlayVisible) {
+                delay(350L.milliseconds)
+                isBottomLayerCelled = true
+            } else {
+                isBottomLayerCelled = false
+            }
+        }
+
         val canStartNavigation = rememberNavigationThrottle()
 
         // Setup HazeStates (Manage blur states using Haze library) Introduce global hazeState and detailHazeState for blurring backgrounds.
         val hazeState = remember { HazeState() }
         val detailHazeState = remember { HazeState() }
 
-        LaunchedEffect(Unit) {
-            playerViewModel.initialize(context)
-        }
+
 
         // Process Widget Intent (Trigger Full Player Overlay)
         // Consume the external request passed from MainActivity via the desktop app widget, immediately switching back to the main playback page and showing the full-screen player overlay.
@@ -242,20 +346,20 @@ fun APlayerApp(
                 // Widget Direct Open (Bypass mini-player transition channels)
                 // External widget requests do not originate from an on-screen mini player, so the
                 // full player must open directly on the main playback surface without shared mini motion.
-                playerViewModel.openFullPlayerFromDirect()
+                playerSettingsViewModel.openFullPlayerFromDirect()
                 onOpenPlayerOverlayConsumed()
             }
         }
 
         LaunchedEffect(currentRoute) {
-            playerViewModel.onRouteChanged()
+            playerSettingsViewModel.onRouteChanged()
         }
 
 
         // Fix M-19 (High-Frequency Progress Sync)
         // Observe the player's current playing book ID and real-time playback progress percentage. Once they change, immediately call detailViewModel.updatePlaybackProgress to push high-frequency updates into the detail ViewModel, which will coordinate updates with a 3-second locking mechanism.
-        val currentBookId by playerViewModel.currentBookId.collectAsStateWithLifecycle()
-        val playbackPercent by playerViewModel.currentPlaybackProgressPercent.collectAsStateWithLifecycle()
+        val currentBookId by playbackViewModel.currentBookId.collectAsStateWithLifecycle()
+        val playbackPercent by playbackViewModel.currentPlaybackProgressPercent.collectAsStateWithLifecycle()
         LaunchedEffect(currentBookId, playbackPercent) {
             currentBookId?.let { bookId ->
                 if (playbackPercent > 0) {
@@ -268,11 +372,11 @@ fun APlayerApp(
         // Consumes process-wide AppShellEvent values so Home, Settings, scan, ABS sync, and playback no longer expose parallel event streams.
         // Localized Feedback Dispatch (Resolve transient feedback through the same context used by Compose)
         // Toast resources follow the in-app language on Android 12L because the renderer now receives the localized configuration context instead of the Activity base context.
-        LaunchedEffect(appEventSink, appFeedbackRenderer, playerViewModel, localizedContext) {
+        LaunchedEffect(appEventSink, appFeedbackRenderer, playbackViewModel, localizedContext) {
             appEventSink.events.collect { event ->
                 appFeedbackRenderer.render(event).dispatch(
                     context = localizedContext,
-                    onTrackUnavailableDialog = playerViewModel::showTrackUnavailableDialog
+                    onTrackUnavailableDialog = playbackViewModel::showTrackUnavailableDialog
                 )
             }
         }
@@ -288,9 +392,12 @@ fun APlayerApp(
 
         // Build Action Objects (Logical Decoupling & Performance Caching)
         // Use extension functions to construct the Actions object, achieving logical decoupling and performance caching.
-        val playerActions = playerViewModel.rememberActions(
+        val playerActions = rememberActions(
+            playbackViewModel = playbackViewModel,
+            bookmarkViewModel = bookmarkViewModel,
+            settingsViewModel = playerSettingsViewModel,
             onDeleteBook = { bookId ->
-                playerViewModel.closePlayback(bookId)
+                playbackViewModel.closePlayback(bookId)
                 // Dismiss Detail Page (State Cleanup Coordination)
                 // Explicitly coordinate the cleanup of the details page state, keeping it consistent with the outer coordination mode of playerViewModel.closePlayback.
                 detailViewModel.dismissIfShowing(bookId)
@@ -305,23 +412,23 @@ fun APlayerApp(
         // Relocate mini-player actions
         // MiniPlayerActions is now instantiated directly inside PlayerOverlay, removing duplicate creation logic from the app shell.
         // Build Player Navigation Actions (Migrate callback hooks) Removed unused NavController dependency in favor of direct visibility state toggles.
-        val playerNavigationActions = remember(playerViewModel) {
+        val playerNavigationActions = remember(playbackViewModel, playerSettingsViewModel) {
             PlayerNavigationActions(
-                onMinimize = { playerViewModel.setFullPlayerVisible(false) },
-                onClose = { playerViewModel.setFullPlayerVisible(false) },
+                onMinimize = { playerSettingsViewModel.setFullPlayerVisible(false) },
+                onClose = { playerSettingsViewModel.setFullPlayerVisible(false) },
                 onBookmarksClick = {
-                    playerViewModel.setSelectedContentTab(0)
-                    playerViewModel.setFullPlayerVisible(true)
+                    playerSettingsViewModel.setSelectedContentTab(0)
+                    playerSettingsViewModel.setFullPlayerVisible(true)
                 },
                 onSubtitlesClick = {
-                    playerViewModel.setSelectedContentTab(1)
-                    playerViewModel.setFullPlayerVisible(true)
+                    playerSettingsViewModel.setSelectedContentTab(1)
+                    playerSettingsViewModel.setFullPlayerVisible(true)
                 },
                 onRelatedClick = {
-                    playerViewModel.setSelectedContentTab(2)
-                    playerViewModel.setFullPlayerVisible(true)
+                    playerSettingsViewModel.setSelectedContentTab(2)
+                    playerSettingsViewModel.setFullPlayerVisible(true)
                 },
-                onNavigateToNewPlayer = { playerViewModel.setFullPlayerVisible(true) }
+                onNavigateToNewPlayer = { playerSettingsViewModel.setFullPlayerVisible(true) }
             )
         }
 
@@ -355,6 +462,13 @@ fun APlayerApp(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        // Title: Suspend bottom layer rendering when fully covered by an overlay
+                        // Description: Prevents GPU rendering (drawContent) of the bottom navigation host if isBottomLayerCelled is true, saving fillrate and draw calls during overlay interaction.
+                        .drawWithContent {
+                            if (!isBottomLayerCelled) {
+                                drawContent()
+                            }
+                        }
                 ) {
                     // System Navigation Container (Scaffold Insets Handling)
                     // The bottom-most system navigation management container, the main navigation page (HomeScreen contains its own local Scaffold to provide its own bottom insets avoidance).
@@ -363,7 +477,9 @@ fun APlayerApp(
                         navigationState = navigationState,
                         navigator = navigator,
                         libraryViewModel = libraryViewModel,
-                        playerViewModel = playerViewModel,
+                        playbackViewModel = playbackViewModel,
+                        bookmarkViewModel = bookmarkViewModel,
+                        settingsViewModel = playerSettingsViewModel,
                         detailViewModel = detailViewModel,
                         canStartNavigation = canStartNavigation,
                         searchViewModel = searchViewModel,
@@ -419,12 +535,12 @@ fun APlayerApp(
                         // Detail Playback Transition Selection (Use shared element transition if matching active bookId)
                         // Evaluates if the chosen book is already active to decide between mini-player expansion (shared-element)
                         // or direct player load (direct fade-in), preventing animation mismatches while preserving visual continuity.
-                        val currentActiveBookId = playerViewModel.currentBookId.value
-                        playerViewModel.loadBook(bookId)
+                        val currentActiveBookId = playbackViewModel.currentBookId.value
+                        playbackViewModel.loadBook(bookId)
                         if (currentActiveBookId == bookId) {
-                            playerViewModel.openFullPlayerFromMini()
+                            playerSettingsViewModel.openFullPlayerFromMini()
                         } else {
-                            playerViewModel.openFullPlayerFromDirect()
+                            playerSettingsViewModel.openFullPlayerFromDirect()
                         }
                     },
                     onNavigateToSearch = { query ->
@@ -449,22 +565,39 @@ fun APlayerApp(
                     onDeleteBook = { bookId ->
                         // Detail Action Menu Delete Coordination (Close playback and dismiss Detail before library removal)
                         // Keeping cleanup in the app shell avoids duplicating destructive side effects inside the Detail UI or shared dialog component.
-                        playerViewModel.closePlayback(bookId)
+                        playbackViewModel.closePlayback(bookId)
                         detailViewModel.dismissIfShowing(bookId)
                         libraryViewModel.deleteBook(bookId)
                     },
                     onTransitionIdleChanged = detailTransitionGate::onTransitionIdleChanged
                 )
 
+
                 // Unified Playback Overlay Mounting (Coalesce player and mini-player into one layout component)
                 // Mount unified player overlay which internally handles mini-player and full-player states to optimize shell layout.
                 PlayerOverlay(
-                    playerViewModel = playerViewModel,
+                    playbackViewModel = playbackViewModel,
+                    bookmarkViewModel = bookmarkViewModel,
+                    settingsViewModel = playerSettingsViewModel,
                     playerActions = playerActions,
                     playerNavigationActions = playerNavigationActions,
                     isSearchActive = isSearchVisible,
                     glassEffectMode = activeGlassEffectMode,
                     appHazeState = hazeState
+                )
+                
+                /*
+                 * Mount Edit Overlay (Mount the metadata edit sheet beside detail overlays)
+                 * Relocated EditBookRoute back into the app shell coordinate system so edit overlays can animate above details page.
+                 */
+                EditBookRoute(
+                    editViewModel = editViewModel,
+                    glassEffectMode = activeGlassEffectMode,
+                    hazeState = hazeState,
+                    onSaveSuccess = {
+                        // Edit Save Success (Reactive Flow Refresh)
+                        // After saving successfully, the responsive flow will automatically refresh and redraw the details page via the Room Flow, so there is no need to execute extra UI dirty operations to force a refresh.
+                    }
                 )
 
                 // Search Stable Haze Target (Keep SearchRoute bound to the app-level sampler)
@@ -488,29 +621,9 @@ fun APlayerApp(
                         null
                     },
                     onNavigateToDetail = { bookId ->
-                        val book = libraryUiState.audiobooks.find { it.id == bookId }?.let { libraryBook ->
-                            // Search Detail Boundary Mapping (Convert the search-selected library row into a Detail scene item)
-                            // The navigation shell bridges the Home scene projection to Detail without exposing Room rows through DetailViewModel.
-                            DetailBookItem(
-                                id = libraryBook.id,
-                                rootId = libraryBook.rootId,
-                                sourceType = libraryBook.sourceType,
-                                title = libraryBook.title,
-                                author = libraryBook.author,
-                                narrator = libraryBook.narrator,
-                                description = libraryBook.description,
-                                year = libraryBook.year,
-                                totalDurationMs = libraryBook.totalDurationMs,
-                                totalFileSize = libraryBook.totalFileSize,
-                                coverPath = libraryBook.coverPath,
-                                thumbnailPath = libraryBook.thumbnailPath,
-                                lastScannedAt = libraryBook.lastScannedAt,
-                                progressPercent = libraryBook.progressPercent,
-                                // Search Detail Read Status Projection (Preserve status when opening Detail from search results)
-                                // The Detail action dialog derives its payload from DetailBookItem, so search-to-detail mapping must carry the same readStatus field as Home.
-                                readStatus = libraryBook.readStatus
-                            )
-                        }
+                        // Retrieve Cached Detail Book (Fetch pre-mapped detail item for navigation)
+                        // Instead of finding and mapping on the fly, retrieve the pre-calculated projection directly by ID.
+                        val book = detailBookItems[bookId]
                         detailTransitionGate.request(
                             DetailOpenRequest(
                                 book = book,
@@ -535,13 +648,13 @@ fun APlayerApp(
                     },
                     onLoadBook = { bookId ->
                         searchViewModel.setVisible(false)
-                        playerViewModel.loadBook(bookId)
+                        playbackViewModel.loadBook(bookId)
                     },
                     onNavigateToPlayer = {
                         // Search Direct Playback Open (Keep search playback outside mini motion)
                         // Search currently owns a dedicated Search->Detail transition only; direct
                         // playback should open the full player without claiming the mini source.
-                        playerViewModel.openFullPlayerFromDirect()
+                        playerSettingsViewModel.openFullPlayerFromDirect()
                     }
                 )
 
@@ -560,62 +673,63 @@ fun APlayerApp(
                     glassEffectMode = activeGlassEffectMode,
                     settingsDialogHazeState = if (activeGlassEffectMode == GlassEffectMode.Haze) hazeState else null,
                     appLanguage = effectiveAppLanguage,
-                    onAppLanguageChange = { settingsViewModel.updateAppLanguage(it) },
+                    // Title: Delegate App Dialog Host Configuration Updates (Route settings changes to handler parameters)
+                    onAppLanguageChange = { settingsViewModel.preferencesHandler.updateAppLanguage(it) },
                     webDavConnectionState = webDavConnectionState,
                     onWebDavConnectionTest = { url, username, password, basePath, editingRootId ->
-                        settingsViewModel.testWebDavConnection(url, username, password, basePath, editingRootId)
+                        settingsViewModel.connectionHandler.testWebDavConnection(url, username, password, basePath, editingRootId)
                     },
                     onResetWebDavConnectionState = {
-                        settingsViewModel.resetWebDavConnectionState()
+                        settingsViewModel.connectionHandler.resetWebDavConnectionState()
                     },
                     onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
-                        settingsViewModel.onWebDavRootSubmitted(url, username, password, displayName, basePath)
+                        settingsViewModel.connectionHandler.onWebDavRootSubmitted(url, username, password, displayName, basePath)
                     },
                     onWebDavRootUpdated = { id, url, username, password, displayName, basePath ->
                         settingsViewModel.updateWebDavRoot(id, url, username, password, displayName, basePath)
                     },
                     absConnectionState = absConnectionState,
                     onAbsConnectionTest = { baseUrl, username, password, editingRootId ->
-                        settingsViewModel.testAbsConnection(baseUrl, username, password, editingRootId)
+                        settingsViewModel.connectionHandler.testAbsConnection(baseUrl, username, password, editingRootId)
                     },
                     onResetAbsConnectionState = {
-                        settingsViewModel.resetAbsConnectionState()
+                        settingsViewModel.connectionHandler.resetAbsConnectionState()
                     },
                     onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName, editingRootId ->
-                        settingsViewModel.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
+                        settingsViewModel.connectionHandler.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
                     },
                     getWebDavCredentials = { credentialId ->
-                        settingsViewModel.getWebDavCredentials(credentialId)
+                        settingsViewModel.connectionHandler.getWebDavCredentials(credentialId)
                     },
                     getAbsCredential = { credentialId ->
-                        settingsViewModel.getAbsCredential(credentialId)
+                        settingsViewModel.connectionHandler.getAbsCredential(credentialId)
                     },
-                    onAbsSync = { rootId -> settingsViewModel.syncAbsRoot(rootId) },
-                    onRescan = { settingsViewModel.triggerRescan() },
+                    onAbsSync = { rootId -> settingsViewModel.connectionHandler.syncAbsRoot(rootId) },
+                    onRescan = { settingsViewModel.connectionHandler.triggerRescan() },
                     onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
                     onLaunchSafRootPicker = { homeAddLibraryRootLauncher.launch(null) }
                 )
 
                 // Track Unavailable Confirm Dialog (Avoid Interruptions)
                 // Secondary confirmation dialog for track unavailability, shown only when the full-screen player is expanded (isFullPlayerVisible) to prevent interrupting user interaction on other screens.
-                val trackUnavailableState by playerViewModel.trackUnavailableDialogState.collectAsStateWithLifecycle()
+                val trackUnavailableState by playbackViewModel.trackUnavailableDialogState.collectAsStateWithLifecycle()
                 // ABS Progress Conflict Dialog State (Surface server-vs-device resume choices at the app shell)
                 // The dialog remains hosted near other one-shot player dialogs while all conflict resolution commands stay inside PlayerViewModel.
-                val absProgressConflictState by playerViewModel.absProgressConflictDialogState.collectAsStateWithLifecycle()
+                val absProgressConflictState by playbackViewModel.absProgressConflictDialogState.collectAsStateWithLifecycle()
                 APlayerAppDialogHost(
                     hazeState = hazeState,
                     glassEffectMode = activeGlassEffectMode,
-                    isFullPlayerVisible = playerUiState.isFullPlayerVisible,
+                    isFullPlayerVisible = playerSettings.isFullPlayerVisible,
                     absProgressConflictState = absProgressConflictState,
                     trackUnavailableState = trackUnavailableState,
-                    onDismissAbsProgressConflict = { playerViewModel.dismissAbsProgressConflictDialog() },
-                    onAcceptRemoteAbsProgressConflict = { playerViewModel.acceptRemoteAbsProgressConflict() },
-                    onAcceptLocalAbsProgressConflict = { playerViewModel.acceptLocalAbsProgressConflict() },
-                    onDismissTrackUnavailable = { playerViewModel.dismissTrackUnavailableDialog() },
+                    onDismissAbsProgressConflict = { playbackViewModel.dismissAbsProgressConflictDialog() },
+                    onAcceptRemoteAbsProgressConflict = { playbackViewModel.acceptRemoteAbsProgressConflict() },
+                    onAcceptLocalAbsProgressConflict = { playbackViewModel.acceptLocalAbsProgressConflict() },
+                    onDismissTrackUnavailable = { playbackViewModel.dismissTrackUnavailableDialog() },
                     onSkipToNextAvailableTrack = { bookId, queueIndex ->
                         // Skip to Next Available (Trigger ViewModel self-healing from the app-level dialog host)
                         // Keeps the concrete playback mutation in PlayerViewModel while APlayerAppDialogHost owns the confirmation UI.
-                        playerViewModel.skipToNextAvailableTrack(bookId, queueIndex)
+                        playbackViewModel.skipToNextAvailableTrack(bookId, queueIndex)
                     }
                 )
             }

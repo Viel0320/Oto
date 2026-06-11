@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
@@ -49,7 +49,9 @@ import kotlinx.coroutines.flow.map
 @Composable
 fun PlayerOverlay(
     modifier: Modifier = Modifier,
-    playerViewModel: PlayerViewModel,
+    playbackViewModel: PlaybackViewModel,
+    bookmarkViewModel: BookmarkViewModel,
+    settingsViewModel: PlayerSettingsViewModel,
     playerActions: PlayerActions,
     playerNavigationActions: PlayerNavigationActions,
     isSearchActive: Boolean,
@@ -58,12 +60,12 @@ fun PlayerOverlay(
 ) {
     // Sync Visibility States (Directly derive overlay visibility flags from the collected settings state flow to eliminate rendering race conditions during cold starts)
     // Under cold start scenarios, mapping setting states through independent flows causes a race condition between visibility transitions and motion sources. Unifying them into a single state flow solves this.
-    val settings by playerViewModel.settingsState.collectAsStateWithLifecycle()
+    val settings by settingsViewModel.settingsState.collectAsStateWithLifecycle()
 
     val isFullPlayerVisible = settings.isFullPlayerVisible
 
-    val hasActiveTrack by remember(playerViewModel) {
-        playerViewModel.metadataState.map { it.hasActiveTrack }.distinctUntilChanged()
+    val hasActiveTrack by remember(playbackViewModel) {
+        playbackViewModel.metadataState.map { it.hasActiveTrack }.distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
 
     val isMiniPlayerHidden = settings.isMiniPlayerHidden
@@ -74,22 +76,22 @@ fun PlayerOverlay(
 
     // Gather Playback States (Unify high-frequency and metadata state collection at the overlay root)
     // Facilitates centralized state flows, reducing downstream parameter complexity and making layouts simpler.
-    val metadata by playerViewModel.metadataState.collectAsStateWithLifecycle()
-    val progressState by playerViewModel.playbackProgressState.collectAsStateWithLifecycle()
-    val playbackState by playerViewModel.playbackState.collectAsStateWithLifecycle()
-    val miniPlayerProgress by playerViewModel.miniPlayerProgress.collectAsStateWithLifecycle()
+    val metadata by playbackViewModel.metadataState.collectAsStateWithLifecycle()
+    val progressState by playbackViewModel.playbackProgressState.collectAsStateWithLifecycle()
+    val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
+    val miniPlayerProgress by playbackViewModel.miniPlayerProgress.collectAsStateWithLifecycle()
 
-    val isMediaAvailable by remember(playerViewModel, metadata.id) {
-        playerViewModel.currentBookAvailability(metadata.id)
+    val isMediaAvailable by remember(playbackViewModel, metadata.id) {
+        playbackViewModel.currentBookAvailability(metadata.id)
     }.collectAsStateWithLifecycle(initialValue = true)
 
     // Internal Action Instantiation
     // Instantiate MiniPlayerActions locally inside the unified overlay to prevent passing redundant variables from APlayerApp shell.
-    val miniPlayerActions = remember(playerViewModel) {
+    val miniPlayerActions = remember(playbackViewModel, settingsViewModel) {
         MiniPlayerActions(
-            onPlayPauseClick = { playerViewModel.togglePlayPause() },
-            onHide = { playerViewModel.setMiniPlayerHidden(true) },
-            onUnavailable = { playerViewModel.closeCurrentPlayback() }
+            onPlayPauseClick = { playbackViewModel.togglePlayPause() },
+            onHide = { settingsViewModel.setMiniPlayerHidden(true) },
+            onUnavailable = { playbackViewModel.closeCurrentPlayback() }
         )
     }
 
@@ -210,7 +212,7 @@ fun PlayerOverlay(
                                 glassEffectMode = glassEffectMode,
                                 dynamicColorScheme = dynamicColorScheme,
                                 onColorExtracted = { coverColor = it },
-                                onExpandClick = { playerViewModel.openFullPlayerFromMini() }
+                                 onExpandClick = { settingsViewModel.openFullPlayerFromMini() }
                             )
                         }
                     }
@@ -233,7 +235,9 @@ fun PlayerOverlay(
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 PlayerScreen(
-                                    viewModel = playerViewModel,
+                                    playbackViewModel = playbackViewModel,
+                                    bookmarkViewModel = bookmarkViewModel,
+                                    settingsViewModel = settingsViewModel,
                                     actions = playerActions,
                                     navigationActions = playerNavigationActions,
                                     glassEffectMode = glassEffectMode,

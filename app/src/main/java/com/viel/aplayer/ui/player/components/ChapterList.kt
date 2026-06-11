@@ -44,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -53,13 +52,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerChapterTimeline
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.ui.common.BlurModalBottomSheet
 import com.viel.aplayer.ui.common.formatTime
@@ -105,6 +104,9 @@ fun ChapterListSheetStateful(
                 actions.playback.onSeek(pos, true)
                 actions.content.onDismissChapterList()
             },
+            // Hoist toast feedback event (Delegate Toast events to parent callback instead of resolving globally)
+            // Passes the playback-level toast aggregator callback down to the nested sheet.
+            onShowToast = actions.playback.onShowToast,
             sheetState = sheetState,
             // Pass the hazeState shared with the player background source to the chapter list panel effect.
             hazeState = hazeState,
@@ -123,6 +125,9 @@ fun ChapterListSheet(
     totalDuration: Long,
     onDismissRequest: () -> Unit,
     onChapterClick: (Long) -> Unit,
+    // Hoist toast feedback event (Receive the Toast callback parameter from stateful container)
+    // Ensures this modal sheet remains completely stateless and avoids reaching into global contexts.
+    onShowToast: (FeedbackMessage) -> Unit,
     hazeState: HazeState? = null,
     // Glass effect mode must be explicitly passed from the settings state by the player page; the chapter BottomSheet no longer declares a Material default.
     glassEffectMode: GlassEffectMode,
@@ -174,6 +179,7 @@ fun ChapterListSheet(
                 currentChapter = currentChapter,
                 totalDuration = totalDuration,
                 onChapterClick = onChapterClick,
+                onShowToast = {},
                 listState = listState,
                 // Preview/Inspection path also passes the mode to avoid discrepancies between debug rendering and the actual BottomSheet selected state.
                 glassEffectMode = glassEffectMode
@@ -210,6 +216,7 @@ fun ChapterListSheet(
                             onDismissRequest()
                         }
                     },
+                    onShowToast = onShowToast,
                     listState = listState,
                     bottomSpacerHeight = dynamicSpacerHeight,
                     // The chapter list content selects different current chapter highlight styles according to the Material/Haze mode.
@@ -226,19 +233,15 @@ fun ChapterListContent(
     currentChapter: PlayerChapterItem?,
     totalDuration: Long,
     onChapterClick: (Long) -> Unit,
+    // Hoist toast feedback event (Add Toast parameter to nested content layout)
+    // Decouples layout widgets from accessing app-level DI singletons or system context caches.
+    onShowToast: (FeedbackMessage) -> Unit,
     listState: LazyListState,
     modifier: Modifier = Modifier,
     bottomSpacerHeight: Dp = 0.dp,
     // Glass effect mode must be explicitly passed from the chapter BottomSheet; the list content no longer declares a Material default.
     glassEffectMode: GlassEffectMode
 ) {
-    val context = LocalContext.current
-    val appEventSink = remember(context) {
-        // Chapter List Feedback Sink (Resolve only the shared app event stream from the current composition context)
-        // Missing-file chapter taps use the same app-shell Toast renderer as ViewModels, services, and workers.
-        APlayerApplication.getAppFeedbackDependencies(context).appEventSink
-    }
-
     Column(
         modifier = modifier
             .fillMaxWidth()            .padding(horizontal = 16.dp)
@@ -347,7 +350,9 @@ fun ChapterListContent(
                             .then(selectedBorderModifier)
                             .clickable {
                                 if (isMissing) {
-                                    appEventSink.showToast(FeedbackMessages.chapterPhysicalFileMissing())
+                                    // Delegate Toast event up (Invoke the hoisted warning callback for missing physical file)
+                                    // Replaces direct references to appEventSink with parameterized event delegation.
+                                    onShowToast(FeedbackMessages.chapterPhysicalFileMissing())
                                 } else {
                                     onChapterClick(chapter.startPositionMs)
                                 }
@@ -418,6 +423,8 @@ fun ChapterListSheetPreview() {
                 currentChapter = sampleChapters[17],
                 totalDuration = sampleChapters.last().startPositionMs + sampleChapters.last().durationMs,
                 onChapterClick = {},
+                // Supply mock callback in preview layout (Provide empty lambda for Toast parameter)
+                onShowToast = {},
                 listState = rememberLazyListState(initialFirstVisibleItemIndex = 15),
                 // Preview explicitly references the default glass effect in the settings model, preventing ChapterListContent parameters from having local default values again.
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE

@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.edit
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -25,6 +26,18 @@ fun EditBookRoute(
 ) {
     val isVisible by editViewModel.isVisible.collectAsStateWithLifecycle()
     val book by editViewModel.bookState.collectAsStateWithLifecycle()
+    val saveSuccess by editViewModel.saveSuccess.collectAsStateWithLifecycle()
+
+    /*
+     * Reactive save listener (React to edit success events via LaunchedEffect)
+     * Automatically triggers the dismiss flow and reports completion notifications to parent routes when saveSuccess switches to true.
+     */
+    LaunchedEffect(saveSuccess) {
+        if (saveSuccess) {
+            onSaveSuccess()
+            editViewModel.setVisible(false)
+        }
+    }
 
     EditBookOverlay(
         visible = isVisible,
@@ -45,11 +58,7 @@ fun EditBookRoute(
                     year = year,
                     description = description,
                     series = series,
-                    newCoverPath = newCoverPath,
-                    onComplete = {
-                        onSaveSuccess()
-                        editViewModel.setVisible(false)
-                    }
+                    newCoverPath = newCoverPath
                 )
             },
             glassEffectMode = glassEffectMode,

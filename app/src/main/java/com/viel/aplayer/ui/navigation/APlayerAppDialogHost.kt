@@ -16,7 +16,7 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.formatDate
 import com.viel.aplayer.ui.common.formatTime
-import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.player.PlaybackViewModel
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -29,8 +29,8 @@ fun APlayerAppDialogHost(
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode,
     isFullPlayerVisible: Boolean,
-    absProgressConflictState: PlayerViewModel.AbsProgressConflictDialogState,
-    trackUnavailableState: PlayerViewModel.TrackUnavailableDialogState,
+    absProgressConflictState: PlaybackViewModel.AbsProgressConflictDialogState,
+    trackUnavailableState: PlaybackViewModel.TrackUnavailableDialogState,
     onDismissAbsProgressConflict: () -> Unit,
     onAcceptRemoteAbsProgressConflict: () -> Unit,
     onAcceptLocalAbsProgressConflict: () -> Unit,

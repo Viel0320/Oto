@@ -20,14 +20,16 @@ class PlayerMotionSourceArchitectureTest {
         // Home Direct Entry Contract (Catalog play buttons must bypass mini-player motion)
         // The Home container should use the direct open API so list play commands never inherit
         // stale mini-player shared-element scopes from an already-active playback card.
-        assertTrue(homeSource.contains("playerViewModel.openFullPlayerFromDirect()"))
+        // Update Motion Architecture Tests (Adapts motion source tests to new settings and player view model separation)
+        // Replaces references to the deleted PlayerViewModel with settingsViewModel or playerSettingsViewModel to fix architecture checks.
+        assertTrue(homeSource.contains("settingsViewModel.openFullPlayerFromDirect()"))
 
         // App-Shell Direct Entry Contract (Widget, Detail, and Search direct opens stay source-free)
         // These app-shell entry points do not provide an on-screen mini source, so they must use
         // the direct player API instead of calling the raw visibility toggle as their playback open path.
         assertTrue(
             "APlayerApp must route non-mini playback opens through openFullPlayerFromDirect.",
-            appSource.split("playerViewModel.openFullPlayerFromDirect()").size >= 4
+            appSource.split("playerSettingsViewModel.openFullPlayerFromDirect()").size >= 4
         )
     }
 
@@ -43,7 +45,7 @@ class PlayerMotionSourceArchitectureTest {
         // scopes must be null unless the current open source is explicitly MiniPlayer.
         assertTrue(playerOverlaySource.contains("FullPlayerOpenSource.MiniPlayer"))
         assertTrue(playerOverlaySource.contains("LocalMini2PlayerSourceScope provides if (isMiniPlayerMotionSource)"))
-        assertTrue(playerOverlaySource.contains("playerViewModel.openFullPlayerFromMini()"))
+        assertTrue(playerOverlaySource.contains("settingsViewModel.openFullPlayerFromMini()"))
 
         // Player Target Scope Gate (Expose target scopes only for MiniPlayer-origin transitions)
         // PlayerOverlay must apply the same source check on the target side so direct full-player

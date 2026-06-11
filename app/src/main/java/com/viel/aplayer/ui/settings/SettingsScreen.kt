@@ -42,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -158,6 +159,9 @@ fun SettingsScreen(
                             Modifier
                         }
                     ),
+                // Title: Avoid Settings Scaffold Background Overdraw (Set Scaffold containerColor to transparent)
+                // Passes Color.Transparent to Scaffold containerColor so that it lets the underlying SettingsOverlay surface background show through, avoiding duplicate draws.
+                containerColor = Color.Transparent,
                 // Settings Content Insets (Let overlay top bar own top spacing)
                 // The list reads bottom system padding from Scaffold, while the measured overlay header supplies its own top content padding.
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)

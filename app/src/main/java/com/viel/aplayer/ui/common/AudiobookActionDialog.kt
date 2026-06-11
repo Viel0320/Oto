@@ -171,7 +171,7 @@ fun AudiobookActionDialog(
 
                 // Subtle divider line with 0.5f opacity to reduce visual weight
                 HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.75f)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -240,7 +240,7 @@ fun AudiobookActionDialog(
 
                 // Subtle divider line
                 HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.75f)
                 )
 
                 // Edit Metadata Entry (Expose optional host-owned metadata editing from the shared action menu)
@@ -570,7 +570,6 @@ private fun AudiobookActionIdentityHeader(
                 Text(
                     text = formatPeopleSubtitle(book.author, book.narrator),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     // Action Dialog Subtitle Clamp (Keep author and narrator metadata on one stable line)
                     // Long creator metadata is truncated instead of wrapping so the menu remains compact and predictable.
                     maxLines = 1,

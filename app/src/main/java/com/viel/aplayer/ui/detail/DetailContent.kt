@@ -4,7 +4,6 @@ package com.viel.aplayer.ui.detail
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -184,9 +183,11 @@ fun DetailContent(
                     alpha = 1f - predictiveBackProgress * 0.3f
                 }
             }
-            .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
-            .background(bgColor),
-        color = Color.Transparent
+            .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp)),
+        // Title: Consolidate Surface Background Rendering (Use native color parameter to avoid overdraw)
+        // Passes bgColor directly to Surface parameter instead of chaining Modifier.background.
+        // This avoids redundant draw calls and allows Compose's Surface layer to optimize color drawing.
+        color = bgColor
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Setup CoverBackground Haze State (Link coverHazeState) Passed coverHazeState.

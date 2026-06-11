@@ -40,7 +40,11 @@ class PlaybackDependencyViewArchitectureTest {
             "media/service/PlaybackService.kt" to "getPlaybackRuntimeDependencies",
             "media/VfsPlaybackDataSource.kt" to "getVfsPlaybackDependencies",
             "media/AutoRewindManager.kt" to "getPlaybackRecoveryDependencies",
-            "ui/player/PlayerViewModel.kt" to "getPlayerScreenDependencies"
+            // Update Dependency View Test (Adapts dependency view mapping to separate ViewModels)
+            // Ensures PlaybackViewModel, BookmarkViewModel, and PlayerSettingsViewModel use their respective screen dependencies.
+            "ui/player/PlaybackViewModel.kt" to "getPlayerScreenDependencies",
+            "ui/player/BookmarkViewModel.kt" to "getPlayerScreenDependencies",
+            "ui/player/PlayerSettingsViewModel.kt" to "getPlayerScreenDependencies"
         )
 
         expectedCalls.forEach { (relativePath, providerName) ->

@@ -62,11 +62,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -235,6 +235,9 @@ fun AboutLibrariesScreen(
                             Modifier
                         }
                     ),
+                // Title: Avoid About Scaffold Background Overdraw (Set Scaffold containerColor to transparent)
+                // Overrides Scaffold background containerColor to transparent so it won't draw another background layer over SettingsOverlay.
+                containerColor = Color.Transparent,
                 // About Content Insets (Let overlay top bar own top spacing)
                 // The list keeps bottom safe-area padding while the measured shared top bar supplies the top content offset.
                 contentWindowInsets = WindowInsets.safeDrawing

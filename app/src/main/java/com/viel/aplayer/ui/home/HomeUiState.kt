@@ -3,17 +3,16 @@ package com.viel.aplayer.ui.home
 import android.annotation.SuppressLint
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.aplayer.application.library.detail.DetailBookItem
+import com.viel.aplayer.application.library.home.toDetailBookItem
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.components.HomeDialogHost
 import com.viel.aplayer.ui.navigation.DetailOpenRequest
-import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.player.PlaybackViewModel
+import com.viel.aplayer.ui.player.PlayerSettingsViewModel
 import dev.chrisbanes.haze.HazeState
 
 @SuppressLint("FrequentlyChangingValue")
@@ -21,7 +20,8 @@ import dev.chrisbanes.haze.HazeState
 fun HomeScreen(
     modifier: Modifier = Modifier,
     libraryViewModel: LibraryViewModel,
-    playerViewModel: PlayerViewModel,
+    playbackViewModel: PlaybackViewModel,
+    settingsViewModel: PlayerSettingsViewModel,
     detailViewModel: DetailViewModel,
     // Detail Open Request (Delegate overlay retargeting to the app shell)
     // Home maps library rows into Detail scene items, while APlayerApp decides whether to open immediately or queue behind a running shared-element return.
@@ -42,13 +42,16 @@ fun HomeScreen(
     // Home owns the selected catalog item, while APlayerApp owns EditBookViewModel and the edit overlay route.
     onEditBookRequested: (String) -> Unit = {},
 ) {
-    val playerUiState by playerViewModel.uiState.collectAsStateWithLifecycle()
+    val playerUiState by playbackViewModel.uiState.collectAsStateWithLifecycle()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
-    // Home Dialog State (Page-level modal event holder)
-    // Keeps dialog selection in the Home container so the content renderer reports clicks without owning concrete dialog implementations.
-    var homeDialogState by remember { mutableStateOf<HomeDialogState>(HomeDialogState.None) }
+    // Cache Mapped Detail Items (Optimize navigation mapping performance across recompositions)
+    // Converts the list of home audiobooks to detail projections only when the list changes, avoiding redundant mapping in lambda execution or on every recomposition.
+    val detailBookItems = remember(libraryUiState.audiobooks) {
+        libraryUiState.audiobooks.associate { it.id to it.toDetailBookItem() }
+    }
+
     // Home Content Haze State (Keep page-local sampling limited to the bookshelf surface)
     // The LazyGrid registers this state for page-local content blur and isolated previews while app chrome and Dialog windows prefer shell-provided sources.
     val homeContentHazeState = remember { HazeState() }
@@ -107,29 +110,9 @@ fun HomeScreen(
         onAddLibraryRequested = onAddLibraryRequested,
         onFilterSelected = { libraryViewModel.setFilter(it) },
         onNavigateToDetail = { id: String, entrySource: DetailEntrySource ->
-            val book = libraryUiState.audiobooks.find { it.id == id }?.let { libraryBook ->
-                // Home Detail Boundary Mapping (Convert the home library row into a Detail scene item)
-                // Home still owns the library list projection, while DetailViewModel receives only fields needed by the detail scene.
-                DetailBookItem(
-                    id = libraryBook.id,
-                    rootId = libraryBook.rootId,
-                    sourceType = libraryBook.sourceType,
-                    title = libraryBook.title,
-                    author = libraryBook.author,
-                    narrator = libraryBook.narrator,
-                    description = libraryBook.description,
-                    year = libraryBook.year,
-                    totalDurationMs = libraryBook.totalDurationMs,
-                    totalFileSize = libraryBook.totalFileSize,
-                    coverPath = libraryBook.coverPath,
-                    thumbnailPath = libraryBook.thumbnailPath,
-                    lastScannedAt = libraryBook.lastScannedAt,
-                    progressPercent = libraryBook.progressPercent,
-                    // Home Detail Read Status Projection (Pass the catalog status into the detail scene)
-                    // Detail's action dialog is built from DetailBookItem, so Home must include readStatus when it opens Detail from a known catalog row.
-                    readStatus = libraryBook.readStatus
-                )
-            }
+            // Retrieve Cached Detail Book (Fetch pre-mapped detail item for navigation)
+            // Instead of finding and mapping on the fly, retrieve the pre-calculated projection directly by ID.
+            val book = detailBookItems[id]
             onOpenDetail(
                 DetailOpenRequest(
                     book = book,
@@ -138,29 +121,29 @@ fun HomeScreen(
             )
         },
         onLoadBook = { id: String ->
-            playerViewModel.loadBook(id)
+            playbackViewModel.loadBook(id)
         },
         onNavigateToPlayer = {
             // Home Direct Playback Open (Keep catalog play buttons out of mini-player motion)
             // The catalog play command does not have a full-player shared-element source, so it
             // opens the player directly and resets to the primary cover view for a stable target.
-            playerViewModel.openFullPlayerFromDirect()
+            settingsViewModel.openFullPlayerFromDirect()
         },
         onBookActionsRequested = { homeBook ->
-            // Home Dialog Request (Route long-press actions to the page dialog host)
-            // Stores only the selected audiobook payload and lets HomeDialogHost derive the concrete dialog tree.
-            homeDialogState = HomeDialogState.AudiobookActions(homeBook)
+            // Request Book Actions Dialog (Delegate showing the book actions dialog to the ViewModel)
+            // Passes the selected book to the ViewModel to display the actions dialog, ensuring state survival across configuration changes.
+            libraryViewModel.showBookActions(homeBook)
         }
     )
 
     HomeDialogHost(
-        state = homeDialogState,
+        state = libraryUiState.homeDialogState,
         hazeState = resolvedHomeDialogHazeState,
         glassEffectMode = libraryUiState.glassEffectMode,
         onDismissRequest = {
-            // Home Dialog Dismissal (Return the page dialog host to idle)
-            // Centralizes dismissal so first-level and nested confirmation dialogs clear through the same page-owned state.
-            homeDialogState = HomeDialogState.None
+            // Dismiss Home Dialog (Delegate dialog dismissal to the ViewModel)
+            // Invokes the ViewModel's dismissal function to reset the dialog state to None, ensuring unified state management.
+            libraryViewModel.dismissDialog()
         },
         onEditBook = onEditBookRequested,
         onUpdateReadStatus = { bookId, status ->
@@ -170,7 +153,7 @@ fun HomeScreen(
             libraryViewModel.forceRegenerateCoverAndMetadata(bookId)
         },
         onDeleteBook = { bookId ->
-            playerViewModel.closePlayback(bookId)
+            playbackViewModel.closePlayback(bookId)
             libraryViewModel.deleteBook(bookId)
         }
     )

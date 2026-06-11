@@ -189,40 +189,41 @@ fun SettingsOverlay(
                                 onDeletedBookRecoveryClick = {
                                     activeSettingsPage = SettingsOverlayPage.DeletedBookRecovery
                                 },
+                                // Title: Delegate Settings Screen Updates (Route preference toggles and connection tests to handler parameters)
                                 isChapterProgressMode = settingsState.isChapterProgressMode,
-                                onChapterProgressModeChange = { settingsViewModel.toggleChapterProgressMode(it) },
+                                onChapterProgressModeChange = { settingsViewModel.preferencesHandler.toggleChapterProgressMode(it) },
                                 isCleartextTrafficAllowed = settingsState.isCleartextTrafficAllowed,
-                                onCleartextTrafficAllowedChange = { settingsViewModel.toggleCleartextTrafficAllowed(it) },
+                                onCleartextTrafficAllowedChange = { settingsViewModel.preferencesHandler.toggleCleartextTrafficAllowed(it) },
                                 // Insecure TLS Config Link: Bind local settings state for allowing insecure TLS connections and its callback trigger.
                                 isAllowInsecureTls = settingsState.isAllowInsecureTls,
-                                onAllowInsecureTlsChange = { settingsViewModel.toggleAllowInsecureTls(it) },
+                                onAllowInsecureTlsChange = { settingsViewModel.preferencesHandler.toggleAllowInsecureTls(it) },
                                 isSkipSilenceEnabled = settingsState.isSkipSilenceEnabled,
-                                onSkipSilenceEnabledChange = { settingsViewModel.toggleSkipSilenceEnabled(it) },
+                                onSkipSilenceEnabledChange = { settingsViewModel.preferencesHandler.toggleSkipSilenceEnabled(it) },
                                 isSleepFadeOutEnabled = settingsState.isSleepFadeOutEnabled,
-                                onSleepFadeOutEnabledChange = { settingsViewModel.toggleSleepFadeOutEnabled(it) },
+                                onSleepFadeOutEnabledChange = { settingsViewModel.preferencesHandler.toggleSleepFadeOutEnabled(it) },
                                 isShakeToResetEnabled = settingsState.isShakeToResetEnabled,
-                                onShakeToResetEnabledChange = { settingsViewModel.toggleShakeToResetEnabled(it) },
+                                onShakeToResetEnabledChange = { settingsViewModel.preferencesHandler.toggleShakeToResetEnabled(it) },
                                 sleepMode = settingsState.sleepMode,
-                                onSleepModeChange = { settingsViewModel.updateSleepMode(it) },
+                                onSleepModeChange = { settingsViewModel.preferencesHandler.updateSleepMode(it) },
                                 appLanguage = effectiveAppLanguage,
                                 onLanguageClick = {
                                     settingsDialogController.dialogState = SettingsDialogState.LanguagePicker
                                 },
                                 themeMode = settingsState.themeMode,
-                                onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
+                                onThemeModeChange = { settingsViewModel.preferencesHandler.updateThemeMode(it) },
                                 // Pipe Dynamic Color Settings (Forward dynamic color configuration parameters to downstream SettingsScreen) Binds dynamic color state and callback.
                                 isDynamicColorEnabled = settingsState.isDynamicColorEnabled,
-                                onDynamicColorEnabledChange = { settingsViewModel.toggleDynamicColorEnabled(it) },
+                                onDynamicColorEnabledChange = { settingsViewModel.preferencesHandler.toggleDynamicColorEnabled(it) },
                                 glassEffectMode = settingsState.glassEffectMode,
                                 settingsHazeState = if (isBlur) settingsHazeState else null,
-                                onGlassEffectModeChange = { settingsViewModel.updateGlassEffectMode(it) },
+                                onGlassEffectModeChange = { settingsViewModel.preferencesHandler.updateGlassEffectMode(it) },
                                 autoRewindSeconds = settingsState.autoRewindSeconds,
-                                onAutoRewindSecondsChange = { settingsViewModel.updateAutoRewindSeconds(it) },
+                                onAutoRewindSecondsChange = { settingsViewModel.preferencesHandler.updateAutoRewindSeconds(it) },
                                 playbackSeekStepConfig = settingsState.playbackSeekStepConfig,
-                                onSeekBackwardStepChange = { settingsViewModel.updateSeekBackwardSeconds(it) },
-                                onSeekForwardStepChange = { settingsViewModel.updateSeekForwardSeconds(it) },
+                                onSeekBackwardStepChange = { settingsViewModel.preferencesHandler.updateSeekBackwardSeconds(it) },
+                                onSeekForwardStepChange = { settingsViewModel.preferencesHandler.updateSeekForwardSeconds(it) },
                                 isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
-                                onNotificationAvoidanceEnabledChange = { settingsViewModel.toggleNotificationAvoidanceEnabled(it) },
+                                onNotificationAvoidanceEnabledChange = { settingsViewModel.preferencesHandler.toggleNotificationAvoidanceEnabled(it) },
                                 onAboutLibrariesClick = { activeSettingsPage = SettingsOverlayPage.AboutLibraries }
                             )
                         }
@@ -234,38 +235,38 @@ fun SettingsOverlay(
                             glassEffectMode = settingsState.glassEffectMode,
                             settingsDialogHazeState = if (isBlur) appHazeState else null,
                             appLanguage = effectiveAppLanguage,
-                            onAppLanguageChange = { settingsViewModel.updateAppLanguage(it) },
+                            onAppLanguageChange = { settingsViewModel.preferencesHandler.updateAppLanguage(it) },
                             webDavConnectionState = webDavConnectionState,
                             onWebDavConnectionTest = { url, username, password, basePath, editingRootId ->
-                                settingsViewModel.testWebDavConnection(url, username, password, basePath, editingRootId)
+                                settingsViewModel.connectionHandler.testWebDavConnection(url, username, password, basePath, editingRootId)
                             },
                             onResetWebDavConnectionState = {
-                                settingsViewModel.resetWebDavConnectionState()
+                                settingsViewModel.connectionHandler.resetWebDavConnectionState()
                             },
                             onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
-                                settingsViewModel.onWebDavRootSubmitted(url, username, password, displayName, basePath)
+                                settingsViewModel.connectionHandler.onWebDavRootSubmitted(url, username, password, displayName, basePath)
                             },
                             onWebDavRootUpdated = { id, url, username, password, displayName, basePath ->
                                 settingsViewModel.updateWebDavRoot(id, url, username, password, displayName, basePath)
                             },
                             absConnectionState = absConnectionState,
                             onAbsConnectionTest = { baseUrl, username, password, editingRootId ->
-                                settingsViewModel.testAbsConnection(baseUrl, username, password, editingRootId)
+                                settingsViewModel.connectionHandler.testAbsConnection(baseUrl, username, password, editingRootId)
                             },
                             onResetAbsConnectionState = {
-                                settingsViewModel.resetAbsConnectionState()
+                                settingsViewModel.connectionHandler.resetAbsConnectionState()
                             },
                             onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName, editingRootId ->
-                                settingsViewModel.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
+                                settingsViewModel.connectionHandler.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
                             },
                             getWebDavCredentials = { credentialId ->
-                                settingsViewModel.getWebDavCredentials(credentialId)
+                                settingsViewModel.connectionHandler.getWebDavCredentials(credentialId)
                             },
                             getAbsCredential = { credentialId ->
-                                settingsViewModel.getAbsCredential(credentialId)
+                                settingsViewModel.connectionHandler.getAbsCredential(credentialId)
                             },
-                            onAbsSync = { rootId -> settingsViewModel.syncAbsRoot(rootId) },
-                            onRescan = { settingsViewModel.triggerRescan() },
+                            onAbsSync = { rootId -> settingsViewModel.connectionHandler.syncAbsRoot(rootId) },
+                            onRescan = { settingsViewModel.connectionHandler.triggerRescan() },
                             onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
                             onLaunchSafRootPicker = { libraryRootLauncher.launch(null) }
                         )

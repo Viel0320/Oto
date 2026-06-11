@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -127,6 +128,9 @@ fun DeletedBookRecoveryScreen(
                             Modifier
                         }
                     ),
+                // Title: Avoid Recovery Scaffold Background Overdraw (Set Scaffold containerColor to transparent)
+                // Overrides Scaffold background containerColor to transparent so it won't draw another background layer over SettingsOverlay surface.
+                containerColor = Color.Transparent,
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
             ) { innerPadding ->
                 DeletedBookRecoveryList(

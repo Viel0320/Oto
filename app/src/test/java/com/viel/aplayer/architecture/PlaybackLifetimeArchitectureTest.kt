@@ -1,8 +1,8 @@
 package com.viel.aplayer.architecture
 
-import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * Playback Lifetime Architecture Test (Locks phase-six graph ownership)
@@ -76,8 +76,12 @@ class PlaybackLifetimeArchitectureTest {
     @Test
     fun playerSceneUsesPlaybackControllerInsteadOfMediaSingletons() {
         val sourceRoot = resolveSourceRoot()
+        // Update Playback Lifetime Test (Adapts UI file list to independent ViewModels)
+        // Ensures all three split player ViewModels do not import media singletons directly.
         val guardedUiFiles = listOf(
-            "ui/player/PlayerViewModel.kt",
+            "ui/player/PlaybackViewModel.kt",
+            "ui/player/BookmarkViewModel.kt",
+            "ui/player/PlayerSettingsViewModel.kt",
             "ui/player/MediaPlaybackDelegate.kt",
             "ui/settings/PlayerSettingsManager.kt",
             "ui/settings/SleepTimerManager.kt"

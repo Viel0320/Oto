@@ -235,7 +235,9 @@ class UserVisibleStringResourceTest {
             // The old settings root path no longer owns the reusable section rows, so the guard tracks the current component boundary.
             "app/src/main/java/com/viel/aplayer/ui/settings/components/SettingsSections.kt",
             "app/src/main/java/com/viel/aplayer/ui/settings/SettingsViewModel.kt",
-            "app/src/main/java/com/viel/aplayer/ui/player/PlayerViewModel.kt",
+            "app/src/main/java/com/viel/aplayer/ui/player/PlaybackViewModel.kt",
+            "app/src/main/java/com/viel/aplayer/ui/player/BookmarkViewModel.kt",
+            "app/src/main/java/com/viel/aplayer/ui/player/PlayerSettingsViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/components/PlaybackControls.kt",
             // Related Books Guard Path (Track player recommendation section titles after localization)
             // This component owns app-provided related-book headings, so it must stay under migrated copy guard coverage.

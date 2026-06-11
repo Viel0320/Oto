@@ -44,13 +44,14 @@ class HomeLibraryReadModelArchitectureTest {
         )
         assertTrue(
             "LibraryViewModel must send home commands through HomeLibraryUseCases.",
+            /*
+             * Verify active Home Scene commands (Assert only commands that are currently owned by the Home catalog screen)
+             * Removes assertion checks for relocated root setup, search history, and rescan triggers.
+             */
             listOf(
                 "homeLibraryUseCases.scheduleColdStartSync()",
                 "homeLibraryUseCases.updateReadStatus(",
-                "homeLibraryUseCases.regenerateCoverAndMetadata(",
-                "homeLibraryUseCases.addLocalRootAndScheduleSync(",
-                "homeLibraryUseCases.clearSearchHistory()",
-                "homeLibraryUseCases.scheduleUserSync()"
+                "homeLibraryUseCases.regenerateCoverAndMetadata("
             ).all { expectedCall -> libraryViewModelSource.contains(expectedCall) }
         )
         assertTrue(

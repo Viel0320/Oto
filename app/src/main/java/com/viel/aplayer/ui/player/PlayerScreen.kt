@@ -70,10 +70,8 @@ import com.viel.aplayer.ui.player.layouts.PlayerPortrait
 import com.viel.aplayer.ui.player.layouts.PlayerTabletLandscape
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
 
@@ -89,7 +87,9 @@ enum class PlayerScreenMode(val index: Int) {
 )
 @Composable
 fun PlayerScreen(
-    viewModel: PlayerViewModel,
+    playbackViewModel: PlaybackViewModel,
+    bookmarkViewModel: BookmarkViewModel,
+    settingsViewModel: PlayerSettingsViewModel,
     actions: PlayerActions,
     navigationActions: PlayerNavigationActions,
     // Glass effect mode (To customize overlay blur styles)
@@ -119,13 +119,13 @@ fun PlayerScreen(
     // Facilitates UI channel adaptation, decoupling, and automated views testing.
     // =====================================================================
     val progressState = if (isPreview) {
-        PlayerViewModel.PlaybackProgressViewState(
+        PlaybackViewModel.PlaybackProgressViewState(
             elapsedMs = 120000L,
             durationMs = 360000L,
             isChapterProgressMode = false
         )
     } else {
-        viewModel.playbackProgressState.collectAsStateWithLifecycle().value
+        playbackViewModel.playbackProgressState.collectAsStateWithLifecycle().value
     }
 
     val currentChapter = if (isPreview) {
@@ -142,17 +142,17 @@ fun PlayerScreen(
             source = AudiobookSchema.ChapterSource.EMBEDDED
         )
     } else {
-        viewModel.currentChapterState.collectAsStateWithLifecycle().value
+        playbackViewModel.currentChapterState.collectAsStateWithLifecycle().value
     }
 
     val bookmarkDialogs = if (isPreview) {
-        PlayerViewModel.BookmarkDialogsState(
+        BookmarkViewModel.BookmarkDialogsState(
             toDelete = null,
             toEdit = null,
             editTitle = ""
         )
     } else {
-        viewModel.bookmarkDialogs.collectAsStateWithLifecycle().value
+        bookmarkViewModel.bookmarkDialogs.collectAsStateWithLifecycle().value
     }
 
     // IDE preview data check (To supply mock parameters under layout previews)
@@ -175,7 +175,7 @@ fun PlayerScreen(
             )
         )
     } else {
-        viewModel.metadataState.collectAsStateWithLifecycle().value
+        playbackViewModel.metadataState.collectAsStateWithLifecycle().value
     }
     // Lower resolution backdrop image (To decouple backdrop drawing parameters from high-res main artwork)
     val playerBackdropCoverPath = CoverImageSourceSelector.backdrop(
@@ -192,23 +192,23 @@ fun PlayerScreen(
             selectedSleepTimer = 0
         )
     } else {
-        viewModel.settingsState.collectAsStateWithLifecycle().value
+        settingsViewModel.settingsState.collectAsStateWithLifecycle().value
     }
 
     val controls = if (isPreview) {
-        PlayerViewModel.PlaybackControlState(
+        PlaybackViewModel.PlaybackControlState(
             isPlaying = true,
             playbackSpeed = 1.0f,
             isSpeedManualMode = false
         )
     } else {
-        viewModel.playbackControlState.collectAsStateWithLifecycle().value
+        playbackViewModel.playbackControlState.collectAsStateWithLifecycle().value
     }
     
     val fullUiState = if (isPreview) {
         PlayerUiState()
     } else {
-        viewModel.uiState.collectAsStateWithLifecycle().value
+        playbackViewModel.uiState.collectAsStateWithLifecycle().value
     }
 
     val targetMode = remember(settings.selectedContentTab) {
@@ -437,9 +437,9 @@ fun PlayerScreen(
                                 bookmarkToDelete = bookmarkDialogs.toDelete,
                                 bookmarkToEdit = bookmarkDialogs.toEdit,
                                 bookmarkEditTitle = bookmarkDialogs.editTitle,
-                                onRequestDeleteBookmark = { viewModel.requestDeleteBookmark(it) },
-                                onRequestEditBookmark = { viewModel.requestEditBookmark(it) },
-                                onBookmarkEditTitleChange = { viewModel.onBookmarkEditTitleChange(it) },
+                                onRequestDeleteBookmark = actions.bookmarks.onRequestDelete,
+                                onRequestEditBookmark = actions.bookmarks.onRequestEdit,
+                                onBookmarkEditTitleChange = actions.bookmarks.onEditTitleChange,
                                 onConfirmDeleteBookmark = {
                                     bookmarkDialogs.toDelete?.let { bookmark ->
                                         actions.bookmarks.onDelete(bookmark)
@@ -450,7 +450,7 @@ fun PlayerScreen(
                                         actions.bookmarks.onUpdate(bookmark, bookmarkDialogs.editTitle)
                                     }
                                 },
-                                onDismissBookmarkDialogs = { viewModel.dismissBookmarkDialogs() },
+                                onDismissBookmarkDialogs = actions.bookmarks.onDismissDialogs,
                                 metadata = metadata,
                                 settings = settings,
                                 actions = actions,
@@ -480,9 +480,9 @@ fun PlayerScreen(
                                 bookmarkToDelete = bookmarkDialogs.toDelete,
                                 bookmarkToEdit = bookmarkDialogs.toEdit,
                                 bookmarkEditTitle = bookmarkDialogs.editTitle,
-                                onRequestDeleteBookmark = { viewModel.requestDeleteBookmark(it) },
-                                onRequestEditBookmark = { viewModel.requestEditBookmark(it) },
-                                onBookmarkEditTitleChange = { viewModel.onBookmarkEditTitleChange(it) },
+                                onRequestDeleteBookmark = actions.bookmarks.onRequestDelete,
+                                onRequestEditBookmark = actions.bookmarks.onRequestEdit,
+                                onBookmarkEditTitleChange = actions.bookmarks.onEditTitleChange,
                                 onConfirmDeleteBookmark = {
                                     bookmarkDialogs.toDelete?.let { bookmark ->
                                         actions.bookmarks.onDelete(bookmark)
@@ -493,7 +493,7 @@ fun PlayerScreen(
                                         actions.bookmarks.onUpdate(bookmark, bookmarkDialogs.editTitle)
                                     }
                                 },
-                                onDismissBookmarkDialogs = { viewModel.dismissBookmarkDialogs() },
+                                onDismissBookmarkDialogs = actions.bookmarks.onDismissDialogs,
                                 metadata = metadata,
                                 settings = settings,
                                 actions = actions,
@@ -523,9 +523,9 @@ fun PlayerScreen(
                                 bookmarkToDelete = bookmarkDialogs.toDelete,
                                 bookmarkToEdit = bookmarkDialogs.toEdit,
                                 bookmarkEditTitle = bookmarkDialogs.editTitle,
-                                onRequestDeleteBookmark = { viewModel.requestDeleteBookmark(it) },
-                                onRequestEditBookmark = { viewModel.requestEditBookmark(it) },
-                                onBookmarkEditTitleChange = { viewModel.onBookmarkEditTitleChange(it) },
+                                onRequestDeleteBookmark = actions.bookmarks.onRequestDelete,
+                                onRequestEditBookmark = actions.bookmarks.onRequestEdit,
+                                onBookmarkEditTitleChange = actions.bookmarks.onEditTitleChange,
                                 onConfirmDeleteBookmark = {
                                     bookmarkDialogs.toDelete?.let { bookmark ->
                                         actions.bookmarks.onDelete(bookmark)
@@ -536,7 +536,7 @@ fun PlayerScreen(
                                         actions.bookmarks.onUpdate(bookmark, bookmarkDialogs.editTitle)
                                     }
                                 },
-                                onDismissBookmarkDialogs = { viewModel.dismissBookmarkDialogs() },
+                                onDismissBookmarkDialogs = actions.bookmarks.onDismissDialogs,
                                 metadata = metadata,
                                 settings = settings,
                                 actions = actions,
@@ -667,6 +667,8 @@ fun PlayerFloatingSurfaceHost(
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun PlayerScreenPreview() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val application = context.applicationContext as android.app.Application
     APlayerTheme {
         // Portrait phone preview (To verify vertical scroll drawer positioning metrics)
         CompositionLocalProvider(
@@ -677,8 +679,11 @@ fun PlayerScreenPreview() {
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
             ) {
+                val mockScope = rememberCoroutineScope()
                 PlayerScreen(
-                    viewModel = PlayerViewModel(),
+                    playbackViewModel = PlaybackViewModel(application, mockScope),
+                    bookmarkViewModel = BookmarkViewModel(application, mockScope),
+                    settingsViewModel = PlayerSettingsViewModel(application, mockScope),
                     actions = PlayerActions(),
                     navigationActions = PlayerNavigationActions(),
                     glassEffectMode = GlassEffectMode.Material,
@@ -695,6 +700,8 @@ fun PlayerScreenPreview() {
 @Preview(showBackground = true, apiLevel = 36, widthDp = 800, heightDp = 480)
 @Composable
 fun PlayerScreenLandscapePreview() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val application = context.applicationContext as android.app.Application
     APlayerTheme {
         // Landscape phone preview (To verify double-column layouts under wider screens)
         CompositionLocalProvider(
@@ -705,8 +712,11 @@ fun PlayerScreenLandscapePreview() {
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
             ) {
+                val mockScope = rememberCoroutineScope()
                 PlayerScreen(
-                    viewModel = PlayerViewModel(),
+                    playbackViewModel = PlaybackViewModel(application, mockScope),
+                    bookmarkViewModel = BookmarkViewModel(application, mockScope),
+                    settingsViewModel = PlayerSettingsViewModel(application, mockScope),
                     actions = PlayerActions(),
                     navigationActions = PlayerNavigationActions(),
                     glassEffectMode = GlassEffectMode.Haze,

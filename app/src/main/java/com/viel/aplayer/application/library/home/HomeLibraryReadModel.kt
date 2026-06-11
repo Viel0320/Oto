@@ -1,6 +1,7 @@
 package com.viel.aplayer.application.library.home
 
 import android.net.Uri
+import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.gateway.BookCatalogGateway
@@ -43,6 +44,28 @@ data class HomeBookItem(
     val isInProgress: Boolean,
     val isNotStarted: Boolean
 )
+
+// Map HomeBookItem to DetailBookItem (Abstract boundary mapping from UI layer to application layer)
+// This encapsulates the conversion logic of book projections, allowing it to be easily unit-tested and keeping Composables focused on pure rendering.
+fun HomeBookItem.toDetailBookItem(): DetailBookItem {
+    return DetailBookItem(
+        id = id,
+        rootId = rootId,
+        sourceType = sourceType,
+        title = title,
+        author = author,
+        narrator = narrator,
+        description = description,
+        year = year,
+        totalDurationMs = totalDurationMs,
+        totalFileSize = totalFileSize,
+        coverPath = coverPath,
+        thumbnailPath = thumbnailPath,
+        lastScannedAt = lastScannedAt,
+        progressPercent = progressPercent,
+        readStatus = readStatus
+    )
+}
 
 /**
  * Home Library Read Model (Scene-level catalog surface for the home screen)

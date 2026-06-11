@@ -13,8 +13,12 @@ class PlayerEditArchitectureTest {
     @Test
     fun playerAndEditUiCallersDoNotImportLibraryFacade() {
         val sourceRoot = resolveSourceRoot()
+        // Update Player ViewModel Architecture Tests (Validates independent ViewModels satisfy architecture constraints)
+        // Ensures PlaybackViewModel, BookmarkViewModel, and PlayerSettingsViewModel do not import the broad library facade.
         val guardedFiles = listOf(
-            "ui/player/PlayerViewModel.kt",
+            "ui/player/PlaybackViewModel.kt",
+            "ui/player/BookmarkViewModel.kt",
+            "ui/player/PlayerSettingsViewModel.kt",
             "ui/player/components/bookmarks/BookmarkManager.kt",
             "ui/player/MediaPlaybackDelegate.kt",
             "ui/edit/EditBookViewModel.kt"
@@ -30,21 +34,33 @@ class PlayerEditArchitectureTest {
     }
 
     @Test
-    fun playerViewModelConsumesPlayerSceneDependenciesOnly() {
-        val playerViewModelSource = resolveSourceRoot().resolve("ui/player/PlayerViewModel.kt").readText()
+    fun playerViewModelsConsumePlayerSceneDependenciesOnly() {
+        val sourceRoot = resolveSourceRoot()
+        // Update Player ViewModel Architecture Tests (Validates independent ViewModels satisfy architecture constraints)
+        // Ensures PlaybackViewModel, BookmarkViewModel, and PlayerSettingsViewModel use correct scoped dependency views.
+        val vms = listOf("PlaybackViewModel.kt", "BookmarkViewModel.kt", "PlayerSettingsViewModel.kt")
+        vms.forEach { name ->
+            val source = sourceRoot.resolve("ui/player/$name").readText()
+            assertTrue(
+                "$name must resolve the player-specific dependency view.",
+                source.contains("getPlayerScreenDependencies")
+            )
+            assertTrue(
+                "$name must not call the old library presentation dependency provider.",
+                !source.contains("getLibraryPresentationDependencies")
+            )
+        }
 
+        val playbackSource = sourceRoot.resolve("ui/player/PlaybackViewModel.kt").readText()
         assertTrue(
-            "PlayerViewModel must resolve the player-specific dependency view.",
-            playerViewModelSource.contains("getPlayerScreenDependencies")
+            "PlaybackViewModel must consume player library read model.",
+            playbackSource.contains("playerLibraryReadModel")
         )
+
+        val bookmarkSource = sourceRoot.resolve("ui/player/BookmarkViewModel.kt").readText()
         assertTrue(
-            "PlayerViewModel must consume player read and bookmark scene interfaces.",
-            playerViewModelSource.contains("playerLibraryReadModel") &&
-                playerViewModelSource.contains("playerBookmarkCommands")
-        )
-        assertTrue(
-            "PlayerViewModel must not call the old library presentation dependency provider.",
-            !playerViewModelSource.contains("getLibraryPresentationDependencies")
+            "BookmarkViewModel must consume player bookmark commands.",
+            bookmarkSource.contains("playerBookmarkCommands")
         )
     }
 

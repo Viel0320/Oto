@@ -25,7 +25,9 @@ import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.home.components.HomeAppBar
 import com.viel.aplayer.ui.home.components.HomeViewPreferenceDialog
-import com.viel.aplayer.ui.player.PlayerViewModel
+import com.viel.aplayer.ui.player.BookmarkViewModel
+import com.viel.aplayer.ui.player.PlaybackViewModel
+import com.viel.aplayer.ui.player.PlayerSettingsViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.serialization.Serializable
@@ -46,7 +48,9 @@ fun APlayerNavHost(
     navigationState: NavigationState,
     navigator: Navigator,
     libraryViewModel: LibraryViewModel,
-    playerViewModel: PlayerViewModel,
+    playbackViewModel: PlaybackViewModel,
+    bookmarkViewModel: BookmarkViewModel,
+    settingsViewModel: PlayerSettingsViewModel,
     detailViewModel: DetailViewModel,
     canStartNavigation: () -> Boolean,
     searchViewModel: com.viel.aplayer.ui.search.SearchViewModel,
@@ -111,7 +115,7 @@ fun APlayerNavHost(
     // Setup Entry Provider (Resolve NavKeys to Screen composables)
     // Declares the mapping of serializable NavKey to their respective Compose screen contents.
     // Explicit NavKey Provider (Fix Nav3 type parameter matching issue) Explicitly parameterize entryProvider with NavKey to bypass Kotlin contravariance compile errors.
-    val provider = remember(libraryViewModel, playerViewModel, detailViewModel, onOpenDetail, onAddLibraryRequested, onEditBookRequested, homeDialogHazeState, homeTopBarHeightPx, homeTopBarScrollToTopRequest) {
+    val provider = remember(libraryViewModel, playbackViewModel, bookmarkViewModel, settingsViewModel, detailViewModel, onOpenDetail, onAddLibraryRequested, onEditBookRequested, homeDialogHazeState, homeTopBarHeightPx, homeTopBarScrollToTopRequest) {
         entryProvider<NavKey> {
             entry<HomeRoute> {
                 /*
@@ -122,7 +126,8 @@ fun APlayerNavHost(
                  */
                 HomeScreen(
                     libraryViewModel = libraryViewModel,
-                    playerViewModel = playerViewModel,
+                    playbackViewModel = playbackViewModel,
+                    settingsViewModel = settingsViewModel,
                     detailViewModel = detailViewModel,
                     onOpenDetail = onOpenDetail,
                     homeDialogHazeState = homeDialogHazeState,

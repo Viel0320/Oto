@@ -137,6 +137,10 @@ fun ChapterDisplay(
                         modifier = Modifier.size(SuggestionChipDefaults.IconSize)
                     )
                 },
+                border = SuggestionChipDefaults.suggestionChipBorder(
+                    enabled = true,
+                    borderColor = MaterialTheme.colorScheme.outline
+                ),
                 shape = RoundedCornerShape(12.dp)
             )
         }

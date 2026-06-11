@@ -16,6 +16,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeFilter
 import com.viel.aplayer.ui.common.AudiobookActionDialog
 import com.viel.aplayer.ui.common.AudiobookActionDialogBook
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -204,9 +205,8 @@ class HomeChoiceAccessibilityTest {
     }
 
     private companion object {
-        // Shared Action Dialog Fixture (Build the smallest payload needed by the common audiobook action dialog)
-        // The test no longer depends on Home catalog projections, so failures point at the shared read-status control contract.
-        private fun audiobookActionDialogBook(readStatus: String?): AudiobookActionDialogBook =
+        // Title: Fix Test Dialog Helper Parameter (Change parameter type from String? to AudiobookSchema.ReadStatus? to match data class)
+        private fun audiobookActionDialogBook(readStatus: AudiobookSchema.ReadStatus?): AudiobookActionDialogBook =
             AudiobookActionDialogBook(
                 id = "accessibility-book-id",
                 title = "Accessibility Test Book",
