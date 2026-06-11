@@ -69,9 +69,7 @@ import com.viel.aplayer.ui.detail.layouts.DetailLandscapePhone
 import com.viel.aplayer.ui.detail.layouts.DetailPortrait
 import com.viel.aplayer.ui.detail.layouts.DetailTabletLandscape
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -139,8 +137,6 @@ fun DetailContent(
     // Setup coverHazeState (Manage detail-specific blur state) Replaced coverBackdrop with coverHazeState.
     val coverHazeState = remember { HazeState() }
 
-    val isBlur = glassEffectMode == GlassEffectMode.Haze
-
     // Exclude Keyboard Insets (Avoid Detail Recomposition on IME change)
     // Exclude WindowInsets.ime from safeDrawing to prevent the details page from unnecessary recompositions
     // when the soft keyboard pops up or dismisses inside the overlapping SearchOverlay.
@@ -202,17 +198,6 @@ fun DetailContent(
                 hazeState = coverHazeState
             )
 
-            if (isBlur) {
-                // Background Blur Layer (Render dynamic ultra-thin blur on top of clear cover background)
-                // Draw a full-screen box configured with hazeChild using ultra-thin style to blur the backdrop.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .hazeEffect(
-                            state = coverHazeState,
-                            style = HazeMaterials.ultraThin())
-                )
-            }
 
             Scaffold(
                 topBar = {

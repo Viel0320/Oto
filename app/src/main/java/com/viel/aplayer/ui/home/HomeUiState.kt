@@ -85,7 +85,7 @@ fun HomeScreen(
     } else {
         null
     }
-    HomeScreenContent(
+    HomeContent(
         modifier = modifier,
         selectedFilter = libraryUiState.selectedFilter,
         groupedAudiobooks = libraryUiState.groupedAudiobooks,

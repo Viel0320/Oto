@@ -1,8 +1,8 @@
 package com.viel.aplayer.architecture
 
-import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * Player Motion Source Architecture Test (Locks direct playback away from mini-player motion)
@@ -14,7 +14,7 @@ class PlayerMotionSourceArchitectureTest {
     @Test
     fun directPlaybackEntriesUseDirectFullPlayerOpenApi() {
         val sourceRoot = resolveSourceRoot()
-        val homeSource = sourceRoot.resolve("ui/home/HomeScreenState.kt").readText()
+        val homeSource = sourceRoot.resolve("ui/home/HomeUiState.kt").readText()
         val appSource = sourceRoot.resolve("ui/navigation/APlayerApp.kt").readText()
 
         // Home Direct Entry Contract (Catalog play buttons must bypass mini-player motion)

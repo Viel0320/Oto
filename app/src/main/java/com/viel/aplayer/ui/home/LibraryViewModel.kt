@@ -128,7 +128,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             // Pass down glassmorphic mode properties to synchronize theme rendering across pages.
             glassEffectMode = appSettings.glassEffectMode,
             // Home View Preference Propagation (Forward persisted renderer selection to Home UI)
-            // Keeps the ViewModel as the single settings consumer so HomeScreenContent only receives ready-to-render state.
+            // Keeps the ViewModel as the single settings consumer so HomeContent only receives ready-to-render state.
             homeViewStyle = appSettings.homeViewStyle,
             // Home Sort Preference Propagation (Forward persisted grouping rule to app bar controls)
             // The actual sorted/grouped catalog above is already derived from this same value.

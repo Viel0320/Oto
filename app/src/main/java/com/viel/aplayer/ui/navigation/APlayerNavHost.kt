@@ -105,7 +105,7 @@ fun APlayerNavHost(
     var homeTopBarHeightPx by remember { mutableIntStateOf(0) }
     var homeTopBarScrollToTopRequest by remember { mutableIntStateOf(0) }
     // Home View Dialog Visibility (Local chrome state for the top-bar display preferences entry)
-    // This state belongs to the navigation host because HomeAppBar is mounted here rather than inside HomeScreenContent.
+    // This state belongs to the navigation host because HomeAppBar is mounted here rather than inside HomeContent.
     var isHomeViewPreferenceDialogVisible by remember { mutableStateOf(false) }
 
     // Setup Entry Provider (Resolve NavKeys to Screen composables)
@@ -180,7 +180,7 @@ fun APlayerNavHost(
                 },
                 onTitleDoubleTap = {
                     // Home Top Bar Scroll Event (Bridge header gesture to Home route content)
-                    // The app bar is hosted by APlayerNavHost, so it sends an integer request that HomeScreenContent can consume without sharing its grid state upward.
+                    // The app bar is hosted by APlayerNavHost, so it sends an integer request that HomeContent can consume without sharing its grid state upward.
                     homeTopBarScrollToTopRequest += 1
                 },
                 onHeightChanged = { homeTopBarHeightPx = it }

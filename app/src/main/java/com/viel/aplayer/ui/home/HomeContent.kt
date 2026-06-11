@@ -67,14 +67,14 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
 /**
- * HomeScreenContent Setup (Stateless Home Main Content UI)
+ * HomeContent Setup (Stateless Home Main Content UI)
  *
  * Stateless home main content rendering component, representing the pure UI rendering layer.
- * Through decoupling and refactoring, HomeScreenContent has achieved complete statelessness, no longer holding any ViewModel or context reference.
+ * Through decoupling and refactoring, HomeContent has achieved complete statelessness, no longer holding any ViewModel or context reference.
  * All interactions and data delivery are performed entirely through pure declarative parameters and Lambda callbacks, greatly improving the unit testability and preview flexibility of the component.
  */
 @Composable
-fun HomeScreenContent(
+fun HomeContent(
     modifier: Modifier = Modifier,
     // Pre-calculated Fields (Dismantled from LibraryUiState)
     // The following are pre-calculated fields dismantled and passed from LibraryUiState, so the Composable does not need to perform remember operations anymore.
@@ -379,7 +379,7 @@ fun HomeScreenContent(
                                         onNavigateToPlayer()
                                     },
                                     // Book Actions Request (Forward long-press intent to the parent Home dialog host)
-                                    // HomeScreenContent reports the selected audiobook without deciding which dialog should render.
+                                    // HomeContent reports the selected audiobook without deciding which dialog should render.
                                     onLongClick = { onBookActionsRequested(book) },
                                     modifier = itemModifier
                                 )
@@ -432,14 +432,14 @@ fun HomeScreenContent(
 
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
-fun HomeScreenNotStartedPreview() {
+fun HomeNotStartedPreview() {
     val mockBooks = listOf(
         HomeBookItem(
             id = "id1",
             // Preview Home Item (Use the same Room-free projection delivered by the home read model)
             // This preview avoids rebuilding Room rows and keeps the content renderer aligned with the scene boundary.
             rootId = "preview-root",
-            // Update HomeScreenContent to use AudiobookSchema.SourceType: Replacing raw string with enum.
+            // Update HomeContent to use AudiobookSchema.SourceType: Replacing raw string with enum.
             sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
             status = AudiobookSchema.BookStatus.READY,
             title = "In the Megachurch",
@@ -471,7 +471,7 @@ fun HomeScreenNotStartedPreview() {
         CompositionLocalProvider(
             LocalWindowClass provides WindowClass.PortraitPhone
         ) {
-            HomeScreenContent(
+            HomeContent(
                 // Preview simulated data pre-calculated from ViewModel
                 selectedFilter = HomeFilter.NotStarted,
                 groupedAudiobooks = mockBooks.groupBy { it.author },

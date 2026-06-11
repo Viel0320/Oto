@@ -12,7 +12,7 @@ import dev.chrisbanes.haze.HazeState
 /**
  * Home Dialog Host (Derives concrete dialogs from Home page events)
  *
- * Maps [HomeDialogState] to Home-owned dialog UI while keeping HomeScreenContent free of dialog rendering and dialog-local state.
+ * Maps [HomeDialogState] to Home-owned dialog UI while keeping HomeContent free of dialog rendering and dialog-local state.
  * The host receives the resolved dialog HazeState explicitly so HomeScreen can prefer the app-level backdrop while keeping app bar sampling page-local.
  */
 @Composable

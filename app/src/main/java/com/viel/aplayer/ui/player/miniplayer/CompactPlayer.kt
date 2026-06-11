@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.player
+package com.viel.aplayer.ui.player.miniplayer
 
 // Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and modifiers.
 import androidx.compose.animation.EnterExitState
@@ -29,8 +29,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
@@ -54,6 +55,7 @@ import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
+import com.viel.aplayer.ui.player.MiniPlayerActions
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
@@ -95,7 +97,7 @@ fun CompactMediaPlayer(
     ) { enterExitState ->
         if (enterExitState == EnterExitState.Visible) 0.dp else 28.dp
     }
-        ?: remember { androidx.compose.runtime.mutableStateOf(0.dp) }
+        ?: remember { mutableStateOf(0.dp) }
 
     /*
      * Thumbnail Cover Corner Radius Transition (Smooth inner artwork morphing)
@@ -109,25 +111,10 @@ fun CompactMediaPlayer(
     ) { enterExitState ->
         if (enterExitState == EnterExitState.Visible) 8.dp else 24.dp
     }
-        ?: remember { androidx.compose.runtime.mutableStateOf(8.dp) }
+        ?: remember { mutableStateOf(8.dp) }
 
-    val boundsModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
-        with(sharedTransitionScope) {
-            Modifier.sharedBounds(
-                /*
-                 * Compact Player Bounds Key (Centralized shared bounds identity)
-                 *
-                 * Resolves the bottom-bar mini-player bounds key through SharedElementKeys while
-                 * preserving the existing bounds_<bookId> transition identity.
-                */
-                sharedContentState = rememberSharedContentState(key = SharedElementKeys.playerBounds()),
-                animatedVisibilityScope = mini2PlayerSourceScope,
-                clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
-            )
-        }
-    } else {
-        Modifier
-    }
+    // Disable Bounds Transition: Bypass shared bounds morphing for CompactPlayer to let the player slide up/down instead of morphing, while preserving cover shared elements.
+    val boundsModifier = Modifier
 
     // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
@@ -246,9 +233,9 @@ fun CompactMediaPlayer(
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                             contentScale = ContentScale.Crop,
                             onSuccess = { successResult ->
-                                val colorInt = com.viel.aplayer.media.parser.ImageProcessor.getDominantColorFromDrawable(successResult.result.drawable)
+                                val colorInt = ImageProcessor.getDominantColorFromDrawable(successResult.result.drawable)
                                 // Cache Calculated Color: Write the extracted dominant color into the main process LruCache to speed up future renders.
-                                com.viel.aplayer.media.parser.ImageProcessor.putColorToCache(coverPath, colorInt)
+                                ImageProcessor.putColorToCache(coverPath, colorInt)
                                 onColorExtracted?.invoke(Color(colorInt))
                             }
                         )

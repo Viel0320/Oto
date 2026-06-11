@@ -49,7 +49,7 @@ class HomeChoiceAccessibilityTest {
 
                 // Haze Filter Regression Fixture (Render Home filters through the custom glass branch)
                 // Passing Haze mode with a real HazeState exercises the Box-based chip path that previously exposed only raw clickable semantics.
-                HomeScreenContent(
+                HomeContent(
                     selectedFilter = HomeFilter.InProgress,
                     glassEffectMode = GlassEffectMode.Haze,
                     homeHazeState = homeHazeState
@@ -93,7 +93,7 @@ class HomeChoiceAccessibilityTest {
 
                 // Material Filter Regression Fixture (Render Home filters through the non-Haze custom branch)
                 // The custom chip must keep radio semantics and 48.dp targets even when no glass effect is active.
-                HomeScreenContent(
+                HomeContent(
                     selectedFilter = HomeFilter.InProgress,
                     glassEffectMode = GlassEffectMode.Material,
                     homeHazeState = homeHazeState

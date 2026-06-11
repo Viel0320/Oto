@@ -1,14 +1,18 @@
 package com.viel.aplayer.ui.player
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +34,8 @@ import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
+import com.viel.aplayer.ui.player.miniplayer.CompactMediaPlayer
+import com.viel.aplayer.ui.player.miniplayer.PillCompactMediaPlayer
 import com.viel.aplayer.ui.settings.FullPlayerOpenSource
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -110,105 +116,163 @@ fun PlayerOverlay(
     val playerAlignment = if (usePillPlayer) Alignment.BottomEnd else Alignment.BottomCenter
     val isPopupNeeded = hasActiveTrack && !isSearchActive
 
+    // Resolve Player Overlay State (Directly map active visibility configuration to a single state)
+    // Avoids separate visibility checks and keeps transition logic predictable.
+    val overlayState = when {
+        isFullPlayerVisible -> PlayerOverlayState.Full
+        isPopupNeeded && !isMiniPlayerHidden -> PlayerOverlayState.Mini
+        else -> PlayerOverlayState.Hidden
+    }
+
+    val fallbackPlayerHazeState = remember { HazeState() }
+    val resolvedPlayerHazeState = appHazeState ?: fallbackPlayerHazeState
+
+    // Unified Transition Container (Replaces two independent AnimatedVisibility containers with a single AnimatedContent)
+    // This enables a cohesive transition state machine and customizes transition specs to avoid conflicting slide animations during expanding morphs.
     Box(modifier = modifier.fillMaxSize()) {
-        // Mini Player Rendering Branch (Integrate minimized player view in unified page layout)
-        // Wraps PillCompactMediaPlayer or CompactMediaPlayer inside the same box tree, controlling layout alignment and visibility.
-        if (isPopupNeeded) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = playerAlignment
-            ) {
-                AnimatedVisibility(
-                    visible = !isFullPlayerVisible && !isMiniPlayerHidden,
-                    enter = slideInVertically(
-                        initialOffsetY = { it },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300)),
-                    exit = slideOutVertically(
-                        targetOffsetY = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
-                ) {
+        AnimatedContent(
+            targetState = overlayState,
+            transitionSpec = {
+                when {
+                    initialState == PlayerOverlayState.Mini && targetState == PlayerOverlayState.Full -> {
+                        // Conditional Transition: Choose transition type depending on active mini player style.
+                        // For PillPlayer, we use simple fades to let the shared bounds transition handle morphing.
+                        // For CompactPlayer, we use slide up/down transitions to push the full player sheet up from the bottom.
+                        if (usePillPlayer) {
+                            fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                        } else {
+                            (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))
+                                .togetherWith(slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)))
+                        }
+                    }
+                    initialState == PlayerOverlayState.Full && targetState == PlayerOverlayState.Mini -> {
+                        // Conditional Transition: Choose transition type depending on active mini player style.
+                        // For PillPlayer, we use simple fades to let the shared bounds transition handle morphing.
+                        // For CompactPlayer, we use slide up/down transitions to push the full player sheet up from the bottom.
+                        if (usePillPlayer) {
+                            fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                        } else {
+                            (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))
+                                .togetherWith(slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)))
+                        }
+                    }
+                    initialState == PlayerOverlayState.Hidden && targetState == PlayerOverlayState.Mini -> {
+                        (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))
+                            .togetherWith(fadeOut(animationSpec = tween(300)))
+                    }
+                    initialState == PlayerOverlayState.Mini && targetState == PlayerOverlayState.Hidden -> {
+                        fadeIn(animationSpec = tween(300))
+                            .togetherWith(slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)))
+                    }
+                    initialState == PlayerOverlayState.Hidden && targetState == PlayerOverlayState.Full -> {
+                        (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))
+                            .togetherWith(fadeOut(animationSpec = tween(300)))
+                    }
+                    initialState == PlayerOverlayState.Full && targetState == PlayerOverlayState.Hidden -> {
+                        fadeIn(animationSpec = tween(300))
+                            .togetherWith(slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)))
+                    }
+                    else -> {
+                        fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                    }
+                }
+            },
+            label = "player_overlay_transition"
+        ) { state ->
+            when (state) {
+                PlayerOverlayState.Hidden -> {
+                    // Empty Layout Placeholder (Supply a zero-sized Spacer when no player component is active)
+                    // Avoids unnecessary rendering and memory allocation when the overlay is completely hidden.
+                    Spacer(modifier = Modifier.size(0.dp))
+                }
+                PlayerOverlayState.Mini -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = playerAlignment
+                    ) {
+                        CompositionLocalProvider(
+                            // Motion Source Scope: Provide the mini-player motion source whenever it is the active player.
+                            // The outer layout's shared bounds are conditionally ignored in CompactPlayer.kt, but this allows cover shared elements to transition.
+                            LocalMini2PlayerSourceScope provides if (isMiniPlayerMotionSource) {
+                                this@AnimatedContent
+                            } else {
+                                null
+                            },
+                            LocalAnimatedVisibilityScope provides this@AnimatedContent
+                        ) {
+                            MiniPlayerContent(
+                                metadata = metadata,
+                                playback = playbackState,
+                                displayProgress = miniPlayerProgress,
+                                isMediaAvailable = isMediaAvailable,
+                                actions = miniPlayerActions,
+                                hazeState = appHazeState,
+                                glassEffectMode = glassEffectMode,
+                                dynamicColorScheme = dynamicColorScheme,
+                                onColorExtracted = { coverColor = it },
+                                onExpandClick = { playerViewModel.openFullPlayerFromMini() }
+                            )
+                        }
+                    }
+                }
+                PlayerOverlayState.Full -> {
                     CompositionLocalProvider(
-                        LocalMini2PlayerSourceScope provides if (isMiniPlayerMotionSource) {
-                            this@AnimatedVisibility
+                        // Motion Target Scope: Provide the full-player motion target scope whenever expanding from the mini player.
+                        // The outer layout's shared bounds are conditionally ignored in PlayerScreen.kt, but this allows cover shared elements to transition.
+                        LocalMini2PlayerTargetScope provides if (
+                            settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer
+                        ) {
+                            this@AnimatedContent
                         } else {
                             null
                         },
-                        LocalAnimatedVisibilityScope provides this@AnimatedVisibility
+                        LocalAnimatedVisibilityScope provides this@AnimatedContent
                     ) {
-                        MiniPlayerContent(
-                            metadata = metadata,
-                            playback = playbackState,
-                            displayProgress = miniPlayerProgress,
-                            isMediaAvailable = isMediaAvailable,
-                            actions = miniPlayerActions,
-                            hazeState = appHazeState,
-                            glassEffectMode = glassEffectMode,
-                            dynamicColorScheme = dynamicColorScheme,
-                            onColorExtracted = { coverColor = it },
-                            onExpandClick = { playerViewModel.openFullPlayerFromMini() }
-                        )
+                        val contentBlock = @Composable {
+                            Box(
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                PlayerScreen(
+                                    viewModel = playerViewModel,
+                                    actions = playerActions,
+                                    navigationActions = playerNavigationActions,
+                                    glassEffectMode = glassEffectMode,
+                                    hazeState = resolvedPlayerHazeState,
+                                    coverColor = coverColor,
+                                    onColorExtracted = { coverColor = it },
+                                    renderFloatingSurfaces = false
+                                )
+
+                                PlayerFloatingSurfaceHost(
+                                    currentPosition = progressState.elapsedMs,
+                                    totalDuration = progressState.durationMs,
+                                    metadata = metadata,
+                                    settings = settings,
+                                    actions = playerActions,
+                                    hazeState = resolvedPlayerHazeState,
+                                    glassEffectMode = glassEffectMode
+                                )
+                            }
+                        }
+
+                        if (dynamicColorScheme != null) {
+                            MaterialTheme(colorScheme = dynamicColorScheme, content = contentBlock)
+                        } else {
+                            contentBlock()
+                        }
                     }
-                }
-            }
-        }
-
-        // --- Full Player Layer ---
-        val fallbackPlayerHazeState = remember { HazeState() }
-        val resolvedPlayerHazeState = appHazeState ?: fallbackPlayerHazeState
-
-        AnimatedVisibility(
-            visible = isFullPlayerVisible,
-            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)),
-            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300))
-        ) {
-            CompositionLocalProvider(
-                LocalMini2PlayerTargetScope provides if (
-                    settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer
-                ) {
-                    this@AnimatedVisibility
-                } else {
-                    null
-                },
-                LocalAnimatedVisibilityScope provides this@AnimatedVisibility
-            ) {
-                val contentBlock = @Composable {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                    ) {
-                        PlayerScreen(
-                            viewModel = playerViewModel,
-                            actions = playerActions,
-                            navigationActions = playerNavigationActions,
-                            glassEffectMode = glassEffectMode,
-                            hazeState = resolvedPlayerHazeState,
-                            coverColor = coverColor,
-                            onColorExtracted = { coverColor = it },
-                            renderFloatingSurfaces = false
-                        )
-
-                        PlayerFloatingSurfaceHost(
-                            currentPosition = progressState.elapsedMs,
-                            totalDuration = progressState.durationMs,
-                            metadata = metadata,
-                            settings = settings,
-                            actions = playerActions,
-                            hazeState = resolvedPlayerHazeState,
-                            glassEffectMode = glassEffectMode
-                        )
-                    }
-                }
-
-                if (dynamicColorScheme != null) {
-                    MaterialTheme(colorScheme = dynamicColorScheme, content = contentBlock)
-                } else {
-                    contentBlock()
                 }
             }
         }
     }
+}
+
+// Player Overlay State Enum (Define the visual display states of the player overlay)
+// Hidden represents inactive playback, Mini matches compact player and Full matches expanded player.
+private enum class PlayerOverlayState {
+    Hidden,
+    Mini,
+    Full
 }
 
 /**
