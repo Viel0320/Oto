@@ -101,17 +101,19 @@ fun ChapterDisplay(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
+                    // Theme Conforming Colors (Use onSurface and onSurfaceVariant colors instead of primary or contentColor to follow standard Material styling)
+                    // Removing custom primary tinting ensures the chip text and icon look natural and maintain appropriate contrast ratios.
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.List,
                         contentDescription = null,
                         modifier = Modifier.size(SuggestionChipDefaults.IconSize),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = currentChapterTitle ?: title ?: noChaptersText,
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -119,6 +121,8 @@ fun ChapterDisplay(
             }
         } else {
             // Material fallback layout (To maintain standard Material 3 SuggestionChip styling)
+            // Default Suggestion Chip Styling (Remove custom labelColor, iconContentColor, and borderColor overrides to prevent overriding with contentColor)
+            // Letting SuggestionChip use standard theme properties helps preserve dynamic colors across layout hierarchies.
             SuggestionChip(
                 onClick = onChapterClick,
                 modifier = Modifier.weight(1f, fill = false),
@@ -136,15 +140,7 @@ fun ChapterDisplay(
                         modifier = Modifier.size(SuggestionChipDefaults.IconSize)
                     )
                 },
-                shape = RoundedCornerShape(12.dp),
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    labelColor = LocalContentColor.current,
-                    iconContentColor = LocalContentColor.current
-                ),
-                border = SuggestionChipDefaults.suggestionChipBorder(
-                    enabled = true,
-                    borderColor = LocalContentColor.current
-                )
+                shape = RoundedCornerShape(12.dp)
             )
         }
 

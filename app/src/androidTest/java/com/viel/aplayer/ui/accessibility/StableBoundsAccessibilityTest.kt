@@ -31,8 +31,10 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.detail.components.DetailInfoChip
-import com.viel.aplayer.ui.miniplayer.MiniPlayerActions
-import com.viel.aplayer.ui.miniplayer.PillCompactMediaPlayer
+// Relocate mini-player components to the ui/player package
+// Updated imports to com.viel.aplayer.ui.player to compile with the unified player structure.
+import com.viel.aplayer.ui.player.MiniPlayerActions
+import com.viel.aplayer.ui.player.PillCompactMediaPlayer
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

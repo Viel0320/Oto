@@ -41,8 +41,8 @@ import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.edit.EditBookRoute
 import com.viel.aplayer.ui.edit.EditBookViewModel
 import com.viel.aplayer.ui.home.LibraryViewModel
-import com.viel.aplayer.ui.miniplayer.MiniPlayerActions
-import com.viel.aplayer.ui.miniplayer.MiniPlayerOverlay
+// Remove miniplayer imports
+// The mini-player is now unified inside PlayerOverlay, so its imports are no longer needed.
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.navigation.shell.DefaultAppFeedbackRenderer
 import com.viel.aplayer.ui.navigation.shell.dispatch
@@ -302,13 +302,8 @@ fun APlayerApp(
             }
         )
 
-        val miniPlayerActions = remember(playerViewModel) {
-            MiniPlayerActions(
-                onPlayPauseClick = { playerViewModel.togglePlayPause() },
-                onHide = { playerViewModel.setMiniPlayerHidden(true) },
-                onUnavailable = { playerViewModel.closeCurrentPlayback() }
-            )
-        }
+        // Relocate mini-player actions
+        // MiniPlayerActions is now instantiated directly inside PlayerOverlay, removing duplicate creation logic from the app shell.
         // Build Player Navigation Actions (Migrate callback hooks) Removed unused NavController dependency in favor of direct visibility state toggles.
         val playerNavigationActions = remember(playerViewModel) {
             PlayerNavigationActions(
@@ -421,11 +416,16 @@ fun APlayerApp(
                     hazeState = hazeState,
                     detailHazeState = detailHazeState,
                     onPlayBook = { bookId ->
+                        // Detail Playback Transition Selection (Use shared element transition if matching active bookId)
+                        // Evaluates if the chosen book is already active to decide between mini-player expansion (shared-element)
+                        // or direct player load (direct fade-in), preventing animation mismatches while preserving visual continuity.
+                        val currentActiveBookId = playerViewModel.currentBookId.value
                         playerViewModel.loadBook(bookId)
-                        // Detail Direct Playback Open (Avoid stale mini-player source reuse)
-                        // Detail playback starts from the detail command surface, so the player opens
-                        // through the direct path until a dedicated detail->player transition exists.
-                        playerViewModel.openFullPlayerFromDirect()
+                        if (currentActiveBookId == bookId) {
+                            playerViewModel.openFullPlayerFromMini()
+                        } else {
+                            playerViewModel.openFullPlayerFromDirect()
+                        }
                     },
                     onNavigateToSearch = { query ->
                         searchViewModel.setVisible(true)
@@ -456,40 +456,14 @@ fun APlayerApp(
                     onTransitionIdleChanged = detailTransitionGate::onTransitionIdleChanged
                 )
 
-                // MiniPlayer Stable Haze Target (Keep the effect state constant across overlays)
-                // Detail route registers its visible content into this same app-level source, so the mini player can sample Detail without rebinding its own HazeEffect and flashing during transitions.
-                val targetHazeState = hazeState
-
-                // Mount MiniPlayer with HazeState (Provide blur context to mini player overlay) Passed target HazeState value to match active background visuals.
-                MiniPlayerOverlay(
-                    playerViewModel = playerViewModel,
-                    miniPlayerActions = miniPlayerActions,
-                    isSearchActive = isSearchVisible,
-                    glassEffectMode = activeGlassEffectMode,
-                    hazeState = targetHazeState
-                )
-
-                // Edit Overlay Stable Haze Target (Keep edit glass bound to app-level sampling)
-                // The edit sheet behaves like other app overlays, so it uses the same long-lived app HazeState instead of rebinding to Detail's local source.
-                EditBookRoute(
-                    editViewModel = editViewModel,
-                    glassEffectMode = activeGlassEffectMode,
-                    hazeState = hazeState,
-                    onSaveSuccess = {
-                        // Edit Save Success (Reactive Flow Refresh)
-                        // After saving successfully, the responsive flow will automatically refresh and redraw the details page via the Room Flow, so there is no need to execute extra UI dirty operations to force a refresh.
-                    }
-                )
-
-                // PlayerOverlay Mounting (Layer Decoupling Hierarchy)
-                // Core hierarchy change: To ensure that the full-screen player completely covers the mini-player, full-screen editing interface, and details page when expanded, PlayerOverlay is declared after EditBookRoute.
+                // Unified Playback Overlay Mounting (Coalesce player and mini-player into one layout component)
+                // Mount unified player overlay which internally handles mini-player and full-player states to optimize shell layout.
                 PlayerOverlay(
                     playerViewModel = playerViewModel,
                     playerActions = playerActions,
                     playerNavigationActions = playerNavigationActions,
+                    isSearchActive = isSearchVisible,
                     glassEffectMode = activeGlassEffectMode,
-                    // Player App-Level Haze Registration (Let expanded player become the active sampled surface)
-                    // PlayerOverlay registers its full-screen content into this stable source so Search and dialogs can sample the visible player instead of stale route content.
                     appHazeState = hazeState
                 )
 

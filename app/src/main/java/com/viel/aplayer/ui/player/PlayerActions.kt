@@ -77,3 +77,13 @@ fun PlayerViewModel.rememberActions(onDeleteBook: (String) -> Unit = {}): Player
         )
     }
 }
+
+/**
+ * Mini Player Actions Aggregate (Declarative triggers for minimized playback actions)
+ * Represents UI callbacks for the mini player components, relocated to PlayerActions.kt to achieve compact code packaging.
+ */
+data class MiniPlayerActions(
+    val onPlayPauseClick: () -> Unit = {},
+    val onHide: () -> Unit = {},
+    val onUnavailable: () -> Unit = {},
+)
