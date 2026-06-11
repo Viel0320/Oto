@@ -1,5 +1,6 @@
 package com.viel.aplayer.application.library.search
 
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import kotlinx.coroutines.flow.Flow
@@ -106,6 +107,7 @@ class SearchQueryPlannerTest {
         )
     }
 
+    // Update SearchQueryPlannerTest: Change book helper signature to use type-safe AudiobookSchema.SourceType enum.
     private fun book(id: String): BookWithProgress {
         // Minimal Book Fixture (Creates only the fields required for search identity assertions)
         // The planner only reads book ids, so the rest of the entity uses stable default metadata.
@@ -113,7 +115,7 @@ class SearchQueryPlannerTest {
             book = BookEntity(
                 id = id,
                 rootId = "root",
-                sourceType = "SINGLE_AUDIO",
+                sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
                 title = id
             ),
             progress = null

@@ -3,6 +3,8 @@ package com.viel.aplayer.abs.playback
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+// Import AudiobookSchema (Brings in the nested enum definitions for db schemas)
+import com.viel.aplayer.data.db.AudiobookSchema
 
 @Entity(
     tableName = "abs_playback_session",
@@ -20,5 +22,6 @@ data class AbsPlaybackSessionEntity(
      * The syncer uses this local wall-clock value to decide whether a restored session row can still suppress a fresh server open.
      */
     val openedAt: Long,
-    val state: String
+    // AbsPlaybackSessionState Property Refactoring: Change session state attribute from String to type-safe AbsPlaybackSessionState enum.
+    val state: AudiobookSchema.AbsPlaybackSessionState
 )

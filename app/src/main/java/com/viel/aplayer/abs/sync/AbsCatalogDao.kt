@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
@@ -26,7 +27,8 @@ interface AbsCatalogStore {
     )
     suspend fun replaceMirrors(mirrors: List<AbsItemMirrorEntity>)
     suspend fun saveSyncState(syncState: AbsSyncStateEntity)
-    suspend fun updateBookStatus(bookId: String, status: String)
+    // Update Book Status Signature: Update status parameter type to BookStatus enum for type safety.
+    suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus)
 }
 
 @Dao
@@ -62,7 +64,8 @@ abstract class AbsCatalogDao : AbsCatalogStore {
     protected abstract suspend fun insertSyncStateInternal(syncState: AbsSyncStateEntity)
 
     @Query("UPDATE books SET status = :status WHERE id = :bookId")
-    abstract override suspend fun updateBookStatus(bookId: String, status: String)
+    // Update Book Status Signature: Update status parameter type to BookStatus enum for type safety.
+    abstract override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus)
 
     @Transaction
     override suspend fun upsertCatalogMirror(

@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
  * Audiobook Chapter Schema (Entity representing logical chapter indices parsed for books)
@@ -38,5 +39,5 @@ data class ChapterEntity(
     val startPositionMs: Long, // Global starting position offset in milliseconds from the book start
     val durationMs: Long,
     val fileOffsetMs: Long, // Local starting offset in milliseconds relative to the physical audio file
-    val source: String // EMBEDDED / CUE / M3U8 / MANUAL
+    val source: AudiobookSchema.ChapterSource // EMBEDDED / CUE / M3U8 / MANUAL
 )

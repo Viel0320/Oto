@@ -1,5 +1,7 @@
 package com.viel.aplayer.data.gateway
 
+import com.viel.aplayer.data.db.AudiobookSchema
+
 /**
  * Book Metadata Gateway (Application-facing audiobook metadata mutation seam)
  *
@@ -12,7 +14,8 @@ interface BookMetadataGateway {
      *
      * Manually updates the reading progress category, such as STARTED or FINISHED, for the audiobook.
      */
-    suspend fun updateBookReadStatus(bookId: String, readStatus: String)
+    // Update Book Read Status: Update readStatus parameter type to ReadStatus enum.
+    suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus)
 
     /**
      * Update Text Metadata (Manual editor override)

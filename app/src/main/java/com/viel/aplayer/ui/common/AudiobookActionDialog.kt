@@ -74,9 +74,8 @@ data class AudiobookActionDialogBook(
     val coverPath: String?,
     val thumbnailPath: String?,
     val lastScannedAt: Long,
-    // Nullable Read Status Projection (Allow callers without read-status data to render no selected chip)
-    // Detail projections can be opened before the selected scene has a status field, so null means every read-status chip remains unselected instead of inventing NOT_STARTED.
-    val readStatus: String?
+    // Read Status Type Safe: Change readStatus projection field type to ReadStatus enum for type safety.
+    val readStatus: AudiobookSchema.ReadStatus?
 )
 
 /**
@@ -100,7 +99,8 @@ fun AudiobookActionDialog(
     // Edit Book Command (Optional host-owned metadata editing entry)
     // The shared dialog only emits the selected book id; hosts decide whether that id opens EditBookRoute or no edit action should be shown.
     onEditBook: ((String) -> Unit)? = null,
-    onUpdateReadStatus: (String, String) -> Unit,
+    // Update Read Status Callback: Change readStatus parameter to ReadStatus enum.
+    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit,
     onForceRegenerate: (String) -> Unit,
     onDeleteBook: (String) -> Unit
 ) {
@@ -459,7 +459,8 @@ private fun AudiobookActionLandscapeContent(
     book: AudiobookActionDialogBook,
     coverRequestScene: String,
     onEditBook: ((String) -> Unit)?,
-    onUpdateReadStatus: (String, String) -> Unit,
+    // Update Read Status Callback: Change readStatus parameter to ReadStatus enum.
+    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit,
     onForceRegenerate: (String) -> Unit,
     onShowDeleteConfirm: () -> Unit,
     onDismissRequest: () -> Unit
@@ -590,7 +591,8 @@ private fun AudiobookActionIdentityHeader(
 @Composable
 private fun AudiobookActionReadStatusSection(
     book: AudiobookActionDialogBook,
-    onUpdateReadStatus: (String, String) -> Unit,
+    // Update Read Status Callback: Change readStatus parameter to ReadStatus enum.
+    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -771,8 +773,9 @@ private val AudiobookActionLandscapeColumnSpacing = 20.dp
 
 // Read Status Chip Spec (Pairs each read-status command with its label and semantic accent)
 // Keeps color mapping data outside the composable rendering branch so chip drawing remains small and predictable.
+// Read Status Chip Spec: Use type-safe ReadStatus enum for status field.
 private data class ReadStatusChipSpec(
-    val status: String,
+    val status: AudiobookSchema.ReadStatus,
     val label: String,
     val accentColor: Color
 )

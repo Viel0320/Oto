@@ -1,6 +1,7 @@
 package com.viel.aplayer.application.library.home
 
 import android.net.Uri
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookMetadataGateway
@@ -18,10 +19,10 @@ import kotlinx.coroutines.flow.map
 data class HomeBookItem(
     val id: String,
     val rootId: String,
-    val sourceType: String,
-    // Book Availability Status (Expose the persisted BookStatus needed by Home-only filtering)
-    // This field lets the Home scene filter Ready, Partial, Conflict, and Unavailable books without leaking Room entities into UI.
-    val status: String,
+    // Home Source Type Safe: Use AudiobookSchema.SourceType enum for type safety.
+    val sourceType: AudiobookSchema.SourceType,
+    // Book Status Type Safe: Use BookStatus enum for type safety.
+    val status: AudiobookSchema.BookStatus,
     val title: String,
     val author: String,
     val narrator: String,
@@ -34,7 +35,8 @@ data class HomeBookItem(
     val thumbnailPath: String?,
     val lastScannedAt: Long,
     val addedAt: Long,
-    val readStatus: String,
+    // Read Status Type Safe: Use ReadStatus enum for type safety.
+    val readStatus: AudiobookSchema.ReadStatus,
     val progressPercent: Int,
     val lastPlayedAt: Long,
     val isFinished: Boolean,
@@ -67,7 +69,8 @@ interface HomeLibraryUseCases {
 
     fun addLocalRootAndScheduleSync(uri: Uri)
 
-    suspend fun updateReadStatus(bookId: String, readStatus: String)
+    // Update Read Status: Update readStatus parameter type to ReadStatus enum.
+    suspend fun updateReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus)
 
     suspend fun regenerateCoverAndMetadata(bookId: String)
 
@@ -120,7 +123,8 @@ class DefaultHomeLibraryUseCases(
         libraryRootGateway.addLibraryRootAndScheduleSync(uri, USER_TRIGGER)
     }
 
-    override suspend fun updateReadStatus(bookId: String, readStatus: String) {
+    // Update Read Status: Update readStatus parameter type to ReadStatus enum.
+    override suspend fun updateReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) {
         // Home Read Status Update (Use the semantic metadata seam for bookshelf state changes)
         // Home commands no longer depend on catalog search or file inventory just to change the user's reading status.
         bookMetadataGateway.updateBookReadStatus(bookId, readStatus)

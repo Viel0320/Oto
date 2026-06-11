@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.player.PlayerChapterItem
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
@@ -137,7 +138,8 @@ fun PlayerScreen(
             startPositionMs = 0L,
             durationMs = 360000L,
             fileOffsetMs = 0L,
-            source = "EMBEDDED"
+            // Update PlayerScreen to use AudiobookSchema.ChapterSource: Replacing raw string with type-safe ChapterSource.EMBEDDED.
+            source = AudiobookSchema.ChapterSource.EMBEDDED
         )
     } else {
         viewModel.currentChapterState.collectAsStateWithLifecycle().value
@@ -166,9 +168,10 @@ fun PlayerScreen(
             // Deprecated: backgroundColorArgb is removed
             // Player Preview Chapters (Use player-scene projections instead of Room relation models)
             // Preview data mirrors the runtime player boundary and keeps this UI file independent from persistence entities.
+            // Update PlayerScreen previews to use AudiobookSchema.ChapterSource: Replacing raw string with type-safe ChapterSource.EMBEDDED.
             chapters = listOf(
-                PlayerChapterItem("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, "EMBEDDED"),
-                PlayerChapterItem("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, "EMBEDDED")
+                PlayerChapterItem("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, AudiobookSchema.ChapterSource.EMBEDDED),
+                PlayerChapterItem("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, AudiobookSchema.ChapterSource.EMBEDDED)
             )
         )
     } else {

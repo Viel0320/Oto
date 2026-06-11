@@ -97,9 +97,10 @@ object FeedbackMessages {
     fun libraryRootsUnavailableSync(rootCount: Int): FeedbackMessage =
         FeedbackMessage.Quantity(R.plurals.feedback_sync_roots_unavailable_multiple, rootCount)
 
+    // Feedback Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum for type safety.
     fun libraryRootUnavailableSync(
         rootName: String,
-        availabilityStatus: String,
+        availabilityStatus: AudiobookSchema.AvailabilityStatus,
         fallbackCode: String
     ): FeedbackMessage {
         val args = listOf(rootName)
@@ -243,16 +244,16 @@ object FeedbackMessages {
             }
         )
 
-    fun homeReadStatusUpdated(readStatus: String): FeedbackMessage =
+    // Home Read Status Feedback: Change readStatus parameter type to type-safe ReadStatus enum.
+    fun homeReadStatusUpdated(readStatus: AudiobookSchema.ReadStatus): FeedbackMessage =
         FeedbackMessage.Resource(
             when (readStatus) {
-                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.NOT_STARTED ->
+                AudiobookSchema.ReadStatus.NOT_STARTED ->
                     R.string.feedback_home_read_status_not_started
-                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.IN_PROGRESS ->
+                AudiobookSchema.ReadStatus.IN_PROGRESS ->
                     R.string.feedback_home_read_status_in_progress
-                com.viel.aplayer.data.db.AudiobookSchema.ReadStatus.FINISHED ->
+                AudiobookSchema.ReadStatus.FINISHED ->
                     R.string.feedback_home_read_status_finished
-                else -> R.string.feedback_home_read_status_updated
             }
         )
 

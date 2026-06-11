@@ -5,6 +5,8 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+import com.viel.aplayer.data.db.AudiobookSchema
+
 /**
  * Bookmark Data Asset (Entity representing user-defined bookmarks for audiobooks)
  * Supports dual-saving mechanisms via global book timelines and stable file anchors.
@@ -36,7 +38,8 @@ data class BookmarkEntity(
     val bookFileId: String? = null, // Stable anchor: target book file ID
     val fileOffsetMs: Long = 0L, // Stable anchor: relative millisecond offset inside the target file
     val fileFingerprint: String? = null,
-    val anchorStatus: String = "OK", // OK / REMAPPED / UNRESOLVED
+    // Anchor Status Type Safe: Change the anchorStatus field type to AnchorStatus enum for type safety.
+    val anchorStatus: AudiobookSchema.AnchorStatus = AudiobookSchema.AnchorStatus.OK,
     val title: String,
     val createdAt: Long = System.currentTimeMillis()
 )

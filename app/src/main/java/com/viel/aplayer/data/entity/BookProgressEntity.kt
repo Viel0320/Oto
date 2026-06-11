@@ -5,6 +5,8 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+import com.viel.aplayer.data.db.AudiobookSchema
+
 /**
  * Playback Progress State (Entity representing the current listening state of an audiobook)
  * Persisted independently of book metadata to decouple search indexes from progress updates.
@@ -39,7 +41,8 @@ data class BookProgressEntity(
     val currentFileIndex: Int = 0,
     val positionInFileMs: Long = 0L, // Progress stable anchor: relative offset in milliseconds inside the target file
     val fileFingerprint: String? = null, // Auxiliary matching anchor: file fingerprint checksum
-    val anchorStatus: String = "OK", // OK / REMAPPED / UNRESOLVED
+    // Anchor Status Type Safe: Change the anchorStatus field type to AnchorStatus enum for type safety.
+    val anchorStatus: AudiobookSchema.AnchorStatus = AudiobookSchema.AnchorStatus.OK,
     val playbackSpeed: Float = 1.0f,
     val lastPlayedAt: Long = System.currentTimeMillis()
 )

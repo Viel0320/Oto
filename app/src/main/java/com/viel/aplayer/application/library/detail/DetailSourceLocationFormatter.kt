@@ -49,7 +49,7 @@ class DetailSourceLocationFormatter {
      * Detail Source File Selector (Chooses the most representative detail breadcrumb file)
      * Manifest-backed books prefer their manifest sidecar while regular and generated playlists prefer the first playable audio row.
      */
-    private fun selectDisplayFile(sourceType: String, files: List<DetailSourceFile>): DetailSourceFile? {
+    private fun selectDisplayFile(sourceType: AudiobookSchema.SourceType, files: List<DetailSourceFile>): DetailSourceFile? {
         val playableFiles = files
             .filter { file -> file.fileRole == AudiobookSchema.FileRole.AUDIO }
             .sortedBy { file -> file.index }
@@ -70,9 +70,9 @@ class DetailSourceLocationFormatter {
      * Detail Source Scheme Resolver (Derives the visible protocol from the registered root)
      * Book source type is only a fallback for transitional selections where the root row is unavailable.
      */
-    private fun resolveSourceDisplayScheme(root: DetailSourceRoot?, bookSourceType: String): String {
-        return root?.sourceType?.takeIf { sourceType -> sourceType.isNotBlank() } ?: when {
-            bookSourceType == AudiobookSchema.SourceType.ABS_REMOTE -> AudiobookSchema.LibrarySourceType.ABS
+    private fun resolveSourceDisplayScheme(root: DetailSourceRoot?, bookSourceType: AudiobookSchema.SourceType): AudiobookSchema.LibrarySourceType {
+        return root?.sourceType ?: when (bookSourceType) {
+            AudiobookSchema.SourceType.ABS_REMOTE -> AudiobookSchema.LibrarySourceType.ABS
             else -> AudiobookSchema.LibrarySourceType.SAF
         }
     }

@@ -1,5 +1,6 @@
 package com.viel.aplayer.library.orchestrator
 
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileIdentity
 
@@ -89,7 +90,8 @@ class RunClaimLedger(
 }
 
 data class ImportSourceRef(
-    val sourceType: String,
+    // Import Source Type Safe: Use AudiobookSchema.SourceType enum.
+    val sourceType: AudiobookSchema.SourceType,
     val sourceUri: String,
     val displayName: String
 )

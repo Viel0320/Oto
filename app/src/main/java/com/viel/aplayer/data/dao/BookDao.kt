@@ -88,8 +88,9 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE id = :id")
     fun observeBookById(id: String): Flow<BookEntity?>
 
+    // Update Book Status Signature: Update status parameter type to BookStatus enum for compile-time safety.
     @Query("UPDATE books SET status = :status WHERE id = :id")
-    suspend fun updateBookStatus(id: String, status: String)
+    suspend fun updateBookStatus(id: String, status: AudiobookSchema.BookStatus)
 
     @Query("UPDATE books SET lastScannedAt = :lastScannedAt WHERE id = :id")
     suspend fun updateBookLastScannedAt(id: String, lastScannedAt: Long)
@@ -223,12 +224,12 @@ interface BookDao {
     suspend fun getBookFileById(id: String): BookFileEntity?
 
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id = :id")
-    suspend fun updateBookFileStatus(id: String, status: String, scanId: String? = null)
+    suspend fun updateBookFileStatus(id: String, status: AudiobookSchema.FileStatus, scanId: String? = null)
 
     // Batch Status Updates (Updates multiple file reachability flags inside a single SQL IN transaction)
     // Prevents repetitive database writes from lagging UI threads during library verification.
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id IN (:ids)")
-    suspend fun updateBookFileStatuses(ids: List<String>, status: String, scanId: String? = null)
+    suspend fun updateBookFileStatuses(ids: List<String>, status: AudiobookSchema.FileStatus, scanId: String? = null)
 
     /**
      * Ready Restore Transaction (Reactivates a still-deleted book and marks readable audio rows ready)
@@ -311,8 +312,9 @@ interface BookDao {
     @Query("SELECT coverPath, thumbnailPath FROM books WHERE rootId = :rootId")
     suspend fun getCoverCachePathsByRootId(rootId: String): List<BookCoverCachePaths>
 
+    // Update Read Status Signature: Update readStatus parameter type to ReadStatus enum for compile-time safety.
     @Query("UPDATE books SET readStatus = :readStatus WHERE id = :id")
-    suspend fun updateBookReadStatus(id: String, readStatus: String)
+    suspend fun updateBookReadStatus(id: String, readStatus: AudiobookSchema.ReadStatus)
 
     /**
      * Atomic Progress Transaction (Atomically executes reading, mapping, inserting, and readStatus updates within a transaction)

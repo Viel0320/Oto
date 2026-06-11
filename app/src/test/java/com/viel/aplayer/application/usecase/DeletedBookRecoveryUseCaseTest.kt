@@ -241,7 +241,8 @@ class DeletedBookRecoveryUseCaseTest {
             return true
         }
 
-        fun fileStatuses(): Map<String, String> =
+        // UpdateFileStatusesReturn: Return type-safe FileStatus enum from fileStatuses helper.
+        fun fileStatuses(): Map<String, AudiobookSchema.FileStatus> =
             filesByBookId[BOOK_ID].orEmpty().associate { file -> file.id to file.status }
     }
 
@@ -266,7 +267,7 @@ class DeletedBookRecoveryUseCaseTest {
                 mirrors = mirrors
             )
 
-        private fun book(status: String = AudiobookSchema.BookStatus.DELETED): BookEntity =
+        private fun book(status: AudiobookSchema.BookStatus = AudiobookSchema.BookStatus.DELETED): BookEntity =
             BookEntity(
                 id = BOOK_ID,
                 rootId = ROOT_ID,
@@ -296,7 +297,8 @@ class DeletedBookRecoveryUseCaseTest {
                 lastModified = 0L
             )
 
-        private fun mirror(state: String): AbsItemMirrorEntity =
+        // UpdateMirrorHelperState: Adapt mirror helper signature to accept type-safe AbsMirrorState enum.
+        private fun mirror(state: AudiobookSchema.AbsMirrorState): AbsItemMirrorEntity =
             AbsItemMirrorEntity(
                 localBookId = BOOK_ID,
                 rootId = ROOT_ID,

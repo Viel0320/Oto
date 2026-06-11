@@ -48,7 +48,8 @@ class AbsProgressMapper {
         )
     }
 
-    fun toReadStatus(item: AbsLibraryItemDto, existing: BookEntity?): String =
+    // Update toReadStatus return type to ReadStatus enum for type safety.
+    fun toReadStatus(item: AbsLibraryItemDto, existing: BookEntity?): AudiobookSchema.ReadStatus =
         // Catalog Read Status Mapping (Delegates ABS progress semantics to the shared read-status policy)
         // Catalog item mapping keeps its existing-read fallback while sharing the same finished and positive-position rules as progress sync.
         RemoteProgressReadStatusPolicy.fromRemoteProgress(

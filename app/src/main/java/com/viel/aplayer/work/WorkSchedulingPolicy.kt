@@ -24,7 +24,8 @@ object WorkSchedulingPolicy {
      * Cold-start scans keep the first queued job to avoid duplicate boot-time work, while user and
      * configuration-change scans replace stale queued inputs so the newest root settings win.
      */
-    fun librarySync(trigger: String, requiresNetwork: Boolean): UniqueWorkSchedulingPolicy =
+    // Update WorkSchedulingPolicy to use type-safe AudiobookSchema.ScanTrigger: Replacing trigger String with ScanTrigger enum.
+    fun librarySync(trigger: AudiobookSchema.ScanTrigger, requiresNetwork: Boolean): UniqueWorkSchedulingPolicy =
         UniqueWorkSchedulingPolicy(
             uniqueWorkName = LIBRARY_SYNC_WORK_NAME,
             existingWorkPolicy = if (trigger == AudiobookSchema.ScanTrigger.COLD_START) {

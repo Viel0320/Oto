@@ -316,7 +316,7 @@ class AbsSourceProviderStage3Test {
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) {
             this.syncState = syncState
         }
-        override suspend fun updateBookStatus(bookId: String, status: String) {
+        override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus) {
             books[bookId] = books.getValue(bookId).copy(status = status)
         }
     }

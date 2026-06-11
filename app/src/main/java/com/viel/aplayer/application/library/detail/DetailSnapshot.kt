@@ -1,5 +1,7 @@
 package com.viel.aplayer.application.library.detail
 
+import com.viel.aplayer.data.db.AudiobookSchema
+
 /**
  * Detail Book Item (Room-free selected book projection)
  * Carries only the fields the detail scene renders or routes, keeping Room entities inside data adapters.
@@ -7,7 +9,7 @@ package com.viel.aplayer.application.library.detail
 data class DetailBookItem(
     val id: String,
     val rootId: String,
-    val sourceType: String,
+    val sourceType: AudiobookSchema.SourceType,
     val title: String,
     val author: String = "",
     val narrator: String = "",
@@ -21,7 +23,8 @@ data class DetailBookItem(
     val progressPercent: Int = 0,
     // Detail Read Status Projection (Carry optional manual status for detail-owned action dialogs)
     // Keeping the value nullable lets callers that do not have read-status data open the detail action menu without marking any status as selected.
-    val readStatus: String? = null
+    // Read Status Type Safe: Change readStatus field type to ReadStatus enum for type safety.
+    val readStatus: AudiobookSchema.ReadStatus? = null
 )
 
 /**
@@ -39,7 +42,7 @@ data class DetailSnapshot(
     val rootId: String
         get() = item.rootId
 
-    val sourceType: String
+    val sourceType: AudiobookSchema.SourceType
         get() = item.sourceType
 
     val progressPercent: Int
@@ -59,7 +62,7 @@ data class DetailSnapshot(
  * Keeps source-location formatting away from Room entities while carrying only the fields needed for the detail breadcrumb.
  */
 data class DetailSourceFile(
-    val fileRole: String,
+    val fileRole: AudiobookSchema.FileRole,
     val sourcePath: String,
     val displayName: String,
     val index: Int
@@ -71,6 +74,6 @@ data class DetailSourceFile(
  */
 data class DetailSourceRoot(
     val id: String,
-    val sourceType: String,
+    val sourceType: AudiobookSchema.LibrarySourceType,
     val displayName: String
 )

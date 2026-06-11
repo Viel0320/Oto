@@ -625,7 +625,7 @@ class AbsCatalogStage2Test {
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) {
             this.syncState = syncState
         }
-        override suspend fun updateBookStatus(bookId: String, status: String) {
+        override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus) {
             books[bookId]?.let { existing ->
                 books[bookId] = existing.copy(status = status)
             }
@@ -652,7 +652,7 @@ class AbsCatalogStage2Test {
         override fun getRecentlyAdded(limit: Int): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
         override fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
         override suspend fun deleteBook(bookId: String) = Unit
-        override suspend fun updateBookReadStatus(bookId: String, readStatus: String) {
+        override suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) {
             books[bookId]?.let { existing -> books[bookId] = existing.copy(readStatus = readStatus) }
         }
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit

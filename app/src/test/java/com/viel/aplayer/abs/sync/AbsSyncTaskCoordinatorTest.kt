@@ -306,17 +306,21 @@ class AbsSyncTaskCoordinatorTest {
         override suspend fun getRootById(id: String): LibraryRootEntity? = root.takeIf { it.id == id }
         override suspend fun getAllRootsOnce(): List<LibraryRootEntity> = listOf(root)
         override suspend fun insertRoot(root: LibraryRootEntity) = Unit
+        // Update AbsSyncTaskCoordinatorTest: Match FakeLibraryRootDao updateRootGrantState to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootGrantState(
             id: String,
             displayName: String,
             grantedAt: Long,
-            status: String
+            status: AudiobookSchema.LibraryRootStatus
         ) = Unit
-        override suspend fun updateRootScanState(id: String, lastScannedAt: Long, status: String) = Unit
-        override suspend fun updateRootStatus(id: String, status: String) = Unit
+        // Update AbsSyncTaskCoordinatorTest: Match FakeLibraryRootDao updateRootScanState to use type-safe AudiobookSchema.LibraryRootStatus.
+        override suspend fun updateRootScanState(id: String, lastScannedAt: Long, status: AudiobookSchema.LibraryRootStatus) = Unit
+        // Update AbsSyncTaskCoordinatorTest: Match FakeLibraryRootDao updateRootStatus to use type-safe AudiobookSchema.LibraryRootStatus.
+        override suspend fun updateRootStatus(id: String, status: AudiobookSchema.LibraryRootStatus) = Unit
+        // Update AbsSyncTaskCoordinatorTest: Match FakeLibraryRootDao updateRootAvailability to use type-safe AudiobookSchema.AvailabilityStatus.
         override suspend fun updateRootAvailability(
             id: String,
-            availabilityStatus: String,
+            availabilityStatus: AudiobookSchema.AvailabilityStatus,
             checkedAt: Long,
             errorCode: String?
         ) = Unit
@@ -365,7 +369,7 @@ class AbsSyncTaskCoordinatorTest {
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) {
             this.syncState = syncState
         }
-        override suspend fun updateBookStatus(bookId: String, status: String) = Unit
+        override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus) = Unit
     }
 
     private companion object {

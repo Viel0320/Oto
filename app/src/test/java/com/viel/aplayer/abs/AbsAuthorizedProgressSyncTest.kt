@@ -87,7 +87,7 @@ class AbsAuthorizedProgressSyncTest {
         displayName = "ABS"
     )
 
-    private fun absBook(id: String, readStatus: String) = BookEntity(
+    private fun absBook(id: String, readStatus: AudiobookSchema.ReadStatus) = BookEntity(
         id = id,
         rootId = "root-1",
         sourceType = AudiobookSchema.SourceType.ABS_REMOTE,
@@ -138,7 +138,7 @@ class AbsAuthorizedProgressSyncTest {
         override fun getRecentlyAdded(limit: Int): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
         override fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
         override suspend fun deleteBook(bookId: String) = Unit
-        override suspend fun updateBookReadStatus(bookId: String, readStatus: String) {
+        override suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) {
             books[bookId]?.let { book -> books[bookId] = book.copy(readStatus = readStatus) }
         }
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit

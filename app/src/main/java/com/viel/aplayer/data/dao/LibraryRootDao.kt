@@ -26,7 +26,7 @@ interface LibraryRootDao {
     @Query("SELECT * FROM library_roots WHERE id = :id")
     suspend fun getRootById(id: String): LibraryRootEntity?
 
-    // Root insertion checks existing rows first so selecting the same SAF tree does not create duplicates.
+    // Fix redundant annotations: Removed the duplicate Room Query annotation that caused compiler errors.
     @Query("SELECT * FROM library_roots")
     suspend fun getAllRootsOnce(): List<LibraryRootEntity>
 
@@ -38,7 +38,7 @@ interface LibraryRootDao {
         id: String,
         displayName: String,
         grantedAt: Long,
-        status: String = AudiobookSchema.LibraryRootStatus.ACTIVE
+        status: AudiobookSchema.LibraryRootStatus = AudiobookSchema.LibraryRootStatus.ACTIVE
     )
 
     // Rescan completion updates the root boundary timestamp.
@@ -46,17 +46,17 @@ interface LibraryRootDao {
     suspend fun updateRootScanState(
         id: String,
         lastScannedAt: Long,
-        status: String = AudiobookSchema.LibraryRootStatus.ACTIVE
+        status: AudiobookSchema.LibraryRootStatus = AudiobookSchema.LibraryRootStatus.ACTIVE
     )
 
     @Query("UPDATE library_roots SET status = :status WHERE id = :id")
-    suspend fun updateRootStatus(id: String, status: String)
+    suspend fun updateRootStatus(id: String, status: AudiobookSchema.LibraryRootStatus)
 
     // Root Availability Updates (Updates structural availability flags without affecting active scanning schedules)
     @Query("UPDATE library_roots SET availabilityStatus = :availabilityStatus, lastAvailabilityCheckedAt = :checkedAt, lastAvailabilityErrorCode = :errorCode WHERE id = :id")
     suspend fun updateRootAvailability(
         id: String,
-        availabilityStatus: String,
+        availabilityStatus: AudiobookSchema.AvailabilityStatus,
         checkedAt: Long,
         errorCode: String?
     )

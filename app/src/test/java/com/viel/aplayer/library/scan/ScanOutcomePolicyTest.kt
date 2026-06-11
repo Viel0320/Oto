@@ -122,12 +122,13 @@ class ScanOutcomePolicyTest {
         assertEquals(listOf("bad state"), failedMessage.args)
     }
 
+    // Update ScanOutcomePolicyTest: Change scanSession helper signature to use type-safe AudiobookSchema.ScanStatus enum.
     private fun scanSession(
         discovered: Int = 0,
         unavailable: Int = 0,
         partial: Int = 0,
         updated: Int = 0,
-        status: String = AudiobookSchema.ScanStatus.COMPLETED
+        status: AudiobookSchema.ScanStatus = AudiobookSchema.ScanStatus.COMPLETED
     ): ScanSessionEntity =
         ScanSessionEntity(
             id = "scan-1",

@@ -163,7 +163,8 @@ class PlayerLibraryModuleTest {
                 startPositionMs = 0L,
                 durationMs = 1_000L,
                 fileOffsetMs = 0L,
-                source = "MANUAL"
+                // Update PlayerLibraryModuleTest: Change source type to type-safe AudiobookSchema.ChapterSource.MANUAL enum.
+                source = AudiobookSchema.ChapterSource.MANUAL
             ),
             bookFile = bookFile()
         )
@@ -181,7 +182,8 @@ class PlayerLibraryModuleTest {
             startPositionMs = 0L,
             durationMs = 1_000L,
             fileOffsetMs = 0L,
-            source = "MANUAL",
+            // Update PlayerLibraryModuleTest: Change source type to type-safe AudiobookSchema.ChapterSource.MANUAL enum.
+            source = AudiobookSchema.ChapterSource.MANUAL,
             isFileMissing = false
         )
     }
@@ -273,7 +275,7 @@ class PlayerLibraryModuleTest {
         override fun getRecentlyAdded(limit: Int): Flow<List<BookWithProgress>> = unexpected("getRecentlyAdded")
         override fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<BookWithProgress>> = unexpected("getRecentlyAddedExclusive")
         override suspend fun deleteBook(bookId: String): Unit = unexpected("deleteBook")
-        override suspend fun updateBookReadStatus(bookId: String, readStatus: String): Unit = unexpected("updateBookReadStatus")
+        override suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus): Unit = unexpected("updateBookReadStatus")
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String): Unit = unexpected("updateBookDetails")
         override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = unexpected("getFilesForBookSync")
         override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = unexpected("getAllFilesForBookSync")

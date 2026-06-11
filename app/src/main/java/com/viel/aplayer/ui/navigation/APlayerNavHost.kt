@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.navigation
 
+// Import HomeBookStatusFilter (Brings in the relocated type-safe availability filter from the data store layer)
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -14,12 +15,12 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeBookStatusFilter
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.detail.DetailViewModel
-import com.viel.aplayer.ui.home.HomeBookStatusFilter
 import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.home.components.HomeAppBar

@@ -2,6 +2,7 @@ package com.viel.aplayer.media.parser
 
 import android.os.SystemClock
 import android.util.Log
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.library.FileRef
@@ -443,7 +444,8 @@ object Mp4MetadataFrameReader {
                     startPositionMs = startMs,
                     durationMs = 0L,
                     fileOffsetMs = startMs,
-                    source = "EMBEDDED"
+                    // Update Mp4MetadataFrameReader to use AudiobookSchema.ChapterSource.EMBEDDED: Replacing raw string "EMBEDDED" with type-safe AudiobookSchema.ChapterSource.EMBEDDED enum.
+                    source = AudiobookSchema.ChapterSource.EMBEDDED
                 )
             )
         }
@@ -526,7 +528,8 @@ object Mp4MetadataFrameReader {
                         startPositionMs = startMs,
                         durationMs = 0L,
                         fileOffsetMs = startMs,
-                        source = "EMBEDDED"
+                        // Update Mp4MetadataFrameReader to use AudiobookSchema.ChapterSource.EMBEDDED: Replacing raw string "EMBEDDED" with type-safe AudiobookSchema.ChapterSource.EMBEDDED enum.
+                        source = AudiobookSchema.ChapterSource.EMBEDDED
                     )
                 )
             }

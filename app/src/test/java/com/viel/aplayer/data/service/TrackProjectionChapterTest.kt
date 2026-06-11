@@ -108,8 +108,9 @@ class TrackProjectionChapterTest {
         assertTrue(projected.isEmpty())
     }
 
+    // Update TrackProjectionChapterTest: Change sampleBook helper signature to use type-safe AudiobookSchema.SourceType enum.
     private fun sampleBook(
-        sourceType: String,
+        sourceType: AudiobookSchema.SourceType,
         totalDurationMs: Long = 0L,
         title: String = "示例有声书"
     ): BookEntity = BookEntity(

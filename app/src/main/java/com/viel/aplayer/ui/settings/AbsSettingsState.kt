@@ -1,10 +1,13 @@
 package com.viel.aplayer.ui.settings
 
+import com.viel.aplayer.data.db.AudiobookSchema
+
 // Settings Root Item (Room-free row model for settings root management)
 // Carries the display text plus root-scoped edit/delete command anchors so SettingsScreen and SettingsDialogs never need the persistence root row.
 data class SettingsRootItem(
     val rootId: String,
-    val sourceType: String,
+    // Update SettingsRootItem to use AudiobookSchema.LibrarySourceType: Changing sourceType from String to LibrarySourceType enum.
+    val sourceType: AudiobookSchema.LibrarySourceType,
     val sourceUri: String,
     val basePath: String,
     val credentialId: String?,

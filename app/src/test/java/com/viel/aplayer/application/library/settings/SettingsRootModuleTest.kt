@@ -271,8 +271,9 @@ class SettingsRootModuleTest {
     private companion object {
         private const val ROOT_ID = "root-id"
 
+        // UpdateTestHelperSourceType: Adapt root helper to accept type-safe LibrarySourceType instead of legacy String.
         private fun root(
-            sourceType: String = AudiobookSchema.LibrarySourceType.SAF,
+            sourceType: AudiobookSchema.LibrarySourceType = AudiobookSchema.LibrarySourceType.SAF,
             displayName: String = "Library"
         ): LibraryRootEntity =
             LibraryRootEntity(

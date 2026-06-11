@@ -13,7 +13,7 @@ data class LibraryRootEntity(
     val id: String,
     // Source Distribution Type (Cross-provider dispatch key)
     // Identifies the storage protocol (e.g., SAF, WebDAV), decoupling business logic from legacy root schemas.
-    val sourceType: String = AudiobookSchema.LibrarySourceType.SAF,
+    val sourceType: AudiobookSchema.LibrarySourceType = AudiobookSchema.LibrarySourceType.SAF,
     // Standardized Root URI (Cross-provider unified location pointer)
     // Stores tree URIs for SAF or normalized server URLs for WebDAV remote hosts.
     val sourceUri: String,
@@ -25,7 +25,7 @@ data class LibraryRootEntity(
     val credentialId: String? = null,
     // Standardized Availability Status (Decoupled health indicator)
     // Populated by a unified checker, keeping local access flags distinct from network reachability.
-    val availabilityStatus: String = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+    val availabilityStatus: AudiobookSchema.AvailabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
     // Availability Timestamp (UI and background scanning checker)
     // Logs the last verification time to distinguish between long-term offline and newly failed states.
     val lastAvailabilityCheckedAt: Long = 0L,
@@ -35,5 +35,5 @@ data class LibraryRootEntity(
     val displayName: String,
     val grantedAt: Long = System.currentTimeMillis(),
     val lastScannedAt: Long = 0L,
-    val status: String = "ACTIVE" // ACTIVE / REVOKED / ERROR
+    val status: AudiobookSchema.LibraryRootStatus = AudiobookSchema.LibraryRootStatus.ACTIVE // ACTIVE / REVOKED / ERROR
 )

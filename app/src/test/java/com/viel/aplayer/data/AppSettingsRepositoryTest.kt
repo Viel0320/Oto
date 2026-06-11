@@ -4,6 +4,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -77,6 +78,45 @@ class AppSettingsRepositoryTest {
             assertEquals("case $index speed", restored.expectedSpeed, settings.globalPlaybackSpeed, 0.0f)
             assertEquals("case $index rewind", restored.expectedRewindSeconds, settings.autoRewindSeconds)
         }
+    }
+
+    @Test
+    fun `settings flow normalizes restored filter settings`() = runBlocking {
+        val dataStore = createSettingsDataStore(testName = "read-filters")
+        val repository = AppSettingsRepository.createForTesting(dataStore)
+
+        // Raw Filter Seeds (Seed raw string preferences directly in DataStore to test deserialization)
+        dataStore.edit { preferences ->
+            preferences[stringPreferencesKey("home_filter")] = "Finished"
+            preferences[stringPreferencesKey("home_book_status_filter")] = "Partial"
+        }
+
+        val settings = repository.settingsFlow.first()
+        assertEquals(com.viel.aplayer.data.store.HomeFilter.Finished, settings.homeFilter)
+        assertEquals(com.viel.aplayer.data.store.HomeBookStatusFilter.Partial, settings.homeBookStatusFilter)
+
+        // Fallback Filter Seeds (Seed invalid values to test safe fallback behavior)
+        dataStore.edit { preferences ->
+            preferences[stringPreferencesKey("home_filter")] = "InvalidFilterName"
+            preferences[stringPreferencesKey("home_book_status_filter")] = "InvalidStatusName"
+        }
+
+        val fallbackSettings = repository.settingsFlow.first()
+        assertEquals(com.viel.aplayer.data.store.HomeFilter.NotStarted, fallbackSettings.homeFilter)
+        assertEquals(com.viel.aplayer.data.store.HomeBookStatusFilter.All, fallbackSettings.homeBookStatusFilter)
+    }
+
+    @Test
+    fun `write methods persist enum filter settings`() = runBlocking {
+        val dataStore = createSettingsDataStore(testName = "write-filters")
+        val repository = AppSettingsRepository.createForTesting(dataStore)
+
+        repository.updateHomeFilter(com.viel.aplayer.data.store.HomeFilter.InProgress)
+        repository.updateHomeBookStatusFilter(com.viel.aplayer.data.store.HomeBookStatusFilter.Unavailable)
+
+        val preferences = dataStore.data.first()
+        assertEquals("InProgress", preferences[stringPreferencesKey("home_filter")])
+        assertEquals("Unavailable", preferences[stringPreferencesKey("home_book_status_filter")])
     }
 
     @Test

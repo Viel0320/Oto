@@ -73,10 +73,10 @@ class BookAvailabilityService(
                 previousStatus = file.status,
                 result = result
             )
+            // Update BookAvailabilityService: Remove redundant else branch in exhaustive when on FileStatus enum.
             when (nextStatus) {
                 AudiobookSchema.FileStatus.READY -> if (file.status != AudiobookSchema.FileStatus.READY) readyFileIds.add(file.id)
                 AudiobookSchema.FileStatus.MISSING -> if (file.status != AudiobookSchema.FileStatus.MISSING) missingFileIds.add(file.id)
-                else -> Unit
             }
             file.id to nextStatus
         }
@@ -167,10 +167,10 @@ class BookAvailabilityService(
                 previousStatus = candidate.status,
                 result = result
             )
+            // Update BookAvailabilityService: Remove redundant else branch in exhaustive when on FileStatus enum.
             when (nextStatus) {
                 AudiobookSchema.FileStatus.READY -> if (candidate.status != AudiobookSchema.FileStatus.READY) readyFileIds.add(candidate.id)
                 AudiobookSchema.FileStatus.MISSING -> if (candidate.status != AudiobookSchema.FileStatus.MISSING) missingFileIds.add(candidate.id)
-                else -> Unit
             }
             if (result.isAvailable && nextAvailable == null) {
                 nextAvailable = afterQueueIndex + 1 + offset to candidate
@@ -264,14 +264,16 @@ class BookAvailabilityService(
         bookDao.updateBookStatus(bookId, playbackBookStatusFromFiles(files))
     }
 
-    private fun bookStatusFromCounts(fileCount: Int, readyCount: Int, missingCount: Int): String =
+    // Update return type to BookStatus enum for type safety.
+    private fun bookStatusFromCounts(fileCount: Int, readyCount: Int, missingCount: Int): AudiobookSchema.BookStatus =
         when {
             fileCount == 0 || readyCount == 0 -> AudiobookSchema.BookStatus.UNAVAILABLE
             missingCount > 0 -> AudiobookSchema.BookStatus.PARTIAL
             else -> AudiobookSchema.BookStatus.READY
         }
 
-    private fun playbackBookStatusFromFiles(files: List<BookFileEntity>): String {
+    // Update return type to BookStatus enum for type safety.
+    private fun playbackBookStatusFromFiles(files: List<BookFileEntity>): AudiobookSchema.BookStatus {
         val readyCount = files.count { it.status == AudiobookSchema.FileStatus.READY }
         val missingCount = files.count { it.status == AudiobookSchema.FileStatus.MISSING }
         return bookStatusFromCounts(fileCount = files.size, readyCount = readyCount, missingCount = missingCount)
@@ -280,13 +282,15 @@ class BookAvailabilityService(
     private fun notFoundResult(): AvailabilityResult =
         AvailabilityResult(
             status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-            errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
+            // Update BookAvailabilityService: Using the .name of the AvailabilityStatus enum for String errorCode field.
+            errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
         )
 
     private fun transientUnknownResult(): AvailabilityResult =
         AvailabilityResult(
             status = AudiobookSchema.AvailabilityStatus.UNKNOWN,
-            errorCode = AudiobookSchema.AvailabilityStatus.UNKNOWN
+            // Update BookAvailabilityService: Using the .name of the AvailabilityStatus enum for String errorCode field.
+            errorCode = AudiobookSchema.AvailabilityStatus.UNKNOWN.name
         )
 
     private companion object {
@@ -305,7 +309,8 @@ internal object AvailabilityPersistencePolicy {
      * Next File Status (Maps a probe result to the durable file status that should remain in Room)
      * AVAILABLE always restores READY, NOT_FOUND confirms MISSING, and transient or credential failures keep the previous persisted status.
      */
-    fun nextFileStatus(previousStatus: String, result: AvailabilityResult): String =
+    // Update AvailabilityPersistencePolicy to use type-safe AudiobookSchema.FileStatus: Change signature to accept and return FileStatus enum.
+    fun nextFileStatus(previousStatus: AudiobookSchema.FileStatus, result: AvailabilityResult): AudiobookSchema.FileStatus =
         when {
             result.isAvailable -> AudiobookSchema.FileStatus.READY
             isDefiniteMissing(result) -> AudiobookSchema.FileStatus.MISSING
@@ -325,9 +330,10 @@ internal object AvailabilityPersistencePolicy {
  *
  * Carries the book-level status written by BookAvailabilityService plus the file counts used to derive it.
  */
+// Update bookStatus field type to BookStatus enum for type safety.
 data class BookAvailabilityRefreshResult(
     val isAvailable: Boolean,
-    val bookStatus: String,
+    val bookStatus: AudiobookSchema.BookStatus,
     val readyAudioCount: Int,
     val missingAudioCount: Int
 )

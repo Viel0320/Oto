@@ -13,7 +13,8 @@ object RemoteAvailabilityMappingPolicy {
      * HTTP Status Mapping Policy (Keeps remote protocol status translation behind one testable rule)
      * ABS treats unknown HTTP responses as UNKNOWN, while WebDAV treats unclassified HTTP failures as NETWORK_UNAVAILABLE to preserve existing provider behavior.
      */
-    fun fromHttpStatus(statusCode: Int, protocol: RemoteAvailabilityProtocol): String =
+    // Return AvailabilityStatus: Change return type from String to AudiobookSchema.AvailabilityStatus enum.
+    fun fromHttpStatus(statusCode: Int, protocol: RemoteAvailabilityProtocol): AudiobookSchema.AvailabilityStatus =
         when {
             statusCode == HTTP_UNAUTHORIZED -> AudiobookSchema.AvailabilityStatus.AUTH_FAILED
             statusCode == HTTP_FORBIDDEN -> AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED
@@ -45,7 +46,7 @@ object RemoteAvailabilityMappingPolicy {
             )
         }
 
-    private fun RemoteAvailabilityProtocol.timeoutHttpStatus(): String =
+    private fun RemoteAvailabilityProtocol.timeoutHttpStatus(): AudiobookSchema.AvailabilityStatus =
         when (this) {
             RemoteAvailabilityProtocol.WEBDAV -> AudiobookSchema.AvailabilityStatus.TIMEOUT
             RemoteAvailabilityProtocol.ABS -> AudiobookSchema.AvailabilityStatus.UNKNOWN
@@ -74,6 +75,7 @@ enum class RemoteAvailabilityProtocol {
  */
 data class RemoteTransportFailure(
     val errorCode: String,
-    val availabilityStatus: String,
+    // Availability Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum.
+    val availabilityStatus: AudiobookSchema.AvailabilityStatus,
     val isTimeout: Boolean
 )

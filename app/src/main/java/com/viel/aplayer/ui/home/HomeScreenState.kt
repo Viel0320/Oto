@@ -16,28 +16,6 @@ import com.viel.aplayer.ui.navigation.DetailOpenRequest
 import com.viel.aplayer.ui.player.PlayerViewModel
 import dev.chrisbanes.haze.HazeState
 
-/**
- * HomeFilter Enum (Home Library Filter Options)
- *
- * Filter options enum for the library home screen.
- */
-enum class HomeFilter {
-    /** Reading in progress (playback progress > 0 and unfinished) */
-    InProgress,
-    /** Not started */
-    NotStarted,
-    /** Finished reading */
-    Finished
-}
-
-/**
- * HomeScreen Container (Stateful Home Page Component)
- *
- * Stateful home container component, responsible for observing and syncing state from LibraryViewModel and PlayerViewModel inside the main navigation host.
- * Through logical architectural refactoring, HomeScreen is upgraded to a high-level business state binding container.
- * Specifically collects UI data state from ViewModels' StateFlows and delegates list-local scroll ownership to child rendering components,
- * keeping this container focused on business state binding and route-level interaction wiring.
- */
 @SuppressLint("FrequentlyChangingValue")
 @Composable
 fun HomeScreen(

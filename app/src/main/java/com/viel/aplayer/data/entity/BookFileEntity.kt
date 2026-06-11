@@ -34,7 +34,7 @@ data class BookFileEntity(
     val id: String, // Unique stable identifier
     val bookId: String,
     // Shared Asset Mapping (SOURCE_MANIFEST and AUDIO roles share the same files table, all indexed via VFS paths)
-    val fileRole: String = AudiobookSchema.FileRole.AUDIO,
+    val fileRole: AudiobookSchema.FileRole = AudiobookSchema.FileRole.AUDIO,
     val rootId: String, // Associated library root identifier
     val index: Int, // Logical position order inside the media playback queue
     // Virtual File Pathing (Avoids storing raw URIs; all tracks are resolved via composite VFS path keys (rootId + sourcePath))
@@ -51,5 +51,5 @@ data class BookFileEntity(
     val lastModified: Long,
     val fingerprint: String? = null,
     val lastSeenScanId: String? = null,
-    val status: String = AudiobookSchema.FileStatus.READY // READY / MISSING
+    val status: AudiobookSchema.FileStatus = AudiobookSchema.FileStatus.READY // READY / MISSING
 )

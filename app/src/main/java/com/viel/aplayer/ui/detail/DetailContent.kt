@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.application.library.detail.DetailSnapshot
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
@@ -96,7 +97,8 @@ fun DetailContent(
     onEditBook: (String) -> Unit = {},
     // Detail Action Read Status Command (Forward manual read-status changes)
     // The command uses the selected DetailBookItem id so status updates do not depend on Home dialog state.
-    onUpdateReadStatus: (String, String) -> Unit = { _, _ -> },
+    // Update Read Status: Update readStatus parameter type to ReadStatus enum.
+    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit = { _, _ -> },
     // Detail Action Metadata Refresh Command (Forward forced regeneration from the shared action dialog)
     // DetailContent does not perform library work directly; it only bridges the selected projection id.
     onForceRegenerate: (String) -> Unit = {},
@@ -433,7 +435,8 @@ fun DetailContentPortraitPreview() {
                         item = DetailBookItem(
                             id = "id",
                             rootId = "preview-root",
-                            sourceType = "SINGLE_AUDIO",
+                            // Update DetailContent to use AudiobookSchema.SourceType: Replacing raw string with enum.
+                            sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
                             title = "In the Megachurch",
                             author = "Ryo Asai",
                             narrator = "Narrator A",

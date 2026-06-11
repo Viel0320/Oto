@@ -23,7 +23,8 @@ import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavException
 // Encapsulate Availability State (Storage Decoupling)
 // Uses a dedicated data model instead of plain Booleans to properly distinguish SAF revocations, WebDAV authentication errors, and network issues.
 data class AvailabilityResult(
-    val status: String,
+    // Availability Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum for type safety.
+    val status: AudiobookSchema.AvailabilityStatus,
     val checkedAt: Long = System.currentTimeMillis(),
     val errorCode: String? = null,
     val message: String? = null
@@ -67,7 +68,7 @@ class AvailabilityChecker(
             val root = libraryRootDao.getRootById(file.rootId)
                 ?: return AvailabilityResult(
                     status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                    errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
+                    errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
                 )
             if (LibrarySourceKind.from(root.sourceType) == LibrarySourceKind.ABS) {
                 val provider = LibrarySourceProviderFactory(context.applicationContext).providerFor(root) as AbsSourceProvider
@@ -76,7 +77,7 @@ class AvailabilityChecker(
                 } else {
                     AvailabilityResult(
                         status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                        errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
+                        errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
                     )
                 }
             }
@@ -88,7 +89,7 @@ class AvailabilityChecker(
             } else {
                 AvailabilityResult(
                     status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                    errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
+                    errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
                 )
             }
         }.getOrElse { throwable -> throwable.toAvailabilityResult() }
@@ -190,7 +191,7 @@ class AvailabilityChecker(
         if (!hasPersistedReadGrant) {
             return AvailabilityResult(
                 status = AudiobookSchema.AvailabilityStatus.REVOKED,
-                errorCode = AudiobookSchema.AvailabilityStatus.REVOKED
+                errorCode = AudiobookSchema.AvailabilityStatus.REVOKED.name
             )
         }
         val exists = vfs.root(root)?.let { vfs.exists(it) } == true
@@ -199,7 +200,7 @@ class AvailabilityChecker(
         } else {
             AvailabilityResult(
                 status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
+                errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
             )
         }
     }
@@ -222,7 +223,7 @@ class AvailabilityChecker(
             } else {
                 AvailabilityResult(
                     status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                    errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
+                    errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name,
                     message = "ABS library not found"
                 )
             }
@@ -231,7 +232,7 @@ class AvailabilityChecker(
     private fun notFoundResult(): AvailabilityResult =
         AvailabilityResult(
             status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-            errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
+            errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
         )
 
     private fun Throwable.toAvailabilityResult(): AvailabilityResult {
@@ -244,7 +245,7 @@ class AvailabilityChecker(
         // Passes down the remote errorCode mapped by the provider, defaulting to UNKNOWN only for unhandled exceptions.
         return AvailabilityResult(
             status = status,
-            errorCode = webDavError?.availabilityStatus ?: absError?.code ?: this::class.java.simpleName,
+            errorCode = webDavError?.availabilityStatus?.name ?: absError?.code ?: this::class.java.simpleName,
             message = localizedMessage ?: message
         )
     }

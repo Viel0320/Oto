@@ -28,10 +28,11 @@ class AbsProgressConflictResolver {
      * Resolve Progress Decision (Compares positions after converting ABS seconds into local milliseconds)
      * Returns Conflict whenever both sides have meaningful progress and their positions diverge beyond the drift threshold.
      */
+    // Update localReadStatus parameter type to ReadStatus enum for type safety.
     fun resolve(
         local: BookProgressEntity?,
         remote: AbsUserProgressDto?,
-        localReadStatus: String? = null
+        localReadStatus: AudiobookSchema.ReadStatus? = null
     ): Decision {
         val remotePositionMs = remote?.resolvedPositionMs() ?: return Decision.RemoteMissing
         if (local == null) return Decision.LocalMissing
@@ -43,10 +44,11 @@ class AbsProgressConflictResolver {
      * Resolve Local Candidates (Compares already-mapped local progress entities)
      * Playback prompts use this overload after the remote DTO has been converted into the same unit model as Room progress.
      */
+    // Update localReadStatus parameter type to ReadStatus enum for type safety.
     fun resolveLocalCandidates(
         local: BookProgressEntity?,
         remote: BookProgressEntity?,
-        localReadStatus: String? = null,
+        localReadStatus: AudiobookSchema.ReadStatus? = null,
         remoteIsFinished: Boolean? = null
     ): Decision {
         if (remote == null) return Decision.RemoteMissing
@@ -59,7 +61,8 @@ class AbsProgressConflictResolver {
      * Finished State Conflict (Treats completed-vs-incomplete disagreement as a user-visible conflict)
      * A nearly identical timestamp can still represent different semantic progress when one side marks the book finished and the other does not.
      */
-    private fun hasFinishedConflict(localReadStatus: String?, remoteIsFinished: Boolean?): Boolean {
+    // Update localReadStatus type to ReadStatus enum for type safety.
+    private fun hasFinishedConflict(localReadStatus: AudiobookSchema.ReadStatus?, remoteIsFinished: Boolean?): Boolean {
         if (remoteIsFinished == null || localReadStatus == null) return false
         val localIsFinished = localReadStatus == AudiobookSchema.ReadStatus.FINISHED
         return localIsFinished != remoteIsFinished
@@ -74,11 +77,12 @@ class AbsProgressConflictResolver {
         }
     }
 
+    // Update localReadStatus parameter type to ReadStatus enum for type safety.
     fun shouldApplyRemoteProgress(
         local: BookProgressEntity?,
         remote: AbsUserProgressDto?,
         isCurrentlyPlaying: Boolean,
-        localReadStatus: String? = null
+        localReadStatus: AudiobookSchema.ReadStatus? = null
     ): Boolean {
         if (remote == null) return false
         if (isCurrentlyPlaying) return false
@@ -98,10 +102,11 @@ class AbsProgressConflictResolver {
      * Local Upload Freshness Gate (Lets newer device checkpoints overwrite stale server progress)
      * A large position delta alone is not a conflict when the local save happened after the last known ABS checkpoint.
      */
+    // Update localReadStatus parameter type to ReadStatus enum for type safety.
     fun shouldUploadLocalProgress(
         local: BookProgressEntity,
         remote: AbsUserProgressDto?,
-        localReadStatus: String? = null
+        localReadStatus: AudiobookSchema.ReadStatus? = null
     ): Boolean =
         when (resolve(local, remote, localReadStatus)) {
             Decision.Conflict -> isLocalNewerThanRemote(local, remote)

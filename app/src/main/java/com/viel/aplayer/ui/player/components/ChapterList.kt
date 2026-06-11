@@ -57,6 +57,7 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerChapterTimeline
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.event.feedback.FeedbackMessages
@@ -404,7 +405,8 @@ fun ChapterListSheetPreview() {
             startPositionMs = i * 60000L,
             durationMs = 60000L,
             fileOffsetMs = 0L,
-            source = "EMBEDDED",
+            // Update ChapterList preview to use AudiobookSchema.ChapterSource: Replacing raw string with type-safe ChapterSource.EMBEDDED.
+            source = AudiobookSchema.ChapterSource.EMBEDDED,
             isFileMissing = i == 5
         )
     }

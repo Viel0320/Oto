@@ -2,6 +2,7 @@ package com.viel.aplayer.data.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
  * Scan Session Entity (Database model tracking global library rescan batches)
@@ -10,8 +11,10 @@ import androidx.room.PrimaryKey
 data class ScanSessionEntity(
     @PrimaryKey
     val id: String,
-    val trigger: String, // COLD_START / USER
-    val status: String, // RUNNING / COMPLETED
+    // Scan Trigger Type Safe: Change trigger type to ScanTrigger enum for type safety.
+    val trigger: AudiobookSchema.ScanTrigger, // COLD_START / USER
+    // Scan Status Type Safe: Change status type to ScanStatus enum for type safety.
+    val status: AudiobookSchema.ScanStatus, // RUNNING / COMPLETED
     val startedAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = null,
     val abandonedAt: Long? = null,

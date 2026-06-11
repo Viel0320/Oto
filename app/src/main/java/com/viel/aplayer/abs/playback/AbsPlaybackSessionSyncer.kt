@@ -70,7 +70,8 @@ class AbsPlaybackSessionSyncer(
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
                 openedAt = currentTimeMillis(),
-                state = "OPEN"
+                // AbsPlaybackSessionState OPEN Assignment: Assign type-safe OPEN enum to session state instead of raw string.
+                state = AudiobookSchema.AbsPlaybackSessionState.OPEN
             )
         )
         AbsPlaybackLogger.logOpenSessionSuccess(
@@ -142,7 +143,8 @@ class AbsPlaybackSessionSyncer(
                 session.copy(
                     currentTimeSec = currentTimeSec,
                     timeListenedSec = timeListenedSec,
-                    state = "SYNCED"
+                    // AbsPlaybackSessionState SYNCED Assignment: Assign type-safe SYNCED enum to session state instead of raw string.
+                    state = AudiobookSchema.AbsPlaybackSessionState.SYNCED
                 )
             )
             AbsPlaybackLogger.logSyncSuccess(

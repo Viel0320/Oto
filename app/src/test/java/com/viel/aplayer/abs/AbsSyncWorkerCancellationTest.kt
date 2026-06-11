@@ -349,7 +349,8 @@ class AbsSyncWorkerCancellationTest {
     }
 
     private class NoOpBookMetadataGateway : BookMetadataGateway {
-        override suspend fun updateBookReadStatus(bookId: String, readStatus: String) = Unit
+        // Update signature to ReadStatus enum for type safety.
+        override suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) = Unit
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit
         override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
     }
@@ -467,6 +468,7 @@ class AbsSyncWorkerCancellationTest {
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) {
             this.syncState = syncState
         }
-        override suspend fun updateBookStatus(bookId: String, status: String) = Unit
+        // Update signature to BookStatus enum for type safety.
+        override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus) = Unit
     }
 }

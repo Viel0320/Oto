@@ -9,14 +9,14 @@ import com.viel.aplayer.library.vfs.sourceProvider.saf.SafSourceProvider
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavSourceProvider
 import java.io.InputStream
 
-enum class LibrarySourceKind(val schemaValue: String) {
+enum class LibrarySourceKind(val schemaValue: AudiobookSchema.LibrarySourceType) {
     SAF(AudiobookSchema.LibrarySourceType.SAF),
     WEBDAV(AudiobookSchema.LibrarySourceType.WEBDAV),
     ABS(AudiobookSchema.LibrarySourceType.ABS);
 
     companion object {
-        // Source type dispatching requires explicit mapping of all kinds, avoiding silent fallbacks to SAF on unrecognized values.
-        fun from(value: String): LibrarySourceKind? =
+        // Source Type Safe Mapping: Map from AudiobookSchema.LibrarySourceType enum class.
+        fun from(value: AudiobookSchema.LibrarySourceType): LibrarySourceKind? =
             entries.firstOrNull { it.schemaValue == value }
     }
 }

@@ -1,5 +1,6 @@
 package com.viel.aplayer.application.library.search
 
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.BookWithProgress
@@ -157,7 +158,8 @@ class SearchLibraryModuleTest {
             book = BookEntity(
                 id = id,
                 rootId = "root",
-                sourceType = "SINGLE_AUDIO",
+                // Update SearchLibraryModuleTest: Change sourceType in helper to use type-safe AudiobookSchema.SourceType.SINGLE_AUDIO enum.
+                sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
                 title = title,
                 author = author,
                 narrator = narrator,

@@ -38,7 +38,8 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 // WebDavException (Maps HTTP and network errors to standardized availability statuses to avoid exposing OkHttp details upstream)
 class WebDavException(
-    val availabilityStatus: String,
+    // WebDAV Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum.
+    val availabilityStatus: AudiobookSchema.AvailabilityStatus,
     message: String,
     cause: Throwable? = null
 ) : IOException(message, cause)
@@ -352,7 +353,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             // The provider still logs WebDAV-specific request URLs and throws WebDavException for existing VFS callers.
             com.viel.aplayer.logger.VfsLogger.logWebDavError(
                 url = diagnosticUrl,
-                status = failure.availabilityStatus,
+                // Status Type Safe: Use the string name representation of availabilityStatus.
+                status = failure.availabilityStatus.name,
                 errorClass = error.javaClass.simpleName
             )
             throw WebDavException(

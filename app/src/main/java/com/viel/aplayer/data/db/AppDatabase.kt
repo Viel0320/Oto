@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.viel.aplayer.abs.playback.AbsPendingProgressSyncDao
 import com.viel.aplayer.abs.playback.AbsPendingProgressSyncEntity
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionDao
@@ -30,6 +31,8 @@ import com.viel.aplayer.data.entity.DirectoryChildCacheEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
 
+// Type Converter Registration: Register the newly created converters class on AppDatabase so Room maps enums properly.
+@TypeConverters(AudiobookDatabaseConverters::class)
 @Database(
     entities = [
         BookEntity::class,
@@ -51,6 +54,7 @@ import com.viel.aplayer.data.entity.ScanSessionEntity
     version = 41,
     exportSchema = true
 )
+// Restore AppDatabase Declaration: Restore the abstract class declaration to compile database schema correctly.
 abstract class AppDatabase : RoomDatabase() {
     abstract fun bookDao(): BookDao
     abstract fun chapterDao(): ChapterDao

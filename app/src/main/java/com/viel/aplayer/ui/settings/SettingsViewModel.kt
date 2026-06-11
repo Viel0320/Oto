@@ -656,23 +656,16 @@ private fun resolveLibraryRootStatusText(root: LibraryRootSettingsSnapshot, app:
     return app.getString(resId)
 }
 
-/**
- * Library Root Status Resource Mapping (Converts persisted root status codes into display resources)
- * Settings rows should never expose database codes such as ACTIVE, ERROR, or REVOKED directly to users.
- */
-private fun String.libraryRootStatusMessageRes(): Int =
+// Update SettingsViewModel extension functions: Convert libraryRootStatusMessageRes receiver from String to AudiobookSchema.LibraryRootStatus enum.
+private fun AudiobookSchema.LibraryRootStatus.libraryRootStatusMessageRes(): Int =
     when (this) {
         AudiobookSchema.LibraryRootStatus.ACTIVE -> R.string.settings_library_status_active
         AudiobookSchema.LibraryRootStatus.REVOKED -> R.string.settings_library_status_revoked
         AudiobookSchema.LibraryRootStatus.ERROR -> R.string.settings_library_status_error
-        else -> R.string.settings_library_status_unknown
     }
 
-/**
- * Availability Status Resource Mapping (Converts reachability status codes into display resources)
- * Availability probes remain storage/network facts, while this presentation mapping owns localized labels.
- */
-private fun String.availabilityStatusMessageRes(): Int =
+// Update SettingsViewModel extension functions: Convert availabilityStatusMessageRes receiver from String to AudiobookSchema.AvailabilityStatus enum.
+private fun AudiobookSchema.AvailabilityStatus.availabilityStatusMessageRes(): Int =
     when (this) {
         AudiobookSchema.AvailabilityStatus.AVAILABLE -> R.string.settings_library_status_available
         AudiobookSchema.AvailabilityStatus.REVOKED -> R.string.settings_library_status_revoked
@@ -683,7 +676,7 @@ private fun String.availabilityStatusMessageRes(): Int =
         AudiobookSchema.AvailabilityStatus.SERVER_ERROR -> R.string.settings_library_status_server_error
         AudiobookSchema.AvailabilityStatus.TIMEOUT -> R.string.settings_library_status_timeout
         AudiobookSchema.AvailabilityStatus.UNSUPPORTED -> R.string.settings_library_status_unsupported
-        else -> R.string.settings_library_status_unknown
+        AudiobookSchema.AvailabilityStatus.UNKNOWN -> R.string.settings_library_status_unknown
     }
 
 /**

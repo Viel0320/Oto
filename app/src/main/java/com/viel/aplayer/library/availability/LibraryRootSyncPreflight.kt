@@ -40,10 +40,11 @@ internal fun LibraryRootEntity.isDirectorySyncRoot(): Boolean =
  */
 internal fun buildRootUnavailableSyncMessage(update: LibraryRootAvailabilityUpdate): FeedbackMessage {
     val rootName = update.root.displayName.ifBlank { update.root.sourceUri }
+    // Sync Preflight Feedback: Use availability status enum name when errorCode is missing.
     return FeedbackMessages.libraryRootUnavailableSync(
         rootName = rootName,
         availabilityStatus = update.availability.status,
-        fallbackCode = update.availability.errorCode ?: update.availability.status
+        fallbackCode = update.availability.errorCode ?: update.availability.status.name
     )
 }
 

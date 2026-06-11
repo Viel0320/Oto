@@ -1,5 +1,7 @@
 package com.viel.aplayer.logger
 
+import com.viel.aplayer.data.db.AudiobookSchema
+
 /**
  * ABS Settings Logger (User actions and settings interface logging)
  *
@@ -92,10 +94,11 @@ internal object AbsSettingsLogger {
         )
     }
 
-    fun logDeleteServerStart(rootId: String, sourceType: String) {
+    // Update AbsSettingsLogger to use type-safe AudiobookSchema.LibrarySourceType: Replacing sourceType String with LibrarySourceType enum.
+    fun logDeleteServerStart(rootId: String, sourceType: AudiobookSchema.LibrarySourceType) {
         AbsLogEmitter.debug(
             TAG,
-            "deleteServer start: rootId=${AbsLogSanitizer.shortId(rootId)}, sourceType=${AbsLogSanitizer.compact(sourceType, 24)}"
+            "deleteServer start: rootId=${AbsLogSanitizer.shortId(rootId)}, sourceType=${AbsLogSanitizer.compact(sourceType.name, 24)}"
         )
     }
 

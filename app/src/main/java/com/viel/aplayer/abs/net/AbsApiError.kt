@@ -13,7 +13,7 @@ import java.io.IOException
 class AbsApiError(
     val code: String,
     val httpStatus: Int? = null,
-    val availabilityStatus: String = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+    val availabilityStatus: AudiobookSchema.AvailabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
     message: String,
     cause: Throwable? = null
 ) : IOException(message, cause)

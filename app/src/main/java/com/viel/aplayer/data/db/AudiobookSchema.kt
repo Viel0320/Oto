@@ -1,105 +1,121 @@
 package com.viel.aplayer.data.db
 
-
 // Unified Constants Registry (Aggregates source, role, and status values to prevent string literal drift across layers)
 object AudiobookSchema {
-    object SourceType {
-        const val SINGLE_AUDIO = "SINGLE_AUDIO"
-        const val CUE = "CUE"
-        const val M3U8 = "M3U8"
-        const val GENERATED_M3U8 = "GENERATED_M3U8"
+    // SourceType Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid source types.
+    enum class SourceType {
+        SINGLE_AUDIO,
+        CUE,
+        M3U8,
+        GENERATED_M3U8,
         // Remote Audio Source Identifier (Flags remote tracks to prevent collisions with locally imported files)
-        const val ABS_REMOTE = "ABS_REMOTE"
+        ABS_REMOTE
     }
 
-    object FileRole {
-        const val SOURCE_MANIFEST = "SOURCE_MANIFEST"
-        const val AUDIO = "AUDIO"
+    // FileRole Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid file roles.
+    enum class FileRole {
+        SOURCE_MANIFEST,
+        AUDIO
     }
 
-    object ChapterSource {
-        const val EMBEDDED = "EMBEDDED"
-        const val CUE = "CUE"
-        const val M3U8 = "M3U8"
-        const val GENERATED = "GENERATED"
-        const val MANUAL = "MANUAL"
+    // ChapterSource Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid chapter sources.
+    enum class ChapterSource {
+        EMBEDDED,
+        CUE,
+        M3U8,
+        GENERATED,
+        MANUAL,
         // Server-side Chapter Registry (Identifies chapters parsed from external servers rather than local resources)
-        const val ABS = "ABS"
+        ABS
     }
 
-    object BookStatus {
-        const val READY = "READY"
-        const val PARTIAL = "PARTIAL"
-        const val UNAVAILABLE = "UNAVAILABLE"
-        const val DELETED = "DELETED"
+    // BookStatus Enum Refactoring: Convert string constants to a type-safe enum class to prevent invalid states in books.
+    enum class BookStatus {
+        READY,
+        PARTIAL,
+        UNAVAILABLE,
+        DELETED
     }
 
-    object FileStatus {
-        const val READY = "READY"
-        const val MISSING = "MISSING"
+    // FileStatus Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid file status values.
+    enum class FileStatus {
+        READY,
+        MISSING
     }
 
-    object AnchorStatus {
-        const val OK = "OK"
-        const val REMAPPED = "REMAPPED"
-        const val UNRESOLVED = "UNRESOLVED"
+    // AnchorStatus Enum Refactoring: Convert string constants to a type-safe enum class to prevent invalid states in progress anchor mappings.
+    enum class AnchorStatus {
+        OK,
+        REMAPPED,
+        UNRESOLVED
     }
 
-    object ScanTrigger {
-        const val COLD_START = "COLD_START"
-        const val USER = "USER"
-        const val ADD_LIBRARY_ROOT = "ADD_LIBRARY_ROOT"
+    // ScanTrigger Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid scan triggers.
+    enum class ScanTrigger {
+        COLD_START,
+        USER,
+        ADD_LIBRARY_ROOT
     }
 
-    object ScanStatus {
-        const val RUNNING = "RUNNING"
-        const val COMPLETED = "COMPLETED"
+    // ScanStatus Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid scan status values.
+    enum class ScanStatus {
+        RUNNING,
+        COMPLETED,
         // Abandoned Scan Status (Represents scan lifecycles that stopped before durable completion)
         // Failed imports persist this explicit terminal state so command outcome mapping cannot mistake them for completed empty scans.
-        const val ABANDONED = "ABANDONED"
+        ABANDONED
     }
 
-    object LibraryRootStatus {
-        const val ACTIVE = "ACTIVE"
-        const val REVOKED = "REVOKED"
-        const val ERROR = "ERROR"
+    // LibraryRootStatus Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid library root status values.
+    enum class LibraryRootStatus {
+        ACTIVE,
+        REVOKED,
+        ERROR
     }
 
-    // Read Status Registry (Declare ReadStatus state flags to prevent spelling errors when managing progress states)
+    // LibrarySourceType Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid library source types.
     // Prepares domain constants for remote storage providers (SAF enabled, WebDAV configured as a future addition).
-    object LibrarySourceType {
-        const val SAF = "SAF"
-        const val WEBDAV = "WEBDAV"
+    enum class LibrarySourceType {
+        SAF,
+        WEBDAV,
         // Server Library Root (Specifies that the library root represents a remote Audiobookshelf directory tree)
-        const val ABS = "ABS"
+        ABS
     }
 
-    object AbsMirrorState {
+    // AbsMirrorState Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid ABS mirror states.
+    enum class AbsMirrorState {
         // Active Mirror Flag (Specifies that the catalog item exists on the remote server list during the current sync cycle)
-        const val ACTIVE = "ACTIVE"
+        ACTIVE,
         // Stale Mirror Flag (Indicates that the item was missing during sync but is pending deletion auditing)
-        const val STALE = "STALE"
+        STALE,
         // Remote Deletion Flag (Indicates that the item is deleted on the server, pending local cleanup decisions)
-        const val REMOTE_DELETED = "REMOTE_DELETED"
+        REMOTE_DELETED
     }
 
-    // Availability Status Codes (Reserved codes mapping local storage permissions and remote connectivity statuses)
-    object AvailabilityStatus {
-        const val AVAILABLE = "AVAILABLE"
-        const val UNKNOWN = "UNKNOWN"
-        const val REVOKED = "REVOKED"
-        const val AUTH_FAILED = "AUTH_FAILED"
-        const val NETWORK_UNAVAILABLE = "NETWORK_UNAVAILABLE"
-        const val NOT_FOUND = "NOT_FOUND"
-        const val PERMISSION_DENIED = "PERMISSION_DENIED"
-        const val SERVER_ERROR = "SERVER_ERROR"
-        const val TIMEOUT = "TIMEOUT"
-        const val UNSUPPORTED = "UNSUPPORTED"
+    // AvailabilityStatus Enum Refactoring: Convert string constants to type-safe enum class to prevent invalid availability status codes.
+    enum class AvailabilityStatus {
+        AVAILABLE,
+        UNKNOWN,
+        REVOKED,
+        AUTH_FAILED,
+        NETWORK_UNAVAILABLE,
+        NOT_FOUND,
+        PERMISSION_DENIED,
+        SERVER_ERROR,
+        TIMEOUT,
+        UNSUPPORTED
     }
 
-    object ReadStatus {
-        const val NOT_STARTED = "NOT_STARTED"
-        const val IN_PROGRESS = "IN_PROGRESS"
-        const val FINISHED = "FINISHED"
+    // ReadStatus Enum Refactoring: Convert string constants to a type-safe enum class to ensure consistent user reading progress states.
+    enum class ReadStatus {
+        NOT_STARTED,
+        IN_PROGRESS,
+        FINISHED
+    }
+
+    // AbsPlaybackSessionState Enum Refactoring: Introduce type-safe representation for ABS session lifecycle to replace string literals.
+    enum class AbsPlaybackSessionState {
+        OPEN,
+        SYNCED
     }
 }

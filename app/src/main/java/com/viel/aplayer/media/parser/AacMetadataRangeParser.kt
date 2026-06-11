@@ -1,5 +1,6 @@
 package com.viel.aplayer.media.parser
 
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.charset.Charset
@@ -307,7 +308,8 @@ internal object AacMetadataRangeParser : RangeAudioFormatParser {
             startPositionMs = startTimeMs,
             durationMs = (endTimeMs - startTimeMs).coerceAtLeast(0L),
             fileOffsetMs = startTimeMs,
-            source = "EMBEDDED"
+            // Update AacMetadataRangeParser to use AudiobookSchema.ChapterSource: Replacing raw string with type-safe ChapterSource.EMBEDDED.
+            source = AudiobookSchema.ChapterSource.EMBEDDED
         )
     }
 

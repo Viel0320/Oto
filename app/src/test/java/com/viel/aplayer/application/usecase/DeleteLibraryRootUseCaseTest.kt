@@ -118,13 +118,14 @@ class DeleteLibraryRootUseCaseTest {
         )
     }
 
+    // FixSourceTypeMismatch: Pass correct SourceType enum instead of LibrarySourceType enum to BookEntity.
     private fun book(rootId: String): BookEntity {
         // Book Fixture (Create only the active book ownership fields relevant to root deletion)
         // The use case checks rootId only, so title and sourceType are deterministic filler values.
         return BookEntity(
             id = BOOK_ID,
             rootId = rootId,
-            sourceType = AudiobookSchema.LibrarySourceType.SAF,
+            sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
             title = "Book"
         )
     }
@@ -166,7 +167,7 @@ class DeleteLibraryRootUseCaseTest {
         override fun getRecentlyAdded(limit: Int): Flow<List<BookWithProgress>> = unexpected("getRecentlyAdded")
         override fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<BookWithProgress>> = unexpected("getRecentlyAddedExclusive")
         override suspend fun deleteBook(bookId: String): Unit = unexpected("deleteBook")
-        override suspend fun updateBookReadStatus(bookId: String, readStatus: String): Unit = unexpected("updateBookReadStatus")
+        override suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus): Unit = unexpected("updateBookReadStatus")
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String): Unit = unexpected("updateBookDetails")
         override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = unexpected("getFilesForBookSync")
         override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = unexpected("getAllFilesForBookSync")

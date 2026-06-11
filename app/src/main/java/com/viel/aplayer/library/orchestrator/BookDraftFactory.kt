@@ -94,7 +94,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
      */
     suspend fun buildManifestDraft(
         bookId: String,
-        sourceType: String,
+        sourceType: AudiobookSchema.SourceType,
         sourceFile: FileRef,
         audioFiles: List<FileRef>,
         chapterCandidates: List<ChapterCandidate>,
@@ -108,7 +108,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         series: String = "",
         // Manifest Book Status Override (Partial import support)
         // Allows CUE/M3U8 imports with missing references to persist directly as PARTIAL books.
-        bookStatus: String = AudiobookSchema.BookStatus.READY,
+        bookStatus: AudiobookSchema.BookStatus = AudiobookSchema.BookStatus.READY,
         cover: CoverExtractor.CoverResult?
     ): BookDraft {
         val durationByKey = audioFiles
@@ -128,6 +128,13 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             start += file.durationMs
         }
 
+        // Chapter Source Mapping: Map sourceType to the corresponding ChapterSource enum value.
+        val chapterSource = when (sourceType) {
+            AudiobookSchema.SourceType.CUE -> AudiobookSchema.ChapterSource.CUE
+            AudiobookSchema.SourceType.M3U8 -> AudiobookSchema.ChapterSource.M3U8
+            else -> AudiobookSchema.ChapterSource.GENERATED
+        }
+
         val chapters = if (chapterCandidates.isNotEmpty()) {
             chapterCandidates.mapIndexed { index, chapter ->
                 val fileId = fileIdByKey[chapter.fileKey].orEmpty()
@@ -142,7 +149,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
                     startPositionMs = (fileStartByKey[chapter.fileKey] ?: 0L) + chapter.fileOffsetMs,
                     durationMs = (if (chapter.durationMs > 0L) chapter.durationMs else fallbackDuration).coerceAtLeast(0L),
                     fileOffsetMs = chapter.fileOffsetMs,
-                    source = sourceType
+                    source = chapterSource
                 )
             }
         } else {
@@ -158,7 +165,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
                     startPositionMs = chapterStart,
                     durationMs = file.durationMs,
                     fileOffsetMs = 0L,
-                    source = sourceType
+                    source = chapterSource
                 )
                 chapterStart += file.durationMs
                 chapter
@@ -316,7 +323,8 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         bookId: String,
         id: String,
         index: Int,
-        status: String,
+        // File Status Type Safe: Use AudiobookSchema.FileStatus enum.
+        status: AudiobookSchema.FileStatus,
         overrideDurationMs: Long? = null
     ): BookFileEntity = file.toAudioBookFile(bookId, id, index, status, overrideDurationMs ?: metadata.durationMs)
 
@@ -324,7 +332,8 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         bookId: String,
         id: String,
         index: Int,
-        status: String,
+        // File Status Type Safe: Use AudiobookSchema.FileStatus enum.
+        status: AudiobookSchema.FileStatus,
         overrideDurationMs: Long? = null
     ): BookFileEntity = toAudioBookFile(bookId, id, index, status, overrideDurationMs ?: 0L)
 
@@ -332,7 +341,8 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         bookId: String,
         id: String,
         index: Int,
-        status: String,
+        // File Status Type Safe: Use AudiobookSchema.FileStatus enum.
+        status: AudiobookSchema.FileStatus,
         durationMs: Long
     ): BookFileEntity =
         BookFileEntity(

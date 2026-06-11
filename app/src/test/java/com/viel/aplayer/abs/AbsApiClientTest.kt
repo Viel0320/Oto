@@ -39,10 +39,10 @@ import kotlin.io.path.createTempDirectory
 @Config(sdk = [32])
 class AbsApiClientTest {
 
+    // RemoveInvalidEnumCompileError: Remove test asserting invalid String source type since compiler now enforces type-safe enum.
     @Test
     fun `source kind must not fallback to saf for unknown value`() {
         assertEquals(LibrarySourceKind.ABS, LibrarySourceKind.from(AudiobookSchema.LibrarySourceType.ABS))
-        assertNull(LibrarySourceKind.from("UNKNOWN_SOURCE"))
     }
 
     @Test

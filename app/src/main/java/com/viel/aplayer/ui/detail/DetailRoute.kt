@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
@@ -32,7 +33,8 @@ fun DetailRoute(
     onEditBookRequested: (String) -> Unit,
     // Detail Action Read Status Route (Delegate manual status changes)
     // The home/library scene still owns the persistence command, while DetailRoute only carries the selected Detail id.
-    onUpdateReadStatus: (String, String) -> Unit,
+    // Update Read Status: Update readStatus parameter type to ReadStatus enum.
+    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit,
     // Detail Action Metadata Refresh Route (Delegate forced regeneration)
     // Regeneration remains a library command so DetailRoute avoids media parsing or cache work.
     onForceRegenerate: (String) -> Unit,

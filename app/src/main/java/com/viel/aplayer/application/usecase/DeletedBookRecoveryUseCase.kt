@@ -102,7 +102,8 @@ class DeletedBookRecoveryUseCase(
         missingFileIds: List<String>
     ): DeletedBookRecoveryResult = withContext(Dispatchers.IO) {
         if (availableFileIds.isEmpty()) {
-            return@withContext DeletedBookRecoveryResult.AllFilesUnavailable(AudiobookSchema.AvailabilityStatus.NOT_FOUND)
+            // Availability Type Safe: Use the name of AvailabilityStatus enum to match String reason argument.
+            return@withContext DeletedBookRecoveryResult.AllFilesUnavailable(AudiobookSchema.AvailabilityStatus.NOT_FOUND.name)
         }
         if (store.restorePartial(bookId, availableFileIds, missingFileIds)) {
             DeletedBookRecoveryResult.RestoredPartial
@@ -117,7 +118,8 @@ class DeletedBookRecoveryUseCase(
  * Prefers provider messages, then error codes, then status codes so UI callers never inspect infrastructure exceptions.
  */
 private fun AvailabilityResult?.recoveryReason(): String =
+    // Recovery Reason Mapping: Convert enum properties and fallbacks to String names for the UI dialog.
     this?.message?.takeIf { it.isNotBlank() }
         ?: this?.errorCode?.takeIf { it.isNotBlank() }
-        ?: this?.status?.takeIf { it.isNotBlank() }
-        ?: AudiobookSchema.AvailabilityStatus.UNKNOWN
+        ?: this?.status?.name?.takeIf { it.isNotBlank() }
+        ?: AudiobookSchema.AvailabilityStatus.UNKNOWN.name

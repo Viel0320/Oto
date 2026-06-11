@@ -79,9 +79,8 @@ internal class ConflictResolver {
         }
     }
 
-    // Source Priority Rank (Ownership conflict rule)
-    // Encodes cue > m3u8 > other in one resolver-local function to keep priority comparisons out of import steps and ledgers.
-    private fun sourcePriority(sourceType: String?): Int =
+    // Source Priority Type Safe: Use AudiobookSchema.SourceType? enum for priority rank resolution.
+    private fun sourcePriority(sourceType: AudiobookSchema.SourceType?): Int =
         when (sourceType) {
             AudiobookSchema.SourceType.CUE -> 3
             AudiobookSchema.SourceType.M3U8 -> 2
@@ -100,7 +99,8 @@ internal sealed interface ConflictResolution {
      *
      * Indicates that the incoming source owns its files and should be inserted as READY or PARTIAL.
      */
-    data class CreateBook(val bookStatus: String) : ConflictResolution
+    // Create Book Type Safe: Use BookStatus enum instead of String for type safety.
+    data class CreateBook(val bookStatus: AudiobookSchema.BookStatus) : ConflictResolution
 
     /**
      * Refresh Existing Book (Idempotent rescan)
@@ -117,9 +117,10 @@ internal sealed interface ConflictResolution {
      *
      * Indicates that lower-priority or stale same-owner rows should be removed after state migration.
      */
+    // Replace Books Type Safe: Use BookStatus enum instead of String for type safety.
     data class ReplaceBooks(
         val bookIds: List<String>,
-        val bookStatus: String
+        val bookStatus: AudiobookSchema.BookStatus
     ) : ConflictResolution
 
     /**

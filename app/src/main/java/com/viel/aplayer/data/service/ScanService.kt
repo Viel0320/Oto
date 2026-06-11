@@ -7,6 +7,7 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.library.LibraryRootStore
@@ -86,7 +87,10 @@ class ScanService(
     }
 
     override fun scheduleLibrarySync(trigger: String, requiresNetwork: Boolean) {
-        val policy = WorkSchedulingPolicy.librarySync(trigger = trigger, requiresNetwork = requiresNetwork)
+        // Update ScanService to use type-safe AudiobookSchema.ScanTrigger: Convert trigger string to ScanTrigger enum before scheduling.
+        val scanTrigger = runCatching { AudiobookSchema.ScanTrigger.valueOf(trigger) }
+            .getOrDefault(AudiobookSchema.ScanTrigger.USER)
+        val policy = WorkSchedulingPolicy.librarySync(trigger = scanTrigger, requiresNetwork = requiresNetwork)
         // Enqueue Unique Work (Apply trigger-aware replacement and connectivity policy)
         // Cold-start scans keep debounce behavior, while user/root-edit scans replace stale queued work so new root settings are not dropped.
         val workManager = WorkManager.getInstance(appContext)
@@ -113,7 +117,10 @@ class ScanService(
     private suspend fun runSyncLibrary(trigger: String): ScanOutcome = withContext(Dispatchers.IO) {
         // Scan Session Adapter Assembly (Command execution seam)
         // Builds concrete Android and Room adapters once per command while ScanSession owns status transitions and outcome mapping.
-        createScanSession().execute(ScanCommand(trigger))
+        // Update ScanService to use type-safe AudiobookSchema.ScanTrigger: Convert trigger string to ScanTrigger enum before executing ScanCommand.
+        val scanTrigger = runCatching { AudiobookSchema.ScanTrigger.valueOf(trigger) }
+            .getOrDefault(AudiobookSchema.ScanTrigger.USER)
+        createScanSession().execute(ScanCommand(scanTrigger))
     }
 
     private fun createScanSession(): ScanSession =

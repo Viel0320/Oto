@@ -150,11 +150,12 @@ internal class OwnershipStateMigrator {
 
     // Migrated Read Status Resolver (State continuity)
     // Recomputes the replacement book's read state from prior book states and the remapped progress position.
+    // Resolve Migrated Read Status: Return type-safe ReadStatus enum instead of String.
     private fun resolveMigratedReadStatus(
         oldBooks: List<BookEntity>,
         migratedProgress: BookProgressEntity?,
         replacementBook: BookEntity
-    ): String {
+    ): AudiobookSchema.ReadStatus {
         if (oldBooks.any { it.readStatus == AudiobookSchema.ReadStatus.FINISHED }) {
             return AudiobookSchema.ReadStatus.FINISHED
         }

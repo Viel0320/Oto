@@ -4,6 +4,8 @@ import com.viel.aplayer.abs.playback.AbsPendingProgressSyncDao
 import com.viel.aplayer.abs.playback.AbsPendingProgressSyncEntity
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionDao
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionEntity
+// Import AudiobookSchema (Brings in the nested enum definitions for db schemas)
+import com.viel.aplayer.data.db.AudiobookSchema
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -107,7 +109,7 @@ class RemotePlaybackCleanupServiceTest {
                 currentTimeSec = 12.0,
                 timeListenedSec = 2.0,
                 openedAt = 1_000L,
-                state = "OPEN"
+                state = AudiobookSchema.AbsPlaybackSessionState.OPEN
             )
         }
 

@@ -77,10 +77,11 @@ class APlayerStartupWarmupTest {
         assertEquals(0, freshnessChecks)
     }
 
+    // UpdateSampleRootHelper: Adapt helper function signature to accept type-safe enums instead of raw Strings.
     private fun sampleRoot(
         id: String,
-        sourceType: String = AudiobookSchema.LibrarySourceType.ABS,
-        status: String = AudiobookSchema.LibraryRootStatus.ACTIVE
+        sourceType: AudiobookSchema.LibrarySourceType = AudiobookSchema.LibrarySourceType.ABS,
+        status: AudiobookSchema.LibraryRootStatus = AudiobookSchema.LibraryRootStatus.ACTIVE
     ): LibraryRootEntity =
         LibraryRootEntity(
             id = id,

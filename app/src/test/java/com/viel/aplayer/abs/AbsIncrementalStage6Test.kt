@@ -635,7 +635,7 @@ class AbsIncrementalStage6Test {
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) {
             this.syncState = syncState
         }
-        override suspend fun updateBookStatus(bookId: String, status: String) {
+        override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus) {
             books[bookId]?.let { book ->
                 books[bookId] = book.copy(status = status)
             }

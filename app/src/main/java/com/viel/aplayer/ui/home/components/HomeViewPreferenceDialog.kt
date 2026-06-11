@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.home.components
 
+// Import HomeBookStatusFilter (Brings in the relocated type-safe availability filter from the data store layer)
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,11 +22,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeBookStatusFilter
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
-import com.viel.aplayer.ui.home.HomeBookStatusFilter
 import dev.chrisbanes.haze.HazeState
 
 /**

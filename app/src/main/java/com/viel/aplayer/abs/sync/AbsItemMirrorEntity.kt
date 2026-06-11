@@ -3,6 +3,7 @@ package com.viel.aplayer.abs.sync
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.viel.aplayer.data.db.AudiobookSchema
 
 @Entity(
     tableName = "abs_item_mirror",
@@ -17,5 +18,6 @@ data class AbsItemMirrorEntity(
     val lastSeenSyncRunId: String? = null,
     val lastSeenAt: Long? = null,
     val remoteUpdatedAt: Long? = null,
-    val state: String
+    // AbsMirrorState Type Safe: Change state field type to AbsMirrorState enum for compile-time safety.
+    val state: AudiobookSchema.AbsMirrorState
 )

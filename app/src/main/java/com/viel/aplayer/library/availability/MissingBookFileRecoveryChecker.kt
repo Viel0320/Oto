@@ -62,7 +62,8 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
         bookDao.updateBookStatus(bookId, bookStatus)
     }
 
-    private fun statusFromFiles(files: List<BookFileEntity>): String {
+    // Recalculate Status Type: Change statusFromFiles return type to BookStatus enum for type safety.
+    private fun statusFromFiles(files: List<BookFileEntity>): AudiobookSchema.BookStatus {
         val readyCount = files.count { it.status == AudiobookSchema.FileStatus.READY }
         val missingCount = files.count { it.status == AudiobookSchema.FileStatus.MISSING }
         return when {

@@ -89,7 +89,7 @@ class AbsPlaybackSessionStage4Test {
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
                 openedAt = freshSessionOpenedAt(),
-                state = "OPEN"
+                state = AudiobookSchema.AbsPlaybackSessionState.OPEN
             )
         }
         val pendingDao = FakePendingSyncDao()
@@ -147,7 +147,7 @@ class AbsPlaybackSessionStage4Test {
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
                 openedAt = now - OnlineSourceCachePolicy.ABS_PLAYBACK_SESSION_TTL_MS - 1L,
-                state = "OPEN"
+                state = AudiobookSchema.AbsPlaybackSessionState.OPEN
             )
         }
         val api = SuccessfulPlaybackApi(sessionId = "fresh-session")
@@ -182,7 +182,7 @@ class AbsPlaybackSessionStage4Test {
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
                 openedAt = now - OnlineSourceCachePolicy.ABS_PLAYBACK_SESSION_TTL_MS - 1L,
-                state = "OPEN"
+                state = AudiobookSchema.AbsPlaybackSessionState.OPEN
             )
         }
         val api = SuccessfulPlaybackApi()
@@ -221,7 +221,7 @@ class AbsPlaybackSessionStage4Test {
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
                 openedAt = freshSessionOpenedAt(),
-                state = "OPEN"
+                state = AudiobookSchema.AbsPlaybackSessionState.OPEN
             )
         }
         val pendingDao = FakePendingSyncDao()
@@ -359,7 +359,7 @@ class AbsPlaybackSessionStage4Test {
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
                 openedAt = freshSessionOpenedAt(),
-                state = "OPEN"
+                state = AudiobookSchema.AbsPlaybackSessionState.OPEN
             )
         }
         val pendingDao = FakePendingSyncDao()
@@ -555,7 +555,7 @@ class AbsPlaybackSessionStage4Test {
         }
         override suspend fun replaceMirrors(mirrors: List<AbsItemMirrorEntity>) = Unit
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) = Unit
-        override suspend fun updateBookStatus(bookId: String, status: String) = Unit
+        override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus) = Unit
     }
 
     private class FakeBookQueryGateway(
@@ -577,7 +577,7 @@ class AbsPlaybackSessionStage4Test {
         override fun getRecentlyAdded(limit: Int): Flow<List<BookWithProgress>> = flowOf(emptyList())
         override fun getRecentlyAddedExclusive(currentId: String, authors: List<String>, narrators: List<String>, limit: Int): Flow<List<BookWithProgress>> = flowOf(emptyList())
         override suspend fun deleteBook(bookId: String) = Unit
-        override suspend fun updateBookReadStatus(bookId: String, readStatus: String) {
+        override suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) {
             if (book.id == bookId) book = book.copy(readStatus = readStatus)
         }
         // Mock Update Book Details (Mock interface matching including series parameter)

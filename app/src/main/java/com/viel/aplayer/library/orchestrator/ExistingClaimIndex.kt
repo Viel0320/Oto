@@ -1,5 +1,6 @@
 package com.viel.aplayer.library.orchestrator
 
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileIdentity
@@ -9,7 +10,7 @@ class ExistingClaimIndex private constructor(
     private val byKey: Map<String, BookFileEntity>,
     // Existing Source Type Lookup (Ownership priority input)
     // Associates file claims with their logical book source type so conflict resolution can compare persisted owners against incoming manifests.
-    private val sourceTypeByBookId: Map<String, String>
+    private val sourceTypeByBookId: Map<String, AudiobookSchema.SourceType>
 ) {
     /**
      * Resolves Conflicting Ownership in Existing Claims (Localized conflict check)
@@ -41,7 +42,7 @@ class ExistingClaimIndex private constructor(
 
     // Existing Owner Source Type (Priority resolution helper)
     // Returns the persisted source type for a conflicting book, defaulting at call sites when legacy rows lack book metadata.
-    fun sourceTypeForBook(bookId: String): String? =
+    fun sourceTypeForBook(bookId: String): AudiobookSchema.SourceType? =
         sourceTypeByBookId[bookId]
 
     // A manifest rescan is a no-op only when every claimed file already belongs to one book.
@@ -88,5 +89,6 @@ class ExistingClaimIndex private constructor(
 data class ExistingBookClaim(
     val bookId: String,
     val files: List<BookFileEntity>,
-    val sourceType: String? = null
+    // Claim Source Type Safe: Use AudiobookSchema.SourceType? enum.
+    val sourceType: AudiobookSchema.SourceType? = null
 )

@@ -2,6 +2,7 @@ package com.viel.aplayer.ui.detail
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 
@@ -24,7 +25,8 @@ fun DetailScreen(
     onEditBook: (String) -> Unit = {},
     // Detail Action Read Status Bridge (Forward action-dialog read-status updates)
     // Keeping the callback here lets DetailContent report selected ids without depending on LibraryViewModel.
-    onUpdateReadStatus: (String, String) -> Unit = { _, _ -> },
+    // Update Read Status: Update readStatus parameter type to ReadStatus enum.
+    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit = { _, _ -> },
     // Detail Action Regeneration Bridge (Forward action-dialog metadata refresh)
     // DetailScreen only relays the command so library regeneration stays outside UI rendering.
     onForceRegenerate: (String) -> Unit = {},

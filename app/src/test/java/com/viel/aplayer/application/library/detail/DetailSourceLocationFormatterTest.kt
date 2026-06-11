@@ -95,8 +95,9 @@ class DetailSourceLocationFormatterTest {
         assertEquals("SAF://Library", result)
     }
 
+    // Update DetailSourceLocationFormatterTest: Change snapshot helper signature to use type-safe AudiobookSchema.SourceType enum.
     private fun snapshot(
-        sourceType: String,
+        sourceType: AudiobookSchema.SourceType,
         title: String = "Local Book"
     ): DetailSnapshot {
         // Detail Snapshot Fixture (Creates the transition snapshot without database entity dependencies)

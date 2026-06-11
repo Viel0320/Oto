@@ -176,10 +176,11 @@ class ScanSessionTest {
             librarySnapshotAdapter = ScanLibrarySnapshotAdapter(librarySnapshotBlock)
         )
 
+    // Update ScanSessionTest: Change rootUpdate helper signature to use type-safe enums.
     private fun rootUpdate(
         id: String,
-        sourceType: String,
-        availabilityStatus: String
+        sourceType: AudiobookSchema.LibrarySourceType,
+        availabilityStatus: AudiobookSchema.AvailabilityStatus
     ): LibraryRootAvailabilityUpdate =
         LibraryRootAvailabilityUpdate(
             root = LibraryRootEntity(
@@ -196,9 +197,10 @@ class ScanSessionTest {
             availability = AvailabilityResult(status = availabilityStatus)
         )
 
+    // Update ScanSessionTest: Change scanEntity helper signature to use type-safe enums.
     private fun scanEntity(
         discovered: Int = 0,
-        status: String = AudiobookSchema.ScanStatus.COMPLETED
+        status: AudiobookSchema.ScanStatus = AudiobookSchema.ScanStatus.COMPLETED
     ): ScanSessionEntity =
         ScanSessionEntity(
             id = "scan-1",

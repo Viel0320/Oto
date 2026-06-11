@@ -40,7 +40,11 @@ object LibraryRootLifecyclePolicy {
      * Root Status Resolution (Separates local grant loss from remote infrastructure failure)
      * Available roots return to ACTIVE, SAF failures become REVOKED, and remote-source failures become ERROR so callers can distinguish permission repair from network/server repair.
      */
-    fun rootStatusFor(sourceType: String, availability: AvailabilityResult): String =
+    // Root Status Resolver: Resolve the correct LibraryRootStatus enum based on sourceType and check result.
+    fun rootStatusFor(
+        sourceType: AudiobookSchema.LibrarySourceType,
+        availability: AvailabilityResult
+    ): AudiobookSchema.LibraryRootStatus =
         when {
             availability.isAvailable -> AudiobookSchema.LibraryRootStatus.ACTIVE
             sourceType == AudiobookSchema.LibrarySourceType.SAF -> AudiobookSchema.LibraryRootStatus.REVOKED

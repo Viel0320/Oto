@@ -168,6 +168,7 @@ internal class OwnershipClaimStep(
      * A reserved manifest becomes a READY or PARTIAL new book. A blocked manifest refreshes the same existing book,
      * replaces lower-priority persisted owners, or yields silently to equal/higher-priority owners.
      */
+    // Update buildDraft lambda parameter type to BookStatus enum for type safety.
     private suspend fun handleManifestClaim(
         source: ImportSourceRef,
         claimedIdentities: List<FileIdentity>,
@@ -177,7 +178,7 @@ internal class OwnershipClaimStep(
         readyImports: MutableList<ImportCommand.CreateReadyBook>,
         refreshedBooks: MutableList<ImportCommand.RefreshExistingBook>,
         replacementImports: MutableList<ImportCommand.ReplaceExistingBooks>,
-        buildDraft: suspend (bookStatus: String) -> BookDraft
+        buildDraft: suspend (bookStatus: AudiobookSchema.BookStatus) -> BookDraft
     ) {
         val reservation = context.runClaimLedger.reserve(
             source = source,
@@ -220,7 +221,8 @@ internal class OwnershipClaimStep(
      *
      * Builds the CUE draft after ownership is decided, applying READY or PARTIAL at the logical book level.
      */
-    private suspend fun buildCueDraft(cueBook: CoverExtractedCue, bookStatus: String): BookDraft {
+    // Update bookStatus parameter type to BookStatus enum for type safety.
+    private suspend fun buildCueDraft(cueBook: CoverExtractedCue, bookStatus: AudiobookSchema.BookStatus): BookDraft {
         val cue = cueBook.draft.sourceFile
         val firstAudioMeta = draftFactory.firstManifestAudioMetadata(cueBook.audioRefs)
         val mergedMeta = draftFactory.resolveManifestBookMetadata(
@@ -258,7 +260,8 @@ internal class OwnershipClaimStep(
      *
      * Builds the M3U8 draft after ownership is decided, preserving playlist titles and durations for resolved items.
      */
-    private suspend fun buildM3u8Draft(m3u8Book: CoverExtractedM3u8, bookStatus: String): BookDraft {
+    // Update bookStatus parameter type to BookStatus enum for type safety.
+    private suspend fun buildM3u8Draft(m3u8Book: CoverExtractedM3u8, bookStatus: AudiobookSchema.BookStatus): BookDraft {
         val m3u8 = m3u8Book.draft.sourceFile
         val firstAudioMeta = draftFactory.firstManifestAudioMetadata(m3u8Book.audioRefs)
         val mergedMeta = draftFactory.resolveManifestBookMetadata(

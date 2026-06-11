@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
  * Directory Modification Cache Schema (Room entity storing directory lastModified timestamps for scanning optimizations)
@@ -58,7 +59,7 @@ data class DirectoryCacheEntity(
     /**
      * Directory Reachability Status (Restricts failure domains so transient folder issues do not revoke library roots)
      */
-    val availabilityStatus: String = "UNKNOWN",
+    val availabilityStatus: AudiobookSchema.AvailabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
 
     /**
      * Parent Root Identifier (Associated media library root ID used for CASCADE deletions)

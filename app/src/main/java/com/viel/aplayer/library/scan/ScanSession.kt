@@ -12,8 +12,9 @@ import com.viel.aplayer.library.orchestrator.RescanType
  * Scan Command (Stable ingestion request shape)
  * Keeps trigger interpretation inside the scan module so UI and Worker callers do not duplicate rescan mode decisions.
  */
+// Update ScanCommand to use type-safe AudiobookSchema.ScanTrigger: Changing trigger from String to ScanTrigger enum.
 data class ScanCommand(
-    val trigger: String
+    val trigger: AudiobookSchema.ScanTrigger
 )
 
 /**

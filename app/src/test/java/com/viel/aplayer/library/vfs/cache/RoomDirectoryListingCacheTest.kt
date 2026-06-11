@@ -100,7 +100,8 @@ class RoomDirectoryListingCacheTest {
         assertEquals("root-1", dao.deletedRootId)
     }
 
-    private fun sampleDirectory(sourceType: String): VfsNode {
+    // Update RoomDirectoryListingCacheTest: Change sampleDirectory signature to use type-safe AudiobookSchema.LibrarySourceType enum.
+    private fun sampleDirectory(sourceType: AudiobookSchema.LibrarySourceType): VfsNode {
         val root = LibraryRootEntity(
             id = "root-1",
             sourceType = sourceType,

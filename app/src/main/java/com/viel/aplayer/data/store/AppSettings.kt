@@ -1,9 +1,7 @@
 package com.viel.aplayer.data.store
 
+import com.viel.aplayer.data.db.AudiobookSchema
 
-/**
- * Application Global Settings (Persistent configuration model DTO)
- */
 // Glass Effect Visual Mode (UI decoration options)
 // Material represents standard native containers, while Haze enables haze-based Compose native frosted glass visuals.
 enum class GlassEffectMode {
@@ -103,6 +101,42 @@ enum class HomeSortDirection {
     Descending
 }
 
+// HomeFilter Enum: Home Library Filter Options.
+enum class HomeFilter {
+    /** Reading in progress (playback progress > 0 and unfinished) */
+    InProgress,
+    /** Not started */
+    NotStarted,
+    /** Finished reading */
+    Finished
+}
+
+// Home Book Status Filter: User-facing availability filter for the Home catalog.
+enum class HomeBookStatusFilter(private val schemaStatus: AudiobookSchema.BookStatus?) {
+    // All Statuses Filter (Default option that preserves the full visible Home catalog)
+    All(schemaStatus = null),
+
+    // Ready Status Filter (Shows fully available books)
+    Ready(schemaStatus = AudiobookSchema.BookStatus.READY),
+
+    // Partial Status Filter (Shows books with at least one unavailable file)
+    Partial(schemaStatus = AudiobookSchema.BookStatus.PARTIAL),
+
+    // Unavailable Status Filter (Shows books whose playable files are currently unavailable)
+    Unavailable(schemaStatus = AudiobookSchema.BookStatus.UNAVAILABLE);
+
+    // Match Status Type Safe: Accept BookStatus enum parameter for type safety.
+    fun matches(bookStatus: AudiobookSchema.BookStatus): Boolean {
+        return schemaStatus == null || bookStatus == schemaStatus
+    }
+
+    companion object {
+        // Stored Preference Parsing (Resolve persisted enum names with a safe All fallback)
+        fun fromStoredName(value: String): HomeBookStatusFilter =
+            runCatching { valueOf(value) }.getOrDefault(All)
+    }
+}
+
 // Seek Step Value (Constrains short transport jumps to supported audiobook increments)
 // Keeping validation in this value type prevents UI, notification, and widget surfaces from interpreting arbitrary stored integers differently.
 enum class SeekStepSeconds(val seconds: Int) {
@@ -148,10 +182,12 @@ data class AppSettings(
     // Dynamic Color Option (Enable wallpaper-based color theme extraction) Adds isDynamicColorEnabled field to AppSettings with a default value of true to support Monet dynamic coloring.
     val isDynamicColorEnabled: Boolean = true,
     /** Filter state on the home screen */
-    val homeFilter: String = "NotStarted",
+    // Home Filter Type Safe: Use HomeFilter enum instead of String for type safety.
+    val homeFilter: HomeFilter = HomeFilter.NotStarted,
     // Home Book Status Filter Setting (Persist the Home dialog availability filter)
     // Defaults to All so the new BookStatus filter does not hide any existing catalog entries until the user chooses a narrower status.
-    val homeBookStatusFilter: String = "All",
+    // Home Book Status Filter Type Safe: Use HomeBookStatusFilter enum instead of String for type safety.
+    val homeBookStatusFilter: HomeBookStatusFilter = HomeBookStatusFilter.All,
     // Home View Style Setting (Persist the selected Home catalog renderer)
     // Defaults to List so existing users keep the current listgroup-based home layout until they explicitly switch to cardgroup rows.
     val homeViewStyle: HomeViewStyle = HomeViewStyle.List,

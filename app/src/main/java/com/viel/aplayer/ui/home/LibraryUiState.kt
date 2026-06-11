@@ -1,13 +1,16 @@
 package com.viel.aplayer.ui.home
 
+// Import HomeFilter and HomeBookStatusFilter (Brings in the relocated type-safe filter enums from the data store layer)
+// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import androidx.annotation.StringRes
 import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeBookStatusFilter
+import com.viel.aplayer.data.store.HomeFilter
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
-// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import com.viel.aplayer.data.store.ThemeMode
 
 /**

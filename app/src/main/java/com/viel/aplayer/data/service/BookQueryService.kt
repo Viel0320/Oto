@@ -18,8 +18,8 @@ import com.viel.aplayer.data.gateway.BookMetadataGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
 import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.logger.SecureLog
-import com.viel.aplayer.timeline.PositionMapper
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
+import com.viel.aplayer.timeline.PositionMapper
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,13 +74,12 @@ class BookQueryService(
         list.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
     }.flowOn(Dispatchers.IO)
 
-    // Position Anchor Data Container (Bookmark mapping tuple)
-    // Temporarily stores file identifier, absolute milliseconds offset, file fingerprint, and resolve status.
+    // Update anchorStatus type to AnchorStatus enum for type safety.
     private data class Quad(
         val bookFileId: String?,
         val fileOffsetMs: Long,
         val fingerprint: String?,
-        val anchorStatus: String
+        val anchorStatus: AudiobookSchema.AnchorStatus
     )
 
     override val audiobooks: Flow<List<BookWithProgress>>
@@ -145,7 +144,8 @@ class BookQueryService(
         }
     }
 
-    override suspend fun updateBookReadStatus(bookId: String, readStatus: String) = withContext(Dispatchers.IO) {
+    // Update Book Read Status: Change readStatus parameter type to type-safe ReadStatus enum.
+    override suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) = withContext(Dispatchers.IO) {
         bookDao.updateBookReadStatus(bookId, readStatus)
     }
 

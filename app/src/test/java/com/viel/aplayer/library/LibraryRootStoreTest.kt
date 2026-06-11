@@ -248,21 +248,25 @@ class LibraryRootStoreTest {
             roots += root
         }
 
-        override suspend fun updateRootGrantState(id: String, displayName: String, grantedAt: Long, status: String) {
+        // Update LibraryRootStoreTest: Match FakeLibraryRootDao updateRootGrantState to use type-safe AudiobookSchema.LibraryRootStatus.
+        override suspend fun updateRootGrantState(id: String, displayName: String, grantedAt: Long, status: AudiobookSchema.LibraryRootStatus) {
             error("Unexpected updateRootGrantState call in LibraryRootStoreTest")
         }
 
-        override suspend fun updateRootScanState(id: String, lastScannedAt: Long, status: String) {
+        // Update LibraryRootStoreTest: Match FakeLibraryRootDao updateRootScanState to use type-safe AudiobookSchema.LibraryRootStatus.
+        override suspend fun updateRootScanState(id: String, lastScannedAt: Long, status: AudiobookSchema.LibraryRootStatus) {
             error("Unexpected updateRootScanState call in LibraryRootStoreTest")
         }
 
-        override suspend fun updateRootStatus(id: String, status: String) {
+        // Update LibraryRootStoreTest: Match FakeLibraryRootDao updateRootStatus to use type-safe AudiobookSchema.LibraryRootStatus.
+        override suspend fun updateRootStatus(id: String, status: AudiobookSchema.LibraryRootStatus) {
             error("Unexpected updateRootStatus call in LibraryRootStoreTest")
         }
 
+        // Update LibraryRootStoreTest: Match FakeLibraryRootDao updateRootAvailability to use type-safe AudiobookSchema.AvailabilityStatus.
         override suspend fun updateRootAvailability(
             id: String,
-            availabilityStatus: String,
+            availabilityStatus: AudiobookSchema.AvailabilityStatus,
             checkedAt: Long,
             errorCode: String?
         ) {

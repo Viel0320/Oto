@@ -12,13 +12,14 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.data.store.HomeBookStatusFilter
+import com.viel.aplayer.data.store.HomeFilter
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
-// Theme Mode Selection (Support theme mode preference settings) Added ThemeMode import to access selected theme configurations.
 import com.viel.aplayer.data.store.ThemeMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -133,10 +134,14 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
                 ?: AppLanguage.System,
             // Read Dynamic Color Setting (Load persisted dynamic color option, defaulting to true) Reads dynamic color setting from DataStore.
             isDynamicColorEnabled = preferences[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] ?: true,
-            homeFilter = preferences[PreferencesKeys.HOME_FILTER] ?: "NotStarted",
-            // Read Home Book Status Filter (Load the availability filter with a non-restrictive fallback)
-            // The ViewModel validates the stored enum name, so repository reads can preserve the raw preference string.
-            homeBookStatusFilter = preferences[PreferencesKeys.HOME_BOOK_STATUS_FILTER] ?: "All",
+            // Read Home Filter (Parse persisted HomeFilter enum value)
+            homeFilter = preferences[PreferencesKeys.HOME_FILTER]
+                ?.let { runCatching { HomeFilter.valueOf(it) }.getOrNull() }
+                ?: HomeFilter.NotStarted,
+            // Read Home Book Status Filter (Parse persisted HomeBookStatusFilter enum value)
+            homeBookStatusFilter = preferences[PreferencesKeys.HOME_BOOK_STATUS_FILTER]
+                ?.let { runCatching { HomeBookStatusFilter.valueOf(it) }.getOrNull() }
+                ?: HomeBookStatusFilter.All,
             // Read Home View Style (Parse persisted catalog renderer, defaulting to List for backward-compatible first launch behavior)
             // Invalid values are ignored so stale preference names cannot break Home screen rendering after enum changes.
             homeViewStyle = preferences[PreferencesKeys.HOME_VIEW_STYLE]
@@ -204,14 +209,16 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         }
     }
 
-    suspend fun updateHomeFilter(filter: String) {
-        dataStore.edit { it[PreferencesKeys.HOME_FILTER] = filter }
+    suspend fun updateHomeFilter(filter: HomeFilter) {
+        // Update Home Filter Type Safe: Use HomeFilter enum name instead of raw string to prevent status drifts.
+        dataStore.edit { it[PreferencesKeys.HOME_FILTER] = filter.name }
     }
 
     // Write Home Book Status Filter (Persist the Home dialog availability filter)
     // The caller passes a stable enum name so the stored value remains language-independent across localized labels.
-    suspend fun updateHomeBookStatusFilter(filter: String) {
-        dataStore.edit { it[PreferencesKeys.HOME_BOOK_STATUS_FILTER] = filter }
+    suspend fun updateHomeBookStatusFilter(filter: HomeBookStatusFilter) {
+        // Update Home Book Status Filter Type Safe: Use HomeBookStatusFilter enum name instead of raw string to prevent status drifts.
+        dataStore.edit { it[PreferencesKeys.HOME_BOOK_STATUS_FILTER] = filter.name }
     }
 
     // Write Home View Style (Persist the selected Home catalog renderer)

@@ -9,6 +9,9 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.application.library.home.HomeCatalogSortPolicy
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.store.HomeBookStatusFilter
+import com.viel.aplayer.data.store.HomeFilter
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
@@ -55,18 +58,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         // Centralized Filter Resolution (Dispatches final filter state once all input streams are ready)
         // Prevents intermediate visual state jumps in home filter chips.
         // Priority hierarchy: Explicit User Selection > Persisted Cache Settings > NotStarted Default.
-        val activeFilter = // Priority 1: Direct user selection took precedence.
-            userSelection
-                ?: // Priority 2: Restore previous state from cache. Falls back to `NotStarted` on failure.
-                try {
-                    HomeFilter.valueOf(appSettings.homeFilter)
-                } catch (_: Exception) {
-                    HomeFilter.NotStarted
-                }
+        // Centralized Filter Resolution (Dispatches final filter state once all input streams are ready)
+        // Priority hierarchy: Explicit User Selection > Persisted Cache Settings.
+        val activeFilter = userSelection ?: appSettings.homeFilter
         // Home Book Status Filter Resolution (Restore the dialog filter with a non-restrictive default)
         // BookStatus filtering is independent from read-progress chips, so it uses its own user override and DataStore key.
-        val activeBookStatusFilter =
-            userBookStatusSelection ?: HomeBookStatusFilter.fromStoredName(appSettings.homeBookStatusFilter)
+        val activeBookStatusFilter = userBookStatusSelection ?: appSettings.homeBookStatusFilter
 
         // Flow Pipeline Calculations (Handles grouping, filtering, and sorting in backend thread flows)
         // Ensures that the Composable UI layers remain completely stateless and focus strictly on rendering tasks.
@@ -183,7 +180,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // Update Reading State: Updates user progress status in database and dispatches feedback toasts.
-    fun updateBookReadStatus(bookId: String, readStatus: String) {
+    // Update Book Read Status: Change readStatus parameter type to type-safe ReadStatus enum.
+    fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) {
         viewModelScope.launch {
             // Home Read Status Command (Routes manual status changes through the home scene use case)
             homeLibraryUseCases.updateReadStatus(bookId, readStatus)
@@ -206,7 +204,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         // Flushes choices to local states and updates preferences via SettingsRepository.
         _selectedFilter.value = filter
         viewModelScope.launch {
-            settingsRepository.updateHomeFilter(filter.name)
+            // Update Home Filter (Passes the type-safe HomeFilter enum directly to repository updates)
+            settingsRepository.updateHomeFilter(filter)
         }
     }
 
@@ -215,7 +214,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         // The in-memory override updates Home immediately while DataStore keeps the selection stable after restart.
         _selectedBookStatusFilter.value = filter
         viewModelScope.launch {
-            settingsRepository.updateHomeBookStatusFilter(filter.name)
+            // Update Home Book Status Filter (Passes the type-safe HomeBookStatusFilter enum directly to repository updates)
+            settingsRepository.updateHomeBookStatusFilter(filter)
         }
     }
 

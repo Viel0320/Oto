@@ -134,17 +134,21 @@ class PlaybackResumptionPreflightTest {
             this.root = root
         }
 
-        override suspend fun updateRootGrantState(id: String, displayName: String, grantedAt: Long, status: String) = Unit
+        // Update PlaybackResumptionPreflightTest: Match FakeLibraryRootDao updateRootGrantState to use type-safe AudiobookSchema.LibraryRootStatus.
+        override suspend fun updateRootGrantState(id: String, displayName: String, grantedAt: Long, status: AudiobookSchema.LibraryRootStatus) = Unit
 
-        override suspend fun updateRootScanState(id: String, lastScannedAt: Long, status: String) = Unit
+        // Update PlaybackResumptionPreflightTest: Match FakeLibraryRootDao updateRootScanState to use type-safe AudiobookSchema.LibraryRootStatus.
+        override suspend fun updateRootScanState(id: String, lastScannedAt: Long, status: AudiobookSchema.LibraryRootStatus) = Unit
 
-        override suspend fun updateRootStatus(id: String, status: String) {
+        // Update PlaybackResumptionPreflightTest: Match FakeLibraryRootDao updateRootStatus to use type-safe AudiobookSchema.LibraryRootStatus.
+        override suspend fun updateRootStatus(id: String, status: AudiobookSchema.LibraryRootStatus) {
             root = root?.takeIf { it.id == id }?.copy(status = status) ?: root
         }
 
+        // Update PlaybackResumptionPreflightTest: Match FakeLibraryRootDao updateRootAvailability to use type-safe AudiobookSchema.AvailabilityStatus.
         override suspend fun updateRootAvailability(
             id: String,
-            availabilityStatus: String,
+            availabilityStatus: AudiobookSchema.AvailabilityStatus,
             checkedAt: Long,
             errorCode: String?
         ) = Unit
@@ -185,10 +189,11 @@ class PlaybackResumptionPreflightTest {
             lastModified = 1L
         )
 
+    // Update PlaybackResumptionPreflightTest: Change libraryRoot helper signature to use type-safe enums.
     private fun libraryRoot(
-        sourceType: String = AudiobookSchema.LibrarySourceType.SAF,
+        sourceType: AudiobookSchema.LibrarySourceType = AudiobookSchema.LibrarySourceType.SAF,
         sourceUri: String = "content://library-root",
-        status: String = AudiobookSchema.LibraryRootStatus.ACTIVE
+        status: AudiobookSchema.LibraryRootStatus = AudiobookSchema.LibraryRootStatus.ACTIVE
     ): LibraryRootEntity =
         LibraryRootEntity(
             id = ROOT_ID,

@@ -52,7 +52,8 @@ object PlaybackErrorPolicy {
      * Availability Status Mapping (Translates provider health states into Media3 I/O categories)
      * A missing ranged stream is treated as seek overflow, while missing position zero remains a file-not-found condition.
      */
-    fun availabilityStatusToOpenErrorCode(availabilityStatus: String, position: Long): Int =
+    // Playback Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum.
+    fun availabilityStatusToOpenErrorCode(availabilityStatus: AudiobookSchema.AvailabilityStatus, position: Long): Int =
         when (availabilityStatus) {
             AudiobookSchema.AvailabilityStatus.TIMEOUT -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
             AudiobookSchema.AvailabilityStatus.AUTH_FAILED,

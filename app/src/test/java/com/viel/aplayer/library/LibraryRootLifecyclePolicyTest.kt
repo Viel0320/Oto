@@ -64,7 +64,8 @@ class LibraryRootLifecyclePolicyTest {
             availability = AvailabilityResult(
                 status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
                 checkedAt = 200L,
-                errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND
+                // Update LibraryRootLifecyclePolicyTest: Use .name for AvailabilityStatus enum in AvailabilityResult errorCode.
+                errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
             )
         )
         val webDav = LibraryRootLifecyclePolicy.applyAvailabilitySnapshot(
@@ -97,10 +98,11 @@ class LibraryRootLifecyclePolicyTest {
         assertEquals(202L, abs.lastAvailabilityCheckedAt)
     }
 
+    // Update LibraryRootLifecyclePolicyTest: Change sampleRoot helper signature to use type-safe enums.
     private fun sampleRoot(
-        sourceType: String,
-        status: String = AudiobookSchema.LibraryRootStatus.ACTIVE,
-        availabilityStatus: String = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+        sourceType: AudiobookSchema.LibrarySourceType,
+        status: AudiobookSchema.LibraryRootStatus = AudiobookSchema.LibraryRootStatus.ACTIVE,
+        availabilityStatus: AudiobookSchema.AvailabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
         checkedAt: Long = 0L,
         errorCode: String? = null
     ): LibraryRootEntity =

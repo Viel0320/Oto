@@ -185,7 +185,7 @@ class LibraryRootServiceAbsDeleteTest {
                 currentTimeSec = 12.0,
                 timeListenedSec = 12.0,
                 openedAt = 1_000L,
-                state = "OPEN"
+                state = AudiobookSchema.AbsPlaybackSessionState.OPEN
             )
         )
         absPendingProgressSyncDao().insertOrReplace(

@@ -5,6 +5,7 @@ import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.sync.AbsSyncStateDao
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
@@ -15,13 +16,13 @@ import kotlinx.coroutines.withContext
 
 data class LibraryRootSettingsSnapshot(
     val rootId: String,
-    val sourceType: String,
+    val sourceType: AudiobookSchema.LibrarySourceType,
     val sourceUri: String,
     val basePath: String,
     val credentialId: String?,
     val displayName: String,
-    val status: String,
-    val availabilityStatus: String,
+    val status: AudiobookSchema.LibraryRootStatus,
+    val availabilityStatus: AudiobookSchema.AvailabilityStatus,
     val lastScannedAt: Long,
     val absLastError: String?,
     val absLastFullSyncAt: Long?,
