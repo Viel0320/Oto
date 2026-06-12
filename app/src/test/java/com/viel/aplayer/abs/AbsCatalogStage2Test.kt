@@ -280,7 +280,11 @@ class AbsCatalogStage2Test {
                 rootId = root.id,
                 serverKey = serverKey,
                 libraryId = "lib-1",
-                fullListFingerprint = "item-1:${existingItem.updatedAt}"
+                /**
+                 * Generate Hash Fingerprint (Aligns test metadata with SHA-256 fingerprint logic)
+                 * Ensures the mock sync state fullListFingerprint uses the same hash computation as the synchronizer class.
+                 */
+                fullListFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(listOf(existingItem))
             )
         )
         val credentialStore = createCredentialStore(token = "token-1", baseUrl = "https://example.com/audiobookshelf")

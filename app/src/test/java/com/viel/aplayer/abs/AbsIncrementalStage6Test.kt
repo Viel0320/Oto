@@ -227,7 +227,13 @@ class AbsIncrementalStage6Test {
                 rootId = root.id,
                 serverKey = serverKey,
                 libraryId = root.basePath,
-                fullListFingerprint = "item-1:100"
+                /**
+                 * Generate Hash Fingerprint (Aligns test metadata with SHA-256 fingerprint logic)
+                 * Ensures the mock sync state fullListFingerprint uses the same hash computation as the synchronizer class.
+                 */
+                fullListFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(
+                    listOf(AbsLibraryItemDto(id = "item-1", libraryId = root.basePath, mediaType = "book", updatedAt = 100L))
+                )
             )
         )
         val api = UnchangedListApi()
@@ -303,7 +309,13 @@ class AbsIncrementalStage6Test {
                 rootId = root.id,
                 serverKey = serverKey,
                 libraryId = root.basePath,
-                fullListFingerprint = "item-1:100"
+                /**
+                 * Generate Hash Fingerprint (Aligns test metadata with SHA-256 fingerprint logic)
+                 * Ensures the mock sync state fullListFingerprint uses the same hash computation as the synchronizer class.
+                 */
+                fullListFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(
+                    listOf(AbsLibraryItemDto(id = "item-1", libraryId = root.basePath, mediaType = "book", updatedAt = 100L))
+                )
             )
         )
         val coverStore = FakeCoverStore(

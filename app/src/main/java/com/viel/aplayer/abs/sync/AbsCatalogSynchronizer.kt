@@ -566,8 +566,12 @@ class AbsCatalogSynchronizer(
         return DetailRetryResult(items = resolvedItems, failures = failures)
     }
 
+    /**
+     * Compute Minified Fingerprint Hash (Optimizes fingerprint storage size and comparison performance)
+     * Hashes the minified items list with SHA-256 to produce a compact, fixed-size fingerprint.
+     */
     private fun minifiedFingerprint(items: List<AbsLibraryItemDto>): String =
-        items.joinToString(separator = "|") { item -> "${item.id}:${item.updatedAt}" }
+        Companion.minifiedFingerprint(items)
 
     private fun shouldRefreshAbsCover(existingBookEntity: BookEntity?, now: Long): Boolean {
         // ABS Cover TTL Fallback (Refreshes remote artwork periodically even when catalog paths remain stable)
@@ -587,6 +591,18 @@ class AbsCatalogSynchronizer(
 
     companion object {
         private const val MAX_DETAIL_RETRY_ATTEMPTS = 3
+
+        /**
+         * Compute Minified Fingerprint Hash (Shared calculation function for remote list delta tracking)
+         * Converts the minified catalog identifiers into a 64-character SHA-256 representation.
+         */
+        fun minifiedFingerprint(items: List<AbsLibraryItemDto>): String {
+            val raw = items.joinToString(separator = "|") { item -> "${item.id}:${item.updatedAt}" }
+            val bytes = raw.toByteArray(Charsets.UTF_8)
+            val md = java.security.MessageDigest.getInstance("SHA-256")
+            val digest = md.digest(bytes)
+            return digest.joinToString("") { "%02x".format(it) }
+        }
     }
 }
 
