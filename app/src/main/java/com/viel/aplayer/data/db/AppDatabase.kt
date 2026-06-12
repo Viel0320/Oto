@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.viel.aplayer.abs.playback.AbsPendingProgressSyncDao
 import com.viel.aplayer.abs.playback.AbsPendingProgressSyncEntity
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionDao
@@ -51,7 +53,8 @@ import com.viel.aplayer.data.entity.ScanSessionEntity
     ],
     // Production Schema Baseline (Starts the supported Room migration history at version 41)
     // Schema versions before 41 are intentionally removed from source control, so future releases must add explicit forward-only migrations from this baseline instead of rebuilding user data.
-    version = 41,
+    // Update Database Version (Increment to version 42 after removing foreign keys from the bookmark table to trigger schema validation)
+    version = 42,
     exportSchema = true
 )
 // Restore AppDatabase Declaration: Restore the abstract class declaration to compile database schema correctly.
@@ -75,6 +78,39 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        // Drop Bookmark Foreign Keys Migration (Recreate bookmarks table without foreign keys to prevent data loss on file remapping)
+        private val MIGRATION_41_42 = object : Migration(41, 42) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Recreate bookmarks table: SQLite does not support dropping foreign keys directly via ALTER TABLE, so a full table recreation is required.
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `bookmarks_new` (
+                        `id` TEXT NOT NULL, 
+                        `bookId` TEXT NOT NULL, 
+                        `globalPositionMs` INTEGER NOT NULL, 
+                        `bookFileId` TEXT, 
+                        `fileOffsetMs` INTEGER NOT NULL, 
+                        `fileFingerprint` TEXT, 
+                        `anchorStatus` TEXT NOT NULL, 
+                        `title` TEXT NOT NULL, 
+                        `createdAt` INTEGER NOT NULL, 
+                        PRIMARY KEY(`id`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO `bookmarks_new` (`id`, `bookId`, `globalPositionMs`, `bookFileId`, `fileOffsetMs`, `fileFingerprint`, `anchorStatus`, `title`, `createdAt`)
+                    SELECT `id`, `bookId`, `globalPositionMs`, `bookFileId`, `fileOffsetMs`, `fileFingerprint`, `anchorStatus`, `title`, `createdAt` FROM `bookmarks`
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE `bookmarks`")
+                db.execSQL("ALTER TABLE `bookmarks_new` RENAME TO `bookmarks`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_bookmarks_bookId` ON `bookmarks` (`bookId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_bookmarks_bookFileId` ON `bookmarks` (`bookFileId`)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 // Non-Destructive Database Builder (Reject unsupported schema gaps instead of wiping persisted user data)
@@ -84,6 +120,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
+                    .addMigrations(MIGRATION_41_42)
                     .build()
                 INSTANCE = instance
                 instance

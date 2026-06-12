@@ -1,7 +1,6 @@
 package com.viel.aplayer.data.entity
 
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -13,20 +12,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
  */
 @Entity(
     tableName = "bookmarks",
-    foreignKeys = [
-        ForeignKey(
-            entity = BookEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["bookId"],
-            onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = BookFileEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["bookFileId"],
-            onDelete = ForeignKey.SET_NULL
-        )
-    ],
+    // Remove Bookmark Foreign Keys (Decouple bookmarks from hard database constraints to prevent deletion of user data during library root revocation or manual file remapping)
     // bookFileId is the stable bookmark anchor; null is kept when remapping cannot resolve a file.
     indices = [Index("bookId"), Index("bookFileId")]
 )
