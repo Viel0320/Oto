@@ -77,10 +77,10 @@ class AbsSourceProvider(
 
     override suspend fun listChildren(directory: SourceNode): List<SourceNode> = emptyList()
 
-    override suspend fun openInputStream(file: SourceNode): InputStream? =
+    override suspend fun openInputStream(file: SourceNode): InputStream =
         openInputStream(file, offset = 0L)
 
-    override suspend fun openInputStream(file: SourceNode, offset: Long): InputStream? {
+    override suspend fun openInputStream(file: SourceNode, offset: Long): InputStream {
         if (offset < 0L) {
             throw AbsApiError(
                 code = "NEGATIVE_OFFSET",
@@ -397,10 +397,8 @@ private class ResponseClosingInputStream(
     override fun markSupported(): Boolean = delegate.markSupported()
 
     override fun close() {
-        try {
+        response.use { _ ->
             delegate.close()
-        } finally {
-            response.close()
         }
     }
 }

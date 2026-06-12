@@ -581,7 +581,6 @@ fun APlayerApp(
                     settingsViewModel = playerSettingsViewModel,
                     playerActions = playerActions,
                     playerNavigationActions = playerNavigationActions,
-                    isSearchActive = isSearchVisible,
                     glassEffectMode = activeGlassEffectMode,
                     appHazeState = hazeState
                 )

@@ -14,7 +14,6 @@ import com.viel.aplayer.application.startup.APlayerStartupWarmup
 import com.viel.aplayer.application.startup.DefaultStartupWarmupDependencies
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.dependencies.AbsSyncWorkerDependencies
-import com.viel.aplayer.dependencies.AppFeedbackDependencies
 import com.viel.aplayer.dependencies.AppShellDependencies
 import com.viel.aplayer.dependencies.DetailScreenDependencies
 import com.viel.aplayer.dependencies.EditScreenDependencies
@@ -301,15 +300,5 @@ class APlayerApplication : Application(), ImageLoaderFactory {
             return getContainer(context)
         }
 
-        /**
-         * App Feedback Dependencies Provider (Return the feedback-only dependency view)
-         * Lets small UI helpers send app-shell feedback without resolving unrelated dependencies.
-         *
-         * @param context Component Context
-         * @return The feedback-only dependency view backed by the global container
-         */
-        fun getAppFeedbackDependencies(context: Context): AppFeedbackDependencies {
-            return getContainer(context)
-        }
     }
 }

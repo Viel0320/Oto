@@ -13,7 +13,7 @@ data class AbsLibraryItemsResponseDto(
 
 @JsonClass(generateAdapter = true)
 data class AbsBatchGetItemsResponseDto(
-    @Json(name = "libraryItems")
+    @field:Json(name = "libraryItems")
     val libraryItems: List<AbsLibraryItemDto>? = null
 )
 

@@ -54,7 +54,6 @@ fun PlayerOverlay(
     settingsViewModel: PlayerSettingsViewModel,
     playerActions: PlayerActions,
     playerNavigationActions: PlayerNavigationActions,
-    isSearchActive: Boolean,
     glassEffectMode: GlassEffectMode,
     appHazeState: HazeState? = null
 ) {
@@ -116,7 +115,9 @@ fun PlayerOverlay(
     val windowClass = LocalWindowClass.current
     val usePillPlayer = windowClass.isWideScreen
     val playerAlignment = if (usePillPlayer) Alignment.BottomEnd else Alignment.BottomCenter
-    val isPopupNeeded = hasActiveTrack && !isSearchActive
+    // Remove Overlay Occlusion Check (Allow player overlays to display independently of search or other active overlay screens)
+    // Simplifies player visibility logic so that the mini-player's presence depends solely on having an active track.
+    val isPopupNeeded = hasActiveTrack
 
     // Resolve Player Overlay State (Directly map active visibility configuration to a single state)
     // Avoids separate visibility checks and keeps transition logic predictable.
