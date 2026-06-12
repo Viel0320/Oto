@@ -342,7 +342,7 @@ fun MainCoverView(
                     contentScale = ContentScale.Crop,
                     // Intercept onSuccess load (Extract dominant color directly from memory-based Drawable) Retrieve Drawable from Coil result and propagate color.
                     onSuccess = { successResult ->
-                        val colorInt = com.viel.aplayer.media.parser.ImageProcessor.getDominantColorFromDrawable(successResult.result.drawable)
+                        val colorInt = com.viel.aplayer.media.parser.ImageProcessor.getDominantColor(successResult.result.drawable)
                         // Cache Calculated Color: Write the extracted dominant color into the main process LruCache to speed up future renders.
                         com.viel.aplayer.media.parser.ImageProcessor.putColorToCache(coverPath, colorInt)
                         onColorExtracted?.invoke(Color(colorInt))

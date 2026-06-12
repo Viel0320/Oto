@@ -159,9 +159,10 @@ fun SettingsScreen(
                             Modifier
                         }
                     ),
-                // Title: Avoid Settings Scaffold Background Overdraw (Set Scaffold containerColor to transparent)
-                // Passes Color.Transparent to Scaffold containerColor so that it lets the underlying SettingsOverlay surface background show through, avoiding duplicate draws.
-                containerColor = Color.Transparent,
+                // Title: Dynamic Scaffold Background Color (Set containerColor to background when Haze is active)
+                // Overrides containerColor to background color under Haze mode so that hazeSource has a solid background to sample from,
+                // while keeping it transparent under Material mode to avoid duplicate draws.
+                containerColor = if (resolvedSettingsHazeState != null) MaterialTheme.colorScheme.background else Color.Transparent,
                 // Settings Content Insets (Let overlay top bar own top spacing)
                 // The list reads bottom system padding from Scaffold, while the measured overlay header supplies its own top content padding.
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)

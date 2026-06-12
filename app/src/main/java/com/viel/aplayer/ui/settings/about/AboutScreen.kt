@@ -90,7 +90,7 @@ data class OpenSourceLibrary(
     val name: String,
     val developer: String,
     val license: String,
-    @StringRes val descriptionRes: Int,
+    @field:StringRes val descriptionRes: Int,
     val url: String,
     val licenseText: String
 )
@@ -182,10 +182,10 @@ private val openSourceLibraries = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutLibrariesScreen(
+    modifier: Modifier = Modifier,
     onBack: () -> Unit,
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    aboutHazeState: HazeState? = null,
-    modifier: Modifier = Modifier
+    aboutHazeState: HazeState? = null
 ) {
     val context = LocalContext.current
     val layoutDirection = LocalLayoutDirection.current
@@ -235,9 +235,10 @@ fun AboutLibrariesScreen(
                             Modifier
                         }
                     ),
-                // Title: Avoid About Scaffold Background Overdraw (Set Scaffold containerColor to transparent)
-                // Overrides Scaffold background containerColor to transparent so it won't draw another background layer over SettingsOverlay.
-                containerColor = Color.Transparent,
+                // Title: Dynamic Scaffold Background Color (Set containerColor to background when Haze is active)
+                // Overrides containerColor to background color under Haze mode so that hazeSource has a solid background to sample from,
+                // while keeping it transparent under Material mode to avoid duplicate draws.
+                containerColor = if (resolvedAboutHazeState != null) MaterialTheme.colorScheme.background else Color.Transparent,
                 // About Content Insets (Let overlay top bar own top spacing)
                 // The list keeps bottom safe-area padding while the measured shared top bar supplies the top content offset.
                 contentWindowInsets = WindowInsets.safeDrawing

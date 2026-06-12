@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.LayerDrawable
-import android.os.Build
 import android.util.Log
 import android.util.LruCache
 import androidx.core.graphics.drawable.toBitmap
@@ -72,8 +71,8 @@ object ImageProcessor {
             tempFile.copyTo(originalFile, overwrite = true)
 
             val thumbPath = createThumbnailFromFile(originalFile, "${bookId}_custom_${timestamp}")
-            val color = getDominantColor(thumbPath ?: originalFile.absolutePath)
-            CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, color)
+            // Remove Deprecated Color Extraction (Skip redundant disk-based Palette extraction during custom cover saving since database storage is deprecated and UI extracts colors via Coil drawables) Bypasses getDominantColor to reduce background CPU cycles and memory allocations.
+            CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, null)
         } catch (e: Exception) {
             // Release Error Boundary (Sanitize custom cover persistence failures)
             // Cover save failures can expose cache paths through Throwable text, so retained errors use SecureLog.
@@ -96,19 +95,12 @@ object ImageProcessor {
     ): CoverExtractor.CoverResult = withContext(Dispatchers.IO) {
         try {
             if (artBytes.isEmpty()) return@withContext CoverExtractor.CoverResult(null, null)
-
             val originalFile = File(coverCacheDir(context), "${sourceId.hashCode()}_orig.jpg")
             originalFile.parentFile?.mkdirs()
             FileOutputStream(originalFile).use { output -> output.write(artBytes) }
             val originalPath = originalFile.absolutePath
-
-            // 详尽的中文注释：此处的 artBytes 字节数组在直接物理落盘保存到原图 originalFile 后，其在内存中的主要生命周期即应宣告结束。
-            // 我们绝对不再将其重新作为大字节数组传入 createThumbnailFromBytes 去做内存级别的重复解码；
-            // 而是统一复用基于物理文件的、具备 inSampleSize 下采样功能的 createThumbnailFromFile 提取缩略图，
-            // 从而瞬间清空大位图同步解析时的堆内存瞬时暴涨开销，从源头彻底防御了 OOM 溢出风险。
             val thumbnailPath = createThumbnailFromFile(originalFile, sourceId)
-            val color = getDominantColor(thumbnailPath ?: originalPath)
-            CoverExtractor.CoverResult(originalPath, thumbnailPath, color)
+            CoverExtractor.CoverResult(originalPath, thumbnailPath, null)
         } catch (e: Exception) {
             // Release Error Boundary (Sanitize embedded cover persistence failures)
             // Embedded artwork exceptions may include decoder or output path details, so release-retained errors use SecureLog.
@@ -137,8 +129,7 @@ object ImageProcessor {
             } ?: return@withContext CoverExtractor.CoverResult(null, null)
 
             val thumbPath = createThumbnailFromFile(originalFile, sourceId)
-            val color = getDominantColor(thumbPath ?: originalFile.absolutePath)
-            CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, color)
+            CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, null)
         } catch (e: Exception) {
             // Release Error Boundary (Sanitize sidecar image processing failures)
             // Sidecar file processing crosses user storage, so retained error diagnostics must scrub paths and exception text.
@@ -152,89 +143,16 @@ object ImageProcessor {
     // -------------------------------------------------------------------------
 
     /**
-     * 从图片路径提取主色。
-     *
-     * 
-     * 这里只解码缩小后的 Bitmap 给 Palette，用最小成本换取足够稳定的背景色。
-     */
-    suspend fun getDominantColor(path: String?): Int = withContext(Dispatchers.IO) {
-        if (path == null) return@withContext DEFAULT_BACKGROUND_ARGB
-
-        colorCache[path]?.let { cached -> return@withContext cached }
-
-        try {
-            val file = File(path)
-            if (!file.exists()) return@withContext DEFAULT_BACKGROUND_ARGB
-
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(path, bounds)
-            val options = BitmapFactory.Options().apply {
-                inSampleSize = calculateInSampleSize(bounds, 100, 100)
-            }
-
-            val bitmap = BitmapFactory.decodeFile(path, options) ?: return@withContext DEFAULT_BACKGROUND_ARGB
-            val color = Palette.from(bitmap).generate().getDominantColor(DEFAULT_BACKGROUND_ARGB)
-            bitmap.recycle()
-
-            colorCache.put(path, color)
-            return@withContext color
-        } catch (e: Exception) {
-            // Release Error Boundary (Sanitize dominant-color path failures)
-            // The input path can be a local cover cache or user file path, so SecureLog removes it before Logcat output.
-            SecureLog.error(TAG, "提取主色失败: $path", e)
-            return@withContext DEFAULT_BACKGROUND_ARGB
-        }
-    }
-
-    /**
-     * 将主色存入内存缓存。
-     */
-    fun putColorToCache(path: String?, color: Int) {
-        // Cache Dominant Color: Store calculated color into LRU cache for high-speed synchronous retrieval on subsequent composition rounds.
-        if (path != null) {
-            Log.d(TAG, "putColorToCache: path=$path, color=${Integer.toHexString(color)}")
-            colorCache.put(path, color)
-        }
-    }
-
-    /**
-     * 从内存缓存中同步获取主色。
-     */
-    fun getCachedColor(path: String?): Int? {
-        // Query Cached Color: Retrieve cached color synchronously to prevent layout jump or color flashing during initial composable creation.
-        if (path == null) return null
-        val cached = colorCache.get(path)
-        Log.d(TAG, "getCachedColor: path=$path, result=${cached?.let { Integer.toHexString(it) }}")
-        return cached
-    }
-
-    /**
-     * 从内存 Bitmap 提取主色。
-     */
-    fun getDominantColorFromBitmap(bitmap: Bitmap?): Int {
-        // Add getDominantColorFromBitmap (Extract dominant color directly from memory-based Bitmap) Enable immediate, sync color calculations bypassing disk reads.
-        if (bitmap == null) return DEFAULT_BACKGROUND_ARGB
-        return try {
-            Palette.from(bitmap).generate().getDominantColor(DEFAULT_BACKGROUND_ARGB)
-        } catch (e: Exception) {
-            // Release Error Boundary (Sanitize bitmap color extraction failures)
-            // Palette exceptions are retained only after SecureLog removes any sensitive nested diagnostic text.
-            SecureLog.error(TAG, "从 Bitmap 提取主色失败", e)
-            DEFAULT_BACKGROUND_ARGB
-        }
-    }
-
-    /**
      * 从 Drawable 提取主色。
      *
      * 针对 Coil 的 Drawable 进行了深度优化，兼容各种包装类 (CrossfadeDrawable 等) 以及硬件位图 (Hardware Bitmap)。
      */
-    fun getDominantColorFromDrawable(drawable: Drawable?): Int {
+    fun getDominantColor(drawable: Drawable?): Int {
         // Safe Drawable Extraction: Unpack wrappers and restrict bounds to 100x100 ARGB_8888 to guarantee Palette performance and prevent OOM or Hardware Bitmap crashes.
         if (drawable == null) return DEFAULT_BACKGROUND_ARGB
         return try {
             val unwrapped = unwrapDrawable(drawable) ?: drawable
-            Log.d(TAG, "getDominantColorFromDrawable: unwrappedClass=${unwrapped.javaClass.name}")
+            Log.d(TAG, "getDominantColor: unwrappedClass=${unwrapped.javaClass.name}")
 
             // Target Dimensions Calculation: Scale the target width and height to a max of 100x100 to optimize execution times and guard against 0 or negative dimensions.
             var targetWidth = unwrapped.intrinsicWidth
@@ -256,22 +174,21 @@ object ImageProcessor {
                 }
             }
 
-            // ARGB_8888 Drawing Execution: Safely unpack BitmapDrawable and copy hardware bitmap if needed to avoid Software Canvas Hardware Bitmap rendering exceptions.
+            // RGB_565 Drawing Execution: Safely unpack BitmapDrawable and copy hardware bitmap if needed to avoid Software Canvas Hardware Bitmap rendering exceptions.
             val bitmap = try {
                 if (unwrapped is BitmapDrawable) {
                     val origBitmap = unwrapped.bitmap
                     if (origBitmap != null) {
-                        val isHardware = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                                origBitmap.config == Bitmap.Config.HARDWARE
+                        val isHardware = origBitmap.config == Bitmap.Config.HARDWARE
                         val softwareBitmap = if (isHardware) {
-                            origBitmap.copy(Bitmap.Config.ARGB_8888, false)
+                            origBitmap.copy(Bitmap.Config.RGB_565, false)
                         } else {
                             origBitmap
                         }
 
                         if (softwareBitmap != null) {
                             if (softwareBitmap.width > targetWidth || softwareBitmap.height > targetHeight) {
-                                val scaled = Bitmap.createScaledBitmap(softwareBitmap, targetWidth, targetHeight, true)
+                                val scaled = softwareBitmap.scale(targetWidth, targetHeight)
                                 if (scaled != softwareBitmap && softwareBitmap != origBitmap) {
                                     softwareBitmap.recycle()
                                 }
@@ -286,10 +203,11 @@ object ImageProcessor {
                         null
                     }
                 } else {
+                    // Force RGB_565 for Drawables: Convert the drawable to RGB_565 configuration to optimize memory footprint during dominant color extraction.
                     unwrapped.toBitmap(
                         width = targetWidth,
                         height = targetHeight,
-                        config = Bitmap.Config.ARGB_8888
+                        config = Bitmap.Config.RGB_565
                     )
                 }
             } catch (e: Exception) {
@@ -300,7 +218,7 @@ object ImageProcessor {
             } ?: return DEFAULT_BACKGROUND_ARGB
 
             val color = Palette.from(bitmap).generate().getDominantColor(DEFAULT_BACKGROUND_ARGB)
-            Log.d(TAG, "getDominantColorFromDrawable: extractedColor=${Integer.toHexString(color)}")
+            Log.d(TAG, "getDominantColor: extractedColor=${Integer.toHexString(color)}")
 
             // Safe Bitmap Recycling: Only recycle the bitmap if it is a newly allocated instance and not the backing instance of the underlying BitmapDrawable.
             val originalBitmap = (unwrapped as? BitmapDrawable)?.bitmap
@@ -337,7 +255,7 @@ object ImageProcessor {
                         break
                     }
                 }
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && curr is android.graphics.drawable.DrawableWrapper -> {
+                curr is android.graphics.drawable.DrawableWrapper -> {
                     current = curr.drawable
                 }
                 curr.javaClass.name == "coil.drawable.CrossfadeDrawable" -> {
@@ -378,6 +296,27 @@ object ImageProcessor {
         return current
     }
 
+    /**
+     * 将主色存入内存缓存。
+     */
+    fun putColorToCache(path: String?, color: Int) {
+        // Cache Dominant Color: Store calculated color into LRU cache for high-speed synchronous retrieval on subsequent composition rounds.
+        if (path != null) {
+            Log.d(TAG, "putColorToCache: path=$path, color=${Integer.toHexString(color)}")
+            colorCache.put(path, color)
+        }
+    }
+
+    /**
+     * 从内存缓存中同步获取主色。
+     */
+    fun getCachedColor(path: String?): Int? {
+        // Query Cached Color: Retrieve cached color synchronously to prevent layout jump or color flashing during initial composable creation.
+        if (path == null) return null
+        val cached = colorCache.get(path)
+        Log.d(TAG, "getCachedColor: path=$path, result=${cached?.let { Integer.toHexString(it) }}")
+        return cached
+    }
     // -------------------------------------------------------------------------
     // 三、Bitmap 通用工具
     // -------------------------------------------------------------------------
@@ -459,6 +398,8 @@ object ImageProcessor {
                 reqHeight = DEFAULT_THUMBNAIL_MAX_SIZE
             )
             options.inJustDecodeBounds = false
+            // Force RGB_565 Config: Force decode to RGB_565 configuration to minimize memory usage when generating thumbnail bitmaps from file.
+            options.inPreferredConfig = Bitmap.Config.RGB_565
 
             val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath, options) ?: return null
             val scaledBitmap = if (bitmap.width > DEFAULT_THUMBNAIL_MAX_SIZE || bitmap.height > DEFAULT_THUMBNAIL_MAX_SIZE) {

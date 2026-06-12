@@ -285,7 +285,7 @@ fun PillCompactMediaPlayer(
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                             contentScale = ContentScale.Crop,
                             onSuccess = { successResult ->
-                                val colorInt = ImageProcessor.getDominantColorFromDrawable(successResult.result.drawable)
+                                val colorInt = ImageProcessor.getDominantColor(successResult.result.drawable)
                                 // Cache Calculated Color: Write the extracted dominant color into the main process LruCache to speed up future renders.
                                 ImageProcessor.putColorToCache(coverPath, colorInt)
                                 onColorExtracted?.invoke(Color(colorInt))

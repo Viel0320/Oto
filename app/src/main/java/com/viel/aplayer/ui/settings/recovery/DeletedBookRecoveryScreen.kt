@@ -128,9 +128,10 @@ fun DeletedBookRecoveryScreen(
                             Modifier
                         }
                     ),
-                // Title: Avoid Recovery Scaffold Background Overdraw (Set Scaffold containerColor to transparent)
-                // Overrides Scaffold background containerColor to transparent so it won't draw another background layer over SettingsOverlay surface.
-                containerColor = Color.Transparent,
+                // Title: Dynamic Scaffold Background Color (Set containerColor to background when Haze is active)
+                // Overrides containerColor to background color under Haze mode so that hazeSource has a solid background to sample from,
+                // while keeping it transparent under Material mode to avoid duplicate draws.
+                containerColor = if (resolvedHazeState != null) MaterialTheme.colorScheme.background else Color.Transparent,
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
             ) { innerPadding ->
                 DeletedBookRecoveryList(

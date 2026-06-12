@@ -734,7 +734,10 @@ private fun cropToSquareAndSave(
         // Load bitmap buffer (Initialize fresh stream mapping to decode actual grid values into heap)
         inputStream = externalInputReader.openInputStream(inputUri) ?: return false
         val maxDim = maxOf(options.outWidth, options.outHeight)
-        val decodeOptions = android.graphics.BitmapFactory.Options()
+        val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+            // Force RGB_565 Config: Force decode to RGB_565 configuration to reduce heap memory pressure.
+            inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+        }
         // Resize check (Apply sub-sampling factor of 2 if source dimensions exceed 2000 pixels)
         if (maxDim > 2000) {
             decodeOptions.inSampleSize = 2
