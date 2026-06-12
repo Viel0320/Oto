@@ -65,7 +65,8 @@ fun DeletedBookRecoveryRoute(
     DeletedBookRecoveryScreen(
         uiState = uiState,
         onBack = onBack,
-        onRestoreClick = viewModel::restoreBook,
+        onRestoreClick = viewModel::requestRestoreBook,
+        onConfirmRestore = viewModel::restoreBook,
         onConfirmPartialRestore = viewModel::confirmPartialRestore,
         onDismissDialog = viewModel::dismissDialog,
         glassEffectMode = glassEffectMode,
@@ -80,14 +81,15 @@ fun DeletedBookRecoveryRoute(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeletedBookRecoveryScreen(
+    modifier: Modifier = Modifier,
     uiState: DeletedBookRecoveryUiState,
     onBack: () -> Unit,
-    onRestoreClick: (String) -> Unit,
+    onRestoreClick: (String, String) -> Unit,
+    onConfirmRestore: (String) -> Unit,
     onConfirmPartialRestore: () -> Unit,
     onDismissDialog: () -> Unit,
     glassEffectMode: GlassEffectMode,
-    recoveryHazeState: HazeState? = null,
-    modifier: Modifier = Modifier
+    recoveryHazeState: HazeState? = null
 ) {
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
@@ -166,6 +168,7 @@ fun DeletedBookRecoveryScreen(
 
     DeletedBookRecoveryDialogs(
         dialogState = uiState.dialogState,
+        onConfirmRestore = onConfirmRestore,
         onConfirmPartialRestore = onConfirmPartialRestore,
         onDismissDialog = onDismissDialog,
         glassEffectMode = glassEffectMode,
@@ -181,7 +184,7 @@ fun DeletedBookRecoveryScreen(
 private fun DeletedBookRecoveryList(
     items: List<DeletedBookRecoveryItem>,
     restoringBookIds: Set<String>,
-    onRestoreClick: (String) -> Unit,
+    onRestoreClick: (String, String) -> Unit,
     contentPadding: PaddingValues
 ) {
     LazyColumn(
@@ -194,7 +197,7 @@ private fun DeletedBookRecoveryList(
                     modifier = Modifier
                         .fillParentMaxSize()
                         .padding(horizontal = 32.dp),
-                    contentAlignment = Alignment.Center
+                      contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = stringResource(R.string.deleted_book_recovery_empty),
@@ -215,14 +218,14 @@ private fun DeletedBookRecoveryList(
                     coverPath = item.coverPath,
                     coverLastUpdated = item.coverLastUpdated,
                     progressPercent = item.progressPercent,
-                    onClick = { if (!isRestoring) onRestoreClick(item.bookId) },
-                    onPlayClick = { if (!isRestoring) onRestoreClick(item.bookId) },
+                    onClick = { if (!isRestoring) onRestoreClick(item.bookId, item.title) },
+                    onPlayClick = { if (!isRestoring) onRestoreClick(item.bookId, item.title) },
                     openActionLabel = stringResource(R.string.deleted_book_recovery_restore_action),
                     playActionLabel = stringResource(R.string.deleted_book_recovery_restore_action),
                     trailingContent = {
                         DeletedBookRecoveryTrailingAction(
                             isRestoring = isRestoring,
-                            onRestoreClick = { onRestoreClick(item.bookId) }
+                            onRestoreClick = { onRestoreClick(item.bookId, item.title) }
                         )
                     }
                 )
@@ -265,12 +268,39 @@ private fun DeletedBookRecoveryTrailingAction(
 @Composable
 private fun DeletedBookRecoveryDialogs(
     dialogState: DeletedBookRecoveryDialogState?,
+    onConfirmRestore: (String) -> Unit,
     onConfirmPartialRestore: () -> Unit,
     onDismissDialog: () -> Unit,
     glassEffectMode: GlassEffectMode,
     hazeState: HazeState?
 ) {
     when (dialogState) {
+        is DeletedBookRecoveryDialogState.RestoreConfirmation -> {
+            // Title: Render Restore Confirmation Dialog (Confirm book restoration with the user)
+            // Open a standard settings dialog to ensure the user actually wants to recover the book.
+            SettingsTemplateDialog(
+                onDismissRequest = onDismissDialog,
+                hazeState = hazeState,
+                glassEffectMode = glassEffectMode,
+                title = { Text(stringResource(R.string.deleted_book_recovery_confirm_title)) },
+                text = { Text(stringResource(R.string.deleted_book_recovery_confirm_body, dialogState.bookTitle)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onDismissDialog()
+                            onConfirmRestore(dialogState.bookId)
+                        }
+                    ) {
+                        Text(stringResource(R.string.action_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismissDialog) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                }
+            )
+        }
         is DeletedBookRecoveryDialogState.Failure -> {
             val body = dialogState.messageArg?.takeIf { it.isNotBlank() }?.let { arg ->
                 stringResource(dialogState.messageRes, arg)

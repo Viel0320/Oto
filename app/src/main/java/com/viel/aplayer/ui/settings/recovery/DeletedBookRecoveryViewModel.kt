@@ -46,6 +46,12 @@ class DeletedBookRecoveryViewModel(application: Application) : AndroidViewModel(
             initialValue = DeletedBookRecoveryUiState()
         )
 
+    fun requestRestoreBook(bookId: String, bookTitle: String) {
+        // Title: Request Restore Confirmation (Initiate the recovery flow by displaying a confirmation dialog)
+        // Store the book ID and title in the dialog state so the UI can prompt the user for confirmation before performing any recovery actions.
+        dialogState.value = DeletedBookRecoveryDialogState.RestoreConfirmation(bookId, bookTitle)
+    }
+
     fun restoreBook(bookId: String) {
         if (restoringBookIds.value.contains(bookId)) return
         viewModelScope.launch {
@@ -145,7 +151,7 @@ data class DeletedBookRecoveryUiState(
  */
 sealed interface DeletedBookRecoveryDialogState {
     data class Failure(
-        @StringRes val messageRes: Int,
+        @field:StringRes val messageRes: Int,
         val messageArg: String? = null
     ) : DeletedBookRecoveryDialogState
 
@@ -153,6 +159,13 @@ sealed interface DeletedBookRecoveryDialogState {
         val bookId: String,
         val availableFileIds: List<String>,
         val missingFileIds: List<String>
+    ) : DeletedBookRecoveryDialogState
+
+    data class RestoreConfirmation(
+        // Title: Restore Confirmation Dialog State (Represent user intent to restore book)
+        // Contain metadata required to prompt the user with a confirmation dialog before database write.
+        val bookId: String,
+        val bookTitle: String
     ) : DeletedBookRecoveryDialogState
 }
 

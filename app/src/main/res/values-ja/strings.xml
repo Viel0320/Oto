@@ -471,6 +471,10 @@
     <string name="deleted_book_recovery_restore_action">本を復元</string>
     <string name="deleted_book_recovery_settings_subtitle">オーディオファイルがまだ利用可能な場合に、APlayerから削除された本を復元します</string>
     <string name="deleted_book_recovery_title">削除された本の復元</string>
-    <string name="feedback_deleted_book_recovery_restored_partial">本を部分的に復元しました</string>
+    <string name="feedback_deleted_book_recovery_restored_partial">本を一部復元しました</string>
     <string name="feedback_deleted_book_recovery_restored_ready">本を復元しました</string>
+    <!-- Title: Deleted Book Recovery Confirmation (Asks for user confirmation before restoring soft-deleted books)
+         Adding localized confirmation text to avoid accidental restore triggers. -->
+    <string name="deleted_book_recovery_confirm_title">本を復元</string>
+    <string name="deleted_book_recovery_confirm_body">「%1$s」を復元してもよろしいですか？\n\n注意：これにより、本が有効なメディアライブラリに復元されます。</string>
 </resources>

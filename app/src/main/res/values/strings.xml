@@ -151,6 +151,9 @@
          These toasts describe local database visibility changes only and do not imply physical file restoration or ABS progress sync. -->
     <string name="feedback_deleted_book_recovery_restored_ready">Book recovered</string>
     <string name="feedback_deleted_book_recovery_restored_partial">Book partially recovered</string>
+    <!-- Recovery Confirmation Strings (Asks for user confirmation before restoring soft-deleted books) -->
+    <string name="deleted_book_recovery_confirm_title">Recover Book</string>
+    <string name="deleted_book_recovery_confirm_body">Are you sure you want to recover “%1$s”?\n\nNote: this will restore the book to your active media library.</string>
     <string name="feedback_settings_ssl_certificate_untrusted">SSL/TLS certificate verification failed. The certificate chain is not trusted.</string>
     <string name="feedback_settings_ssl_hostname_mismatch">SSL/TLS hostname verification failed. The domain does not match the certificate.</string>
     <string name="feedback_settings_connection_failed_fallback">Connection failed</string>

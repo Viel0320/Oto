@@ -477,4 +477,8 @@
     <string name="deleted_book_recovery_title">已删除书籍恢复</string>
     <string name="feedback_deleted_book_recovery_restored_partial">书籍已部分恢复</string>
     <string name="feedback_deleted_book_recovery_restored_ready">书籍已恢复</string>
+    <!-- Title: Deleted Book Recovery Confirmation (Asks for user confirmation before restoring soft-deleted books)
+         Adding localized confirmation text to avoid accidental restore triggers. -->
+    <string name="deleted_book_recovery_confirm_title">恢复书籍</string>
+    <string name="deleted_book_recovery_confirm_body">确定要恢复《%1$s》吗？\n\n注意：此操作将把书籍重新添加回您的媒体库中。</string>
 </resources>

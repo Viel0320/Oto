@@ -474,4 +474,8 @@
     <string name="deleted_book_recovery_title">Recuperación de libros eliminados</string>
     <string name="feedback_deleted_book_recovery_restored_partial">Libro recuperado parcialmente</string>
     <string name="feedback_deleted_book_recovery_restored_ready">Libro recuperado</string>
+    <!-- Title: Deleted Book Recovery Confirmation (Asks for user confirmation before restoring soft-deleted books)
+         Adding localized confirmation text to avoid accidental restore triggers. -->
+    <string name="deleted_book_recovery_confirm_title">Recuperar libro</string>
+    <string name="deleted_book_recovery_confirm_body">¿Está seguro de que desea recuperar \"%1$s\"?\n\nNota: esto restaurará el libro en su biblioteca de medios activa.</string>
 </resources>
