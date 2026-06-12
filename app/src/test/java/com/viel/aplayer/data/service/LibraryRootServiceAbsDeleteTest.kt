@@ -15,8 +15,6 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.library.scan.ScanOutcome
 import com.viel.aplayer.library.scan.ScanOutcomeKind
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -27,6 +25,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 /**
  * ABS Root Deletion Persistence Test (Locks failure ordering for remote root cleanup)
@@ -107,6 +107,61 @@ class LibraryRootServiceAbsDeleteTest {
         }
     }
 
+    @Test
+    fun `updateAbsLibraryRoot should clear fingerprint when library basePath changes`() = runBlocking {
+        val database = inMemoryDatabase()
+        val credentialStore = testCredentialStore("abs-root-update")
+        val credential = credentialStore.save(
+            baseUrl = "https://abs.example.test",
+            token = "token-success",
+            credentialId = CREDENTIAL_ID
+        )
+        val root = absRoot(credential.id)
+        val service = serviceFor(database = database, credentialStore = credentialStore)
+
+        try {
+            database.seedAbsRootGraph(root)
+
+            // Setup initial fingerprint in sync state
+            database.absSyncStateDao().insertOrReplace(
+                AbsSyncStateEntity(
+                    rootId = ROOT_ID,
+                    serverKey = "server-key",
+                    libraryId = "library-id",
+                    fullListFingerprint = "fingerprint-value"
+                )
+            )
+
+            // Updating without changing libraryId should preserve fingerprint
+            service.updateAbsLibraryRoot(
+                id = ROOT_ID,
+                credentialId = CREDENTIAL_ID,
+                libraryId = "library-id",
+                displayName = "Updated Display Name"
+            )
+            assertEquals("fingerprint-value", database.absSyncStateDao().getByRootId(ROOT_ID)?.fullListFingerprint)
+
+            // Updating with a new libraryId must clear fingerprint and purge all old book cache rows
+            /**
+             * Verify Fingerprint Clearing (Asserts that updating a root's library identifier wipes the cached full list hash)
+             * Checks fingerprint preservation when libraryId is unchanged, and nullification on change.
+             */
+            service.updateAbsLibraryRoot(
+                id = ROOT_ID,
+                credentialId = CREDENTIAL_ID,
+                libraryId = "new-library-id",
+                displayName = "Updated Display Name"
+            )
+            assertNull(database.absSyncStateDao().getByRootId(ROOT_ID))
+            assertNull(database.bookDao().getBookById(BOOK_ID))
+            assertTrue(database.absItemMirrorDao().getByRootId(ROOT_ID).isEmpty())
+        } finally {
+            service.close()
+            database.close()
+            credentialStore.delete(CREDENTIAL_ID)
+        }
+    }
+
     private fun inMemoryDatabase(): AppDatabase =
         Room.inMemoryDatabaseBuilder(
             RuntimeEnvironment.getApplication(),
@@ -131,6 +186,15 @@ class LibraryRootServiceAbsDeleteTest {
         credentialStore: AbsCredentialStore
     ): LibraryRootService {
         val context = RuntimeEnvironment.getApplication()
+        /**
+         * Inject Test RootStore (Wires memory database back into the store)
+         * Instantiates LibraryRootStore using mock database DAO and credentials, and registers it as rootStoreOverride.
+         */
+        val rootStore = com.viel.aplayer.library.LibraryRootStore(
+            context = context,
+            rootDaoOverride = database.libraryRootDao(),
+            absCredentialStoreOverride = credentialStore
+        )
         // Real Room Service Fixture (Injects one database into every DAO and transaction entry point)
         // This avoids false positives where cleanup DAO calls and withTransaction belong to different SQLite instances.
         return LibraryRootService(
@@ -144,6 +208,7 @@ class LibraryRootServiceAbsDeleteTest {
                 directoryCacheDao = database.directoryCacheDao(),
                 directoryChildCacheDao = database.directoryChildCacheDao()
             ),
+            rootStoreOverride = rootStore,
             absCredentialStoreOverride = credentialStore,
             databaseOverride = database
         )

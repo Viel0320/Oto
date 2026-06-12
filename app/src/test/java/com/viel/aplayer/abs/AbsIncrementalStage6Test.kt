@@ -423,6 +423,68 @@ class AbsIncrementalStage6Test {
         assertNull(buildAbsIncrementalErrorSummary(emptyMap()))
     }
 
+    @Test
+    fun `incremental sync should clear fingerprint when library is switched`() = runBlocking {
+        val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
+        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val root = sampleRoot().copy(basePath = "lib-new")
+        val existingBookId = idMapper.bookId(serverKey, "item-1")
+        val oldFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(
+            listOf(AbsLibraryItemDto(id = "item-1", libraryId = "lib-old", mediaType = "book", updatedAt = 100L))
+        )
+        val store = FakeCatalogStore(
+            books = linkedMapOf(
+                existingBookId to BookEntity(
+                    id = existingBookId,
+                    rootId = root.id,
+                    sourceType = AudiobookSchema.SourceType.ABS_REMOTE,
+                    sourceRoot = root.sourceUri,
+                    title = "Persisted Book",
+                    status = AudiobookSchema.BookStatus.DELETED
+                )
+            ),
+            mirrors = linkedMapOf(
+                "item-1" to AbsItemMirrorEntity(
+                    localBookId = existingBookId,
+                    rootId = root.id,
+                    serverKey = serverKey,
+                    remoteItemId = "item-1",
+                    lastSeenAt = System.currentTimeMillis(),
+                    remoteUpdatedAt = 100L,
+                    state = AudiobookSchema.AbsMirrorState.ACTIVE
+                )
+            ),
+            syncState = AbsSyncStateEntity(
+                rootId = root.id,
+                serverKey = serverKey,
+                libraryId = "lib-old",
+                fullListFingerprint = oldFingerprint
+            )
+        )
+        val api = UnchangedListApi()
+        val synchronizer = AbsCatalogSynchronizer(
+            apiClient = api,
+            credentialStore = credentialStore,
+            catalogStore = store
+        )
+
+        /**
+         * Verify Library Switch Fingerprint Reset (Asserts synchronizer forces fingerprint update on base path switches)
+         * Checks that target library transitions lead to a freshly calculated hash.
+         */
+        synchronizer.syncRoot(root)
+
+        // Verify fingerprint reset on library switch.
+        // Even if the minified list items (id + updatedAt) resolve to the same hash string,
+        // a mismatching libraryId must trigger full recalculation, forcing the final saved fingerprint
+        // to be computed against the new library context.
+        assertEquals("lib-new", store.syncState?.libraryId)
+        val expectedNewFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(
+            listOf(AbsLibraryItemDto(id = "item-1", libraryId = "lib-new", mediaType = "book", updatedAt = 100L))
+        )
+        assertEquals(expectedNewFingerprint, store.syncState?.fullListFingerprint)
+    }
+
     private fun sampleRoot() = LibraryRootEntity(
         id = "root-1",
         sourceType = AudiobookSchema.LibrarySourceType.ABS,

@@ -122,12 +122,18 @@ class AbsCatalogSynchronizer(
         val existingSync = catalogStore.getSyncState(root.id)
         val minifiedItems = minified.results.orEmpty()
         val currentFingerprint = minifiedFingerprint(minifiedItems)
+        /**
+         * Library Switch Check (Resets fingerprint comparator on target library mismatches)
+         * Detects if the library root basePath has shifted compared to the last sync state, treating the previous fingerprint as null if mismatched.
+         */
+        val isLibrarySwitched = existingSync != null && existingSync.libraryId != root.basePath
+        val previousFingerprint = if (isLibrarySwitched) null else existingSync?.fullListFingerprint
         // Catalog Detail Candidate Scope (Selects detail fetches only from catalog freshness rules)
         // Authorized progress no longer expands this queue because progress merging runs after structural catalog rows exist.
         val detailCandidateIds = selectAbsDetailCandidateIds(
             minifiedItems = minifiedItems,
             existingMirrors = existingMirrors,
-            previousFullListFingerprint = existingSync?.fullListFingerprint,
+            previousFullListFingerprint = previousFingerprint,
             currentFullListFingerprint = currentFingerprint,
             nowMillis = now
         )
@@ -136,7 +142,7 @@ class AbsCatalogSynchronizer(
             totalItems = minifiedItems.size,
             detailCandidates = detailCandidateIds.size,
             reusedItems = (minifiedItems.size - detailCandidateIds.size).coerceAtLeast(0),
-            fingerprintUnchanged = existingSync?.fullListFingerprint == currentFingerprint
+            fingerprintUnchanged = previousFingerprint == currentFingerprint
         )
         // ABS Mirror Cache Diagnostics (Records reused mirror counts without exposing remote item identifiers)
         // The unified cache log needs only aggregate reuse size and a hashed root source to correlate incremental sync behavior safely.
@@ -571,7 +577,8 @@ class AbsCatalogSynchronizer(
      * Hashes the minified items list with SHA-256 to produce a compact, fixed-size fingerprint.
      */
     private fun minifiedFingerprint(items: List<AbsLibraryItemDto>): String =
-        Companion.minifiedFingerprint(items)
+        // Title: Fix infinite recursion StackOverflowError (Delegate the fingerprint hashing to the static companion object implementation)
+        AbsCatalogSynchronizer.minifiedFingerprint(items)
 
     private fun shouldRefreshAbsCover(existingBookEntity: BookEntity?, now: Long): Boolean {
         // ABS Cover TTL Fallback (Refreshes remote artwork periodically even when catalog paths remain stable)

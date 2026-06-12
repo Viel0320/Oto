@@ -307,6 +307,13 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE rootId = :rootId")
     suspend fun getBooksByRootId(rootId: String): List<BookEntity>
 
+    /**
+     * Physical Book Removal (Force wipes all book rows belonging to a root directory)
+     * Cascades down to physical audio records and chapter segments automatically.
+     */
+    @Query("DELETE FROM books WHERE rootId = :rootId")
+    suspend fun deleteBooksByRootId(rootId: String)
+
     // Root Cover Cache Projection (Retrieves only cache file paths belonging to one root)
     // Used by CacheEvictionCoordinator before root deletion so cleanup avoids reading metadata, progress, or file ownership columns.
     @Query("SELECT coverPath, thumbnailPath FROM books WHERE rootId = :rootId")

@@ -304,7 +304,25 @@ class LibraryRootService(
         libraryId: String,
         displayName: String
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
-        rootStore.updateAbsRoot(id, credentialId, libraryId, displayName)
+        val oldRoot = libraryRootDao.getRootById(id)
+        val updated = rootStore.updateAbsRoot(id, credentialId, libraryId, displayName)
+        if (oldRoot != null && oldRoot.basePath != libraryId) {
+            /**
+             * Purge Cache and Clear Fingerprint on Library Switch (Wipes old catalog records and sync state to force a clean reload)
+             * Truncates local mirror mappings, database books, and schedules a full list pull for the newly linked library.
+             */
+            database.withTransaction {
+                val bookIds = bookDao.getBooksByRootId(id).map { book -> book.id }
+                bookDao.deleteBooksByRootId(id)
+                database.absSyncStateDao().deleteByRootId(id)
+                database.absItemMirrorDao().deleteByRootId(id)
+                if (bookIds.isNotEmpty()) {
+                    database.absPlaybackSessionDao().deleteByBookIds(bookIds)
+                    database.absPendingProgressSyncDao().deleteByBookIds(bookIds)
+                }
+            }
+        }
+        updated
     }
 }
 
