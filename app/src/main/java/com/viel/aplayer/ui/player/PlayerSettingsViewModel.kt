@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.media.AudioManager
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.ui.settings.FullPlayerOpenSource
@@ -17,8 +18,12 @@ import kotlinx.coroutines.launch
 // This ViewModel isolates all player preferences, system volume control, and full/mini player visibility states.
 class PlayerSettingsViewModel(
     application: Application,
-    private val externalScope: CoroutineScope
+    rawExternalScope: CoroutineScope? = null
 ) : AndroidViewModel(application) {
+
+    // Shift scope to viewModelScope to prevent lifecycle leaks and screen rotation freezes
+    // Fall back to viewModelScope if rawExternalScope is null to ensure coroutines are correctly managed.
+    private val externalScope = rawExternalScope ?: viewModelScope
 
     // Resolve dependencies (Fetches managers and system service controllers from application presentation graph)
     private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)

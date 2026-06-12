@@ -67,7 +67,6 @@ fun APlayerApp(
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as android.app.Application
-    val appScope = androidx.compose.runtime.rememberCoroutineScope()
 
     val libraryViewModel: LibraryViewModel = viewModel(
         factory = object : androidx.lifecycle.ViewModelProvider.Factory {
@@ -194,9 +193,9 @@ fun APlayerApp(
                 // Title: Suppress unchecked cast for PlaybackViewModel (Allows casting ViewModel inside provider factory without warning)
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    // Update ViewModel Factory Initialization (Provides application and coroutine scope to specialized ViewModels)
-                    // Configures PlaybackViewModel with scoped dependencies and external coroutine context.
-                    return PlaybackViewModel(application, appScope) as T
+                    // Title: Instantiate PlaybackViewModel without Composable scope (Avoids rotation freeze and lifecycle leaks)
+                    // Configures PlaybackViewModel with only application dependency so it can safely use viewModelScope by default.
+                    return PlaybackViewModel(application) as T
                 }
             }
         )
@@ -205,9 +204,9 @@ fun APlayerApp(
                 // Title: Suppress unchecked cast for BookmarkViewModel (Allows casting ViewModel inside provider factory without warning)
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    // Update ViewModel Factory Initialization (Provides application and coroutine scope to specialized ViewModels)
-                    // Configures BookmarkViewModel with scoped dependencies and external coroutine context.
-                    return BookmarkViewModel(application, appScope) as T
+                    // Title: Instantiate BookmarkViewModel without Composable scope (Avoids rotation freeze and lifecycle leaks)
+                    // Configures BookmarkViewModel with only application dependency so it can safely use viewModelScope by default.
+                    return BookmarkViewModel(application) as T
                 }
             }
         )
@@ -216,9 +215,9 @@ fun APlayerApp(
                 // Title: Suppress unchecked cast for PlayerSettingsViewModel (Allows casting ViewModel inside provider factory without warning)
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    // Update ViewModel Factory Initialization (Provides application and coroutine scope to specialized ViewModels)
-                    // Configures PlayerSettingsViewModel with scoped dependencies and external coroutine context.
-                    return PlayerSettingsViewModel(application, appScope) as T
+                    // Title: Instantiate PlayerSettingsViewModel without Composable scope (Avoids rotation freeze and lifecycle leaks)
+                    // Configures PlayerSettingsViewModel with only application dependency so it can safely use viewModelScope by default.
+                    return PlayerSettingsViewModel(application) as T
                 }
             }
         )

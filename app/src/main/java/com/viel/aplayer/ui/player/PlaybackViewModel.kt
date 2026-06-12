@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.player
 import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.application.library.player.PlayerChapterItem
@@ -38,8 +39,12 @@ import kotlin.time.Duration.Companion.milliseconds
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackViewModel(
     application: Application,
-    private val externalScope: CoroutineScope
+    rawExternalScope: CoroutineScope? = null
 ) : AndroidViewModel(application) {
+
+    // Shift scope to viewModelScope to prevent lifecycle leaks and screen rotation freezes
+    // Fall back to viewModelScope if rawExternalScope is null to ensure coroutines are correctly managed.
+    private val externalScope = rawExternalScope ?: viewModelScope
 
     companion object {
         private val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f)
