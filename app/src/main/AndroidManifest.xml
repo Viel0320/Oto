@@ -109,5 +109,17 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Playback Service Registration (Fix crash by declaring PlaybackService in manifest)
+             This declares PlaybackService in the AndroidManifest with the required androidx.media3.session.MediaSessionService intent action to resolve SessionToken creation, and sets the foreground service type to mediaPlayback to prevent runtime permission errors on Android 14+. -->
+        <service
+            android:name=".media.service.PlaybackService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
