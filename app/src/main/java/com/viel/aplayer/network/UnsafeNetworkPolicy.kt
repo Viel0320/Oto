@@ -19,12 +19,129 @@ object UnsafeNetworkPolicy {
         url.trimStart().startsWith("http://", ignoreCase = true)
 
     /**
-     * Cleartext Permission Check (Applies the global HTTP opt-in switch)
+     * Cleartext Permission Check (Applies the global HTTP opt-in switch and LAN exceptions)
      *
-     * Defaults to blocking HTTP unless the user explicitly enabled cleartext traffic in settings.
+     * Defaults to blocking HTTP unless the user explicitly enabled cleartext traffic in settings
+     * or the target address is verified as a loopback or local network host.
      */
-    fun isCleartextHttpAllowed(url: String, settings: AppSettings): Boolean =
-        !isCleartextHttp(url) || settings.isCleartextTrafficAllowed
+    fun isCleartextHttpAllowed(url: String, settings: AppSettings): Boolean {
+        if (!isCleartextHttp(url)) return true
+        if (settings.isCleartextTrafficAllowed) return true
+        val host = extractHost(url)
+        return isLocalOrLan(host)
+    }
+
+    /**
+     * Extract Host from URL (Parser helper to isolate host for LAN checking)
+     * Isolates host address or domain by stripping protocol schemes, port numbers,
+     * user credentials, and square brackets for IPv6.
+     */
+    private fun extractHost(url: String): String {
+        var s = url.trimStart()
+        val schemeIndex = s.indexOf("://")
+        if (schemeIndex != -1) {
+            s = s.substring(schemeIndex + 3)
+        }
+        var end = s.length
+        val slashIdx = s.indexOf('/')
+        if (slashIdx != -1 && slashIdx < end) end = slashIdx
+        val questionIdx = s.indexOf('?')
+        if (questionIdx != -1 && questionIdx < end) end = questionIdx
+        val hashIdx = s.indexOf('#')
+        if (hashIdx != -1 && hashIdx < end) end = hashIdx
+
+        var hostAndPort = s.substring(0, end)
+        val atIdx = hostAndPort.lastIndexOf('@')
+        if (atIdx != -1) {
+            hostAndPort = hostAndPort.substring(atIdx + 1)
+        }
+
+        var host = hostAndPort
+        if (host.startsWith("[")) {
+            val rightBracket = host.indexOf(']')
+            if (rightBracket != -1) {
+                host = host.substring(1, rightBracket)
+            }
+        } else {
+            val colon = host.indexOf(':')
+            if (colon != -1) {
+                host = host.substring(0, colon)
+            }
+        }
+        return host.trim()
+    }
+
+    /**
+     * Check Local or LAN Host (Categorizes destination IP/domain)
+     * Checks if the host string is localhost, an mDNS local domain, a private IPv4 subnet,
+     * a link-local IPv4, or a unique local / link-local IPv6 address.
+     */
+    private fun isLocalOrLan(host: String): Boolean {
+        val h = host.lowercase().trim()
+        if (h.isEmpty()) return false
+        if (h == "localhost" || h.endsWith(".local")) return true
+        if (h == "::1" || h == "0:0:0:0:0:0:0:1") return true
+        if (isIPv4(h)) return isLocalOrLanIPv4(h)
+        if (isIPv6(h)) return isLocalOrLanIPv6(h)
+        return false
+    }
+
+    /**
+     * Check IPv4 Address (Validates standard dotted-quad format)
+     * Verifies if the host conforms to the 4-part decimal notation with values between 0 and 255.
+     */
+    private fun isIPv4(host: String): Boolean {
+        val parts = host.split('.')
+        if (parts.size != 4) return false
+        return parts.all { part ->
+            val num = part.toIntOrNull()
+            num != null && num in 0..255
+        }
+    }
+
+    /**
+     * Local or LAN IPv4 Check (Exempts private subnets and loopbacks)
+     * Screens host against loopback (127.0.0.0/8), private LANs (10.0.0.0/8, 172.16.0.0/12,
+     * 192.168.0.0/16), and link-local address subnets (169.254.0.0/16).
+     */
+    private fun isLocalOrLanIPv4(host: String): Boolean {
+        val parts = host.split('.').map { it.toInt() }
+        val first = parts[0]
+        val second = parts[1]
+        if (first == 127) return true
+        if (first == 10) return true
+        if (first == 172 && second in 16..31) return true
+        if (first == 192 && second == 168) return true
+        if (first == 169 && second == 254) return true
+        return false
+    }
+
+    /**
+     * Check IPv6 Address (Syntactic validation for colon presence)
+     * Confirms the string represents an IPv6 candidate by verifying the presence of colons
+     * and only hex characters or digits (ignoring dot mappings).
+     */
+    private fun isIPv6(host: String): Boolean {
+        if (!host.contains(':')) return false
+        val clean = host.replace(":", "").replace(".", "")
+        return clean.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }
+    }
+
+    /**
+     * Local or LAN IPv6 Check (Exempts Unique Local and Link-Local addresses)
+     * Matches host against Unique Local Addresses (fc00::/7) and Link-Local Unicast (fe80::/10)
+     * by extracting the most significant 16-bit group and performing bitwise shift matching.
+     */
+    private fun isLocalOrLanIPv6(host: String): Boolean {
+        val firstPart = host.substringBefore(':')
+        if (firstPart.isEmpty()) {
+            return host == "::1" || host == "::"
+        }
+        val value = firstPart.toIntOrNull(16) ?: return false
+        if ((value ushr 9) == 0x7E) return true
+        if ((value ushr 6) == 0x3FA) return true
+        return false
+    }
 
     /**
      * Cleartext Guard (Stops insecure HTTP before credentials or media requests are sent)
