@@ -138,10 +138,9 @@ fun PlayerOverlay(
             transitionSpec = {
                 when {
                     initialState == PlayerOverlayState.Mini && targetState == PlayerOverlayState.Full -> {
-                        // Conditional Transition: Choose transition type depending on active mini player style.
-                        // For PillPlayer, we use simple fades to let the shared bounds transition handle morphing.
-                        // For CompactPlayer, we use slide up/down transitions to push the full player sheet up from the bottom.
-                        if (usePillPlayer) {
+                        // Title: Conditional Slide Transition for Direct Entry (Ensure direct entry requests slide up in landscape mode)
+                        // Description: Checks if the open source is MiniPlayer to apply fade transitions, otherwise falls back to standard vertical slide transition for direct player loads.
+                        if (usePillPlayer && settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
                             fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
                         } else {
                             (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))
@@ -149,10 +148,9 @@ fun PlayerOverlay(
                         }
                     }
                     initialState == PlayerOverlayState.Full && targetState == PlayerOverlayState.Mini -> {
-                        // Conditional Transition: Choose transition type depending on active mini player style.
-                        // For PillPlayer, we use simple fades to let the shared bounds transition handle morphing.
-                        // For CompactPlayer, we use slide up/down transitions to push the full player sheet up from the bottom.
-                        if (usePillPlayer) {
+                        // Title: Conditional Slide Transition for Direct Dismiss (Ensure player slides down when minimizing if it wasn't opened from mini-player)
+                        // Description: Applies fade transitions only if the player was opened from the mini-player, otherwise uses the vertical slide transition to match direct entry behavior.
+                        if (usePillPlayer && settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
                             fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
                         } else {
                             (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))

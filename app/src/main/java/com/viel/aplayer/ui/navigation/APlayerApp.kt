@@ -533,12 +533,12 @@ fun APlayerApp(
                     hazeState = hazeState,
                     detailHazeState = detailHazeState,
                     onPlayBook = { bookId ->
-                        // Detail Playback Transition Selection (Use shared element transition if matching active bookId)
-                        // Evaluates if the chosen book is already active to decide between mini-player expansion (shared-element)
-                        // or direct player load (direct fade-in), preventing animation mismatches while preserving visual continuity.
-                        val currentActiveBookId = playbackViewModel.currentBookId.value
+                        // Title: Simplify Playback Transition Selection (Use mini-player transition whenever mini-player is visible)
+                        // Description: Checks if mini-player is visible before loading the book to decide whether to use openFullPlayerFromMini or openFullPlayerFromDirect.
+                        val isMiniPlayerVisible = playbackViewModel.metadataState.value.hasActiveTrack &&
+                                !playerSettingsViewModel.settingsState.value.isMiniPlayerHidden
                         playbackViewModel.loadBook(bookId)
-                        if (currentActiveBookId == bookId) {
+                        if (isMiniPlayerVisible) {
                             playerSettingsViewModel.openFullPlayerFromMini()
                         } else {
                             playerSettingsViewModel.openFullPlayerFromDirect()

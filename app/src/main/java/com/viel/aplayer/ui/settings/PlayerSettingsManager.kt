@@ -122,7 +122,9 @@ class PlayerSettingsManager(
     ) = _settingsState.update {
         it.copy(
             isFullPlayerVisible = visible,
-            fullPlayerOpenSource = openSource
+            // Title: Preserve Full Player Open Source on Closure (Ensure the transition source is not overwritten when closing the player overlay so that the reverse transition has correct scope)
+            // Description: Prevents setting fullPlayerOpenSource to Direct when visible is false, allowing the exit transition to successfully resolve the MiniPlayer target scope.
+            fullPlayerOpenSource = if (visible) openSource else it.fullPlayerOpenSource
         )
     }
     fun setMiniPlayerHidden(hidden: Boolean) = _settingsState.update { it.copy(isMiniPlayerHidden = hidden) }
