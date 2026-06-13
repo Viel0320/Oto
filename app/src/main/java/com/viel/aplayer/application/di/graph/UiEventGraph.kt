@@ -1,4 +1,4 @@
-package com.viel.aplayer.di.graph
+package com.viel.aplayer.application.di.graph
 
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.DefaultAppEventSink

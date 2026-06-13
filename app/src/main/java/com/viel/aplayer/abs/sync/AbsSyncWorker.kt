@@ -6,7 +6,7 @@ import androidx.work.WorkerParameters
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.runCatchingCancellable
-import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
+import com.viel.aplayer.application.di.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage

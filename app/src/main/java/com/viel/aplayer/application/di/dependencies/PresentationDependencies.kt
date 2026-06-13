@@ -1,4 +1,4 @@
-package com.viel.aplayer.di.dependencies
+package com.viel.aplayer.application.di.dependencies
 
 import com.viel.aplayer.application.library.detail.DetailBookCommands
 import com.viel.aplayer.application.library.detail.DetailBookReadModel

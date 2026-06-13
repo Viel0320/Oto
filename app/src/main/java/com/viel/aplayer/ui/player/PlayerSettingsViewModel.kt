@@ -78,7 +78,7 @@ class PlayerSettingsViewModel(
         currentPlayback: () -> PlaybackState,
         currentMetadata: () -> BookMetadataState
     ) {
-        val options = listOf(0, -1, -2, 15, 30, 60)
+        val options = listOf(0, -2, 15, 30, 60)
         val nextIndex = (options.indexOf(settingsState.value.selectedSleepTimer).coerceAtLeast(0) + 1) % options.size
         setSleepTimer(options[nextIndex], currentPlayback, currentMetadata)
     }
