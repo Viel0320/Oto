@@ -1,29 +1,33 @@
-package com.viel.aplayer.ui.settings
+package com.viel.aplayer.application.usecase
 
-import android.app.Application
+import android.content.Context
 import android.net.Uri
 import com.viel.aplayer.R
-import com.viel.aplayer.application.usecase.LibraryRootSettingsSnapshot
+import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTestException
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTestFailureReason
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import com.viel.aplayer.network.UnsafeNetworkPolicyViolation
-import com.viel.aplayer.ui.common.formatDate
+import java.util.Locale
 
 /**
- * Settings Formatter (Extracts mapping and formatting logic for Settings screen UI)
- * Converts connection states, validation failures, library root statuses and SAF URIs into user-friendly text representations.
+ * FormatSettingsRootUseCase: UseCase in the application layer to translate and format persisted
+ * library root states into UI-friendly representational item data.
  */
-object SettingsFormatter {
+// Title: FormatSettingsRootUseCase implementation (Encapsulate formatting and localization logic for settings roots)
+// Elevates the legacy static SettingsFormatter class to an inject-friendly use case with context dependencies.
+class FormatSettingsRootUseCase(private val context: Context) {
 
-    // Title: Redact ABS Authorization Token (Mask sensitive bearer credentials in error payloads for secure logging and display)
+    // Title: redactAbsError logic (Mask bearer authorization details in error messages)
+    // Ensures sensitive remote ABS tokens are not revealed on Settings error displays.
     fun redactAbsError(error: String): String {
         return error.replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
     }
 
-    // Title: Resolve Library Root Display Title (Build first-line label using WebDAV, ABS, or decoded SAF source identifiers)
+    // Title: resolveLibraryRootTitle logic (Build first-line display title for SAF, ABS or WebDAV)
+    // Resolves appropriate name strings based on root source types.
     fun resolveLibraryRootTitle(root: LibraryRootSettingsSnapshot): String =
         when (root.sourceType) {
             AudiobookSchema.LibrarySourceType.WEBDAV ->
@@ -36,8 +40,9 @@ object SettingsFormatter {
             }
         }
 
-    // Title: Resolve Library Root Status Text (Translate server connectivity and localized reachability statuses for root layouts)
-    fun resolveLibraryRootStatusText(root: LibraryRootSettingsSnapshot, app: Application): String {
+    // Title: resolveLibraryRootStatusText logic (Translate root connectivity and sync statuses)
+    // Resolves status codes to user-facing localized string resource strings using the injected Context.
+    fun resolveLibraryRootStatusText(root: LibraryRootSettingsSnapshot): String {
         val resId = when {
             root.status != AudiobookSchema.LibraryRootStatus.ACTIVE ->
                 root.availabilityStatus
@@ -57,10 +62,11 @@ object SettingsFormatter {
                 root.availabilityStatus.availabilityStatusMessageRes()
             else -> root.status.libraryRootStatusMessageRes()
         }
-        return app.getString(resId)
+        return context.getString(resId)
     }
 
-    // Title: Resolve Library Root Physical Location (Map system providers or remote urls to distinct address indicators)
+    // Title: resolveLibraryRootLocation logic (Construct absolute paths or addresses for target directories)
+    // Directs path parsing based on whether it is remote or native SAF trees.
     fun resolveLibraryRootLocation(root: LibraryRootSettingsSnapshot): String =
         when (root.sourceType) {
             AudiobookSchema.LibrarySourceType.WEBDAV -> "${root.sourceUri}${root.basePath}"
@@ -68,39 +74,70 @@ object SettingsFormatter {
             else -> formatSafDisplayPath(root.sourceUri)
         }
 
-    // Title: Format SAF Display Path (Decodes document provider URIs and filters redundant tree components to reveal clean sub-folders)
+    // Title: formatSafDisplayPath logic (Decode and prune Android content tree URIs)
+    // Strips redundant content prefixes to expose simpler local paths.
     fun formatSafDisplayPath(sourceUri: String): String {
         val decoded = runCatching { Uri.decode(sourceUri) }.getOrDefault(sourceUri)
         val primaryIndex = decoded.indexOf("primary:")
         return if (primaryIndex >= 0) decoded.substring(primaryIndex) else decoded
     }
 
-    // Title: Format Library Root Sync Time (Render persisted timestamps using uniform local date formats or default empty fallbacks)
+    // Title: formatLibraryRootSyncTime logic (Convert sync timestamps into local date representations)
+    // Standardizes timestamp mapping across local and remote sources.
     fun formatLibraryRootSyncTime(timestampMs: Long?, notSyncedText: String): String =
         timestampMs?.takeIf { it > 0L }?.let(::formatDate) ?: notSyncedText
 
-    // Title: Resolve Connection Failure Message (Map diverse network, SSL, and WebDAV domain errors into readable user messages)
-    fun resolveConnectionFailureMessage(error: Throwable, app: Application): String {
+    // Title: resolveConnectionFailureMessage logic (Translate validation and server exception types)
+    // Maps network, security, and protocol errors to corresponding UI alert messages.
+    fun resolveConnectionFailureMessage(error: Throwable): String {
         return when (error) {
             is UnsafeNetworkPolicyViolation ->
-                app.getString(R.string.feedback_settings_cleartext_http_blocked)
+                context.getString(R.string.feedback_settings_cleartext_http_blocked)
             is WebDavEndpointValidationException ->
-                app.getString(error.reason.webDavEndpointValidationMessageRes())
+                context.getString(error.reason.webDavEndpointValidationMessageRes())
             is WebDavConnectionTestException ->
                 if (error.reason == WebDavConnectionTestFailureReason.HttpStatus) {
-                    app.getString(R.string.feedback_settings_webdav_http_status, error.httpCode ?: 0)
+                    context.getString(R.string.feedback_settings_webdav_http_status, error.httpCode ?: 0)
                 } else {
-                    app.getString(error.reason.webDavConnectionTestMessageRes())
+                    context.getString(error.reason.webDavConnectionTestMessageRes())
                 }
             is javax.net.ssl.SSLHandshakeException ->
-                app.getString(R.string.feedback_settings_ssl_certificate_untrusted)
+                context.getString(R.string.feedback_settings_ssl_certificate_untrusted)
             is javax.net.ssl.SSLPeerUnverifiedException ->
-                app.getString(R.string.feedback_settings_ssl_hostname_mismatch)
-            else -> error.message ?: app.getString(R.string.feedback_settings_connection_failed_fallback)
+                context.getString(R.string.feedback_settings_ssl_hostname_mismatch)
+            else -> error.message ?: context.getString(R.string.feedback_settings_connection_failed_fallback)
         }
     }
 
-    // Title: Map WebDAV Endpoint Reason (Link network syntax validation checks to localized error resource files)
+    // Title: formatSnapshot mapping logic (Convert library root snapshot into SettingsRootItem)
+    // Collects all individual formatting utilities into a unified map entry call, avoiding manual assembly in ViewModels.
+    fun formatSnapshot(snapshot: LibraryRootSettingsSnapshot): SettingsRootItem {
+        val isAbsRoot = snapshot.sourceType == AudiobookSchema.LibrarySourceType.ABS
+        return SettingsRootItem(
+            rootId = snapshot.rootId,
+            sourceType = snapshot.sourceType,
+            sourceUri = snapshot.sourceUri,
+            basePath = snapshot.basePath,
+            credentialId = snapshot.credentialId,
+            displayName = snapshot.displayName,
+            title = resolveLibraryRootTitle(snapshot),
+            statusText = resolveLibraryRootStatusText(snapshot),
+            locationText = resolveLibraryRootLocation(snapshot),
+            selectedLibraryText = if (isAbsRoot) snapshot.displayName.ifBlank { snapshot.basePath } else null,
+            lastSyncText = formatLibraryRootSyncTime(
+                timestampMs = if (isAbsRoot) snapshot.absLastFullSyncAt else snapshot.lastScannedAt.takeIf { it > 0L },
+                notSyncedText = context.getString(R.string.settings_library_not_synced)
+            ),
+            importedBookCount = snapshot.importedBookCount,
+            lastError = snapshot.absLastError?.let(::redactAbsError)
+        )
+    }
+
+    private fun formatDate(ms: Long): String {
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+        return sdf.format(java.util.Date(ms))
+    }
+
     private fun WebDavEndpointValidationReason.webDavEndpointValidationMessageRes(): Int =
         when (this) {
             WebDavEndpointValidationReason.MissingScheme -> R.string.feedback_settings_webdav_url_missing_scheme
@@ -109,7 +146,6 @@ object SettingsFormatter {
             WebDavEndpointValidationReason.UnsupportedScheme -> R.string.feedback_settings_webdav_url_unsupported_scheme
         }
 
-    // Title: Map WebDAV Connection Reason (Translate backend remote HTTP response failures to user warning texts)
     private fun WebDavConnectionTestFailureReason.webDavConnectionTestMessageRes(): Int =
         when (this) {
             WebDavConnectionTestFailureReason.Unauthorized -> R.string.feedback_settings_webdav_auth_failed
@@ -118,7 +154,6 @@ object SettingsFormatter {
             WebDavConnectionTestFailureReason.HttpStatus -> R.string.feedback_settings_webdav_http_status
         }
 
-    // Title: Map Library Root Status (Link primary Room root state markers to visual status indicators)
     private fun AudiobookSchema.LibraryRootStatus.libraryRootStatusMessageRes(): Int =
         when (this) {
             AudiobookSchema.LibraryRootStatus.ACTIVE -> R.string.settings_library_status_active
@@ -126,7 +161,6 @@ object SettingsFormatter {
             AudiobookSchema.LibraryRootStatus.ERROR -> R.string.settings_library_status_error
         }
 
-    // Title: Map Storage Availability Status (Match physical and network reachability criteria to specific localized strings)
     private fun AudiobookSchema.AvailabilityStatus.availabilityStatusMessageRes(): Int =
         when (this) {
             AudiobookSchema.AvailabilityStatus.AVAILABLE -> R.string.settings_library_status_available

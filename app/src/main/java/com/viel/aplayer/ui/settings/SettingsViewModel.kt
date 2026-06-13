@@ -5,8 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.R
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.logger.AbsSettingsLogger
@@ -29,6 +28,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // Decouples ViewModel from the concrete data repository class.
     private val settingsReadModel = settingsDependencies.settingsReadModel
     private val settingsCommands = settingsDependencies.settingsCommands
+    // Title: Bind FormatSettingsRootUseCase (Inject formatting usecase for display snapshot formatting)
+    // Avoids static utility dependencies and decouples DB entities from SettingsViewModel.
+    private val formatSettingsRootUseCase = settingsDependencies.formatSettingsRootUseCase
     // Settings Root Scene Interfaces
     private val settingsRootReadModel = settingsDependencies.settingsRootReadModel
     private val settingsRootCommands = settingsDependencies.settingsRootCommands
@@ -49,6 +51,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         testWebDavConnectionUseCase = settingsDependencies.testWebDavConnectionUseCase,
         settingsQueryUseCase = settingsDependencies.settingsQueryUseCase,
         settingsRootCommands = settingsRootCommands,
+        // Title: Pass formatting UseCase (Wire formatSettingsRootUseCase into the connection handler)
+        formatSettingsRootUseCase = formatSettingsRootUseCase,
         appEventSink = appEventSink,
         scope = viewModelScope,
         app = getApplication()
@@ -65,7 +69,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // Title: Expose Connection Handlers States (Retrieve reactive UI states directly from ConnectionHandler)
     val absConnectionState: StateFlow<AbsConnectionUiState> = connectionHandler.absConnectionState
     val webDavConnectionState: StateFlow<WebDavConnectionUiState> = connectionHandler.webDavConnectionState
-    val absSyncConfirmationState: StateFlow<AbsSyncConfirmationState?> = connectionHandler.absSyncConfirmationState
 
     /** Exposed settings flow */
     val settingsState: StateFlow<AppSettings> = settingsReadModel.settingsFlow
@@ -78,28 +81,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val libraryRootDisplays: StateFlow<List<SettingsRootItem>> = settingsRootReadModel
         .observeRootSnapshots()
         .map { snapshots ->
-            // Title: Map Snapshots to UI Items (Delegate formatting logic to SettingsFormatter for representation mapping)
-            snapshots.map { snapshot ->
-                val isAbsRoot = snapshot.sourceType == AudiobookSchema.LibrarySourceType.ABS
-                SettingsRootItem(
-                    rootId = snapshot.rootId,
-                    sourceType = snapshot.sourceType,
-                    sourceUri = snapshot.sourceUri,
-                    basePath = snapshot.basePath,
-                    credentialId = snapshot.credentialId,
-                    displayName = snapshot.displayName,
-                    title = SettingsFormatter.resolveLibraryRootTitle(snapshot),
-                    statusText = SettingsFormatter.resolveLibraryRootStatusText(snapshot, getApplication()),
-                    locationText = SettingsFormatter.resolveLibraryRootLocation(snapshot),
-                    selectedLibraryText = if (isAbsRoot) snapshot.displayName.ifBlank { snapshot.basePath } else null,
-                    lastSyncText = SettingsFormatter.formatLibraryRootSyncTime(
-                        timestampMs = if (isAbsRoot) snapshot.absLastFullSyncAt else snapshot.lastScannedAt.takeIf { it > 0L },
-                        notSyncedText = getApplication<Application>().getString(R.string.settings_library_not_synced)
-                    ),
-                    importedBookCount = snapshot.importedBookCount,
-                    lastError = snapshot.absLastError?.let(SettingsFormatter::redactAbsError)
-                )
-            }
+            // Title: Map Snapshots with UseCase (Delegate formatting logic to FormatSettingsRootUseCase)
+            // Removes direct imports of AudiobookSchema and decouples model mapping completely.
+            snapshots.map(formatSettingsRootUseCase::formatSnapshot)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

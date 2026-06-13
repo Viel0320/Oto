@@ -1,36 +1,8 @@
 package com.viel.aplayer.ui.settings
 
-import com.viel.aplayer.data.db.AudiobookSchema
+// Title: Remove SettingsRootItem from AbsSettingsState (Remove presentation model definition after relocation to application layer)
+// This file now only holds UI-scoped state definitions such as AbsServerSettingsState and WebDavConnectionUiState.
 
-// Settings Root Item (Room-free row model for settings root management)
-// Carries the display text plus root-scoped edit/delete command anchors so SettingsScreen and SettingsDialogs never need the persistence root row.
-data class SettingsRootItem(
-    val rootId: String,
-    // Update SettingsRootItem to use AudiobookSchema.LibrarySourceType: Changing sourceType from String to LibrarySourceType enum.
-    val sourceType: AudiobookSchema.LibrarySourceType,
-    val sourceUri: String,
-    val basePath: String,
-    val credentialId: String?,
-    val displayName: String,
-    val title: String,
-    val statusText: String,
-    val locationText: String,
-    val selectedLibraryText: String? = null,
-    val lastSyncText: String,
-    val importedBookCount: Int,
-    val lastError: String? = null
-)
-
-data class AbsServerSettingsState(
-    val rootId: String,
-    val displayName: String,
-    val baseUrl: String,
-    val libraryId: String,
-    val syncStatus: String,
-    val lastFullSyncAt: Long? = null,
-    val serverVersion: String? = null,
-    val lastError: String? = null
-)
 
 data class AbsLibraryOptionState(
     val id: String,

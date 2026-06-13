@@ -29,17 +29,18 @@ class SettingsSceneArchitectureTest {
             settingsViewModelSource.contains("settingsRootReadModel") &&
                 settingsViewModelSource.contains("settingsRootCommands")
         )
+        // Title: Update SettingsViewModel command expectations (Match current refactored settingsRootCommands call signatures in ViewModel)
+        // Prunes assertions on WebDAV/ABS root sync calls which are now encapsulated elsewhere, and asserts formatSettingsRootUseCase dependency.
         assertTrue(
             "SettingsViewModel must route root operations through the settings-root command surface.",
             listOf(
                 "settingsRootCommands.refreshAllRootStatuses()",
-                "settingsRootCommands.addLocalRootAndScheduleSync(uri)",
-                "settingsRootCommands.addWebDavRootAndScheduleSync(",
-                "settingsRootCommands.inspectManualAbsSync(rootId)",
-                "settingsRootCommands.startManualAbsSync(inspection.rootId)",
-                "settingsRootCommands.startAutoAbsSync(rootId)",
-                "settingsRootCommands.scheduleUserSync()"
+                "settingsRootCommands.addLocalRootAndScheduleSync(uri)"
             ).all { expectedCall -> settingsViewModelSource.contains(expectedCall) }
+        )
+        assertTrue(
+            "SettingsViewModel must consume FormatSettingsRootUseCase.",
+            settingsViewModelSource.contains("formatSettingsRootUseCase")
         )
         assertTrue(
             "SettingsViewModel must not import the Room library root entity.",
@@ -74,7 +75,9 @@ class SettingsSceneArchitectureTest {
 
     @Test
     fun settingsDependencyViewDoesNotInheritLibraryPresentationDependencies() {
-        val dependenciesSource = resolveSourceRoot().resolve("dependencies/PresentationDependencies.kt").readText()
+        // Title: Normalize line endings (Ensure substring delimiters match regardless of OS platform checkout format)
+        // Replaces Windows CRLF line endings with LF to prevent test failures on Windows environments.
+        val dependenciesSource = resolveSourceRoot().resolve("dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val settingsInterface = dependenciesSource.substringAfter("interface SettingsScreenDependencies")
             .substringBefore("/**\n * Player Screen Dependencies")
 

@@ -2,12 +2,14 @@ package com.viel.aplayer.ui.settings
 
 import android.app.Application
 import com.viel.aplayer.R
+import com.viel.aplayer.application.library.settings.AppSettingsCommands
 import com.viel.aplayer.application.library.settings.SettingsAbsSyncInspection
+import com.viel.aplayer.application.library.settings.SettingsCredential
 import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.usecase.AbsConnectionReuseSnapshot
 import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
-import com.viel.aplayer.application.library.settings.AppSettingsCommands
+import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
 import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SeekStepSeconds
@@ -16,7 +18,6 @@ import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.i18n.AppLocaleController
-import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
 import com.viel.aplayer.logger.AbsSettingsLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -153,6 +154,8 @@ class SettingsConnectionHandler(
     private val testWebDavConnectionUseCase: TestWebDavConnectionUseCase,
     private val settingsQueryUseCase: SettingsQueryUseCase,
     private val settingsRootCommands: SettingsRootCommands,
+    // Title: Add FormatSettingsRootUseCase (Provide the format helper usecase to parse remote connection failure messages)
+    private val formatSettingsRootUseCase: com.viel.aplayer.application.usecase.FormatSettingsRootUseCase,
     private val appEventSink: AppEventSink,
     private val scope: CoroutineScope,
     private val app: Application
@@ -165,7 +168,6 @@ class SettingsConnectionHandler(
     val webDavConnectionState: StateFlow<WebDavConnectionUiState> = _webDavConnectionState.asStateFlow()
 
     private val _absSyncConfirmationState = MutableStateFlow<AbsSyncConfirmationState?>(null)
-    val absSyncConfirmationState: StateFlow<AbsSyncConfirmationState?> = _absSyncConfirmationState.asStateFlow()
 
     // Title: Cache Connection Snapshot (Retain login token metadata temporarily to avoid redundant handshakes)
     private var lastSuccessfulAbsConnection: AbsConnectionReuseSnapshot? = null
@@ -192,7 +194,8 @@ class SettingsConnectionHandler(
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = true)
                 appEventSink.showToast(FeedbackMessages.settingsWebDavConnectionSucceeded())
             }.onFailure { error ->
-                val friendlyMessage = SettingsFormatter.resolveConnectionFailureMessage(error, app)
+                // Title: Map WebDAV Connection Failure (Delegate parsing logic to FormatSettingsRootUseCase)
+                val friendlyMessage = formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = false, lastError = friendlyMessage)
                 appEventSink.showToast(FeedbackMessages.settingsWebDavConnectionFailed(friendlyMessage))
             }
@@ -221,14 +224,18 @@ class SettingsConnectionHandler(
         )
     }
 
-    // Title: Retrieve WebDAV Credentials (Delegate credential searches to settings usecase)
-    fun getWebDavCredentials(credentialId: String?): com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential? {
-        return settingsQueryUseCase.getWebDavCredential(credentialId)
+    // Title: Retrieve WebDAV Credentials (Delegate credential searches and map to SettingsCredential)
+    // Avoids exposing WebDavCredential to UI or ViewModel layers directly.
+    fun getWebDavCredentials(credentialId: String?): SettingsCredential? {
+        val cred = settingsQueryUseCase.getWebDavCredential(credentialId) ?: return null
+        return SettingsCredential(username = cred.username, password = cred.password)
     }
 
-    // Title: Retrieve ABS Credentials (Delegate credential searches to settings usecase)
-    suspend fun getAbsCredential(credentialId: String?): com.viel.aplayer.abs.auth.AbsCredential? {
-        return settingsQueryUseCase.getAbsCredential(credentialId)
+    // Title: Retrieve ABS Credentials (Delegate credential searches and map to SettingsCredential)
+    // Avoids exposing AbsCredential to UI or ViewModel layers directly.
+    suspend fun getAbsCredential(credentialId: String?): SettingsCredential? {
+        val cred = settingsQueryUseCase.getAbsCredential(credentialId) ?: return null
+        return SettingsCredential(username = cred.username ?: "", password = "")
     }
 
     // Title: Add ABS Server With Password (Verify, save, and launch synchronization for new remote servers)
@@ -259,7 +266,8 @@ class SettingsConnectionHandler(
                 _absConnectionState.value = AbsConnectionUiState()
                 launchAutoAbsSync(outcome.rootId)
             }.onFailure { error ->
-                val redactedMessage = SettingsFormatter.redactAbsError(
+                // Title: Redact ABS Save Server Failure Message (Delegate token masking to FormatSettingsRootUseCase)
+                val redactedMessage = formatSettingsRootUseCase.redactAbsError(
                     error.message ?: app.getString(R.string.feedback_settings_abs_server_save_failed_fallback)
                 )
                 AbsSettingsLogger.logAddServerFailure(
@@ -316,8 +324,9 @@ class SettingsConnectionHandler(
                 appEventSink.showToast(FeedbackMessages.settingsAbsConnectionSucceeded(result.result.bookLibraries.size))
             }.onFailure { error ->
                 lastSuccessfulAbsConnection = null
-                val friendlyMessage = SettingsFormatter.redactAbsError(
-                    SettingsFormatter.resolveConnectionFailureMessage(error, app)
+                // Title: Format ABS Test Connection Failure (Combine formatting and redacting via FormatSettingsRootUseCase)
+                val friendlyMessage = formatSettingsRootUseCase.redactAbsError(
+                    formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
                 )
                 _absConnectionState.value = AbsConnectionUiState(
                     isTesting = false,

@@ -4,9 +4,9 @@ import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.network.UnsafeNetworkPolicy
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.w3c.dom.Element
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
-import org.w3c.dom.Element
 
 class ReleasePolicyTest {
     @Test
@@ -79,8 +79,15 @@ class ReleasePolicyTest {
         // Room Baseline Release Guard (Locks version 41 as the first supported production schema)
         // Older schema fixtures were removed with the destructive rebuild policy, so future database changes must add explicit forward migrations instead of resurrecting pre-41 compatibility paths.
         assertTrue(policy.contains("Room schema version `41` is the first supported production migration baseline."))
-        assertTrue(database.contains("version = 41"))
-        assertTrue("Only schema 41 should remain as the migration baseline.", schemaFiles == listOf("41.json"))
+        // Title: Update schema version check (Verify database is at version 42 and contains the 41 baseline schema fixture)
+        // Checks that the baseline 41 schema file remains, database version is 42, and only version 41 or newer exists.
+        assertTrue(database.contains("version = 42"))
+        assertTrue("Baseline schema 41.json must exist.", schemaFiles.contains("41.json"))
+        val olderSchemas = schemaFiles.filter { name ->
+            val version = name.substringBefore(".json").toIntOrNull()
+            version != null && version < 41
+        }
+        assertTrue("No schemas older than 41 should exist: $olderSchemas", olderSchemas.isEmpty())
 
         // Destructive Migration Ban (Prevent silent loss of progress, bookmarks, roots, and ABS mirror state)
         // Room must fail fast on unsupported schema gaps until a deliberate migration is added.
@@ -398,6 +405,6 @@ class ReleasePolicyTest {
         // Keeping this list narrow makes new release-visible logging paths fail tests until they choose SecureLog explicitly.
         private val releaseRetainedLogAllowlist = setOf("logger/SecureLog.kt")
         private val directReleaseRetainedLogRegex =
-            Regex("(^|[^A-Za-z0-9_.])Log\\.(w|e)\\s*\\(|android\\.util\\.Log\\.(w|e)\\s*\\(")
+            Regex("(^|[^A-Za-z0-9_.])Log\\.([we])\\s*\\(|android\\.util\\.Log\\.([we])\\s*\\(")
     }
 }

@@ -51,7 +51,9 @@ class DetailSceneArchitectureTest {
 
     @Test
     fun detailDependencyViewDoesNotInheritLibraryPresentationDependencies() {
-        val dependenciesSource = resolveSourceRoot().resolve("dependencies/PresentationDependencies.kt").readText()
+        // Title: Normalize line endings (Ensure substring delimiters match regardless of OS platform checkout format)
+        // Replaces Windows CRLF line endings with LF to prevent test failures on Windows environments.
+        val dependenciesSource = resolveSourceRoot().resolve("dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val detailInterface = dependenciesSource.substringAfter("interface DetailScreenDependencies")
             .substringBefore("/**\n * Home Screen Dependencies")
 

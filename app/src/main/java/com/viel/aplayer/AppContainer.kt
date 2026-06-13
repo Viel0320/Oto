@@ -3,7 +3,6 @@ package com.viel.aplayer
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
-import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.abs.sync.AbsAuthorizedProgressSynchronizer
 import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
@@ -27,11 +26,10 @@ import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.application.usecase.DeleteBookUseCase
 import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
-import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
-import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
@@ -130,6 +128,11 @@ interface AppContainer :
      * Keeps settings UI state construction away from Room DAO and credential-store dependencies.
      */
     override val settingsQueryUseCase: SettingsQueryUseCase
+
+    // Title: Declare formatSettingsRootUseCase (Override settings screen format helper dependency)
+    // Satisfies SettingsScreenDependencies interface requirement.
+    override val formatSettingsRootUseCase: com.viel.aplayer.application.usecase.FormatSettingsRootUseCase
+
 
     /**
      * Settings Library Maintenance Use Case (Root edit follow-up operations)
@@ -385,6 +388,12 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
 
     override val playbackDomainEventSink: PlaybackDomainEventSink
         get() = uiEvents.playbackDomainEventSink
+
+    // Title: Instantiate formatSettingsRootUseCase (Wire context to presentation format UseCase)
+    // Instantiates the settings formatter use case with the application context.
+    override val formatSettingsRootUseCase: com.viel.aplayer.application.usecase.FormatSettingsRootUseCase by lazy {
+        com.viel.aplayer.application.usecase.FormatSettingsRootUseCase(context)
+    }
 
     override val settingsQueryUseCase: SettingsQueryUseCase by lazy {
         // Settings Query Use Case Wiring (Combines library root, ABS sync, book count, and credential readers)

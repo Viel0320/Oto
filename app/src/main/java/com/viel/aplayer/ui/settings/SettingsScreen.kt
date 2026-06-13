@@ -1,4 +1,6 @@
 package com.viel.aplayer.ui.settings
+// Title: Clean up unused imports (Remove unused references to AbsCredential and WebDavCredential to resolve layering violations)
+// Presentation layer should not import infrastructure authentication and virtual file system entities.
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,8 +50,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.abs.auth.AbsCredential
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.library.settings.SettingsCredential
+import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -57,7 +59,6 @@ import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
-import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalWindowClass
@@ -280,8 +281,10 @@ fun SettingsDialogHost(
     onAbsConnectionTest: (baseUrl: String, username: String, password: String, editingRootId: String?) -> Unit,
     onResetAbsConnectionState: () -> Unit,
     onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String, editingRootId: String?) -> Unit,
-    getWebDavCredentials: (credentialId: String) -> WebDavCredential?,
-    getAbsCredential: suspend (credentialId: String) -> AbsCredential?,
+    // Title: Decouple credentials signature (Use SettingsCredential instead of concrete VFS/ABS credential types)
+    // Presentation boundaries should only pass the decoupled SettingsCredential projection.
+    getWebDavCredentials: (credentialId: String) -> SettingsCredential?,
+    getAbsCredential: suspend (credentialId: String) -> SettingsCredential?,
     onAbsSync: (rootId: String) -> Unit,
     onRescan: () -> Unit,
     onDeleteLibraryRoot: (SettingsRootItem) -> Unit,
@@ -381,7 +384,6 @@ fun SettingsDialogHost(
             baseUrl = controller.absBaseUrl,
             username = controller.absUsername,
             password = controller.absPassword,
-            displayName = controller.absDisplayName,
             editingRootId = controller.editingRootId,
             hazeState = resolvedSettingsDialogHazeState,
             glassEffectMode = glassEffectMode,
@@ -400,7 +402,6 @@ fun SettingsDialogHost(
                 controller.absPassword = it
                 onResetAbsConnectionState()
             },
-            onDisplayNameChange = { controller.absDisplayName = it },
             onLibrarySelected = { id, name ->
                 controller.absLibraryId = id
                 controller.absLibraryName = name
@@ -528,8 +529,9 @@ fun SettingsDialogHost(
         val root = rootForAction
         // Settings Root Action Projection (Use scene item fields for all root-specific dialogs)
         // Dialog actions no longer dereference persistence root rows; edit, sync, relocate, and delete flows consume only rootId plus provider-specific form fields.
-        val isAbsRoot = root.sourceType == AudiobookSchema.LibrarySourceType.ABS
-        val isWebDavRoot = root.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
+        // Title: UI branching decoupling (Bypass AudiobookSchema dependency in SettingsScreen using computed root kind flags)
+        val isAbsRoot = root.isAbsRoot
+        val isWebDavRoot = root.isWebDavRoot
         val scope = rememberCoroutineScope()
         SettingsTemplateDialog(
             onDismissRequest = { controller.dialogState = SettingsDialogState.None },
@@ -542,7 +544,8 @@ fun SettingsDialogHost(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                if (root.sourceType == AudiobookSchema.LibrarySourceType.SAF) {
+                                // Title: SAF Relocate check (Check isSafRoot to trigger storage relocations)
+                                if (root.isSafRoot) {
                                     controller.editingSafRootId = root.rootId
                                     controller.dialogState = SettingsDialogState.None
                                     onLaunchSafRootPicker()
@@ -575,7 +578,8 @@ fun SettingsDialogHost(
                         Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            if (root.sourceType == AudiobookSchema.LibrarySourceType.SAF) {
+                            // Title: SAF Relocate action label (Check isSafRoot to show relocation text versus edit credentials text)
+                            if (root.isSafRoot) {
                                 stringResource(R.string.settings_root_action_relocate_saf)
                             } else {
                                 stringResource(R.string.settings_root_action_edit_remote)

@@ -36,19 +36,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
-import com.viel.aplayer.ui.settings.SettingsRootItem
 import com.viel.aplayer.ui.settings.appLanguageLabel
 
 /**
@@ -67,8 +66,9 @@ fun LibraryDirectoriesSection(
         libraryRootDisplays.forEach { display ->
             // Settings Root Row Source Flags (Drive row icon and ABS-only error details from the scene item)
             // The list no longer needs persistence root rows because SettingsRootItem carries the storage type and rendered text directly.
-            val isWebDavRoot = display.sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
-            val isAbsRoot = display.sourceType == AudiobookSchema.LibrarySourceType.ABS
+            // Title: UI branching decoupling (Bypass AudiobookSchema in SettingsSections using computed item flags)
+            val isWebDavRoot = display.isWebDavRoot
+            val isAbsRoot = display.isAbsRoot
             val locationLine = display.selectedLibraryText
                 ?.takeIf { it.isNotBlank() }
                 ?.let { libraryName ->
@@ -189,7 +189,7 @@ fun InterfaceSettingsSection(
             onModeSelected = onThemeModeChange,
             enabled = !isHaze
         )
-        val isDynamicColorSupported = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
+        val isDynamicColorSupported = true
         SettingsToggleItem(
             title = stringResource(R.string.settings_dynamic_color_title),
             subtitle = if (isDynamicColorSupported) {
@@ -277,7 +277,7 @@ fun PlaybackBehaviorSection(
             onStepSelected = onSeekForwardStepChange
         )
         val disabledText = stringResource(R.string.settings_auto_rewind_disabled)
-        val resources = LocalContext.current.resources
+        val resources = LocalResources.current
         SettingsSliderItem(
             title = stringResource(R.string.settings_auto_rewind_toggle_title),
             subtitle = stringResource(R.string.settings_auto_rewind_subtitle),

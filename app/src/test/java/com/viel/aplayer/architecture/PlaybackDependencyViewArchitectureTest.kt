@@ -61,7 +61,9 @@ class PlaybackDependencyViewArchitectureTest {
     @Test
     fun playbackRuntimeViewDoesNotExposeScreenOrScannerSurfaces() {
         val sourceRoot = resolveSourceRoot()
-        val playbackDependencies = sourceRoot.resolve("dependencies/PlaybackDependencies.kt").readText()
+        // Title: Normalize line endings (Ensure substring delimiters match regardless of OS platform checkout format)
+        // Replaces Windows CRLF line endings with LF to prevent test failures on Windows environments.
+        val playbackDependencies = sourceRoot.resolve("dependencies/PlaybackDependencies.kt").readText().replace("\r\n", "\n")
         val runtimeInterface = playbackDependencies.substringAfter("interface PlaybackRuntimeDependencies")
             .substringBefore("/**\n * VFS Playback Dependencies")
         val vfsInterface = playbackDependencies.substringAfter("interface VfsPlaybackDependencies")

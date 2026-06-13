@@ -85,7 +85,9 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun playerAndEditDependencyViewsDoNotInheritLibraryPresentationDependencies() {
-        val dependenciesSource = resolveSourceRoot().resolve("dependencies/PresentationDependencies.kt").readText()
+        // Title: Normalize line endings (Ensure substring delimiters match regardless of OS platform checkout format)
+        // Replaces Windows CRLF line endings with LF to prevent test failures on Windows environments.
+        val dependenciesSource = resolveSourceRoot().resolve("dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val playerInterface = dependenciesSource.substringAfter("interface PlayerScreenDependencies")
             .substringBefore("/**\n * Edit Screen Dependencies")
         val editInterface = dependenciesSource.substringAfter("interface EditScreenDependencies")

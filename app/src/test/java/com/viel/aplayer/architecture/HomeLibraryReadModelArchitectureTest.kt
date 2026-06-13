@@ -12,7 +12,9 @@ class HomeLibraryReadModelArchitectureTest {
 
     @Test
     fun homeDependencyViewExposesSceneInterfacesInsteadOfLibraryFacade() {
-        val dependenciesSource = resolveSourceRoot().resolve("dependencies/PresentationDependencies.kt").readText()
+        // Title: Normalize line endings (Ensure substring delimiters match regardless of OS platform checkout format)
+        // Replaces Windows CRLF line endings with LF to prevent test failures on Windows environments.
+        val dependenciesSource = resolveSourceRoot().resolve("dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val homeInterface = dependenciesSource.substringAfter("interface HomeScreenDependencies")
             .substringBefore("/**\n * Settings Screen Dependencies")
 
@@ -64,7 +66,9 @@ class HomeLibraryReadModelArchitectureTest {
 
     @Test
     fun homeSceneAdapterDoesNotRewrapTheFullFacade() {
-        val readModelSource = resolveSourceRoot().resolve("application/library/home/HomeLibraryReadModel.kt").readText()
+        // Title: Normalize line endings (Ensure substring delimiters match regardless of OS platform checkout format)
+        // Replaces Windows CRLF line endings with LF to prevent test failures on Windows environments.
+        val readModelSource = resolveSourceRoot().resolve("application/library/home/HomeLibraryReadModel.kt").readText().replace("\r\n", "\n")
         val readModelInterface = readModelSource.substringAfter("interface HomeLibraryReadModel")
             .substringBefore("/**\n * Home Library Use Cases")
 

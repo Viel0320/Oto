@@ -103,6 +103,10 @@ interface HomeScreenDependencies {
  * Collects settings root scene interfaces, connection operations, maintenance use cases, and feedback sink required by SettingsViewModel.
  */
 interface SettingsScreenDependencies {
+    // Title: Expose FormatSettingsRootUseCase (Expose root snapshot presentation formatter to SettingsViewModel)
+    // Allows ViewModel to delegate snapshot conversion logic directly to the new application-level use case.
+    val formatSettingsRootUseCase: com.viel.aplayer.application.usecase.FormatSettingsRootUseCase
+
     /**
      * Settings Root Read Model (Settings-scoped root display stream)
      * Gives SettingsViewModel root display snapshots without reopening the broad library transition entry point.

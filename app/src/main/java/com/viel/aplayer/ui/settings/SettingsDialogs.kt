@@ -23,11 +23,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
@@ -199,7 +200,6 @@ fun AbsServerDialog(
     baseUrl: String,
     username: String,
     password: String,
-    displayName: String,
     editingRootId: String?,
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
@@ -209,7 +209,6 @@ fun AbsServerDialog(
     onBaseUrlChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
-    onDisplayNameChange: (String) -> Unit,
     onLibrarySelected: (String, String) -> Unit,
     onTestConnection: () -> Unit,
     onDismiss: () -> Unit,
