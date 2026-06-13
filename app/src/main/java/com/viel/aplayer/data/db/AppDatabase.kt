@@ -126,5 +126,25 @@ abstract class AppDatabase : RoomDatabase() {
                 instance
             }
         }
+
+        // Title: Close Database Instance (Close the active database instance and reset its singleton reference to allow data import)
+        // Explicitly terminates Room operations and releases file locks so the database file can be replaced cleanly.
+        // Catches and swallows any close exceptions (e.g. from missing files in stale test environments) to ensure singleton reset always completes.
+        fun closeInstance() {
+            synchronized(this) {
+                INSTANCE?.let {
+                    try {
+                        if (it.isOpen) {
+                            it.close()
+                        }
+                    } catch (e: Exception) {
+                        // Title: Ignore Close Exception (Swallow database close exceptions when instance is already invalid)
+                        // Prevents errors from stale test contexts or missing databases from aborting the close workflow.
+                    } finally {
+                        INSTANCE = null
+                    }
+                }
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -78,6 +79,24 @@ fun SettingsOverlay(
             } else {
                 settingsViewModel.onLibraryRootSelected(it)
             }
+        }
+    }
+
+    // Title: Initialize Backup/Restore SAF Launchers (Register ActivityResult Contracts for ZIP backup files export/import)
+    // Registers CreateDocument and OpenDocument launchers to execute secure file picker overlays.
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        uri?.let {
+            settingsViewModel.exportUserData(it)
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            settingsDialogController.dialogState = SettingsDialogState.ImportConfirm(it)
         }
     }
     LaunchedEffect(isVisible) {
@@ -224,6 +243,8 @@ fun SettingsOverlay(
                                 onSeekForwardStepChange = { settingsViewModel.preferencesHandler.updateSeekForwardSeconds(it) },
                                 isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
                                 onNotificationAvoidanceEnabledChange = { settingsViewModel.preferencesHandler.toggleNotificationAvoidanceEnabled(it) },
+                                onExportClick = { exportLauncher.launch("aplayer_backup.zip") },
+                                onImportClick = { importLauncher.launch(arrayOf("*/*")) },
                                 onAboutLibrariesClick = { activeSettingsPage = SettingsOverlayPage.AboutLibraries }
                             )
                         }
@@ -268,7 +289,8 @@ fun SettingsOverlay(
                             onAbsSync = { rootId -> settingsViewModel.connectionHandler.syncAbsRoot(rootId) },
                             onRescan = { settingsViewModel.connectionHandler.triggerRescan() },
                             onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
-                            onLaunchSafRootPicker = { libraryRootLauncher.launch(null) }
+                            onLaunchSafRootPicker = { libraryRootLauncher.launch(null) },
+                            onImportConfirm = { uri -> settingsViewModel.importUserData(uri) }
                         )
                     }
                     }

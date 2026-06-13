@@ -30,6 +30,8 @@ import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.CloudUpload
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -413,3 +415,29 @@ fun AboutSection(
         )
     }
 }
+
+// Title: Backup and Restore UI Section (Add backup/restore options composable layout to settings screen)
+// Renders options for database/settings backup ZIP export and import via SAF.
+@Composable
+fun BackupRestoreSection(
+    onExportClick: () -> Unit,
+    onImportClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        SettingsSectionHeader(title = stringResource(R.string.settings_backup_restore_title))
+        SettingsItem(
+            title = stringResource(R.string.settings_export_data_title),
+            subtitle = stringResource(R.string.settings_export_data_subtitle),
+            icon = Icons.Rounded.CloudUpload,
+            onClick = onExportClick
+        )
+        SettingsItem(
+            title = stringResource(R.string.settings_import_data_title),
+            subtitle = stringResource(R.string.settings_import_data_subtitle),
+            icon = Icons.Rounded.CloudDownload,
+            onClick = onImportClick
+        )
+    }
+}
+

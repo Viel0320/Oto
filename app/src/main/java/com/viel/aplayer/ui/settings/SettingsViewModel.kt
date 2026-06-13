@@ -5,9 +5,14 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.R
 import com.viel.aplayer.application.library.settings.SettingsRootItem
+import com.viel.aplayer.application.usecase.ExportUserDataUseCase
+import com.viel.aplayer.application.usecase.ImportUserDataUseCase
 import com.viel.aplayer.data.store.AppSettings
+import android.content.Intent
 import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.logger.AbsSettingsLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,6 +43,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val settingsLibraryMaintenanceUseCase = settingsDependencies.settingsLibraryMaintenanceUseCase
     private val appEventSink = settingsDependencies.appEventSink
     private val deleteLibraryRootUseCase = settingsDependencies.deleteLibraryRootUseCase
+    private val exportUserDataUseCase = settingsDependencies.exportUserDataUseCase
+    private val importUserDataUseCase = settingsDependencies.importUserDataUseCase
 
     // Title: Initialize Preferences Handler (Pass settings write interface to preferences handler)
     val preferencesHandler = SettingsPreferencesHandler(
@@ -154,6 +161,65 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val playbackWasStopped = deleteLibraryRootUseCase.invoke(root.rootId)
             AbsSettingsLogger.logDeleteServerFinished(rootId = root.rootId, playbackStopped = playbackWasStopped)
             appEventSink.showToast(FeedbackMessages.settingsLibraryRootRemoved(playbackWasStopped))
+        }
+    }
+
+    // Title: Export User Data (Trigger the export usecase to package databases and settings to SAF selected ZIP file)
+    // Opens the destination output stream and dispatches the task to IO dispatcher, broadcasting status via appEventSink.
+    fun exportUserData(uri: Uri) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val outputStream = context.contentResolver.openOutputStream(uri)
+            if (outputStream == null) {
+                // Title: Export Stream Open Failure (Display localized error message when output stream fails)
+                // Replaces rawText error message with resource-backed FeedbackMessage.Resource to satisfy localization test rules.
+                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_stream_failed))
+                return@launch
+            }
+            runCatching {
+                exportUserDataUseCase.execute(outputStream)
+            }.onSuccess { result ->
+                if (result.isSuccess) {
+                    appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_success))
+                } else {
+                    val msg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_failed, listOf(msg)))
+                }
+            }.onFailure { error ->
+                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_failed, listOf(error.message ?: "")))
+            }
+        }
+    }
+
+    // Title: Import User Data and Restart (Execute the restore usecase and perform a clean process restart)
+    // Runs overwrite actions, then terminates active components, schedules main activity relaunch, and exits the process.
+    fun importUserData(uri: Uri) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val inputStream = context.contentResolver.openInputStream(uri)
+            if (inputStream == null) {
+                // Title: Import Stream Open Failure (Display localized error message when input stream fails)
+                // Replaces rawText error message with resource-backed FeedbackMessage.Resource to satisfy localization test rules.
+                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_stream_failed))
+                return@launch
+            }
+            runCatching {
+                importUserDataUseCase.execute(inputStream)
+            }.onSuccess { result ->
+                if (result.isSuccess) {
+                    // Trigger Application Restart
+                    val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    }
+                    context.startActivity(intent)
+                    Runtime.getRuntime().exit(0)
+                } else {
+                    val msg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_failed, listOf(msg)))
+                }
+            }.onFailure { error ->
+                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_failed, listOf(error.message ?: "")))
+            }
         }
     }
 }

@@ -24,10 +24,10 @@ class LibraryFacadeRetirementArchitectureTest {
 
     @Test
     fun presentationDependenciesDoNotExposeLibraryPresentationDependencies() {
-        // Title: Update di path in test (Point to di/dependencies/PresentationDependencies.kt)
-        // Changes relative path to target the dependencies subdirectory under di.
+        // Title: Update di path in test (Point to application/di/dependencies/PresentationDependencies.kt)
+        // Changes relative path to target the dependencies subdirectory under application/di.
         val presentationDependencies = resolveSourceRoot()
-            .resolve("di/dependencies/PresentationDependencies.kt")
+            .resolve("application/di/dependencies/PresentationDependencies.kt")
             .readText()
 
         assertTrue(

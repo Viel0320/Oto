@@ -60,10 +60,12 @@ import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
+import android.net.Uri
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.settings.components.AboutSection
+import com.viel.aplayer.ui.settings.components.BackupRestoreSection
 import com.viel.aplayer.ui.settings.components.InterfaceSettingsSection
 import com.viel.aplayer.ui.settings.components.LibraryDirectoriesSection
 import com.viel.aplayer.ui.settings.components.NetworkSecuritySection
@@ -117,6 +119,8 @@ fun SettingsScreen(
     onSeekForwardStepChange: (SeekStepSeconds) -> Unit,
     isNotificationAvoidanceEnabled: Boolean,
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
+    onExportClick: () -> Unit,
+    onImportClick: () -> Unit,
     onAboutLibrariesClick: () -> Unit
 ) {
     // Resolve Window Layout: Retrieve current viewport details via LocalAppWindowSizeClass
@@ -239,6 +243,12 @@ fun SettingsScreen(
                         )
                     }
                     item {
+                        BackupRestoreSection(
+                            onExportClick = onExportClick,
+                            onImportClick = onImportClick
+                        )
+                    }
+                    item {
                         AboutSection(
                             onAboutLibrariesClick = onAboutLibrariesClick
                         )
@@ -289,7 +299,8 @@ fun SettingsDialogHost(
     onAbsSync: (rootId: String) -> Unit,
     onRescan: () -> Unit,
     onDeleteLibraryRoot: (SettingsRootItem) -> Unit,
-    onLaunchSafRootPicker: () -> Unit
+    onLaunchSafRootPicker: () -> Unit,
+    onImportConfirm: (Uri) -> Unit = {}
 ) {
     val dialogState = controller.dialogState
     val rootToDelete = (dialogState as? SettingsDialogState.DeleteRoot)?.root
@@ -640,6 +651,34 @@ fun SettingsDialogHost(
             }
         )
     }
+
+    val importUri = (dialogState as? SettingsDialogState.ImportConfirm)?.uri
+    if (importUri != null) {
+        // Title: Render Import Confirm Dialog (Show overwrite alert before replacing databases and preferences)
+        // Instructs user that current audio bookmarks/settings will be replaced and SAF folders require re-granting.
+        SettingsTemplateDialog(
+            onDismissRequest = { controller.dialogState = SettingsDialogState.None },
+            hazeState = resolvedSettingsDialogHazeState,
+            glassEffectMode = glassEffectMode,
+            title = { Text(stringResource(R.string.settings_import_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_import_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        controller.dialogState = SettingsDialogState.None
+                        onImportConfirm(importUri)
+                    }
+                ) {
+                    Text(stringResource(R.string.action_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
 }
 
 /**
@@ -686,6 +725,8 @@ fun SettingsScreenPreview() {
                 onSeekForwardStepChange = {},
                 isNotificationAvoidanceEnabled = false,
                 onNotificationAvoidanceEnabledChange = {},
+                onExportClick = {},
+                onImportClick = {},
                 onAboutLibrariesClick = {}
             )
         }

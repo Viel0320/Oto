@@ -61,9 +61,9 @@ class PlaybackDependencyViewArchitectureTest {
     @Test
     fun playbackRuntimeViewDoesNotExposeScreenOrScannerSurfaces() {
         val sourceRoot = resolveSourceRoot()
-        // Title: Update di path in test (Point to di/dependencies/PlaybackDependencies.kt)
-        // Changes relative path to target the dependencies subdirectory under di.
-        val playbackDependencies = sourceRoot.resolve("di/dependencies/PlaybackDependencies.kt").readText().replace("\r\n", "\n")
+        // Title: Update di path in test (Point to application/di/dependencies/PlaybackDependencies.kt)
+        // Changes relative path to target the dependencies subdirectory under application/di.
+        val playbackDependencies = sourceRoot.resolve("application/di/dependencies/PlaybackDependencies.kt").readText().replace("\r\n", "\n")
         val runtimeInterface = playbackDependencies.substringAfter("interface PlaybackRuntimeDependencies")
             .substringBefore("/**\n * VFS Playback Dependencies")
         val vfsInterface = playbackDependencies.substringAfter("interface VfsPlaybackDependencies")

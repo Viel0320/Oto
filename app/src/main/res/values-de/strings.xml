@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <!-- German Locale Resources (Provide German translations for all default user-visible strings)
          The complete table prevents mixed-language UI when the app locale is set to German. -->
     <string name="author_label">Autor</string>
@@ -477,4 +477,18 @@
          Adding localized confirmation text to avoid accidental restore triggers. -->
     <string name="deleted_book_recovery_confirm_title">Buch wiederherstellen</string>
     <string name="deleted_book_recovery_confirm_body">Sind Sie sicher, dass Sie „%1$s“ wiederherstellen möchten?\n\nHinweis: Dadurch wird das Buch in Ihrer aktiven Medienbibliothek wiederhergestellt.</string>
+
+    <!-- Backup and Restore Resources -->
+    <string name="settings_backup_restore_title">Backup &amp; Restore</string>
+    <string name="settings_export_data_title">Export Data Backup</string>
+    <string name="settings_export_data_subtitle">Backup local database and all app settings</string>
+    <string name="settings_import_data_title">Import Data Backup</string>
+    <string name="settings_import_data_subtitle">Restore database and app settings from a backup</string>
+    <string name="settings_import_confirm_title">Confirm Data Overwrite</string>
+    <string name="settings_import_confirm_body">Importing this backup will completely overwrite your current database and application settings (including all logged accounts, books, bookmarks, and play progress).\n\nIMPORTANT: Directory paths not authorized via SAF on this device will be unavailable until reauthorized in Settings.</string>
+    <string name="feedback_settings_export_success">Data exported successfully</string>
+    <string name="feedback_settings_export_failed">Export failed: %1$s</string>
+    <string name="feedback_settings_import_failed">Import failed: %1$s</string>
+    <string name="feedback_settings_export_stream_failed">Failed to open destination file stream</string>
+    <string name="feedback_settings_import_stream_failed">Failed to open backup file stream</string>
 </resources>

@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import android.net.Uri
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.store.AppLanguage
@@ -47,6 +48,10 @@ sealed interface SettingsDialogState {
     // Dialog state survives transitions, so storing SettingsRootItem prevents transient UI state from retaining Room entities.
     data class RootActions(val root: SettingsRootItem) : SettingsDialogState
     data class DeleteRoot(val root: SettingsRootItem) : SettingsDialogState
+
+    // Title: Add ImportConfirm dialog state (Expose a confirmation state holding the ZIP file Uri to import)
+    // Lets the overlay host present a warning dialog before replacing user configuration data.
+    data class ImportConfirm(val uri: Uri) : SettingsDialogState
 }
 
 /**

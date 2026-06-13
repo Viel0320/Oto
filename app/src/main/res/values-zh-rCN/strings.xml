@@ -481,4 +481,21 @@
          Adding localized confirmation text to avoid accidental restore triggers. -->
     <string name="deleted_book_recovery_confirm_title">恢复书籍</string>
     <string name="deleted_book_recovery_confirm_body">确定要恢复《%1$s》吗？\n\n注意：此操作将把书籍重新添加回您的媒体库中。</string>
+
+    <!-- Backup and Restore Resources -->
+    <string name="settings_backup_restore_title">备份与恢复</string>
+    <string name="settings_export_data_title">导出数据备份</string>
+    <string name="settings_export_data_subtitle">备份本地数据库和所有应用设置</string>
+    <string name="settings_import_data_title">导入数据备份</string>
+    <string name="settings_import_data_subtitle">从备份文件恢复数据库和应用设置</string>
+    <string name="settings_import_confirm_title">覆盖本地数据确认</string>
+    <string name="settings_import_confirm_body">导入此备份将会完全覆盖您当前的数据库和应用设置（包括所有已登录的账号、书籍列表、书签和播放进度）。\n\n重要提示：在当前设备上未通过 SAF 授权的目录，在您前往设置重新授权之前将无法使用。</string>
+    <string name="feedback_settings_export_success">数据已成功导出</string>
+    <string name="feedback_settings_export_failed">导出失败：%1$s</string>
+    <string name="feedback_settings_import_failed">导入失败：%1$s</string>
+    <!-- Title: Backup/Restore Stream Failure Messages (Define error message resources for SAF stream failure in Simplified Chinese)
+         Enables localized feedback when input or output stream cannot be initialized. -->
+    <string name="feedback_settings_export_stream_failed">无法打开导出目标文件流</string>
+    <string name="feedback_settings_import_stream_failed">无法打开备份输入文件流</string>
 </resources>
+

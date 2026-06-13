@@ -26,6 +26,8 @@ import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
+import com.viel.aplayer.application.usecase.ExportUserDataUseCase
+import com.viel.aplayer.application.usecase.ImportUserDataUseCase
 import com.viel.aplayer.event.AppEventSink
 
 /**
@@ -170,6 +172,11 @@ interface SettingsScreenDependencies {
      * Ensures root deletion coordinates playback shutdown and data cleanup through the application use case.
      */
     val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
+
+    // Title: Expose Backup and Restore Use Cases (Expose data backup and restore capabilities to settings presentation layer)
+    // Allows SettingsViewModel to trigger backup zip export and import processes.
+    val exportUserDataUseCase: ExportUserDataUseCase
+    val importUserDataUseCase: ImportUserDataUseCase
 }
 
 /**

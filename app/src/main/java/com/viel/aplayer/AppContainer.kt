@@ -30,6 +30,8 @@ import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
+import com.viel.aplayer.application.usecase.ExportUserDataUseCase
+import com.viel.aplayer.application.usecase.ImportUserDataUseCase
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
@@ -472,6 +474,16 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
 
     override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
         get() = library.deleteLibraryRootUseCase
+
+    // Title: Initialize Backup and Restore Use Cases (Create lazy instances of the data backup/restore use cases)
+    // Instantiates export and import use cases with the application context.
+    override val exportUserDataUseCase: ExportUserDataUseCase by lazy {
+        ExportUserDataUseCase(context)
+    }
+
+    override val importUserDataUseCase: ImportUserDataUseCase by lazy {
+        ImportUserDataUseCase(context)
+    }
 
     override val deleteBookUseCase: DeleteBookUseCase
         get() = library.deleteBookUseCase

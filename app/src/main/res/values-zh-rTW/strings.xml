@@ -481,4 +481,18 @@
          Adding localized confirmation text to avoid accidental restore triggers. -->
     <string name="deleted_book_recovery_confirm_title">復原書籍</string>
     <string name="deleted_book_recovery_confirm_body">確定要復原《%1$s》嗎？\n\n注意：此操作將把書籍重新添加回您的媒體庫中。</string>
+
+    <!-- Backup and Restore Resources -->
+    <string name="settings_backup_restore_title">備份與恢復</string>
+    <string name="settings_export_data_title">匯出數據備份</string>
+    <string name="settings_export_data_subtitle">備份本地數據庫和所有應用設定</string>
+    <string name="settings_import_data_title">匯入數據備份</string>
+    <string name="settings_import_data_subtitle">從備份檔案恢復數據庫和應用設定</string>
+    <string name="settings_import_confirm_title">覆蓋本地數據確認</string>
+    <string name="settings_import_confirm_body">匯入此備份將會完全覆蓋您當前的數據庫和應用設定（包括所有已登錄的賬號、書籍列表、書籤和播放進度）。\n\n重要提示：在當前設備上未通過 SAF 授權的目錄，在您前往設定重新授權之前將無法使用。</string>
+    <string name="feedback_settings_export_success">數據已成功匯出</string>
+    <string name="feedback_settings_export_failed">匯出失敗：%1$s</string>
+    <string name="feedback_settings_import_failed">匯入失敗：%1$s</string>
+    <string name="feedback_settings_export_stream_failed">無法開啟匯出目標檔案流</string>
+    <string name="feedback_settings_import_stream_failed">無法開啟備份輸入檔案流</string>
 </resources>

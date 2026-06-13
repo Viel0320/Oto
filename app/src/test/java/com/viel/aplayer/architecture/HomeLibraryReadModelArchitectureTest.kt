@@ -12,9 +12,9 @@ class HomeLibraryReadModelArchitectureTest {
 
     @Test
     fun homeDependencyViewExposesSceneInterfacesInsteadOfLibraryFacade() {
-        // Title: Update di path in test (Point to di/dependencies/PresentationDependencies.kt)
-        // Changes relative path to target the dependencies subdirectory under di.
-        val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
+        // Title: Update di path in test (Point to application/di/dependencies/PresentationDependencies.kt)
+        // Changes relative path to target the dependencies subdirectory under application/di.
+        val dependenciesSource = resolveSourceRoot().resolve("application/di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val homeInterface = dependenciesSource.substringAfter("interface HomeScreenDependencies")
             .substringBefore("/**\n * Settings Screen Dependencies")
 
