@@ -257,6 +257,8 @@ object ImageProcessor {
                 if (unwrapped is BitmapDrawable) {
                     val origBitmap = unwrapped.bitmap
                     if (origBitmap != null) {
+                        // Hardware Copy Fallback Warning (Safeguard against unexpected hardware bitmaps while expecting software RGB_565 configurations from upstream loaders)
+                        // This serves only as a safety fallback since upstream Coil requests are pre-configured with allowHardware = false and RGB_565 config when dominant color extraction is needed.
                         val isHardware = origBitmap.config == Bitmap.Config.HARDWARE
                         val softwareBitmap = if (isHardware) {
                             origBitmap.copy(Bitmap.Config.RGB_565, false)

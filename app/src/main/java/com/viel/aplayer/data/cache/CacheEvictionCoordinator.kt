@@ -6,6 +6,7 @@ import com.viel.aplayer.data.dao.DirectoryCacheDao
 import com.viel.aplayer.data.dao.DirectoryChildCacheDao
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.vfs.cache.VfsRangeCache
+import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.VfsRangeCacheKey
 import java.io.File
 
@@ -19,20 +20,23 @@ class CacheEvictionCoordinator internal constructor(
     private val bookDao: BookDao,
     private val directoryCacheDao: DirectoryCacheDao,
     private val directoryChildCacheDao: DirectoryChildCacheDao,
-    private val vfsRangeCache: VfsRangeCache? = null
+    private val vfsRangeCache: VfsRangeCache? = null,
+    private val vfsFileInterface: VfsFileInterface? = null
 ) {
     constructor(
         context: Context,
         bookDao: BookDao,
         directoryCacheDao: DirectoryCacheDao,
         directoryChildCacheDao: DirectoryChildCacheDao,
-        vfsRangeCache: VfsRangeCache? = null
+        vfsRangeCache: VfsRangeCache? = null,
+        vfsFileInterface: VfsFileInterface? = null
     ) : this(
         appCacheDir = context.applicationContext.cacheDir,
         bookDao = bookDao,
         directoryCacheDao = directoryCacheDao,
         directoryChildCacheDao = directoryChildCacheDao,
-        vfsRangeCache = vfsRangeCache
+        vfsRangeCache = vfsRangeCache,
+        vfsFileInterface = vfsFileInterface
     )
 
     /**
@@ -55,6 +59,11 @@ class CacheEvictionCoordinator internal constructor(
         // Range Cache Root Eviction (Clears metadata-sized byte blocks for the edited or deleted library root)
         // Uses the same hashed root id as VfsRangeCacheKey so raw root identifiers never appear in cache file names.
         val rangeFilesDeleted = vfsRangeCache?.evictRoot(VfsRangeCacheKey.hashIdentifier(rootId)) ?: 0
+        /**
+         * Evict VfsFileInterface Root Cache: Clears the in-memory cached LibraryRootEntity for the rootId.
+         * Ensures VFS operations pick up updated connection properties without requiring a process restart.
+         */
+        vfsFileInterface?.evictRoot(rootId)
         return CacheEvictionSummary(
             rootId = rootId,
             coverFilesDeleted = coverFilesDeleted,

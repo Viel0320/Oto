@@ -247,7 +247,11 @@ internal class LibraryGraph(
             bookDao = data.database.bookDao(),
             directoryCacheDao = data.database.directoryCacheDao(),
             directoryChildCacheDao = data.database.directoryChildCacheDao(),
-            vfsRangeCache = media.vfsRangeCache
+            vfsRangeCache = media.vfsRangeCache,
+            /**
+             * Wire VfsFileInterface: Pass the process-wide VFS reader to support invalidating in-memory library root configurations.
+             */
+            vfsFileInterface = media.vfsFileInterface
         )
     }
 

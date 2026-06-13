@@ -355,9 +355,11 @@ fun SettingsDialogHost(
                 onResetWebDavConnectionState()
             },
             onConfirm = {
-                if (controller.editingRootId != null) {
+                // UI State Race Prevention: Safe unwrap editingRootId to prevent NullPointerException during transient state updates.
+                val rootId = controller.editingRootId
+                if (rootId != null) {
                     onWebDavRootUpdated(
-                        controller.editingRootId!!,
+                        rootId,
                         controller.webDavUrl.trim(),
                         controller.webDavUsername.trim(),
                         controller.webDavPassword,

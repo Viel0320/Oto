@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.home.components
 // Setup ListCardItem Imports (Coil & Haze Integration)
 // Added getValue and setValue import extensions to perfectly support Composable's 'by' property delegation logic.
 // Introduce Haze related dependencies to draw high-performance frosted glass effects.
+import android.graphics.Bitmap
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateDp
@@ -320,7 +321,11 @@ private fun RecentCoverSharedSource(
                                     sourcePath = coverPath,
                                     lastUpdated = coverLastUpdated,
                                     variant = CoverImageVariant.ThumbnailMedium,
-                                    scene = "recently-cover"
+                                    scene = "recently-cover",
+                                    // Disable Hardware Cover (Pass allowHardware = false and Config.RGB_565 since this cover needs dominant color extraction)
+                                    // Preempts Hardware Bitmaps from being loaded and bypasses the costly copy() call inside ImageProcessor.
+                                    allowHardware = false,
+                                    bitmapConfig = Bitmap.Config.RGB_565
                                 )
                             }
                             AsyncImage(

@@ -1,6 +1,8 @@
 package com.viel.aplayer.library.vfs
 
 import android.content.Context
+import android.os.SystemClock
+import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -47,7 +49,16 @@ class VfsFileInterface(
             readRange = { node, offset, length -> vfs.readRange(node, offset, length) }
         )
     }
-    private val rootCache = ConcurrentHashMap<String, LibraryRootEntity>()
+    /**
+     * Root Cache Snapshot: Wraps a LibraryRootEntity with its creation timestamp.
+     * This supports time-to-live (TTL) cache eviction behavior.
+     */
+    private data class CachedRoot(
+        val entity: LibraryRootEntity,
+        val cachedAtElapsedMs: Long
+    )
+
+    private val rootCache = ConcurrentHashMap<String, CachedRoot>()
 
     suspend fun open(file: FileRef): InputStream? {
         val root = rootFor(file.rootId) ?: return null
@@ -150,9 +161,23 @@ class VfsFileInterface(
 
     private suspend fun rootFor(rootId: String): LibraryRootEntity? {
         rootsById[rootId]?.let { return it }
-        rootCache[rootId]?.let { return it }
-        return libraryRootDao?.getRootById(rootId)?.also { root ->
-            rootCache[rootId] = root
+        
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        val cached = rootCache[rootId]
+        if (cached != null && OnlineSourceCachePolicy.isFresh(cached.cachedAtElapsedMs, nowElapsedMs, OnlineSourceCachePolicy.LIBRARY_ROOT_CACHE_TTL_MS)) {
+            return cached.entity
         }
+        
+        return libraryRootDao?.getRootById(rootId)?.also { root ->
+            rootCache[rootId] = CachedRoot(root, nowElapsedMs)
+        }
+    }
+
+    /**
+     * Evict Root Cache: Removes the cached LibraryRootEntity from in-memory cache.
+     * This ensures that subsequent file operations resolve the updated endpoint coordinates or credentials from database.
+     */
+    fun evictRoot(rootId: String) {
+        rootCache.remove(rootId)
     }
 }

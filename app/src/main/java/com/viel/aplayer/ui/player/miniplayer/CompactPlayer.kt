@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.player.miniplayer
 
 // Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and modifiers.
+import android.graphics.Bitmap
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateDp
@@ -222,7 +223,11 @@ fun CompactMediaPlayer(
                                 sourcePath = coverPath,
                                 lastUpdated = coverLastUpdated,
                                 variant = CoverImageVariant.ThumbnailSmall,
-                                scene = "compact-player-cover"
+                                scene = "compact-player-cover",
+                                // Disable Hardware Cover (Pass allowHardware = false and Config.RGB_565 since this cover needs dominant color extraction)
+                                // Preempts Hardware Bitmaps from being loaded and bypasses the costly copy() call inside ImageProcessor.
+                                allowHardware = false,
+                                bitmapConfig = Bitmap.Config.RGB_565
                             )
                         }
                         AsyncImage(

@@ -3,6 +3,7 @@ package com.viel.aplayer.data.service
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
+import com.viel.aplayer.data.dao.BookMinWithProgress
 import com.viel.aplayer.data.dao.BookmarkDao
 import com.viel.aplayer.data.dao.ChapterDao
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -70,8 +71,10 @@ class BookQueryService(
     // Dispatches file existence checks to Dispatchers.IO to prevent blocking the UI main thread.
     // Shields active render pipelines from ANR and frame drop exceptions during high-frequency scans.
     @OptIn(UnstableApi::class)
-    private fun Flow<List<BookWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
-        list.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
+    private fun Flow<List<BookMinWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
+        // Convert to BookWithProgress DTOs (Preserve full compatibility with outside layers while excluding large columns from SQLite query)
+        // Remaps each BookMinWithProgress element into a full BookWithProgress object.
+        list.map { it.toBookWithProgress() }.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
     }.flowOn(Dispatchers.IO)
 
     // Update anchorStatus type to AnchorStatus enum for type safety.

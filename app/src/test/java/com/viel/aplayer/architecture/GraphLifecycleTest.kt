@@ -178,8 +178,10 @@ class GraphLifecycleTest {
     @Test
     fun `library graph ownership list should include every closeable gateway declared in source`() {
         val sourceRoot = resolveSourceRoot()
-        val libraryGraphSource = sourceRoot.resolve("di/LibraryGraph.kt").readText()
-        val closeSupportSource = sourceRoot.resolve("di/GraphCloseSupport.kt").readText()
+        // Title: Update library di paths in test (Point to di/graph/LibraryGraph.kt and di/graph/GraphCloseSupport.kt)
+        // Changes paths to include the graph subdirectory under di.
+        val libraryGraphSource = sourceRoot.resolve("di/graph/LibraryGraph.kt").readText()
+        val closeSupportSource = sourceRoot.resolve("di/graph/GraphCloseSupport.kt").readText()
 
         val declaredCloseableLazyNames = listOf(
             "bookQueryServiceLazy",
@@ -211,7 +213,9 @@ class GraphLifecycleTest {
     @Test
     fun `media graph close should keep playback manager behind initialized release guard`() {
         val sourceRoot = resolveSourceRoot()
-        val mediaGraphSource = sourceRoot.resolve("di/MediaGraph.kt").readText()
+        // Title: Update media di path in test (Point to di/graph/MediaGraph.kt)
+        // Changes path to include the graph subdirectory under di.
+        val mediaGraphSource = sourceRoot.resolve("di/graph/MediaGraph.kt").readText()
 
         // Media Graph Playback Teardown Contract (Pin production wiring to the lazy release helper)
         // MediaGraph must expose playback through the same Lazy that close() checks, then call PlaybackManager.release() only inside the initialized guard.

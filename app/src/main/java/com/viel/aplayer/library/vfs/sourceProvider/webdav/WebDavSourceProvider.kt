@@ -582,8 +582,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     private fun parseWebDavDate(value: String?): Long {
         if (value.isNullOrBlank()) return 0L
         return runCatching {
-            // ThreadLocal initializer guarantees non-null formatters; asserts explicitly to eliminate platform warning.
-            WEB_DAV_DATE_FORMAT.get()!!.parse(value)?.time ?: 0L
+            // ThreadLocal initializer guarantees non-null formatters; safe-calls to eliminate platform warning.
+            WEB_DAV_DATE_FORMAT.get()?.parse(value)?.time ?: 0L
         }.getOrDefault(0L)
     }
 

@@ -7,6 +7,9 @@ package com.viel.aplayer.data.cache
  */
 object OnlineSourceCachePolicy {
     const val ONLINE_DIRECTORY_LISTING_TTL_MS: Long = 60_000L
+    // Library Root Cache TTL: Time-to-live duration for cached LibraryRootEntity snapshots.
+    // Evicts cached library root configurations after 1 minute to enforce a fallback refresh boundary.
+    const val LIBRARY_ROOT_CACHE_TTL_MS: Long = 60_000L
     const val ONLINE_METADATA_RANGE_TTL_MS: Long = 6L * 60L * 60L * 1000L
     const val ONLINE_VERSIONLESS_RANGE_TTL_MS: Long = 30L * 60L * 1000L
     const val ABS_CATALOG_MIRROR_TTL_MS: Long = 24L * 60L * 60L * 1000L

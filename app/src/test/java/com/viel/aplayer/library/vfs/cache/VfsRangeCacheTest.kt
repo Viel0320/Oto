@@ -46,6 +46,7 @@ class VfsRangeCacheTest {
 
         cache.write(sampleKey(source = "one"), byteArrayOf(1, 1, 1, 1))
         cache.write(sampleKey(source = "two"), byteArrayOf(2, 2, 2, 2))
+        cache.trimToSize()
 
         // Total Cache Budget (Keeps the range cache directory bounded by removing old blocks)
         // With a six-byte budget and two four-byte blocks, at least one block must be trimmed.

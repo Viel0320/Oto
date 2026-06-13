@@ -12,7 +12,9 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun dataGraphDoesNotOwnPlaybackRuntimeManagers() {
-        val dataGraph = resolveSourceRoot().resolve("di/DataGraph.kt").readText()
+        // Title: Update DataGraph path in test (Point to di/graph/DataGraph.kt)
+        // Adjusts path parameter to target the nested graph subdirectory.
+        val dataGraph = resolveSourceRoot().resolve("di/graph/DataGraph.kt").readText()
 
         // Data Graph Persistence Boundary (Forbid media-runtime ownership in the data di)
         // DataGraph should expose database, settings, and data stores only; playback lifecycle belongs to MediaGraph.
@@ -65,7 +67,9 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun libraryGraphReceivesPlaybackStopperFromMediaGraph() {
-        val libraryGraph = resolveSourceRoot().resolve("di/LibraryGraph.kt").readText()
+        // Title: Update LibraryGraph path in test (Point to di/graph/LibraryGraph.kt)
+        // Adjusts path parameter to target the nested graph subdirectory.
+        val libraryGraph = resolveSourceRoot().resolve("di/graph/LibraryGraph.kt").readText()
 
         // Library Graph Playback Wiring Boundary (Route deletion shutdown through MediaGraph)
         // LibraryGraph should compose deletion use cases with media.playbackStopper instead of data-owned playback managers.
@@ -124,8 +128,10 @@ class PlaybackLifetimeArchitectureTest {
             }
         )
 
-        val dependencies = sourceRoot.resolve("dependencies/PresentationDependencies.kt").readText()
-        val mediaGraph = sourceRoot.resolve("di/MediaGraph.kt").readText()
+        // Title: Update di paths in test (Point to the correct nested packages under di/)
+        // Changes relative path paths to include the graph and dependencies subdirectories.
+        val dependencies = sourceRoot.resolve("di/dependencies/PresentationDependencies.kt").readText()
+        val mediaGraph = sourceRoot.resolve("di/graph/MediaGraph.kt").readText()
 
         // Controller Wiring Contract (Keep the player runtime adapter visible at both dependency view and media di)
         // This guards the intended route: PlayerViewModel -> PlayerScreenDependencies -> MediaGraph adapter -> media managers.

@@ -3,7 +3,10 @@ package com.viel.aplayer.library.vfs.cache
 import android.content.Context
 import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.data.runCatchingCancellable
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -18,6 +21,12 @@ class VfsRangeCache(
     private val maxTotalBytes: Long = MAX_TOTAL_BYTES,
     private val currentTimeMillis: () -> Long = { System.currentTimeMillis() }
 ) {
+    /**
+     * Non-blocking Eviction Scope: Asynchronous runner for trim tasks to keep disk cleanups off the main write flow.
+     */
+    private val evictionScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val writeCounter = java.util.concurrent.atomic.AtomicInteger(0)
+    private val isEvicting = java.util.concurrent.atomic.AtomicBoolean(false)
     constructor(
         context: Context,
         maxBlockBytes: Int = MAX_BLOCK_BYTES,
@@ -65,7 +74,19 @@ class VfsRangeCache(
                 temp.renameTo(target)
             }
             target.setLastModified(currentTimeMillis())
-            trimToSizeBlocking()
+
+            // Non-blocking Eviction: Delegates trim task to background scope with rate-limiting counter to avoid blocking critical write paths.
+            if (writeCounter.incrementAndGet() % TRIM_THRESHOLD == 0) {
+                if (isEvicting.compareAndSet(false, true)) {
+                    evictionScope.launch {
+                        try {
+                            trimToSizeBlocking()
+                        } finally {
+                            isEvicting.set(false)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -119,5 +140,6 @@ class VfsRangeCache(
         private const val CACHE_DIR_NAME = "vfs_range_cache"
         private const val MAX_BLOCK_BYTES = 64 * 1024
         private const val MAX_TOTAL_BYTES = 64L * 1024L * 1024L
+        private const val TRIM_THRESHOLD = 32
     }
 }

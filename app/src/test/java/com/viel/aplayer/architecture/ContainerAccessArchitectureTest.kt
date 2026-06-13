@@ -74,8 +74,10 @@ class ContainerAccessArchitectureTest {
         val unguardedExamples = listOf(
             "APlayerApplication.kt",
             "AppContainer.kt",
-            "dependencies/PresentationDependencies.kt",
-            "di/LibraryGraph.kt"
+            // Title: Update di paths in unguarded examples (Point to the correct nested packages under di/)
+            // Changes path elements to match the new nested package locations.
+            "di/dependencies/PresentationDependencies.kt",
+            "di/graph/LibraryGraph.kt"
         )
 
         assertTrue(

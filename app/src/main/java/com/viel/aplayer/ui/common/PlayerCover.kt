@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.common
 
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -332,7 +333,11 @@ fun MainCoverView(
                         sourcePath = coverPath,
                         lastUpdated = coverLastUpdated,
                         variant = CoverImageVariant.Main1200,
-                        scene = coverScene
+                        scene = coverScene,
+                        // Disable Hardware Cover (Pass allowHardware = false and Config.RGB_565 since this cover needs dominant color extraction)
+                        // Preempts Hardware Bitmaps from being loaded and bypasses the costly copy() call inside ImageProcessor.
+                        allowHardware = false,
+                        bitmapConfig = Bitmap.Config.RGB_565
                     )
                 }
                 AsyncImage(

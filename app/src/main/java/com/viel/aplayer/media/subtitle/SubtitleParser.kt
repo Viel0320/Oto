@@ -103,7 +103,10 @@ object SubtitleParser {
                 lines.add(SubtitleLine(startTime, endTime, element.second))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            /**
+             * Handle Parsing Exception: Safe logs parsing error without insecure console prints in production.
+             */
+            SubtitleLogger.logParseError(extension, e)
         } finally {
             try { reader.close() } catch (_: Exception) {}
         }
@@ -164,7 +167,10 @@ object SubtitleParser {
                 lines.addSubtitleLine(startTime, endTime, textBuilder.toString(), extension)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            /**
+             * Handle Parsing Exception: Safe logs parsing error without insecure console prints in production.
+             */
+            SubtitleLogger.logParseError(extension, e)
         } finally {
             try { reader.close() } catch (_: Exception) {}
         }
@@ -249,7 +255,10 @@ object SubtitleParser {
                 lines.addSubtitleLine(startTime, endTime, textBuilder.toString(), extension)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            /**
+             * Handle Parsing Exception: Safe logs parsing error without insecure console prints in production.
+             */
+            SubtitleLogger.logParseError(extension, e)
         } finally {
             try { reader.close() } catch (_: Exception) {}
         }
@@ -322,7 +331,10 @@ object SubtitleParser {
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            /**
+             * Handle Parsing Exception: Safe logs parsing error without insecure console prints in production.
+             */
+            SubtitleLogger.logParseError(extension, e)
         } finally {
             try { reader.close() } catch (_: Exception) {}
         }

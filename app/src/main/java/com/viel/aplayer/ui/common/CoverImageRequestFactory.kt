@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.common
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.SystemClock
 import coil.request.ErrorResult
 import coil.request.ImageRequest
@@ -36,13 +37,16 @@ enum class CoverImageVariant(
  * entry-point utility from bloating into a cross-hierarchy centralized manager.
  */
 object CoverImageRequestFactory {
+    // Modify CoverImageRequestFactory build signature (Support Bitmap.Config specification)
+    // Accept an optional bitmapConfig parameter to customize the loaded Bitmap's format (e.g. RGB_565 for memory reduction).
     fun build(
         context: Context,
         sourcePath: String,
         lastUpdated: Long,
         variant: CoverImageVariant,
         scene: String,
-        allowHardware: Boolean = true
+        allowHardware: Boolean = true,
+        bitmapConfig: Bitmap.Config? = null
     ): ImageRequest {
         val cacheKey = cacheKey(sourcePath, lastUpdated, variant)
         CoverImageCacheLogger.logRequest(
@@ -145,6 +149,13 @@ object CoverImageRequestFactory {
             .crossfade(variant != CoverImageVariant.Main1200 && variant != CoverImageVariant.Backdrop)
             .size(variant.targetWidth, variant.targetHeight)
             .listener(pipelineListener)
+            // Apply bitmapConfig option (Pass customized bitmap config to Coil builder)
+            // Configures the decoding profile, e.g. RGB_565 to optimize RAM overhead and prevent hardware-copying overhead.
+            .apply {
+                if (bitmapConfig != null) {
+                    bitmapConfig(bitmapConfig)
+                }
+            }
             .build()
         // Register metrics context.
         //

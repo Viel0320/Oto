@@ -44,7 +44,11 @@ class CoverRecoveryHelper(
     private val MetadataResolver = MetadataResolver(fileReader)
 
     private val pendingRegenerations = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-    private val alreadyAttempted = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    /**
+     * Track Attempted Failures: Stores book IDs that failed recovery mapped to the timestamp of the last attempt.
+     * This avoids repeated, CPU-intensive background regeneration jobs for books without embedded or sidecar covers.
+     */
+    private val alreadyAttempted = java.util.concurrent.ConcurrentHashMap<String, Long>()
     // 详尽的中文注释：列表、搜索和最近播放这些 Flow 会在短时间内重复把同一本书送进 checkCovers()，
     // 如果每次都同步执行 File.exists()，就会把本来已经存在的封面也反复打到磁盘层。
     // 这里用“书籍 id + 当前封面路径 + 当前缩略图路径 + lastScannedAt”做一个秒级短窗口缓存，
@@ -55,7 +59,7 @@ class CoverRecoveryHelper(
         // ABS 远端书籍的封面只允许由 ABS cover cache 负责，不能在列表流里反向读取远端音频做内嵌封面自愈。
         if (shouldSkipAutoRegeneration(book)) return
         val bookId = book.id
-        if (alreadyAttempted.contains(bookId)) return
+        if (alreadyAttempted.containsKey(bookId)) return
         if (pendingRegenerations.contains(bookId)) return
 
         // 详尽的中文注释：封面存在性探测现在先走短窗口缓存。
@@ -78,7 +82,9 @@ class CoverRecoveryHelper(
                     if (rebuiltCover) {
                         alreadyAttempted.remove(bookId)
                     } else {
-                        alreadyAttempted.add(bookId)
+                        val nowElapsedMs = SystemClock.elapsedRealtime()
+                        alreadyAttempted[bookId] = nowElapsedMs
+                        pruneAlreadyAttempted(nowElapsedMs)
                     }
                 }
             }
@@ -239,13 +245,40 @@ class CoverRecoveryHelper(
      * 详尽的中文注释：短窗口缓存只为压掉瞬时重复 I/O，不应该无限增长。
      * 因此当缓存项超过上限时，只清理已经过期的旧条目，保留最近仍可能被多次复用的判断结果。
      */
+    /**
+     * Cap Cover Presence Cache: Evicts expired presence entries first.
+     * If the cache size still exceeds the hard limit, prunes the oldest active entries by access timestamp.
+     */
     private fun pruneExpiredCoverPresenceSnapshots(nowElapsedMs: Long) {
-        if (coverPresenceCache.size <= MAX_COVER_PRESENCE_CACHE_SIZE) return
         val iterator = coverPresenceCache.entries.iterator()
         while (iterator.hasNext()) {
             val entry = iterator.next()
             if (nowElapsedMs - entry.value.checkedAtElapsedMs > COVER_PRESENCE_CACHE_TTL_MS) {
                 iterator.remove()
+            }
+        }
+        if (coverPresenceCache.size > MAX_COVER_PRESENCE_CACHE_SIZE) {
+            val sortedEntries = coverPresenceCache.entries.sortedBy { it.value.checkedAtElapsedMs }
+            val excessCount = coverPresenceCache.size - MAX_COVER_PRESENCE_CACHE_SIZE
+            for (i in 0 until excessCount) {
+                if (i < sortedEntries.size) {
+                    coverPresenceCache.remove(sortedEntries[i].key)
+                }
+            }
+        }
+    }
+
+    /**
+     * Cap Already Attempted Failures: Limits the in-memory record size of failed recovery book IDs.
+     * Keeps memory consumption bounded by removing the oldest failure attempt records when exceeding the limit.
+     */
+    private fun pruneAlreadyAttempted(nowElapsedMs: Long) {
+        if (alreadyAttempted.size <= MAX_ALREADY_ATTEMPTED_SIZE) return
+        val sortedEntries = alreadyAttempted.entries.sortedBy { it.value }
+        val excessCount = alreadyAttempted.size - MAX_ALREADY_ATTEMPTED_SIZE
+        for (i in 0 until excessCount) {
+            if (i < sortedEntries.size) {
+                alreadyAttempted.remove(sortedEntries[i].key)
             }
         }
     }
@@ -273,6 +306,7 @@ class CoverRecoveryHelper(
         private const val MAX_CONCURRENT_COVER_REGENERATIONS = 2
         private const val COVER_PRESENCE_CACHE_TTL_MS = 3_000L
         private const val MAX_COVER_PRESENCE_CACHE_SIZE = 512
+        private const val MAX_ALREADY_ATTEMPTED_SIZE = 1024
     }
 }
 

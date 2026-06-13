@@ -47,4 +47,12 @@ internal object SubtitleLogger {
         // The extension is low risk today, but routing warnings through SecureLog prevents future parser text from bypassing the policy.
         SecureLog.warn(TAG, "Truncated oversized $extension subtitle")
     }
+
+    /**
+     * Log Subtitle Parsing Error: Records parsing failures for specific subtitle formats.
+     * Prevents production crash or insecure printStackTrace output by routing errors safely to log.
+     */
+    fun logParseError(extension: String, error: Throwable) {
+        SecureLog.error(TAG, "Failed parsing $extension subtitle", error)
+    }
 }

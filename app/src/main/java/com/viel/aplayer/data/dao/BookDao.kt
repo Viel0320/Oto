@@ -2,9 +2,11 @@ package com.viel.aplayer.data.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Relation
 import androidx.room.Transaction
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
@@ -39,6 +41,69 @@ data class DeletedBookRecoveryProjection(
     val sourceLabel: String
 )
 
+/**
+ * Lightweight Book Entity Projection (Omits heavy text fields like description, generatedManifestJson, and heuristicRuleVersion to optimize query IO)
+ */
+data class BookMinEntity(
+    val id: String,
+    val rootId: String,
+    val sourceType: AudiobookSchema.SourceType,
+    val sourceRoot: String,
+    val title: String,
+    val author: String,
+    val narrator: String,
+    val year: String,
+    val totalDurationMs: Long,
+    val totalFileSize: Long,
+    val coverPath: String?,
+    val thumbnailPath: String?,
+    val addedAt: Long,
+    val lastScannedAt: Long,
+    val status: AudiobookSchema.BookStatus,
+    val readStatus: AudiobookSchema.ReadStatus,
+    val series: String
+) {
+    fun toBookEntity() = BookEntity(
+        id = id,
+        rootId = rootId,
+        sourceType = sourceType,
+        sourceRoot = sourceRoot,
+        title = title,
+        author = author,
+        narrator = narrator,
+        description = "",
+        year = year,
+        totalDurationMs = totalDurationMs,
+        totalFileSize = totalFileSize,
+        coverPath = coverPath,
+        thumbnailPath = thumbnailPath,
+        addedAt = addedAt,
+        lastScannedAt = lastScannedAt,
+        status = status,
+        readStatus = readStatus,
+        series = series,
+        generatedManifestJson = null,
+        heuristicRuleVersion = null
+    )
+}
+
+/**
+ * Lightweight Book With Progress Projection (Combines BookMinEntity with its BookProgressEntity)
+ */
+data class BookMinWithProgress(
+    @Embedded val book: BookMinEntity,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "bookId"
+    )
+    val progress: BookProgressEntity?
+) {
+    fun toBookWithProgress() = BookWithProgress(
+        book = book.toBookEntity(),
+        progress = progress
+    )
+}
+
 @Dao
 interface BookDao {
     // UI lists hide soft-deleted books while their BookFile claims stay reserved.
@@ -52,8 +117,15 @@ interface BookDao {
 
     // UI lists hide soft-deleted books while their BookFile claims stay reserved.
     @Transaction
-    @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title ASC")
-    fun getAllBooksWithProgress(): Flow<List<BookWithProgress>>
+    @Query("""
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+               lastScannedAt, status, readStatus, series 
+        FROM books 
+        WHERE status != 'DELETED' 
+        ORDER BY title ASC
+    """)
+    fun getAllBooksWithProgress(): Flow<List<BookMinWithProgress>>
 
     /**
      * Deleted Books Recovery Stream (Projects soft-deleted catalog rows for manual recovery)
@@ -120,7 +192,9 @@ interface BookDao {
 
     @Transaction
     @Query("""
-        SELECT * FROM books
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+               lastScannedAt, status, readStatus, series FROM books
         WHERE status != 'DELETED'
         AND (
             (title LIKE '%' || :query || '%' OR (:query = 'Unknown' AND (title = '' OR title IS NULL)))
@@ -129,77 +203,98 @@ interface BookDao {
         )
         ORDER BY title ASC
     """)
-    fun searchBooksWithProgress(query: String): Flow<List<BookWithProgress>>
+    fun searchBooksWithProgress(query: String): Flow<List<BookMinWithProgress>>
 
     @Transaction
     @Query("""
-        SELECT * FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+               lastScannedAt, status, readStatus, series FROM books 
         WHERE status != 'DELETED'
         AND (year LIKE '%' || :year || '%' OR (:year = 'Unknown' AND (year = '' OR year IS NULL)))
         ORDER BY title ASC
     """)
-    fun filterByYearWithProgress(year: String): Flow<List<BookWithProgress>>
+    fun filterByYearWithProgress(year: String): Flow<List<BookMinWithProgress>>
 
     @Transaction
     @Query("""
-        SELECT * FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+               lastScannedAt, status, readStatus, series FROM books 
         WHERE status != 'DELETED'
         AND (author LIKE '%' || :author || '%' OR (:author = 'Unknown' AND (author = '' OR author IS NULL)))
         ORDER BY title ASC
     """)
-    fun filterByAuthorWithProgress(author: String): Flow<List<BookWithProgress>>
+    fun filterByAuthorWithProgress(author: String): Flow<List<BookMinWithProgress>>
 
     @Transaction
     @Query("""
-        SELECT * FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+               lastScannedAt, status, readStatus, series FROM books 
         WHERE status != 'DELETED'
         AND (narrator LIKE '%' || :narrator || '%' OR (:narrator = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
         ORDER BY title ASC
     """)
-    fun filterByNarratorWithProgress(narrator: String): Flow<List<BookWithProgress>>
+    fun filterByNarratorWithProgress(narrator: String): Flow<List<BookMinWithProgress>>
 
     @Transaction
     @Query("""
-        SELECT * FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+               lastScannedAt, status, readStatus, series FROM books 
         WHERE status != 'DELETED'
         AND (author LIKE '%' || :author || '%' OR (:author = 'Unknown' AND (author = '' OR author IS NULL)))
         AND id != :excludeId
         ORDER BY title ASC
         LIMIT :limit
     """)
-    fun filterByAuthorLimitedWithProgress(author: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>>
+    fun filterByAuthorLimitedWithProgress(author: String, excludeId: String, limit: Int): Flow<List<BookMinWithProgress>>
 
     @Transaction
     @Query("""
-        SELECT * FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+               lastScannedAt, status, readStatus, series FROM books 
         WHERE status != 'DELETED'
         AND (narrator LIKE '%' || :narrator || '%' OR (:narrator = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
         AND id != :excludeId
         ORDER BY title ASC
         LIMIT :limit
     """)
-    fun filterByNarratorLimitedWithProgress(narrator: String, excludeId: String, limit: Int): Flow<List<BookWithProgress>>
+    fun filterByNarratorLimitedWithProgress(narrator: String, excludeId: String, limit: Int): Flow<List<BookMinWithProgress>>
 
     // Recently added UI excludes soft-deleted books.
     @Transaction
-    @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY addedAt DESC LIMIT :limit")
-    fun getRecentlyAddedWithProgress(limit: Int): Flow<List<BookWithProgress>>
+    @Query("""
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+               lastScannedAt, status, readStatus, series 
+        FROM books 
+        WHERE status != 'DELETED' 
+        ORDER BY addedAt DESC 
+        LIMIT :limit
+    """)
+    fun getRecentlyAddedWithProgress(limit: Int): Flow<List<BookMinWithProgress>>
 
     @Transaction
     @Query("""
-        SELECT * FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+               lastScannedAt, status, readStatus, series FROM books 
         WHERE status != 'DELETED'
         AND id != :currentId
         AND author NOT IN (:authors) 
         AND narrator NOT IN (:narrators) 
-        ORDER BY addedAt DESC LIMIT :limit
+        ORDER BY addedAt DESC 
+        LIMIT :limit
     """)
     fun getRecentlyAddedExclusiveWithProgress(
         currentId: String,
         authors: List<String>,
         narrators: List<String>,
         limit: Int
-    ): Flow<List<BookWithProgress>>
+    ): Flow<List<BookMinWithProgress>>
 
     // BookFile rows include both SOURCE_MANIFEST and AUDIO ownership facts.
     @Insert(onConflict = OnConflictStrategy.REPLACE)
