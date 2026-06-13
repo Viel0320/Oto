@@ -29,7 +29,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     // This makes the home catalog dependency narrow while deeper projections can move into the read model later.
     private val homeLibraryReadModel = homeDependencies.homeLibraryReadModel
     private val homeLibraryUseCases = homeDependencies.homeLibraryUseCases
-    private val settingsRepository = homeDependencies.settingsRepository
+    // Title: Settings Abstractions Binding (Bind LibraryViewModel to read and command abstractions)
+    // Decouples Home UI calculations from the concrete AppSettingsRepository class.
+    private val settingsReadModel = homeDependencies.settingsReadModel
+    private val settingsCommands = homeDependencies.settingsCommands
     // Application Event Sink (Routes home feedback through the process-wide UI event stream)
     // The home ViewModel no longer owns a local toast flow, so app-shell rendering stays centralized.
     private val appEventSink = homeDependencies.appEventSink
@@ -56,7 +59,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             homeLibraryReadModel.hasRegisteredLibraryRoots,
             _selectedFilter,
             _selectedBookStatusFilter,
-            settingsRepository.settingsFlow
+            settingsReadModel.settingsFlow
         ) { audiobooks, hasRegisteredLibraryRoots, userSelection, userBookStatusSelection, appSettings ->
             // Centralized Filter Resolution (Dispatches final filter state once all input streams are ready)
             // Prevents intermediate visual state jumps in home filter chips.
@@ -214,7 +217,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _selectedFilter.value = filter
         viewModelScope.launch {
             // Update Home Filter (Passes the type-safe HomeFilter enum directly to repository updates)
-            settingsRepository.updateHomeFilter(filter)
+            settingsCommands.updateHomeFilter(filter)
         }
     }
 
@@ -224,7 +227,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _selectedBookStatusFilter.value = filter
         viewModelScope.launch {
             // Update Home Book Status Filter (Passes the type-safe HomeBookStatusFilter enum directly to repository updates)
-            settingsRepository.updateHomeBookStatusFilter(filter)
+            settingsCommands.updateHomeBookStatusFilter(filter)
         }
     }
 
@@ -232,7 +235,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         // Home View Style Update (Persist the user's selected catalog renderer)
         // The settings flow drives recomposition, keeping listgroup/cardgroup switching outside direct mutable UI state.
         viewModelScope.launch {
-            settingsRepository.updateHomeViewStyle(style)
+            settingsCommands.updateHomeViewStyle(style)
         }
     }
 
@@ -240,7 +243,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         // Home Sort Rule Update (Persist the user's selected catalog grouping and script-clustered order)
         // The ViewModel rebuilds filtered and grouped catalog sections from settingsFlow after the preference write completes.
         viewModelScope.launch {
-            settingsRepository.updateHomeSortRule(rule)
+            settingsCommands.updateHomeSortRule(rule)
         }
     }
 
@@ -248,7 +251,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             // Home Sort Direction Update (Persist ascending or descending order inside each script cluster)
             // Script cluster order itself remains fixed in HomeCatalogSortPolicy so the setting only affects same-cluster comparisons.
-            settingsRepository.updateHomeSortDirection(direction)
+            settingsCommands.updateHomeSortDirection(direction)
         }
     }
 

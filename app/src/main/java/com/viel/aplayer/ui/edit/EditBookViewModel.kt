@@ -91,7 +91,7 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
         year: String,
         description: String,
         series: String,
-        newCoverPath: String?
+        newCoverUri: String?
     ) {
         val currentBook = _bookState.value ?: return
         viewModelScope.launch {
@@ -111,8 +111,9 @@ class EditBookViewModel(application: Application) : AndroidViewModel(application
                     year = year.trim(),
                     series = series.trim()
                 )
-                if (newCoverPath != null) {
-                    editBookCommands.saveCustomCover(currentBook.id, newCoverPath)
+                if (newCoverUri != null) {
+                    // Save custom cover using the updated URI pipeline
+                    editBookCommands.saveCustomCover(currentBook.id, newCoverUri)
                 }
                 /*
                  * Mark save success (Trigger reactive dismissals via state flow)

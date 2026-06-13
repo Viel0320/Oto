@@ -27,7 +27,10 @@ class PlayerSettingsViewModel(
 
     // Resolve dependencies (Fetches managers and system service controllers from application presentation graph)
     private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)
-    private val settingsRepository = playerDependencies.settingsRepository
+    // Title: Settings Abstractions Binding (Bind PlayerSettingsViewModel to read and command abstractions)
+    // Decouples player UI preference logic from concrete DataStore storage classes.
+    private val settingsReadModel = playerDependencies.settingsReadModel
+    private val settingsCommands = playerDependencies.settingsCommands
     private val appEventSink = playerDependencies.appEventSink
     private val audioManager = application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
@@ -49,7 +52,7 @@ class PlayerSettingsViewModel(
 
     private fun observeSettings() {
         externalScope.launch {
-            settingsRepository.settingsFlow.collect { settings ->
+            settingsReadModel.settingsFlow.collect { settings ->
                 if (settings.isChapterProgressMode != settingsState.value.isChapterProgressMode) {
                     settingsManager.setChapterProgressMode(settings.isChapterProgressMode)
                 }
@@ -116,7 +119,7 @@ class PlayerSettingsViewModel(
     fun toggleProgressMode() {
         externalScope.launch {
             val nextMode = !settingsState.value.isChapterProgressMode
-            settingsRepository.updateChapterProgressMode(nextMode)
+            settingsCommands.updateChapterProgressMode(nextMode)
         }
     }
 

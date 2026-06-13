@@ -1,8 +1,7 @@
 package com.viel.aplayer.dependencies
 
-import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
-import com.viel.aplayer.application.library.detail.DetailBookCommands
 import com.viel.aplayer.application.library.detail.DetailBookReadModel
+import com.viel.aplayer.application.library.detail.DetailBookCommands
 import com.viel.aplayer.application.library.edit.EditBookCommands
 import com.viel.aplayer.application.library.edit.EditBookReadModel
 import com.viel.aplayer.application.library.home.HomeLibraryReadModel
@@ -15,6 +14,8 @@ import com.viel.aplayer.application.library.search.SearchLibraryCommands
 import com.viel.aplayer.application.library.search.SearchLibraryReadModel
 import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootReadModel
+import com.viel.aplayer.application.library.settings.AppSettingsReadModel
+import com.viel.aplayer.application.library.settings.AppSettingsCommands
 import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
@@ -22,9 +23,9 @@ import com.viel.aplayer.application.usecase.DeleteBookUseCase
 import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
-import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
+import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.event.AppEventSink
-import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTester
 
 /**
  * Search Screen Dependencies (Search-scene dependency view)
@@ -79,11 +80,10 @@ interface HomeScreenDependencies {
      */
     val homeLibraryUseCases: HomeLibraryUseCases
 
-    /**
-     * Settings Repository (Home display preference source)
-     * Supplies library layout and filter preferences without exposing settings-only maintenance operations.
-     */
-    val settingsRepository: AppSettingsRepository
+    // Title: AppSettings Abstractions for Home (Provide settings queries and commands to LibraryViewModel)
+    // Exposing read model and command interfaces prevents the home scene from directly referencing concrete storage.
+    val settingsReadModel: AppSettingsReadModel
+    val settingsCommands: AppSettingsCommands
 
     /**
      * Application Event Sink (Home feedback command seam)
@@ -127,11 +127,10 @@ interface SettingsScreenDependencies {
      */
     val deletedBookRecoveryCommands: DeletedBookRecoveryCommands
 
-    /**
-     * Settings Repository (Settings persistence source)
-     * Provides the reactive app settings flow and cached startup settings.
-     */
-    val settingsRepository: AppSettingsRepository
+    // Title: AppSettings Abstractions for Settings (Provide settings queries and commands to SettingsViewModel)
+    // Restricting dependencies to read/write abstractions decouples settings components from the concrete storage class.
+    val settingsReadModel: AppSettingsReadModel
+    val settingsCommands: AppSettingsCommands
 
     /**
      * Settings Query Use Case (Settings read model seam)
@@ -151,11 +150,9 @@ interface SettingsScreenDependencies {
      */
     val absSettingsConnectionUseCase: AbsSettingsConnectionUseCase
 
-    /**
-     * WebDAV Connection Tester (Remote endpoint preflight seam)
-     * Keeps TLS, PROPFIND, and credential checks outside SettingsViewModel.
-     */
-    val webDavConnectionTester: WebDavConnectionTester
+    // Title: WebDavConnectionTester Decoupling (Expose TestWebDavConnectionUseCase instead of the concrete tester)
+    // Prevents UI settings ViewModel from directly referencing WebDavConnectionTester from library/vfs.
+    val testWebDavConnectionUseCase: TestWebDavConnectionUseCase
 
     /**
      * Application Event Sink (Settings feedback command seam)
@@ -187,17 +184,14 @@ interface PlayerScreenDependencies {
      */
     val playerBookmarkCommands: PlayerBookmarkCommands
 
-    /**
-     * Settings Repository (Player preference source)
-     * Supplies playback UI and behavior preferences without exposing settings maintenance use cases.
-     */
-    val settingsRepository: AppSettingsRepository
+    // Title: AppSettings Abstractions for Player (Provide settings queries and commands to Player UI VM)
+    // Limits the player dependencies to settings abstractions to decouple playback preferences from storage implementations.
+    val settingsReadModel: AppSettingsReadModel
+    val settingsCommands: AppSettingsCommands
 
-    /**
-     * ABS Progress Conflict Coordinator (Player remote-progress arbitration seam)
-     * Lets player UI inspect remote/local conflicts without seeing ABS catalog or worker modules.
-     */
-    val absProgressConflictCoordinator: AbsProgressConflictCoordinator
+    // Title: AbsProgressConflictCoordinator Decoupling (Expose ResolveProgressConflictUseCase instead of the coordinator)
+    // Prevents player UI from directly referencing AbsProgressConflictCoordinator from infrastructure.
+    val resolveProgressConflictUseCase: ResolveProgressConflictUseCase
 
     /**
      * Application Event Sink (Player feedback command seam)

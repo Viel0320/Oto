@@ -48,7 +48,7 @@ fun EditBookRoute(
         EditBookScreen(
             book = book,
             onNavigationBack = { editViewModel.setVisible(false) },
-            onSave = { title, author, narrator, year, description, series, newCoverPath ->
+            onSave = { title, author, narrator, year, description, series, newCoverUri ->
                 // Edit Save Adapter (Forward all editable metadata fields through the route)
                 // Route-level adaptation keeps EditBookScreen stateless and keeps repository calls inside EditBookViewModel.
                 editViewModel.saveBook(
@@ -58,7 +58,7 @@ fun EditBookRoute(
                     year = year,
                     description = description,
                     series = series,
-                    newCoverPath = newCoverPath
+                    newCoverUri = newCoverUri
                 )
             },
             glassEffectMode = glassEffectMode,

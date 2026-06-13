@@ -46,8 +46,9 @@ class DefaultEditBookModule(
         )
     }
 
-    override suspend fun saveCustomCover(bookId: String, tempCoverPath: String) {
-        coverAssetGateway.saveCustomCover(bookId, tempCoverPath)
+    override suspend fun saveCustomCover(bookId: String, coverUri: String) {
+        // Delegate custom cover persistence using the decoupled URI reference
+        coverAssetGateway.saveCustomCover(bookId, coverUri)
     }
 }
 

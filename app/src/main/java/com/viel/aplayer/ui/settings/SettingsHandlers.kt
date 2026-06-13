@@ -7,7 +7,7 @@ import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.usecase.AbsConnectionReuseSnapshot
 import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
-import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.application.library.settings.AppSettingsCommands
 import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.SeekStepSeconds
@@ -16,7 +16,7 @@ import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.i18n.AppLocaleController
-import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTester
+import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
 import com.viel.aplayer.logger.AbsSettingsLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,78 +28,80 @@ import kotlinx.coroutines.launch
  * Settings Preferences Handler (Manages local configuration modification tasks)
  * Coordinates properties mutations through AppSettingsRepository inside a dedicated view coroutine scope.
  */
+// Title: SettingsPreferencesHandler Decoupling (Shift SettingsPreferencesHandler dependencies to AppSettingsCommands)
+// Replacing AppSettingsRepository with AppSettingsCommands interface to enforce clean architecture constraints.
 class SettingsPreferencesHandler(
-    private val settingsRepository: AppSettingsRepository,
+    private val settingsCommands: AppSettingsCommands,
     private val scope: CoroutineScope,
     private val app: Application
 ) {
     // Title: Toggle Chapter Progress Mode (Updates persistence regarding chapter-level elapsed tracking)
     fun toggleChapterProgressMode(enabled: Boolean) {
         scope.launch {
-            settingsRepository.updateChapterProgressMode(enabled)
+            settingsCommands.updateChapterProgressMode(enabled)
         }
     }
 
     // Title: Toggle Allow Insecure TLS (Updates persistence configuration for accepting untrusted HTTPS certificates)
     fun toggleAllowInsecureTls(enabled: Boolean) {
         scope.launch {
-            settingsRepository.updateAllowInsecureTls(enabled)
+            settingsCommands.updateAllowInsecureTls(enabled)
         }
     }
 
     // Title: Toggle Cleartext Traffic Allowed (Updates persistence configurations for plain HTTP networking)
     fun toggleCleartextTrafficAllowed(enabled: Boolean) {
         scope.launch {
-            settingsRepository.updateCleartextTrafficAllowed(enabled)
+            settingsCommands.updateCleartextTrafficAllowed(enabled)
         }
     }
 
     // Title: Toggle Skip Silence (Updates persistent configuration for automatic silence skipping in playback)
     fun toggleSkipSilenceEnabled(enabled: Boolean) {
         scope.launch {
-            settingsRepository.updateSkipSilenceEnabled(enabled)
+            settingsCommands.updateSkipSilenceEnabled(enabled)
         }
     }
 
     // Title: Toggle Sleep Fade Out (Updates sleep timer fade configuration state)
     fun toggleSleepFadeOutEnabled(enabled: Boolean) {
         scope.launch {
-            settingsRepository.updateSleepFadeOutEnabled(enabled)
+            settingsCommands.updateSleepFadeOutEnabled(enabled)
         }
     }
 
     // Title: Toggle Shake To Reset (Updates accelerometer shaking-reset behavior preferences)
     fun toggleShakeToResetEnabled(enabled: Boolean) {
         scope.launch {
-            settingsRepository.updateShakeToResetEnabled(enabled)
+            settingsCommands.updateShakeToResetEnabled(enabled)
         }
     }
 
     // Title: Update Sleep Mode (Updates persistent sleep timer options)
     fun updateSleepMode(mode: SleepMode) {
         scope.launch {
-            settingsRepository.updateSleepMode(mode)
+            settingsCommands.updateSleepMode(mode)
         }
     }
 
     // Title: Update Glass Effect Mode (Updates graphic container glassmorphism blur settings)
     fun updateGlassEffectMode(mode: GlassEffectMode) {
         scope.launch {
-            settingsRepository.updateGlassEffectMode(mode)
+            settingsCommands.updateGlassEffectMode(mode)
         }
     }
 
     // Title: Update Theme Mode (Updates persistent theme preference configurations)
     fun updateThemeMode(mode: ThemeMode) {
         scope.launch {
-            settingsRepository.updateThemeMode(mode)
+            settingsCommands.updateThemeMode(mode)
         }
     }
 
     // Title: Update App Language (Persist the language config and trigger local activity locale switches)
     fun updateAppLanguage(language: AppLanguage) {
         scope.launch {
-            settingsRepository.updateAppLanguage(language)
+            settingsCommands.updateAppLanguage(language)
             AppLocaleController.applyPlatformLocale(app, language)
         }
     }
@@ -107,35 +109,35 @@ class SettingsPreferencesHandler(
     // Title: Update Auto Rewind Seconds (Updates pause rewind displacement specifications)
     fun updateAutoRewindSeconds(seconds: Int) {
         scope.launch {
-            settingsRepository.updateAutoRewindSeconds(seconds)
+            settingsCommands.updateAutoRewindSeconds(seconds)
         }
     }
 
     // Title: Update Seek Backward Seconds (Updates transport seek step configuration backward)
     fun updateSeekBackwardSeconds(step: SeekStepSeconds) {
         scope.launch {
-            settingsRepository.updateSeekBackwardSeconds(step)
+            settingsCommands.updateSeekBackwardSeconds(step)
         }
     }
 
     // Title: Update Seek Forward Seconds (Updates transport seek step configuration forward)
     fun updateSeekForwardSeconds(step: SeekStepSeconds) {
         scope.launch {
-            settingsRepository.updateSeekForwardSeconds(step)
+            settingsCommands.updateSeekForwardSeconds(step)
         }
     }
 
     // Title: Toggle Notification Avoidance (Updates persistent avoidance preference for audio notifications)
     fun toggleNotificationAvoidanceEnabled(enabled: Boolean) {
         scope.launch {
-            settingsRepository.updateNotificationAvoidanceEnabled(enabled)
+            settingsCommands.updateNotificationAvoidanceEnabled(enabled)
         }
     }
 
     // Title: Toggle Dynamic Color (Updates dynamic wallpaper-based color options)
     fun toggleDynamicColorEnabled(enabled: Boolean) {
         scope.launch {
-            settingsRepository.updateDynamicColorEnabled(enabled)
+            settingsCommands.updateDynamicColorEnabled(enabled)
         }
     }
 }
@@ -144,9 +146,11 @@ class SettingsPreferencesHandler(
  * Settings Connection Handler (Encapsulates remote ABS and WebDAV connection verification tasks)
  * Maintains UI state flows for verification loading and dispatches command calls safely.
  */
+// Title: Settings Connection Handler Decoupling (Shift connection handler dependencies to TestWebDavConnectionUseCase)
+// Replacing WebDavConnectionTester and query methods with TestWebDavConnectionUseCase for testing.
 class SettingsConnectionHandler(
     private val absSettingsConnectionUseCase: AbsSettingsConnectionUseCase,
-    private val webDavConnectionTester: WebDavConnectionTester,
+    private val testWebDavConnectionUseCase: TestWebDavConnectionUseCase,
     private val settingsQueryUseCase: SettingsQueryUseCase,
     private val settingsRootCommands: SettingsRootCommands,
     private val appEventSink: AppEventSink,
@@ -166,7 +170,7 @@ class SettingsConnectionHandler(
     // Title: Cache Connection Snapshot (Retain login token metadata temporarily to avoid redundant handshakes)
     private var lastSuccessfulAbsConnection: AbsConnectionReuseSnapshot? = null
 
-    // Title: Test WebDAV Connection (Submit verification requests to WebDAV tester and map results to states)
+    // Title: Test WebDAV Connection (Submit verification requests via UseCase and map results to states)
     fun testWebDavConnection(
         url: String,
         username: String,
@@ -177,16 +181,12 @@ class SettingsConnectionHandler(
         scope.launch {
             _webDavConnectionState.value = WebDavConnectionUiState(isTesting = true)
             runCatching {
-                val resolvedCredentials = settingsQueryUseCase.resolveWebDavCredentials(
+                testWebDavConnectionUseCase.execute(
+                    url = url,
                     username = username,
                     password = password,
+                    basePath = basePath,
                     editingRootId = editingRootId
-                )
-                webDavConnectionTester.testConnection(
-                    url = url,
-                    username = resolvedCredentials.username,
-                    password = resolvedCredentials.password,
-                    basePath = basePath
                 )
             }.onSuccess {
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = true)

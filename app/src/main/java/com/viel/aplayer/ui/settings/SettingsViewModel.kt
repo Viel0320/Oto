@@ -25,7 +25,10 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     // Settings Screen Dependency View (Resolve only settings-page operations and feedback)
     private val settingsDependencies = APlayerApplication.getSettingsScreenDependencies(application)
-    private val settingsRepository = settingsDependencies.settingsRepository
+    // Title: Settings Abstractions Binding (Bind settings ViewModel to read and command abstractions)
+    // Decouples ViewModel from the concrete data repository class.
+    private val settingsReadModel = settingsDependencies.settingsReadModel
+    private val settingsCommands = settingsDependencies.settingsCommands
     // Settings Root Scene Interfaces
     private val settingsRootReadModel = settingsDependencies.settingsRootReadModel
     private val settingsRootCommands = settingsDependencies.settingsRootCommands
@@ -34,16 +37,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val appEventSink = settingsDependencies.appEventSink
     private val deleteLibraryRootUseCase = settingsDependencies.deleteLibraryRootUseCase
 
-    // Title: Initialize Delegated Handlers (Instantiate separate modules to manage preferences and connections separately)
+    // Title: Initialize Preferences Handler (Pass settings write interface to preferences handler)
     val preferencesHandler = SettingsPreferencesHandler(
-        settingsRepository = settingsRepository,
+        settingsCommands = settingsCommands,
         scope = viewModelScope,
         app = getApplication()
     )
 
     val connectionHandler = SettingsConnectionHandler(
         absSettingsConnectionUseCase = settingsDependencies.absSettingsConnectionUseCase,
-        webDavConnectionTester = settingsDependencies.webDavConnectionTester,
+        testWebDavConnectionUseCase = settingsDependencies.testWebDavConnectionUseCase,
         settingsQueryUseCase = settingsDependencies.settingsQueryUseCase,
         settingsRootCommands = settingsRootCommands,
         appEventSink = appEventSink,
@@ -65,7 +68,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val absSyncConfirmationState: StateFlow<AbsSyncConfirmationState?> = connectionHandler.absSyncConfirmationState
 
     /** Exposed settings flow */
-    val settingsState: StateFlow<AppSettings> = settingsRepository.settingsFlow
+    val settingsState: StateFlow<AppSettings> = settingsReadModel.settingsFlow
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

@@ -76,7 +76,8 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         // Async Warmup (Warm up database/settings components on background thread during application startup)
         // Dispatches the pre-caching of preferences and progress recovery self-healing to a dedicated background thread.
         appScope.launch {
-            processContainer.settingsRepository
+            // Title: Settings Read Model Pre-cache (Triggers settings load during early application warmup)
+            processContainer.settingsReadModel
             // Startup Warmup Coordinator (Gate remote ABS work before local progress recovery)
             // Cold start now enqueues stale ABS roots through root-scoped WorkManager instead of performing authorize progress refreshes inline on every process creation.
             createStartupWarmup(processContainer).run()

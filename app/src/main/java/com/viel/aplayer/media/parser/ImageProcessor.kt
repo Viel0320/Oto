@@ -82,6 +82,83 @@ object ImageProcessor {
     }
 
     /**
+     * Crop, resize and save custom cover from URI (Perform crop and downscaling on cover stream in background)
+     *
+     * Resolves the target external content URI using VfsExternalInputReader, center-crops the bitmap to a square,
+     * downscales it to 800x800 for storage efficiency, and commits the result to the cover cache directory.
+     */
+    suspend fun saveCustomCoverFromUri(
+        context: Context,
+        bookId: String,
+        coverUriString: String
+    ): CoverExtractor.CoverResult = withContext(Dispatchers.IO) {
+        var inputStream: java.io.InputStream? = null
+        try {
+            val inputUri = android.net.Uri.parse(coverUriString)
+            val externalInputReader = com.viel.aplayer.library.vfs.VfsExternalInputReader(context)
+            
+            // Decode boundaries (Read dimensions first to configure subsampling scale and guard against heap OOM)
+            inputStream = externalInputReader.openInputStream(inputUri) ?: return@withContext CoverExtractor.CoverResult(null, null)
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeStream(inputStream, null, options)
+            inputStream.close()
+
+            // Decode image pixel data (Allocate actual bitmap heap buffer using configured Config.RGB_565 configuration)
+            inputStream = externalInputReader.openInputStream(inputUri) ?: return@withContext CoverExtractor.CoverResult(null, null)
+            val maxDim = maxOf(options.outWidth, options.outHeight)
+            val decodeOptions = BitmapFactory.Options().apply {
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            if (maxDim > 2000) {
+                decodeOptions.inSampleSize = 2
+            }
+            val bitmap = BitmapFactory.decodeStream(inputStream, null, decodeOptions) ?: return@withContext CoverExtractor.CoverResult(null, null)
+            inputStream.close()
+
+            // Perform square crop centered relative to the shortest side
+            val width = bitmap.width
+            val height = bitmap.height
+            val size = minOf(width, height)
+            val x = (width - size) / 2
+            val y = (height - size) / 2
+            val croppedBitmap = Bitmap.createBitmap(bitmap, x, y, size, size)
+
+            // Downscale resolution (Resize the cropped square to 800x800 pixels to optimize disk layout and memory profiles)
+            val targetResolution = 800
+            val finalBitmap = if (size > targetResolution) {
+                croppedBitmap.scale(targetResolution, targetResolution)
+            } else {
+                croppedBitmap
+            }
+
+            // Output file commit (Compress and write image block to target file using 90% JPEG quality)
+            val timestamp = System.currentTimeMillis()
+            val originalFile = File(coverCacheDir(context), "${bookId.hashCode()}_custom_${timestamp}_orig.jpg")
+            originalFile.parentFile?.mkdirs()
+            FileOutputStream(originalFile).use { out ->
+                finalBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            }
+
+            // Explicit recycling (Call recycle on temporary bitmaps to free graphics memory immediately)
+            if (finalBitmap != croppedBitmap) {
+                finalBitmap.recycle()
+            }
+            if (croppedBitmap != bitmap) {
+                croppedBitmap.recycle()
+            }
+            bitmap.recycle()
+
+            // Generate thumbnail from the finalized custom cover image
+            val thumbPath = createThumbnailFromFile(originalFile, "${bookId}_custom_${timestamp}")
+            CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, null)
+        } catch (e: Exception) {
+            SecureLog.error(TAG, "从外部 URI 裁剪并保存有声书 $bookId 的自定义封面失败", e)
+            try { inputStream?.close() } catch (_: Exception) {}
+            CoverExtractor.CoverResult(null, null)
+        }
+    }
+
+    /**
      * 保存内嵌封面字节。
      *
      * 

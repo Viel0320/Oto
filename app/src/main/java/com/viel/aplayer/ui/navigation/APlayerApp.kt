@@ -91,8 +91,10 @@ fun APlayerApp(
         // The navigation host renders global feedback and theme state without needing screen-specific or playback dependencies.
         com.viel.aplayer.APlayerApplication.getAppShellDependencies(context)
     }
-    val settingsRepository = remember(appShellDependencies) {
-        appShellDependencies.settingsRepository
+    // Title: Settings Read Model Binding (Bind APlayerApp to settingsReadModel abstraction)
+    // Decouples navigation shell from concrete data repository classes.
+    val settingsReadModel = remember(appShellDependencies) {
+        appShellDependencies.settingsReadModel
     }
     val appEventSink = remember(appShellDependencies) {
         appShellDependencies.appEventSink
@@ -102,8 +104,8 @@ fun APlayerApp(
     }
     // Async Settings Load (Use collectAsStateWithLifecycle to load AppSettings, seeding it with the pre-cached value)
     // Avoids running a blocking runBlocking read on the main thread during cold start, preventing thread lock/ANR.
-    val initialSettings by settingsRepository.settingsFlow.collectAsStateWithLifecycle(
-        initialValue = settingsRepository.cachedSettings
+    val initialSettings by settingsReadModel.settingsFlow.collectAsStateWithLifecycle(
+        initialValue = settingsReadModel.cachedSettings
     )
 
     val requestedGlassEffectMode = if (libraryUiState.selectedFilter != null) {

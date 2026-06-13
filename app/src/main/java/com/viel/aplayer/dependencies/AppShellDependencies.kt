@@ -7,12 +7,14 @@ import com.viel.aplayer.event.AppEventSink
  * App Shell Dependencies (Top-level Compose shell dependency view)
  * Limits APlayerApp to global settings and app-shell feedback collection.
  */
+// Title: AppShellDependencies Interface Decoupling (Expose settings read model abstraction to navigation root)
+// This replacement ensures the application shell resolves preferences via a read model instead of a data storage implementation.
 interface AppShellDependencies {
     /**
-     * Settings Repository (App shell theme and behavior preference source)
+     * Settings Read Model (App shell theme and behavior preference query stream)
      * Provides the initial settings state required before rendering navigation content.
      */
-    val settingsRepository: AppSettingsRepository
+    val settingsReadModel: com.viel.aplayer.application.library.settings.AppSettingsReadModel
 
     /**
      * Application Event Sink (App shell transient feedback stream)

@@ -29,6 +29,8 @@ import com.viel.aplayer.application.usecase.DeleteBookUseCase
 import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
+import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
+import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
@@ -94,9 +96,10 @@ interface AppContainer :
      * Playback Domain Event Sink (Media-core event stream for playback facts)
      * Lets playback services publish domain outcomes while the application bridge decides how to render them.
      */
-    override val playbackDomainEventSink: PlaybackDomainEventSink
-
-    override val settingsRepository: AppSettingsRepository
+    // Title: Settings Abstractions Binding (Expose read model and commands to UI dependencies)
+    // Replaces concrete AppSettingsRepository with settingsReadModel and settingsCommands interfaces.
+    override val settingsReadModel: com.viel.aplayer.application.library.settings.AppSettingsReadModel
+    override val settingsCommands: com.viel.aplayer.application.library.settings.AppSettingsCommands
 
     /**
      * Settings Root Read Model (Scene-level root display stream)
@@ -140,11 +143,8 @@ interface AppContainer :
      */
     override val absSettingsConnectionUseCase: AbsSettingsConnectionUseCase
 
-    /**
-     * WebDAV Connection Tester (Settings-side remote endpoint preflight)
-     * Owns PROPFIND and TLS policy checks so SettingsViewModel only receives success or failure.
-     */
-    override val webDavConnectionTester: WebDavConnectionTester
+    // Title: WebDavConnectionTester Decoupling (Expose TestWebDavConnectionUseCase in AppContainer)
+    override val testWebDavConnectionUseCase: TestWebDavConnectionUseCase
     
     /**
      * Cross-Domain Use Case (Unregister and purge library root coordinates)
@@ -299,11 +299,8 @@ interface AppContainer :
      */
     override val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer
 
-    /**
-     * ABS Progress Conflict Coordinator (Remote/local progress arbitration service)
-     * Provides playback prompts and upload guards without leaking ABS protocol details into generic progress services.
-     */
-    override val absProgressConflictCoordinator: AbsProgressConflictCoordinator
+    // Title: AbsProgressConflictCoordinator Decoupling (Expose ResolveProgressConflictUseCase in AppContainer)
+    override val resolveProgressConflictUseCase: ResolveProgressConflictUseCase
 
 }
 
@@ -376,8 +373,12 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         WebDavCredentialStore(context.applicationContext)
     }
 
-    override val settingsRepository: AppSettingsRepository
-        get() = data.settingsRepository
+    // Title: Settings Abstractions Delegate (Delegate dependency lookups to DataGraph abstractions)
+    override val settingsReadModel: com.viel.aplayer.application.library.settings.AppSettingsReadModel
+        get() = data.settingsReadModel
+
+    override val settingsCommands: com.viel.aplayer.application.library.settings.AppSettingsCommands
+        get() = data.settingsCommands
 
     override val appEventSink: AppEventSink
         get() = uiEvents.appEventSink
@@ -446,10 +447,18 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         )
     }
 
-    override val webDavConnectionTester: WebDavConnectionTester by lazy {
+    private val webDavConnectionTester: WebDavConnectionTester by lazy {
         // WebDAV Tester Wiring (Shares app settings for insecure TLS selection)
         // The tester hides OkHttp, PROPFIND, and TLS details from the settings presentation layer.
         WebDavConnectionTester(appSettingsRepository = data.settingsRepository)
+    }
+
+    // Title: WebDavConnectionTester Decoupling (Wire TestWebDavConnectionUseCase in DefaultAppContainer)
+    override val testWebDavConnectionUseCase: TestWebDavConnectionUseCase by lazy {
+        TestWebDavConnectionUseCase(
+            webDavConnectionTester = webDavConnectionTester,
+            settingsQueryUseCase = settingsQueryUseCase
+        )
     }
 
     override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
@@ -545,8 +554,10 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     override val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer
         get() = abs.absPlaybackSessionSyncer
 
-    override val absProgressConflictCoordinator: AbsProgressConflictCoordinator
-        get() = abs.absProgressConflictCoordinator
+    // Title: AbsProgressConflictCoordinator Decoupling (Wire ResolveProgressConflictUseCase in DefaultAppContainer)
+    override val resolveProgressConflictUseCase: ResolveProgressConflictUseCase by lazy {
+        ResolveProgressConflictUseCase(abs.absProgressConflictCoordinator)
+    }
 
     override val absAuthorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer
         get() = abs.absAuthorizedProgressSynchronizer

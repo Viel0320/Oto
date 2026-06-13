@@ -17,11 +17,17 @@ class CoverAssetService(
     private val bookDao: BookDao,
     private val coverExtractor: CoverExtractor
 ) : CoverAssetGateway {
-    override suspend fun saveCustomCover(bookId: String, tempCoverPath: String) = withContext(Dispatchers.IO) {
+    override suspend fun saveCustomCover(bookId: String, coverUri: String) = withContext(Dispatchers.IO) {
         val book = bookDao.getBookById(bookId) ?: return@withContext
-        // Custom Cover Extraction (Copy and normalize the temporary artwork into app-owned storage)
-        // CoverExtractor owns image processing details while this service owns stale-file cleanup and Room path updates.
-        val result = coverExtractor.saveCustomCover(bookId, tempCoverPath)
+        // Custom Cover Extraction From URI (Crop, scale and normalize the selected artwork using its URI)
+        // Resolves the image source using the background-safe extractor and avoids temporary file copies.
+        val normalizedUri = if (!coverUri.startsWith("content://") && !coverUri.startsWith("file://")) {
+            // Fallback scheme routing (Prepend file scheme for raw absolute paths to ensure provider decoding compatibility)
+            "file://$coverUri"
+        } else {
+            coverUri
+        }
+        val result = coverExtractor.saveCustomCoverFromUri(bookId, normalizedUri)
         if (result.originalPath != null) {
             // Legacy Cover Cleanup (Remove stale full-size artwork after a successful replacement)
             // Deleting only after the new cover exists prevents losing artwork when extraction fails.
@@ -38,12 +44,6 @@ class CoverAssetService(
                 if (oldFile.exists()) {
                     oldFile.delete()
                 }
-            }
-            // Temporary Cover Cleanup (Remove crop/edit scratch files after persistence)
-            // The temporary input is no longer needed once the app-owned copy has been saved.
-            val tempFile = File(tempCoverPath)
-            if (tempFile.exists()) {
-                tempFile.delete()
             }
 
             // Cover Path Persistence (Persist the new artwork coordinates in Room)

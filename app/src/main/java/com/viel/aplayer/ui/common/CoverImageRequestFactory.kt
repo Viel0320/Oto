@@ -124,8 +124,16 @@ object CoverImageRequestFactory {
                 )
             }
         }
+        // Cover Source URI Resolution (Support content URIs and file URIs alongside raw file paths)
+        // If the path starts with content:// or file://, we parse it as an android.net.Uri so Coil can resolve ContentResolver or scheme providers.
+        // Otherwise, it is treated as a local absolute file path and mapped directly to java.io.File to preserve existing filesystem contracts.
+        val dataObject = if (sourcePath.startsWith("content://") || sourcePath.startsWith("file://")) {
+            android.net.Uri.parse(sourcePath)
+        } else {
+            File(sourcePath)
+        }
         val request = ImageRequest.Builder(context)
-            .data(File(sourcePath))
+            .data(dataObject)
             .memoryCacheKey(cacheKey)
             .diskCacheKey(cacheKey)
             .allowHardware(allowHardware)

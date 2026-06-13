@@ -25,4 +25,9 @@ internal class DataGraph(val context: Context) {
         // App Settings Repository: Accesses the application configuration options.
         AppSettingsRepository.getInstance(context)
     }
+
+    // Title: Settings Abstractions Exposure (Exposes settings read and command interfaces from DataGraph)
+    // Exposes interfaces to other graphs and DI layers instead of the concrete AppSettingsRepository class.
+    val settingsReadModel: com.viel.aplayer.application.library.settings.AppSettingsReadModel get() = settingsRepository
+    val settingsCommands: com.viel.aplayer.application.library.settings.AppSettingsCommands get() = settingsRepository
 }

@@ -20,8 +20,10 @@ interface EditBookCommands {
     )
 
     /**
-     * Save Custom Cover (Persist a user-selected cover image)
-     * Keeps cover asset writes separate from text metadata so EditBookViewModel does not need a broad library dependency.
+     * Save Custom Cover (Persist a user-selected cover image from URI)
+     *
+     * Keeps cover asset writes separate from text metadata, delegating cover URI resolution and processing
+     * entirely to the application modules.
      */
-    suspend fun saveCustomCover(bookId: String, tempCoverPath: String)
+    suspend fun saveCustomCover(bookId: String, coverUri: String)
 }

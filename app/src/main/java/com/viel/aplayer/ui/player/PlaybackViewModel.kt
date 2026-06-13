@@ -5,7 +5,7 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
+import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
 import com.viel.aplayer.application.library.player.PlayerRelatedData
@@ -57,7 +57,7 @@ class PlaybackViewModel(
     private val playbackController = playerDependencies.playerPlaybackController
     private val playerLibraryReadModel = playerDependencies.playerLibraryReadModel
     private val buildPlaybackPlanUseCase = playerDependencies.buildPlaybackPlanUseCase
-    private val absProgressConflictCoordinator = playerDependencies.absProgressConflictCoordinator
+    private val resolveProgressConflictUseCase = playerDependencies.resolveProgressConflictUseCase
     private val appEventSink = playerDependencies.appEventSink
 
     private val _currentBookId = MutableStateFlow<String?>(null)
@@ -97,7 +97,7 @@ class PlaybackViewModel(
     private val _absProgressConflictDialog = MutableStateFlow(AbsProgressConflictDialogState())
     val absProgressConflictDialogState: StateFlow<AbsProgressConflictDialogState> = _absProgressConflictDialog.asStateFlow()
 
-    private var pendingAbsProgressConflict: AbsProgressConflictCoordinator.ProgressConflict? = null
+    private var pendingAbsProgressConflict: ResolveProgressConflictUseCase.ConflictSnapshot? = null
     private var pendingAbsProgressLoadRequest: PendingAbsProgressLoadRequest? = null
 
     private val playbackDelegate = MediaPlaybackDelegate(
@@ -275,10 +275,10 @@ class PlaybackViewModel(
     }
 
     private fun observeSettings() {
-        val repo = playerDependencies.settingsRepository
+        val readModel = playerDependencies.settingsReadModel
         externalScope.launch {
-            // Title: Observe settings directly without safe call (Observes the non-nullable settings repository flow)
-            repo.settingsFlow.collect { settings ->
+            // Title: Observe settings via read model (Observes the settings read model flow)
+            readModel.settingsFlow.collect { settings ->
                 if (settings.isChapterProgressMode != _isChapterProgressMode.value) {
                     setChapterProgressMode(settings.isChapterProgressMode)
                 }
@@ -372,15 +372,15 @@ class PlaybackViewModel(
         playWhenReady: Boolean,
         loadBookRequestStart: Long
     ): Boolean {
-        // Title: Resolve ABS conflicts on prepare (Invokes non-nullable coordinator directly)
-        val coordinator = absProgressConflictCoordinator
-        return when (val decision = coordinator.preparePlayback(id)) {
-            AbsProgressConflictCoordinator.PlaybackDecision.ContinueLocal -> true
-            is AbsProgressConflictCoordinator.PlaybackDecision.ApplyRemote -> {
-                coordinator.acceptRemoteProgress(decision.conflict)
+        // Title: Resolve ABS conflicts on prepare (Invokes non-nullable conflict resolution usecase)
+        val useCase = resolveProgressConflictUseCase
+        return when (val decision = useCase.preparePlayback(id)) {
+            ResolveProgressConflictUseCase.PlaybackDecisionResult.ContinueLocal -> true
+            is ResolveProgressConflictUseCase.PlaybackDecisionResult.ApplyRemote -> {
+                useCase.acceptRemoteProgress(decision.conflict)
                 true
             }
-            is AbsProgressConflictCoordinator.PlaybackDecision.AskUser -> {
+            is ResolveProgressConflictUseCase.PlaybackDecisionResult.AskUser -> {
                 pendingAbsProgressConflict = decision.conflict
                 pendingAbsProgressLoadRequest = PendingAbsProgressLoadRequest(id, playWhenReady, loadBookRequestStart)
                 _absProgressConflictDialog.value = decision.conflict.toDialogState()
@@ -430,8 +430,8 @@ class PlaybackViewModel(
     fun acceptLocalAbsProgressConflict() {
         val conflict = pendingAbsProgressConflict ?: return
         val request = pendingAbsProgressLoadRequest ?: return
-        // Title: Accept local progress conflict option (Invokes non-nullable conflict coordinator directly)
-        absProgressConflictCoordinator.acceptLocalProgress(conflict.book.id)
+        // Title: Accept local progress conflict option (Invokes non-nullable conflict resolution usecase)
+        resolveProgressConflictUseCase.acceptLocalProgress(conflict.bookId)
         clearPendingAbsProgressConflict()
         externalScope.launch {
             loadBookAfterProgressDecision(request.bookId, request.playWhenReady, request.requestStartMs)
@@ -441,11 +441,11 @@ class PlaybackViewModel(
     fun acceptRemoteAbsProgressConflict() {
         val conflict = pendingAbsProgressConflict ?: return
         val request = pendingAbsProgressLoadRequest ?: return
-        // Title: Accept remote progress conflict option (Invokes non-nullable conflict coordinator directly)
-        val coordinator = absProgressConflictCoordinator
+        // Title: Accept remote progress conflict option (Invokes non-nullable conflict resolution usecase)
+        val useCase = resolveProgressConflictUseCase
         externalScope.launch {
             runCatching {
-                coordinator.acceptRemoteProgress(conflict)
+                useCase.acceptRemoteProgress(conflict)
             }.onSuccess {
                 clearPendingAbsProgressConflict()
                 loadBookAfterProgressDecision(request.bookId, request.playWhenReady, request.requestStartMs)
@@ -465,16 +465,16 @@ class PlaybackViewModel(
         _absProgressConflictDialog.value = AbsProgressConflictDialogState()
     }
 
-    private fun AbsProgressConflictCoordinator.ProgressConflict.toDialogState(): AbsProgressConflictDialogState =
+    private fun ResolveProgressConflictUseCase.ConflictSnapshot.toDialogState(): AbsProgressConflictDialogState =
         AbsProgressConflictDialogState(
             show = true,
-            bookTitle = book.title,
-            localPositionMs = localProgress?.globalPositionMs,
-            remotePositionMs = remoteProgress.globalPositionMs,
-            localUpdatedAt = localProgress?.lastPlayedAt,
-            remoteUpdatedAt = remoteProgress.lastPlayedAt,
-            localFinished = book.readStatus == AudiobookSchema.ReadStatus.FINISHED,
-            remoteFinished = remoteIsFinished == true
+            bookTitle = bookTitle,
+            localPositionMs = localPositionMs,
+            remotePositionMs = remotePositionMs,
+            localUpdatedAt = localUpdatedAt,
+            remoteUpdatedAt = remoteUpdatedAt,
+            localFinished = localFinished,
+            remoteFinished = remoteFinished
         )
 
     fun closePlayback(bookId: String) {

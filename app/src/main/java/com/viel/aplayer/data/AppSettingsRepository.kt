@@ -33,12 +33,16 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 /**
  * App Settings Storage (Manages persistence of user configuration via Jetpack DataStore)
  */
-class AppSettingsRepository private constructor(private val dataStore: DataStore<Preferences>) {
+// Title: Interface Implementation Binding (Bind AppSettingsRepository to application layer interfaces to allow UI decoupling)
+// Implementing AppSettingsReadModel and AppSettingsCommands allows VMs to interact with settings abstractions instead of concrete class types.
+class AppSettingsRepository private constructor(private val dataStore: DataStore<Preferences>) :
+    com.viel.aplayer.application.library.settings.AppSettingsReadModel,
+    com.viel.aplayer.application.library.settings.AppSettingsCommands {
 
     // Pre-Cached AppSettings (Provides instant sync access to current settings to avoid main thread I/O or runBlocking calls)
     @Volatile
     private var _cachedSettings = AppSettings()
-    val cachedSettings: AppSettings get() = _cachedSettings
+    override val cachedSettings: AppSettings get() = _cachedSettings
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -121,7 +125,7 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     /**
      * Live Preferences Stream (Exposes a Flow of updated AppSettings from the DataStore repository)
      */
-    val settingsFlow: Flow<AppSettings> = dataStore.data.map { preferences ->
+    override val settingsFlow: Flow<AppSettings> = dataStore.data.map { preferences ->
         AppSettings(
             // Read Theme Mode (Parse active theme mode, defaulting to System if empty or invalid) Reads theme mode configuration.
             themeMode = preferences[PreferencesKeys.THEME_MODE]
@@ -209,129 +213,129 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         }
     }
 
-    suspend fun updateHomeFilter(filter: HomeFilter) {
+    override suspend fun updateHomeFilter(filter: HomeFilter) {
         // Update Home Filter Type Safe: Use HomeFilter enum name instead of raw string to prevent status drifts.
         dataStore.edit { it[PreferencesKeys.HOME_FILTER] = filter.name }
     }
 
     // Write Home Book Status Filter (Persist the Home dialog availability filter)
     // The caller passes a stable enum name so the stored value remains language-independent across localized labels.
-    suspend fun updateHomeBookStatusFilter(filter: HomeBookStatusFilter) {
+    override suspend fun updateHomeBookStatusFilter(filter: HomeBookStatusFilter) {
         // Update Home Book Status Filter Type Safe: Use HomeBookStatusFilter enum name instead of raw string to prevent status drifts.
         dataStore.edit { it[PreferencesKeys.HOME_BOOK_STATUS_FILTER] = filter.name }
     }
 
     // Write Home View Style (Persist the selected Home catalog renderer)
     // Saves enum names directly so the UI can switch between adaptive listgroup columns and cardgroup carousel rows after the DataStore flow emits.
-    suspend fun updateHomeViewStyle(style: HomeViewStyle) {
+    override suspend fun updateHomeViewStyle(style: HomeViewStyle) {
         dataStore.edit { it[PreferencesKeys.HOME_VIEW_STYLE] = style.name }
     }
 
     // Write Home Sort Rule (Persist the selected Home catalog grouping and ordering rule)
     // Saves enum names directly so the ViewModel can rebuild grouped audiobook sections from the canonical settings stream.
-    suspend fun updateHomeSortRule(rule: HomeSortRule) {
+    override suspend fun updateHomeSortRule(rule: HomeSortRule) {
         dataStore.edit { it[PreferencesKeys.HOME_SORT_RULE] = rule.name }
     }
 
     // Write Home Sort Direction (Persist the selected in-cluster ordering direction)
     // Saves only the enum name because fixed script cluster ordering remains a policy concern, not a storage concern.
-    suspend fun updateHomeSortDirection(direction: HomeSortDirection) {
+    override suspend fun updateHomeSortDirection(direction: HomeSortDirection) {
         dataStore.edit { it[PreferencesKeys.HOME_SORT_DIRECTION] = direction.name }
     }
 
-    suspend fun updateGlobalSpeedEnabled(enabled: Boolean) {
+    override suspend fun updateGlobalSpeedEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] = enabled }
     }
 
     // Write Global Playback Speed (Persist only repository-normalized speed values)
     // Direct repository callers can pass values outside UI lists, so this boundary stores a playable 0.25x-2.0x speed or the neutral default.
-    suspend fun updateGlobalPlaybackSpeed(speed: Float) {
+    override suspend fun updateGlobalPlaybackSpeed(speed: Float) {
         dataStore.edit { it[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] = PlaybackSettingsBounds.speedOrDefault(speed) }
     }
 
-    suspend fun updateChapterProgressMode(enabled: Boolean) {
+    override suspend fun updateChapterProgressMode(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] = enabled }
     }
 
     // Write Insecure TLS Option: Save insecure TLS bypass configuration to the local preferences store.
-    suspend fun updateAllowInsecureTls(enabled: Boolean) {
+    override suspend fun updateAllowInsecureTls(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_ALLOW_INSECURE_TLS] = enabled }
     }
 
     // Write HTTP Policy (Persist user permission settings regarding cleartext HTTP connections)
-    suspend fun updateCleartextTrafficAllowed(enabled: Boolean) {
+    override suspend fun updateCleartextTrafficAllowed(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] = enabled }
     }
 
-     /**
+    /**
       * Write Skip Silence (Persist skip silence preferences)
       * Custom thresholds and notification triggers are managed implicitly under system defaults.
       */
-    suspend fun updateSkipSilenceEnabled(enabled: Boolean) {
+    override suspend fun updateSkipSilenceEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] = enabled }
     }
 
     // Write Sleep Fade-Out (Persist volume fade-out switch settings for sleep timer expirations)
-    suspend fun updateSleepFadeOutEnabled(enabled: Boolean) {
+    override suspend fun updateSleepFadeOutEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] = enabled }
     }
 
     // Write Shake-to-Reset (Persist shake reset switch settings to toggle sensor inputs on timer start)
-    suspend fun updateShakeToResetEnabled(enabled: Boolean) {
+    override suspend fun updateShakeToResetEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] = enabled }
     }
 
     // Write Sleep Mode (Persist target SleepMode layout options into the local data store)
-    suspend fun updateSleepMode(mode: SleepMode) {
+    override suspend fun updateSleepMode(mode: SleepMode) {
         dataStore.edit { it[PreferencesKeys.SLEEP_MODE] = mode.name }
     }
 
     // Write Glass Effect (Persist rendering preference for glassmorphic overlay sheets)
-    suspend fun updateGlassEffectMode(mode: GlassEffectMode) {
+    override suspend fun updateGlassEffectMode(mode: GlassEffectMode) {
         dataStore.edit { it[PreferencesKeys.GLASS_EFFECT_MODE] = mode.name }
     }
 
     // Write Auto Rewind (Persist only repository-normalized rewind seconds)
     // Clamping at write time keeps direct callers and restored settings aligned with the 0-30 second playback resume contract.
-    suspend fun updateAutoRewindSeconds(seconds: Int) {
+    override suspend fun updateAutoRewindSeconds(seconds: Int) {
         dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = PlaybackSettingsBounds.autoRewindSecondsOrDefault(seconds) }
     }
 
     // Write Seek Backward Step (Persist validated rewind increments only)
     // Accepting SeekStepSeconds keeps callers from writing unsupported raw integers into DataStore.
-    suspend fun updateSeekBackwardSeconds(step: SeekStepSeconds) {
+    override suspend fun updateSeekBackwardSeconds(step: SeekStepSeconds) {
         dataStore.edit { it[PreferencesKeys.SEEK_BACKWARD_SECONDS] = step.seconds }
     }
 
     // Write Seek Forward Step (Persist validated fast-forward increments only)
     // Accepting SeekStepSeconds keeps notification, widget, and player controls aligned on the same allowed values.
-    suspend fun updateSeekForwardSeconds(step: SeekStepSeconds) {
+    override suspend fun updateSeekForwardSeconds(step: SeekStepSeconds) {
         dataStore.edit { it[PreferencesKeys.SEEK_FORWARD_SECONDS] = step.seconds }
     }
 
     // Write Interruption Flag (Flag whether the current playback loop ended normally or via process terminations)
-    suspend fun updateLastPlaybackInterrupted(interrupted: Boolean) {
+    override suspend fun updateLastPlaybackInterrupted(interrupted: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] = interrupted }
     }
 
     // Write Ducking Avoidance (Persist notification avoidance configurations for audio focus loss)
-    suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) {
+    override suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] = enabled }
     }
 
     // Write Theme Mode (Persist user selected theme mode into local DataStore) Helper function to save theme mode configuration.
-    suspend fun updateThemeMode(mode: ThemeMode) {
+    override suspend fun updateThemeMode(mode: ThemeMode) {
         dataStore.edit { it[PreferencesKeys.THEME_MODE] = mode.name }
     }
 
     // Write App Language (Persist explicit app locale selection)
     // The caller applies platform locale APIs separately, keeping storage mutation and Android framework side effects decoupled.
-    suspend fun updateAppLanguage(language: AppLanguage) {
+    override suspend fun updateAppLanguage(language: AppLanguage) {
         dataStore.edit { it[PreferencesKeys.APP_LANGUAGE] = language.name }
     }
 
     // Write Dynamic Color Setting (Persist dynamic color option to DataStore) Saves dynamic color preference changes.
-    suspend fun updateDynamicColorEnabled(enabled: Boolean) {
+    override suspend fun updateDynamicColorEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] = enabled }
     }
 

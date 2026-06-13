@@ -69,7 +69,6 @@ import com.viel.aplayer.R
 import com.viel.aplayer.application.library.edit.EditBookDraft
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.library.vfs.VfsExternalInputReader
 import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.PlayerCover
@@ -101,9 +100,8 @@ import java.io.File
 fun EditBookScreen(
     book: EditBookDraft?,
     onNavigationBack: () -> Unit,
-    // EditBookScreen Save Signature (Adds series parameter to save callback)
-    // Passes series name along with other text metadata to the overlay controller.
-    onSave: (title: String, author: String, narrator: String, year: String, description: String, series: String, newCoverPath: String?) -> Unit,
+    // EditBookScreen Save Signature (Passes series name and new cover URI to the overlay controller)
+    onSave: (title: String, author: String, narrator: String, year: String, description: String, series: String, newCoverUri: String?) -> Unit,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     // Edit Sheet Haze Source (Receive the stable overlay sampling state)
@@ -113,39 +111,21 @@ fun EditBookScreen(
     // Android Context (Needed for file handling and resolution operations)
     val context = LocalContext.current
 
-    // Temp Cover Image Reference (Tracks the path of user-cropped square cover preview)
-    var tempCoverPath by remember { mutableStateOf<String?>(null) }
+    // Selected Cover Image Reference (Tracks the URI string of user-selected photo preview)
+    var selectedCoverUri by remember { mutableStateOf<android.net.Uri?>(null) }
 
-    // Image Picker Contract (Launches photo picker, crops image, and updates temporary cache path)
+    // Image Picker Contract (Launches photo picker and updates the selected cover URI state)
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: android.net.Uri? ->
-        uri?.let { inputUri ->
-            book?.let { currentBook ->
-                val tempFile = File(context.cacheDir, "temp_cover_${currentBook.id}_${System.currentTimeMillis()}.jpg")
-                if (cropToSquareAndSave(context, inputUri, tempFile)) {
-                    // Disk Cleanup (Purge former temporary assets to avoid cache growth)
-                    tempCoverPath?.let { oldPath ->
-                        val oldFile = File(oldPath)
-                        if (oldFile.exists()) {
-                            oldFile.delete()
-                        }
-                    }
-                    tempCoverPath = tempFile.absolutePath
-                }
-            }
+        if (uri != null) {
+            selectedCoverUri = uri
         }
     }
 
-    // Exit handler (Cleans up temporary files on cancel actions and navigates back)
-    val handleCancel = remember(tempCoverPath) {
+    // Exit handler (Cleans up reference and navigates back on cancel actions)
+    val handleCancel = remember {
         {
-            tempCoverPath?.let { path ->
-                val file = File(path)
-                if (file.exists()) {
-                    file.delete()
-                }
-            }
             onNavigationBack()
         }
     }
@@ -171,21 +151,9 @@ fun EditBookScreen(
         }
     }
 
-    // Lifecycle Guard Disposable (Ensures removal of temporary images upon Composable disposal)
-    androidx.compose.runtime.DisposableEffect(Unit) {
-        onDispose {
-            tempCoverPath?.let { path ->
-                val file = File(path)
-                if (file.exists()) {
-                    file.delete()
-                }
-            }
-        }
-    }
-
-    // Edit Cover Display Source (Use the same path for preview artwork and page color extraction)
-    // A freshly uploaded cover replaces the book cover immediately, so this key changes and forces the edit page color state to refresh from the new file.
-    val editCoverPath = tempCoverPath ?: book?.coverPath ?: book?.thumbnailPath
+    // Edit Cover Display Source (Use the selected URI if available, otherwise fallback to book cover or thumbnail paths)
+    // A freshly uploaded cover replaces the book cover immediately, so this key changes and forces the edit page color state to refresh.
+    val editCoverPath = selectedCoverUri?.toString() ?: book?.coverPath ?: book?.thumbnailPath
     // Edit Cover Dynamic Color State (Seed the edit page theme from its own currently displayed cover)
     // The cache gives an instant color when available, while PlayerCover will update this state after Coil decodes a newly uploaded temporary cover.
     var editCoverColor by remember(editCoverPath) {
@@ -504,7 +472,7 @@ fun EditBookScreen(
                                         year,
                                         description,
                                         series,
-                                        tempCoverPath
+                                        selectedCoverUri?.toString()
                                     )
                                 },
                                 modifier = Modifier
@@ -559,7 +527,7 @@ fun EditBookScreen(
                                         year,
                                         description,
                                         series,
-                                        tempCoverPath
+                                        selectedCoverUri?.toString()
                                     )
                                 },
                                 modifier = Modifier
@@ -710,81 +678,7 @@ fun EditBookScreen(
     }
 }
 
-/**
- * Crop to Square and Save: Decodes, crops, resizes, and writes photo selection.
- *
- * Crops image input to square aspect ratio, resizes it to 800x800, and saves as a 90% JPEG.
- * Built with memory safety features to prevent Native OOM issues and ensure bitmap allocation recycling.
- */
-private fun cropToSquareAndSave(
-    context: android.content.Context,
-    inputUri: android.net.Uri,
-    outputFile: File
-): Boolean {
-    // VFS Input Stream Bridge (Open files using VfsExternalInputReader instead of querying ContentResolver directly)
-    val externalInputReader = VfsExternalInputReader(context)
-    var inputStream: java.io.InputStream? = null
-    try {
-        inputStream = externalInputReader.openInputStream(inputUri) ?: return false
-        // Decode dimensions (Check bound dimensions beforehand to configure sub-sampling scale and avoid heap OOM)
-        val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        android.graphics.BitmapFactory.decodeStream(inputStream, null, options)
-        inputStream.close()
 
-        // Load bitmap buffer (Initialize fresh stream mapping to decode actual grid values into heap)
-        inputStream = externalInputReader.openInputStream(inputUri) ?: return false
-        val maxDim = maxOf(options.outWidth, options.outHeight)
-        val decodeOptions = android.graphics.BitmapFactory.Options().apply {
-            // Force RGB_565 Config: Force decode to RGB_565 configuration to reduce heap memory pressure.
-            inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
-        }
-        // Resize check (Apply sub-sampling factor of 2 if source dimensions exceed 2000 pixels)
-        if (maxDim > 2000) {
-            decodeOptions.inSampleSize = 2
-        }
-        val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream, null, decodeOptions) ?: return false
-        inputStream.close()
-
-        // Perform square crop centered relative to the shortest side
-        val width = bitmap.width
-        val height = bitmap.height
-        val size = minOf(width, height)
-        val x = (width - size) / 2
-        val y = (height - size) / 2
-
-        val croppedBitmap = android.graphics.Bitmap.createBitmap(bitmap, x, y, size, size)
-
-        // Downscale resolution (Resize the cropped square to 800x800 pixels to optimize disk layout and memory profiles)
-        val targetResolution = 800
-        val finalBitmap = if (size > targetResolution) {
-            croppedBitmap.scale(targetResolution, targetResolution)
-        } else {
-            croppedBitmap
-        }
-
-        // Output file commit (Compress and write image block to target file using 90% JPEG quality)
-        outputFile.parentFile?.mkdirs()
-        java.io.FileOutputStream(outputFile).use { out ->
-            finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
-        }
-
-        // Explicit recycling (Call recycle on bitmaps to free graphics memory immediately)
-        if (finalBitmap != croppedBitmap) {
-            finalBitmap.recycle()
-        }
-        if (croppedBitmap != bitmap) {
-            croppedBitmap.recycle()
-        }
-        bitmap.recycle()
-        return true
-    } catch (e: Exception) {
-        // Release Error Boundary (Sanitize manual cover crop failures)
-        // Cover editing reads user-selected image streams, so retained errors must not emit provider paths or raw exception text.
-        SecureLog.error("EditBookScreen", "居中裁剪正方形封面失败，原因: ", e)
-        try { inputStream?.close() } catch (_: Exception) {}
-        return false
-    }
-}
 
 /**
  * Layout Previews: Integrated Compose visualization targets.

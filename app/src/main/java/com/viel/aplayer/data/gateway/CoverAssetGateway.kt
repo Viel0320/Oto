@@ -10,7 +10,7 @@ interface CoverAssetGateway {
     /**
      * Save Custom Cover File (User manual cover override)
      *
-     * Saves the cropped temporary cover image, removes stale artwork files, and updates persisted cover paths.
+     * Saves the custom cover image from the given URI or path, removes stale artwork files, and updates persisted cover paths.
      */
-    suspend fun saveCustomCover(bookId: String, tempCoverPath: String)
+    suspend fun saveCustomCover(bookId: String, coverUri: String)
 }
