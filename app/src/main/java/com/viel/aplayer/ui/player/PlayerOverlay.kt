@@ -27,9 +27,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
@@ -112,7 +112,7 @@ fun PlayerOverlay(
         }
     }
 
-    val windowClass = LocalWindowClass.current
+    val windowClass = LocalAppWindowSizeClass.current
     val usePillPlayer = windowClass.isWideScreen
     val playerAlignment = if (usePillPlayer) Alignment.BottomEnd else Alignment.BottomCenter
     // Remove Overlay Occlusion Check (Allow player overlays to display independently of search or other active overlay screens)
@@ -306,7 +306,7 @@ private fun MiniPlayerContent(
         }
     }
 
-    val windowClass = LocalWindowClass.current
+    val windowClass = LocalAppWindowSizeClass.current
     val usePillPlayer = windowClass.isWideScreen
     val miniPlayerCoverPath = CoverImageSourceSelector.small(
         thumbnailPath = metadata.thumbnailPath,

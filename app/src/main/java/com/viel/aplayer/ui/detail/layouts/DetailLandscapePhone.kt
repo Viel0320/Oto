@@ -26,7 +26,7 @@ import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
@@ -62,7 +62,7 @@ fun DetailLandscapePhone(
 ) {
     // Landscape Detail Item (Render from the scene projection instead of a database entity)
     // The compact split layout only needs Detail-owned metadata and cover fields for rendering.
-    val windowClass = LocalWindowClass.current
+    val windowClass = LocalAppWindowSizeClass.current
     val layoutDirection = LocalLayoutDirection.current
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
     /*
@@ -96,9 +96,9 @@ fun DetailLandscapePhone(
     } else {
         null
     }
-    val screenWidthDp = windowClass.screenWidthDp
-    
-    val sidePadding = screenWidthDp * 0.04f
+    // Title: Standardize landscape phone detail layout dimensions (Use screenHorizontalPadding and fixed spacing)
+    // Avoids dynamic screen width calculations scaling paddings and spaces inconsistently on wide displays.
+    val sidePadding = windowClass.screenHorizontalPadding
     val startPadding = sidePadding + safeDrawingPadding.calculateStartPadding(layoutDirection)
     val endPadding = sidePadding + safeDrawingPadding.calculateEndPadding(layoutDirection)
     val topSpacerHeight = padding.calculateTopPadding() / 2
@@ -107,7 +107,7 @@ fun DetailLandscapePhone(
         modifier = modifier
             .fillMaxSize()
             .padding(start = startPadding, end = endPadding),
-        horizontalArrangement = Arrangement.spacedBy(screenWidthDp * 0.06f)
+        horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Left Column: Displays the primary cover and metadata text
         Column(

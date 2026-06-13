@@ -43,7 +43,7 @@ import com.viel.aplayer.ui.common.BottomNavTabs
 // Resolve window class dependencies (To replace redundant LocalWindowClass imports with the unified theme package structure)
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
@@ -95,7 +95,7 @@ fun PlayerLandscapePhone(
     modifier: Modifier = Modifier
 ) {
     // Resolve window dimensions (To query screen width and height coordinates without reading LocalConfiguration directly)
-    val windowClass = LocalWindowClass.current
+    val windowClass = LocalAppWindowSizeClass.current
     val density = LocalDensity.current
     
     // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic (e.g. crossfading to PLAYER mode).
@@ -105,11 +105,10 @@ fun PlayerLandscapePhone(
         prevMode = currentMode
     }
 
-    // Landscape phone layout (To calculate side spacing ratios dynamically matching device width)
-    val screenWidthDp = windowClass.screenWidthDp
-    val screenHeightDp = windowClass.screenHeightDp
-    val sidePadding = screenWidthDp * 0.04f
-    val middleSpacing = screenWidthDp * 0.06f
+    // Title: Standardize landscape phone dimensions (Replace dynamic screen width calculations with screenHorizontalPadding and fixed spacing)
+    // Refactors landscape layout paddings to avoid screen density or dimension shifts dynamically scaling layouts disproportionately.
+    val sidePadding = windowClass.screenHorizontalPadding
+    val middleSpacing = 24.dp
 
     // Screen safe offsets (To clamp margins to system bars height boundaries to optimize cover drawing area)
     val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
@@ -152,7 +151,9 @@ fun PlayerLandscapePhone(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(horizontal = screenWidthDp * 0.04f)
+                // Title: Standardize column horizontal padding (Use windowClass.screenHorizontalPadding for side margins to align elements consistently)
+                // Replaces the dynamic screen width multiplication to avoid runtime compilation errors and visual inconsistency.
+                .padding(horizontal = windowClass.screenHorizontalPadding)
         ) {
             Box(
                 modifier = Modifier

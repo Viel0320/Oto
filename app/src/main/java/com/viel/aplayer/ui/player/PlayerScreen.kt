@@ -56,9 +56,9 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
+import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
-import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
@@ -66,8 +66,8 @@ import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.components.ChapterListSheetStateful
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
+import com.viel.aplayer.ui.player.layouts.PlayerLandscapeTablet
 import com.viel.aplayer.ui.player.layouts.PlayerPortrait
-import com.viel.aplayer.ui.player.layouts.PlayerTabletLandscape
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -240,7 +240,7 @@ fun PlayerScreen(
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
     // Determine screen orientations (To layout adaptive panels using window class attributes)
-    val windowClass = LocalWindowClass.current
+    val windowClass = LocalAppWindowSizeClass.current
     val isLandscape = windowClass.isLandscape
 
     LaunchedEffect(targetMode) {
@@ -421,10 +421,10 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     // Layout resolution dispatch (To load different screen layout templates matching display shapes)
-                    val isTabletLandscape = windowClass.isTabletLandscape
+                    val isTabletLandscape = windowClass.isLandscapeTablet
                     when {
                         isTabletLandscape -> {
-                            PlayerTabletLandscape(
+                            PlayerLandscapeTablet(
                                 currentPosition = progressState.elapsedMs,
                                 totalDuration = progressState.durationMs,
                                 isChapterMode = progressState.isChapterProgressMode,
@@ -672,7 +672,7 @@ fun PlayerScreenPreview() {
     APlayerTheme {
         // Portrait phone preview (To verify vertical scroll drawer positioning metrics)
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.PortraitPhone
+            LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             Box(
                 modifier = Modifier
@@ -705,7 +705,7 @@ fun PlayerScreenLandscapePreview() {
     APlayerTheme {
         // Landscape phone preview (To verify double-column layouts under wider screens)
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.LandscapePhone
+            LocalAppWindowSizeClass provides AppWindowSizeClass.LandscapePhone
         ) {
             Box(
                 modifier = Modifier

@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.common
 
+// Import AppWindowSizeClass: Use standardized layout provider
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -40,9 +41,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
+import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
-import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.player.PlayerScreenMode
 
 // Decoupled player bottom Tab navigation component.
@@ -225,7 +226,8 @@ fun BottomNavTabs(
         // WindowClass integration.
         //
         // Use the unified WindowClass interface to obtain the current orientation, isolating LocalConfiguration and improving layout consistency.
-        val windowClass = LocalWindowClass.current
+        // Resolve Window Layout: Retrieve current viewport properties via standardized AppWindowSizeClass provider
+        val windowClass = LocalAppWindowSizeClass.current
         val isLandscape = windowClass.isLandscape
 
         // Tab navigation spacing controls.
@@ -254,7 +256,8 @@ fun BottomNavTabsPreview_Active() {
         //
         // Explicitly inject portrait configuration presets for bottom bar preview.
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.PortraitPhone
+            // Provide AppWindowSizeClass: Inject portrait configuration preset for preview
+            LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             Surface(color = MaterialTheme.colorScheme.background) {
                 var selectedTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
@@ -278,7 +281,8 @@ fun BottomNavTabsPreview_Inactive() {
         //
         // Explicitly inject portrait configuration presets for the bottom bar inactive indicator state preview.
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.PortraitPhone
+            // Provide AppWindowSizeClass: Inject portrait configuration preset for preview
+            LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             Surface(color = MaterialTheme.colorScheme.background) {
                 var selectedTab by remember { mutableStateOf(PlayerScreenMode.PLAYER) }

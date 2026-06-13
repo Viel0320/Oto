@@ -60,9 +60,9 @@ import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
+import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
-import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.settings.components.AboutSection
 import com.viel.aplayer.ui.settings.components.InterfaceSettingsSection
 import com.viel.aplayer.ui.settings.components.LibraryDirectoriesSection
@@ -119,8 +119,8 @@ fun SettingsScreen(
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
     onAboutLibrariesClick: () -> Unit
 ) {
-    val windowClass = LocalWindowClass.current
-    val useWideLayout = windowClass.isWideScreen
+    // Resolve Window Layout: Retrieve current viewport details via LocalAppWindowSizeClass
+    val windowClass = LocalAppWindowSizeClass.current
 
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
@@ -144,7 +144,8 @@ fun SettingsScreen(
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .fillMaxWidth(if (useWideLayout) 0.8f else 1f)
+                // Remove Landscape Width Constraint: Fill maximum width regardless of wide layout to support edge-to-edge settings display
+                .fillMaxWidth()
         ) {
             Scaffold(
                 modifier = Modifier
@@ -647,7 +648,7 @@ fun SettingsDialogHost(
 fun SettingsScreenPreview() {
     APlayerTheme {
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.PortraitPhone
+            LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             SettingsScreen(
                 onBack = {},

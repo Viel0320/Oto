@@ -13,6 +13,10 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+// Import Window Size Class: Reference standard layout classes from the new layout package to support robust screen adaptation
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
+import com.viel.aplayer.ui.common.layout.rememberAppWindowSizeClass
+
 
 // =====================================================================
 // Complete DarkColorScheme (M-21 Fix)
@@ -128,11 +132,11 @@ fun APlayerTheme(
     }
 
     // WindowClass Adaptation Setup (Adaptive Setup & Sharing)
-    // Perceive changes in current window/physical screen configuration and pixel size, and adaptively derive corresponding WindowClass instance.
-    // Use CompositionLocalProvider to provide this instance as a global LocalWindowClass, allowing all sub-Composables under the UI tree and all Compose Previews to share adaptive logic seamlessly.
-    val windowClass = rememberWindowClass()
+    // Perceive changes in current window/physical screen configuration and pixel size, and adaptively derive corresponding AppWindowSizeClass instance.
+    // Use CompositionLocalProvider to provide this instance as a global LocalAppWindowSizeClass, allowing all sub-Composables under the UI tree and all Compose Previews to share adaptive logic seamlessly.
+    val windowClass = rememberAppWindowSizeClass()
     CompositionLocalProvider(
-        LocalWindowClass provides windowClass,
+        LocalAppWindowSizeClass provides windowClass,
         LocalDarkTheme provides darkTheme
     ) {
         MaterialTheme(

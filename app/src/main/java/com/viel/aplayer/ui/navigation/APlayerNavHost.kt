@@ -19,7 +19,7 @@ import com.viel.aplayer.data.store.HomeBookStatusFilter
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
@@ -102,7 +102,7 @@ fun APlayerNavHost(
 ) {
     val isHomeRoute = navigationState.topLevelRoute == HomeRoute
     val isHazeMode = glassEffectMode == GlassEffectMode.Haze
-    val windowClass = LocalWindowClass.current
+    val windowClass = LocalAppWindowSizeClass.current
     val appBarIconPadding = (windowClass.screenHorizontalPadding - 16.dp).coerceAtLeast(0.dp)
     val fallbackHomeTopBarHazeState = remember { HazeState() }
     val resolvedHomeTopBarHazeState = appHazeState ?: fallbackHomeTopBarHazeState

@@ -58,7 +58,8 @@ import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
+// Import AppWindowSizeClass: Use standardized layout provider to get the current window size details.
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -110,7 +111,8 @@ fun AudiobookActionDialog(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     // Action Dialog Orientation Gate (Switch only when the active window is landscape)
     // Non-portrait windows usually have scarce vertical height, so the first-level action menu uses a two-column composition while portrait keeps the familiar stacked flow.
-    val useLandscapeActionLayout = LocalWindowClass.current.isLandscape
+    // Resolve Window Layout: Retrieve current viewport properties via standardized AppWindowSizeClass provider to configure the layout orientation.
+    val useLandscapeActionLayout = LocalAppWindowSizeClass.current.isLandscape
 
     // ─────────────────────────────────────────────────────────────────────────
     // First-Level Management Dialog (Haze Frosted Glass Effect)

@@ -30,8 +30,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -68,7 +70,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -76,9 +77,9 @@ import com.viel.aplayer.BuildConfig
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
+import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
-import com.viel.aplayer.ui.common.theme.WindowClass
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
@@ -193,10 +194,7 @@ fun AboutLibrariesScreen(
 
     // Resolve window proportions (To adapt widths dynamically across diverse display configurations)
     // Employs unified WindowClass instead of reading LocalConfiguration directly.
-    val windowClass = LocalWindowClass.current
-    val isLandscape = windowClass.isLandscape
-    val isWideScreen = windowClass.isTablet
-    val useWideLayout = windowClass.isWideScreen
+    val windowClass = LocalAppWindowSizeClass.current
 
     // Read window bounds (To calculate padding boundaries under active displays)
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
@@ -219,7 +217,7 @@ fun AboutLibrariesScreen(
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .fillMaxWidth(if (useWideLayout) 0.8f else 1f)
+                .fillMaxWidth()
         ) {
             Scaffold(
                 modifier = Modifier
@@ -243,19 +241,22 @@ fun AboutLibrariesScreen(
                 // The list keeps bottom safe-area padding while the measured shared top bar supplies the top content offset.
                 contentWindowInsets = WindowInsets.safeDrawing
             ) { innerPadding ->
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize(),
+                // Title: Adapt about screen to grid (Use LazyVerticalGrid with columnsCount to display license cards in dynamic grid)
+                // Migrates from LazyColumn to LazyVerticalGrid to dynamically scale columns based on active layout size.
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(windowClass.columnsCount),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = startPadding + 16.dp,
                         end = endPadding + 16.dp,
                         top = measuredAboutTopBarHeight + 16.dp,
                         bottom = innerPadding.calculateBottomPadding() + 24.dp
                     ),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Renders branding layout (To display logo and greetings card)
-                    item {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         BrandHeaderCard()
                     }
 
@@ -565,12 +566,7 @@ private fun LibraryCard(
     }
 }
 
-/**
- * Convenient BorderStroke factory (To create border properties dynamically)
- */
-@Composable
-private fun borderStroke(width: Dp, color: Color) =
-    BorderStroke(width, color)
+
 
 /**
  * Licenses view preview (To preview component styling)
@@ -582,7 +578,7 @@ fun AboutLibrariesScreenPreview() {
         // Portrait phone preview (To preview licenses layout in portrait constraints)
         // Uses CompositionLocalProvider to inject vertical phone window attributes.
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.PortraitPhone
+            LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             AboutLibrariesScreen(onBack = {})
         }

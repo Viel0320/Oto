@@ -60,13 +60,13 @@ import com.viel.aplayer.ui.common.AudiobookActionDialog
 import com.viel.aplayer.ui.common.AudiobookActionDialogBook
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
+import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
-import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.detail.components.SelectableTextView
 import com.viel.aplayer.ui.detail.layouts.DetailLandscapePhone
+import com.viel.aplayer.ui.detail.layouts.DetailLandscapeTablet
 import com.viel.aplayer.ui.detail.layouts.DetailPortrait
-import com.viel.aplayer.ui.detail.layouts.DetailTabletLandscape
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.launch
@@ -261,14 +261,14 @@ fun DetailContent(
                 },
                 containerColor = Color.Transparent,
             ) { padding ->
-                val windowClass = LocalWindowClass.current
+                val windowClass = LocalAppWindowSizeClass.current
                 val isLandscape = windowClass.isLandscape
-                val isTabletLandscape = windowClass.isTabletLandscape
+                val isTabletLandscape = windowClass.isLandscapeTablet
 
                 // Setup SubLayout Haze States (Forward coverHazeState to detail layouts) Replaced detailBackdrop with coverHazeState.
                 when {
                     isTabletLandscape -> {
-                        DetailTabletLandscape(
+                        DetailLandscapeTablet(
                             book = book,
                             uiState = uiState,
                             padding = padding,
@@ -413,7 +413,7 @@ private const val DETAIL_ACTION_DIALOG_COVER_SCENE = "detail-action-dialog-cover
 fun DetailContentPortraitPreview() {
     APlayerTheme {
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.PortraitPhone
+            LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             DetailContent(
                 uiState = DetailUiState(

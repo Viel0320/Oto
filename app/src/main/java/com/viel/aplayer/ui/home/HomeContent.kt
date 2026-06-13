@@ -56,13 +56,13 @@ import com.viel.aplayer.data.store.HomeFilter
 import com.viel.aplayer.data.store.HomeViewStyle
 import com.viel.aplayer.ui.common.APlayerFilterChip
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
+import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
-import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.detail.DetailEntrySource
+import com.viel.aplayer.ui.home.components.Cardgroup
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.home.components.RecentlyAddedSection
-import com.viel.aplayer.ui.home.components.Cardgroup
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -143,7 +143,7 @@ fun HomeContent(
     // WindowClass Adaptation Setup (Determine Adaptation Configuration)
     // Use the unified WindowClass interface to obtain current window size class, columns count, and horizontal margins.
     // This avoids hard-coded layout judgments by reading configurations directly through LocalConfiguration, improving high cohesion and scalability for multi-device adaptation.
-    val windowClass = LocalWindowClass.current
+    val windowClass = LocalAppWindowSizeClass.current
     val columnsCount = windowClass.columnsCount
     val screenHorizontalPadding = windowClass.screenHorizontalPadding
     // listgroup Column Count (Bind listgroup columns to the active responsive layout)
@@ -474,7 +474,7 @@ fun HomeNotStartedPreview() {
         val previewHomeHazeState = remember { HazeState() }
         // Use CompositionLocalProvider to inject PortraitPhone window preset for Previews, ensuring portrait list layout is rendered with high fidelity.
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.PortraitPhone
+            LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             HomeContent(
                 // Preview simulated data pre-calculated from ViewModel

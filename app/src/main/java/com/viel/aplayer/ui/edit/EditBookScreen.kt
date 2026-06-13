@@ -64,23 +64,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.scale
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.edit.EditBookDraft
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
-import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import dev.chrisbanes.haze.HazeState
-import java.io.File
 
 /**
  * Edit Book Screen: Stateless Composable layout for modification of audiobook metadata details.
@@ -335,7 +332,7 @@ fun EditBookScreen(
                     }
 
                     // Responsive layout decision (Check window class parameters to dispatch dual-column grid details)
-                    val windowClass = LocalWindowClass.current
+                    val windowClass = LocalAppWindowSizeClass.current
                     val useLandscapeLayout = windowClass.isWideScreen
 
                     // Local input builders (Shared field compositions to avoid duplicating layouts across landscape/portrait)
@@ -694,7 +691,7 @@ fun EditBookScreenPortraitPreview() {
     APlayerTheme {
         // Apply PortraitPhone profile configuration
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.PortraitPhone
+            LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             EditBookScreen(
                 // Preview Edit Draft (Use the edit scene projection instead of a Room entity)
@@ -731,7 +728,7 @@ fun EditBookScreenLandscapePreview() {
     APlayerTheme {
         // Apply LandscapePhone profile configuration
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.LandscapePhone
+            LocalAppWindowSizeClass provides AppWindowSizeClass.LandscapePhone
         ) {
             EditBookScreen(
                 // Preview Edit Draft (Use the edit scene projection instead of a Room entity)
@@ -766,9 +763,9 @@ fun EditBookScreenLandscapePreview() {
 @Composable
 fun EditBookScreenTabletLandscapePreview() {
     APlayerTheme {
-        // Apply TabletLandscape profile configuration
+        // Apply LandscapeTablet profile configuration
         CompositionLocalProvider(
-            LocalWindowClass provides WindowClass.TabletLandscape
+            LocalAppWindowSizeClass provides AppWindowSizeClass.LandscapeTablet
         ) {
             EditBookScreen(
                 // Preview Edit Draft (Use the edit scene projection instead of a Room entity)

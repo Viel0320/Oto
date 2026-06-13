@@ -14,8 +14,9 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Restore
@@ -44,7 +45,7 @@ import com.viel.aplayer.R
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.settings.SettingsTemplateDialog
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -91,12 +92,14 @@ fun DeletedBookRecoveryScreen(
     glassEffectMode: GlassEffectMode,
     recoveryHazeState: HazeState? = null
 ) {
+    // Title: Read window size class (Obtain window size class to pass columnsCount to recovery list)
+    // Allows the recovery screen to dynamically adjust columns based on current layout state.
+    val windowClass = LocalAppWindowSizeClass.current
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     val startPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val endPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
     val density = LocalDensity.current
-    val useWideLayout = LocalWindowClass.current.isWideScreen
     var topBarHeightPx by remember { mutableIntStateOf(0) }
     val resolvedHazeState = recoveryHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
     // Recovery Top Bar Height Resolution (Reserve room for overlay chrome before the first measured frame)
@@ -116,7 +119,7 @@ fun DeletedBookRecoveryScreen(
                 .fillMaxHeight()
                 // Recovery Panel Width (Match Settings and About centered panel behavior on wide screens)
                 // Keeping the restore page at the same width prevents local sub-navigation from visually jumping between panels.
-                .fillMaxWidth(if (useWideLayout) 0.8f else 1f)
+                .fillMaxWidth()
         ) {
             Scaffold(
                 modifier = Modifier
@@ -145,7 +148,8 @@ fun DeletedBookRecoveryScreen(
                         end = endPadding,
                         top = measuredTopBarHeight,
                         bottom = innerPadding.calculateBottomPadding()
-                    )
+                    ),
+                    columnsCount = windowClass.columnsCount
                 )
             }
             APlayerGlassTopBar(
@@ -178,35 +182,38 @@ fun DeletedBookRecoveryScreen(
 
 /**
  * Deleted Book Recovery List (Displays recoverable books or a simple empty state)
- * Keeps the recovery page as a plain list so it visually aligns with existing catalog rows.
+ * Uses grid layout with dynamic columnsCount based on device layout size, aligning with the main catalog view.
  */
 @Composable
 private fun DeletedBookRecoveryList(
     items: List<DeletedBookRecoveryItem>,
     restoringBookIds: Set<String>,
     onRestoreClick: (String, String) -> Unit,
-    contentPadding: PaddingValues
+    contentPadding: PaddingValues,
+    columnsCount: Int
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = contentPadding
-    ) {
-        if (items.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillParentMaxSize()
-                        .padding(horizontal = 32.dp),
-                      contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.deleted_book_recovery_empty),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        } else {
+    if (items.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .padding(horizontal = 32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stringResource(R.string.deleted_book_recovery_empty),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    } else {
+        // Title: Grid layout for recovery books (Use LazyVerticalGrid to render books in responsive grid format)
+        // Adapts column counts dynamically to match catalog screens, utilizing the provided columnsCount.
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columnsCount),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding
+        ) {
             items(items, key = { item -> item.bookId }) { item ->
                 val isRestoring = restoringBookIds.contains(item.bookId)
                 BookListItem(

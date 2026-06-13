@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.common.theme
 
 import android.app.WallpaperManager
 import android.content.Context
-import android.os.Build
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme

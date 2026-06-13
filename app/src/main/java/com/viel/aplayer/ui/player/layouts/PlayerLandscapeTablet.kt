@@ -43,7 +43,7 @@ import com.viel.aplayer.ui.common.BottomNavTabs
 // Resolve window class dependencies (To replace redundant LocalWindowClass imports with the unified theme package structure)
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
-import com.viel.aplayer.ui.common.theme.LocalWindowClass
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
@@ -61,7 +61,7 @@ import dev.chrisbanes.haze.HazeState
  * Applies symmetrical padding structures and spacing margins to provide professional visual hierarchies.
  */
 @Composable
-fun PlayerTabletLandscape(
+fun PlayerLandscapeTablet(
     currentPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
@@ -95,7 +95,7 @@ fun PlayerTabletLandscape(
     modifier: Modifier = Modifier
 ) {
     // Resolve window dimensions (To query device width coordinates without reading LocalConfiguration parameters directly)
-    val windowClass = LocalWindowClass.current
+    val windowClass = LocalAppWindowSizeClass.current
     val density = LocalDensity.current
     
     // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic (e.g. crossfading to PLAYER mode).
@@ -105,11 +105,11 @@ fun PlayerTabletLandscape(
         prevMode = currentMode
     }
 
-    // Tablet layout configuration (To set wide margins for spacious screen widths)
-    val screenWidthDp = windowClass.screenWidthDp
+    // Title: Standardize landscape tablet dimensions (Replace dynamic screen width calculations with screenHorizontalPadding and fixed spacing)
+    // Refactors landscape layout paddings to avoid screen density or dimension shifts dynamically scaling layouts disproportionately.
+    val sidePadding = windowClass.screenHorizontalPadding
+    val middleSpacing = 24.dp
     val screenHeightDp = windowClass.screenHeightDp
-    val sidePadding = screenWidthDp * 0.04f
-    val middleSpacing = screenWidthDp * 0.06f
 
     // Tablet vertical spacing (To reserve 10% display margins at top and bottom boundaries)
     val topPadding = screenHeightDp * 0.1f
@@ -152,7 +152,9 @@ fun PlayerTabletLandscape(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(horizontal = screenWidthDp * 0.04f)
+                // Title: Standardize column horizontal padding (Use windowClass.screenHorizontalPadding for side margins to align elements consistently)
+                // Replaces the dynamic screen width multiplication to avoid runtime compilation errors and visual inconsistency.
+                .padding(horizontal = windowClass.screenHorizontalPadding)
         ) {
             Box(
                 modifier = Modifier

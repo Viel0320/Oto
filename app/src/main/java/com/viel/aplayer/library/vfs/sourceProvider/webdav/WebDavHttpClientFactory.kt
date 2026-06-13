@@ -5,7 +5,6 @@ import okhttp3.OkHttpClient
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
-import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
@@ -40,7 +39,7 @@ class WebDavHttpClientFactory(
 
     private val unsafeClient = trustedClient.newBuilder()
         .sslSocketFactory(createUnsafeSslSocketFactory(), unsafeTrustManager)
-        .hostnameVerifier(HostnameVerifier { _, _ -> true })
+        .hostnameVerifier { _, _ -> true }
         .build()
 
     fun clientFor(allowInsecureTls: Boolean): OkHttpClient =

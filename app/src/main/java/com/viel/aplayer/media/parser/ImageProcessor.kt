@@ -10,6 +10,7 @@ import android.util.Log
 import android.util.LruCache
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.scale
+import androidx.core.net.toUri
 import androidx.palette.graphics.Palette
 import com.viel.aplayer.logger.SecureLog
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +18,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import androidx.core.net.toUri
 
 /**
  * 图像处理中心。
@@ -93,7 +93,7 @@ object ImageProcessor {
         bookId: String,
         coverUriString: String
     ): CoverExtractor.CoverResult = withContext(Dispatchers.IO) {
-        var inputStream: java.io.InputStream? = null
+        var inputStream: InputStream? = null
         try {
             val inputUri = coverUriString.toUri()
             val externalInputReader = com.viel.aplayer.library.vfs.VfsExternalInputReader(context)
