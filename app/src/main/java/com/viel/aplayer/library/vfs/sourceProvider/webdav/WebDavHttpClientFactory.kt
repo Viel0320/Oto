@@ -1,5 +1,6 @@
 package com.viel.aplayer.library.vfs.sourceProvider.webdav
 
+import android.annotation.SuppressLint
 import okhttp3.OkHttpClient
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
@@ -20,7 +21,8 @@ class WebDavHttpClientFactory(
 ) {
     // Unsafe Trust Manager (Accepts self-signed certificates only when the caller explicitly opts into insecure TLS)
     // The instance is private to this factory so certificate bypass behavior cannot be enabled accidentally by unrelated network code.
-    private val unsafeTrustManager = object : X509TrustManager {
+    private val unsafeTrustManager = @SuppressLint("CustomX509TrustManager")
+    object : X509TrustManager {
         override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
         override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()

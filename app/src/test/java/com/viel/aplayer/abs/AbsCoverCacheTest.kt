@@ -30,7 +30,8 @@ class AbsCoverCacheTest {
     @Test
     fun `http cover download should be blocked before bearer token request is sent`() = runBlocking {
         MockWebServer().use { server ->
-            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            // Use remote domain (Prevent MockWebServer localhost loopback from bypassing the cleartext guard)
+            val credentialStore = createCredentialStore("http://example.com/audiobookshelf/", "token-1")
             val cache = createCoverCache(
                 credentialStore = credentialStore,
                 settingsProvider = { AppSettings() }

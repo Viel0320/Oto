@@ -93,7 +93,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             )
 
             // Home Catalog Grouping (Group by the same field selected in the sort rule)
-            // This keeps the visual section title, section order, and user-selected pivot aligned across listgroup columns and cardgroup rows.
+            // This keeps the visual section title, section order, and user-selected pivot aligned across listgroup columns and Cardgroup rows.
             val groupedAudiobooks = sortedAudiobooks.groupBy { book ->
                 HomeCatalogSortPolicy.groupLabel(book, appSettings.homeSortRule)
             }
@@ -233,7 +233,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun setHomeViewStyle(style: HomeViewStyle) {
         // Home View Style Update (Persist the user's selected catalog renderer)
-        // The settings flow drives recomposition, keeping listgroup/cardgroup switching outside direct mutable UI state.
+        // The settings flow drives recomposition, keeping listgroup/Cardgroup switching outside direct mutable UI state.
         viewModelScope.launch {
             settingsCommands.updateHomeViewStyle(style)
         }

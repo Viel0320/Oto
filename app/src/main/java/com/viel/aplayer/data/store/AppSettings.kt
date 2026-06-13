@@ -80,7 +80,7 @@ enum class AppLanguage(val localeTag: String) {
 }
 
 // Home View Style Preference (Controls the catalog item renderer on the Home screen)
-// List keeps adaptive listgroup columns as the default reading model, while Grid switches the catalog to single-line cardgroup carousels.
+// List keeps adaptive listgroup columns as the default reading model, while Grid switches the catalog to single-line Cardgroup carousels.
 enum class HomeViewStyle {
     List,
     Grid
@@ -189,7 +189,7 @@ data class AppSettings(
     // Home Book Status Filter Type Safe: Use HomeBookStatusFilter enum instead of String for type safety.
     val homeBookStatusFilter: HomeBookStatusFilter = HomeBookStatusFilter.All,
     // Home View Style Setting (Persist the selected Home catalog renderer)
-    // Defaults to List so existing users keep the current listgroup-based home layout until they explicitly switch to cardgroup rows.
+    // Defaults to List so existing users keep the current listgroup-based home layout until they explicitly switch to Cardgroup rows.
     val homeViewStyle: HomeViewStyle = HomeViewStyle.List,
     // Home Sort Rule Setting (Persist the selected Home catalog grouping and order)
     // Defaults to Author to preserve the current author-centered browsing model while allowing narrator and series pivots.

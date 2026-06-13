@@ -74,7 +74,7 @@ import androidx.compose.animation.AnimatedVisibility as SharedSourceVisibility
     ExperimentalHazeMaterialsApi::class
 )
 @Composable
-fun cardgroup(
+fun Cardgroup(
     bookId: String,
     title: String,
     author: String,
@@ -93,7 +93,7 @@ fun cardgroup(
     isDetailTargetActive: Boolean = false,
     // New long-press callback to support the long-press shortcut menu in the recently added/played section
     onLongClick: () -> Unit = {},
-    // cardgroup Glass Mode Parameter (Allow the card renderer to follow global frosted glass mode)
+    // Cardgroup Glass Mode Parameter (Allow the card renderer to follow global frosted glass mode)
     // Defaults to Material so previews and callers outside Home can render without needing settings state.
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     /*
@@ -103,8 +103,8 @@ fun cardgroup(
      * the matching detail-page artwork when the selected book opens.
      */
     sharedElementKey: String? = null,
-    // cardgroup Width Mode (Allow specialized callers to override the standard horizontal-row width)
-    // Home cardgroup rows keep the fixed 160.dp width so every section remains a single horizontal carousel.
+    // Cardgroup Width Mode (Allow specialized callers to override the standard horizontal-row width)
+    // Home Cardgroup rows keep the fixed 160.dp width so every section remains a single horizontal carousel.
     fillAvailableWidth: Boolean = false,
     preferredWidth: Dp = 160.dp,
     // Card Assistive Action Labels (Keep card commands discoverable across list surfaces)
@@ -120,7 +120,7 @@ fun cardgroup(
 
     // Reset Color State on Cover Path Changes: Re-initialize coverColor state whenever the coverPath changes using remember(coverPath) and load the cached color synchronously if available.
     var coverColor by remember(coverPath) {
-        mutableStateOf<Color?>(com.viel.aplayer.media.parser.ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
+        mutableStateOf(com.viel.aplayer.media.parser.ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
     }
 
     Column(
@@ -311,7 +311,7 @@ private fun RecentCoverSharedSource(
                         var isImageError by remember(coverPath) { mutableStateOf(false) }
                         if ((coverPath != null) && !isImageError) {
                             val context = LocalContext.current
-                            // cardgroup Thumbnail Strategy (Reuse the medium thumbnail size for cover-card layouts)
+                            // Cardgroup Thumbnail Strategy (Reuse the medium thumbnail size for cover-card layouts)
                             // Recently played cards and Home grid cards both match the 360px thumbnail output, keeping cache behavior shared across card surfaces.
                             // This ensures medium cards hit local thumbnails and the same Coil cache specifications, avoiding bringing large covers into the list.
                             val request = remember(coverPath, coverLastUpdated) {
@@ -482,10 +482,10 @@ private fun RecentCoverProgressBadge(
 
 @Preview(showBackground = true, name = "Recently Item NEW")
 @Composable
-fun cardgroupNewPreview() {
+fun CardgroupNewPreview() {
     APlayerTheme {
         Surface(modifier = Modifier.padding(16.dp)) {
-            cardgroup(
+            Cardgroup(
                 bookId = "preview",
                 title = "The Great Adventure",
                 author = "John Doe",
@@ -501,10 +501,10 @@ fun cardgroupNewPreview() {
 
 @Preview(showBackground = true, name = "Recently Item Progress")
 @Composable
-fun cardgroupProgressPreview() {
+fun CardgroupProgressPreview() {
     APlayerTheme {
         Surface(modifier = Modifier.padding(16.dp)) {
-            cardgroup(
+            Cardgroup(
                 bookId = "preview",
                 title = "In the Megachurch",
                 author = "Ryo Asai",

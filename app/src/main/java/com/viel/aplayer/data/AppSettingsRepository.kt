@@ -226,7 +226,7 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     }
 
     // Write Home View Style (Persist the selected Home catalog renderer)
-    // Saves enum names directly so the UI can switch between adaptive listgroup columns and cardgroup carousel rows after the DataStore flow emits.
+    // Saves enum names directly so the UI can switch between adaptive listgroup columns and Cardgroup carousel rows after the DataStore flow emits.
     override suspend fun updateHomeViewStyle(style: HomeViewStyle) {
         dataStore.edit { it[PreferencesKeys.HOME_VIEW_STYLE] = style.name }
     }

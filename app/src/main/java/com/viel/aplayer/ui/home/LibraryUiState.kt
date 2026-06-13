@@ -61,7 +61,7 @@ data class LibraryUiState(
     val glassEffectMode: GlassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
 
     // Home View Style State (Expose the selected Home catalog renderer to the Composable layer)
-    // The UI consumes this directly to switch between adaptive listgroup columns and single-line cardgroup carousels.
+    // The UI consumes this directly to switch between adaptive listgroup columns and single-line Cardgroup carousels.
     val homeViewStyle: HomeViewStyle = HomeViewStyle.List,
 
     // Home Sort Rule State (Expose the selected Home grouping pivot and script-clustered order)

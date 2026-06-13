@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<network-security-config>
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
     <!-- Cleartext Traffic Permission (Enable cleartextTrafficPermitted to allow HTTP networking connections at the low-level platform socket layer) -->
     <!-- Actual network safety and cleartext permissions are validated dynamically at the application level by AppSettings configurations. -->
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="true"
+        tools:ignore="InsecureBaseConfiguration">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

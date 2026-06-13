@@ -1,5 +1,6 @@
 package com.viel.aplayer.abs.net
 
+import android.annotation.SuppressLint
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.viel.aplayer.abs.net.dto.AbsAuthorizeResponseDto
@@ -75,8 +76,11 @@ class RealAbsApiClient(
 ) : AbsApiClient {
 
     // Unsafe Trust Manager: Custom trust manager that bypasses certificate path validation checks for self-signed servers.
-    private val unsafeTrustManager = object : X509TrustManager {
+    private val unsafeTrustManager = @SuppressLint("CustomX509TrustManager")
+    object : X509TrustManager {
+        @SuppressLint("TrustAllX509TrustManager")
         override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        @SuppressLint("TrustAllX509TrustManager")
         override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     }

@@ -72,7 +72,8 @@ class PlaybackResumptionPreflightTest {
         val preflight = playbackResumptionPreflight(
             root = libraryRoot(
                 sourceType = AudiobookSchema.LibrarySourceType.WEBDAV,
-                sourceUri = "http://server.local/audiobooks"
+                // Use remote domain (Ensure it is not treated as local/LAN by isLocalOrLan)
+                sourceUri = "http://example.com/audiobooks"
             ),
             settings = AppSettings(isCleartextTrafficAllowed = false),
             eventSink = eventSink

@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import androidx.core.net.toUri
 
 /**
  * 图像处理中心。
@@ -34,8 +35,8 @@ import java.io.InputStream
  */
 object ImageProcessor {
     private const val TAG = "ImageProcessor"
-    // cardgroup Thumbnail Size Alignment (Keep medium cover cards and generated thumbnails on the same 360px contract)
-    // This lets cardgroup surfaces prefer local thumbnails and matching Coil cache entries, reducing repeated full-size cover decoding.
+    // Cardgroup Thumbnail Size Alignment (Keep medium cover cards and generated thumbnails on the same 360px contract)
+    // This lets Cardgroup surfaces prefer local thumbnails and matching Coil cache entries, reducing repeated full-size cover decoding.
     private const val DEFAULT_THUMBNAIL_MAX_SIZE = 360
 
     // 主色提取代价较高，这里保留路径级 LRU 缓存，避免同一张封面重复跑 Palette。
@@ -94,7 +95,7 @@ object ImageProcessor {
     ): CoverExtractor.CoverResult = withContext(Dispatchers.IO) {
         var inputStream: java.io.InputStream? = null
         try {
-            val inputUri = android.net.Uri.parse(coverUriString)
+            val inputUri = coverUriString.toUri()
             val externalInputReader = com.viel.aplayer.library.vfs.VfsExternalInputReader(context)
             
             // Decode boundaries (Read dimensions first to configure subsampling scale and guard against heap OOM)

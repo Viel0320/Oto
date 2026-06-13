@@ -8,6 +8,7 @@ import coil.request.SuccessResult
 import com.viel.aplayer.logger.CacheDiagnosticsLogger
 import com.viel.aplayer.logger.CoverImageCacheLogger
 import java.io.File
+import androidx.core.net.toUri
 
 /**
  * Cover display specification (CoverImageVariant).
@@ -128,7 +129,7 @@ object CoverImageRequestFactory {
         // If the path starts with content:// or file://, we parse it as an android.net.Uri so Coil can resolve ContentResolver or scheme providers.
         // Otherwise, it is treated as a local absolute file path and mapped directly to java.io.File to preserve existing filesystem contracts.
         val dataObject = if (sourcePath.startsWith("content://") || sourcePath.startsWith("file://")) {
-            android.net.Uri.parse(sourcePath)
+            sourcePath.toUri()
         } else {
             File(sourcePath)
         }

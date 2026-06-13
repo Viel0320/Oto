@@ -62,7 +62,7 @@ import com.viel.aplayer.ui.common.theme.WindowClass
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.home.components.RecentlyAddedSection
-import com.viel.aplayer.ui.home.components.cardgroup
+import com.viel.aplayer.ui.home.components.Cardgroup
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -104,7 +104,7 @@ fun HomeContent(
     // The scrolling bookshelf still registers a local source so page content remains available for component-level blur and preview fallback.
     homeHazeState: HazeState,
     // Home View Style (Select the renderer for the main catalog sections)
-    // List renders listgroup items inside the adaptive vertical grid, while Grid renders cardgroup rows as single-line horizontal carousels.
+    // List renders listgroup items inside the adaptive vertical grid, while Grid renders Cardgroup rows as single-line horizontal carousels.
     homeViewStyle: HomeViewStyle = HomeViewStyle.List,
     // Home Top Bar Height (Reserve space for the NavHost-owned overlay header)
     // HomeContent no longer renders the header, but it still needs the measured chrome height to keep the first grid item from sitting under it.
@@ -147,7 +147,7 @@ fun HomeContent(
     val columnsCount = windowClass.columnsCount
     val screenHorizontalPadding = windowClass.screenHorizontalPadding
     // listgroup Column Count (Bind listgroup columns to the active responsive layout)
-    // cardgroup sections span the full grid width and manage their own horizontal row, so only listgroup items consume these adaptive grid columns.
+    // Cardgroup sections span the full grid width and manage their own horizontal row, so only listgroup items consume these adaptive grid columns.
     val listgroupColumnsCount = columnsCount
 
     // Exclude Keyboard Insets (Decouple Keyboard from Safe Area)
@@ -230,8 +230,8 @@ fun HomeContent(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // LazyVerticalGrid Setup (Adaptive listgroup host with cardgroup row slots)
-            // listgroup items consume the responsive grid columns, while cardgroup sections are inserted as full-span horizontal rows.
+            // LazyVerticalGrid Setup (Adaptive listgroup host with Cardgroup row slots)
+            // listgroup items consume the responsive grid columns, while Cardgroup sections are inserted as full-span horizontal rows.
             // Home Grid Haze Source (Register the real scrolling bookshelf content as the backdrop source) Allows the top bar to blur books and section content after they scroll underneath it.
 
             LazyVerticalGrid(
@@ -323,7 +323,7 @@ fun HomeContent(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             // Group Title Line Clamp (Prevent long author, narrator, or series names from pushing layout vertically)
-                            // Keeps each Home group header to one line and truncates overflow with an ellipsis so cardgroup rows and listgroup columns stay visually aligned.
+                            // Keeps each Home group header to one line and truncates overflow with an ellipsis so Cardgroup rows and listgroup columns stay visually aligned.
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             // Align Group Header (Apply Horizontal Margins)
@@ -391,8 +391,8 @@ fun HomeContent(
                             }
                         }
                         HomeViewStyle.Grid -> {
-                            // cardgroup Horizontal Group Row (Keep every sorted section to one horizontal swipe line)
-                            // The row spans the full responsive grid width so cardgroup never wraps into vertical multi-column grids.
+                            // Cardgroup Horizontal Group Row (Keep every sorted section to one horizontal swipe line)
+                            // The row spans the full responsive grid width so Cardgroup never wraps into vertical multi-column grids.
                             item(span = { GridItemSpan(maxLineSpan) }) {
                                 LazyRow(
                                     modifier = Modifier.fillMaxWidth(),
@@ -403,9 +403,9 @@ fun HomeContent(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     items(books, key = { it.id }) { book ->
-                                        // cardgroup Row Item Rendering (Reuse the fixed-width cover card inside a horizontal carousel)
+                                        // Cardgroup Row Item Rendering (Reuse the fixed-width cover card inside a horizontal carousel)
                                         // Uses the Home-list shared element key so card taps still transition through the catalog-origin detail channel.
-                                        cardgroup(
+                                        Cardgroup(
                                             bookId = book.id,
                                             title = book.title,
                                             author = book.author,

@@ -50,7 +50,7 @@ fun RecentlyAddedSection(
     modifier: Modifier = Modifier
 ) {
     // Recent CardGroup Row Scroll Ownership (Keep horizontal scroll state beside the LazyRow that consumes it)
-    // The Home container no longer passes a LazyListState through route-level parameters, so this component owns the cardgroup row viewport and preserves it while the parent grid scrolls vertically.
+    // The Home container no longer passes a LazyListState through route-level parameters, so this component owns the Cardgroup row viewport and preserves it while the parent grid scrolls vertically.
     val recentListState = rememberLazyListState()
     // Localized Recent Badge Copy (Render newly imported cards with locale-aware app text)
     // Percent progress remains numeric data, while the empty-progress NEW badge is authored UI copy.
@@ -88,7 +88,7 @@ fun RecentlyAddedSection(
         ) {
             // M-20 Fix: Use unique book.id as LazyList stable key to prevent card covers from flickering or shifting due to frequent reloads
             items(recentBooks, key = { it.id }) { book ->
-                cardgroup(
+                Cardgroup(
                     bookId = book.id,
                     title = book.title,
                     author = book.author,

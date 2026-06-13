@@ -63,13 +63,13 @@ import androidx.compose.animation.AnimatedVisibility as ListSourceVisibility
 @OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ListItem(
+    modifier: Modifier = Modifier,
     bookId: String = "",
     title: String,
     author: String,
     narrator: String,
     duration: Long,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
     coverPath: String? = null,
     coverLastUpdated: Long = 0L, // Used to pass cover file self-healing milliseconds timestamp to trigger responsive cache breaking
     progressPercent: Int? = null,

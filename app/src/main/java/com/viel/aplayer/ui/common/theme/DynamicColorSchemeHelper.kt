@@ -26,17 +26,15 @@ object DynamicColorSchemeHelper {
     // Wallpaper Seed Extraction (Retrieve primary accent color from system wallpaper using WallpaperManager)
     // Accesses WallpaperManager.getWallpaperColors on Android 8.0+ to get primary color without storage permissions.
     fun getWallpaperSeedColor(context: Context): Color? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val wallpaperManager = WallpaperManager.getInstance(context)
-                val colors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
-                if (colors != null) {
-                    val primaryColor = colors.primaryColor
-                    return Color(primaryColor.toArgb())
-                }
-            } catch (e: Throwable) {
-                // Fail-safe fallbacks: Suppress unexpected wallpaper manager crashes on custom ROMs or Unsupported Service in Preview
+        try {
+            val wallpaperManager = WallpaperManager.getInstance(context)
+            val colors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+            if (colors != null) {
+                val primaryColor = colors.primaryColor
+                return Color(primaryColor.toArgb())
             }
+        } catch (e: Throwable) {
+            // Fail-safe fallbacks: Suppress unexpected wallpaper manager crashes on custom ROMs or Unsupported Service in Preview
         }
         return null
     }

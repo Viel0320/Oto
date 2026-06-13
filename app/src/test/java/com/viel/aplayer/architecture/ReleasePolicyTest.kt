@@ -152,7 +152,8 @@ class ReleasePolicyTest {
         // The socket layer remains compatible with user-owned HTTP libraries, but cleartext HTTP and insecure TLS default to blocked until the global settings switches allow them.
         // ABS Cover Runtime Coverage (Includes standalone cover downloads in the transport gate inventory)
         // Cover downloads attach bearer credentials outside RealAbsApiClient, so the release policy must fail if AbsCoverCache drops UnsafeNetworkPolicy enforcement.
-        assertTrue(networkConfig.contains("""<base-config cleartextTrafficPermitted="true">"""))
+        // Title: Update cleartext platform permission assertion (Match cleartextTrafficPermitted="true" configuration even if split across lines or adding tools:ignore)
+        assertTrue(networkConfig.contains("""cleartextTrafficPermitted="true""""))
         assertTrue(!defaults.isCleartextTrafficAllowed)
         assertTrue(!defaults.isAllowInsecureTls)
         assertTrue(!UnsafeNetworkPolicy.isCleartextHttpAllowed("http://example.test/books", defaults))
