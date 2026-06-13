@@ -46,7 +46,7 @@ class PlaybackViewModel(
     private val externalScope = rawExternalScope ?: viewModelScope
 
     companion object {
-        private val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f)
+        private val PLAYBACK_SPEEDS = listOf(0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f)
     }
 
     // Resolve dependencies (Fetches screen dependencies and managers from application presentation di)
@@ -143,7 +143,7 @@ class PlaybackViewModel(
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val playbackState: StateFlow<PlaybackState> = _currentBookId
-        .flatMapLatest { id ->
+        .flatMapLatest { _ ->
             // Title: Remove redundant flatMapLatest null-safety check (Combines playback controller states directly since playbackController is non-nullable)
             combine(
                 playbackController.isPlaying,
