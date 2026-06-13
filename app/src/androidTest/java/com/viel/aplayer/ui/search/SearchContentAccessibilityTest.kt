@@ -21,7 +21,7 @@ import org.junit.runner.RunWith
  * Search Content Accessibility Test (Locks touch target semantics for search shell commands)
  *
  * Exercises SearchContent directly so history command regressions are caught without loading the
- * route, ViewModel, or app dependency graph that is unrelated to the accessibility contract.
+ * route, ViewModel, or app dependency di that is unrelated to the accessibility contract.
  */
 @RunWith(AndroidJUnit4::class)
 class SearchContentAccessibilityTest {

@@ -1,10 +1,10 @@
 package com.viel.aplayer.architecture
 
-import com.viel.aplayer.graph.closeAppGraphsInLifecycleOrder
-import com.viel.aplayer.graph.closeInitializedAbsGraphResources
-import com.viel.aplayer.graph.closeInitializedLibraryGraphResources
-import com.viel.aplayer.graph.closeInitializedUiEventGraphResources
-import com.viel.aplayer.graph.releaseInitializedMediaGraphResource
+import com.viel.aplayer.di.graph.closeAppGraphsInLifecycleOrder
+import com.viel.aplayer.di.graph.closeInitializedAbsGraphResources
+import com.viel.aplayer.di.graph.closeInitializedLibraryGraphResources
+import com.viel.aplayer.di.graph.closeInitializedUiEventGraphResources
+import com.viel.aplayer.di.graph.releaseInitializedMediaGraphResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.junit.Assert.assertEquals
@@ -17,8 +17,8 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * Graph Lifecycle Regression Tests (Protects application graph ownership boundaries)
- * Verifies close order and initialized-resource cleanup without instantiating Android-backed graph dependencies.
+ * Graph Lifecycle Regression Tests (Protects application di ownership boundaries)
+ * Verifies close order and initialized-resource cleanup without instantiating Android-backed di dependencies.
  */
 class GraphLifecycleTest {
 
@@ -123,7 +123,7 @@ class GraphLifecycleTest {
             recoveryScope = CoroutineScope(recoveryJob)
         )
 
-        // Lazy Ownership Guard (Prevents shutdown from allocating unused graph services)
+        // Lazy Ownership Guard (Prevents shutdown from allocating unused di services)
         // Only the resources resolved by real callers should receive close callbacks during container teardown.
         assertEquals(listOf("bookQuery", "scan"), closeOrder)
         assertFalse(uninitializedProgress.isInitialized())
@@ -178,8 +178,8 @@ class GraphLifecycleTest {
     @Test
     fun `library graph ownership list should include every closeable gateway declared in source`() {
         val sourceRoot = resolveSourceRoot()
-        val libraryGraphSource = sourceRoot.resolve("graph/LibraryGraph.kt").readText()
-        val closeSupportSource = sourceRoot.resolve("graph/GraphCloseSupport.kt").readText()
+        val libraryGraphSource = sourceRoot.resolve("di/LibraryGraph.kt").readText()
+        val closeSupportSource = sourceRoot.resolve("di/GraphCloseSupport.kt").readText()
 
         val declaredCloseableLazyNames = listOf(
             "bookQueryServiceLazy",
@@ -189,7 +189,7 @@ class GraphLifecycleTest {
             "searchHistoryGatewayLazy"
         )
 
-        // Library Closeable Gateway Coverage (Locks the graph close ownership list to declared lazy services)
+        // Library Closeable Gateway Coverage (Locks the di close ownership list to declared lazy services)
         // Future closeable gateway additions should either join this list or intentionally document a different owner.
         assertTrue(
             declaredCloseableLazyNames.all { lazyName ->
@@ -211,7 +211,7 @@ class GraphLifecycleTest {
     @Test
     fun `media graph close should keep playback manager behind initialized release guard`() {
         val sourceRoot = resolveSourceRoot()
-        val mediaGraphSource = sourceRoot.resolve("graph/MediaGraph.kt").readText()
+        val mediaGraphSource = sourceRoot.resolve("di/MediaGraph.kt").readText()
 
         // Media Graph Playback Teardown Contract (Pin production wiring to the lazy release helper)
         // MediaGraph must expose playback through the same Lazy that close() checks, then call PlaybackManager.release() only inside the initialized guard.
@@ -229,7 +229,7 @@ class GraphLifecycleTest {
             java.io.File("app/src/main/java/com/viel/aplayer")
         )
         return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for graph lifecycle test.")
+            ?: error("Could not locate app source root for di lifecycle test.")
     }
 
     private class RecordingCloseable(
@@ -257,7 +257,7 @@ class GraphLifecycleTest {
             get() = !closed
 
         override fun close() {
-            // Library Dependency Close Fixture (Marks the library graph dependency unavailable)
+            // Library Dependency Close Fixture (Marks the library di dependency unavailable)
             // ABS shutdown tests use this state to prove dependent sync work observes LibraryGraph before it is torn down.
             closeOrder += "library"
             closed = true

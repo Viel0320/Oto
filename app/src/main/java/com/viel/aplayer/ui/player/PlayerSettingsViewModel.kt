@@ -25,7 +25,7 @@ class PlayerSettingsViewModel(
     // Fall back to viewModelScope if rawExternalScope is null to ensure coroutines are correctly managed.
     private val externalScope = rawExternalScope ?: viewModelScope
 
-    // Resolve dependencies (Fetches managers and system service controllers from application presentation graph)
+    // Resolve dependencies (Fetches managers and system service controllers from application presentation di)
     private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)
     // Title: Settings Abstractions Binding (Bind PlayerSettingsViewModel to read and command abstractions)
     // Decouples player UI preference logic from concrete DataStore storage classes.

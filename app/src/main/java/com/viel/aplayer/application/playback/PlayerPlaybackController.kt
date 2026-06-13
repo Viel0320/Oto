@@ -63,7 +63,7 @@ interface PlayerPlaybackController {
 
     /**
      * Play Command (Resume foreground playback)
-     * Routes UI control requests through the media graph adapter.
+     * Routes UI control requests through the media di adapter.
      */
     fun play()
 

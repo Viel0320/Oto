@@ -37,22 +37,22 @@ class ContainerAccessArchitectureTest {
         val text = appContainerSource.readText()
 
         // Graph Close Policy Delegation (Pins DefaultAppContainer to the lifecycle helper)
-        // The executable ordering behavior lives in graph tests, while this architecture test keeps the composition root wired to that policy.
+        // The executable ordering behavior lives in di tests, while this architecture test keeps the composition root wired to that policy.
         val closeMethod = text.substringAfter("override fun close()")
 
         assertTrue(
-            "DefaultAppContainer.close() must delegate graph teardown to closeAppGraphsInLifecycleOrder(...).",
+            "DefaultAppContainer.close() must delegate di teardown to closeAppGraphsInLifecycleOrder(...).",
             closeMethod.contains("closeAppGraphsInLifecycleOrder(")
         )
 
         // Media Graph Lifetime Check (Keep playback runtime teardown routed through the lifecycle helper)
-        // MediaGraph now owns initialized playback resources, so DefaultAppContainer.close() must pass it into the shared graph close policy.
+        // MediaGraph now owns initialized playback resources, so DefaultAppContainer.close() must pass it into the shared di close policy.
         assertTrue(
             "DefaultAppContainer.close() must include MediaGraph now that it owns playback runtime resources.",
             closeMethod.contains("media = media")
         )
 
-        // Data Graph Lifetime Check (Keep persistence graph non-closeable until it owns explicit shutdown resources)
+        // Data Graph Lifetime Check (Keep persistence di non-closeable until it owns explicit shutdown resources)
         // DataGraph still exposes database and store providers only, so the container should not invent a data close path in this change.
         assertTrue(
             "DefaultAppContainer.close() should not close DataGraph until it owns closeable resources.",
@@ -75,7 +75,7 @@ class ContainerAccessArchitectureTest {
             "APlayerApplication.kt",
             "AppContainer.kt",
             "dependencies/PresentationDependencies.kt",
-            "graph/LibraryGraph.kt"
+            "di/LibraryGraph.kt"
         )
 
         assertTrue(

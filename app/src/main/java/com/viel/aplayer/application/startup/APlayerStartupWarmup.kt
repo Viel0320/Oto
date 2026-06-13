@@ -3,7 +3,7 @@ package com.viel.aplayer.application.startup
 import com.viel.aplayer.data.entity.LibraryRootEntity
 
 /**
- * Startup Warmup Dependencies (Keep cold-start graph resolution behind a narrow interface)
+ * Startup Warmup Dependencies (Keep cold-start di resolution behind a narrow interface)
  * The coordinator reads only active ABS roots and freshness state until a stale root proves that deeper ABS work is needed.
  */
 internal interface StartupWarmupDependencies {

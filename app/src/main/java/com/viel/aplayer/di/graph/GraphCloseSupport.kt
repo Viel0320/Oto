@@ -1,12 +1,12 @@
-package com.viel.aplayer.graph
+package com.viel.aplayer.di.graph
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import java.io.Closeable
 
 /**
- * App Graph Teardown Order (Centralizes root graph shutdown policy)
- * Stops playback runtime publishers before closing remote sync, local library, and UI event graph resources.
+ * App Graph Teardown Order (Centralizes root di shutdown policy)
+ * Stops playback runtime publishers before closing remote sync, local library, and UI event di resources.
  */
 internal fun closeAppGraphsInLifecycleOrder(
     media: Closeable,

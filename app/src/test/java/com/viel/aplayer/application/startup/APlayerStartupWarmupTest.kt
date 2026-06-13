@@ -106,7 +106,7 @@ class APlayerStartupWarmupTest {
 
         override suspend fun performColdStartSelfHealing() {
             // Startup Dependencies Fixture (Records only the commands each test cares about)
-            // Keeping the fake inside this test prevents coordinator behavior from depending on production graph adapters.
+            // Keeping the fake inside this test prevents coordinator behavior from depending on production di adapters.
             selfHeal()
         }
     }

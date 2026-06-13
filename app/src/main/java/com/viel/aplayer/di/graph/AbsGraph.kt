@@ -1,4 +1,4 @@
-package com.viel.aplayer.graph
+package com.viel.aplayer.di.graph
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
@@ -12,10 +12,11 @@ import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsConnectionTester
 import com.viel.aplayer.abs.sync.AbsCoverCache
 import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
+import java.io.Closeable
 
 /**
  * ABS Graph (Owns Audiobookshelf credentials, remote clients, catalog sync, and playback session sync)
- * Keeps remote protocol construction separate from local library and playback graph wiring.
+ * Keeps remote protocol construction separate from local library and playback di wiring.
  */
 @UnstableApi
 internal class AbsGraph(
@@ -24,7 +25,7 @@ internal class AbsGraph(
     val media: MediaGraph,
     val library: LibraryGraph,
     val uiEvents: UiEventGraph
-) : java.io.Closeable {
+) : Closeable {
     val absCredentialStore by lazy {
         // ABS Credential Store: Securely manages credentials for Audiobookshelf.
         AbsCredentialStore.getInstance(context.applicationContext)
@@ -42,7 +43,7 @@ internal class AbsGraph(
 
     val absCoverCache by lazy {
         // ABS Cover Cache Policy Wiring (Shares the app settings repository with standalone cover downloads)
-        // Cover images are fetched outside RealAbsApiClient, so the graph injects cached settings to enforce the same cleartext transport policy as catalog and media requests.
+        // Cover images are fetched outside RealAbsApiClient, so the di injects cached settings to enforce the same cleartext transport policy as catalog and media requests.
         AbsCoverCache(
             context = context.applicationContext,
             settingsProvider = { data.settingsRepository.cachedSettings }
@@ -117,7 +118,7 @@ internal class AbsGraph(
 
     /**
      * ABS Sync Task Coordinator Accessor (Preserves lazy background coordinator construction)
-     * The backing Lazy lets graph teardown close active sync scopes without creating unused remote synchronization machinery.
+     * The backing Lazy lets di teardown close active sync scopes without creating unused remote synchronization machinery.
      */
     val absSyncTaskCoordinator: AbsSyncTaskCoordinator
         get() = absSyncTaskCoordinatorLazy.value

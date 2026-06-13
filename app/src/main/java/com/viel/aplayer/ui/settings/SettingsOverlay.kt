@@ -101,7 +101,7 @@ fun SettingsOverlay(
         exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)),
         modifier = modifier
     ) {
-        // Settings Sub-Page Navigation (Track local overlay destinations without expanding the app navigation graph)
+        // Settings Sub-Page Navigation (Track local overlay destinations without expanding the app navigation di)
         // Settings, About, and Deleted Book Recovery remain inside one overlay lifecycle while each page keeps its own UI state.
         var activeSettingsPage by remember { mutableStateOf(SettingsOverlayPage.Main) }
 

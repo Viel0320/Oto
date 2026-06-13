@@ -38,25 +38,25 @@ import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.data.gateway.SearchHistoryGateway
-import com.viel.aplayer.dependencies.AbsSyncWorkerDependencies
-import com.viel.aplayer.dependencies.AppFeedbackDependencies
-import com.viel.aplayer.dependencies.AppShellDependencies
-import com.viel.aplayer.dependencies.DetailScreenDependencies
-import com.viel.aplayer.dependencies.EditScreenDependencies
-import com.viel.aplayer.dependencies.HomeScreenDependencies
-import com.viel.aplayer.dependencies.LibrarySyncWorkerDependencies
-import com.viel.aplayer.dependencies.PlaybackRuntimeDependencies
-import com.viel.aplayer.dependencies.PlayerScreenDependencies
-import com.viel.aplayer.dependencies.SearchScreenDependencies
-import com.viel.aplayer.dependencies.SettingsScreenDependencies
-import com.viel.aplayer.dependencies.VfsPlaybackDependencies
+import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
+import com.viel.aplayer.di.dependencies.AppFeedbackDependencies
+import com.viel.aplayer.di.dependencies.AppShellDependencies
+import com.viel.aplayer.di.dependencies.DetailScreenDependencies
+import com.viel.aplayer.di.dependencies.EditScreenDependencies
+import com.viel.aplayer.di.dependencies.HomeScreenDependencies
+import com.viel.aplayer.di.dependencies.LibrarySyncWorkerDependencies
+import com.viel.aplayer.di.dependencies.PlaybackRuntimeDependencies
+import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.di.dependencies.SearchScreenDependencies
+import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
+import com.viel.aplayer.di.dependencies.VfsPlaybackDependencies
+import com.viel.aplayer.di.graph.AbsGraph
+import com.viel.aplayer.di.graph.DataGraph
+import com.viel.aplayer.di.graph.LibraryGraph
+import com.viel.aplayer.di.graph.MediaGraph
+import com.viel.aplayer.di.graph.UiEventGraph
+import com.viel.aplayer.di.graph.closeAppGraphsInLifecycleOrder
 import com.viel.aplayer.event.AppEventSink
-import com.viel.aplayer.graph.AbsGraph
-import com.viel.aplayer.graph.DataGraph
-import com.viel.aplayer.graph.LibraryGraph
-import com.viel.aplayer.graph.MediaGraph
-import com.viel.aplayer.graph.UiEventGraph
-import com.viel.aplayer.graph.closeAppGraphsInLifecycleOrder
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTester
@@ -68,7 +68,7 @@ import com.viel.aplayer.media.PlaybackSourcePreflight
 
 /**
  * Public Dependency View Surface (Expose only narrow caller-facing contracts)
- * Keeps graph-owned implementations out of the public application container so callers must use typed dependency views.
+ * Keeps di-owned implementations out of the public application container so callers must use typed dependency views.
  */
 interface AppContainer :
     PlaybackRuntimeDependencies,
@@ -308,8 +308,8 @@ interface AppContainer :
 }
 
 /**
- * Process Container Surface (Expose graph-owned implementations only to composition-root wiring)
- * Keeps startup and process-level orchestration able to reach concrete graph adapters without widening the public AppContainer contract.
+ * Process Container Surface (Expose di-owned implementations only to composition-root wiring)
+ * Keeps startup and process-level orchestration able to reach concrete di adapters without widening the public AppContainer contract.
  */
 internal interface ProcessContainer : AppContainer {
     /**
@@ -325,14 +325,14 @@ internal interface ProcessContainer : AppContainer {
     val searchHistoryGateway: SearchHistoryGateway
 
     /**
-     * Playback Manager Instance (Internal media graph runtime owner)
+     * Playback Manager Instance (Internal media di runtime owner)
      * Keeps direct playback runtime access inside process wiring so foreground callers keep using playback dependency views.
      */
     val playbackManager: com.viel.aplayer.media.PlaybackManager
 
     /**
      * Search History Store (Internal DataStore backend reference)
-     * Prevents raw persistence storage from leaking through the public container while leaving graph wiring able to share the singleton.
+     * Prevents raw persistence storage from leaking through the public container while leaving di wiring able to share the singleton.
      */
     val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore
 
@@ -344,7 +344,7 @@ internal interface ProcessContainer : AppContainer {
 
     /**
      * ABS Authorized Progress Synchronizer (Internal remote progress merge adapter)
-     * Keeps authorized progress refresh mechanics available to graph wiring without adding them to the public dependency view union.
+     * Keeps authorized progress refresh mechanics available to di wiring without adding them to the public dependency view union.
      */
     val absAuthorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer
 
@@ -576,7 +576,7 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
 
     override fun close() {
         // Graph Teardown Delegation (Close graphs in the application lifecycle order)
-        // The composition root owns cross-graph order while each graph owns its own initialized resources.
+        // The composition root owns cross-di order while each di owns its own initialized resources.
         closeAppGraphsInLifecycleOrder(
             media = media,
             library = library,

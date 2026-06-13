@@ -1,4 +1,4 @@
-package com.viel.aplayer.dependencies
+package com.viel.aplayer.di.dependencies
 
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway

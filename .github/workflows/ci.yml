@@ -45,7 +45,7 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      # Architecture And Lifecycle Gate (Runs the JVM test suite that contains container access and graph teardown rules)
+      # Architecture And Lifecycle Gate (Runs the JVM test suite that contains container access and di teardown rules)
       # Keeping this gate in CI prevents future UI, media, or Worker callers from regressing to the full container surface.
       - name: Run Debug Unit Tests
         run: .\gradlew.bat testDebugUnitTest

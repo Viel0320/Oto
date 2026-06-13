@@ -1,6 +1,6 @@
-package com.viel.aplayer.dependencies
+package com.viel.aplayer.di.dependencies
 
-import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.application.library.settings.AppSettingsReadModel
 import com.viel.aplayer.event.AppEventSink
 
 /**
@@ -14,7 +14,7 @@ interface AppShellDependencies {
      * Settings Read Model (App shell theme and behavior preference query stream)
      * Provides the initial settings state required before rendering navigation content.
      */
-    val settingsReadModel: com.viel.aplayer.application.library.settings.AppSettingsReadModel
+    val settingsReadModel: AppSettingsReadModel
 
     /**
      * Application Event Sink (App shell transient feedback stream)

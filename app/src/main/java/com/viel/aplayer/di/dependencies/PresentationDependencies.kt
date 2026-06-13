@@ -1,7 +1,7 @@
-package com.viel.aplayer.dependencies
+package com.viel.aplayer.di.dependencies
 
-import com.viel.aplayer.application.library.detail.DetailBookReadModel
 import com.viel.aplayer.application.library.detail.DetailBookCommands
+import com.viel.aplayer.application.library.detail.DetailBookReadModel
 import com.viel.aplayer.application.library.edit.EditBookCommands
 import com.viel.aplayer.application.library.edit.EditBookReadModel
 import com.viel.aplayer.application.library.home.HomeLibraryReadModel
@@ -12,19 +12,20 @@ import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryCommands
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryReadModel
 import com.viel.aplayer.application.library.search.SearchLibraryCommands
 import com.viel.aplayer.application.library.search.SearchLibraryReadModel
+import com.viel.aplayer.application.library.settings.AppSettingsCommands
+import com.viel.aplayer.application.library.settings.AppSettingsReadModel
 import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootReadModel
-import com.viel.aplayer.application.library.settings.AppSettingsReadModel
-import com.viel.aplayer.application.library.settings.AppSettingsCommands
 import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.application.usecase.DeleteBookUseCase
 import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.application.usecase.FormatSettingsRootUseCase
+import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
-import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.event.AppEventSink
 
 /**
@@ -105,7 +106,7 @@ interface HomeScreenDependencies {
 interface SettingsScreenDependencies {
     // Title: Expose FormatSettingsRootUseCase (Expose root snapshot presentation formatter to SettingsViewModel)
     // Allows ViewModel to delegate snapshot conversion logic directly to the new application-level use case.
-    val formatSettingsRootUseCase: com.viel.aplayer.application.usecase.FormatSettingsRootUseCase
+    val formatSettingsRootUseCase: FormatSettingsRootUseCase
 
     /**
      * Settings Root Read Model (Settings-scoped root display stream)

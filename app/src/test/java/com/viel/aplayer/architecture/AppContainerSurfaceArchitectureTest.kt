@@ -1,12 +1,12 @@
 package com.viel.aplayer.architecture
 
-import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * App Container Surface Architecture Rule (Locks the public container to dependency views)
- * Prevents graph-owned implementation properties from reappearing on AppContainer after they have moved to process-only wiring.
+ * Prevents di-owned implementation properties from reappearing on AppContainer after they have moved to process-only wiring.
  */
 class AppContainerSurfaceArchitectureTest {
     @Test
@@ -18,10 +18,10 @@ class AppContainerSurfaceArchitectureTest {
         }
 
         // Public Surface Guard (Keeps callers on typed dependency views)
-        // A broad AppContainer-typed reference must not recover graph-owned implementations that scene, worker, and playback seams intentionally hide.
+        // A broad AppContainer-typed reference must not recover di-owned implementations that scene, worker, and playback seams intentionally hide.
         assertTrue(
             buildString {
-                appendLine("Public AppContainer must not expose graph-owned implementation properties.")
+                appendLine("Public AppContainer must not expose di-owned implementation properties.")
                 violations.forEach { violation -> appendLine("- $violation") }
             },
             violations.isEmpty()
@@ -37,7 +37,7 @@ class AppContainerSurfaceArchitectureTest {
         }
 
         // Process Surface Guard (Keeps composition-root wiring explicit and internal)
-        // The internal subtype documents which implementation adapters are reserved for process startup and graph assembly.
+        // The internal subtype documents which implementation adapters are reserved for process startup and di assembly.
         assertTrue(
             "DefaultAppContainer must implement the internal ProcessContainer surface.",
             Regex("""internal\s+class\s+DefaultAppContainer\([^\n]+\)\s*:\s*ProcessContainer""")
@@ -45,7 +45,7 @@ class AppContainerSurfaceArchitectureTest {
         )
         assertTrue(
             buildString {
-                appendLine("ProcessContainer must retain the graph-owned properties removed from public AppContainer.")
+                appendLine("ProcessContainer must retain the di-owned properties removed from public AppContainer.")
                 missingProperties.forEach { missing -> appendLine("- $missing") }
             },
             missingProperties.isEmpty()
@@ -79,7 +79,7 @@ class AppContainerSurfaceArchitectureTest {
 
     companion object {
         // Graph-Owned Property Names (Pin known implementation adapters to the internal process surface)
-        // These names come from graph-owned gateways, managers, stores, and synchronizers that must not be available on public AppContainer.
+        // These names come from di-owned gateways, managers, stores, and synchronizers that must not be available on public AppContainer.
         private val graphOwnedPropertyNames = listOf(
             "libraryRootGateway",
             "searchHistoryGateway",

@@ -1,4 +1,4 @@
-package com.viel.aplayer.graph
+package com.viel.aplayer.di.graph
 
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.DefaultAppEventSink
@@ -8,12 +8,13 @@ import com.viel.aplayer.media.PlaybackDomainEventSink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import java.io.Closeable
 
 /**
  * UI Event Graph (Owns process-wide transient feedback streams and bridges)
  * Keeps app-shell feedback wiring separate from data, media, and remote catalog construction.
  */
-internal class UiEventGraph : java.io.Closeable {
+internal class UiEventGraph : Closeable {
     private val eventBridgeScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
     val appEventSink: AppEventSink by lazy {

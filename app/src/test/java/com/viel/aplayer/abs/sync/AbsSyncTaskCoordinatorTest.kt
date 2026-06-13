@@ -34,7 +34,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -272,7 +271,7 @@ class AbsSyncTaskCoordinatorTest {
         val cancellationObserved = CountDownLatch(1)
 
         override suspend fun authorize(baseUrl: String, token: String): AbsAuthorizeResponseDto {
-            // Suspended Sync Fixture (Models an in-flight remote request during graph teardown)
+            // Suspended Sync Fixture (Models an in-flight remote request during di teardown)
             // close() should stop this pending operation without publishing failure feedback to users.
             authorizeEntered.countDown()
             try {

@@ -1,14 +1,15 @@
-package com.viel.aplayer.graph
+package com.viel.aplayer.di.graph
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.playback.DefaultPlayerPlaybackController
-import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.application.playback.PlaybackStopper
+import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.RoomDirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.VfsRangeCache
 import com.viel.aplayer.media.AutoRewindManager
+import com.viel.aplayer.media.DefaultPlaybackFileLookup
 import com.viel.aplayer.media.PlaybackFileLookup
 import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.media.PlaybackSourcePreflight
@@ -36,7 +37,7 @@ internal class MediaGraph(
     }
 
     private val playbackManagerLazy = lazy {
-        // Playback Manager Initialization (Own media-runtime singleton in the media graph)
+        // Playback Manager Initialization (Own media-runtime singleton in the media di)
         // This keeps foreground playback lifecycle ownership out of DataGraph's persistence-focused responsibilities.
         PlaybackManager.getInstance(context)
     }
@@ -44,8 +45,8 @@ internal class MediaGraph(
     val playbackManager: PlaybackManager by playbackManagerLazy
 
     val autoRewindManager: AutoRewindManager by lazy {
-        // Auto Rewind Manager Initialization (Own recovery playback collaborator in the media graph)
-        // Self-healing playback progress belongs beside the playback runtime rather than the durable data graph.
+        // Auto Rewind Manager Initialization (Own recovery playback collaborator in the media di)
+        // Self-healing playback progress belongs beside the playback runtime rather than the durable data di.
         AutoRewindManager.getInstance(context)
     }
 
@@ -82,7 +83,7 @@ internal class MediaGraph(
 
     val playbackFileLookup: PlaybackFileLookup by lazy {
         // Playback File Lookup: Associates book identifiers to their respective audio files.
-        com.viel.aplayer.media.DefaultPlaybackFileLookup(
+        DefaultPlaybackFileLookup(
             data.database.bookDao()
         )
     }

@@ -104,7 +104,7 @@ class SearchOverlayBackHandlerTest {
         private const val SEARCH_FIELD_SENTINEL = "Search field sentinel"
 
         // Open Search Sentinel (Stable test-only entry point for opening the overlay)
-        // This models Home chrome requesting Search without requiring the full application dependency graph.
+        // This models Home chrome requesting Search without requiring the full application dependency di.
         private const val OPEN_SEARCH_SENTINEL = "Open search sentinel"
     }
 }

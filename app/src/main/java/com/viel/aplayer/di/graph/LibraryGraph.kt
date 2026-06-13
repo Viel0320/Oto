@@ -1,4 +1,4 @@
-package com.viel.aplayer.graph
+package com.viel.aplayer.di.graph
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
@@ -61,6 +61,7 @@ import com.viel.aplayer.media.subtitle.SubtitleFileResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import java.io.Closeable
 
 /**
  * Library Graph (Owns local library queries, scan scheduling, metadata, cover, and deletion use cases)
@@ -72,7 +73,7 @@ internal class LibraryGraph(
     val data: DataGraph,
     val media: MediaGraph,
     val uiEvents: UiEventGraph
-) : java.io.Closeable {
+) : Closeable {
     val coverExtractor: CoverExtractor by lazy {
         // Cover Extractor: Parses image headers to extract embedded cover artwork files.
         CoverExtractor(context.applicationContext)
@@ -142,7 +143,7 @@ internal class LibraryGraph(
 
     /**
      * Book Query Service Accessor (Preserves lazy construction while exposing the typed implementation internally)
-     * The backing Lazy is retained so graph teardown can check initialization without constructing Room-backed services.
+     * The backing Lazy is retained so di teardown can check initialization without constructing Room-backed services.
      */
     private val bookQueryService: BookQueryService
         get() = bookQueryServiceLazy.value
@@ -184,7 +185,7 @@ internal class LibraryGraph(
 
     val remotePlaybackCleanupGateway by lazy {
         // Remote Playback Cleanup Wiring (Keep ABS playback table pruning behind a narrow persistence seam)
-        // DeleteBookUseCase only needs book-scoped cleanup, so the graph wires the two Room DAOs without exposing ABS syncers.
+        // DeleteBookUseCase only needs book-scoped cleanup, so the di wires the two Room DAOs without exposing ABS syncers.
         RemotePlaybackCleanupService(
             absPlaybackSessionDao = data.database.absPlaybackSessionDao(),
             absPendingProgressSyncDao = data.database.absPendingProgressSyncDao()
@@ -215,7 +216,7 @@ internal class LibraryGraph(
     }
 
     /**
-     * Progress Gateway Accessor (Keeps public graph API unchanged while retaining lazy lifecycle metadata)
+     * Progress Gateway Accessor (Keeps public di API unchanged while retaining lazy lifecycle metadata)
      * Teardown can now close the service only after a runtime caller has resolved this gateway.
      */
     val progressGateway: ProgressGateway
@@ -259,7 +260,7 @@ internal class LibraryGraph(
             scanScheduler = scanScheduler,
             cacheEvictionCoordinator = cacheEvictionCoordinator,
             // Root Delete Transaction Database (Bind LibraryRootService to the same Room owner as its DAOs)
-            // Passing the graph database explicitly keeps ABS cleanup transactions aligned with the DAO instances injected above.
+            // Passing the di database explicitly keeps ABS cleanup transactions aligned with the DAO instances injected above.
             databaseOverride = data.database
         )
     }
@@ -308,8 +309,8 @@ internal class LibraryGraph(
     }
 
     /**
-     * Search History Gateway Accessor (Keeps search history storage behind lazy graph construction)
-     * The explicit Lazy backing keeps future closeable behavior visible to graph lifecycle tests.
+     * Search History Gateway Accessor (Keeps search history storage behind lazy di construction)
+     * The explicit Lazy backing keeps future closeable behavior visible to di lifecycle tests.
      */
     val searchHistoryGateway: SearchHistoryGateway
         get() = searchHistoryGatewayLazy.value

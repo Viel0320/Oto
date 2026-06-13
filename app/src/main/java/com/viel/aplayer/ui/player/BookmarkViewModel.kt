@@ -24,7 +24,7 @@ class BookmarkViewModel(
     // Fall back to viewModelScope if rawExternalScope is null to ensure coroutines are correctly managed.
     private val externalScope = rawExternalScope ?: viewModelScope
 
-    // Resolve dependencies (Fetches bookmark scene commands and app-event sink from presentation graph)
+    // Resolve dependencies (Fetches bookmark scene commands and app-event sink from presentation di)
     private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)
     private val bookmarkCommands = playerDependencies.playerBookmarkCommands
     private val appEventSink = playerDependencies.appEventSink

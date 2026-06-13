@@ -5,7 +5,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Startup Warmup Architecture Rule (Protects cold-start graph laziness)
+ * Startup Warmup Architecture Rule (Protects cold-start di laziness)
  * Verifies startup wiring keeps freshness reads on narrow persistence adapters before stale ABS roots schedule deeper synchronization work.
  */
 class StartupWarmupArchitectureTest {
@@ -28,10 +28,10 @@ class StartupWarmupArchitectureTest {
         }
 
         // Bound Reference Laziness Guard (Keeps receiver resolution out of warmup construction)
-        // Binding these graph properties would allocate scanner, VFS, ABS catalog, or media recovery objects before the startup freshness gate runs.
+        // Binding these di properties would allocate scanner, VFS, ABS catalog, or media recovery objects before the startup freshness gate runs.
         assertTrue(
             buildString {
-                appendLine("createStartupWarmup must not bind wide graph callable references.")
+                appendLine("createStartupWarmup must not bind wide di callable references.")
                 violations.forEach { violation -> appendLine("- $violation") }
             },
             violations.isEmpty()
@@ -59,10 +59,10 @@ class StartupWarmupArchitectureTest {
         }
 
         // Persistence Adapter Boundary (Keeps startup freshness on Room-backed reads)
-        // The adapter may read root rows and ABS sync state, but it must not import the wider graph services it is meant to avoid.
+        // The adapter may read root rows and ABS sync state, but it must not import the wider di services it is meant to avoid.
         assertTrue(
             buildString {
-                appendLine("DefaultStartupWarmupDependencies must stay free of wide graph adapter types.")
+                appendLine("DefaultStartupWarmupDependencies must stay free of wide di adapter types.")
                 violations.forEach { violation -> appendLine("- $violation") }
             },
             violations.isEmpty()

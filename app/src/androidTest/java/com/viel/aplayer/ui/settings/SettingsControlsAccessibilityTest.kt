@@ -27,7 +27,7 @@ import org.junit.runner.RunWith
  * Settings Controls Accessibility Test (Locks Settings row semantics for TalkBack)
  *
  * Exercises reusable Settings controls directly so accessibility regressions are caught at the
- * component boundary without mounting the full Settings route or persistence graph.
+ * component boundary without mounting the full Settings route or persistence di.
  */
 @RunWith(AndroidJUnit4::class)
 class SettingsControlsAccessibilityTest {

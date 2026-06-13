@@ -13,18 +13,18 @@ import com.viel.aplayer.abs.sync.AbsSyncWorkScheduler
 import com.viel.aplayer.application.startup.APlayerStartupWarmup
 import com.viel.aplayer.application.startup.DefaultStartupWarmupDependencies
 import com.viel.aplayer.data.db.AppDatabase
-import com.viel.aplayer.dependencies.AbsSyncWorkerDependencies
-import com.viel.aplayer.dependencies.AppShellDependencies
-import com.viel.aplayer.dependencies.DetailScreenDependencies
-import com.viel.aplayer.dependencies.EditScreenDependencies
-import com.viel.aplayer.dependencies.HomeScreenDependencies
-import com.viel.aplayer.dependencies.LibrarySyncWorkerDependencies
-import com.viel.aplayer.dependencies.PlaybackRecoveryDependencies
-import com.viel.aplayer.dependencies.PlaybackRuntimeDependencies
-import com.viel.aplayer.dependencies.PlayerScreenDependencies
-import com.viel.aplayer.dependencies.SearchScreenDependencies
-import com.viel.aplayer.dependencies.SettingsScreenDependencies
-import com.viel.aplayer.dependencies.VfsPlaybackDependencies
+import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
+import com.viel.aplayer.di.dependencies.AppShellDependencies
+import com.viel.aplayer.di.dependencies.DetailScreenDependencies
+import com.viel.aplayer.di.dependencies.EditScreenDependencies
+import com.viel.aplayer.di.dependencies.HomeScreenDependencies
+import com.viel.aplayer.di.dependencies.LibrarySyncWorkerDependencies
+import com.viel.aplayer.di.dependencies.PlaybackRecoveryDependencies
+import com.viel.aplayer.di.dependencies.PlaybackRuntimeDependencies
+import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.di.dependencies.SearchScreenDependencies
+import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
+import com.viel.aplayer.di.dependencies.VfsPlaybackDependencies
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.logger.AbsSyncLogger
 import com.viel.aplayer.logger.CoverImageCoilEventListener
@@ -70,7 +70,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         // Early Process Container Initialization (Trigger composition-root instantiation on the main thread during onCreate)
-        // The process-only view preserves startup access to graph-owned wiring while keeping the public AppContainer surface narrow.
+        // The process-only view preserves startup access to di-owned wiring while keeping the public AppContainer surface narrow.
         val processContainer = getProcessContainer(this)
         
         // Async Warmup (Warm up database/settings components on background thread during application startup)
@@ -151,13 +151,13 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         @OptIn(UnstableApi::class)
         fun getContainer(context: Context): AppContainer {
             // Public Container Provider (Return only the dependency-view union)
-            // Hiding the process-only subtype prevents public callers from resolving graph-owned implementation properties.
+            // Hiding the process-only subtype prevents public callers from resolving di-owned implementation properties.
             return getProcessContainer(context)
         }
 
         /**
          * Process Container Provider (Return the internal composition-root view)
-         * Gives Application startup wiring access to graph-owned implementations without expanding AppContainer's public contract.
+         * Gives Application startup wiring access to di-owned implementations without expanding AppContainer's public contract.
          *
          * @param context Component Context
          * @return The global singleton ProcessContainer

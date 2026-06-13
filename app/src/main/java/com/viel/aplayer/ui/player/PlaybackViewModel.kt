@@ -5,11 +5,10 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
 import com.viel.aplayer.application.library.player.PlayerRelatedData
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.media.PlaybackMediaId
@@ -50,7 +49,7 @@ class PlaybackViewModel(
         private val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f)
     }
 
-    // Resolve dependencies (Fetches screen dependencies and managers from application presentation graph)
+    // Resolve dependencies (Fetches screen dependencies and managers from application presentation di)
     // Instantiates controllers, coordinators, and read models locally to control playback.
     // Title: Non-nullable dependency optimization (Remove safe calls as screen dependencies are guaranteed to be initialized and non-nullable)
     private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)

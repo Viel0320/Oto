@@ -5,16 +5,16 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Playback Lifetime Architecture Test (Locks phase-six graph ownership)
- * Verifies persistence graph and deletion use cases stay decoupled from playback runtime managers.
+ * Playback Lifetime Architecture Test (Locks phase-six di ownership)
+ * Verifies persistence di and deletion use cases stay decoupled from playback runtime managers.
  */
 class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun dataGraphDoesNotOwnPlaybackRuntimeManagers() {
-        val dataGraph = resolveSourceRoot().resolve("graph/DataGraph.kt").readText()
+        val dataGraph = resolveSourceRoot().resolve("di/DataGraph.kt").readText()
 
-        // Data Graph Persistence Boundary (Forbid media-runtime ownership in the data graph)
+        // Data Graph Persistence Boundary (Forbid media-runtime ownership in the data di)
         // DataGraph should expose database, settings, and data stores only; playback lifecycle belongs to MediaGraph.
         assertTrue(!dataGraph.contains("PlaybackManager"))
         assertTrue(!dataGraph.contains("AutoRewindManager"))
@@ -65,7 +65,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun libraryGraphReceivesPlaybackStopperFromMediaGraph() {
-        val libraryGraph = resolveSourceRoot().resolve("graph/LibraryGraph.kt").readText()
+        val libraryGraph = resolveSourceRoot().resolve("di/LibraryGraph.kt").readText()
 
         // Library Graph Playback Wiring Boundary (Route deletion shutdown through MediaGraph)
         // LibraryGraph should compose deletion use cases with media.playbackStopper instead of data-owned playback managers.
@@ -125,9 +125,9 @@ class PlaybackLifetimeArchitectureTest {
         )
 
         val dependencies = sourceRoot.resolve("dependencies/PresentationDependencies.kt").readText()
-        val mediaGraph = sourceRoot.resolve("graph/MediaGraph.kt").readText()
+        val mediaGraph = sourceRoot.resolve("di/MediaGraph.kt").readText()
 
-        // Controller Wiring Contract (Keep the player runtime adapter visible at both dependency view and media graph)
+        // Controller Wiring Contract (Keep the player runtime adapter visible at both dependency view and media di)
         // This guards the intended route: PlayerViewModel -> PlayerScreenDependencies -> MediaGraph adapter -> media managers.
         assertTrue(dependencies.contains("val playerPlaybackController: PlayerPlaybackController"))
         assertTrue(mediaGraph.contains("playerPlaybackController: PlayerPlaybackController"))
