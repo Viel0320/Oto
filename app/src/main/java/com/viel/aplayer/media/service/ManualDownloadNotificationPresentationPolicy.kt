@@ -1,5 +1,6 @@
 package com.viel.aplayer.media.service
 
+import com.viel.aplayer.application.download.ManualDownloadDisplayTextPolicy
 import com.viel.aplayer.data.entity.DownloadStatus
 
 internal enum class ManualDownloadNotificationAction {
@@ -17,9 +18,13 @@ internal enum class ManualDownloadNotificationAction {
  */
 internal object ManualDownloadNotificationPresentationPolicy {
     fun title(author: String, bookTitle: String, progressPercent: Int): String =
-        // Book Progress Title Format (Match the requested notification title contract)
-        // The title intentionally keeps three spaces before the percentage so dense Android notification rows separate metadata from progress.
-        "${author.ifBlank { bookTitle }} - ${bookTitle.ifBlank { author }}   ${progressPercent.coerceIn(0, 100)}%"
+        // Notification Progress Label Delegation (Reuse the shared manual-download label formatter)
+        // Notifications and the download management list must truncate long authors the same way.
+        ManualDownloadDisplayTextPolicy.progressBookLabel(
+            progressPercent = progressPercent,
+            author = author,
+            bookTitle = bookTitle
+        )
 
     fun actionsFor(status: DownloadStatus): List<ManualDownloadNotificationAction> =
         // Task Action Mapping (Expose only actions that make sense for the current durable aggregate state)
@@ -40,4 +45,5 @@ internal object ManualDownloadNotificationPresentationPolicy {
             )
             DownloadStatus.COMPLETED -> emptyList()
         }
+
 }

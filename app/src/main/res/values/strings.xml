@@ -525,10 +525,12 @@
     <string name="download_notification_failed">Some downloads need attention</string>
     <string name="download_notification_idle">Offline cache is up to date</string>
     <string name="download_notification_book_queued">Queued · %1$d/%2$d files</string>
-    <string name="download_notification_book_downloading">Downloading · %1$d/%2$d files · %3$d%% · %4$s/%5$s</string>
-    <string name="download_notification_book_paused">Paused · %1$d/%2$d files · %3$d%%</string>
+    <string name="download_notification_book_downloading">Downloading · %1$d/%2$d files · %3$s/%4$s</string>
+    <string name="download_notification_book_paused">Paused · %1$d/%2$d files</string>
     <string name="download_notification_book_completed">Download complete · %1$d/%2$d files</string>
-    <string name="download_notification_book_failed">Download failed · %1$d/%2$d files · %3$d%%</string>
+    <string name="download_notification_book_failed">Download failed · %1$d/%2$d files</string>
+    <string name="download_notification_book_progress_files">%1$d/%2$d files</string>
+    <string name="download_notification_book_progress_bytes">%1$d/%2$d files · %3$s/%4$s</string>
     <!-- Detail Download UI Copy (Expose manual offline cache status and commands from the detail top bar)
          These strings keep notification permission preflight, cache-state labels, and command feedback localized in one resource group. -->
     <string name="detail_download_action_none">Cache offline</string>

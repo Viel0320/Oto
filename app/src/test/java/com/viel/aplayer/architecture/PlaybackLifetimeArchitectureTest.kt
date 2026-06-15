@@ -78,6 +78,18 @@ class PlaybackLifetimeArchitectureTest {
     }
 
     @Test
+    fun bookDeletionReceivesManualDownloadCleanupGatewayFromDownloadGraph() {
+        val sourceRoot = resolveSourceRoot()
+        val appContainer = sourceRoot.resolve("AppContainer.kt").readText()
+        val libraryGraph = sourceRoot.resolve("application/di/graph/LibraryGraph.kt").readText()
+
+        // Book Deletion Download Cleanup Wiring (Ensure the production graph does not fall back to no-op cache cleanup)
+        // The composition root should pass DownloadGraph's narrow cleanup gateway into LibraryGraph, and LibraryGraph should forward it to DeleteBookUseCase.
+        assertTrue(appContainer.contains("manualDownloadCleanupGateway = download.manualDownloadCleanupGateway"))
+        assertTrue(libraryGraph.contains("manualDownloadCleanupGateway = manualDownloadCleanupGateway"))
+    }
+
+    @Test
     fun playerSceneUsesPlaybackControllerInsteadOfMediaSingletons() {
         val sourceRoot = resolveSourceRoot()
         // Update Playback Lifetime Test (Adapts UI file list to independent ViewModels)

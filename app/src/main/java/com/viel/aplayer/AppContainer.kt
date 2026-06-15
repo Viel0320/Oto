@@ -454,7 +454,15 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     internal val data = DataGraph(context)
     internal val media = MediaGraph(context, data)
     internal val download = DownloadGraph(context, data, media)
-    internal val library = LibraryGraph(context, data, media, uiEvents)
+    internal val library = LibraryGraph(
+        context = context,
+        data = data,
+        media = media,
+        uiEvents = uiEvents,
+        // Book Deletion Download Cleanup Wiring (Give LibraryGraph only the book-scoped manual cache cleanup seam)
+        // DeleteBookUseCase can remove Media3 download records, metadata, and notifications without seeing queue or cache statistics APIs.
+        manualDownloadCleanupGateway = download.manualDownloadCleanupGateway
+    )
     internal val abs = AbsGraph(context, data, media, library, uiEvents)
 
     init {

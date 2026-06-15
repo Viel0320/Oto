@@ -42,6 +42,7 @@ class DeleteBookUseCaseTest {
             listOf(
                 "stopPlayback",
                 "checkPrimaryAudioFile:$BOOK_ID",
+                "deleteManualDownload:$BOOK_ID",
                 "deleteBook:$BOOK_ID",
                 "deletePlaybackStateForBook:$BOOK_ID"
             ),
@@ -60,6 +61,7 @@ class DeleteBookUseCaseTest {
         assertEquals(
             listOf(
                 "checkPrimaryAudioFile:$BOOK_ID",
+                "deleteManualDownload:$BOOK_ID",
                 "deleteBook:$BOOK_ID",
                 "deletePlaybackStateForBook:$BOOK_ID"
             ),
@@ -73,8 +75,7 @@ class DeleteBookUseCaseTest {
         val useCase = useCaseFor(
             currentBookId = null,
             fileExists = true,
-            events = events,
-            manualDownloadCleanupGateway = RecordingManualDownloadCleanupGateway(events)
+            events = events
         )
 
         useCase.invoke(BOOK_ID)
@@ -93,41 +94,28 @@ class DeleteBookUseCaseTest {
     private fun useCaseFor(
         currentBookId: String?,
         fileExists: Boolean,
-        events: MutableList<String>,
-        manualDownloadCleanupGateway: ManualDownloadCleanupGateway? = null
+        events: MutableList<String>
     ): DeleteBookUseCase {
-        // Delete Book Fixture (Wire only the three seams used by destructive book deletion)
+        // Delete Book Fixture (Wire only the focused seams used by destructive book deletion)
         // Fakes record call order so the test protects the stop-before-delete safety policy.
         val playbackStopper = RecordingPlaybackStopper(currentBookId, events)
         val bookAvailabilityGateway = RecordingBookAvailabilityGateway(fileExists, events)
         val bookDeletionGateway = RecordingBookQueryGateway(events)
         val remotePlaybackCleanupGateway = RecordingRemotePlaybackCleanupGateway(events)
-        return if (manualDownloadCleanupGateway == null) {
-            DeleteBookUseCase(
-                playbackStopper = playbackStopper,
-                bookAvailabilityGateway = bookAvailabilityGateway,
-                // Deletion Gateway Fixture (Pass the fake through the narrowed destructive command slot)
-                // The use case no longer receives catalog, chapter, bookmark, or metadata methods just to soft-delete a book.
-                bookDeletionGateway = bookDeletionGateway,
-                // Remote Playback Cleanup Fixture (Expose only book-scoped remote playback state pruning)
-                // Recording this call protects the delete-after-soft-delete ordering for stale ABS session and pending progress rows.
-                remotePlaybackCleanupGateway = remotePlaybackCleanupGateway
-            )
-        } else {
-            DeleteBookUseCase(
-                playbackStopper = playbackStopper,
-                bookAvailabilityGateway = bookAvailabilityGateway,
-                // Deletion Gateway Fixture (Pass the fake through the narrowed destructive command slot)
-                // The use case no longer receives catalog, chapter, bookmark, or metadata methods just to soft-delete a book.
-                bookDeletionGateway = bookDeletionGateway,
-                // Remote Playback Cleanup Fixture (Expose only book-scoped remote playback state pruning)
-                // Recording this call protects the delete-after-soft-delete ordering for stale ABS session and pending progress rows.
-                remotePlaybackCleanupGateway = remotePlaybackCleanupGateway,
-                // Manual Download Cleanup Fixture (Inject the L1 cleanup seam only for tests that assert cache deletion ordering)
-                // Existing deletion tests can keep using the default no-op collaborator while this branch protects the new offline-cache side effect.
-                manualDownloadCleanupGateway = manualDownloadCleanupGateway
-            )
-        }
+        val manualDownloadCleanupGateway = RecordingManualDownloadCleanupGateway(events)
+        return DeleteBookUseCase(
+            playbackStopper = playbackStopper,
+            bookAvailabilityGateway = bookAvailabilityGateway,
+            // Deletion Gateway Fixture (Pass the fake through the narrowed destructive command slot)
+            // The use case no longer receives catalog, chapter, bookmark, or metadata methods just to soft-delete a book.
+            bookDeletionGateway = bookDeletionGateway,
+            // Remote Playback Cleanup Fixture (Expose only book-scoped remote playback state pruning)
+            // Recording this call protects the delete-after-soft-delete ordering for stale ABS session and pending progress rows.
+            remotePlaybackCleanupGateway = remotePlaybackCleanupGateway,
+            // Manual Download Cleanup Fixture (Require every deletion scenario to clear L1 manual cache state)
+            // This keeps the constructor contract honest so production wiring cannot silently fall back to a no-op cleanup path.
+            manualDownloadCleanupGateway = manualDownloadCleanupGateway
+        )
     }
 
     private class RecordingPlaybackStopper(

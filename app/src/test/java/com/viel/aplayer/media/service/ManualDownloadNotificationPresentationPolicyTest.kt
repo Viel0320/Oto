@@ -13,9 +13,22 @@ class ManualDownloadNotificationPresentationPolicyTest {
             progressPercent = 42
         )
 
-        // Notification Title Contract (Pin the author-title-progress format requested for book downloads)
-        // The three-space separator before progress keeps the title readable in dense Android notification rows.
-        assertEquals("Author - Book Title   42%", title)
+        // Notification Title Contract (Pin the progress-author-title format requested for book downloads)
+        // The three-space separator after progress keeps the changing percentage readable in dense Android notification rows.
+        assertEquals("42%   Author - Book Title", title)
+    }
+
+    @Test
+    fun `title should compact very long author before book title`() {
+        val title = ManualDownloadNotificationPresentationPolicy.title(
+            author = "AuthorNameThatIsFarTooLongToFitInHeader",
+            bookTitle = "Book Title",
+            progressPercent = 78
+        )
+
+        // Long Author Compaction (Keep the book title visible when the author field is unusually long)
+        // The policy truncates only the author segment first because SystemUI has very limited header width.
+        assertEquals("78%   AuthorNameTha... - Book Title", title)
     }
 
     @Test

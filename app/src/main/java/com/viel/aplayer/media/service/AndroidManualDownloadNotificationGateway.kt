@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
+import com.viel.aplayer.application.download.ManualDownloadDisplayTextPolicy
 import com.viel.aplayer.application.download.ManualDownloadNotificationGateway
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.entity.DownloadMetadataEntity
@@ -45,20 +46,22 @@ class AndroidManualDownloadNotificationGateway(
             ?: appContext.getString(R.string.common_unknown_title)
         val author = book?.author?.takeIf { value -> value.isNotBlank() }
             ?: appContext.getString(R.string.common_unknown)
-        val notificationTitle = ManualDownloadNotificationPresentationPolicy.title(
+        val bookProgressLabel = ManualDownloadNotificationPresentationPolicy.title(
             author = author,
             bookTitle = bookTitle,
             progressPercent = progressPercent(metadata)
         )
+        val statusTitle = statusTitle(metadata)
         notificationManager.notify(
             notificationIdForBook(metadata.bookId),
             NotificationCompat.Builder(appContext, DOWNLOAD_NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(notificationTitle)
+                // Status Title Promotion (Make the task state text the bold notification title)
+                // The book identity remains in subText/contentText so SystemUI can still surface author-title-progress around the status row.
+                .setContentTitle(statusTitle)
                 // Header SubText Mirror (Feed the same book progress label into SystemUI's notification header slot)
                 // Some Android builds render subText where the app name header appears, so this restores the user-visible author-title-progress text there.
-                .setSubText(notificationTitle)
-                .setContentText(contentText(metadata))
+                .setSubText(bookProgressLabel)
                 .setContentIntent(createContentIntent(metadata.bookId))
                 .setOnlyAlertOnce(true)
                 .setOngoing(metadata.status in ACTIVE_NOTIFICATION_STATUSES)
@@ -101,44 +104,22 @@ class AndroidManualDownloadNotificationGateway(
         return this
     }
 
-    private fun contentText(metadata: DownloadMetadataEntity): String {
-        // Aggregate Progress Copy (Format book-level file counts and byte totals from durable metadata)
-        // Notifications intentionally mirror Room state so UI and system surfaces agree even when DownloadManager callbacks are sparse.
-        val completed = metadata.completedFiles.coerceAtLeast(0)
-        val total = metadata.totalFiles.coerceAtLeast(completed)
-        val percent = progressPercent(metadata)
-        return when (metadata.status) {
-            DownloadStatus.QUEUED -> appContext.getString(
-                R.string.download_notification_book_queued,
-                completed,
-                total
-            )
-            DownloadStatus.DOWNLOADING -> appContext.getString(
-                R.string.download_notification_book_downloading,
-                completed,
-                total,
-                percent,
-                formatBytes(metadata.downloadedBytes),
-                formatBytes(metadata.totalBytes)
-            )
-            DownloadStatus.PAUSED -> appContext.getString(
-                R.string.download_notification_book_paused,
-                completed,
-                total,
-                percent
-            )
-            DownloadStatus.COMPLETED -> appContext.getString(
-                R.string.download_notification_book_completed,
-                completed,
-                total
-            )
-            DownloadStatus.FAILED -> appContext.getString(
-                R.string.download_notification_book_failed,
-                completed,
-                total,
-                percent
-            )
-        }
+    private fun statusTitle(metadata: DownloadMetadataEntity): String {
+        // Shared Supplemental Status Title (Compose notification status through the same policy as management rows)
+        // The percent stays in bookProgressLabel and the progress bar, while this title carries compact file count and byte progress details.
+        val downloadedSizeText = metadata.totalBytes
+            .takeIf { totalBytes -> totalBytes > 0L }
+            ?.let { formatBytes(metadata.downloadedBytes) }
+        val totalSizeText = metadata.totalBytes
+            .takeIf { totalBytes -> totalBytes > 0L }
+            ?.let { totalBytes -> formatBytes(totalBytes) }
+        return ManualDownloadDisplayTextPolicy.taskSupplementalLabel(
+            statusText = appContext.getString(metadata.status.statusTextRes()),
+            completedFiles = metadata.completedFiles,
+            totalFiles = metadata.totalFiles,
+            downloadedSizeText = downloadedSizeText,
+            totalSizeText = totalSizeText
+        )
     }
 
     private fun progressPercent(metadata: DownloadMetadataEntity): Int {
@@ -213,6 +194,15 @@ class AndroidManualDownloadNotificationGateway(
             ManualDownloadNotificationAction.Resume -> appContext.getString(R.string.detail_download_resume_action)
             ManualDownloadNotificationAction.Retry -> appContext.getString(R.string.detail_download_resume_action)
             ManualDownloadNotificationAction.Cancel -> appContext.getString(R.string.detail_download_cancel_action)
+        }
+
+    private fun DownloadStatus.statusTextRes(): Int =
+        when (this) {
+            DownloadStatus.QUEUED -> R.string.download_management_status_queued
+            DownloadStatus.DOWNLOADING -> R.string.download_management_status_downloading
+            DownloadStatus.PAUSED -> R.string.download_management_status_paused
+            DownloadStatus.COMPLETED -> R.string.download_management_status_completed
+            DownloadStatus.FAILED -> R.string.download_management_status_failed
         }
 
     private companion object {

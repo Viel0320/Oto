@@ -502,10 +502,12 @@
     <string name="download_notification_failed">部分下載需要處理</string>
     <string name="download_notification_idle">離線快取已是最新狀態</string>
     <string name="download_notification_book_queued">排隊中 · %1$d/%2$d 個檔案</string>
-    <string name="download_notification_book_downloading">下載中 · %1$d/%2$d 個檔案 · %3$d%% · %4$s/%5$s</string>
-    <string name="download_notification_book_paused">已暫停 · %1$d/%2$d 個檔案 · %3$d%%</string>
+    <string name="download_notification_book_downloading">下載中 · %1$d/%2$d 個檔案 · %3$s/%4$s</string>
+    <string name="download_notification_book_paused">已暫停 · %1$d/%2$d 個檔案</string>
     <string name="download_notification_book_completed">下載完成 · %1$d/%2$d 個檔案</string>
-    <string name="download_notification_book_failed">下載失敗 · %1$d/%2$d 個檔案 · %3$d%%</string>
+    <string name="download_notification_book_failed">下載失敗 · %1$d/%2$d 個檔案</string>
+    <string name="download_notification_book_progress_files">%1$d/%2$d 個檔案</string>
+    <string name="download_notification_book_progress_bytes">%1$d/%2$d 個檔案 · %3$s/%4$s</string>
     <!-- Detail Download UI Copy (Expose manual offline cache status and commands from the detail top bar)
          These strings keep notification permission preflight, cache-state labels, and command feedback localized in one resource group. -->
     <string name="detail_download_action_none">離線快取</string>

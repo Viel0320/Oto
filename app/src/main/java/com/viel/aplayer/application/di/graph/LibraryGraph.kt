@@ -2,6 +2,7 @@ package com.viel.aplayer.application.di.graph
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
 import com.viel.aplayer.application.library.detail.DefaultDetailBookModule
 import com.viel.aplayer.application.library.detail.DetailBookCommands
 import com.viel.aplayer.application.library.detail.DetailBookReadModel
@@ -72,7 +73,8 @@ internal class LibraryGraph(
     val context: Context,
     val data: DataGraph,
     val media: MediaGraph,
-    val uiEvents: UiEventGraph
+    val uiEvents: UiEventGraph,
+    private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
 ) : Closeable {
     val coverExtractor: CoverExtractor by lazy {
         // Cover Extractor: Parses image headers to extract embedded cover artwork files.
@@ -442,7 +444,10 @@ internal class LibraryGraph(
             playbackStopper = media.playbackStopper,
             bookAvailabilityGateway = bookAvailabilityService,
             bookDeletionGateway = bookDeletionGateway,
-            remotePlaybackCleanupGateway = remotePlaybackCleanupGateway
+            remotePlaybackCleanupGateway = remotePlaybackCleanupGateway,
+            // Manual Download Cleanup Wiring (Route book deletion through the narrow L1 cache cleanup seam)
+            // LibraryGraph receives only ManualDownloadCleanupGateway, so deletion can clear offline tasks without depending on the full download controller surface.
+            manualDownloadCleanupGateway = manualDownloadCleanupGateway
         )
     }
 

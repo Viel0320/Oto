@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.download.BookCacheState
 import com.viel.aplayer.application.download.BookCacheStatus
+import com.viel.aplayer.application.download.ManualDownloadDisplayTextPolicy
 import com.viel.aplayer.application.download.ManualDownloadTaskItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
@@ -239,7 +240,7 @@ private fun DownloadTaskRow(
     ListItem(
         headlineContent = {
             Text(
-                text = task.title,
+                text = task.headlineText(status),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -331,31 +332,33 @@ private fun DownloadTaskActions(
     }
 }
 
-// Download Row Subtitle (Build localized progress text from aggregate cache state)
-// File counts and byte counts stay separate so unknown totals still produce useful task progress copy.
+// Download Row Headline (Match notification progress-first title formatting)
+// Long authors are compacted before Compose ellipsizing so the work title remains visible in each management row.
+private fun ManualDownloadTaskItem.headlineText(status: BookCacheStatus): String =
+    ManualDownloadDisplayTextPolicy.progressBookLabel(
+        progressPercent = status.progressPercent,
+        author = author,
+        bookTitle = title
+    )
+
+// Download Row Subtitle (Build compact supplemental text from aggregate cache state)
+// The progress percentage already appears in the headline and bar, so the subtitle keeps only state, numeric file count, and optional byte range.
 @Composable
 private fun ManualDownloadTaskItem.subtitleText(status: BookCacheStatus): String {
     val stateText = stringResource(status.labelRes())
-    val progressText = if (status.totalBytes > 0L) {
-        stringResource(
-            R.string.download_management_progress_bytes,
-            status.progressPercent,
-            status.completedFiles,
-            status.totalFiles,
-            formatFileSize(status.downloadedBytes),
-            formatFileSize(status.totalBytes)
-        )
-    } else {
-        stringResource(
-            R.string.download_management_progress_files,
-            status.progressPercent,
-            status.completedFiles,
-            status.totalFiles
-        )
-    }
-    return author.takeIf { it.isNotBlank() }
-        ?.let { authorName -> stringResource(R.string.download_management_task_subtitle_with_author, authorName, stateText, progressText) }
-        ?: stringResource(R.string.download_management_task_subtitle, stateText, progressText)
+    val downloadedSizeText = status.totalBytes
+        .takeIf { totalBytes -> totalBytes > 0L }
+        ?.let { formatFileSize(status.downloadedBytes) }
+    val totalSizeText = status.totalBytes
+        .takeIf { totalBytes -> totalBytes > 0L }
+        ?.let { totalBytes -> formatFileSize(totalBytes) }
+    return ManualDownloadDisplayTextPolicy.taskSupplementalLabel(
+        statusText = stateText,
+        completedFiles = status.completedFiles,
+        totalFiles = status.totalFiles,
+        downloadedSizeText = downloadedSizeText,
+        totalSizeText = totalSizeText
+    )
 }
 
 // Download Status Label (Map application cache states to stable localized row labels)

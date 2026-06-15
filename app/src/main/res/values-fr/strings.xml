@@ -500,10 +500,12 @@
     <!-- Book Download Notification Copy (Expose per-book manual download progress in Android notifications)
          These strings mirror the base placeholder contract so notification updates can format file counts, percentages, and byte totals in every supported locale. -->
     <string name="download_notification_book_queued">En attente · %1$d/%2$d fichiers</string>
-    <string name="download_notification_book_downloading">Telechargement · %1$d/%2$d fichiers · %3$d%% · %4$s/%5$s</string>
-    <string name="download_notification_book_paused">En pause · %1$d/%2$d fichiers · %3$d%%</string>
+    <string name="download_notification_book_downloading">Telechargement · %1$d/%2$d fichiers · %3$s/%4$s</string>
+    <string name="download_notification_book_paused">En pause · %1$d/%2$d fichiers</string>
     <string name="download_notification_book_completed">Telechargement termine · %1$d/%2$d fichiers</string>
-    <string name="download_notification_book_failed">Echec du telechargement · %1$d/%2$d fichiers · %3$d%%</string>
+    <string name="download_notification_book_failed">Echec du telechargement · %1$d/%2$d fichiers</string>
+    <string name="download_notification_book_progress_files">%1$d/%2$d fichiers</string>
+    <string name="download_notification_book_progress_bytes">%1$d/%2$d fichiers · %3$s/%4$s</string>
     <!-- Detail Download UI Copy (Expose manual offline cache status and commands from the detail top bar)
          These strings keep notification permission preflight, cache-state labels, and command feedback localized in one resource group. -->
     <string name="detail_download_action_none">Cache offline</string>

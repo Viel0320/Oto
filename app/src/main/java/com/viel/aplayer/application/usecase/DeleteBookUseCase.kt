@@ -20,7 +20,7 @@ class DeleteBookUseCase(
     private val bookAvailabilityGateway: BookAvailabilityGateway,
     private val bookDeletionGateway: BookDeletionGateway,
     private val remotePlaybackCleanupGateway: RemotePlaybackCleanupGateway,
-    private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway = NoOpManualDownloadCleanupGateway
+    private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
 ) {
 
     /**
@@ -53,11 +53,5 @@ class DeleteBookUseCase(
         remotePlaybackCleanupGateway.deletePlaybackStateForBook(bookId)
 
         fileExists
-    }
-
-    private object NoOpManualDownloadCleanupGateway : ManualDownloadCleanupGateway {
-        // Legacy Constructor Fallback (Preserve existing tests and call sites that do not exercise manual downloads)
-        // Production wiring injects the real DownloadGraph cleanup gateway so book deletion still removes L1 offline cache state.
-        override suspend fun deleteDownload(bookId: String) = Unit
     }
 }
