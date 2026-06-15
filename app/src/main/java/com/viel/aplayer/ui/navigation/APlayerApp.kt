@@ -320,19 +320,8 @@ fun APlayerApp(
         val isSettingsVisible by settingsViewModel.isVisible.collectAsStateWithLifecycle()
         val isEditVisible by editViewModel.isVisible.collectAsStateWithLifecycle()
 
-        // Title: Compute aggregate overlay visibility and manage bottom layer drawing culling state
-        // Description: Calculates if any full-screen overlay (Detail, Search, Settings, Edit) is visible. Launches a coroutine effect that delays setting the culling state to true (e.g. 350ms) to allow enter transitions to finish, but instantly resets it to false to allow exit transitions.
-        val isAnyOverlayVisible = detailUiState.isVisible || isSearchVisible || isSettingsVisible || isEditVisible
-        var isBottomLayerCelled by remember { mutableStateOf(false) }
-
-        LaunchedEffect(isAnyOverlayVisible) {
-            if (isAnyOverlayVisible) {
-                delay(350L.milliseconds)
-                isBottomLayerCelled = true
-            } else {
-                isBottomLayerCelled = false
-            }
-        }
+        // Title: Disable bottom layer culling to support Haze blur backdrop sampling
+        // Description: Cleaned up bottom layer rendering culling variables so that background screens remain fully drawn while overlays are active. This preserves proper backdrop sampling for Haze blurs and prevents blank space exposures.
 
         val canStartNavigation = rememberNavigationThrottle()
 
@@ -470,16 +459,11 @@ fun APlayerApp(
                     ) {
                 // Navigation Host Layer (Delegate route-level haze source ownership)
                 // APlayerNavHost mounts the active route content as the Haze source so HomeAppBar can be rendered as a sibling overlay above that source.
+                // Title: Continuous Rendering of Bottom Host
+                // Description: Keep drawing bottom navigation host content at all times to enable background blur and gestures.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        // Title: Suspend bottom layer rendering when fully covered by an overlay
-                        // Description: Prevents GPU rendering (drawContent) of the bottom navigation host if isBottomLayerCelled is true, saving fillrate and draw calls during overlay interaction.
-                        .drawWithContent {
-                            if (!isBottomLayerCelled) {
-                                drawContent()
-                            }
-                        }
                 ) {
                     // System Navigation Container (Scaffold Insets Handling)
                     // The bottom-most system navigation management container, the main navigation page (HomeScreen contains its own local Scaffold to provide its own bottom insets avoidance).
