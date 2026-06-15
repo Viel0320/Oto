@@ -158,30 +158,6 @@ object Mp4MetadataFrameReader {
         )
     }
 
-    suspend fun extractCover(file: FileRef, fileReader: VfsFileInterface): EmbeddedCover? {
-        if (!supports(file.displayName)) return null
-        // Cover recovery only reads ilst/covr and skips parsing the chapter table, avoiding I/O contention between cover self-healing and metadata import.
-        return extractWithRangeReader(
-            displayName = file.displayName,
-            sourceId = file.vfsKey,
-            fileSize = file.fileSize,
-            readRange = { offset, length -> fileReader.readRange(file, offset, length) },
-            options = COVER_ONLY_OPTIONS
-        )?.cover
-    }
-
-    suspend fun extractCover(file: BookFileEntity, fileReader: VfsFileInterface): EmbeddedCover? {
-        if (!supports(file.displayName)) return null
-        // Cover rebuilding for imported files also reads cover-only atoms, avoiding duplicate parsing of chapters and text metadata.
-        return extractWithRangeReader(
-            displayName = file.displayName,
-            sourceId = "${file.rootId}:${file.sourcePath}",
-            fileSize = file.fileSize,
-            readRange = { offset, length -> fileReader.readRange(file, offset, length) },
-            options = COVER_ONLY_OPTIONS
-        )?.cover
-    }
-
     private suspend fun extractWithRangeReader(
         displayName: String,
         sourceId: String,
@@ -193,7 +169,7 @@ object Mp4MetadataFrameReader {
         val stats = RangeReadStats(mode = "vfs-range")
         val rangeReader = CoalescingRangeReader(fileSize, stats, readRange)
         val startedAt = SystemClock.elapsedRealtime()
-        val result = extract(displayName, sourceId, fileSize, options) { offset, length ->
+        val result = extract(displayName, fileSize, options) { offset, length ->
             rangeReader.read(offset, length)
         }
         logRangeStats(sourceId, stats, startedAt, result != null, options)
@@ -202,7 +178,6 @@ object Mp4MetadataFrameReader {
 
     private suspend fun extract(
         displayName: String,
-        sourceId: String,
         fileSize: Long,
         options: ReadOptions,
         readRange: suspend (offset: Long, length: Int) -> ByteArray?
@@ -222,11 +197,11 @@ object Mp4MetadataFrameReader {
         val chapters = if (options.includeChapters) {
             val neroChapters = udta
                 ?.let { findChildAtom(it, fileSize, "chpl", readRange) }
-                ?.let { parseChpl(it, sourceId, readRange) }
+                ?.let { parseChpl(it, readRange) }
                 .orEmpty()
             neroChapters.ifEmpty {
                 // Fall back to parsing chapters via QuickTime chapter track's stbl metadata table if Nero chpl is absent.
-                parseQuickTimeChapters(moov, fileSize, sourceId, readRange)
+                parseQuickTimeChapters(moov, fileSize, readRange)
             }.normalizedChapterDurations(durationMs)
         } else {
             emptyList()
@@ -417,7 +392,6 @@ object Mp4MetadataFrameReader {
 
     private suspend fun parseChpl(
         chpl: Atom,
-        sourceId: String,
         readRange: suspend (offset: Long, length: Int) -> ByteArray?
     ): List<ChapterEntity> {
         val payloadSize = (chpl.size - chpl.headerSize).coerceAtMost(MAX_CHPL_BYTES.toLong()).toInt()
@@ -459,7 +433,6 @@ object Mp4MetadataFrameReader {
     private suspend fun parseQuickTimeChapters(
         moov: Atom,
         fileSize: Long,
-        sourceId: String,
         readRange: suspend (offset: Long, length: Int) -> ByteArray?
     ): List<ChapterEntity> {
         // QuickTime chapters map to a text track via tref/chap; parses only track metadata tables and small text samples.
@@ -476,13 +449,12 @@ object Mp4MetadataFrameReader {
             track.chapterTrackIds.firstOrNull { id -> tracks.any { candidate -> candidate.id == id } }
         } ?: return emptyList()
         val chapterTrack = tracks.firstOrNull { it.id == chapterTrackId }?.atom ?: return emptyList()
-        return parseChapterTextTrack(chapterTrack, fileSize, sourceId, readRange)
+        return parseChapterTextTrack(chapterTrack, fileSize, readRange)
     }
 
     private suspend fun parseChapterTextTrack(
         trak: Atom,
         fileSize: Long,
-        sourceId: String,
         readRange: suspend (offset: Long, length: Int) -> ByteArray?
     ): List<ChapterEntity> {
         val mdia = findChildAtom(trak, fileSize, "mdia", readRange) ?: return emptyList()
@@ -993,12 +965,5 @@ object Mp4MetadataFrameReader {
         includeDuration = true,
         // Standardized metadata purpose after evaluation to establish the formal metadata-cover path for diagnostics comparison.
         purpose = "metadata-cover"
-    )
-    private val COVER_ONLY_OPTIONS = ReadOptions(
-        includeMetadataFields = false,
-        includeCover = true,
-        includeChapters = false,
-        includeDuration = false,
-        purpose = "cover"
     )
 }

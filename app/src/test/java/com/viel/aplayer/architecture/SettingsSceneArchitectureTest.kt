@@ -75,9 +75,9 @@ class SettingsSceneArchitectureTest {
 
     @Test
     fun settingsDependencyViewDoesNotInheritLibraryPresentationDependencies() {
-        // Title: Update di path in test (Point to application/di/dependencies/PresentationDependencies.kt)
-        // Changes relative path to target the dependencies subdirectory under application/di.
-        val dependenciesSource = resolveSourceRoot().resolve("application/di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
+        // Title: Update di path in test (Point to di/dependencies/PresentationDependencies.kt)
+        // Changes relative path to target the dependencies subdirectory under di.
+        val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val settingsInterface = dependenciesSource.substringAfter("interface SettingsScreenDependencies")
             .substringBefore("/**\n * Player Screen Dependencies")
 

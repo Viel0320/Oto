@@ -12,9 +12,9 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun dataGraphDoesNotOwnPlaybackRuntimeManagers() {
-        // Title: Update DataGraph path in test (Point to application/di/graph/DataGraph.kt)
+        // Title: Update DataGraph path in test (Point to di/graph/DataGraph.kt)
         // Adjusts path parameter to target the nested graph subdirectory.
-        val dataGraph = resolveSourceRoot().resolve("application/di/graph/DataGraph.kt").readText()
+        val dataGraph = resolveSourceRoot().resolve("di/graph/DataGraph.kt").readText()
 
         // Data Graph Persistence Boundary (Forbid media-runtime ownership in the data di)
         // DataGraph should expose database, settings, and data stores only; playback lifecycle belongs to MediaGraph.
@@ -67,9 +67,9 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun libraryGraphReceivesPlaybackStopperFromMediaGraph() {
-        // Title: Update LibraryGraph path in test (Point to application/di/graph/LibraryGraph.kt)
+        // Title: Update LibraryGraph path in test (Point to di/graph/LibraryGraph.kt)
         // Adjusts path parameter to target the nested graph subdirectory.
-        val libraryGraph = resolveSourceRoot().resolve("application/di/graph/LibraryGraph.kt").readText()
+        val libraryGraph = resolveSourceRoot().resolve("di/graph/LibraryGraph.kt").readText()
 
         // Library Graph Playback Wiring Boundary (Route deletion shutdown through MediaGraph)
         // LibraryGraph should compose deletion use cases with media.playbackStopper instead of data-owned playback managers.
@@ -81,7 +81,7 @@ class PlaybackLifetimeArchitectureTest {
     fun managementUseCasesReceiveManualDownloadCleanupGatewayFromDownloadGraph() {
         val sourceRoot = resolveSourceRoot()
         val appContainer = sourceRoot.resolve("AppContainer.kt").readText()
-        val libraryGraph = sourceRoot.resolve("application/di/graph/LibraryGraph.kt").readText()
+        val libraryGraph = sourceRoot.resolve("di/graph/LibraryGraph.kt").readText()
 
         // Management Download Cleanup Wiring (Ensure production graph routes cleanup through the narrow download seam)
         // The composition root should pass DownloadGraph's cleanup gateway into LibraryGraph, and LibraryGraph should forward it to both management use cases.
@@ -155,10 +155,10 @@ class PlaybackLifetimeArchitectureTest {
             }
         )
 
-        // Title: Update di paths in test (Point to the correct nested packages under application/di/)
+        // Title: Update di paths in test (Point to the correct nested packages under di/)
         // Changes relative path paths to include the graph and dependencies subdirectories.
-        val dependencies = sourceRoot.resolve("application/di/dependencies/PresentationDependencies.kt").readText()
-        val mediaGraph = sourceRoot.resolve("application/di/graph/MediaGraph.kt").readText()
+        val dependencies = sourceRoot.resolve("di/dependencies/PresentationDependencies.kt").readText()
+        val mediaGraph = sourceRoot.resolve("di/graph/MediaGraph.kt").readText()
 
         // Controller Wiring Contract (Keep the player runtime adapter visible at both dependency view and media di)
         // This guards the intended route: PlayerViewModel -> PlayerScreenDependencies -> MediaGraph adapter -> media managers.

@@ -37,7 +37,7 @@ class DownloadGraphTest {
 
     @Test
     fun `download manager should receive raw vfs upstream instead of nested manual cache data source`() {
-        val source = File("src/main/java/com/viel/aplayer/application/di/graph/DownloadGraph.kt").readText()
+        val source = resolveSourceFile("di/graph/DownloadGraph.kt").readText()
         val createDownloadManagerBody = source
             .substringAfter("private fun createDownloadManager")
             .substringBefore("override fun close")
@@ -50,11 +50,20 @@ class DownloadGraphTest {
 
     @Test
     fun `download graph should not create playback disk cache`() {
-        val source = File("src/main/java/com/viel/aplayer/application/di/graph/DownloadGraph.kt").readText()
+        val source = resolveSourceFile("di/graph/DownloadGraph.kt").readText()
 
         // Removed Disk Buffer Guard (Keep playback buffering in ExoPlayer memory instead of DownloadGraph storage)
         // The graph may own manual cache for explicit downloads, but no playback-cache directory or evictor symbol should be present.
         assertFalse(source.contains("PLAYBACK_CACHE_DIRECTORY"))
         assertFalse(source.contains("Threshold" + "CacheEvictor"))
+    }
+
+    private fun resolveSourceFile(path: String): File {
+        val candidates = listOf(
+            File("src/main/java/com/viel/aplayer/$path"),
+            File("app/src/main/java/com/viel/aplayer/$path")
+        )
+        return candidates.firstOrNull { it.exists() }
+            ?: error("Could not locate source file: $path")
     }
 }

@@ -42,6 +42,7 @@ import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Server Version Constraints (First ABS integration only supports server versions greater than or equal to 2.35.1)
@@ -206,7 +207,7 @@ class RealAbsApiClient(
             val currentToken = credential.token
             // Raw Refresh Transport (Bypass request-level 401 retry while refreshing credentials)
             // The refresh call must not route through executeJson, otherwise authorize failures can recursively trigger another refresh.
-            val responseResult = withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
+            val responseResult = withTimeoutOrNull(REFRESH_TIMEOUT_MS.milliseconds) {
                 runCatching {
                     executeAuthorizeRaw(
                         baseUrl = credential.baseUrl,

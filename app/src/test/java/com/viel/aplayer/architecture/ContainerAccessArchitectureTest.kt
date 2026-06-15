@@ -76,8 +76,8 @@ class ContainerAccessArchitectureTest {
             "AppContainer.kt",
             // Title: Update di paths in unguarded examples (Point to the correct nested packages under di/)
             // Changes path elements to match the new nested package locations.
-            "application/di/dependencies/PresentationDependencies.kt",
-            "application/di/graph/LibraryGraph.kt"
+            "di/dependencies/PresentationDependencies.kt",
+            "di/graph/LibraryGraph.kt"
         )
 
         assertTrue(
