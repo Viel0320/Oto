@@ -1,10 +1,10 @@
 package com.viel.aplayer.architecture
 
-import com.viel.aplayer.application.di.graph.closeAppGraphsInLifecycleOrder
-import com.viel.aplayer.application.di.graph.closeInitializedAbsGraphResources
-import com.viel.aplayer.application.di.graph.closeInitializedLibraryGraphResources
-import com.viel.aplayer.application.di.graph.closeInitializedUiEventGraphResources
-import com.viel.aplayer.application.di.graph.releaseInitializedMediaGraphResource
+import com.viel.aplayer.di.graph.closeAppGraphsInLifecycleOrder
+import com.viel.aplayer.di.graph.closeInitializedAbsGraphResources
+import com.viel.aplayer.di.graph.closeInitializedLibraryGraphResources
+import com.viel.aplayer.di.graph.closeInitializedUiEventGraphResources
+import com.viel.aplayer.di.graph.releaseInitializedMediaGraphResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.junit.Assert.assertEquals

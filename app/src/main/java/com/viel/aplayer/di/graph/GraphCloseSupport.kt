@@ -1,4 +1,4 @@
-package com.viel.aplayer.application.di.graph
+package com.viel.aplayer.di.graph
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

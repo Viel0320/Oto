@@ -1,4 +1,4 @@
-package com.viel.aplayer.application.di.dependencies
+package com.viel.aplayer.di.dependencies
 
 import com.viel.aplayer.application.download.CacheMaintenanceCommands
 import com.viel.aplayer.application.download.CacheStatisticsProvider

@@ -1,6 +1,9 @@
 package com.viel.aplayer.application.di.graph
 
 import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.di.graph.DataGraph
+import com.viel.aplayer.di.graph.DownloadGraph
+import com.viel.aplayer.di.graph.MediaGraph
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
