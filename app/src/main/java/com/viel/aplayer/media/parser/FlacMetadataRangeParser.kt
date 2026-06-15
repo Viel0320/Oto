@@ -1,9 +1,7 @@
 package com.viel.aplayer.media.parser
 
-import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.charset.StandardCharsets
-import java.util.Base64
 import kotlin.math.min
 
 // flac 相关的 metadata block、Vorbis comment、PICTURE 解析都留在本文件内，
@@ -46,11 +44,9 @@ internal object FlacMetadataRangeParser : RangeAudioFormatParser {
                         val sampleRate = ((block[10].toInt() and 0xff) shl 12) or
                             ((block[11].toInt() and 0xff) shl 4) or
                             ((block[12].toInt() and 0xf0) shr 4)
+                        // Read totalSamples (36 bits) by prepending the 4 bits of offset 13 to the 32-bit big-endian value at offset 14.
                         val totalSamples = ((block[13].toLong() and 0x0f) shl 32) or
-                            ((block[14].toLong() and 0xff) shl 24) or
-                            ((block[15].toLong() and 0xff) shl 16) or
-                            ((block[16].toLong() and 0xff) shl 8) or
-                            (block[17].toLong() and 0xff)
+                            RangeAudioParserSupport.run { block.readUInt32BE(14) }
                         if (sampleRate > 0 && totalSamples > 0) {
                             durationMs = (totalSamples * 1000L) / sampleRate.toLong()
                         }
@@ -69,11 +65,11 @@ internal object FlacMetadataRangeParser : RangeAudioFormatParser {
                         RangeAudioParserSupport.mergeFirstNonBlank(comments["TRACKNUMBER"], comments["TRACK"])
                     )
                     if (options.includeEmbeddedCover && embeddedCover == null) {
-                        embeddedCover = comments["METADATA_BLOCK_PICTURE"]?.let(::decodeBase64Picture)
+                        embeddedCover = comments["METADATA_BLOCK_PICTURE"]?.let(FlacPictureCodec::decodeBase64)
                     }
                 }
                 6 -> if (options.includeEmbeddedCover && embeddedCover == null) {
-                    embeddedCover = parseFlacPictureBlock(block)
+                    embeddedCover = FlacPictureCodec.parseBlock(block)
                 }
             }
             cursor += blockLength
@@ -139,48 +135,6 @@ internal object FlacMetadataRangeParser : RangeAudioFormatParser {
             }
         }
         return comments
-    }
-
-    private fun decodeBase64Picture(value: String): EmbeddedCoverBytes? =
-        runCatchingCancellable {
-            parseFlacPictureBlock(Base64.getDecoder().decode(value))
-        }.getOrNull()
-
-    private fun parseFlacPictureBlock(bytes: ByteArray): EmbeddedCoverBytes? {
-        if (bytes.size < 32) return null
-        var cursor = 0
-        RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
-        cursor += 4
-
-        // 详尽的中文注释：对 MIME 长度字段进行防整数溢出及无符号的范围拦截限制，
-        // 保证计算后的游标物理指针不超过当前数组能容纳的最大剩余边界
-        val mimeLengthLong = RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
-        cursor += 4
-        if (mimeLengthLong !in 0L..(bytes.size - cursor).toLong()) return null
-        val mimeLength = mimeLengthLong.toInt()
-        val mimeType = bytes.copyOfRange(cursor, cursor + mimeLength).toString(StandardCharsets.UTF_8).ifBlank { null }
-        cursor += mimeLength
-
-        // 详尽的中文注释：对 Description 长度字段进行无符号及防整数溢出的边界守卫校验，
-        // 防止由于异常大数或负数引起 copyOfRange 或下一级长度提取时游标位置的异常退回
-        val descriptionLengthLong = RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
-        cursor += 4
-        if (descriptionLengthLong !in 0L..(bytes.size - cursor).toLong()) return null
-        val descriptionLength = descriptionLengthLong.toInt()
-        cursor += descriptionLength
-
-        if (cursor + 20 > bytes.size) return null
-        cursor += 16
-
-        // 详尽的中文注释：对图片内容的 physical length 长度字段进行彻底校验，
-        // 确保其完全落在合法非空以及当前 bytes 数组的最大允许范围内，完美化解溢出逃逸漏洞
-        val pictureLengthLong = RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
-        cursor += 4
-        if (pictureLengthLong <= 0L || pictureLengthLong > (bytes.size - cursor).toLong()) return null
-        val pictureLength = pictureLengthLong.toInt()
-
-        val imageBytes = bytes.copyOfRange(cursor, cursor + pictureLength)
-        return imageBytes.takeIf { it.isNotEmpty() }?.let { EmbeddedCoverBytes(bytes = it, mimeType = mimeType) }
     }
 
     private const val MAX_METADATA_SCAN_BYTES = 2 * 1024 * 1024

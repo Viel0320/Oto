@@ -1,9 +1,7 @@
 package com.viel.aplayer.media.parser
 
-import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.charset.StandardCharsets
-import java.util.Base64
 
 // Ogg/Opus packet, comment, granule, and picture block parsing logic is fully self-contained in this file.
 internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
@@ -40,7 +38,7 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
         val durationMs = ((lastGranule - preSkip).coerceAtLeast(0L) * 1000L) / 48_000L
         return RangeAudioParseResult(
             metadata = buildMetadataFromComments(comments, durationMs),
-            embeddedCover = if (options.includeEmbeddedCover) comments["METADATA_BLOCK_PICTURE"]?.let(::decodeBase64Picture) else null
+            embeddedCover = if (options.includeEmbeddedCover) comments["METADATA_BLOCK_PICTURE"]?.let(FlacPictureCodec::decodeBase64) else null
         )
     }
 
@@ -64,7 +62,7 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
         }
         return RangeAudioParseResult(
             metadata = buildMetadataFromComments(comments, durationMs),
-            embeddedCover = if (options.includeEmbeddedCover) comments["METADATA_BLOCK_PICTURE"]?.let(::decodeBase64Picture) else null
+            embeddedCover = if (options.includeEmbeddedCover) comments["METADATA_BLOCK_PICTURE"]?.let(FlacPictureCodec::decodeBase64) else null
         )
     }
 
@@ -127,48 +125,6 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
             }
         }
         return comments
-    }
-
-    private fun decodeBase64Picture(value: String): EmbeddedCoverBytes? =
-        runCatchingCancellable {
-            parseFlacPictureBlock(Base64.getDecoder().decode(value))
-        }.getOrNull()
-
-    private fun parseFlacPictureBlock(bytes: ByteArray): EmbeddedCoverBytes? {
-        if (bytes.size < 32) return null
-        var cursor = 0
-        RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
-        cursor += 4
-
-        // MIME Length Validation (Applies range constraints to the MIME length field to protect against integer overflows)
-        // Guarantees the adjusted cursor remains within the structural boundaries of the array.
-        val mimeLengthLong = RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
-        cursor += 4
-        if (mimeLengthLong !in 0L..(bytes.size - cursor).toLong()) return null
-        val mimeLength = mimeLengthLong.toInt()
-        val mimeType = bytes.copyOfRange(cursor, cursor + mimeLength).toString(StandardCharsets.UTF_8).ifBlank { null }
-        cursor += mimeLength
-
-        // Description Guard (Performs boundary verification on the description length field against invalid inputs)
-        // Prevents abnormally large values or negative offsets from corrupting downstream parsing and offset indices.
-        val descriptionLengthLong = RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
-        cursor += 4
-        if (descriptionLengthLong !in 0L..(bytes.size - cursor).toLong()) return null
-        val descriptionLength = descriptionLengthLong.toInt()
-        cursor += descriptionLength
-
-        if (cursor + 20 > bytes.size) return null
-        cursor += 16
-
-        // Picture Data Check (Validates the picture payload size to prevent buffer overflow vulnerabilities)
-        // Verifies the payload length is positive and fits comfortably within the remaining buffer range.
-        val pictureLengthLong = RangeAudioParserSupport.run { bytes.readUInt32BE(cursor) }
-        cursor += 4
-        if (pictureLengthLong <= 0L || pictureLengthLong > (bytes.size - cursor).toLong()) return null
-        val pictureLength = pictureLengthLong.toInt()
-
-        val imageBytes = bytes.copyOfRange(cursor, cursor + pictureLength)
-        return imageBytes.takeIf { it.isNotEmpty() }?.let { EmbeddedCoverBytes(bytes = it, mimeType = mimeType) }
     }
 
     private suspend fun readLeadingPackets(input: RangeAudioParserInput): List<OggPacket>? {

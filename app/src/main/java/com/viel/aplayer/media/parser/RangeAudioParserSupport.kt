@@ -96,4 +96,17 @@ internal object RangeAudioParserSupport {
 
     fun littleEndianBuffer(bytes: ByteArray): ByteBuffer =
         ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+
+    /**
+     * Constructs an EmbeddedCoverBytes container wrapper around the raw image bytes.
+     * Returns null if the byte payload is empty.
+     */
+    fun embeddedCover(bytes: ByteArray, mimeType: String?): EmbeddedCoverBytes? =
+        bytes.takeIf { it.isNotEmpty() }?.let { EmbeddedCoverBytes(bytes = it, mimeType = mimeType) }
+
+    /**
+     * Formats a standardized 1-based sequential chapter title for display fallback.
+     */
+    fun chapterTitle(index: Int): String =
+        "Chapter ${index + 1}"
 }

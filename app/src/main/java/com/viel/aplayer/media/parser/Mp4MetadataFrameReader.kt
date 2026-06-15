@@ -440,7 +440,7 @@ object Mp4MetadataFrameReader {
                     bookId = "TEMP",
                     bookFileId = "",
                     index = chapters.size,
-                    title = String(titleBytes, StandardCharsets.UTF_8).ifBlank { "Chapter ${chapters.size + 1}" },
+                    title = String(titleBytes, StandardCharsets.UTF_8).ifBlank { RangeAudioParserSupport.chapterTitle(chapters.size) },
                     startPositionMs = startMs,
                     durationMs = 0L,
                     fileOffsetMs = startMs,

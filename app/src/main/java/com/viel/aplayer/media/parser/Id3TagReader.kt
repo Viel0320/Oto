@@ -223,7 +223,7 @@ internal object Id3TagReader {
         val (_, nextOffset) = RangeAudioParserSupport.readNullTerminatedText(payload, cursor, charset)
         if (nextOffset >= payload.size) return null
         val imageBytes = payload.copyOfRange(nextOffset, payload.size)
-        return imageBytes.takeIf { it.isNotEmpty() }?.let { EmbeddedCoverBytes(bytes = it, mimeType = mimeType) }
+        return RangeAudioParserSupport.embeddedCover(imageBytes, mimeType)
     }
 
     /**
@@ -319,7 +319,7 @@ internal object Id3TagReader {
             }
             chapter.copy(
                 index = index,
-                title = chapter.title.ifBlank { "Chapter ${index + 1}" },
+                title = chapter.title.ifBlank { RangeAudioParserSupport.chapterTitle(index) },
                 durationMs = inferredDuration.coerceAtLeast(0L)
             )
         }
