@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -413,12 +414,12 @@ fun DetailContent(
                             onClick = {
                                 showDownloadDialog = false
                                 onDeleteDownload(book.id)
-                            }
-                        ) {
-                            Text(
-                                text = stringResource(R.string.detail_download_cancel_action),
-                                color = MaterialTheme.colorScheme.error
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
                             )
+                        ) {
+                            Text(text = stringResource(R.string.detail_download_cancel_action))
                         }
                     }
                     BookCacheState.PAUSED -> {
@@ -434,12 +435,12 @@ fun DetailContent(
                             onClick = {
                                 showDownloadDialog = false
                                 onDeleteDownload(book.id)
-                            }
-                        ) {
-                            Text(
-                                text = stringResource(R.string.detail_download_cancel_action),
-                                color = MaterialTheme.colorScheme.error
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
                             )
+                        ) {
+                            Text(text = stringResource(R.string.detail_download_cancel_action))
                         }
                     }
                     BookCacheState.COMPLETED -> {
@@ -447,12 +448,12 @@ fun DetailContent(
                             onClick = {
                                 showDownloadDialog = false
                                 onDeleteDownload(book.id)
-                            }
-                        ) {
-                            Text(
-                                text = stringResource(R.string.detail_download_delete_action),
-                                color = MaterialTheme.colorScheme.error
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
                             )
+                        ) {
+                            Text(text = stringResource(R.string.detail_download_delete_action))
                         }
                     }
                     BookCacheState.FAILED -> {
@@ -468,12 +469,12 @@ fun DetailContent(
                             onClick = {
                                 showDownloadDialog = false
                                 onDeleteDownload(book.id)
-                            }
-                        ) {
-                            Text(
-                                text = stringResource(R.string.detail_download_delete_action),
-                                color = MaterialTheme.colorScheme.error
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
                             )
+                        ) {
+                            Text(text = stringResource(R.string.detail_download_delete_action))
                         }
                     }
                     BookCacheState.NONE -> {

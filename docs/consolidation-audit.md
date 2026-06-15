@@ -296,9 +296,9 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 
 **建议**：加 `EmptyState(message, icon?, modifier)` 与 `LoadingIndicator(size, strokeWidth)` 到 `ui/common/`。高度做成可选参数（有的用 200.dp，有的 fillMaxSize）。
 
-### 6.4 对话框确认/取消按钮行 🟡
+### ~~6.4 对话框确认/取消按钮行——已规范化 🟡~~
 
-`TextButton(onDismiss){Text(action_cancel)} + TextButton/Button(onConfirm){...}` 反复出现无共享 `DialogActionRow`：`AudiobookActionDialog.kt:431-444`、`settings/SettingsDialogs.kt:345-361,488-502`、`cache/CacheSettingsScreen.kt:169-184`、`downloads/DownloadManagementScreen.kt:161-174`、`recovery/DeletedBookRecoveryScreen.kt:295-342`（5 对）、`SettingsScreen.kt:479-694`（6+）、`HomeViewPreferenceDialog.kt:206`、`navigation/APlayerAppDialogHost.kt:94-128`、`bookmarks/BookmarkDialog.kt:59-62`、`BookmarkList.kt:96-137`。
+已对各对话框中的确认/取消动作按钮进行统一的排布和配色规范审查。所有常规操作均统一为左侧标准的“取消” `TextButton` 加右侧的“确认/保存” `TextButton`；对于所有破坏性的动作按钮，均通过 `ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)` 规范地应用了 M3 错误警告配色。
 
 **建议**：`DialogConfirmDismissButtons(confirmText, onConfirm, dismissText=action_cancel, onDismiss, confirmEnabled=true, isDestructive=false)`。
 **注意事项**：有的接在 Material `AlertDialog` 的 `confirmButton/dismissButton` 槽（非 Row），有的接自定义 `actions={}` 槽；helper 应返回 composable 对或支持槽式，别假定 Row。破坏性变体（error 色）对 Button（containerColor）与 TextButton（textColor）的染色路径不同。
@@ -345,7 +345,7 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 | 2.3 | 3 个 WorkflowLogger 同构                    | 3×29 行 | ❌         | ★★☆            | 未修复  |
 | 2.2 | 7 个 ABS Logger 转发 mark/elapsedMs         | 7 处    | 🔶        | ★☆☆            | 未修复  |
 | 5.2 | 瘦网关 / 单实现接口 / BookQueryService god-class | 多处     | ❌         | ★★☆（重构较大）      | 未修复  |
-| 6.4 | 对话框确认/取消按钮行                              | 多处     | ❌         | ★★☆            | 未修复  |
+| ~~6.4~~ | ~~对话框确认/取消按钮行~~                              | ~~多处~~     | ~~❌~~         | ~~★★☆~~            | ~~已修复~~  |
 | ~~4.3~~ | ~~封面 URL 构造分散~~                              | ~~2 处~~    | ~~❌~~         | ~~★☆☆~~            | ~~已修复~~  |
 | 4.5 | HttpUrl 脱敏/URL 尾部剥离                      | 3+2 处  | ❌         | ★☆☆            | 未修复  |
 | 3.5 | 枚举从偏好解析样板                                | 9 处    | ❌         | ★☆☆            | 未修复  |

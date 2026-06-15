@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -100,9 +101,12 @@ fun BookmarkListView(
                     onClick = {
                         onConfirmDelete()
                         onDismissDialogs()
-                    }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
-                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.action_delete))
                 }
             }
         )

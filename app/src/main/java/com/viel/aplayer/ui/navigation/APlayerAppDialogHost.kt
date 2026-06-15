@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -132,9 +133,12 @@ fun APlayerAppDialogHost(
                             trackUnavailableState.queueIndex
                         )
                         onDismissTrackUnavailable()
-                    }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
-                    Text(stringResource(R.string.track_unavailable_confirm_skip), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.track_unavailable_confirm_skip))
                 }
             }
         )

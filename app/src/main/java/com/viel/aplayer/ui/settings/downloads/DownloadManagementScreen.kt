@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -176,12 +177,12 @@ fun DownloadManagementScreen(
                     onClick = {
                         deleteCandidate = null
                         onDeleteDownload(task.bookId)
-                    }
-                ) {
-                    Text(
-                        text = stringResource(R.string.detail_download_delete_action),
-                        color = MaterialTheme.colorScheme.error
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
                     )
+                ) {
+                    Text(text = stringResource(R.string.detail_download_delete_action))
                 }
             },
             dismissButton = {
@@ -205,12 +206,12 @@ fun DownloadManagementScreen(
                     onClick = {
                         showDeleteAllConfirm = false
                         onDeleteAllDownloads()
-                    }
-                ) {
-                    Text(
-                        text = stringResource(R.string.action_delete),
-                        color = MaterialTheme.colorScheme.error
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
                     )
+                ) {
+                    Text(text = stringResource(R.string.action_delete))
                 }
             },
             dismissButton = {

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -481,9 +482,12 @@ fun SettingsDialogHost(
                     onClick = {
                         onDeleteLibraryRoot(root)
                         controller.dialogState = SettingsDialogState.None
-                    }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
-                    Text(stringResource(R.string.settings_delete_root_confirm), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.settings_delete_root_confirm))
                 }
             },
             dismissButton = {
