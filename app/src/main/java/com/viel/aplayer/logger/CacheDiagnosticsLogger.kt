@@ -76,8 +76,8 @@ object CacheDiagnosticsLogger {
     }
 
     private fun sanitizeDetail(value: String?): String {
-        val redacted = (value ?: "none")
-            .replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
+        // Redact bearer tokens, passwords, and sensitive params using unified AbsLogSanitizer, then genericize remaining URLs.
+        val redacted = AbsLogSanitizer.sanitizeText(value ?: "none")
             .replace(Regex("https?://\\S+", RegexOption.IGNORE_CASE), "<url>")
         return compact(redacted)
     }

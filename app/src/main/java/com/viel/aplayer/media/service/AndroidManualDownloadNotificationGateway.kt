@@ -20,6 +20,7 @@ import com.viel.aplayer.data.entity.DownloadMetadataEntity
 import com.viel.aplayer.data.entity.DownloadStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.viel.aplayer.shared.formatFileSize
 import java.util.Locale
 
 /**
@@ -107,12 +108,13 @@ class AndroidManualDownloadNotificationGateway(
     private fun statusTitle(metadata: DownloadMetadataEntity): String {
         // Shared Supplemental Status Title (Compose notification status through the same policy as management rows)
         // The percent stays in bookProgressLabel and the progress bar, while this title carries compact file count and byte progress details.
+        // Use unified formatFileSize helper from shared package to ensure consistent formatting across settings and notifications.
         val downloadedSizeText = metadata.totalBytes
             .takeIf { totalBytes -> totalBytes > 0L }
-            ?.let { formatBytes(metadata.downloadedBytes) }
+            ?.let { formatFileSize(metadata.downloadedBytes) }
         val totalSizeText = metadata.totalBytes
             .takeIf { totalBytes -> totalBytes > 0L }
-            ?.let { totalBytes -> formatBytes(totalBytes) }
+            ?.let { totalBytes -> formatFileSize(totalBytes) }
         return ManualDownloadDisplayTextPolicy.taskSupplementalLabel(
             statusText = appContext.getString(metadata.status.statusTextRes()),
             completedFiles = metadata.completedFiles,
@@ -130,18 +132,7 @@ class AndroidManualDownloadNotificationGateway(
             .coerceIn(0, PROGRESS_MAX)
     }
 
-    private fun formatBytes(bytes: Long): String {
-        val safeBytes = bytes.coerceAtLeast(0L).toDouble()
-        val units = arrayOf("B", "KB", "MB", "GB", "TB")
-        var value = safeBytes
-        var unitIndex = 0
-        while (value >= BYTES_PER_UNIT && unitIndex < units.lastIndex) {
-            value /= BYTES_PER_UNIT
-            unitIndex++
-        }
-        val pattern = if (unitIndex == 0 || value >= 10.0) "%.0f %s" else "%.1f %s"
-        return String.format(Locale.US, pattern, value, units[unitIndex])
-    }
+    // Redundant formatBytes helper has been removed in favor of formatFileSize from shared utilities.
 
     private fun canPostNotifications(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -207,7 +198,6 @@ class AndroidManualDownloadNotificationGateway(
 
     private companion object {
         private const val PROGRESS_MAX = 100
-        private const val BYTES_PER_UNIT = 1024.0
         private const val BOOK_NOTIFICATION_ID_PREFIX = 0x31000000
         private const val BOOK_NOTIFICATION_ID_MASK = 0x00FFFFFF
         private val ACTIVE_NOTIFICATION_STATUSES = setOf(

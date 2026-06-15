@@ -9,6 +9,7 @@ import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.runCatchingCancellable
+import com.viel.aplayer.logger.AbsLogSanitizer
 import com.viel.aplayer.logger.AbsSyncLogger
 import com.viel.aplayer.logger.CacheDiagnosticsLogger
 import java.util.UUID
@@ -39,7 +40,8 @@ class AbsCatalogSynchronizer(
         return catalogRunCatching {
             syncRootInternal(root)
         }.onFailure { error ->
-            val redacted = error.message?.replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
+            // Use unified AbsLogSanitizer to redact sensitive authorization information from error messages.
+            val redacted = error.message?.let { AbsLogSanitizer.sanitizeText(it) }
                 ?: error::class.java.simpleName
             catalogStore.saveSyncState(
                 (catalogStore.getSyncState(root.id) ?: AbsSyncStateEntity(

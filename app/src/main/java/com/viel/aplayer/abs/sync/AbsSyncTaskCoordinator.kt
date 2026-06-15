@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.io.Closeable
+import com.viel.aplayer.logger.AbsLogSanitizer
 
 /**
  * ABS Sync Task Coordinator (Manages application-scoped ABS catalog synchronization)
@@ -130,8 +131,9 @@ class AbsSyncTaskCoordinator(
         return true
     }
 
+    // Use unified AbsLogSanitizer to sanitize sensitive error information.
     private fun String.redactAbsError(): String =
-        replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
+        AbsLogSanitizer.sanitizeText(this)
 }
 
 /**

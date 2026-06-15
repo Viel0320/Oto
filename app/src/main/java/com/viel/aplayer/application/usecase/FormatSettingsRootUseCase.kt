@@ -10,6 +10,7 @@ import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTestFa
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import com.viel.aplayer.network.UnsafeNetworkPolicyViolation
+import com.viel.aplayer.logger.AbsLogSanitizer
 import java.util.Locale
 
 /**
@@ -21,9 +22,9 @@ import java.util.Locale
 class FormatSettingsRootUseCase(private val context: Context) {
 
     // Title: redactAbsError logic (Mask bearer authorization details in error messages)
-    // Ensures sensitive remote ABS tokens are not revealed on Settings error displays.
+    // Use unified AbsLogSanitizer to sanitize sensitive ABS connection error messages.
     fun redactAbsError(error: String): String {
-        return error.replace(Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE), "Bearer <redacted>")
+        return AbsLogSanitizer.sanitizeText(error)
     }
 
     // Title: resolveLibraryRootTitle logic (Build first-line display title for SAF, ABS or WebDAV)

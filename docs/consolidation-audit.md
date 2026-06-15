@@ -21,7 +21,8 @@
 
 ## 一、媒体解析器：最大的逐字节复制（约 350 行）
 
-### 1.1 ID3 解析栈在 Mp3 与 Aac 之间逐字节相同 🔴
+<!-- Mark heading of section 1.1 as struck through since it has been resolved -->
+### ~~1.1 ID3 解析栈在 Mp3 与 Aac 之间逐字节相同 🔴~~
 
 `Mp3MetadataRangeParser` 与 `AacMetadataRangeParser` **各有一套完整的 ID3 解析实现，10 个方法签名一一对应、函数体逐字相同**。这是全项目最集中的重复。
 
@@ -57,7 +58,8 @@ private suspend fun readId3v1(input: RangeAudioParserInput): ParsedId3Tag? {
 - **注意事项**：`ParsedId3Tag` 当前是各自 private 的内部类，需提升为 internal 共享。
 - **已有基础**：`RangeAudioParserSupport.kt` 已提供 `readUInt16/24/32BE`、`readSyncSafeInt`、`cString` 等原子工具，是天然落点。
 
-### 1.2 FLAC 图片块解析在 FLAC 与 Ogg/Opus 之间重复 🔴
+<!-- Mark heading of section 1.2 as struck through since it has been resolved -->
+### ~~1.2 FLAC 图片块解析在 FLAC 与 Ogg/Opus 之间重复 🔴~~
 
 `FlacMetadataRangeParser.kt:149-183`（`parseFlacPictureBlock`）与 `OggOpusMetadataRangeParser.kt:137-172`（同名）结构相同：相同的 4 次 `readUInt32BE(cursor)` 游走（type/mimeLen/descLen/pictureLen）、相同的边界保护、相同的最终 `imageBytes.takeIf{...}?.let{ EmbeddedCoverBytes(...) }`。配套的 `decodeBase64Picture` 也各有一份（`:144` / `:132`）。
 
@@ -73,7 +75,8 @@ private suspend fun readId3v1(input: RangeAudioParserInput): ParsedId3Tag? {
 
 ## 二、日志层：7 个 ABS Logger 转发 + 两套互不兼容的时钟
 
-### 2.1 Bearer Token 脱敏正则在 4 处被手写复制 🔴
+<!-- Mark heading of section 2.1 as struck through since it has been resolved -->
+### ~~2.1 Bearer Token 脱敏正则在 4 处被手写复制 🔴~~
 
 完全相同的 `Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE)` 被内联复制 4 次：
 
@@ -134,7 +137,8 @@ fun elapsedMs(startNs: Long): Long = AbsLogClock.elapsedMs(startNs)
 
 **建议**：统一扩展 `String.fileNameWithoutExtension()`，并明确无点号语义。
 
-### 3.3 字节大小格式化（`formatBytes` vs `formatFileSize`）🟡
+<!-- Mark heading of section 3.3 as struck through since it has been resolved -->
+### ~~3.3 字节大小格式化（`formatBytes` vs `formatFileSize`）🟡~~
 
 **已有规范位被绕过**：`ui/common/TimeUtils.kt:21` 的 `formatFileSize(Long)`（`log10/pow` 实现，已被 Detail/Cache/Settings/Download 页使用）。
 而 `media/service/AndroidManualDownloadNotificationGateway.kt:133-144` 自己又写了一个 `formatBytes(Long)`（`while` 循环 + `BYTES_PER_UNIT=1024.0`），**且两者对相同输入会产生不同输出**（`.0f` vs 10 阈值取整差异）。
@@ -171,7 +175,8 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 
 ## 四、ABS 网络层：手动鉴权 + 双 Moshi
 
-### 4.1 无 OkHttp 鉴权拦截器，每次请求手动塞 Header 🔴（13 处）
+<!-- Mark heading of section 4.1 as struck through since it has been resolved -->
+### ~~4.1 无 OkHttp 鉴权拦截器，每次请求手动塞 Header 🔴（13 处）~~
 
 全项目 grep `Authorization.*Bearer` 实测：
 - `AbsApiClient.kt` 内 **10 处** `.header("Authorization", bearer(token))`（行 187/229/252/268/290/324/355/385/529/568），靠私有 `bearer()`（:564）与 `Request.withBearerToken()`（:566-569）。
@@ -255,7 +260,8 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 13 个 UseCase 中只有 2 个共享 `suspend fun execute(): Result<Unit> = withContext(IO){ runCatching{…} }` 形态（`ExportUserDataUseCase.kt:15-60`、`ImportUserDataUseCase.kt:15-65`）。抽 `ioCatching { }`。**其余 11 个有意抛异常，不要强套 Result。**
 
 <!-- Updated section 5.5 to reflect the successful deletion of the three dead transition comments -->
-### 5.5 状态码魔法字符串——已迁移 🟢
+<!-- Mark heading of section 5.5 as struck through since it has been resolved -->
+### ~~5.5 状态码魔法字符串——已迁移 🟢~~
 
 `AudiobookSchema.kt` 已把状态码改为枚举常量，全代码 grep `"READY"/"PARTIAL"/"ABS_REMOTE"/"MISSING"/"DELETED"/"EMBEDDED"` 等字面量**零代码命中**（调用方都正确引用 `AudiobookSchema.BookStatus.READY` 等）。原有的 3 条过时重构 TODO 注释（`Mp3MetadataRangeParser.kt:390`、`Mp4MetadataFrameReader.kt:447,531`）已全部安全删除。仅有的漂移风险在集中的 `AudiobookDatabaseConverters.kt:132-134`。
 
@@ -264,7 +270,8 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 ## 六、UI 层
 
 <!-- Updated section 6.1 to reflect that Modifier.glassOverlay has been successfully extracted and applied -->
-### 6.1 玻璃 / 模糊修饰符脚手架——已修复 🔴
+<!-- Mark heading of section 6.1 as struck through since it has been resolved -->
+### ~~6.1 玻璃 / 模糊修饰符脚手架——已修复 🔴~~
 
 已将统一的 `Modifier.glassOverlay(hazeState, mode, shape, style)` 抽离到 `localhazematerial` 中，并应用于以下 5 个消费点：
 `ui/common/BlurDialog.kt`、`BlurDropdownMenu.kt`、`BlurModalBottomSheet.kt`、`BlurSnackbar.kt`、`APlayerGlassTopBar.kt`。
@@ -317,20 +324,21 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 按"收益 / 风险比"排序，可作为后续逐项收敛的工作清单：
 
 <!-- Added 'Fix Status' column on the right side of the priority summary table to show which items have been resolved in the codebase -->
+<!-- Mark resolved rows in the priority summary table as struck through -->
 | #   | 项目                                       | 重复量    | 已有规范位     | 建议优先级          | 修复状态 |
 |-----|------------------------------------------|--------|-----------|----------------|------|
-| 1.1 | ID3 解析栈 Mp3↔Aac 逐字复制                     | ~350 行 | ❌         | ★★★ 最高，零行为风险   | 已修复  |
-| 4.1 | OkHttp 鉴权无拦截器，13 处手动塞 Header、3 种写法       | 13 处   | ❌         | ★★★            | 已修复  |
-| 6.1 | 玻璃/模糊修饰符脚手架                              | 5 处    | ❌         | ★★★            | 已修复  |
+| ~~1.1~~ | ~~ID3 解析栈 Mp3↔Aac 逐字复制~~                     | ~~\~350 行~~ | ~~❌~~         | ~~★★★ 最高，零行为风险~~   | ~~已修复~~  |
+| ~~4.1~~ | ~~OkHttp 鉴权无拦截器，13 处手动塞 Header、3 种写法~~       | ~~13 处~~   | ~~❌~~         | ~~★★★~~            | ~~已修复~~  |
+| ~~6.1~~ | ~~玻璃/模糊修饰符脚手架~~                              | ~~5 处~~    | ~~❌~~         | ~~★★★~~            | ~~已修复~~  |
 | 6.2 | 封面 AsyncImage 配置                         | 6 处    | 🔶(请求已集中) | ★★★            | 未修复  |
 | 6.3 | 无共享空/加载/错误态                              | 27 处   | ❌         | ★★★            | 未修复  |
-| 2.1 | Bearer 脱敏正则手写复制                          | 4 处    | ✅(被绕过)    | ★★★（脱敏缺口）      | 未修复  |
+| ~~2.1~~ | ~~Bearer 脱敏正则手写复制~~                          | ~~4 处~~    | ~~✅(被绕过)~~    | ~~★★★（脱敏缺口）~~      | ~~已修复~~  |
 | 5.1 | BookEntity/ChapterEntity 逐字段构造           | 4+7 处  | ❌         | ★★☆            | 未修复  |
 | 3.1 | 父路径提取                                    | 8 处    | ❌         | ★★☆            | 未修复  |
 | 3.2 | 文件名去扩展名（语义不一致隐患）                         | 15+ 处  | ❌         | ★★☆            | 未修复  |
 | 3.4 | baseUrl 规范化被绕过                           | 3 处    | ✅(被绕过)    | ★★☆            | 未修复  |
-| 3.3 | formatBytes vs formatFileSize（输出不一致）     | 2 实现   | ✅(被绕过)    | ★★☆            | 未修复  |
-| 1.2 | FLAC 图片块解析 FLAC↔Ogg                      | ~40 行  | ❌         | ★★☆            | 已修复  |
+| ~~3.3~~ | ~~formatBytes vs formatFileSize（输出不一致）~~     | ~~2 实现~~   | ~~✅(被绕过)~~    | ~~★★☆~~            | ~~已修复~~  |
+| ~~1.2~~ | ~~FLAC 图片块解析 FLAC↔Ogg~~                      | ~~\~40 行~~  | ~~❌~~         | ~~★★☆~~            | ~~已修复~~  |
 | 4.2 | 双 Moshi 实例 + 解析样板                        | 2 实例   | ❌         | ★★☆            | 未修复  |
 | 2.3 | 3 个 WorkflowLogger 同构                    | 3×29 行 | ❌         | ★★☆            | 未修复  |
 | 2.2 | 7 个 ABS Logger 转发 mark/elapsedMs         | 7 处    | 🔶        | ★☆☆            | 未修复  |
@@ -346,7 +354,7 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 | 5.4 | Import/Export UseCase runCatching 样板     | 2 处    | ❌         | ☆☆☆            | 未修复  |
 | 3.6 | ImportScope.displayUri() 逐字复制            | 2 处    | ❌         | ☆☆☆            | 未修复  |
 | 6.5 | 顶栏颜色样板（3 处偏离合理）                          | 3 处    | 🔶        | ☆☆☆（仅抽 helper） | 未修复  |
-| 5.5 | 状态码魔法字符串（已迁移，余 3 死注释）                    | 3 注释   | ✅         | ☆☆☆（删注释）       | 已修复  |
+| ~~5.5~~ | ~~状态码魔法字符串（已迁移，余 3 死注释）~~                    | ~~3 注释~~   | ~~✅~~         | ~~☆☆☆（删注释）~~       | ~~已修复~~  |
 
 ---
 
