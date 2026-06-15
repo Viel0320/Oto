@@ -1,6 +1,9 @@
 package com.viel.aplayer.application.usecase
 
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.SharedPreferences
+import com.viel.aplayer.data.db.AppDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +15,7 @@ import org.robolectric.RuntimeEnvironment
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -26,8 +30,13 @@ class UserDataBackupRestoreTest {
         // Title: Test Export and Import Cycle
         // Sets up dummy database, datastore, and shared preferences files, exports them to a ZIP stream, 
         // cleanses/modifies the active files, imports from the ZIP, and verifies identical content restoration.
+        val tempRoot = Files.createTempDirectory("aplayer-backup-cycle").toFile()
         try {
-            val context = RuntimeEnvironment.getApplication()
+            val context = IsolatedBackupContext(RuntimeEnvironment.getApplication(), tempRoot)
+
+            // Isolated Backup Fixture (Close any Room singleton before writing raw sample files)
+            // Full-suite Robolectric runs can leave application warmup work alive, so this test writes into its own dataDir instead of the process application dataDir.
+            AppDatabase.closeInstance()
 
             // 1. Prepare dummy database files
             val dbFile = context.getDatabasePath("aplayer_database")
@@ -89,6 +98,10 @@ class UserDataBackupRestoreTest {
             val pw = java.io.PrintWriter(sw)
             e.printStackTrace(pw)
             throw AssertionError("Captured exception inside testExportAndImportCycle:\n$sw")
+        } finally {
+            // Isolated Backup Fixture Cleanup (Remove only this test-owned data directory)
+            // The temporary root is not shared with Robolectric's application sandbox, so recursive deletion cannot affect other tests.
+            tempRoot.deleteRecursively()
         }
     }
 
@@ -97,8 +110,9 @@ class UserDataBackupRestoreTest {
         // Title: Test Import Zip Slip Prevention
         // Constructs a malicious ZIP stream that attempts directory traversal via relative traversal entry names.
         // Verifies that the import use case rejects the import with a SecurityException and does not write out-of-sandbox files.
+        val tempRoot = Files.createTempDirectory("aplayer-backup-zipslip").toFile()
         try {
-            val context = RuntimeEnvironment.getApplication()
+            val context = IsolatedBackupContext(RuntimeEnvironment.getApplication(), tempRoot)
             val maliciousOutput = ByteArrayOutputStream()
             
             ZipOutputStream(maliciousOutput).use { zos ->
@@ -125,6 +139,30 @@ class UserDataBackupRestoreTest {
             val pw = java.io.PrintWriter(sw)
             e.printStackTrace(pw)
             throw AssertionError("Captured exception inside testImportZipSlipPrevention:\n$sw")
+        } finally {
+            // Isolated Zip Slip Fixture Cleanup (Remove only this test-owned data directory)
+            // The escaped-file assertion targets the parent of this temporary root, so cleanup remains constrained to the fixture root.
+            tempRoot.deleteRecursively()
         }
+    }
+
+    /**
+     * Isolated Backup Context (Redirects app-private file APIs into a test-owned data directory)
+     * Keeps backup tests deterministic when the real APlayerApplication background warmup opens Room during full-suite runs.
+     */
+    private class IsolatedBackupContext(
+        base: Context,
+        private val root: File
+    ) : ContextWrapper(base) {
+        override fun getDataDir(): File = root.apply { mkdirs() }
+
+        override fun getFilesDir(): File =
+            File(dataDir, "files").apply { mkdirs() }
+
+        override fun getDatabasePath(name: String): File =
+            File(dataDir, "databases/$name").also { file -> file.parentFile?.mkdirs() }
+
+        override fun getSharedPreferences(name: String, mode: Int): SharedPreferences =
+            baseContext.getSharedPreferences("${root.name}-$name", mode)
     }
 }

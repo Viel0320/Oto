@@ -33,6 +33,18 @@ fun DetailScreen(
     // Detail Action Delete Bridge (Forward action-dialog deletion)
     // Deletion cleanup stays centralized in the app shell instead of being performed inside Detail UI components.
     onDeleteBook: (String) -> Unit = {},
+    // Detail Download Start Bridge (Forward manual cache starts after route-level permission preflight)
+    // DetailScreen stays stateless and does not inspect Android notification permission or download runtime details.
+    onDownloadBook: (String) -> Unit = {},
+    // Detail Download Pause Bridge (Forward selected-book pause commands)
+    // The application controller maps this to per-file stop reasons so other downloads keep running.
+    onPauseDownload: (String) -> Unit = {},
+    // Detail Download Resume Bridge (Forward selected-book resume commands)
+    // Resume clears per-file stop reasons through the same book-level controller boundary.
+    onResumeDownload: (String) -> Unit = {},
+    // Detail Download Delete Bridge (Forward manual cache deletion commands)
+    // Removing cache state remains separate from deleting the audiobook itself.
+    onDeleteDownload: (String) -> Unit = {},
     // Glass effect mode passed from outside
     glassEffectMode: GlassEffectMode,
     // Detail HazeState Arguments (Separate inline controls from floating app surfaces)
@@ -58,6 +70,10 @@ fun DetailScreen(
         onUpdateReadStatus = onUpdateReadStatus,
         onForceRegenerate = onForceRegenerate,
         onDeleteBook = onDeleteBook,
+        onDownloadBook = onDownloadBook,
+        onPauseDownload = onPauseDownload,
+        onResumeDownload = onResumeDownload,
+        onDeleteDownload = onDeleteDownload,
         glassEffectMode = glassEffectMode,
         fullPageHazeState = fullPageHazeState,
         coverColor = coverColor,

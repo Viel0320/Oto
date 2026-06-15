@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.detail
 
+import com.viel.aplayer.application.download.BookCacheStatus
 import com.viel.aplayer.application.library.detail.DetailSnapshot
 
 /**
@@ -53,5 +54,8 @@ data class DetailUiState(
     // Deprecated: backgroundColorArgb is removed
     // Detail Source Indicator Text (Stores the user-facing storage breadcrumb for the selected book)
     // The ViewModel formats this from library root labels and VFS-relative file metadata so the UI never displays raw SAF tree URIs, WebDAV URLs, or remote playback endpoints.
-    val fullSourcePath: String = ""
+    val fullSourcePath: String = "",
+    // Detail Manual Cache Status (Expose the selected book's offline-cache state to the top bar)
+    // Missing download metadata is represented as NONE here so DetailContent never reads Room rows or Media3 DownloadIndex state.
+    val bookCacheStatus: BookCacheStatus = BookCacheStatus.none()
 )

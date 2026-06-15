@@ -33,7 +33,7 @@ class ProgressSyncTracker(
     private val scope: CoroutineScope,
     private val getController: () -> MediaController?,
     private val getCurrentPlan: () -> BookPlaybackPlan?,
-    private val onProgressUpdated: (positionMs: Long, durationMs: Long) -> Unit
+    private val onProgressUpdated: (positionMs: Long, durationMs: Long, bufferedPositionMs: Long) -> Unit
 ) {
     // Polling Job Coordinator (Coroutine job reference for active player progress loop, managed dynamically via playback states)
     private var pollingJob: Job? = null
@@ -97,12 +97,24 @@ class ProgressSyncTracker(
             val totalDur = plan.files.sumOf { it.durationMs }
             val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
                 .coerceIn(0L, totalDur.coerceAtLeast(0L))
-            onProgressUpdated(globalPos, totalDur)
+            val bufferedInFile = player.bufferedPosition
+                .coerceAtLeast(positionInFile)
+            val globalBuffered = PositionMapper.fileToGlobalPosition(fileIndex, bufferedInFile, plan.files)
+                .coerceIn(globalPos, totalDur.coerceAtLeast(0L))
+            // Buffered Position Projection (Report ExoPlayer's item-local buffer as a book-global coordinate)
+            // Player UI renders a whole-book progress bar, so buffered bytes need the same multi-file timeline mapping as current position.
+            onProgressUpdated(globalPos, totalDur, globalBuffered)
         } else {
+            val currentPosition = player.currentPosition.coerceAtLeast(0L)
+            val duration = player.duration.coerceAtLeast(0L)
+            val bufferedPosition = player.bufferedPosition
+                .coerceAtLeast(currentPosition)
+                .coerceIn(currentPosition, duration.coerceAtLeast(currentPosition))
             // Fallback Progress Check (Falls back to reporting raw media track position if no multi-file plan exists)
             onProgressUpdated(
-                player.currentPosition.coerceAtLeast(0L),
-                player.duration.coerceAtLeast(0L)
+                currentPosition,
+                duration,
+                bufferedPosition
             )
         }
     }

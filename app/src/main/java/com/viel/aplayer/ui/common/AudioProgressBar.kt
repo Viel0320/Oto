@@ -38,6 +38,7 @@ fun AudioProgressBar(
     progress: () -> Float, // Optimization: Use Lambda to prevent high-frequency recompositions.
     onProgressChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    bufferedProgress: () -> Float = { 0f },
     color: Color = MaterialTheme.colorScheme.primary,
     showKnob: Boolean = true,
     markers: List<Float> = emptyList(),
@@ -103,8 +104,10 @@ fun AudioProgressBar(
         val width = size.width
         val height = size.height
         val centerY = height / 2
-        val currentProgress = progress() // Only read the progress during the drawing phase
+        val currentProgress = progress().coerceIn(0f, 1f) // Only read the progress during the drawing phase
+        val currentBufferedProgress = bufferedProgress().coerceAtLeast(currentProgress).coerceIn(0f, 1f)
         val activeWidth = width * currentProgress
+        val bufferedWidth = width * currentBufferedProgress
 
         // 1. Draw the background track (unplayed part)
         if (isBlur) {
@@ -136,8 +139,38 @@ fun AudioProgressBar(
                 cap = StrokeCap.Round
             )
         }
+
+        // 2. Draw the buffered track (memory buffer coverage that has not been played yet)
+        if (bufferedWidth > activeWidth) {
+            if (isBlur) {
+                val bufferedBrush = Brush.linearGradient(
+                    colors = if (isDark) {
+                        listOf(Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.06f))
+                    } else {
+                        listOf(Color.Black.copy(alpha = 0.16f), Color.Black.copy(alpha = 0.04f))
+                    },
+                    start = Offset(activeWidth, centerY),
+                    end = Offset(bufferedWidth, centerY)
+                )
+                drawLine(
+                    brush = bufferedBrush,
+                    start = Offset(activeWidth, centerY),
+                    end = Offset(bufferedWidth, centerY),
+                    strokeWidth = strokeWidthPx,
+                    cap = StrokeCap.Round
+                )
+            } else {
+                drawLine(
+                    color = color.copy(alpha = 0.35f),
+                    start = Offset(activeWidth, centerY),
+                    end = Offset(bufferedWidth, centerY),
+                    strokeWidth = strokeWidthPx,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
         
-        // 2. Draw chapter markers (upgraded to crystal balls)
+        // 3. Draw chapter markers (upgraded to crystal balls)
         markers.forEach { marker ->
             if (marker > 0f && marker < 1f) {
                 val markerX = width * marker
@@ -156,7 +189,7 @@ fun AudioProgressBar(
             }
         }
 
-        // 3. Draw the played progress track
+        // 4. Draw the played progress track
         if (activeWidth > 0) {
             if (isBlur) {
                 // Brighten and thin out the three-layered crystal progress tube to respond to the requirement of "more transparency":
@@ -215,7 +248,7 @@ fun AudioProgressBar(
             }
         }
         
-        // 4. Draw progress handle (Knob)
+        // 5. Draw progress handle (Knob)
         if (showKnob) {
             if (isBlur) {
                 // In Haze mode, the progress knob is refactored into a glass micro-bead effect:

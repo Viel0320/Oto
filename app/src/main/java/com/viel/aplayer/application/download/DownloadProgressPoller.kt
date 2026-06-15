@@ -1,0 +1,72 @@
+package com.viel.aplayer.application.download
+
+import com.viel.aplayer.data.dao.DownloadMetadataDao
+import com.viel.aplayer.data.entity.DownloadStatus
+import com.viel.aplayer.logger.DownloadSyncLogger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+class DownloadProgressPoller(
+    private val downloadMetadataDao: DownloadMetadataDao,
+    private val downloadBookReconcilerProvider: () -> DownloadBookReconciler,
+    private val scope: CoroutineScope,
+    private val pollIntervalMs: Long = DEFAULT_POLL_INTERVAL_MS
+) {
+    private var pollJob: Job? = null
+
+    // Active Progress Polling Start (Keep one lightweight loop for all active manual-download tasks)
+    // Media3 listener callbacks cover state transitions, while this loop samples byte progress between those transitions and writes it back to Room.
+    @Synchronized
+    fun start() {
+        if (pollJob?.isActive == true) return
+        pollJob = scope.launch {
+            runPollingLoop()
+        }
+    }
+
+    // Active Progress Polling Stop (Cancel the loop during graph teardown without touching DownloadManager state)
+    // DownloadGraph already owns service and cache shutdown, so this method only releases the coroutine worker.
+    @Synchronized
+    fun stop() {
+        pollJob?.cancel()
+        pollJob = null
+    }
+
+    private suspend fun runPollingLoop() {
+        while (true) {
+            val activeBookIds = downloadMetadataDao.getAllMetadata()
+                .asSequence()
+                .filter { metadata -> metadata.status in ACTIVE_PROGRESS_STATUSES }
+                .map { metadata -> metadata.bookId }
+                .distinct()
+                .toList()
+            if (activeBookIds.isEmpty()) return
+
+            val reconciler = downloadBookReconcilerProvider()
+            activeBookIds.forEach { bookId ->
+                runCatching {
+                    reconciler.reconcileBook(bookId)
+                }.onFailure { error ->
+                    // Polling Failure Isolation (Keep other active books syncing when one aggregate fails)
+                    // The reconciler logs its own detailed failure path, while this guard prevents one exception from killing the progress loop.
+                    DownloadSyncLogger.logBookReconcileFailure(
+                        bookId = bookId,
+                        errorClass = error::class.java.simpleName,
+                        message = error.message
+                    )
+                }
+            }
+            delay(pollIntervalMs)
+        }
+    }
+
+    private companion object {
+        private const val DEFAULT_POLL_INTERVAL_MS = 1_000L
+        private val ACTIVE_PROGRESS_STATUSES = setOf(
+            DownloadStatus.QUEUED,
+            DownloadStatus.DOWNLOADING
+        )
+    }
+}

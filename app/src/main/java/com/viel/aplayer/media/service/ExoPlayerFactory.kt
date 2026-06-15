@@ -18,7 +18,10 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.extractor.ts.AdtsExtractor
+import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.media.VfsPlaybackDataSource
+import com.viel.aplayer.media.cache.ManualCachePlaybackDataSource
 
 /**
  * ExoPlayer Core Production Factory (Constructs and configures highly optimized ExoPlayer media engine instances)
@@ -44,14 +47,19 @@ object ExoPlayerFactory {
         isAutomaticAudioFocusAllowed: Boolean
     ): ExoPlayer {
         
-        // 1. Buffer Configuration (Configures low-latency start and network jitter defense parameters via DefaultLoadControl)
+        val settings = AppSettingsRepository.getInstance(context.applicationContext).cachedSettings
+
+        // 1. Buffer Configuration (Caps remote playback buffering by memory size only)
+        // The removed playback disk cache is replaced by ExoPlayer's RAM buffer, and loading stops when the target byte budget is reached.
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                30000, // Minimum buffer duration (30 seconds) to ensure sufficient redundancy during network fluctuations
-                30000, // Maximum buffer limit (30 seconds) to prevent unbounded memory usage and memory exhaustion
+                SIZE_ONLY_BUFFER_DURATION_MS, // Effective no-op duration floor because byte budget owns the loading stop condition
+                SIZE_ONLY_BUFFER_DURATION_MS, // Effective no-op duration ceiling so long low-bitrate books are not capped by seconds
                 1000,  // Playback start buffer (1 second) to achieve rapid low-latency initial startup
                 2000   // Rebuffer recovery threshold (2 seconds) to recover quickly and prevent rapid play/pause loops
             )
+            .setPrioritizeTimeOverSizeThresholds(false)
+            .setTargetBufferBytes(settings.playbackBufferMaxBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
             .build()
 
         // 2. Renderer Customization (Builds a specialized renderers factory to disable container metadata I/O and support decoder fallback)
@@ -98,8 +106,17 @@ object ExoPlayerFactory {
             // Enables fast constant-bitrate seeking for ADTS format files
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
 
-        // 4. Data Source Binding (Binds the extractor factory to the custom VFS media playback data source factory)
-        val mediaSourceFactory = DefaultMediaSourceFactory(VfsPlaybackDataSource.Factory(context), extractorsFactory)
+        // 4. Data Source Binding (Route playback through L1 manual cache before streaming from VFS)
+        // Uncached remote playback now falls back to upstream reads only; LoadControl owns the in-memory buffer and no disk cache is written.
+        val downloadRuntimeDependencies = APlayerApplication.getDownloadRuntimeDependencies(context)
+        val vfsPlaybackDependencies = APlayerApplication.getVfsPlaybackDependencies(context)
+        val manualCacheDataSourceFactory = ManualCachePlaybackDataSource.Factory(
+            manualCache = downloadRuntimeDependencies.downloadCacheAccess.manualCache,
+            upstreamDataSourceFactory = VfsPlaybackDataSource.Factory(context),
+            playbackFileLookup = vfsPlaybackDependencies.playbackFileLookup,
+            playbackRootLookup = vfsPlaybackDependencies.playbackRootLookup
+        )
+        val mediaSourceFactory = DefaultMediaSourceFactory(manualCacheDataSourceFactory, extractorsFactory)
 
         // 5. Player Assembly (Builds and returns the fully assembled ExoPlayer core instance)
         return ExoPlayer.Builder(context, renderersFactory)
@@ -122,4 +139,6 @@ object ExoPlayerFactory {
                 addListener(listener)
             }
     }
+
+    private const val SIZE_ONLY_BUFFER_DURATION_MS = Int.MAX_VALUE
 }

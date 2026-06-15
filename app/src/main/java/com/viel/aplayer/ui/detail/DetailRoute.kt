@@ -1,6 +1,13 @@
 package com.viel.aplayer.ui.detail
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,10 +15,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
+import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import dev.chrisbanes.haze.HazeState
@@ -54,6 +66,7 @@ fun DetailRoute(
     onTransitionIdleChanged: (Boolean) -> Unit = {},
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val darkTheme = LocalDarkTheme.current
     val currentColorScheme = MaterialTheme.colorScheme
     // Detail Cover Seed (Resolve artwork from the scene snapshot instead of a Room entity)
@@ -69,6 +82,31 @@ fun DetailRoute(
     val detailColorScheme = remember(coverColor, darkTheme, currentColorScheme) {
         coverColor?.let { color ->
             DynamicColorSchemeHelper.generateColorSchemeFromSeed(color, darkTheme, currentColorScheme)
+        }
+    }
+    var pendingDownloadBookId by remember { mutableStateOf<String?>(null) }
+    var showNotificationPermissionDialog by remember { mutableStateOf(false) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val requestedBookId = pendingDownloadBookId
+        pendingDownloadBookId = null
+        if (granted && requestedBookId != null) {
+            detailViewModel.downloadBook(requestedBookId)
+        } else {
+            detailViewModel.onDownloadNotificationPermissionDenied()
+        }
+    }
+    val requestManualDownload: (String) -> Unit = { bookId ->
+        // Download Notification Permission Gate (Prevent invisible foreground downloads on Android 13+)
+        // The download domain receives only commands that passed presentation-level notification permission preflight.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        ) {
+            detailViewModel.downloadBook(bookId)
+        } else {
+            pendingDownloadBookId = bookId
+            showNotificationPermissionDialog = true
         }
     }
 
@@ -103,12 +141,48 @@ fun DetailRoute(
                 onUpdateReadStatus = onUpdateReadStatus,
                 onForceRegenerate = onForceRegenerate,
                 onDeleteBook = onDeleteBook,
+                onDownloadBook = requestManualDownload,
+                onPauseDownload = detailViewModel::pauseDownload,
+                onResumeDownload = detailViewModel::resumeDownload,
+                onDeleteDownload = detailViewModel::deleteDownload,
                 glassEffectMode = glassEffectMode,
                 hazeState = hazeState,
                 fullPageHazeState = hazeState,
                 coverColor = coverColor,
                 onColorExtracted = { coverColor = it }
             )
+            if (showNotificationPermissionDialog) {
+                APlayerDialogTemplate(
+                    onDismissRequest = {
+                        pendingDownloadBookId = null
+                        showNotificationPermissionDialog = false
+                    },
+                    hazeState = hazeState ?: detailHazeState,
+                    glassEffectMode = glassEffectMode,
+                    title = { Text(stringResource(R.string.detail_download_permission_title)) },
+                    body = {
+                        Text(stringResource(R.string.detail_download_permission_body))
+                    },
+                    actions = {
+                        TextButton(
+                            onClick = {
+                                pendingDownloadBookId = null
+                                showNotificationPermissionDialog = false
+                            }
+                        ) {
+                            Text(stringResource(R.string.action_cancel))
+                        }
+                        TextButton(
+                            onClick = {
+                                showNotificationPermissionDialog = false
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        ) {
+                            Text(stringResource(R.string.detail_download_permission_confirm))
+                        }
+                    }
+                )
+            }
         }
 
         // Detail Theme Application (Apply book-seeded color only around the stateless detail screen)

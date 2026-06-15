@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.ParcelFileDescriptor
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.AbsApiError
+import com.viel.aplayer.abs.net.AbsTokenRefreshClient
+import com.viel.aplayer.abs.net.AbsTokenRefreshResult
+import com.viel.aplayer.abs.net.RealAbsApiClient
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -40,6 +43,15 @@ class AbsSourceProvider(
             ?.let { AppSettingsRepository.getInstance(it).cachedSettings }
             ?: AppSettings()
     },
+    private val tokenRefreshClient: AbsTokenRefreshClient = context
+        ?.applicationContext
+        ?.let { appContext ->
+            RealAbsApiClient(
+                appSettingsRepository = AppSettingsRepository.getInstance(appContext),
+                credentialStore = credentialStore
+            )
+        }
+        ?: NoOpAbsTokenRefreshClient,
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -283,7 +295,7 @@ class AbsSourceProvider(
             "HEAD" -> requestBuilder.head()
             else -> requestBuilder.get()
         }
-        return try {
+        val response = try {
             client.newCall(requestBuilder.build()).execute()
         } catch (error: IOException) {
             val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
@@ -297,6 +309,21 @@ class AbsSourceProvider(
                 cause = error
             )
         }
+        if (response.code == HTTP_UNAUTHORIZED) {
+            response.close()
+            val credentialId = requireNotNull(file.root.credentialId) {
+                "Missing ABS credential id for root ${file.root.id}"
+            }
+            // Stream Auth Refresh Notification (Refresh credentials for later attempts and fail the current media request)
+            // Media3 download state remains deterministic because the caller receives one typed 401 failure instead of an implicit retry.
+            val refreshResult = tokenRefreshClient.refreshToken(credentialId)
+            throw AbsAuthExpiredException(
+                credentialId = credentialId,
+                rootId = file.root.id,
+                refreshResult = refreshResult
+            )
+        }
+        return response
     }
 
     internal fun resolveContentUrl(baseUrl: String, root: LibraryRootEntity, contentUrl: String): HttpUrl {
@@ -377,10 +404,17 @@ class AbsSourceProvider(
 
     private companion object {
         private const val HTTP_OK = 200
+        private const val HTTP_UNAUTHORIZED = 401
         private const val HTTP_PARTIAL_CONTENT = 206
         private const val HTTP_NOT_FOUND = 404
         private const val HTTP_RANGE_NOT_SATISFIABLE = 416
     }
+}
+
+private object NoOpAbsTokenRefreshClient : AbsTokenRefreshClient {
+    // Missing Refresh Client (Preserves explicit failure semantics in tests or manually injected source providers)
+    // Production construction injects RealAbsApiClient, while null-context tests can still assert typed auth failures.
+    override suspend fun refreshToken(credentialId: String): AbsTokenRefreshResult = AbsTokenRefreshResult.Failed
 }
 
 private class ResponseClosingInputStream(

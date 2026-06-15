@@ -1,5 +1,6 @@
 package com.viel.aplayer.application.usecase
 
+import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
 import com.viel.aplayer.application.playback.PlaybackStopper
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
@@ -12,9 +13,9 @@ import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookDeletionGateway
 import com.viel.aplayer.data.gateway.BookMetadataGateway
-import com.viel.aplayer.data.gateway.RemotePlaybackCleanupGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
 import com.viel.aplayer.data.gateway.ChapterGateway
+import com.viel.aplayer.data.gateway.RemotePlaybackCleanupGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -66,23 +67,67 @@ class DeleteBookUseCaseTest {
         )
     }
 
+    @Test
+    fun deletingBookCleansManualDownloadBeforeSoftDelete() = runBlocking {
+        val events = mutableListOf<String>()
+        val useCase = useCaseFor(
+            currentBookId = null,
+            fileExists = true,
+            events = events,
+            manualDownloadCleanupGateway = RecordingManualDownloadCleanupGateway(events)
+        )
+
+        useCase.invoke(BOOK_ID)
+
+        assertEquals(
+            listOf(
+                "checkPrimaryAudioFile:$BOOK_ID",
+                "deleteManualDownload:$BOOK_ID",
+                "deleteBook:$BOOK_ID",
+                "deletePlaybackStateForBook:$BOOK_ID"
+            ),
+            events
+        )
+    }
+
     private fun useCaseFor(
         currentBookId: String?,
         fileExists: Boolean,
-        events: MutableList<String>
+        events: MutableList<String>,
+        manualDownloadCleanupGateway: ManualDownloadCleanupGateway? = null
     ): DeleteBookUseCase {
         // Delete Book Fixture (Wire only the three seams used by destructive book deletion)
         // Fakes record call order so the test protects the stop-before-delete safety policy.
-        return DeleteBookUseCase(
-            playbackStopper = RecordingPlaybackStopper(currentBookId, events),
-            bookAvailabilityGateway = RecordingBookAvailabilityGateway(fileExists, events),
-            // Deletion Gateway Fixture (Pass the fake through the narrowed destructive command slot)
-            // The use case no longer receives catalog, chapter, bookmark, or metadata methods just to soft-delete a book.
-            bookDeletionGateway = RecordingBookQueryGateway(events),
-            // Remote Playback Cleanup Fixture (Expose only book-scoped remote playback state pruning)
-            // Recording this call protects the delete-after-soft-delete ordering for stale ABS session and pending progress rows.
-            remotePlaybackCleanupGateway = RecordingRemotePlaybackCleanupGateway(events)
-        )
+        val playbackStopper = RecordingPlaybackStopper(currentBookId, events)
+        val bookAvailabilityGateway = RecordingBookAvailabilityGateway(fileExists, events)
+        val bookDeletionGateway = RecordingBookQueryGateway(events)
+        val remotePlaybackCleanupGateway = RecordingRemotePlaybackCleanupGateway(events)
+        return if (manualDownloadCleanupGateway == null) {
+            DeleteBookUseCase(
+                playbackStopper = playbackStopper,
+                bookAvailabilityGateway = bookAvailabilityGateway,
+                // Deletion Gateway Fixture (Pass the fake through the narrowed destructive command slot)
+                // The use case no longer receives catalog, chapter, bookmark, or metadata methods just to soft-delete a book.
+                bookDeletionGateway = bookDeletionGateway,
+                // Remote Playback Cleanup Fixture (Expose only book-scoped remote playback state pruning)
+                // Recording this call protects the delete-after-soft-delete ordering for stale ABS session and pending progress rows.
+                remotePlaybackCleanupGateway = remotePlaybackCleanupGateway
+            )
+        } else {
+            DeleteBookUseCase(
+                playbackStopper = playbackStopper,
+                bookAvailabilityGateway = bookAvailabilityGateway,
+                // Deletion Gateway Fixture (Pass the fake through the narrowed destructive command slot)
+                // The use case no longer receives catalog, chapter, bookmark, or metadata methods just to soft-delete a book.
+                bookDeletionGateway = bookDeletionGateway,
+                // Remote Playback Cleanup Fixture (Expose only book-scoped remote playback state pruning)
+                // Recording this call protects the delete-after-soft-delete ordering for stale ABS session and pending progress rows.
+                remotePlaybackCleanupGateway = remotePlaybackCleanupGateway,
+                // Manual Download Cleanup Fixture (Inject the L1 cleanup seam only for tests that assert cache deletion ordering)
+                // Existing deletion tests can keep using the default no-op collaborator while this branch protects the new offline-cache side effect.
+                manualDownloadCleanupGateway = manualDownloadCleanupGateway
+            )
+        }
     }
 
     private class RecordingPlaybackStopper(
@@ -151,6 +196,14 @@ class DeleteBookUseCaseTest {
     ) : RemotePlaybackCleanupGateway {
         override suspend fun deletePlaybackStateForBook(bookId: String) {
             events += "deletePlaybackStateForBook:$bookId"
+        }
+    }
+
+    private class RecordingManualDownloadCleanupGateway(
+        private val events: MutableList<String>
+    ) : ManualDownloadCleanupGateway {
+        override suspend fun deleteDownload(bookId: String) {
+            events += "deleteManualDownload:$bookId"
         }
     }
 

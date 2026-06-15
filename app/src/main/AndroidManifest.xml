@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Manual Download Foreground Service (Declare Android 14+ dataSync type permission for offline caching)
+         Media3 DownloadService runs user-requested remote file caching as data synchronization, separate from active audio playback. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- WebDAV Networking (Allows remote provider to access LAN/Internet HTTP services) -->
     <!-- This is required for listing directories, reading metadata, and streaming audio playback. -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -95,6 +98,13 @@
             </intent-filter>
         </receiver>
 
+        <!-- Manual Download Notification Action Receiver (Handle package-local task controls from SystemUI notifications)
+             Notification action PendingIntents target this receiver explicitly, so it stays non-exported while routing commands through DownloadController. -->
+        <receiver
+            android:name=".media.service.ManualDownloadNotificationActionReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <!-- 
              File Sharing Provider (Declare FileProvider to facilitate secure, cross-process data sharing)
              Provides temporary URI read permissions to system components (e.g., SystemUI MediaDataManager) for accessing cached covers.
@@ -109,6 +119,13 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Manual Download Service Registration (Host Media3 foreground offline-cache commands)
+             Explicit service commands are package-local, so the service is not exported and uses the Android 14+ dataSync foreground type. -->
+        <service
+            android:name=".media.service.APlayerDownloadService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
 
         <!-- Playback Service Registration (Fix crash by declaring PlaybackService in manifest)
              This declares PlaybackService in the AndroidManifest with the required androidx.media3.session.MediaSessionService intent action to resolve SessionToken creation, and sets the foreground service type to mediaPlayback to prevent runtime permission errors on Android 14+. -->

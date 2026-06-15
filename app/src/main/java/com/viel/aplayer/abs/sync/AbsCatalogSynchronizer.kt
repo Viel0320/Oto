@@ -72,7 +72,12 @@ class AbsCatalogSynchronizer(
         val credential = requireNotNull(credentialStore.get(root.credentialId)) {
             "Missing ABS credential for root ${root.id}"
         }
-        val minified = apiClient.getLibraryItemsMinified(credential.baseUrl, credential.token, root.basePath)
+        val minified = apiClient.getLibraryItemsMinified(
+            baseUrl = credential.baseUrl,
+            token = credential.token,
+            libraryId = root.basePath,
+            credentialId = credential.id
+        )
         val total = minified.total ?: minified.results.orEmpty().size
         val plan = when {
             total <= 3000 -> AbsSyncPlan(totalItems = total, batchSize = 20, requiresConfirmation = false)
@@ -117,7 +122,12 @@ class AbsCatalogSynchronizer(
         val now = System.currentTimeMillis()
         val syncRunId = UUID.randomUUID().toString()
         val status = apiClient.status(credential.baseUrl)
-        val minified = apiClient.getLibraryItemsMinified(credential.baseUrl, credential.token, root.basePath)
+        val minified = apiClient.getLibraryItemsMinified(
+            baseUrl = credential.baseUrl,
+            token = credential.token,
+            libraryId = root.basePath,
+            credentialId = credential.id
+        )
         val existingMirrors = catalogStore.getMirrorsByRootId(root.id).associateBy { mirror -> mirror.remoteItemId }
         val existingSync = catalogStore.getSyncState(root.id)
         val minifiedItems = minified.results.orEmpty()
@@ -166,7 +176,12 @@ class AbsCatalogSynchronizer(
             // Logging Batch Transports (Logs batch-level parameters to identify transport issues during batch queries)
             AbsSyncLogger.logBatchRequest(rootId = root.id, batchIndex = batchIndex, batchSize = ids.size, itemIds = ids)
             catalogRunCatching {
-                apiClient.batchGetItems(credential.baseUrl, credential.token, ids)
+                apiClient.batchGetItems(
+                    baseUrl = credential.baseUrl,
+                    token = credential.token,
+                    itemIds = ids,
+                    credentialId = credential.id
+                )
             }.fold(
                 onSuccess = { items ->
                 AbsSyncLogger.logBatchSuccess(
@@ -188,6 +203,7 @@ class AbsCatalogSynchronizer(
                         root = root,
                         baseUrl = credential.baseUrl,
                         token = credential.token,
+                        credentialId = credential.id,
                         itemIds = missingIds
                     )
                     hadBatchFailure = hadBatchFailure || retryResult.failures.isNotEmpty()
@@ -208,6 +224,7 @@ class AbsCatalogSynchronizer(
                     root = root,
                     baseUrl = credential.baseUrl,
                     token = credential.token,
+                    credentialId = credential.id,
                     itemIds = ids
                 )
                 hadBatchFailure = hadBatchFailure || retryResult.failures.isNotEmpty()
@@ -519,6 +536,7 @@ class AbsCatalogSynchronizer(
         root: LibraryRootEntity,
         baseUrl: String,
         token: String,
+        credentialId: String,
         itemIds: List<String>
     ): DetailRetryResult {
         val resolvedItems = mutableListOf<AbsLibraryItemDto>()
@@ -529,7 +547,12 @@ class AbsCatalogSynchronizer(
             for (attempt in 1..MAX_DETAIL_RETRY_ATTEMPTS) {
                 AbsSyncLogger.logItemRetryStart(rootId = root.id, itemId = itemId, attempt = attempt, maxAttempts = MAX_DETAIL_RETRY_ATTEMPTS)
                 val result = catalogRunCatching {
-                    apiClient.batchGetItems(baseUrl, token, listOf(itemId))
+                    apiClient.batchGetItems(
+                        baseUrl = baseUrl,
+                        token = token,
+                        itemIds = listOf(itemId),
+                        credentialId = credentialId
+                    )
                 }
                 result.onSuccess { items ->
                     resolved = items.firstOrNull { item -> item.id == itemId }

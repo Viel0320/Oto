@@ -12,6 +12,8 @@ data class PlaybackState(
     val playWhenReady: Boolean = false,
     /** Current position coordinate (To track played millisecond offset) */
     val currentPosition: Long = 0L,
+    /** Buffered position coordinate (To track ExoPlayer memory-buffered millisecond offset) */
+    val bufferedPosition: Long = 0L,
     /** Total audio duration (To represent full track duration in milliseconds) */
     val duration: Long = 0L,
     /** Playback speed multiplier (To represent active playback speed value) */

@@ -82,6 +82,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    sourceSets {
+        // Room Schema Test Assets (Expose exported schemas to debug-only migration test runtimes)
+        // Robolectric resolves MigrationTestHelper schemas from the debug app AssetManager, while instrumentation tests read the same checked-in schema directory from the test APK.
+        getByName("debug").assets.srcDirs(project.layout.projectDirectory.dir("schemas"))
+        getByName("androidTest").assets.srcDirs(project.layout.projectDirectory.dir("schemas"))
+    }
 }
 
 dependencies {
@@ -109,6 +115,10 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.ui)
+    // Media3 Cache Runtime (Adds explicit cache and database artifacts for playback/download storage)
+    // The playback cache graph uses these APIs directly instead of relying on transitive ExoPlayer dependencies.
+    implementation(libs.androidx.media3.datasource)
+    implementation(libs.androidx.media3.database)
 
     // Coil (image loading for cover art)
     implementation(libs.coil.compose)
@@ -156,6 +166,9 @@ dependencies {
     // AndroidX DataStore JVM Runtime (Runs Android API-dependent storage tests against a realistic SDK)
     // Prevents local unit tests from exercising android.jar stub defaults that never occur on the app's supported devices.
     testImplementation(libs.robolectric)
+    // Room Migration Test Support (Validates exported schemas and non-destructive database upgrades)
+    // Download metadata migrations must prove existing user data can upgrade without destructive rebuilds.
+    testImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

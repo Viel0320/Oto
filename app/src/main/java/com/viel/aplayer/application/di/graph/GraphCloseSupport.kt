@@ -10,6 +10,7 @@ import java.io.Closeable
  */
 internal fun closeAppGraphsInLifecycleOrder(
     media: Closeable,
+    download: Closeable,
     library: Closeable,
     abs: Closeable,
     uiEvents: Closeable
@@ -17,6 +18,9 @@ internal fun closeAppGraphsInLifecycleOrder(
     // Media Runtime Shutdown (Stop playback jobs before their dependency graphs lose gateways)
     // PlaybackManager can hold polling coroutines and controller listeners that use library, ABS, and event seams, so it must close first.
     runCatching { media.close() }
+    // Download Cache Shutdown (Release manual-cache locks after playback readers have stopped)
+    // DownloadGraph owns the SimpleCache instance that playback may read, so it closes after MediaGraph but before dependent library cleanup.
+    runCatching { download.close() }
     // Dependent Graph Shutdown (Close ABS before the library resources it can call into)
     // ABS sync coordination receives library-root gateway operations, so active ABS cancellation must observe live library dependencies.
     runCatching { abs.close() }

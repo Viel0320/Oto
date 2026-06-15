@@ -37,4 +37,6 @@ interface AppSettingsCommands {
     suspend fun updateThemeMode(mode: ThemeMode)
     suspend fun updateAppLanguage(language: AppLanguage)
     suspend fun updateDynamicColorEnabled(enabled: Boolean)
+    suspend fun updatePlaybackBufferMaxBytes(bytes: Long)
+    suspend fun updateDownloadWifiOnly(enabled: Boolean)
 }

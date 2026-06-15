@@ -2,10 +2,42 @@ package com.viel.aplayer
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.offline.DownloadManager
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.aplayer.abs.sync.AbsAuthorizedProgressSynchronizer
 import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
+import com.viel.aplayer.application.di.dependencies.AbsSyncWorkerDependencies
+import com.viel.aplayer.application.di.dependencies.AppFeedbackDependencies
+import com.viel.aplayer.application.di.dependencies.AppShellDependencies
+import com.viel.aplayer.application.di.dependencies.DetailScreenDependencies
+import com.viel.aplayer.application.di.dependencies.DownloadRuntimeDependencies
+import com.viel.aplayer.application.di.dependencies.EditScreenDependencies
+import com.viel.aplayer.application.di.dependencies.HomeScreenDependencies
+import com.viel.aplayer.application.di.dependencies.LibrarySyncWorkerDependencies
+import com.viel.aplayer.application.di.dependencies.ManualDownloadNotificationActionDependencies
+import com.viel.aplayer.application.di.dependencies.PlaybackRuntimeDependencies
+import com.viel.aplayer.application.di.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.application.di.dependencies.SearchScreenDependencies
+import com.viel.aplayer.application.di.dependencies.SettingsScreenDependencies
+import com.viel.aplayer.application.di.dependencies.VfsPlaybackDependencies
+import com.viel.aplayer.application.di.graph.AbsGraph
+import com.viel.aplayer.application.di.graph.DataGraph
+import com.viel.aplayer.application.di.graph.DownloadGraph
+import com.viel.aplayer.application.di.graph.LibraryGraph
+import com.viel.aplayer.application.di.graph.MediaGraph
+import com.viel.aplayer.application.di.graph.UiEventGraph
+import com.viel.aplayer.application.di.graph.closeAppGraphsInLifecycleOrder
+import com.viel.aplayer.application.download.CacheMaintenanceCommands
+import com.viel.aplayer.application.download.CacheStatisticsProvider
+import com.viel.aplayer.application.download.DownloadCacheAccess
+import com.viel.aplayer.application.download.DownloadController
+import com.viel.aplayer.application.download.DownloadManagementReadModel
+import com.viel.aplayer.application.download.DownloadRecoveryService
+import com.viel.aplayer.application.download.DownloadRuntimeGateway
+import com.viel.aplayer.application.download.DownloadStatusReadModel
+import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
+import com.viel.aplayer.application.download.ManualDownloadOrphanCleaner
 import com.viel.aplayer.application.library.detail.DetailBookCommands
 import com.viel.aplayer.application.library.detail.DetailBookReadModel
 import com.viel.aplayer.application.library.edit.EditBookCommands
@@ -19,6 +51,7 @@ import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryReadMode
 import com.viel.aplayer.application.library.search.SearchLibraryCommands
 import com.viel.aplayer.application.library.search.SearchLibraryReadModel
 import com.viel.aplayer.application.library.settings.DefaultSettingsRootModule
+import com.viel.aplayer.application.library.settings.DownloadAwareAppSettingsCommands
 import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootReadModel
 import com.viel.aplayer.application.playback.PlayerPlaybackController
@@ -26,12 +59,12 @@ import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.application.usecase.DeleteBookUseCase
 import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.application.usecase.ExportUserDataUseCase
+import com.viel.aplayer.application.usecase.ImportUserDataUseCase
 import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
-import com.viel.aplayer.application.usecase.ExportUserDataUseCase
-import com.viel.aplayer.application.usecase.ImportUserDataUseCase
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
@@ -40,24 +73,6 @@ import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.data.gateway.SearchHistoryGateway
-import com.viel.aplayer.application.di.dependencies.AbsSyncWorkerDependencies
-import com.viel.aplayer.application.di.dependencies.AppFeedbackDependencies
-import com.viel.aplayer.application.di.dependencies.AppShellDependencies
-import com.viel.aplayer.application.di.dependencies.DetailScreenDependencies
-import com.viel.aplayer.application.di.dependencies.EditScreenDependencies
-import com.viel.aplayer.application.di.dependencies.HomeScreenDependencies
-import com.viel.aplayer.application.di.dependencies.LibrarySyncWorkerDependencies
-import com.viel.aplayer.application.di.dependencies.PlaybackRuntimeDependencies
-import com.viel.aplayer.application.di.dependencies.PlayerScreenDependencies
-import com.viel.aplayer.application.di.dependencies.SearchScreenDependencies
-import com.viel.aplayer.application.di.dependencies.SettingsScreenDependencies
-import com.viel.aplayer.application.di.dependencies.VfsPlaybackDependencies
-import com.viel.aplayer.application.di.graph.AbsGraph
-import com.viel.aplayer.application.di.graph.DataGraph
-import com.viel.aplayer.application.di.graph.LibraryGraph
-import com.viel.aplayer.application.di.graph.MediaGraph
-import com.viel.aplayer.application.di.graph.UiEventGraph
-import com.viel.aplayer.application.di.graph.closeAppGraphsInLifecycleOrder
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
 import com.viel.aplayer.library.vfs.VfsFileInterface
@@ -66,6 +81,7 @@ import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackFileLookup
 import com.viel.aplayer.media.PlaybackPlanGateway
+import com.viel.aplayer.media.PlaybackRootLookup
 import com.viel.aplayer.media.PlaybackSourcePreflight
 
 /**
@@ -75,6 +91,8 @@ import com.viel.aplayer.media.PlaybackSourcePreflight
 interface AppContainer :
     PlaybackRuntimeDependencies,
     VfsPlaybackDependencies,
+    DownloadRuntimeDependencies,
+    ManualDownloadNotificationActionDependencies,
     LibrarySyncWorkerDependencies,
     AbsSyncWorkerDependencies,
     HomeScreenDependencies,
@@ -287,6 +305,54 @@ interface AppContainer :
     override val playbackFileLookup: PlaybackFileLookup
 
     /**
+     * Playback Root Resolver (Read-only root lookup for manual-cache routing)
+     * Manual-cache playback can classify SAF versus remote roots without receiving settings or root mutation APIs.
+     */
+    override val playbackRootLookup: PlaybackRootLookup
+
+    /**
+     * Download Cache Access (L1 manual cache handle for playback routing)
+     * Exposes manual-cache access separately from DownloadRuntimeGateway so playback does not start manual download observers.
+     */
+    override val downloadCacheAccess: DownloadCacheAccess
+
+    /**
+     * Download Runtime Gateway (Manual download queue seam)
+     * Download commands receive queue operations without direct access to Media3 DownloadManager.
+     */
+    override val downloadRuntimeGateway: DownloadRuntimeGateway
+
+    /**
+     * Download Controller (Book-level manual offline cache command surface)
+     * UI callers use this application operation after notification-permission preflight.
+     */
+    override val downloadController: DownloadController
+
+    /**
+     * Download Status Read Model (Presentation-facing manual cache status stream)
+     * Detail and management UI observe book-level cache state through this projection instead of touching Room or Media3 directly.
+     */
+    override val downloadStatusReadModel: DownloadStatusReadModel
+
+    /**
+     * Download Management Read Model (Manual download task list projection)
+     * Settings-hosted management UI consumes display-ready task rows without querying DAOs.
+     */
+    override val downloadManagementReadModel: DownloadManagementReadModel
+
+    /**
+     * Cache Statistics Provider (Manual cache totals)
+     * Cache settings screens read durable storage summaries through this narrow provider instead of touching SimpleCache objects.
+     */
+    override val cacheStatisticsProvider: CacheStatisticsProvider
+
+    /**
+     * Cache Maintenance Commands (Manual cache cleanup commands)
+     * Settings screens can trigger confirmed manual-cache cleanup without receiving Media3 cache handles or DAO dependencies.
+     */
+    override val cacheMaintenanceCommands: CacheMaintenanceCommands
+
+    /**
      * Playback Source Preflight (DB-only root lifecycle gate before media source creation)
      * Reads persisted library root rows without opening files or probing remote endpoints.
      */
@@ -345,6 +411,30 @@ internal interface ProcessContainer : AppContainer {
     val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
 
     /**
+     * Download Recovery Service (Process-start manual download reconciliation gate)
+     * Application startup can invoke this without exposing download recovery to screen-level dependency surfaces.
+     */
+    val downloadRecoveryService: DownloadRecoveryService
+
+    /**
+     * Manual Download Cleanup Gateway (Book deletion cleanup seam)
+     * DeleteBookUseCase receives only the book-level cleanup operation.
+     */
+    val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
+
+    /**
+     * Media3 Download Manager (Process-internal Android service runtime)
+     * APlayerDownloadService must return the raw manager to Media3, but public callers stay on DownloadRuntimeGateway.
+     */
+    val media3DownloadManager: DownloadManager
+
+    /**
+     * Manual Download Orphan Cleaner (Process-internal cache maintenance command)
+     * WorkManager can remove stale L1 cache keys without exposing cache mutation APIs to UI dependencies.
+     */
+    val manualDownloadOrphanCleaner: ManualDownloadOrphanCleaner
+
+    /**
      * ABS Authorized Progress Synchronizer (Internal remote progress merge adapter)
      * Keeps authorized progress refresh mechanics available to di wiring without adding them to the public dependency view union.
      */
@@ -363,6 +453,7 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     internal val uiEvents = UiEventGraph()
     internal val data = DataGraph(context)
     internal val media = MediaGraph(context, data)
+    internal val download = DownloadGraph(context, data, media)
     internal val library = LibraryGraph(context, data, media, uiEvents)
     internal val abs = AbsGraph(context, data, media, library, uiEvents)
 
@@ -382,8 +473,15 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     override val settingsReadModel: com.viel.aplayer.application.library.settings.AppSettingsReadModel
         get() = data.settingsReadModel
 
-    override val settingsCommands: com.viel.aplayer.application.library.settings.AppSettingsCommands
-        get() = data.settingsCommands
+    override val settingsCommands: com.viel.aplayer.application.library.settings.AppSettingsCommands by lazy {
+        // Download-Aware Settings Command Wiring (Keep DataStore writes pure while updating live download requirements)
+        // The decorator checks DownloadGraph lazy state before touching DownloadRuntimeGateway, so settings screens do not start DownloadManager.
+        DownloadAwareAppSettingsCommands(
+            delegate = data.settingsCommands,
+            downloadRuntimeGatewayProvider = { download.downloadRuntimeGateway },
+            isDownloadRuntimeInitialized = { download.isDownloadRuntimeInitialized }
+        )
+    }
 
     override val appEventSink: AppEventSink
         get() = uiEvents.appEventSink
@@ -557,6 +655,30 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     override val playbackFileLookup: PlaybackFileLookup
         get() = media.playbackFileLookup
 
+    override val playbackRootLookup: PlaybackRootLookup
+        get() = media.playbackRootLookup
+
+    override val downloadCacheAccess: DownloadCacheAccess
+        get() = download.downloadCacheAccess
+
+    override val downloadRuntimeGateway: DownloadRuntimeGateway
+        get() = download.downloadRuntimeGateway
+
+    override val downloadController: DownloadController
+        get() = download.downloadController
+
+    override val downloadStatusReadModel: DownloadStatusReadModel
+        get() = download.downloadStatusReadModel
+
+    override val downloadManagementReadModel: DownloadManagementReadModel
+        get() = download.downloadManagementReadModel
+
+    override val cacheStatisticsProvider: CacheStatisticsProvider
+        get() = download.cacheStatisticsProvider
+
+    override val cacheMaintenanceCommands: CacheMaintenanceCommands
+        get() = download.cacheMaintenanceCommands
+
     override val playbackSourcePreflight: PlaybackSourcePreflight
         get() = media.playbackSourcePreflight
 
@@ -568,6 +690,18 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
 
     override val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
         get() = media.autoRewindManager
+
+    override val downloadRecoveryService: DownloadRecoveryService
+        get() = download.downloadRecoveryService
+
+    override val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
+        get() = download.manualDownloadCleanupGateway
+
+    override val media3DownloadManager: DownloadManager
+        get() = download.media3DownloadManager
+
+    override val manualDownloadOrphanCleaner: ManualDownloadOrphanCleaner
+        get() = download.manualDownloadOrphanCleaner
 
     override val absCatalogSynchronizer: AbsCatalogSynchronizer
         get() = abs.absCatalogSynchronizer
@@ -591,6 +725,7 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         // The composition root owns cross-di order while each di owns its own initialized resources.
         closeAppGraphsInLifecycleOrder(
             media = media,
+            download = download,
             library = library,
             abs = abs,
             uiEvents = uiEvents

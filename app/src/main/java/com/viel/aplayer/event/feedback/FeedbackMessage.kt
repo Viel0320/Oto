@@ -227,6 +227,31 @@ object FeedbackMessages {
             }
         )
 
+    // Download Command Feedback (Report user-triggered manual cache commands)
+    // These messages acknowledge command submission only; DownloadStatusReadModel remains the source for durable progress state.
+    fun downloadCacheQueued(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_download_cache_queued)
+
+    fun downloadCachePaused(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_download_cache_paused)
+
+    fun downloadCacheResumed(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_download_cache_resumed)
+
+    fun downloadCacheDeleted(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_download_cache_deleted)
+
+    fun manualDownloadCacheCleared(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_manual_download_cache_cleared)
+
+    fun downloadNotificationPermissionDenied(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_download_notification_permission_denied)
+
+    // Download Command Failure Feedback (Keep transient command failures resource-backed)
+    // The error detail is passed as sanitized UI feedback input instead of hard-coded ViewModel text.
+    fun downloadCacheCommandFailed(errorMessage: String?): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_download_cache_command_failed, listOf(errorMessage ?: ""))
+
     // Deleted Book Recovery Success Toasts (Expose resource-backed restore completion messages)
     // Recovery ViewModel emits typed success facts while the app-shell renderer remains responsible for localization.
     fun deletedBookRecoveryRestoredReady(): FeedbackMessage =

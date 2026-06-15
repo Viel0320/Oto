@@ -3,6 +3,8 @@ package com.viel.aplayer.abs
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.AbsApiError
+import com.viel.aplayer.abs.net.AbsTokenRefreshClient
+import com.viel.aplayer.abs.net.AbsTokenRefreshResult
 import com.viel.aplayer.abs.net.dto.AbsPlayRequestDto
 import com.viel.aplayer.abs.net.dto.AbsPlaybackSessionDto
 import com.viel.aplayer.abs.sync.AbsCatalogStore
@@ -10,6 +12,7 @@ import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsCoverStore
 import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
 import com.viel.aplayer.abs.sync.AbsSyncStateEntity
+import com.viel.aplayer.abs.vfs.AbsAuthExpiredException
 import com.viel.aplayer.abs.vfs.AbsSourceProvider
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
@@ -180,6 +183,45 @@ class AbsSourceProviderStage3Test {
     }
 
     @Test
+    fun `stream unauthorized should refresh token and throw typed auth expiration`() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(401))
+            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val tokenRefreshClient = RecordingTokenRefreshClient(AbsTokenRefreshResult.Success("token-2"))
+            val provider = AbsSourceProvider(
+                context = null,
+                credentialStore = credentialStore,
+                settingsProvider = ::allowCleartextSettings,
+                tokenRefreshClient = tokenRefreshClient
+            )
+            val root = LibraryRootEntity(
+                id = "root-1",
+                sourceType = AudiobookSchema.LibrarySourceType.ABS,
+                sourceUri = server.url("/audiobookshelf").toString().trimEnd('/'),
+                basePath = "lib-1",
+                credentialId = "cred-1",
+                displayName = "Audiobooks"
+            )
+            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+
+            try {
+                provider.openInputStream(node)?.close()
+                fail("Expected typed ABS auth expiration")
+            } catch (error: AbsAuthExpiredException) {
+                // Stream Auth Boundary (Refreshes credentials for future attempts while failing the current media request)
+                // Download orchestration receives one deterministic auth-expired failure and can leave partial Media3 cache data intact.
+                assertEquals("cred-1", error.credentialId)
+                assertEquals("root-1", error.rootId)
+                assertEquals(AbsTokenRefreshResult.Success("token-2"), error.refreshResult)
+            }
+
+            assertEquals(listOf("cred-1"), tokenRefreshClient.refreshCalls)
+            val request = server.takeRequest()
+            assertEquals("Bearer token-1", request.getHeader("Authorization"))
+        }
+    }
+
+    @Test
     fun `catalog synchronizer should write cached cover paths into book`() = runBlocking {
         val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
         val store = FakeCatalogStore()
@@ -233,6 +275,17 @@ class AbsSourceProviderStage3Test {
      */
     private fun allowCleartextSettings(): AppSettings =
         AppSettings(isCleartextTrafficAllowed = true)
+
+    private class RecordingTokenRefreshClient(
+        private val result: AbsTokenRefreshResult
+    ) : AbsTokenRefreshClient {
+        val refreshCalls = mutableListOf<String>()
+
+        override suspend fun refreshToken(credentialId: String): AbsTokenRefreshResult {
+            refreshCalls += credentialId
+            return result
+        }
+    }
 
     private class FakeCoverStore(
         private val coverPath: String,

@@ -115,12 +115,13 @@ fun PlayerScreen(
     val seekUndoMessageText = stringResource(R.string.player_seek_undo_message)
 
     // =====================================================================
-    // L2 container state gathering (To ensure layout classes remain stateless)
+    // Player Container State Gathering (To ensure layout classes remain stateless)
     // Facilitates UI channel adaptation, decoupling, and automated views testing.
     // =====================================================================
     val progressState = if (isPreview) {
         PlaybackViewModel.PlaybackProgressViewState(
             elapsedMs = 120000L,
+            bufferedMs = 220000L,
             durationMs = 360000L,
             isChapterProgressMode = false
         )
@@ -426,6 +427,7 @@ fun PlayerScreen(
                         isTabletLandscape -> {
                             PlayerLandscapeTablet(
                                 currentPosition = progressState.elapsedMs,
+                                bufferedPosition = progressState.bufferedMs,
                                 totalDuration = progressState.durationMs,
                                 isChapterMode = progressState.isChapterProgressMode,
                                 currentChapter = currentChapter,
@@ -469,6 +471,7 @@ fun PlayerScreen(
                         isLandscape -> {
                             PlayerLandscapePhone(
                                 currentPosition = progressState.elapsedMs,
+                                bufferedPosition = progressState.bufferedMs,
                                 totalDuration = progressState.durationMs,
                                 isChapterMode = progressState.isChapterProgressMode,
                                 currentChapter = currentChapter,
@@ -512,6 +515,7 @@ fun PlayerScreen(
                         else -> {
                             PlayerPortrait(
                                 currentPosition = progressState.elapsedMs,
+                                bufferedPosition = progressState.bufferedMs,
                                 totalDuration = progressState.durationMs,
                                 isChapterMode = progressState.isChapterProgressMode,
                                 currentChapter = currentChapter,

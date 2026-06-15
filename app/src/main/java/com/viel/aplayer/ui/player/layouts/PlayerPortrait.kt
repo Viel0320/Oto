@@ -28,9 +28,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 import com.viel.aplayer.application.library.player.PlayerChapterItem
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
@@ -51,6 +51,7 @@ import dev.chrisbanes.haze.HazeState
  * Decouples ViewModel bindings and enforces clean stateless UI architecture contracts.
  *
  * @param currentPosition The current physical playback progress of the player (in milliseconds).
+ * @param bufferedPosition The current physical buffered progress of the player (in milliseconds).
  * @param totalDuration The current physical total duration of the player (in milliseconds).
  * @param isChapterMode Whether the progress bar is currently in chapter progress view mode.
  * @param currentChapter The player chapter item currently in the playing state.
@@ -70,6 +71,7 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun PlayerPortrait(
     currentPosition: Long,
+    bufferedPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
     currentChapter: PlayerChapterItem?,
@@ -270,6 +272,7 @@ fun PlayerPortrait(
                             // Control panel layout (To render buttons, timelines, and speech multipliers)
                             PlayerControlPanel(
                                 currentPosition = currentPosition,
+                                bufferedPosition = bufferedPosition,
                                 totalDuration = totalDuration,
                                 isChapterMode = isChapterMode,
                                 currentChapter = currentChapter,

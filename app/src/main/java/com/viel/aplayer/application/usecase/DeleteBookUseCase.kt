@@ -1,6 +1,7 @@
 // Package Relocation: Define the usecase within the standardized domain namespace to align architectural boundaries.
 package com.viel.aplayer.application.usecase
 
+import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
 import com.viel.aplayer.application.playback.PlaybackStopper
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookDeletionGateway
@@ -18,7 +19,8 @@ class DeleteBookUseCase(
     private val playbackStopper: PlaybackStopper,
     private val bookAvailabilityGateway: BookAvailabilityGateway,
     private val bookDeletionGateway: BookDeletionGateway,
-    private val remotePlaybackCleanupGateway: RemotePlaybackCleanupGateway
+    private val remotePlaybackCleanupGateway: RemotePlaybackCleanupGateway,
+    private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway = NoOpManualDownloadCleanupGateway
 ) {
 
     /**
@@ -36,6 +38,10 @@ class DeleteBookUseCase(
         // DeleteBookUseCase only needs to know whether a physical file may remain, so it uses the explicitly non-mutating facade method.
         val fileExists = bookAvailabilityGateway.checkPrimaryAudioFileExistsWithoutStatusRefresh(bookId)
 
+        // Manual Download Cleanup (Remove L1 offline cache state before the book row becomes soft-deleted)
+        // Keeping this collaborator narrow prevents the deletion workflow from learning download queues, statistics, or Media3 runtime details.
+        manualDownloadCleanupGateway.deleteDownload(bookId)
+
         // Purge records (To erase DB entities and cascade remove metadata caches)
         // Invokes database deletion routing to purge Room records and delete matching cover images.
         // Book Deletion Command (Use the destructive command seam only after guards complete)
@@ -47,5 +53,11 @@ class DeleteBookUseCase(
         remotePlaybackCleanupGateway.deletePlaybackStateForBook(bookId)
 
         fileExists
+    }
+
+    private object NoOpManualDownloadCleanupGateway : ManualDownloadCleanupGateway {
+        // Legacy Constructor Fallback (Preserve existing tests and call sites that do not exercise manual downloads)
+        // Production wiring injects the real DownloadGraph cleanup gateway so book deletion still removes L1 offline cache state.
+        override suspend fun deleteDownload(bookId: String) = Unit
     }
 }

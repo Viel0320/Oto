@@ -10,6 +10,7 @@ import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackFileLookup
 import com.viel.aplayer.media.PlaybackPlanGateway
+import com.viel.aplayer.media.PlaybackRootLookup
 import com.viel.aplayer.media.PlaybackSourcePreflight
 
 /**
@@ -97,4 +98,10 @@ interface VfsPlaybackDependencies {
      * Provides the data source with only the lookup needed to bind Media3 requests to stored book files.
      */
     val playbackFileLookup: PlaybackFileLookup
+
+    /**
+     * Playback Root Resolver (Media-id root lookup for manual-cache routing)
+     * Allows manual-cache playback data sources to identify local SAF roots without depending on LibraryRootDao directly.
+     */
+    val playbackRootLookup: PlaybackRootLookup
 }

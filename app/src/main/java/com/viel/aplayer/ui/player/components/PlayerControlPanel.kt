@@ -24,6 +24,7 @@ import dev.chrisbanes.haze.HazeState
  * All states are explicitly passed down using primitive types and general entity parameters to achieve layer 3 stateless pure-rendering separation and maximum recomposition isolation.
  *
  * @param currentPosition The current physical playback progress of the player (in milliseconds).
+ * @param bufferedPosition The current physical buffered progress of the player (in milliseconds).
  * @param totalDuration The current physical total duration of the player (in milliseconds).
  * @param isChapterMode Whether the progress bar is currently in chapter progress view mode.
  * @param currentChapter The player-scene chapter item that is currently playing.
@@ -41,6 +42,7 @@ import dev.chrisbanes.haze.HazeState
 fun PlayerControlPanel(
     modifier: Modifier = Modifier,
     currentPosition: Long,
+    bufferedPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
     currentChapter: PlayerChapterItem?,
@@ -76,6 +78,7 @@ fun PlayerControlPanel(
         // Progress bar display component, decoupled from ViewModel, directly passing the current playback position, total duration, and corresponding chapter partitions to achieve peak rendering performance.
         PlaybackProgress(
             currentPosition = currentPosition,
+            bufferedPosition = bufferedPosition,
             totalDuration = totalDuration,
             isChapterMode = isChapterMode,
             // Player Chapter Projection Forwarding (Pass scene chapters directly to progress rendering)

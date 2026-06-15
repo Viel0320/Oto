@@ -1,18 +1,23 @@
 package com.viel.aplayer.application.usecase
 
 import android.content.Context
+import com.viel.aplayer.data.db.AppDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.OutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 // Title: Export User Data UseCase (UseCase responsible for packaging user database and settings into a ZIP file)
 // Encapsulates the sequential zipping of Room database, preference DataStore, and SharedPreferences files.
 class ExportUserDataUseCase(private val context: Context) {
     suspend fun execute(outputStream: OutputStream): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
+            // Stable Database Snapshot (Close the Room singleton before reading database files)
+            // Export must copy the latest on-disk database and WAL state instead of racing an open SQLite connection that may rewrite the file while the ZIP is being built.
+            AppDatabase.closeInstance()
+
             ZipOutputStream(outputStream).use { zos ->
                 // 1. Database Files
                 val dbName = "aplayer_database"

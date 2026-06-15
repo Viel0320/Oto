@@ -318,6 +318,11 @@ interface BookDao {
     @Query("SELECT * FROM book_files WHERE id = :id AND fileRole = 'AUDIO' LIMIT 1")
     suspend fun getBookFileById(id: String): BookFileEntity?
 
+    // File Owner Lookup (Maps a persisted audio file identifier back to its parent book)
+    // Download synchronization uses this narrow query to group Media3 file-level changes without loading full BookEntity rows.
+    @Query("SELECT bookId FROM book_files WHERE id = :fileId LIMIT 1")
+    suspend fun getBookIdByFileId(fileId: String): String?
+
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id = :id")
     suspend fun updateBookFileStatus(id: String, status: AudiobookSchema.FileStatus, scanId: String? = null)
 

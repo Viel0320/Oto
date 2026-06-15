@@ -491,4 +491,92 @@
     <string name="feedback_settings_import_failed">Import failed: %1$s</string>
     <string name="feedback_settings_export_stream_failed">Failed to open destination file stream</string>
     <string name="feedback_settings_import_stream_failed">Failed to open backup file stream</string>
+    <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
+         Localized strings keep foreground download status visible without exposing queue internals. -->
+    <string name="download_notification_active">オフライン再生用にオーディオブックをキャッシュしています</string>
+    <string name="download_notification_waiting">ダウンロード条件を待機中です</string>
+    <string name="download_notification_failed">一部のダウンロードに対応が必要です</string>
+    <string name="download_notification_idle">オフラインキャッシュは最新です</string>
+    <!-- Book Download Notification Copy (Expose per-book manual download progress in Android notifications)
+         These strings mirror the base placeholder contract so notification updates can format file counts, percentages, and byte totals in every supported locale. -->
+    <string name="download_notification_book_queued">キュー内 · %1$d/%2$d ファイル</string>
+    <string name="download_notification_book_downloading">ダウンロード中 · %1$d/%2$d ファイル · %3$d%% · %4$s/%5$s</string>
+    <string name="download_notification_book_paused">一時停止中 · %1$d/%2$d ファイル · %3$d%%</string>
+    <string name="download_notification_book_completed">ダウンロード完了 · %1$d/%2$d ファイル</string>
+    <string name="download_notification_book_failed">ダウンロード失敗 · %1$d/%2$d ファイル · %3$d%%</string>
+    <!-- Detail Download UI Copy (Expose manual offline cache status and commands from the detail top bar)
+         These strings keep notification permission preflight, cache-state labels, and command feedback localized in one resource group. -->
+    <string name="detail_download_action_none">Cache offline</string>
+    <string name="detail_download_action_active">Download in progress</string>
+    <string name="detail_download_action_paused">Download paused</string>
+    <string name="detail_download_action_completed">Cached offline</string>
+    <string name="detail_download_action_failed">Download failed</string>
+    <string name="detail_download_dialog_title_none">Offline cache</string>
+    <string name="detail_download_dialog_title_queued">Download queued</string>
+    <string name="detail_download_dialog_title_downloading">Downloading</string>
+    <string name="detail_download_dialog_title_paused">Download paused</string>
+    <string name="detail_download_dialog_title_completed">Cached offline</string>
+    <string name="detail_download_dialog_title_failed">Download failed</string>
+    <string name="detail_download_dialog_body_none">This remote audiobook is not cached for offline playback.</string>
+    <string name="detail_download_dialog_body_progress">Cached %1$d%% - %2$d/%3$d files</string>
+    <string name="detail_download_start_action">Start download</string>
+    <string name="detail_download_retry_action">Retry</string>
+    <string name="detail_download_pause_action">Pause</string>
+    <string name="detail_download_resume_action">Resume</string>
+    <string name="detail_download_cancel_action">Cancel download</string>
+    <string name="detail_download_delete_action">Delete cache</string>
+    <string name="detail_download_permission_title">Allow download notifications</string>
+    <string name="detail_download_permission_body">Android requires notification permission before foreground downloads can be started.</string>
+    <string name="detail_download_permission_confirm">Continue</string>
+    <string name="feedback_download_cache_queued">Offline cache started</string>
+    <string name="feedback_download_cache_paused">Download paused</string>
+    <string name="feedback_download_cache_resumed">Download resumed</string>
+    <string name="feedback_download_cache_deleted">Offline cache deleted</string>
+    <string name="feedback_manual_download_cache_cleared">Manual download cache cleared</string>
+    <string name="feedback_download_notification_permission_denied">Notification permission is required for offline downloads</string>
+    <string name="feedback_download_cache_command_failed">Download action failed: %1$s</string>
+    <!-- Download Management Settings Resources (Define settings-hosted manual cache and playback buffer UI copy)
+         These strings support the phase-six management pages without exposing Room or Media3 terms to users. -->
+    <string name="settings_download_cache_title">Downloads &amp; cache</string>
+    <string name="settings_download_management_title">Download management</string>
+    <string name="settings_download_management_subtitle">%1$d manual cache tasks</string>
+    <string name="settings_cache_settings_title">Cache settings</string>
+    <string name="settings_cache_settings_subtitle">Manual cache %1$s · playback buffer settings</string>
+    <string name="download_management_empty">No manual downloads yet</string>
+    <string name="download_management_delete_confirm_title">Delete offline cache</string>
+    <string name="download_management_delete_confirm_body">Delete the offline cache for \"%1$s\"?</string>
+    <string name="download_management_progress_bytes">%1$d%% · %2$d/%3$d files · %4$s / %5$s</string>
+    <string name="download_management_progress_files">%1$d%% · %2$d/%3$d files</string>
+    <string name="download_management_task_subtitle_with_author">%1$s · %2$s · %3$s</string>
+    <string name="download_management_task_subtitle">%1$s · %2$s</string>
+    <string name="download_management_status_none">No cache</string>
+    <string name="download_management_status_queued">Queued</string>
+    <string name="download_management_status_downloading">Downloading</string>
+    <string name="download_management_status_paused">Paused</string>
+    <string name="download_management_status_completed">Cached</string>
+    <string name="download_management_status_failed">Failed</string>
+    <string name="settings_cache_refresh_action">Refresh cache statistics</string>
+    <string name="settings_cache_statistics_section_title">Cache usage</string>
+    <!-- Cache Maintenance UI Copy (Keeps non-primary locales aligned with manual-cache and playback-buffer controls while translations are pending) -->
+    <string name="settings_cache_manual_section_title">Manual download cache</string>
+    <string name="settings_cache_manual_size_title">Manual download cache</string>
+    <string name="settings_cache_manual_files_title">Manual cached files</string>
+    <string name="settings_cache_clear_manual_title">Clear all manual downloads</string>
+    <string name="settings_cache_clear_manual_subtitle">Deletes every user-requested offline cache task</string>
+    <string name="settings_cache_playback_size_title">Playback buffer</string>
+    <string name="settings_cache_playback_usage_value">%1$s</string>
+    <string name="settings_cache_completed_books_title">Completed offline books</string>
+    <string name="settings_cache_total_section_title">Total</string>
+    <string name="settings_cache_total_files_title">Total cached files</string>
+    <string name="settings_cache_total_size_title">Total cache size</string>
+    <string name="settings_cache_clear_action">Clear</string>
+    <string name="settings_cache_clear_manual_confirm_title">Clear all manual downloads</string>
+    <string name="settings_cache_clear_manual_confirm_body">This deletes every manual offline cache and removes the related download records.</string>
+    <string name="settings_cache_clear_manual_confirm_action">Clear manual downloads</string>
+    <string name="settings_cache_download_policy_section_title">Download policy</string>
+    <string name="settings_download_wifi_only_title">Wi-Fi only downloads</string>
+    <string name="settings_download_wifi_only_subtitle">Manual downloads wait for unmetered network access</string>
+    <string name="settings_cache_playback_section_title">Playback buffer</string>
+    <string name="settings_cache_playback_capacity_title">Buffer size</string>
+    <string name="settings_cache_playback_capacity_subtitle">Applies the next time the player is rebuilt</string>
 </resources>

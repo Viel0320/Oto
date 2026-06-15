@@ -50,6 +50,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+import com.viel.aplayer.application.download.BookCacheState
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.application.library.detail.DetailSnapshot
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -63,6 +64,7 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.detail.components.DetailTopBarDownloadAction
 import com.viel.aplayer.ui.detail.components.SelectableTextView
 import com.viel.aplayer.ui.detail.layouts.DetailLandscapePhone
 import com.viel.aplayer.ui.detail.layouts.DetailLandscapeTablet
@@ -102,6 +104,18 @@ fun DetailContent(
     // Detail Action Delete Command (Forward destructive removal to the app shell)
     // The app shell coordinates playback cleanup, detail dismissal, and library deletion outside the stateless detail renderer.
     onDeleteBook: (String) -> Unit = {},
+    // Detail Download Start Command (Forward selected book manual cache starts)
+    // Route-level permission preflight happens before this callback reaches the application download controller.
+    onDownloadBook: (String) -> Unit = {},
+    // Detail Download Pause Command (Forward selected book manual cache pause)
+    // The download controller applies Media3 stop reasons per file so this command remains book scoped.
+    onPauseDownload: (String) -> Unit = {},
+    // Detail Download Resume Command (Forward selected book manual cache resume)
+    // Resuming remains separate from playback start because it only affects offline cache work.
+    onResumeDownload: (String) -> Unit = {},
+    // Detail Download Delete Command (Forward selected book manual cache deletion)
+    // Cache deletion is intentionally separate from audiobook deletion and keeps the book in the library.
+    onDeleteDownload: (String) -> Unit = {},
     glassEffectMode: GlassEffectMode, // Precise control of dynamic switching between Material design and frosted glass Haze mode
     // Detail Floating Dialog Haze Source (Use app-level sampling for detail dialogs)
     // DetailOverlay registers visible Detail content into the stable app source, so floating dialogs avoid local HazeState rebinding.
@@ -125,6 +139,9 @@ fun DetailContent(
     // Detail Action Dialog Visibility (Own only the local modal presentation state)
     // The selected book payload still comes from DetailBookItem, and all mutations are delegated through callbacks.
     var showActionDialog by remember { mutableStateOf(false) }
+    // Detail Download Dialog Visibility (Own only the local manual-cache action sheet state)
+    // The selected cache status comes from DetailUiState, while all mutations are delegated to route/ViewModel callbacks.
+    var showDownloadDialog by remember { mutableStateOf(false) }
     // Localized Detail Dialog Action Copy (Resolve the generic acknowledgement button through resources)
     // Info dialog titles and body text are selected book metadata, while the closing action is app-authored UI copy.
     val okActionText = stringResource(R.string.action_ok)
@@ -216,6 +233,16 @@ fun DetailContent(
                             // Detail Action Dialog Entry (Open shared audiobook actions from the selected Detail projection)
                             // The top-right control renders only when a DetailBookItem exists, preventing empty overlays from exposing commands without a target book.
                             if (book != null) {
+                                DetailTopBarDownloadAction(
+                                    cacheStatus = uiState.bookCacheStatus,
+                                    onClick = {
+                                        if (uiState.bookCacheStatus.state == BookCacheState.NONE) {
+                                            onDownloadBook(book.id)
+                                        } else {
+                                            showDownloadDialog = true
+                                        }
+                                    }
+                                )
                                 IconButton(onClick = { showActionDialog = true }) {
                                     Icon(
                                         Icons.Rounded.MoreVert,
@@ -341,6 +368,124 @@ fun DetailContent(
         )
     }
 
+    if (showDownloadDialog && book != null) {
+        val cacheStatus = uiState.bookCacheStatus
+        APlayerDialogTemplate(
+            onDismissRequest = { showDownloadDialog = false },
+            hazeState = fullPageHazeState ?: coverHazeState,
+            glassEffectMode = glassEffectMode,
+            title = {
+                Text(
+                    text = stringResource(cacheStatus.dialogTitleRes()),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            body = {
+                Text(
+                    text = cacheStatus.dialogBodyText(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            actions = {
+                TextButton(onClick = { showDownloadDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+                when (cacheStatus.state) {
+                    BookCacheState.QUEUED,
+                    BookCacheState.DOWNLOADING -> {
+                        TextButton(
+                            onClick = {
+                                showDownloadDialog = false
+                                onPauseDownload(book.id)
+                            }
+                        ) {
+                            Text(stringResource(R.string.detail_download_pause_action))
+                        }
+                        TextButton(
+                            onClick = {
+                                showDownloadDialog = false
+                                onDeleteDownload(book.id)
+                            }
+                        ) {
+                            Text(
+                                text = stringResource(R.string.detail_download_cancel_action),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    BookCacheState.PAUSED -> {
+                        TextButton(
+                            onClick = {
+                                showDownloadDialog = false
+                                onResumeDownload(book.id)
+                            }
+                        ) {
+                            Text(stringResource(R.string.detail_download_resume_action))
+                        }
+                        TextButton(
+                            onClick = {
+                                showDownloadDialog = false
+                                onDeleteDownload(book.id)
+                            }
+                        ) {
+                            Text(
+                                text = stringResource(R.string.detail_download_cancel_action),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    BookCacheState.COMPLETED -> {
+                        TextButton(
+                            onClick = {
+                                showDownloadDialog = false
+                                onDeleteDownload(book.id)
+                            }
+                        ) {
+                            Text(
+                                text = stringResource(R.string.detail_download_delete_action),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    BookCacheState.FAILED -> {
+                        TextButton(
+                            onClick = {
+                                showDownloadDialog = false
+                                onDownloadBook(book.id)
+                            }
+                        ) {
+                            Text(stringResource(R.string.detail_download_retry_action))
+                        }
+                        TextButton(
+                            onClick = {
+                                showDownloadDialog = false
+                                onDeleteDownload(book.id)
+                            }
+                        ) {
+                            Text(
+                                text = stringResource(R.string.detail_download_delete_action),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    BookCacheState.NONE -> {
+                        TextButton(
+                            onClick = {
+                                showDownloadDialog = false
+                                onDownloadBook(book.id)
+                            }
+                        ) {
+                            Text(stringResource(R.string.detail_download_start_action))
+                        }
+                    }
+                }
+            }
+        )
+    }
+
     if (infoDialogText != null) {
         APlayerDialogTemplate(
             onDismissRequest = {
@@ -407,6 +552,33 @@ private fun DetailBookItem.toAudiobookActionDialogBook(): AudiobookActionDialogB
 // Detail Action Dialog Cover Scene (Preserve cover-cache diagnostics for Detail-origin action dialogs)
 // The shared dialog builds the Coil request, while this scene name keeps Detail menu cover loads distinguishable from Home action dialogs.
 private const val DETAIL_ACTION_DIALOG_COVER_SCENE = "detail-action-dialog-cover"
+
+// Download Dialog Title Mapping (Keep cache-state copy selection close to the detail dialog)
+// This preserves one UI translation boundary while the ViewModel continues to expose language-neutral BookCacheStatus values.
+private fun com.viel.aplayer.application.download.BookCacheStatus.dialogTitleRes(): Int =
+    when (state) {
+        BookCacheState.NONE -> R.string.detail_download_dialog_title_none
+        BookCacheState.QUEUED -> R.string.detail_download_dialog_title_queued
+        BookCacheState.DOWNLOADING -> R.string.detail_download_dialog_title_downloading
+        BookCacheState.PAUSED -> R.string.detail_download_dialog_title_paused
+        BookCacheState.COMPLETED -> R.string.detail_download_dialog_title_completed
+        BookCacheState.FAILED -> R.string.detail_download_dialog_title_failed
+    }
+
+// Download Dialog Body Mapping (Format book-level cache progress without exposing raw metadata rows)
+// File counts and percent come from BookCacheStatus, keeping display text independent from Room entity fields.
+@Composable
+private fun com.viel.aplayer.application.download.BookCacheStatus.dialogBodyText(): String =
+    if (state == BookCacheState.NONE || totalFiles == 0) {
+        stringResource(R.string.detail_download_dialog_body_none)
+    } else {
+        stringResource(
+            R.string.detail_download_dialog_body_progress,
+            progressPercent,
+            completedFiles,
+            totalFiles
+        )
+    }
 
 @Preview(name = "Phone Portrait", showBackground = true, apiLevel = 36)
 @Composable

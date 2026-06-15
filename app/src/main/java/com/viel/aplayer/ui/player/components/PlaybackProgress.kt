@@ -26,11 +26,13 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
  * Playback progress bar component (PlaybackProgress).
  *
  * It internally encapsulates the switching logic between "entire book progress" and "current chapter progress".
+ * The buffered position is rendered as a secondary track so remote-memory buffering is visible without changing seek semantics.
  */
 @Composable
 // The dynamic coloring functionality from cover palette extraction has been removed; the color parameter has been removed here, and the progress bar directly falls back to the system default Material 3 primary color to improve performance and UI consistency.
 fun PlaybackProgress(
     currentPosition: Long,
+    bufferedPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
     chapters: List<PlayerChapterItem>,
@@ -61,11 +63,17 @@ fun PlaybackProgress(
     } else {
         currentPosition.coerceIn(0L, displayDur)
     }
+    val displayBufferedPos = if (isChapterMode) {
+        PlayerChapterTimeline.positionInChapter(chapters, currentChapter, bufferedPosition, totalDuration)
+    } else {
+        bufferedPosition.coerceIn(displayPos, displayDur)
+    }.coerceAtLeast(displayPos)
 
     Column(modifier = modifier.fillMaxWidth()) {
         // The cover color extraction binding of the progress bar has been removed here, and the custom color attribute is no longer passed, causing AudioProgressBar to automatically return to the Material 3 primary color.
         AudioProgressBar(
             progress = { displayPos.toFloat() / displayDur.toFloat() },
+            bufferedProgress = { displayBufferedPos.toFloat() / displayDur.toFloat() },
             onProgressChange = { newProgress ->
                 val targetPos = if (isChapterMode) {
                     chapterStart + (newProgress * displayDur).toLong()
@@ -125,6 +133,7 @@ fun PlaybackProgressPreview() {
         Surface {
             PlaybackProgress(
                 currentPosition = 120000L,
+                bufferedPosition = 220000L,
                 totalDuration = 360000L,
                 isChapterMode = false,
                 chapters = emptyList(),

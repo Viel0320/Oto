@@ -28,6 +28,7 @@ class GraphLifecycleTest {
 
         closeAppGraphsInLifecycleOrder(
             media = RecordingCloseable("media", closeOrder, shouldThrow = true),
+            download = RecordingCloseable("download", closeOrder),
             library = RecordingCloseable("library", closeOrder),
             abs = RecordingCloseable("abs", closeOrder),
             uiEvents = RecordingCloseable("uiEvents", closeOrder)
@@ -35,7 +36,7 @@ class GraphLifecycleTest {
 
         // Root Graph Failure Isolation (Keeps teardown progressing after media-runtime release fails)
         // The runtime closes first to stop publishers, while ABS, library, and UI event graphs still receive their close callbacks.
-        assertEquals(listOf("media", "abs", "library", "uiEvents"), closeOrder)
+        assertEquals(listOf("media", "download", "abs", "library", "uiEvents"), closeOrder)
     }
 
     @Test
@@ -49,6 +50,7 @@ class GraphLifecycleTest {
 
         closeAppGraphsInLifecycleOrder(
             media = RecordingCloseable("media", closeOrder),
+            download = RecordingCloseable("download", closeOrder),
             library = library,
             abs = abs,
             uiEvents = RecordingCloseable("uiEvents", closeOrder)
@@ -57,7 +59,7 @@ class GraphLifecycleTest {
         // Active ABS Work Shutdown (Models a sync task observing LibraryGraph state while AbsGraph.close cancels it)
         // The library dependency must still be open during ABS shutdown because AbsGraph injects library-root operations into ABS synchronization.
         assertTrue(abs.libraryWasOpenDuringShutdown)
-        assertEquals(listOf("media", "abs", "absSync:libraryOpen", "library", "uiEvents"), closeOrder)
+        assertEquals(listOf("media", "download", "abs", "absSync:libraryOpen", "library", "uiEvents"), closeOrder)
     }
 
     @Test
@@ -72,6 +74,7 @@ class GraphLifecycleTest {
 
         closeAppGraphsInLifecycleOrder(
             media = media,
+            download = RecordingCloseable("download", mutableListOf()),
             library = RecordingCloseable("library", mutableListOf()),
             abs = RecordingCloseable("abs", mutableListOf()),
             uiEvents = RecordingCloseable("uiEvents", mutableListOf())
@@ -92,6 +95,7 @@ class GraphLifecycleTest {
 
         closeAppGraphsInLifecycleOrder(
             media = media,
+            download = RecordingCloseable("download", mutableListOf()),
             library = RecordingCloseable("library", mutableListOf()),
             abs = RecordingCloseable("abs", mutableListOf()),
             uiEvents = RecordingCloseable("uiEvents", mutableListOf())

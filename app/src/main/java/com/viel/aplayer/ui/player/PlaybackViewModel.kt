@@ -147,14 +147,15 @@ class PlaybackViewModel(
             // Title: Remove redundant flatMapLatest null-safety check (Combines playback controller states directly since playbackController is non-nullable)
             combine(
                 playbackController.isPlaying,
-                playbackController.playbackState,
                 playbackController.currentPosition,
+                playbackController.bufferedPosition,
                 playbackController.duration,
                 playbackController.playbackSpeed
-            ) { isPlaying, _, pos, dur, speed ->
+            ) { isPlaying, pos, bufferedPos, dur, speed ->
                 PlaybackState(
                     isPlaying = isPlaying,
                     currentPosition = pos,
+                    bufferedPosition = bufferedPos,
                     duration = dur,
                     playbackSpeed = speed,
                     playWhenReady = isPlaying
@@ -166,6 +167,7 @@ class PlaybackViewModel(
     // Spaced progress view state (Exposes playback positions dynamically to prevent full-screen recompositions)
     data class PlaybackProgressViewState(
         val elapsedMs: Long = 0L,
+        val bufferedMs: Long = 0L,
         val durationMs: Long = 0L,
         val isChapterProgressMode: Boolean = false
     )
@@ -178,10 +180,13 @@ class PlaybackViewModel(
 
     val playbackProgressState: StateFlow<PlaybackProgressViewState> = combine(
         playbackState.map { it.currentPosition }.distinctUntilChanged(),
+        playbackState.map { it.bufferedPosition }.distinctUntilChanged(),
         playbackState.map { it.duration }.distinctUntilChanged(),
         _isChapterProgressMode
-    ) { pos, dur, mode ->
-        PlaybackProgressViewState(pos, dur, mode)
+    ) { pos, bufferedPos, dur, mode ->
+        // Buffered Progress View State (Clamp buffered progress against the visible playback range)
+        // UI components receive a stable whole-book coordinate even when Media3 briefly reports stale buffered values after seeks.
+        PlaybackProgressViewState(pos, bufferedPos.coerceIn(pos, dur.coerceAtLeast(pos)), dur, mode)
     }.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
 
     val currentChapterState: StateFlow<PlayerChapterItem?> = combine(

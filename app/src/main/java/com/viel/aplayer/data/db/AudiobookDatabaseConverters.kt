@@ -1,6 +1,7 @@
 package com.viel.aplayer.data.db
 
 import androidx.room.TypeConverter
+import com.viel.aplayer.data.entity.DownloadStatus
 
 // Database Converters Implementation: Define converters for AudiobookSchema enums to map them to/from String database columns.
 class AudiobookDatabaseConverters {
@@ -157,4 +158,16 @@ class AudiobookDatabaseConverters {
 
     @TypeConverter
     fun fromAbsPlaybackSessionState(state: AudiobookSchema.AbsPlaybackSessionState): String = state.name
+
+    // DownloadStatus Converter (Maps book-level download aggregates to stable database text)
+    // Invalid restored values become FAILED because the recovery layer must not silently treat unknown download states as active work.
+    @TypeConverter
+    fun toDownloadStatus(value: String): DownloadStatus = try {
+        DownloadStatus.valueOf(value)
+    } catch (e: Exception) {
+        DownloadStatus.FAILED
+    }
+
+    @TypeConverter
+    fun fromDownloadStatus(status: DownloadStatus): String = status.name
 }

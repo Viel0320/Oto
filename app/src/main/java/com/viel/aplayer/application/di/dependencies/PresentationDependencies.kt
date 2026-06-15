@@ -1,5 +1,10 @@
 package com.viel.aplayer.application.di.dependencies
 
+import com.viel.aplayer.application.download.CacheMaintenanceCommands
+import com.viel.aplayer.application.download.CacheStatisticsProvider
+import com.viel.aplayer.application.download.DownloadController
+import com.viel.aplayer.application.download.DownloadManagementReadModel
+import com.viel.aplayer.application.download.DownloadStatusReadModel
 import com.viel.aplayer.application.library.detail.DetailBookCommands
 import com.viel.aplayer.application.library.detail.DetailBookReadModel
 import com.viel.aplayer.application.library.edit.EditBookCommands
@@ -21,13 +26,13 @@ import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.application.usecase.DeleteBookUseCase
 import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.application.usecase.ExportUserDataUseCase
 import com.viel.aplayer.application.usecase.FormatSettingsRootUseCase
+import com.viel.aplayer.application.usecase.ImportUserDataUseCase
 import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
-import com.viel.aplayer.application.usecase.ExportUserDataUseCase
-import com.viel.aplayer.application.usecase.ImportUserDataUseCase
 import com.viel.aplayer.event.AppEventSink
 
 /**
@@ -64,6 +69,24 @@ interface DetailScreenDependencies {
      * Routes availability refreshes through a small scene command interface instead of a broad library facade.
      */
     val detailBookCommands: DetailBookCommands
+
+    /**
+     * Download Status Read Model (Detail-scoped manual cache state)
+     * The detail page observes BookCacheStatus instead of reading download metadata rows or Media3 state.
+     */
+    val downloadStatusReadModel: DownloadStatusReadModel
+
+    /**
+     * Download Controller (Detail-scoped manual cache commands)
+     * The route performs notification permission preflight before the ViewModel invokes this book-level command surface.
+     */
+    val downloadController: DownloadController
+
+    /**
+     * Application Event Sink (Detail feedback command seam)
+     * Download command outcomes are emitted as resource-backed transient feedback from the ViewModel.
+     */
+    val appEventSink: AppEventSink
 }
 
 /**
@@ -138,6 +161,30 @@ interface SettingsScreenDependencies {
     // Restricting dependencies to read/write abstractions decouples settings components from the concrete storage class.
     val settingsReadModel: AppSettingsReadModel
     val settingsCommands: AppSettingsCommands
+
+    /**
+     * Download Management Read Model (Settings-hosted manual download task stream)
+     * The settings overlay lists manual cache tasks without reaching into Room or Media3 state.
+     */
+    val downloadManagementReadModel: DownloadManagementReadModel
+
+    /**
+     * Download Controller (Settings-hosted manual download commands)
+     * The management page reuses the book-level command surface for pause, resume, and cache deletion.
+     */
+    val downloadController: DownloadController
+
+    /**
+     * Cache Statistics Provider (Settings-hosted cache size summary)
+     * Cache settings can show manual-cache totals without receiving cache handles or eviction internals.
+     */
+    val cacheStatisticsProvider: CacheStatisticsProvider
+
+    /**
+     * Cache Maintenance Commands (Settings-hosted cache cleanup operations)
+     * Destructive cache actions stay behind a small application command surface instead of exposing Media3 caches to UI code.
+     */
+    val cacheMaintenanceCommands: CacheMaintenanceCommands
 
     /**
      * Settings Query Use Case (Settings read model seam)

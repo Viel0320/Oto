@@ -141,6 +141,22 @@ class SettingsPreferencesHandler(
             settingsCommands.updateDynamicColorEnabled(enabled)
         }
     }
+
+    // Title: Update Playback Buffer Size (Persist the memory buffer size preference)
+    // The legacy cache-size command now feeds ExoPlayer LoadControl instead of any playback disk-cache runtime.
+    fun updatePlaybackBufferMaxBytes(bytes: Long) {
+        scope.launch {
+            settingsCommands.updatePlaybackBufferMaxBytes(bytes)
+        }
+    }
+
+    // Title: Toggle Download WiFi Policy (Persist manual download network requirements)
+    // DownloadAwareAppSettingsCommands mirrors this setting to Media3 only when the download runtime already exists.
+    fun toggleDownloadWifiOnly(enabled: Boolean) {
+        scope.launch {
+            settingsCommands.updateDownloadWifiOnly(enabled)
+        }
+    }
 }
 
 /**

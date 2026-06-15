@@ -33,7 +33,10 @@ internal class AbsGraph(
 
     val absApiClient by lazy {
         // ABS Client Client: Sends REST calls to Audiobookshelf endpoints.
-        RealAbsApiClient(appSettingsRepository = data.settingsRepository)
+        RealAbsApiClient(
+            appSettingsRepository = data.settingsRepository,
+            credentialStore = absCredentialStore
+        )
     }
 
     val absConnectionTester by lazy {

@@ -10,8 +10,10 @@ import com.viel.aplayer.library.vfs.cache.RoomDirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.VfsRangeCache
 import com.viel.aplayer.media.AutoRewindManager
 import com.viel.aplayer.media.DefaultPlaybackFileLookup
+import com.viel.aplayer.media.DefaultPlaybackRootLookup
 import com.viel.aplayer.media.PlaybackFileLookup
 import com.viel.aplayer.media.PlaybackManager
+import com.viel.aplayer.media.PlaybackRootLookup
 import com.viel.aplayer.media.PlaybackSourcePreflight
 import java.io.Closeable
 
@@ -85,6 +87,14 @@ internal class MediaGraph(
         // Playback File Lookup: Associates book identifiers to their respective audio files.
         DefaultPlaybackFileLookup(
             data.database.bookDao()
+        )
+    }
+
+    val playbackRootLookup: PlaybackRootLookup by lazy {
+        // Playback Root Lookup (Resolve root source type for manual-cache routing)
+        // Manual-cache playback needs this read-only source classification without receiving mutable library-root commands.
+        DefaultPlaybackRootLookup(
+            data.database.libraryRootDao()
         )
     }
 

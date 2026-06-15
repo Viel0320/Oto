@@ -10,7 +10,7 @@ import java.io.IOException
  * 1. `message` is prohibited from appending raw tokens to protect server security.
  * 2. `availabilityStatus` reuses standard components to simplify mapping in the AvailabilityChecker.
  */
-class AbsApiError(
+open class AbsApiError(
     val code: String,
     val httpStatus: Int? = null,
     val availabilityStatus: AudiobookSchema.AvailabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,

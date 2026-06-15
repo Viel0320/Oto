@@ -63,7 +63,9 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun APlayerApp(
     openPlayerOverlayRequest: Boolean = false,
-    onOpenPlayerOverlayConsumed: () -> Unit = {}
+    onOpenPlayerOverlayConsumed: () -> Unit = {},
+    openDownloadManagementRequest: Boolean = false,
+    onOpenDownloadManagementConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as android.app.Application
@@ -349,6 +351,14 @@ fun APlayerApp(
                 // full player must open directly on the main playback surface without shared mini motion.
                 playerSettingsViewModel.openFullPlayerFromDirect()
                 onOpenPlayerOverlayConsumed()
+            }
+        }
+
+        // Process Download Notification Intent (Open settings before routing to the task-management sub-page)
+        // SettingsOverlay owns local settings sub-page navigation, while the app shell only makes sure the overlay is visible.
+        LaunchedEffect(openDownloadManagementRequest) {
+            if (openDownloadManagementRequest) {
+                settingsViewModel.setVisible(true)
             }
         }
 
@@ -663,7 +673,9 @@ fun APlayerApp(
                 SettingsOverlay(
                     settingsViewModel = settingsViewModel,
                     glassEffectMode = activeGlassEffectMode,
-                    appHazeState = hazeState
+                    appHazeState = hazeState,
+                    openDownloadManagementRequest = openDownloadManagementRequest,
+                    onOpenDownloadManagementConsumed = onOpenDownloadManagementConsumed
                 )
 
                 // Home Add Library Dialog Host (Share Settings add-library dialogs with the empty Home FAB)

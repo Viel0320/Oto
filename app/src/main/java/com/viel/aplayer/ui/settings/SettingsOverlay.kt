@@ -1,9 +1,11 @@
 package com.viel.aplayer.ui.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -18,6 +20,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,11 +30,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
+import com.viel.aplayer.ui.settings.cache.CacheSettingsScreen
+import com.viel.aplayer.ui.settings.downloads.DownloadManagementScreen
 import com.viel.aplayer.ui.settings.recovery.DeletedBookRecoveryRoute
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -48,7 +57,9 @@ fun SettingsOverlay(
     glassEffectMode: GlassEffectMode,
     // App-Level Dialog Haze Source (Stable sampler for settings dialogs)
     // Settings page chrome still uses settingsHazeState, but modal dialogs share the app-level source used by Search and playback overlays.
-    appHazeState: HazeState? = null
+    appHazeState: HazeState? = null,
+    openDownloadManagementRequest: Boolean = false,
+    onOpenDownloadManagementConsumed: () -> Unit = {}
 ) {
     // Collect settings visibility state (To reactively trigger transition animations)
     // Synchronizes the show/hide state from SettingsViewModel to drive AnimatedVisibility scope.
@@ -64,6 +75,12 @@ fun SettingsOverlay(
     // Recovery Haze Source (Separate deleted-book recovery sampling from other settings sub-pages)
     // Local sub-pages can overlap during AnimatedContent transitions, so the recovery list owns its own top-bar sampler.
     val deletedRecoveryHazeState = remember { HazeState() }
+    // Download Management Haze Source (Separate manual-cache task sampling from other settings sub-pages)
+    // Each local page can overlap briefly during transitions, so every page owns its own backdrop sampler.
+    val downloadManagementHazeState = remember { HazeState() }
+    // Cache Settings Haze Source (Separate cache-policy page sampling from the management list)
+    // This avoids competing hazeSource registrations when users switch between settings sub-pages.
+    val cacheSettingsHazeState = remember { HazeState() }
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     // Settings Dialog Overlay Controller (Own settings modal state above the sampled page content)
     // Keeping this in SettingsOverlay lets dialogs render as siblings of SettingsScreen instead of being held by the page that registers hazeSource.
@@ -99,6 +116,31 @@ fun SettingsOverlay(
             settingsDialogController.dialogState = SettingsDialogState.ImportConfirm(it)
         }
     }
+    var pendingDownloadBookId by remember { mutableStateOf<String?>(null) }
+    var showDownloadPermissionDialog by remember { mutableStateOf(false) }
+    val downloadPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val requestedBookId = pendingDownloadBookId
+        pendingDownloadBookId = null
+        if (granted && requestedBookId != null) {
+            settingsViewModel.downloadBook(requestedBookId)
+        } else {
+            settingsViewModel.onDownloadNotificationPermissionDenied()
+        }
+    }
+    val requestSettingsDownload: (String) -> Unit = { bookId ->
+        // Settings Download Permission Gate (Prevent invisible foreground retry downloads on Android 13+)
+        // The settings management page retries only after the same presentation-level notification preflight used by DetailRoute.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        ) {
+            settingsViewModel.downloadBook(bookId)
+        } else {
+            pendingDownloadBookId = bookId
+            showDownloadPermissionDialog = true
+        }
+    }
     LaunchedEffect(isVisible) {
         if (!isVisible) {
             // Settings Dialog Lifecycle Reset (Clear overlay-owned modal state when the settings overlay closes)
@@ -123,6 +165,14 @@ fun SettingsOverlay(
         // Settings Sub-Page Navigation (Track local overlay destinations without expanding the app navigation di)
         // Settings, About, and Deleted Book Recovery remain inside one overlay lifecycle while each page keeps its own UI state.
         var activeSettingsPage by remember { mutableStateOf(SettingsOverlayPage.Main) }
+        LaunchedEffect(openDownloadManagementRequest, isVisible) {
+            if (openDownloadManagementRequest && isVisible) {
+                // Download Notification Page Routing (Open the task list after the settings overlay becomes visible)
+                // MainActivity only carries an external intent flag; the settings overlay owns its local child page state.
+                activeSettingsPage = SettingsOverlayPage.DownloadManagement
+                onOpenDownloadManagementConsumed()
+            }
+        }
 
         // Handle physical back gestures (To prevent closing MainActivity accidentally)
         // Intercepts Android back operations when SettingsOverlay is active.
@@ -171,6 +221,77 @@ fun SettingsOverlay(
                             recoveryHazeState = if (isBlur) deletedRecoveryHazeState else null
                         )
                     }
+                    SettingsOverlayPage.DownloadManagement -> {
+                        // Download Management State Collection (Bind settings-hosted task stream to the local sub-page)
+                        // The page still receives only read-model projections and ViewModel command callbacks.
+                        val downloadTasks by settingsViewModel.downloadTasks.collectAsStateWithLifecycle()
+                        DownloadManagementScreen(
+                            tasks = downloadTasks,
+                            onBack = { activeSettingsPage = SettingsOverlayPage.Main },
+                            onPauseDownload = settingsViewModel::pauseDownload,
+                            onResumeDownload = settingsViewModel::resumeDownload,
+                            onRetryDownload = requestSettingsDownload,
+                            onDeleteDownload = settingsViewModel::deleteDownload,
+                            glassEffectMode = glassEffectMode,
+                            downloadHazeState = if (isBlur) downloadManagementHazeState else null
+                        )
+                        if (showDownloadPermissionDialog) {
+                            SettingsTemplateDialog(
+                                onDismissRequest = {
+                                    pendingDownloadBookId = null
+                                    showDownloadPermissionDialog = false
+                                },
+                                hazeState = if (isBlur) downloadManagementHazeState else null,
+                                glassEffectMode = glassEffectMode,
+                                title = { Text(stringResource(R.string.detail_download_permission_title)) },
+                                text = { Text(stringResource(R.string.detail_download_permission_body)) },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            showDownloadPermissionDialog = false
+                                            downloadPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        }
+                                    ) {
+                                        Text(stringResource(R.string.detail_download_permission_confirm))
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(
+                                        onClick = {
+                                            pendingDownloadBookId = null
+                                            showDownloadPermissionDialog = false
+                                        }
+                                    ) {
+                                        Text(stringResource(R.string.action_cancel))
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    SettingsOverlayPage.CacheSettings -> {
+                        // Cache Settings State Collection (Bind persisted settings and cache statistics to the policy page)
+                        // Cache mutations still flow through SettingsPreferencesHandler instead of direct DataStore or Cache access.
+                        val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
+                        val cacheStatistics by settingsViewModel.cacheStatistics.collectAsStateWithLifecycle()
+                        LaunchedEffect(Unit) {
+                            settingsViewModel.refreshCacheStatistics()
+                        }
+                        CacheSettingsScreen(
+                            settings = settingsState,
+                            cacheStatistics = cacheStatistics,
+                            onBack = { activeSettingsPage = SettingsOverlayPage.Main },
+                            onRefreshStatistics = settingsViewModel::refreshCacheStatistics,
+                            onClearManualDownloads = settingsViewModel::clearManualDownloadCache,
+                            onPlaybackBufferMaxBytesChange = {
+                                settingsViewModel.preferencesHandler.updatePlaybackBufferMaxBytes(it)
+                            },
+                            onDownloadWifiOnlyChange = {
+                                settingsViewModel.preferencesHandler.toggleDownloadWifiOnly(it)
+                            },
+                            glassEffectMode = glassEffectMode,
+                            cacheHazeState = if (isBlur) cacheSettingsHazeState else null
+                        )
+                    }
                     SettingsOverlayPage.Main -> {
                     // Collect settings business data (To populate settings menu and capture actions)
                     // Listens to settings state parameters reactively from SettingsViewModel.
@@ -178,6 +299,8 @@ fun SettingsOverlay(
                     val libraryRootDisplays by settingsViewModel.libraryRootDisplays.collectAsStateWithLifecycle()
                     val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
                     val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
+                    val downloadTasks by settingsViewModel.downloadTasks.collectAsStateWithLifecycle()
+                    val cacheStatistics by settingsViewModel.cacheStatistics.collectAsStateWithLifecycle()
                     // Effective App Language (Reflect platform per-app language choices when Android owns the locale)
                     // The settings row should show a system-selected app locale even if DataStore still contains the default System value.
                     val effectiveAppLanguage = AppLocaleController.resolveEffectiveLanguage(context, settingsState.appLanguage)
@@ -207,6 +330,16 @@ fun SettingsOverlay(
                                 // This keeps the settings entry as pure navigation into the restore workflow.
                                 onDeletedBookRecoveryClick = {
                                     activeSettingsPage = SettingsOverlayPage.DeletedBookRecovery
+                                },
+                                // Download Cache Navigation (Open local settings sub-pages without expanding app navigation)
+                                // Download management and cache policy share the settings overlay lifecycle and reuse SettingsViewModel flows.
+                                downloadTaskCount = downloadTasks.size,
+                                cacheStatistics = cacheStatistics,
+                                onDownloadManagementClick = {
+                                    activeSettingsPage = SettingsOverlayPage.DownloadManagement
+                                },
+                                onCacheSettingsClick = {
+                                    activeSettingsPage = SettingsOverlayPage.CacheSettings
                                 },
                                 // Title: Delegate Settings Screen Updates (Route preference toggles and connection tests to handler parameters)
                                 isChapterProgressMode = settingsState.isChapterProgressMode,
@@ -307,5 +440,7 @@ fun SettingsOverlay(
 private enum class SettingsOverlayPage {
     Main,
     AboutLibraries,
-    DeletedBookRecovery
+    DeletedBookRecovery,
+    DownloadManagement,
+    CacheSettings
 }

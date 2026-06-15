@@ -236,11 +236,21 @@ data class AppSettings(
     val isLastPlaybackInterrupted: Boolean = false,
     // Notification Focus Ducking (System interruption bypass)
     // When enabled, automatically pauses playback on audio focus loss and resumes without triggering auto-rewinds.
-    val isNotificationAvoidanceEnabled: Boolean = false
+    val isNotificationAvoidanceEnabled: Boolean = false,
+    // Playback Buffer Size (Stores the memory buffer target after migrating the removed disk-cache key)
+    // DataStore migrates the former disk-cache key into a dedicated buffer key so the domain model no longer exposes playback disk-storage settings.
+    val playbackBufferMaxBytes: Long = DEFAULT_PLAYBACK_BUFFER_MAX_BYTES,
+    // Download Network Policy (Stores whether manual downloads require unmetered connectivity)
+    // Download runtime creation stays lazy; changing this value must not construct DownloadManager when no download work exists.
+    val isDownloadWifiOnly: Boolean = true
 ) {
     companion object {
         // Shared Accent Default (Decoration fallback values)
         // Unified fallback visuals definition to avoid splitting UI constants across Compose widgets.
         val DEFAULT_GLASS_EFFECT_MODE: GlassEffectMode = GlassEffectMode.Material
+
+        // Default Playback Buffer Size (Keep the RAM target separate from removed disk-storage defaults)
+        // The value is intentionally much smaller than the removed disk cache default to avoid treating RAM as storage.
+        const val DEFAULT_PLAYBACK_BUFFER_MAX_BYTES: Long = 64L * 1024L * 1024L
     }
 }

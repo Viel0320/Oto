@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.viel.aplayer.data.store.AppLanguage
@@ -53,6 +54,8 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         private const val DEFAULT_AUTO_REWIND_SECONDS = 0
         private const val MIN_AUTO_REWIND_SECONDS = 0
         private const val MAX_AUTO_REWIND_SECONDS = 30
+        private const val MIN_PLAYBACK_BUFFER_BYTES = 8L * 1024L * 1024L
+        private const val MAX_PLAYBACK_BUFFER_BYTES = 256L * 1024L * 1024L
 
         // Playback Speed Normalization (Keeps portable speed settings inside Media3-supported product bounds)
         // Restored DataStore payloads can contain NaN, infinities, or stale floats, so invalid values fall back to the neutral 1x rate.
@@ -65,6 +68,13 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         fun autoRewindSecondsOrDefault(value: Int?): Int =
             value?.coerceIn(MIN_AUTO_REWIND_SECONDS, MAX_AUTO_REWIND_SECONDS)
                 ?: DEFAULT_AUTO_REWIND_SECONDS
+
+        // Playback Buffer Size Normalization (Keeps restored memory-buffer settings within safe RAM-sized choices)
+        // Old disk-cache values such as multi-gigabyte limits now fall back to the memory-buffer default instead of risking excessive allocation targets.
+        fun playbackBufferBytesOrDefault(value: Long?): Long =
+            value?.takeIf { it in MIN_PLAYBACK_BUFFER_BYTES..MAX_PLAYBACK_BUFFER_BYTES }
+                ?: AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
+
     }
 
     private object PreferencesKeys {
@@ -120,6 +130,18 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         val IS_LAST_PLAYBACK_INTERRUPTED = booleanPreferencesKey("is_last_playback_interrupted")
         // Audio Focus Ducking Avoidance (Preferences key tracking whether focus loss forces explicit playback pause)
         val IS_NOTIFICATION_AVOIDANCE_ENABLED = booleanPreferencesKey("is_notification_avoidance_enabled")
+        // Legacy Disk Cache Size Storage (Old playback disk-cache key kept only as a migration source)
+        // New writes go to PLAYBACK_BUFFER_MAX_BYTES so fresh settings snapshots no longer encode removed disk-cache terminology.
+        val LEGACY_PLAYBACK_CACHE_MAX_BYTES = longPreferencesKey("playback_cache_max_bytes")
+        // Playback Buffer Size Storage (Preferences key for ExoPlayer in-memory target buffer bytes)
+        // This key replaces the removed playback disk-cache capacity setting and keeps the new runtime meaning explicit in persisted data.
+        val PLAYBACK_BUFFER_MAX_BYTES = longPreferencesKey("playback_buffer_max_bytes")
+        // Legacy Playback Buffer Duration Storage (Removed duration key kept only for cleanup migration)
+        // Buffering is now size-limited only, so this stale key is removed when the repository initializes.
+        val LEGACY_PLAYBACK_BUFFER_DURATION_MS = intPreferencesKey("playback_buffer_duration_ms")
+        // Download WiFi Requirement Storage (Preferences key for manual download network requirements)
+        // This setting can be written before DownloadManager exists and later mapped to Media3 Requirements.
+        val IS_DOWNLOAD_WIFI_ONLY = booleanPreferencesKey("is_download_wifi_only")
     }
 
     /**
@@ -199,7 +221,16 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
             // Read Session Interruption (Flag indicating abnormal application restarts, defaulting to false)
             isLastPlaybackInterrupted = preferences[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] ?: false,
             // Read Ducking Avoidance (Expose focus loss avoidance status, defaulting to false for safe media defaults)
-            isNotificationAvoidanceEnabled = preferences[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] ?: false
+            isNotificationAvoidanceEnabled = preferences[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] ?: false,
+            // Read Playback Buffer Size (Normalize restored values before LoadControl observes them)
+            // The former playback-cache key now feeds ExoPlayer's in-memory target buffer size, so multi-GB legacy values are rejected.
+            playbackBufferMaxBytes = PlaybackSettingsBounds.playbackBufferBytesOrDefault(
+                preferences[PreferencesKeys.PLAYBACK_BUFFER_MAX_BYTES]
+                    ?: preferences[PreferencesKeys.LEGACY_PLAYBACK_CACHE_MAX_BYTES]
+            ),
+            // Read Download WiFi Policy (Default manual downloads to unmetered networks)
+            // The default is conservative because background downloads may be large audiobook files.
+            isDownloadWifiOnly = preferences[PreferencesKeys.IS_DOWNLOAD_WIFI_ONLY] ?: true
         )
     }
 
@@ -207,9 +238,27 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         // Settings Flow Initialization Boundary (Start the cache collector only after settingsFlow has been assigned)
         // Kotlin runs property initializers and init blocks in source order, so this init block must stay below settingsFlow to prevent fast Dispatchers.IO execution from dereferencing a null flow during app startup.
         scope.launch {
+            migrateLegacyPlaybackBufferPreferences()
             settingsFlow.collect {
                 _cachedSettings = it
             }
+        }
+    }
+
+    // Playback Buffer Preferences Migration (Move removed disk-cache capacity into the new memory-buffer key)
+    // Legacy multi-gigabyte disk-cache limits are normalized through memory-safe bounds before the old key is removed.
+    private suspend fun migrateLegacyPlaybackBufferPreferences() {
+        dataStore.edit { preferences ->
+            val legacyBytes = preferences[PreferencesKeys.LEGACY_PLAYBACK_CACHE_MAX_BYTES]
+            if (preferences[PreferencesKeys.PLAYBACK_BUFFER_MAX_BYTES] == null && legacyBytes != null) {
+                preferences[PreferencesKeys.PLAYBACK_BUFFER_MAX_BYTES] = PlaybackSettingsBounds.playbackBufferBytesOrDefault(legacyBytes)
+            }
+            if (legacyBytes != null) {
+                preferences.remove(PreferencesKeys.LEGACY_PLAYBACK_CACHE_MAX_BYTES)
+            }
+            // Removed Playback Buffer Duration Cleanup (Drop stale time-limit preferences)
+            // ExoPlayer buffering is now capped only by target bytes, so keeping the old duration key would misrepresent active settings.
+            preferences.remove(PreferencesKeys.LEGACY_PLAYBACK_BUFFER_DURATION_MS)
         }
     }
 
@@ -321,6 +370,18 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     // Write Ducking Avoidance (Persist notification avoidance configurations for audio focus loss)
     override suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] = enabled }
+    }
+
+    // Write Playback Buffer Size (Persist the normalized memory-buffer target through the new buffer-size key)
+    // The write path clamps unsupported raw values so settings UI and direct callers cannot request storage-scale RAM buffers.
+    override suspend fun updatePlaybackBufferMaxBytes(bytes: Long) {
+        dataStore.edit { it[PreferencesKeys.PLAYBACK_BUFFER_MAX_BYTES] = PlaybackSettingsBounds.playbackBufferBytesOrDefault(bytes) }
+    }
+
+    // Write Download WiFi Requirement (Persist manual download network policy without forcing runtime creation)
+    // DownloadRuntimeGateway will map this setting to Media3 Requirements only after a download runtime already exists.
+    override suspend fun updateDownloadWifiOnly(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.IS_DOWNLOAD_WIFI_ONLY] = enabled }
     }
 
     // Write Theme Mode (Persist user selected theme mode into local DataStore) Helper function to save theme mode configuration.

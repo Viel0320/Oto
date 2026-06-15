@@ -5,8 +5,12 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.application.download.BookCacheStatus
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.application.library.detail.DetailSnapshot
+import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.logger.AbsLogSanitizer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,9 +32,15 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
     private val detailDependencies = APlayerApplication.getDetailScreenDependencies(application)
     private val detailBookReadModel = detailDependencies.detailBookReadModel
     private val detailBookCommands = detailDependencies.detailBookCommands
+    private val downloadStatusReadModel = detailDependencies.downloadStatusReadModel
+    private val downloadController = detailDependencies.downloadController
+    private val appEventSink = detailDependencies.appEventSink
 
     // Relational Observer Job (Tracks database updates for the selected book)
     private var bookObserveJob: kotlinx.coroutines.Job? = null
+    // Download Observer Job (Tracks manual cache status for the selected book)
+    // Keeping this job separate from metadata observation lets cache-state collection restart independently when the selected book changes.
+    private var cacheObserveJob: kotlinx.coroutines.Job? = null
 
 
     private val _uiState = MutableStateFlow(DetailUiState())
@@ -86,6 +96,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
         // Resource Cleanup (Cancel active database flow subscription to avoid leakage and crosstalk)
         bookObserveJob?.cancel()
         bookObserveJob = null
+        cacheObserveJob?.cancel()
+        cacheObserveJob = null
         val current = _uiState.value
 
         // Display Details (Render details pane for non-null target selection)
@@ -111,7 +123,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 // Synchronize Display progress (Align starting display values with selection progress)
                 displayProgressPercent = snapshot.progressPercent,
                 // Clear Previous Path (Flush physical path reference to prevent transient UI flashing)
-                fullSourcePath = ""
+                fullSourcePath = "",
+                bookCacheStatus = BookCacheStatus.none()
             )
 
             // Resolve User-Facing Source Location (Build a friendly source indicator from VFS metadata)
@@ -176,6 +189,22 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             }
+
+            // Live Download Status Binding (Observe manual-cache state for the selected book)
+            // The read model derives NONE from missing metadata, so the top bar can render a stable state machine without direct Room access.
+            cacheObserveJob = viewModelScope.launch {
+                val selectedBookId = snapshot.bookId
+                downloadStatusReadModel.observeBookCacheStatus(selectedBookId).collect { cacheStatus ->
+                    _uiState.update { state ->
+                        val currentSnapshot = state.book ?: return@update state
+                        if (currentSnapshot.bookId == selectedBookId) {
+                            state.copy(bookCacheStatus = cacheStatus)
+                        } else {
+                            state
+                        }
+                    }
+                }
+            }
         } else {
             // Reset Layout variables (Clear screen attributes and disable visibility state)
             _playbackStartedAt.value = null
@@ -189,7 +218,8 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                      * next non-Home detail opening from inheriting a stale Home source.
                      */
                     entrySource = DetailEntrySource.None,
-                    fullSourcePath = ""
+                    fullSourcePath = "",
+                    bookCacheStatus = BookCacheStatus.none()
                 )
             }
         }
@@ -240,6 +270,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                 it.copy(
                     isVisible = false,
                     book = null,
+                    bookCacheStatus = BookCacheStatus.none(),
                     /*
                      * Entry Source Delete Cleanup (Deleted selection isolation)
                      *
@@ -248,6 +279,55 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                      */
                     entrySource = DetailEntrySource.None
                 )
+            }
+        }
+    }
+
+    fun downloadBook(bookId: String) {
+        runDownloadCommand(
+            successMessage = FeedbackMessages.downloadCacheQueued(),
+            action = { downloadController.downloadBook(bookId) }
+        )
+    }
+
+    fun pauseDownload(bookId: String) {
+        runDownloadCommand(
+            successMessage = FeedbackMessages.downloadCachePaused(),
+            action = { downloadController.pauseDownload(bookId) }
+        )
+    }
+
+    fun resumeDownload(bookId: String) {
+        runDownloadCommand(
+            successMessage = FeedbackMessages.downloadCacheResumed(),
+            action = { downloadController.resumeDownload(bookId) }
+        )
+    }
+
+    fun deleteDownload(bookId: String) {
+        runDownloadCommand(
+            successMessage = FeedbackMessages.downloadCacheDeleted(),
+            action = { downloadController.deleteDownload(bookId) }
+        )
+    }
+
+    fun onDownloadNotificationPermissionDenied() {
+        appEventSink.showToast(FeedbackMessages.downloadNotificationPermissionDenied())
+    }
+
+    // Download Command Runner (Serialize UI-triggered download actions through one feedback path)
+    // Successful commands emit resource-backed facts, while failures stay sanitized at the transient feedback boundary.
+    private fun runDownloadCommand(
+        successMessage: FeedbackMessage,
+        action: suspend () -> Unit
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                action()
+            }.onSuccess {
+                appEventSink.showToast(successMessage)
+            }.onFailure { error ->
+                appEventSink.showToast(FeedbackMessages.downloadCacheCommandFailed(AbsLogSanitizer.compact(error.message)))
             }
         }
     }

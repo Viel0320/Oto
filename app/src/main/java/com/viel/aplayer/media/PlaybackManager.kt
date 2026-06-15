@@ -90,6 +90,9 @@ class PlaybackManager private constructor(context: Context) {
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition = _currentPosition.asStateFlow()
 
+    private val _bufferedPosition = MutableStateFlow(0L)
+    val bufferedPosition = _bufferedPosition.asStateFlow()
+
     private val _duration = MutableStateFlow(0L)
     val duration = _duration.asStateFlow()
 
@@ -176,9 +179,10 @@ class PlaybackManager private constructor(context: Context) {
             scope = scope,
             getController = { mediaController },
             getCurrentPlan = { currentPlan },
-            onProgressUpdated = { positionMs, durationMs ->
+            onProgressUpdated = { positionMs, durationMs, bufferedPositionMs ->
                 _currentPosition.value = positionMs
                 _duration.value = durationMs
+                _bufferedPosition.value = bufferedPositionMs
             }
         )
         initializeController()
@@ -321,6 +325,7 @@ class PlaybackManager private constructor(context: Context) {
                 // State Prefetching (Publish initial positions instantly to prevent UI frame flickers)
                 val totalDur = finalPlan.files.sumOf { it.durationMs }
                 _currentPosition.value = finalPlan.startGlobalPositionMs
+                _bufferedPosition.value = finalPlan.startGlobalPositionMs
                 _duration.value = totalDur
                 // Widget Refresh Bypass (Omit Widget refresh since widget is deprecated)
 
@@ -429,6 +434,7 @@ class PlaybackManager private constructor(context: Context) {
                 controller.seekTo(fileIndex, positionInFile)
                 controller.play()
                 _currentPosition.value = targetGlobal
+                _bufferedPosition.value = targetGlobal
                 _duration.value = totalDuration
                 // Delay Subtitle Loading (Defer parsing to prevent sync disk reads during seek movements)
                 _currentSubtitles.value = emptyList()
@@ -515,6 +521,7 @@ class PlaybackManager private constructor(context: Context) {
             currentPlan = null
             _currentMediaItem.value = null
             _currentPosition.value = 0L
+            _bufferedPosition.value = 0L
             _duration.value = 0L
             _isPlaying.value = false
             _playbackState.value = Player.STATE_IDLE

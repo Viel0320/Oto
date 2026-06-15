@@ -63,6 +63,7 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun PlayerLandscapePhone(
     currentPosition: Long,
+    bufferedPosition: Long,
     totalDuration: Long,
     isChapterMode: Boolean,
     currentChapter: PlayerChapterItem?,
@@ -351,6 +352,7 @@ fun PlayerLandscapePhone(
                 // Landscape playback controls (To render timeline markers and speed values)
                 PlayerControlPanel(
                     currentPosition = currentPosition,
+                    bufferedPosition = bufferedPosition,
                     totalDuration = totalDuration,
                     isChapterMode = isChapterMode,
                     currentChapter = currentChapter,

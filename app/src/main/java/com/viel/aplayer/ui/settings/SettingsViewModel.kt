@@ -1,18 +1,19 @@
 package com.viel.aplayer.ui.settings
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
+import com.viel.aplayer.application.download.CacheStatistics
+import com.viel.aplayer.application.download.ManualDownloadTaskItem
 import com.viel.aplayer.application.library.settings.SettingsRootItem
-import com.viel.aplayer.application.usecase.ExportUserDataUseCase
-import com.viel.aplayer.application.usecase.ImportUserDataUseCase
 import com.viel.aplayer.data.store.AppSettings
-import android.content.Intent
-import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.logger.AbsLogSanitizer
 import com.viel.aplayer.logger.AbsSettingsLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,6 +46,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val deleteLibraryRootUseCase = settingsDependencies.deleteLibraryRootUseCase
     private val exportUserDataUseCase = settingsDependencies.exportUserDataUseCase
     private val importUserDataUseCase = settingsDependencies.importUserDataUseCase
+    private val downloadManagementReadModel = settingsDependencies.downloadManagementReadModel
+    private val downloadController = settingsDependencies.downloadController
+    private val cacheStatisticsProvider = settingsDependencies.cacheStatisticsProvider
+    private val cacheMaintenanceCommands = settingsDependencies.cacheMaintenanceCommands
 
     // Title: Initialize Preferences Handler (Pass settings write interface to preferences handler)
     val preferencesHandler = SettingsPreferencesHandler(
@@ -97,11 +102,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = emptyList()
         )
 
+    val downloadTasks: StateFlow<List<ManualDownloadTaskItem>> = downloadManagementReadModel
+        .observeManualDownloadTasks()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    private val _cacheStatistics = MutableStateFlow(CacheStatistics(0L, 0))
+    val cacheStatistics: StateFlow<CacheStatistics> = _cacheStatistics.asStateFlow()
+
     init {
         viewModelScope.launch {
             isVisible.collect { visible ->
                 if (visible) {
                     settingsRootCommands.refreshAllRootStatuses()
+                    refreshCacheStatistics()
                 }
             }
         }
@@ -219,6 +236,75 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
             }.onFailure { error ->
                 appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_failed, listOf(error.message ?: "")))
+            }
+        }
+    }
+
+    fun refreshCacheStatistics() {
+        viewModelScope.launch {
+            runCatching {
+                cacheStatisticsProvider.snapshot()
+            }.onSuccess { statistics ->
+                _cacheStatistics.value = statistics
+            }.onFailure { error ->
+                appEventSink.showToast(FeedbackMessages.downloadCacheCommandFailed(AbsLogSanitizer.compact(error.message)))
+            }
+        }
+    }
+
+    fun pauseDownload(bookId: String) {
+        runDownloadCommand(
+            successMessage = FeedbackMessages.downloadCachePaused(),
+            action = { downloadController.pauseDownload(bookId) }
+        )
+    }
+
+    fun downloadBook(bookId: String) {
+        runDownloadCommand(
+            successMessage = FeedbackMessages.downloadCacheQueued(),
+            action = { downloadController.downloadBook(bookId) }
+        )
+    }
+
+    fun resumeDownload(bookId: String) {
+        runDownloadCommand(
+            successMessage = FeedbackMessages.downloadCacheResumed(),
+            action = { downloadController.resumeDownload(bookId) }
+        )
+    }
+
+    fun deleteDownload(bookId: String) {
+        runDownloadCommand(
+            successMessage = FeedbackMessages.downloadCacheDeleted(),
+            action = { downloadController.deleteDownload(bookId) }
+        )
+    }
+
+    fun clearManualDownloadCache() {
+        runDownloadCommand(
+            successMessage = FeedbackMessages.manualDownloadCacheCleared(),
+            action = { cacheMaintenanceCommands.deleteAllManualDownloads() }
+        )
+    }
+
+    fun onDownloadNotificationPermissionDenied() {
+        appEventSink.showToast(FeedbackMessages.downloadNotificationPermissionDenied())
+    }
+
+    // Title: Run Download Management Command (Apply manual cache operations from settings pages)
+    // Uses resource-backed feedback and refreshes cache totals after the command has updated Media3/Room state.
+    private fun runDownloadCommand(
+        successMessage: FeedbackMessage,
+        action: suspend () -> Unit
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                action()
+            }.onSuccess {
+                appEventSink.showToast(successMessage)
+                refreshCacheStatistics()
+            }.onFailure { error ->
+                appEventSink.showToast(FeedbackMessages.downloadCacheCommandFailed(AbsLogSanitizer.compact(error.message)))
             }
         }
     }

@@ -1,9 +1,11 @@
 package com.viel.aplayer.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -81,6 +83,33 @@ class AppSettingsRepositoryTest {
     }
 
     @Test
+    fun `settings flow migrates and normalizes restored playback buffer settings`() = runBlocking {
+        val dataStore = createSettingsDataStore(testName = "read-playback-buffer")
+        dataStore.edit { preferences ->
+            // Legacy Playback Buffer Migration Seed (Simulate restored preferences from the removed disk-cache design)
+            // The repository must migrate the old disk-cache key into the new memory-buffer key while preserving download policy.
+            preferences[legacyPlaybackCacheMaxBytesKey] = 11L * 1024L * 1024L * 1024L
+            preferences[legacyPlaybackBufferDurationMsKey] = 999_999
+            preferences[isDownloadWifiOnlyKey] = false
+        }
+        val repository = AppSettingsRepository.createForTesting(dataStore)
+
+        val settings = repository.settingsFlow.first()
+
+        assertEquals(com.viel.aplayer.data.store.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, settings.playbackBufferMaxBytes)
+        assertEquals(false, settings.isDownloadWifiOnly)
+        assertTrue(
+            "legacy disk cache key should migrate into the new playback buffer key and stale duration should be removed",
+            eventually {
+                val preferences = dataStore.data.first()
+                preferences[legacyPlaybackCacheMaxBytesKey] == null &&
+                    preferences[legacyPlaybackBufferDurationMsKey] == null &&
+                    preferences[playbackBufferMaxBytesKey] == com.viel.aplayer.data.store.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
+            }
+        )
+    }
+
+    @Test
     fun `settings flow normalizes restored filter settings`() = runBlocking {
         val dataStore = createSettingsDataStore(testName = "read-filters")
         val repository = AppSettingsRepository.createForTesting(dataStore)
@@ -146,6 +175,24 @@ class AppSettingsRepositoryTest {
         assertEquals(30, highPreferences[autoRewindSecondsKey])
     }
 
+    @Test
+    fun `write methods persist playback buffer settings`() = runBlocking {
+        val dataStore = createSettingsDataStore(testName = "write-playback-buffer")
+        val repository = AppSettingsRepository.createForTesting(dataStore)
+
+        repository.updatePlaybackBufferMaxBytes(128L * 1024L * 1024L)
+        repository.updateDownloadWifiOnly(false)
+
+        val validPreferences = dataStore.data.first()
+        assertEquals(128L * 1024L * 1024L, validPreferences[playbackBufferMaxBytesKey])
+        assertEquals(false, validPreferences[isDownloadWifiOnlyKey])
+
+        repository.updatePlaybackBufferMaxBytes(1L)
+
+        val fallbackPreferences = dataStore.data.first()
+        assertEquals(com.viel.aplayer.data.store.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, fallbackPreferences[playbackBufferMaxBytesKey])
+    }
+
     private fun createSettingsDataStore(testName: String) =
         PreferenceDataStoreFactory.create(
             produceFile = {
@@ -165,7 +212,7 @@ class AppSettingsRepositoryTest {
 
     // Eventually Assertion Helper (Waits for repository-owned Dispatchers.IO work without replacing production dispatchers)
     // AppSettingsRepository intentionally owns its background cache scope, so this helper polls the observable cached state instead of reaching into private coroutine jobs.
-    private suspend fun eventually(timeoutMs: Long = 1_000, predicate: () -> Boolean): Boolean {
+    private suspend fun eventually(timeoutMs: Long = 1_000, predicate: suspend () -> Boolean): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (predicate()) return true
@@ -189,5 +236,21 @@ class AppSettingsRepositoryTest {
         // Raw Auto-Rewind Key (Mirrors the persisted preference name to simulate restored DataStore payloads)
         // Direct seeding lets the read-boundary test cover stale and damaged values that normal UI controls cannot create.
         private val autoRewindSecondsKey = intPreferencesKey("auto_rewind_seconds")
+
+        // Legacy Disk Cache Key (Mirrors the removed playback disk-cache field to verify DataStore migration)
+        // Tests seed this key directly so repository migration is verified at the persistence boundary.
+        private val legacyPlaybackCacheMaxBytesKey = longPreferencesKey("playback_cache_max_bytes")
+
+        // Raw Playback Buffer Size Key (Mirrors the new memory-buffer size field)
+        // Tests inspect this key directly so repository write normalization is verified at the persistence boundary.
+        private val playbackBufferMaxBytesKey = longPreferencesKey("playback_buffer_max_bytes")
+
+        // Legacy Playback Buffer Duration Key (Mirrors the removed duration field for cleanup migration)
+        // Direct key access lets tests cover invalid restored durations that UI controls cannot emit.
+        private val legacyPlaybackBufferDurationMsKey = intPreferencesKey("playback_buffer_duration_ms")
+
+        // Raw Download WiFi Key (Mirrors the DataStore field used by manual download requirements)
+        // Direct key access lets tests prove policy writes do not require a DownloadManager instance.
+        private val isDownloadWifiOnlyKey = booleanPreferencesKey("is_download_wifi_only")
     }
 }

@@ -21,6 +21,7 @@ import com.viel.aplayer.data.dao.BookmarkDao
 import com.viel.aplayer.data.dao.ChapterDao
 import com.viel.aplayer.data.dao.DirectoryCacheDao
 import com.viel.aplayer.data.dao.DirectoryChildCacheDao
+import com.viel.aplayer.data.dao.DownloadMetadataDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.dao.ScanSessionDao
 import com.viel.aplayer.data.entity.BookEntity
@@ -30,6 +31,7 @@ import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.DirectoryCacheEntity
 import com.viel.aplayer.data.entity.DirectoryChildCacheEntity
+import com.viel.aplayer.data.entity.DownloadMetadataEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
 
@@ -49,12 +51,14 @@ import com.viel.aplayer.data.entity.ScanSessionEntity
         AbsSyncStateEntity::class,
         AbsItemMirrorEntity::class,
         AbsPlaybackSessionEntity::class,
-        AbsPendingProgressSyncEntity::class
+        AbsPendingProgressSyncEntity::class,
+        DownloadMetadataEntity::class
     ],
     // Production Schema Baseline (Starts the supported Room migration history at version 41)
     // Schema versions before 41 are intentionally removed from source control, so future releases must add explicit forward-only migrations from this baseline instead of rebuilding user data.
-    // Update Database Version (Increment to version 42 after removing foreign keys from the bookmark table to trigger schema validation)
-    version = 42,
+    // Download Metadata Schema Version (Adds the book-level manual download aggregate table)
+    // Version 43 keeps the existing user catalog intact while introducing the offline-cache metadata boundary.
+    version = 43,
     exportSchema = true
 )
 // Restore AppDatabase Declaration: Restore the abstract class declaration to compile database schema correctly.
@@ -73,6 +77,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun absCatalogDao(): AbsCatalogDao
     abstract fun absPlaybackSessionDao(): AbsPlaybackSessionDao
     abstract fun absPendingProgressSyncDao(): AbsPendingProgressSyncDao
+    abstract fun downloadMetadataDao(): DownloadMetadataDao
 
     companion object {
         @Volatile
@@ -111,6 +116,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Download Metadata Migration (Creates the app-level aggregate table for manual download status)
+        // This migration only adds new storage and indices, so books, files, chapters, progress, bookmarks, roots, and ABS mirror rows remain untouched.
+        internal val MIGRATION_42_43 = object : Migration(42, 43) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `download_metadata` (
+                        `bookId` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `totalFiles` INTEGER NOT NULL,
+                        `completedFiles` INTEGER NOT NULL,
+                        `totalBytes` INTEGER NOT NULL,
+                        `downloadedBytes` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`bookId`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_download_metadata_status` ON `download_metadata` (`status`)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 // Non-Destructive Database Builder (Reject unsupported schema gaps instead of wiping persisted user data)
@@ -120,7 +148,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
-                    .addMigrations(MIGRATION_41_42)
+                    .addMigrations(MIGRATION_41_42, MIGRATION_42_43)
                     .build()
                 INSTANCE = instance
                 instance

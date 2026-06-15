@@ -3,6 +3,7 @@ package com.viel.aplayer.abs.net
 import android.annotation.SuppressLint
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
+import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.dto.AbsAuthorizeResponseDto
 import com.viel.aplayer.abs.net.dto.AbsBatchGetItemsResponseDto
 import com.viel.aplayer.abs.net.dto.AbsLibrariesResponseDto
@@ -22,7 +23,10 @@ import com.viel.aplayer.library.availability.RemoteAvailabilityProtocol
 import com.viel.aplayer.logger.AbsAuthLogger
 import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -32,6 +36,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.SSLContext
@@ -50,16 +55,30 @@ interface AbsApiClient {
     suspend fun login(baseUrl: String, username: String, password: String): AbsLoginResponseDto
     suspend fun authorize(baseUrl: String, token: String): AbsAuthorizeResponseDto
     suspend fun getLibraries(baseUrl: String, token: String): List<AbsLibraryDto>
+    suspend fun getLibraries(baseUrl: String, token: String, credentialId: String?): List<AbsLibraryDto> =
+        getLibraries(baseUrl, token)
     suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String): AbsLibraryItemsResponseDto
+    suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String, credentialId: String?): AbsLibraryItemsResponseDto =
+        getLibraryItemsMinified(baseUrl, token, libraryId)
     suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>): List<AbsLibraryItemDto>
+    suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>, credentialId: String?): List<AbsLibraryItemDto> =
+        batchGetItems(baseUrl, token, itemIds)
     /**
      * Remote Progress Probe (Reads the user's item progress without mutating playback session state)
      * Implementations should return null for ABS 404 responses because a missing remote progress record is a valid no-progress state.
      */
     suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? = null
+    suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String, credentialId: String?): AbsUserProgressDto? =
+        getProgressOrNull(baseUrl, token, itemId)
     suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto): AbsPlaybackSessionDto
+    suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto, credentialId: String?): AbsPlaybackSessionDto =
+        openPlaybackSession(baseUrl, token, itemId, request)
     suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double)
+    suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double, credentialId: String?) =
+        syncSession(baseUrl, token, sessionId, currentTimeSec, timeListenedSec, durationSec)
     suspend fun closeSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double)
+    suspend fun closeSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double, credentialId: String?) =
+        closeSession(baseUrl, token, sessionId, currentTimeSec, timeListenedSec, durationSec)
 }
 
 /**
@@ -68,12 +87,13 @@ interface AbsApiClient {
 class RealAbsApiClient(
     private val client: OkHttpClient = defaultClient(),
     private val appSettingsRepository: AppSettingsRepository? = null,
+    private val credentialStore: AbsCredentialStore? = null,
     private val settingsProvider: () -> AppSettings = {
         appSettingsRepository?.cachedSettings ?: AppSettings()
     },
     // Pure Codegen: Instantiate Moshi without reflection support since all DTOs have generated adapters.
     private val moshi: Moshi = Moshi.Builder().build()
-) : AbsApiClient {
+) : AbsApiClient, AbsTokenRefreshClient {
 
     // Unsafe Trust Manager: Custom trust manager that bypasses certificate path validation checks for self-signed servers.
     private val unsafeTrustManager = @SuppressLint("CustomX509TrustManager")
@@ -115,6 +135,7 @@ class RealAbsApiClient(
     private val progressAdapter: JsonAdapter<AbsUserProgressDto> = moshi.adapter(AbsUserProgressDto::class.java)
     private val playbackSessionAdapter: JsonAdapter<AbsPlaybackSessionDto> = moshi.adapter(AbsPlaybackSessionDto::class.java)
     private val playRequestAdapter: JsonAdapter<AbsPlayRequestDto> = moshi.adapter(AbsPlayRequestDto::class.java)
+    private val refreshMutexByCredentialId = ConcurrentHashMap<String, Mutex>()
 
     override suspend fun status(baseUrl: String): AbsStatusDto =
         executeJson(
@@ -168,17 +189,53 @@ class RealAbsApiClient(
             adapter = authorizeAdapter
         )
 
+    override suspend fun refreshToken(credentialId: String): AbsTokenRefreshResult {
+        val store = credentialStore ?: return AbsTokenRefreshResult.Failed
+        val mutex = refreshMutexByCredentialId.getOrPut(credentialId) { Mutex() }
+        return mutex.withLock {
+            val credential = store.get(credentialId) ?: return@withLock AbsTokenRefreshResult.Failed
+            val currentToken = credential.token
+            // Raw Refresh Transport (Bypass request-level 401 retry while refreshing credentials)
+            // The refresh call must not route through executeJson, otherwise authorize failures can recursively trigger another refresh.
+            val responseResult = withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
+                runCatching {
+                    executeAuthorizeRaw(
+                        baseUrl = credential.baseUrl,
+                        token = currentToken
+                    )
+                }
+            } ?: return@withLock AbsTokenRefreshResult.TimedOut
+            val response = responseResult.getOrElse {
+                return@withLock AbsTokenRefreshResult.Failed
+            }
+
+            val newToken = response.user?.token
+            if (newToken.isNullOrBlank() || newToken == currentToken) {
+                return@withLock AbsTokenRefreshResult.Failed
+            }
+            store.updateToken(credentialId, newToken)
+            AbsTokenRefreshResult.Success(newToken)
+        }
+    }
+
     override suspend fun getLibraries(baseUrl: String, token: String): List<AbsLibraryDto> =
+        getLibraries(baseUrl, token, credentialId = null)
+
+    override suspend fun getLibraries(baseUrl: String, token: String, credentialId: String?): List<AbsLibraryDto> =
         executeJson(
             request = Request.Builder()
                 .url(resolveApiUrl(baseUrl, "libraries"))
                 .get()
                 .header("Authorization", bearer(token))
                 .build(),
-            adapter = librariesAdapter
+            adapter = librariesAdapter,
+            credentialId = credentialId
         ).libraries.orEmpty()
 
     override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String): AbsLibraryItemsResponseDto =
+        getLibraryItemsMinified(baseUrl, token, libraryId, credentialId = null)
+
+    override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String, credentialId: String?): AbsLibraryItemsResponseDto =
         executeJson(
             request = Request.Builder()
                 .url(
@@ -194,10 +251,14 @@ class RealAbsApiClient(
                 .get()
                 .header("Authorization", bearer(token))
                 .build(),
-            adapter = libraryItemsAdapter
+            adapter = libraryItemsAdapter,
+            credentialId = credentialId
         )
 
-    override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>): List<AbsLibraryItemDto> {
+    override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>): List<AbsLibraryItemDto> =
+        batchGetItems(baseUrl, token, itemIds, credentialId = null)
+
+    override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>, credentialId: String?): List<AbsLibraryItemDto> {
         val idsJson = itemIds.joinToString(prefix = "[", postfix = "]") { id -> id.toJsonString() }
         val body = """{"libraryItemIds":$idsJson}""".toRequestBody(JSON_MEDIA_TYPE)
         return executeJson(
@@ -206,11 +267,15 @@ class RealAbsApiClient(
                 .post(body)
                 .header("Authorization", bearer(token))
                 .build(),
-            adapter = batchGetItemsAdapter
+            adapter = batchGetItemsAdapter,
+            credentialId = credentialId
         ).libraryItems.orEmpty()
     }
 
-    override suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? {
+    override suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? =
+        getProgressOrNull(baseUrl, token, itemId, credentialId = null)
+
+    override suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String, credentialId: String?): AbsUserProgressDto? {
         return runCatching {
             executeJson(
                 request = Request.Builder()
@@ -224,7 +289,8 @@ class RealAbsApiClient(
                     .get()
                     .header("Authorization", bearer(token))
                     .build(),
-                adapter = progressAdapter
+                adapter = progressAdapter,
+                credentialId = credentialId
             )
         }.getOrElse { error ->
             if (error is AbsApiError && error.httpStatus == 404) {
@@ -240,6 +306,15 @@ class RealAbsApiClient(
         token: String,
         itemId: String,
         request: AbsPlayRequestDto
+    ): AbsPlaybackSessionDto =
+        openPlaybackSession(baseUrl, token, itemId, request, credentialId = null)
+
+    override suspend fun openPlaybackSession(
+        baseUrl: String,
+        token: String,
+        itemId: String,
+        request: AbsPlayRequestDto,
+        credentialId: String?
     ): AbsPlaybackSessionDto {
         val body = playRequestAdapter.toJson(request).toRequestBody(JSON_MEDIA_TYPE)
         return executeJson(
@@ -248,7 +323,8 @@ class RealAbsApiClient(
                 .post(body)
                 .header("Authorization", bearer(token))
                 .build(),
-            adapter = playbackSessionAdapter
+            adapter = playbackSessionAdapter,
+            credentialId = credentialId
         )
     }
 
@@ -259,6 +335,16 @@ class RealAbsApiClient(
         currentTimeSec: Double,
         timeListenedSec: Double,
         durationSec: Double
+    ) = syncSession(baseUrl, token, sessionId, currentTimeSec, timeListenedSec, durationSec, credentialId = null)
+
+    override suspend fun syncSession(
+        baseUrl: String,
+        token: String,
+        sessionId: String,
+        currentTimeSec: Double,
+        timeListenedSec: Double,
+        durationSec: Double,
+        credentialId: String?
     ) {
         val body = """{"currentTime":$currentTimeSec,"timeListened":$timeListenedSec,"duration":$durationSec}"""
             .toRequestBody(JSON_MEDIA_TYPE)
@@ -267,7 +353,8 @@ class RealAbsApiClient(
                 .url(resolveApiUrl(baseUrl, "session").newBuilder().addPathSegment(sessionId).addPathSegment("sync").build())
                 .post(body)
                 .header("Authorization", bearer(token))
-                .build()
+                .build(),
+            credentialId = credentialId
         )
     }
 
@@ -278,6 +365,16 @@ class RealAbsApiClient(
         currentTimeSec: Double,
         timeListenedSec: Double,
         durationSec: Double
+    ) = closeSession(baseUrl, token, sessionId, currentTimeSec, timeListenedSec, durationSec, credentialId = null)
+
+    override suspend fun closeSession(
+        baseUrl: String,
+        token: String,
+        sessionId: String,
+        currentTimeSec: Double,
+        timeListenedSec: Double,
+        durationSec: Double,
+        credentialId: String?
     ) {
         val body = """{"currentTime":$currentTimeSec,"timeListened":$timeListenedSec,"duration":$durationSec}"""
             .toRequestBody(JSON_MEDIA_TYPE)
@@ -286,14 +383,39 @@ class RealAbsApiClient(
                 .url(resolveApiUrl(baseUrl, "session").newBuilder().addPathSegment(sessionId).addPathSegment("close").build())
                 .post(body)
                 .header("Authorization", bearer(token))
-                .build()
+                .build(),
+            credentialId = credentialId
         )
     }
 
     /**
      * Thread Context Isolation (Delegates API execution to Dispatchers.IO to protect against NetworkOnMainThreadException)
      */
-    private suspend fun <T> executeJson(request: Request, adapter: JsonAdapter<T>): T {
+    private suspend fun <T> executeJson(
+        request: Request,
+        adapter: JsonAdapter<T>,
+        credentialId: String? = null
+    ): T {
+        return try {
+            executeJsonRaw(request = request, adapter = adapter)
+        } catch (error: AbsApiError) {
+            val refreshResult = if (error.httpStatus == HTTP_UNAUTHORIZED && credentialId != null) {
+                refreshToken(credentialId)
+            } else {
+                null
+            }
+            if (refreshResult is AbsTokenRefreshResult.Success) {
+                executeJsonRaw(
+                    request = request.withBearerToken(refreshResult.token),
+                    adapter = adapter
+                )
+            } else {
+                throw error
+            }
+        }
+    }
+
+    private suspend fun <T> executeJsonRaw(request: Request, adapter: JsonAdapter<T>): T {
         return withContext(Dispatchers.IO) {
                 // ABS Cleartext Request Gate (Reject HTTP before credentials or bearer tokens leave the process)
                 // All ABS login, token validation, catalog, playback-session, and progress requests pass this single transport check.
@@ -343,7 +465,24 @@ class RealAbsApiClient(
     /**
      * Async Void Execution (Switches text responses to Dispatchers.IO context to prevent blocking state collectors)
      */
-    private suspend fun executeUnit(request: Request) {
+    private suspend fun executeUnit(request: Request, credentialId: String? = null) {
+        try {
+            executeUnitRaw(request)
+        } catch (error: AbsApiError) {
+            val refreshResult = if (error.httpStatus == HTTP_UNAUTHORIZED && credentialId != null) {
+                refreshToken(credentialId)
+            } else {
+                null
+            }
+            if (refreshResult is AbsTokenRefreshResult.Success) {
+                executeUnitRaw(request.withBearerToken(refreshResult.token))
+            } else {
+                throw error
+            }
+        }
+    }
+
+    private suspend fun executeUnitRaw(request: Request) {
         withContext(Dispatchers.IO) {
                 // ABS Cleartext Request Gate (Reject HTTP before session mutation requests leave the process)
                 // The same policy protects progress sync and close-session calls, which also carry Bearer credentials.
@@ -382,6 +521,16 @@ class RealAbsApiClient(
         }
     }
 
+    private suspend fun executeAuthorizeRaw(baseUrl: String, token: String): AbsAuthorizeResponseDto =
+        executeJsonRaw(
+            request = Request.Builder()
+                .url(resolveApiUrl(baseUrl, "authorize"))
+                .post(EMPTY_JSON_BODY)
+                .header("Authorization", bearer(token))
+                .build(),
+            adapter = authorizeAdapter
+        )
+
     private fun resolveBaseUrl(baseUrl: String): HttpUrl {
         val normalized = baseUrl.trim().trimEnd('/')
         return normalized.toHttpUrlOrNull()
@@ -414,6 +563,11 @@ class RealAbsApiClient(
 
     private fun bearer(token: String): String = "Bearer $token"
 
+    private fun Request.withBearerToken(token: String): Request =
+        newBuilder()
+            .header("Authorization", bearer(token))
+            .build()
+
     private fun HttpUrl.redacted(): String =
         newBuilder().query(null).fragment(null).build().toString()
 
@@ -434,6 +588,8 @@ class RealAbsApiClient(
         }
 
     companion object {
+        private const val HTTP_UNAUTHORIZED = 401
+        private const val REFRESH_TIMEOUT_MS = 10_000L
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         private val EMPTY_JSON_BODY = "{}".toRequestBody(JSON_MEDIA_TYPE)
 

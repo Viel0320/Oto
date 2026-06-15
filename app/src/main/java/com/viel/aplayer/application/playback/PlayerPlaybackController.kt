@@ -32,6 +32,12 @@ interface PlayerPlaybackController {
     val currentPosition: StateFlow<Long>
 
     /**
+     * Playback Buffered Position Stream (Expose the active global buffered playback position)
+     * Allows progress bars to render memory-buffer coverage without depending on Media3 controller internals.
+     */
+    val bufferedPosition: StateFlow<Long>
+
+    /**
      * Playback Duration Stream (Expose the active queue duration)
      * Allows UI progress calculations without reaching into playback runtime internals.
      */
@@ -120,6 +126,9 @@ internal class DefaultPlayerPlaybackController(
 
     override val currentPosition: StateFlow<Long>
         get() = playbackManager.currentPosition
+
+    override val bufferedPosition: StateFlow<Long>
+        get() = playbackManager.bufferedPosition
 
     override val duration: StateFlow<Long>
         get() = playbackManager.duration

@@ -2,6 +2,7 @@ package com.viel.aplayer.abs
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.abs.net.AbsTokenRefreshResult
 import com.viel.aplayer.abs.net.MIN_SUPPORTED_ABS_SERVER_VERSION
 import com.viel.aplayer.abs.net.RealAbsApiClient
 import com.viel.aplayer.abs.net.compareAbsServerVersion
@@ -71,12 +72,7 @@ class AbsApiClientTest {
 
     @Test
     fun `credential store save get delete and toString must redact token`() = runBlocking {
-        val tempDir = createTempDirectory(prefix = "abs-credential-store").toFile()
-        val store = AbsCredentialStore.createForTesting(
-            PreferenceDataStoreFactory.create(
-                produceFile = { File(tempDir, "credentials.preferences_pb") }
-            )
-        )
+        val store = createCredentialStore("abs-credential-store")
 
         val saved = store.save(
             baseUrl = "https://example.com/audiobookshelf/",
@@ -98,6 +94,27 @@ class AbsApiClientTest {
     }
 
     @Test
+    fun `credential store update token should preserve credential id`() = runBlocking {
+        val store = createCredentialStore("abs-credential-update")
+        store.save(
+            baseUrl = "https://example.com/audiobookshelf",
+            token = "old-token",
+            userId = "user-1",
+            username = "demo",
+            credentialId = "cred-1"
+        )
+
+        val updated = store.updateToken("cred-1", "new-token")
+        val loaded = store.get("cred-1")
+
+        assertNotNull(updated)
+        assertEquals("cred-1", loaded?.id)
+        assertEquals("new-token", loaded?.token)
+        assertEquals("user-1", loaded?.userId)
+        assertEquals("demo", loaded?.username)
+    }
+
+    @Test
     fun `authorize must use post api authorize with bearer token`() {
         MockWebServer().use { server ->
             server.enqueue(
@@ -115,6 +132,85 @@ class AbsApiClientTest {
             assertEquals("POST", request.method)
             assertEquals("/audiobookshelf/api/authorize", request.path)
             assertEquals("Bearer token-123", request.getHeader("Authorization"))
+        }
+    }
+
+    @Test
+    fun `refresh token should use raw authorize and persist returned token`() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setBody("""{"user":{"id":"u1","username":"demo","token":"new-token"}}""")
+            )
+            val store = createCredentialStore("abs-refresh")
+            store.save(
+                baseUrl = server.url("/audiobookshelf/").toString(),
+                token = "old-token",
+                userId = "user-1",
+                username = "demo",
+                credentialId = "cred-1"
+            )
+            val client = RealAbsApiClient(
+                settingsProvider = ::allowCleartextSettings,
+                credentialStore = store
+            )
+
+            val result = client.refreshToken("cred-1")
+
+            assertEquals(AbsTokenRefreshResult.Success("new-token"), result)
+            assertEquals("new-token", store.get("cred-1")?.token)
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/audiobookshelf/api/authorize", request.path)
+            assertEquals("Bearer old-token", request.getHeader("Authorization"))
+        }
+    }
+
+    @Test
+    fun `credential scoped request should refresh once and retry with new token`() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(401))
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setBody("""{"user":{"id":"u1","username":"demo","token":"new-token"}}""")
+            )
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setBody("""{"libraries":[{"id":"lib-book","name":"Books","mediaType":"book"}]}""")
+            )
+            val store = createCredentialStore("abs-rest-retry")
+            store.save(
+                baseUrl = server.url("/audiobookshelf/").toString(),
+                token = "old-token",
+                credentialId = "cred-1"
+            )
+            val client = RealAbsApiClient(
+                settingsProvider = ::allowCleartextSettings,
+                credentialStore = store
+            )
+
+            val libraries = client.getLibraries(
+                baseUrl = server.url("/audiobookshelf/").toString(),
+                token = "old-token",
+                credentialId = "cred-1"
+            )
+
+            assertEquals(1, libraries.size)
+            assertEquals("new-token", store.get("cred-1")?.token)
+            val firstLibrariesRequest = server.takeRequest()
+            val refreshRequest = server.takeRequest()
+            val retryLibrariesRequest = server.takeRequest()
+            // Request-Level Refresh Retry (Keeps authorize refresh separate from the original REST call)
+            // The first request proves old-token failed, the refresh request updates credentials, and the retry uses only the new token once.
+            assertEquals("/audiobookshelf/api/libraries", firstLibrariesRequest.path)
+            assertEquals("Bearer old-token", firstLibrariesRequest.getHeader("Authorization"))
+            assertEquals("/audiobookshelf/api/authorize", refreshRequest.path)
+            assertEquals("Bearer old-token", refreshRequest.getHeader("Authorization"))
+            assertEquals("/audiobookshelf/api/libraries", retryLibrariesRequest.path)
+            assertEquals("Bearer new-token", retryLibrariesRequest.getHeader("Authorization"))
         }
     }
 
@@ -252,4 +348,13 @@ class AbsApiClientTest {
      */
     private fun allowCleartextSettings(): AppSettings =
         AppSettings(isCleartextTrafficAllowed = true)
+
+    private fun createCredentialStore(testName: String): AbsCredentialStore {
+        val tempDir = createTempDirectory(prefix = testName).toFile()
+        return AbsCredentialStore.createForTesting(
+            PreferenceDataStoreFactory.create(
+                produceFile = { File(tempDir, "credentials.preferences_pb") }
+            )
+        )
+    }
 }

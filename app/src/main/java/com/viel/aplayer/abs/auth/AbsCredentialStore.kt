@@ -81,6 +81,20 @@ class AbsCredentialStore private constructor(
         AbsAuthLogger.logCredentialDelete(credentialId)
     }
 
+    // Token Refresh Persistence (Updates only the bearer token while preserving the credential identity and server metadata)
+    // ABS token refresh must not create a new credential ID because library roots already reference the existing record.
+    suspend fun updateToken(credentialId: String, newToken: String): AbsCredential? {
+        val existing = get(credentialId) ?: return null
+        return save(
+            baseUrl = existing.baseUrl,
+            token = newToken,
+            userId = existing.userId,
+            username = existing.username,
+            serverKey = existing.serverKey,
+            credentialId = credentialId
+        )
+    }
+
     fun normalizeBaseUrl(baseUrl: String): String {
         val trimmed = baseUrl.trim()
         require(trimmed.isNotBlank()) { "ABS baseUrl 不能为空" }

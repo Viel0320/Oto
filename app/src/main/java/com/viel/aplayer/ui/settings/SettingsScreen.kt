@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.settings
 // Title: Clean up unused imports (Remove unused references to AbsCredential and WebDavCredential to resolve layering violations)
 // Presentation layer should not import infrastructure authentication and virtual file system entities.
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+import com.viel.aplayer.application.download.CacheStatistics
 import com.viel.aplayer.application.library.settings.SettingsCredential
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.store.AppLanguage
@@ -60,12 +62,12 @@ import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
-import android.net.Uri
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.settings.components.AboutSection
 import com.viel.aplayer.ui.settings.components.BackupRestoreSection
+import com.viel.aplayer.ui.settings.components.DownloadCacheSection
 import com.viel.aplayer.ui.settings.components.InterfaceSettingsSection
 import com.viel.aplayer.ui.settings.components.LibraryDirectoriesSection
 import com.viel.aplayer.ui.settings.components.NetworkSecuritySection
@@ -111,6 +113,12 @@ fun SettingsScreen(
     onRootClick: (SettingsRootItem) -> Unit = {},
     onAddLibraryClick: () -> Unit = {},
     onDeletedBookRecoveryClick: () -> Unit = {},
+    // Download Cache Navigation State (Expose settings-hosted cache pages through local overlay navigation)
+    // The screen receives only aggregate counts and statistics, preserving ViewModel ownership of flows and commands.
+    downloadTaskCount: Int = 0,
+    cacheStatistics: CacheStatistics = CacheStatistics(0L, 0),
+    onDownloadManagementClick: () -> Unit = {},
+    onCacheSettingsClick: () -> Unit = {},
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
     autoRewindSeconds: Int,
     onAutoRewindSecondsChange: (Int) -> Unit,
@@ -193,6 +201,16 @@ fun SettingsScreen(
                             // Deleted Book Recovery Entry (Forward settings row clicks to overlay-owned sub-navigation)
                             // The page remains stateless; SettingsOverlay decides which settings sub-screen is currently active.
                             onDeletedBookRecoveryClick = onDeletedBookRecoveryClick
+                        )
+                    }
+                    item {
+                        DownloadCacheSection(
+                            downloadTaskCount = downloadTaskCount,
+                            cacheStatistics = cacheStatistics,
+                            // Download Cache Sub-Page Routing (Forward row taps to SettingsOverlay local navigation)
+                            // SettingsScreen does not own the sub-page enum, so it remains previewable and stateless.
+                            onDownloadManagementClick = onDownloadManagementClick,
+                            onCacheSettingsClick = onCacheSettingsClick
                         )
                     }
                     item {

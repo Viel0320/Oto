@@ -79,9 +79,9 @@ class ReleasePolicyTest {
         // Room Baseline Release Guard (Locks version 41 as the first supported production schema)
         // Older schema fixtures were removed with the destructive rebuild policy, so future database changes must add explicit forward migrations instead of resurrecting pre-41 compatibility paths.
         assertTrue(policy.contains("Room schema version `41` is the first supported production migration baseline."))
-        // Title: Update schema version check (Verify database is at version 42 and contains the 41 baseline schema fixture)
-        // Checks that the baseline 41 schema file remains, database version is 42, and only version 41 or newer exists.
-        assertTrue(database.contains("version = 42"))
+        // Title: Update schema version check (Verify database is at version 43 and contains the 41 baseline schema fixture)
+        // Checks that the baseline 41 schema file remains, database version is 43, and only version 41 or newer exists after the download metadata migration.
+        assertTrue(database.contains("version = 43"))
         assertTrue("Baseline schema 41.json must exist.", schemaFiles.contains("41.json"))
         val olderSchemas = schemaFiles.filter { name ->
             val version = name.substringBefore(".json").toIntOrNull()

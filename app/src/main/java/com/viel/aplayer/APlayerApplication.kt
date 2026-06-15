@@ -10,24 +10,28 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.viel.aplayer.abs.sync.AbsSyncWorkScheduler
-import com.viel.aplayer.application.startup.APlayerStartupWarmup
-import com.viel.aplayer.application.startup.DefaultStartupWarmupDependencies
-import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.application.di.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.application.di.dependencies.AppShellDependencies
 import com.viel.aplayer.application.di.dependencies.DetailScreenDependencies
+import com.viel.aplayer.application.di.dependencies.DownloadRuntimeDependencies
 import com.viel.aplayer.application.di.dependencies.EditScreenDependencies
 import com.viel.aplayer.application.di.dependencies.HomeScreenDependencies
 import com.viel.aplayer.application.di.dependencies.LibrarySyncWorkerDependencies
+import com.viel.aplayer.application.di.dependencies.ManualDownloadNotificationActionDependencies
 import com.viel.aplayer.application.di.dependencies.PlaybackRecoveryDependencies
 import com.viel.aplayer.application.di.dependencies.PlaybackRuntimeDependencies
 import com.viel.aplayer.application.di.dependencies.PlayerScreenDependencies
 import com.viel.aplayer.application.di.dependencies.SearchScreenDependencies
 import com.viel.aplayer.application.di.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.application.di.dependencies.VfsPlaybackDependencies
+import com.viel.aplayer.application.download.ManualDownloadOrphanCleanupScheduler
+import com.viel.aplayer.application.startup.APlayerStartupWarmup
+import com.viel.aplayer.application.startup.DefaultStartupWarmupDependencies
+import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.logger.AbsSyncLogger
 import com.viel.aplayer.logger.CoverImageCoilEventListener
+import com.viel.aplayer.logger.DownloadSyncLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -78,6 +82,20 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         appScope.launch {
             // Title: Settings Read Model Pre-cache (Triggers settings load during early application warmup)
             processContainer.settingsReadModel
+            // Download Recovery Gate (Reconcile manual downloads only when Room reports recoverable work)
+            // This keeps normal startup from constructing DownloadManager, while interrupted downloads can restore their durable book-level state.
+            runCatching {
+                processContainer.downloadRecoveryService.recoverIfNeeded()
+            }.onFailure { error ->
+                DownloadSyncLogger.logRecoveryFailure(error::class.java.simpleName, error.message)
+            }
+            // Manual Cache Orphan Cleanup Scheduling (Queue background L1 cleanup without resolving DownloadManager)
+            // WorkManager coalesces repeated startup requests, while the worker compares cache keys against durable download metadata.
+            runCatching {
+                ManualDownloadOrphanCleanupScheduler(this@APlayerApplication).enqueue()
+            }.onFailure { error ->
+                DownloadSyncLogger.logOrphanCleanupFailure(error::class.java.simpleName, error.message)
+            }
             // Startup Warmup Coordinator (Gate remote ABS work before local progress recovery)
             // Cold start now enqueues stale ABS roots through root-scoped WorkManager instead of performing authorize progress refreshes inline on every process creation.
             createStartupWarmup(processContainer).run()
@@ -199,6 +217,28 @@ class APlayerApplication : Application(), ImageLoaderFactory {
          * @return The VFS playback dependency view backed by the global container
          */
         fun getVfsPlaybackDependencies(context: Context): VfsPlaybackDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Download Runtime Dependencies Provider (Return the narrow download-cache and queue dependency view)
+         * Playback code can resolve cache access through this view without widening to the full application container.
+         *
+         * @param context Component Context
+         * @return The download dependency view backed by the global container
+         */
+        fun getDownloadRuntimeDependencies(context: Context): DownloadRuntimeDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Manual Download Notification Action Dependencies Provider (Return the narrow notification command view)
+         * Notification receivers need only the book-level download controller, not the full application container or settings surface.
+         *
+         * @param context Component Context
+         * @return The notification-action dependency view backed by the global container
+         */
+        fun getManualDownloadNotificationActionDependencies(context: Context): ManualDownloadNotificationActionDependencies {
             return getContainer(context)
         }
 
