@@ -5,6 +5,7 @@ import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.DirectoryCacheDao
 import com.viel.aplayer.data.dao.DirectoryChildCacheDao
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.data.gateway.LibraryResourceCleanupGateway
 import com.viel.aplayer.library.vfs.cache.VfsRangeCache
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.VfsRangeCacheKey
@@ -22,7 +23,7 @@ class CacheEvictionCoordinator internal constructor(
     private val directoryChildCacheDao: DirectoryChildCacheDao,
     private val vfsRangeCache: VfsRangeCache? = null,
     private val vfsFileInterface: VfsFileInterface? = null
-) {
+) : LibraryResourceCleanupGateway {
     constructor(
         context: Context,
         bookDao: BookDao,
@@ -46,6 +47,24 @@ class CacheEvictionCoordinator internal constructor(
      */
     suspend fun evictBeforeRootDelete(root: LibraryRootEntity): CacheEvictionSummary {
         return evictRootCaches(root.id)
+    }
+
+    /**
+     * Clear Book Cover Cache (Delete one book's artwork files before soft deletion)
+     * Book deletion keeps the database row as DELETED, so this gateway removes owned cover files while the active row still
+     * exposes the cache paths needed to identify them.
+     */
+    override suspend fun clearBookCoverCache(bookId: String) {
+        deleteBookCoverFiles(bookId)
+    }
+
+    /**
+     * Clear Root Derived Caches (Bridge application cleanup requests to root cache eviction)
+     * Root-management use cases call this before cascade deletion so cover paths, directory snapshots, and range blocks are
+     * still attributable to the root being removed or switched.
+     */
+    override suspend fun clearRootDerivedCaches(rootId: String) {
+        evictRootCaches(rootId)
     }
 
     /**
@@ -77,6 +96,15 @@ class CacheEvictionCoordinator internal constructor(
         val coversDir = File(appCacheDir, COVER_CACHE_DIR_NAME).canonicalFile
         val paths = bookDao.getCoverCachePathsByRootId(rootId)
             .flatMap { cachePaths -> listOfNotNull(cachePaths.coverPath, cachePaths.thumbnailPath) }
+            .distinct()
+        return paths.count { path -> deleteIfOwnedCoverFile(path, coversDir) }
+    }
+
+    private suspend fun deleteBookCoverFiles(bookId: String): Int {
+        val coversDir = File(appCacheDir, COVER_CACHE_DIR_NAME).canonicalFile
+        val paths = bookDao.getCoverCachePathsByBookId(bookId)
+            ?.let { cachePaths -> listOfNotNull(cachePaths.coverPath, cachePaths.thumbnailPath) }
+            .orEmpty()
             .distinct()
         return paths.count { path -> deleteIfOwnedCoverFile(path, coversDir) }
     }

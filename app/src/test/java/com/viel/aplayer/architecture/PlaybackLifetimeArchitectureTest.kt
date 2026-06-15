@@ -28,8 +28,8 @@ class PlaybackLifetimeArchitectureTest {
     fun deletionUseCasesDoNotImportPlaybackManager() {
         val sourceRoot = resolveSourceRoot()
         val useCasePaths = listOf(
-            "application/usecase/DeleteBookUseCase.kt",
-            "application/usecase/DeleteLibraryRootUseCase.kt"
+            "application/usecase/BookManagementUseCase.kt",
+            "application/usecase/LibraryRootManagementUseCase.kt"
         )
 
         useCasePaths.forEach { relativePath ->
@@ -48,20 +48,20 @@ class PlaybackLifetimeArchitectureTest {
     }
 
     @Test
-    fun deleteLibraryRootUseCaseKeepsEntityDeletionPrivate() {
+    fun libraryRootManagementUseCaseKeepsEntityDeletionPrivate() {
         val source = resolveSourceRoot()
-            .resolve("application/usecase/DeleteLibraryRootUseCase.kt")
+            .resolve("application/usecase/LibraryRootManagementUseCase.kt")
             .readText()
 
-        // Root Deletion Public Seam Guard (Keep presentation callers on root identifiers)
-        // DeleteLibraryRootUseCase may resolve the persistence row internally, but it must not expose entity-shaped deletion as a public overload.
+        // Root Management Public Seam Guard (Keep presentation callers on root identifiers)
+        // LibraryRootManagementUseCase may resolve persistence rows internally, but it must not expose entity-shaped deletion as a public overload.
         assertTrue(
-            "DeleteLibraryRootUseCase must not expose a public LibraryRootEntity invoke overload.",
-            !source.contains("suspend fun invoke(root: LibraryRootEntity)")
+            "LibraryRootManagementUseCase must not expose a public LibraryRootEntity delete overload.",
+            !source.contains("suspend fun deleteLibraryRoot(root: LibraryRootEntity)")
         )
         assertTrue(
-            "DeleteLibraryRootUseCase must keep resolved entity deletion behind a private helper.",
-            source.contains("private suspend fun deleteResolvedRoot(root: LibraryRootEntity)")
+            "LibraryRootManagementUseCase must keep root rehydration private.",
+            source.contains("private suspend fun findRoot(rootId: String): LibraryRootEntity?")
         )
     }
 
@@ -78,15 +78,30 @@ class PlaybackLifetimeArchitectureTest {
     }
 
     @Test
-    fun bookDeletionReceivesManualDownloadCleanupGatewayFromDownloadGraph() {
+    fun managementUseCasesReceiveManualDownloadCleanupGatewayFromDownloadGraph() {
         val sourceRoot = resolveSourceRoot()
         val appContainer = sourceRoot.resolve("AppContainer.kt").readText()
         val libraryGraph = sourceRoot.resolve("application/di/graph/LibraryGraph.kt").readText()
 
-        // Book Deletion Download Cleanup Wiring (Ensure the production graph does not fall back to no-op cache cleanup)
-        // The composition root should pass DownloadGraph's narrow cleanup gateway into LibraryGraph, and LibraryGraph should forward it to DeleteBookUseCase.
+        // Management Download Cleanup Wiring (Ensure production graph routes cleanup through the narrow download seam)
+        // The composition root should pass DownloadGraph's cleanup gateway into LibraryGraph, and LibraryGraph should forward it to both management use cases.
         assertTrue(appContainer.contains("manualDownloadCleanupGateway = download.manualDownloadCleanupGateway"))
+        assertTrue(libraryGraph.contains("LibraryRootManagementUseCase("))
+        assertTrue(libraryGraph.contains("BookManagementUseCase("))
         assertTrue(libraryGraph.contains("manualDownloadCleanupGateway = manualDownloadCleanupGateway"))
+    }
+
+    @Test
+    fun absSettingsRootSwitchUsesLibraryRootManagementUseCase() {
+        val sourceRoot = resolveSourceRoot()
+        val appContainer = sourceRoot.resolve("AppContainer.kt").readText()
+        val absSettingsUseCase = sourceRoot.resolve("application/usecase/AbsSettingsConnectionUseCase.kt").readText()
+
+        // ABS Root Switch Cleanup Boundary (Prevent settings save from bypassing root-management cleanup)
+        // Editing an ABS root must pass through LibraryRootManagementUseCase so old covers and downloads are cleared before cascade deletion.
+        assertTrue(appContainer.contains("libraryRootManagementUseCase = library.libraryRootManagementUseCase"))
+        assertTrue(absSettingsUseCase.contains("libraryRootManagementUseCase.updateAbsLibraryRoot("))
+        assertTrue(!absSettingsUseCase.contains("libraryRootGateway.updateAbsLibraryRoot("))
     }
 
     @Test

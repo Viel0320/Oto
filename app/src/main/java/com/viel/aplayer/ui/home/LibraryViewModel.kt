@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.home
 
-// UseCase Import Update: Align imports with the application usecase package for DeleteBookUseCase.
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -38,9 +37,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val appEventSink = homeDependencies.appEventSink
 
     /**
-     * Book Deletion UseCase (Cross-domain coordinator to handle safe removal of individual books)
+     * Book Management Use Case (Cross-domain coordinator for cleanup-first book removal)
+     * Home delegates destructive book actions here so cover cache, manual downloads, and soft deletion stay in one application workflow.
      */
-    private val deleteBookUseCase = homeDependencies.deleteBookUseCase
+    private val bookManagementUseCase = homeDependencies.bookManagementUseCase
 
     // User Selection Filter (Initially null, indicating no explicit user action has occurred)
     // When null, the combine stream resolves filter attributes via a strict priority chain.
@@ -183,7 +183,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     fun deleteBook(bookId: String) {
         viewModelScope.launch {
             // Book Deletion Coordination (Use the application use case to remove the book and stop playback safely)
-            val fileExists = deleteBookUseCase.invoke(bookId)
+            val fileExists = bookManagementUseCase.deleteBook(bookId)
 
             // Deletion Feedback Dispatch (Send home deletion status through the application event sink)
             // This keeps Toast rendering outside the ViewModel while avoiding another feature-local event stream.

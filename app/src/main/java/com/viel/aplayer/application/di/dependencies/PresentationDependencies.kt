@@ -23,12 +23,12 @@ import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootReadModel
 import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
+import com.viel.aplayer.application.usecase.BookManagementUseCase
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
-import com.viel.aplayer.application.usecase.DeleteBookUseCase
-import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.application.usecase.ExportUserDataUseCase
 import com.viel.aplayer.application.usecase.FormatSettingsRootUseCase
 import com.viel.aplayer.application.usecase.ImportUserDataUseCase
+import com.viel.aplayer.application.usecase.LibraryRootManagementUseCase
 import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
@@ -118,10 +118,10 @@ interface HomeScreenDependencies {
     val appEventSink: AppEventSink
 
     /**
-     * Delete Book Use Case (Home book-removal coordinator)
-     * Lets the home screen remove a book without reaching into availability gateways directly.
+     * Book Management Use Case (Home book-removal coordinator)
+     * Lets the home screen remove a book while the application layer clears cover and manual-download resources first.
      */
-    val deleteBookUseCase: DeleteBookUseCase
+    val bookManagementUseCase: BookManagementUseCase
 }
 
 /**
@@ -215,10 +215,10 @@ interface SettingsScreenDependencies {
     val appEventSink: AppEventSink
 
     /**
-     * Library Root Deletion Use Case (Settings root-removal coordinator)
-     * Ensures root deletion coordinates playback shutdown and data cleanup through the application use case.
+     * Library Root Management Use Case (Settings root-removal and ABS-switch coordinator)
+     * Ensures root deletion and ABS library switching clear root caches and manual downloads before cascade deletion.
      */
-    val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
+    val libraryRootManagementUseCase: LibraryRootManagementUseCase
 
     // Title: Expose Backup and Restore Use Cases (Expose data backup and restore capabilities to settings presentation layer)
     // Allows SettingsViewModel to trigger backup zip export and import processes.

@@ -35,7 +35,7 @@ interface DownloadController {
 interface ManualDownloadCleanupGateway {
     /**
      * Delete Download (Book deletion cleanup seam for L1 manual cache)
-     * DeleteBookUseCase depends only on this narrow method and never sees queue, pause, or statistics operations.
+     * Management use cases depend only on this narrow method and never see queue, pause, or statistics operations.
      */
     suspend fun deleteDownload(bookId: String)
 }

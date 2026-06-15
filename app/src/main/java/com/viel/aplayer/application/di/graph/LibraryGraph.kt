@@ -24,17 +24,19 @@ import com.viel.aplayer.application.library.search.SearchLibraryCommands
 import com.viel.aplayer.application.library.search.SearchLibraryReadModel
 import com.viel.aplayer.application.library.search.SearchQueryPlanner
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
-import com.viel.aplayer.application.usecase.DeleteBookUseCase
-import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
+import com.viel.aplayer.application.usecase.BookManagementUseCase
+import com.viel.aplayer.application.usecase.LibraryRootManagementUseCase
 import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookDeletionGateway
 import com.viel.aplayer.data.gateway.BookMetadataGateway
+import com.viel.aplayer.data.gateway.BookRootInventoryGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
 import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.CoverAssetGateway
 import com.viel.aplayer.data.gateway.CoverUriResolver
+import com.viel.aplayer.data.gateway.LibraryResourceCleanupGateway
 import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.MetadataRefreshGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
@@ -180,14 +182,21 @@ internal class LibraryGraph(
 
     /**
      * Book Deletion Gateway Accessor (Expose destructive book deletion as a narrow seam)
-     * DeleteBookUseCase receives only the soft-delete command after playback and availability guards have completed.
+     * BookManagementUseCase receives only the soft-delete command after playback, cache, and availability guards complete.
      */
     val bookDeletionGateway: BookDeletionGateway
         get() = bookQueryService
 
+    /**
+     * Root Book Inventory Gateway Accessor (Expose root-owned book ids for cleanup sequencing)
+     * LibraryRootManagementUseCase needs identifiers before cascade deletion but should not inherit the full catalog surface.
+     */
+    val bookRootInventoryGateway: BookRootInventoryGateway
+        get() = bookQueryService
+
     val remotePlaybackCleanupGateway by lazy {
         // Remote Playback Cleanup Wiring (Keep ABS playback table pruning behind a narrow persistence seam)
-        // DeleteBookUseCase only needs book-scoped cleanup, so the di wires the two Room DAOs without exposing ABS syncers.
+        // BookManagementUseCase only needs book-scoped cleanup, so the di wires the two Room DAOs without exposing ABS syncers.
         RemotePlaybackCleanupService(
             absPlaybackSessionDao = data.database.absPlaybackSessionDao(),
             absPendingProgressSyncDao = data.database.absPendingProgressSyncDao()
@@ -256,6 +265,13 @@ internal class LibraryGraph(
             vfsFileInterface = media.vfsFileInterface
         )
     }
+
+    /**
+     * Library Resource Cleanup Gateway Accessor (Expose derived-cache cleanup through a narrow seam)
+     * Management use cases coordinate cleanup timing while CacheEvictionCoordinator keeps ownership of file-path deletion logic.
+     */
+    val libraryResourceCleanupGateway: LibraryResourceCleanupGateway
+        get() = cacheEvictionCoordinator
 
     private val libraryRootGatewayLazy = lazy {
         // Library Root Gateway: Manages directory registrations and coordinates folder purging.
@@ -427,27 +443,31 @@ internal class LibraryGraph(
     val deletedBookRecoveryCommands: DeletedBookRecoveryCommands
         get() = deletedBookRecoveryModule
 
-    val deleteLibraryRootUseCase: DeleteLibraryRootUseCase by lazy {
-        // Library Root Deletion Wiring (Provide playback stopping through the media lifecycle seam)
-        // LibraryGraph coordinates data deletion while MediaGraph remains the owner of playback runtime shutdown.
-        DeleteLibraryRootUseCase(
+    val libraryRootManagementUseCase: LibraryRootManagementUseCase by lazy {
+        // Library Root Management Wiring (Centralize root deletion and ABS switch cleanup ordering)
+        // The use case receives root-owned book ids, cache cleanup, and manual-download cleanup without seeing full download or DAO surfaces.
+        LibraryRootManagementUseCase(
             playbackStopper = media.playbackStopper,
             bookCatalogGateway = bookCatalogGateway,
-            libraryRootGateway = libraryRootGateway
+            bookRootInventoryGateway = bookRootInventoryGateway,
+            libraryRootGateway = libraryRootGateway,
+            manualDownloadCleanupGateway = manualDownloadCleanupGateway,
+            libraryResourceCleanupGateway = libraryResourceCleanupGateway
         )
     }
 
-    val deleteBookUseCase: DeleteBookUseCase by lazy {
-        // Book Deletion Wiring (Provide playback stopping through the media lifecycle seam)
-        // The use case receives only PlaybackStopper so deleting a book cannot grow a dependency on media runtime details.
-        DeleteBookUseCase(
+    val bookManagementUseCase: BookManagementUseCase by lazy {
+        // Book Management Wiring (Centralize book-level cleanup and soft-delete ordering)
+        // The use case coordinates cover cleanup and manual-download deletion before invoking the soft-delete command.
+        BookManagementUseCase(
             playbackStopper = media.playbackStopper,
             bookAvailabilityGateway = bookAvailabilityService,
             bookDeletionGateway = bookDeletionGateway,
             remotePlaybackCleanupGateway = remotePlaybackCleanupGateway,
             // Manual Download Cleanup Wiring (Route book deletion through the narrow L1 cache cleanup seam)
             // LibraryGraph receives only ManualDownloadCleanupGateway, so deletion can clear offline tasks without depending on the full download controller surface.
-            manualDownloadCleanupGateway = manualDownloadCleanupGateway
+            manualDownloadCleanupGateway = manualDownloadCleanupGateway,
+            libraryResourceCleanupGateway = libraryResourceCleanupGateway
         )
     }
 

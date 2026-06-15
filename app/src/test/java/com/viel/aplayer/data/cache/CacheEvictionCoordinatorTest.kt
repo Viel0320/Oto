@@ -88,6 +88,32 @@ class CacheEvictionCoordinatorTest {
     }
 
     @Test
+    fun `book cover cleanup should delete only owned book artwork files`() = runBlocking {
+        val appCacheDir = createTempDirectory("book-cover-eviction").toFile()
+        val coversDir = File(appCacheDir, "covers").apply { mkdirs() }
+        val cover = File(coversDir, "book-cover.jpg").apply { writeText("cover") }
+        val thumbnail = File(coversDir, "book-thumb.jpg").apply { writeText("thumb") }
+        val outside = File(appCacheDir.parentFile, "outside-book-cover.jpg").apply { writeText("outside") }
+        val coordinator = CacheEvictionCoordinator(
+            appCacheDir = appCacheDir,
+            bookDao = fakeBookDao(
+                rootPaths = emptyList(),
+                bookPath = BookCoverCachePaths(coverPath = cover.absolutePath, thumbnailPath = thumbnail.absolutePath)
+            ),
+            directoryCacheDao = FakeDirectoryCacheDao(),
+            directoryChildCacheDao = FakeDirectoryChildCacheDao()
+        )
+
+        coordinator.clearBookCoverCache("book-1")
+
+        // Book Cover Cleanup Contract (Deletes only sandbox-owned artwork for the target book)
+        // Soft deletion keeps the book row for recovery, so cleanup must remove the cached files without touching unrelated paths.
+        assertFalse(cover.exists())
+        assertFalse(thumbnail.exists())
+        assertTrue(outside.exists())
+    }
+
+    @Test
     fun `root edit eviction should clear child directories and range blocks`() = runBlocking {
         val appCacheDir = createTempDirectory("cache-edit-eviction").toFile()
         val directoryCacheDao = FakeDirectoryCacheDao()
@@ -114,13 +140,17 @@ class CacheEvictionCoordinatorTest {
         assertEquals(null, rangeCache.read(ownedRangeKey))
     }
 
-    private fun fakeBookDao(paths: List<BookCoverCachePaths>): BookDao =
+    private fun fakeBookDao(
+        rootPaths: List<BookCoverCachePaths>,
+        bookPath: BookCoverCachePaths? = null
+    ): BookDao =
         Proxy.newProxyInstance(
             BookDao::class.java.classLoader,
             arrayOf(BookDao::class.java)
         ) { _, method, _ ->
             when (method.name) {
-                "getCoverCachePathsByRootId" -> paths
+                "getCoverCachePathsByRootId" -> rootPaths
+                "getCoverCachePathsByBookId" -> bookPath
                 else -> unsupported(method.name)
             }
         } as BookDao

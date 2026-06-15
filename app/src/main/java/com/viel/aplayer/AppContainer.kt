@@ -56,11 +56,11 @@ import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootReadModel
 import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
+import com.viel.aplayer.application.usecase.BookManagementUseCase
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
-import com.viel.aplayer.application.usecase.DeleteBookUseCase
-import com.viel.aplayer.application.usecase.DeleteLibraryRootUseCase
 import com.viel.aplayer.application.usecase.ExportUserDataUseCase
 import com.viel.aplayer.application.usecase.ImportUserDataUseCase
+import com.viel.aplayer.application.usecase.LibraryRootManagementUseCase
 import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
@@ -170,15 +170,16 @@ interface AppContainer :
     override val testWebDavConnectionUseCase: TestWebDavConnectionUseCase
     
     /**
-     * Cross-Domain Use Case (Unregister and purge library root coordinates)
-     * Coordinates active playback teardown and background physical data cleanup.
+     * Library Root Management Use Case (Unregister roots and switch ABS libraries)
+     * Coordinates playback teardown, root cache eviction, manual-download cleanup, and data cascade deletion.
      */
-    override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
+    override val libraryRootManagementUseCase: LibraryRootManagementUseCase
 
     /**
-     * Delete Book Use Case (Delete audiobook, chapters, bookmarks, and physical cache files)
+     * Book Management Use Case (Delete audiobooks through the cleanup-first application boundary)
+     * Clears cover and manual-download resources before the database row is soft-deleted.
      */
-    override val deleteBookUseCase: DeleteBookUseCase
+    override val bookManagementUseCase: BookManagementUseCase
 
     /**
      * Home Library Read Model (Scene-level catalog stream for LibraryViewModel)
@@ -417,8 +418,8 @@ internal interface ProcessContainer : AppContainer {
     val downloadRecoveryService: DownloadRecoveryService
 
     /**
-     * Manual Download Cleanup Gateway (Book deletion cleanup seam)
-     * DeleteBookUseCase receives only the book-level cleanup operation.
+     * Manual Download Cleanup Gateway (Book and root cleanup seam)
+     * Management use cases receive only the book-level cleanup operation.
      */
     val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
 
@@ -459,8 +460,8 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         data = data,
         media = media,
         uiEvents = uiEvents,
-        // Book Deletion Download Cleanup Wiring (Give LibraryGraph only the book-scoped manual cache cleanup seam)
-        // DeleteBookUseCase can remove Media3 download records, metadata, and notifications without seeing queue or cache statistics APIs.
+        // Management Download Cleanup Wiring (Give LibraryGraph only the book-scoped manual cache cleanup seam)
+        // BookManagementUseCase and LibraryRootManagementUseCase can remove Media3 records without seeing queue or cache statistics APIs.
         manualDownloadCleanupGateway = download.manualDownloadCleanupGateway
     )
     internal val abs = AbsGraph(context, data, media, library, uiEvents)
@@ -560,6 +561,7 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
             credentialStore = abs.absCredentialStore,
             libraryRootDao = data.database.libraryRootDao(),
             libraryRootGateway = library.libraryRootGateway,
+            libraryRootManagementUseCase = library.libraryRootManagementUseCase,
             maintenanceUseCase = settingsLibraryMaintenanceUseCase
         )
     }
@@ -578,8 +580,8 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         )
     }
 
-    override val deleteLibraryRootUseCase: DeleteLibraryRootUseCase
-        get() = library.deleteLibraryRootUseCase
+    override val libraryRootManagementUseCase: LibraryRootManagementUseCase
+        get() = library.libraryRootManagementUseCase
 
     // Title: Initialize Backup and Restore Use Cases (Create lazy instances of the data backup/restore use cases)
     // Instantiates export and import use cases with the application context.
@@ -591,8 +593,8 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         ImportUserDataUseCase(context)
     }
 
-    override val deleteBookUseCase: DeleteBookUseCase
-        get() = library.deleteBookUseCase
+    override val bookManagementUseCase: BookManagementUseCase
+        get() = library.bookManagementUseCase
 
     override val homeLibraryReadModel: HomeLibraryReadModel
         get() = library.homeLibraryReadModel

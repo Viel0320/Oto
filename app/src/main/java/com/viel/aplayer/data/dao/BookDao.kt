@@ -408,6 +408,14 @@ interface BookDao {
     suspend fun getBooksByRootId(rootId: String): List<BookEntity>
 
     /**
+     * Root Book Id Projection (Collects download cleanup targets before cascade deletion)
+     * Root-management use cases need only stable book ids for manual-cache cleanup, so this query avoids loading cover,
+     * metadata, and progress-facing columns.
+     */
+    @Query("SELECT id FROM books WHERE rootId = :rootId")
+    suspend fun getBookIdsByRootId(rootId: String): List<String>
+
+    /**
      * Physical Book Removal (Force wipes all book rows belonging to a root directory)
      * Cascades down to physical audio records and chapter segments automatically.
      */
@@ -418,6 +426,14 @@ interface BookDao {
     // Used by CacheEvictionCoordinator before root deletion so cleanup avoids reading metadata, progress, or file ownership columns.
     @Query("SELECT coverPath, thumbnailPath FROM books WHERE rootId = :rootId")
     suspend fun getCoverCachePathsByRootId(rootId: String): List<BookCoverCachePaths>
+
+    /**
+     * Book Cover Cache Projection (Retrieves only one book's cache file paths)
+     * Book-management cleanup runs before soft deletion, so it reads the artwork paths while the row is still active enough
+     * to identify its owned cached files.
+     */
+    @Query("SELECT coverPath, thumbnailPath FROM books WHERE id = :bookId")
+    suspend fun getCoverCachePathsByBookId(bookId: String): BookCoverCachePaths?
 
     // Update Read Status Signature: Update readStatus parameter type to ReadStatus enum for compile-time safety.
     @Query("UPDATE books SET readStatus = :readStatus WHERE id = :id")

@@ -42,6 +42,7 @@ class AbsSettingsConnectionUseCase(
     private val credentialStore: AbsCredentialStore,
     private val libraryRootDao: LibraryRootDao,
     private val libraryRootGateway: LibraryRootGateway,
+    private val libraryRootManagementUseCase: LibraryRootManagementUseCase,
     private val maintenanceUseCase: SettingsLibraryMaintenanceUseCase
 ) {
     suspend fun testConnection(
@@ -93,9 +94,9 @@ class AbsSettingsConnectionUseCase(
             credentialId = credentialId
         )
         val root = if (editingRootId != null) {
-            // ABS Root Update Gateway Use (Persist remote root edits through the narrow root seam)
-            // ABS login and credential reuse stay in this use case while root storage remains behind LibraryRootGateway.
-            libraryRootGateway.updateAbsLibraryRoot(
+            // ABS Root Management Use (Route library switches through cleanup-first root management)
+            // ABS login and credential reuse stay here, while old mirrored covers and manual downloads are cleared before cascade deletion.
+            libraryRootManagementUseCase.updateAbsLibraryRoot(
                 id = editingRootId,
                 credentialId = credential.id,
                 libraryId = libraryId,

@@ -16,6 +16,7 @@ import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookDeletionGateway
 import com.viel.aplayer.data.gateway.BookMetadataGateway
+import com.viel.aplayer.data.gateway.BookRootInventoryGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
 import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.logger.SecureLog
@@ -53,6 +54,7 @@ class BookQueryService(
     BookmarkGateway,
     ChapterGateway,
     BookDeletionGateway,
+    BookRootInventoryGateway,
     java.io.Closeable {
 
     // Private Coroutine Exception Handler (Asynchronous tracking fault barrier)
@@ -145,6 +147,15 @@ class BookQueryService(
             // Overwrites status flags to DELETED rather than erasing records to prevent duplication during rescans.
             bookDao.updateBookStatus(bookId, AudiobookSchema.BookStatus.DELETED)
         }
+    }
+
+    /**
+     * Root Book Id Lookup (Expose only deletion-cleanup identities to root management)
+     * LibraryRootManagementUseCase needs book ids before cascade deletion removes BookFileEntity rows, but it does not need
+     * full catalog projections or metadata edit permissions.
+     */
+    override suspend fun getBookIdsByRootId(rootId: String): List<String> = withContext(Dispatchers.IO) {
+        bookDao.getBookIdsByRootId(rootId)
     }
 
     // Update Book Read Status: Change readStatus parameter type to type-safe ReadStatus enum.

@@ -43,7 +43,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // Settings Query Use Cases
     private val settingsLibraryMaintenanceUseCase = settingsDependencies.settingsLibraryMaintenanceUseCase
     private val appEventSink = settingsDependencies.appEventSink
-    private val deleteLibraryRootUseCase = settingsDependencies.deleteLibraryRootUseCase
+    private val libraryRootManagementUseCase = settingsDependencies.libraryRootManagementUseCase
     private val exportUserDataUseCase = settingsDependencies.exportUserDataUseCase
     private val importUserDataUseCase = settingsDependencies.importUserDataUseCase
     private val downloadManagementReadModel = settingsDependencies.downloadManagementReadModel
@@ -175,7 +175,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun deleteLibraryRoot(root: SettingsRootItem) {
         viewModelScope.launch {
             AbsSettingsLogger.logDeleteServerStart(rootId = root.rootId, sourceType = root.sourceType)
-            val playbackWasStopped = deleteLibraryRootUseCase.invoke(root.rootId)
+            val playbackWasStopped = libraryRootManagementUseCase.deleteLibraryRoot(root.rootId)
             AbsSettingsLogger.logDeleteServerFinished(rootId = root.rootId, playbackStopped = playbackWasStopped)
             appEventSink.showToast(FeedbackMessages.settingsLibraryRootRemoved(playbackWasStopped))
         }
