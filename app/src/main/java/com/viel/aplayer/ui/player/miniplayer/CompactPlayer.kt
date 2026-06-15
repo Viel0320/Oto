@@ -195,7 +195,7 @@ fun CompactMediaPlayer(
                              * Resolves the mini-player artwork key through SharedElementKeys so it
                              * stays aligned with the full-player MainCoverView key generation.
                             */
-                            rememberSharedContentState(key = SharedElementKeys.mini2playerCover(bookId)),
+                            rememberSharedContentState(key = SharedElementKeys.mini2playerCover()),
                             animatedVisibilityScope = mini2PlayerSourceScope
                         )
                     }

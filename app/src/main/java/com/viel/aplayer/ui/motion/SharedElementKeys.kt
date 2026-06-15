@@ -34,13 +34,11 @@ object SharedElementKeys {
     fun search2detailCover(bookId: String): String = "search2detail_cover_$bookId"
 
     /*
-     * Mini To Player Cover Key (Book-scoped playback artwork transition channel)
+     * Mini To Player Cover Key (Allow any mini to player transition without checking book ID)
      *
-     * Builds the shared-element key used by CompactMediaPlayer, PillCompactMediaPlayer, and MainCoverView.
-     * The book ID keeps cover morphing tied to the currently playing audiobook instead of reusing stale
-     * artwork when playback switches between books.
+     * Returns a fixed key to enable seamless artwork morphing when the playback target differs from the previously loaded track.
      */
-    fun mini2playerCover(bookId: String): String = "mini2player_cover_$bookId"
+    fun mini2playerCover(): String = "mini2player_cover"
 
     /*
      * Player Bounds Key (Single playback surface transition channel)

@@ -279,7 +279,7 @@ fun MainCoverView(
                  * Uses SharedElementKeys for the default player artwork key while still allowing
                  * route-specific callers, such as Home -> Detail, to pass an explicit override.
                  */
-                rememberSharedContentState(key = sharedElementKey ?: SharedElementKeys.mini2playerCover(bookId)),
+                rememberSharedContentState(key = sharedElementKey ?: SharedElementKeys.mini2playerCover()),
                 animatedVisibilityScope = animatedVisibilityScope
             )
         }
