@@ -4,7 +4,6 @@ import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
 import com.viel.aplayer.application.playback.PlaybackStopper
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookDeletionGateway
-import com.viel.aplayer.data.gateway.LibraryResourceCleanupGateway
 import com.viel.aplayer.data.gateway.RemotePlaybackCleanupGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,8 +18,7 @@ class BookManagementUseCase(
     private val bookAvailabilityGateway: BookAvailabilityGateway,
     private val bookDeletionGateway: BookDeletionGateway,
     private val remotePlaybackCleanupGateway: RemotePlaybackCleanupGateway,
-    private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway,
-    private val libraryResourceCleanupGateway: LibraryResourceCleanupGateway
+    private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
 ) {
     /**
      * Delete Book (Clear book-owned resources before marking the row as deleted)
@@ -30,7 +28,6 @@ class BookManagementUseCase(
     suspend fun deleteBook(bookId: String): Boolean = withContext(Dispatchers.IO) {
         playbackStopper.stopIfPlaying(bookId)
         val fileExists = bookAvailabilityGateway.checkPrimaryAudioFileExistsWithoutStatusRefresh(bookId)
-        libraryResourceCleanupGateway.clearBookCoverCache(bookId)
         manualDownloadCleanupGateway.deleteDownload(bookId)
         bookDeletionGateway.deleteBook(bookId)
         remotePlaybackCleanupGateway.deletePlaybackStateForBook(bookId)

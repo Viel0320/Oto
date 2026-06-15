@@ -2,6 +2,7 @@ package com.viel.aplayer.application.di.graph
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.abs.sync.AbsCoverStore
 import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
 import com.viel.aplayer.application.library.detail.DefaultDetailBookModule
 import com.viel.aplayer.application.library.detail.DetailBookCommands
@@ -23,8 +24,8 @@ import com.viel.aplayer.application.library.search.DefaultSearchLibraryModule
 import com.viel.aplayer.application.library.search.SearchLibraryCommands
 import com.viel.aplayer.application.library.search.SearchLibraryReadModel
 import com.viel.aplayer.application.library.search.SearchQueryPlanner
-import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.application.usecase.BookManagementUseCase
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.application.usecase.LibraryRootManagementUseCase
 import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
@@ -76,7 +77,8 @@ internal class LibraryGraph(
     val data: DataGraph,
     val media: MediaGraph,
     val uiEvents: UiEventGraph,
-    private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
+    private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway,
+    private val absCoverStoreProvider: () -> AbsCoverStore?
 ) : Closeable {
     val coverExtractor: CoverExtractor by lazy {
         // Cover Extractor: Parses image headers to extract embedded cover artwork files.
@@ -130,7 +132,11 @@ internal class LibraryGraph(
             libraryRootDao = data.database.libraryRootDao(),
             coverExtractor = coverExtractor,
             scope = s,
-            fileReader = media.vfsFileInterface
+            fileReader = media.vfsFileInterface,
+            // ABS Integration dependencies (Pass the mirror DAO and remote cover downloader provider for self-healing)
+            // Passes the required dependencies to enable CoverRecoveryHelper to query and download ABS remote covers.
+            absItemMirrorDao = data.database.absItemMirrorDao(),
+            absCoverStoreProvider = absCoverStoreProvider
         )
     }
 
@@ -466,8 +472,7 @@ internal class LibraryGraph(
             remotePlaybackCleanupGateway = remotePlaybackCleanupGateway,
             // Manual Download Cleanup Wiring (Route book deletion through the narrow L1 cache cleanup seam)
             // LibraryGraph receives only ManualDownloadCleanupGateway, so deletion can clear offline tasks without depending on the full download controller surface.
-            manualDownloadCleanupGateway = manualDownloadCleanupGateway,
-            libraryResourceCleanupGateway = libraryResourceCleanupGateway
+            manualDownloadCleanupGateway = manualDownloadCleanupGateway
         )
     }
 

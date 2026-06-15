@@ -3,6 +3,8 @@ package com.viel.aplayer.media.parser
 import android.content.Context
 import android.os.SystemClock
 import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.abs.sync.AbsCoverStore
+import com.viel.aplayer.abs.sync.AbsItemMirrorDao
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -35,7 +37,9 @@ class CoverRecoveryHelper(
     private val libraryRootDao: LibraryRootDao,
     private val coverExtractor: CoverExtractor,
     private val scope: CoroutineScope,
-    private val fileReader: VfsFileInterface
+    private val fileReader: VfsFileInterface,
+    private val absItemMirrorDao: AbsItemMirrorDao,
+    private val absCoverStoreProvider: () -> AbsCoverStore?
 ) {
     // 封面重建会触发 VFS 读流、图片解码和主色提取，因此继续用信号量限制全局并发。
     private val regenerationSemaphore = Semaphore(MAX_CONCURRENT_COVER_REGENERATIONS)
@@ -56,8 +60,6 @@ class CoverRecoveryHelper(
     private val coverPresenceCache = java.util.concurrent.ConcurrentHashMap<String, CoverPresenceSnapshot>()
 
     fun checkAndTriggerCoverRegeneration(book: BookEntity) {
-        // ABS 远端书籍的封面只允许由 ABS cover cache 负责，不能在列表流里反向读取远端音频做内嵌封面自愈。
-        if (shouldSkipAutoRegeneration(book)) return
         val bookId = book.id
         if (alreadyAttempted.containsKey(bookId)) return
         if (pendingRegenerations.contains(bookId)) return
@@ -104,8 +106,33 @@ class CoverRecoveryHelper(
             }
         }
 
+    /**
+     * Regenerates the cover artwork for a specified audiobook.
+     *
+     * This function supports two main flows based on the book's source type:
+     * 1. For [AudiobookSchema.SourceType.ABS_REMOTE], it downloads the cover artwork directly
+     *    from the remote Audiobookshelf server using the lazy [AbsCoverStore].
+     * 2. For local books, it attempts to extract embedded cover artwork from the audio files,
+     *    falling back to sidecar images if it is a multi-file book.
+     */
     private suspend fun regenerateCoverForBook(bookId: String): Boolean {
         val book = bookDao.getBookById(bookId) ?: return false
+        if (book.sourceType == AudiobookSchema.SourceType.ABS_REMOTE) {
+            // Self-heal ABS Remote Cover (Trigger cover download from remote ABS server)
+            // ABS remote books do not have local media files for embedded/sidecar cover extraction, so we fetch their covers from the remote ABS server.
+            val root = libraryRootDao.getRootById(book.rootId) ?: return false
+            val mirror = absItemMirrorDao.getByLocalBookId(bookId) ?: return false
+            val coverStore = absCoverStoreProvider() ?: return false
+            val finalCoverResult = coverStore.downloadCover(root, mirror.remoteItemId)
+            if (!finalCoverResult.hasImage()) return false
+            bookDao.updateCoverPaths(
+                id = bookId,
+                coverPath = finalCoverResult.originalPath,
+                thumbnailPath = finalCoverResult.thumbnailPath,
+                lastScannedAt = System.currentTimeMillis()
+            )
+            return true
+        }
         val files = bookDao.getFilesForBookList(bookId)
         if (files.isEmpty()) return false
 
@@ -310,5 +337,3 @@ class CoverRecoveryHelper(
     }
 }
 
-internal fun shouldSkipAutoRegeneration(book: BookEntity): Boolean =
-    book.sourceType == AudiobookSchema.SourceType.ABS_REMOTE

@@ -333,12 +333,12 @@ class AbsIncrementalStage6Test {
 
         synchronizer.syncRoot(root)
 
-        // ABS Cover TTL Fallback (Refreshes old artwork even when the catalog fingerprint did not expose a change)
-        // The stale mirror is refetched to revalidate detail data, and the stale cover stamp triggers one cover download with a fresh UI cache version.
-        assertEquals(listOf("item-1"), coverStore.downloadedItemIds)
-        assertEquals("/cache/refreshed-cover.jpg", store.books[existingBookId]?.coverPath)
-        assertEquals("/cache/refreshed-thumb.jpg", store.books[existingBookId]?.thumbnailPath)
-        assertTrue((store.books[existingBookId]?.lastScannedAt ?: 0L) >= now)
+        // ABS Cover Decoupled (Since cover synchronization is decoupled, catalog sync should not download covers)
+        // Cover download is moved to the self-healing flow, so catalog sync leaves cover cache untouched.
+        assertTrue(coverStore.downloadedItemIds.isEmpty())
+        assertEquals("/cache/old-cover.jpg", store.books[existingBookId]?.coverPath)
+        assertEquals("/cache/old-thumb.jpg", store.books[existingBookId]?.thumbnailPath)
+        assertEquals(now - OnlineSourceCachePolicy.ABS_COVER_TTL_MS - 1L, store.books[existingBookId]?.lastScannedAt)
     }
 
     @Test

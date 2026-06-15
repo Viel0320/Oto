@@ -5,10 +5,8 @@ import com.viel.aplayer.abs.mapping.AbsCatalogMapper
 import com.viel.aplayer.abs.mapping.AbsRemoteIdMapper
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.dto.AbsLibraryItemDto
-import com.viel.aplayer.data.cache.CoverCacheInvalidationPolicy
 import com.viel.aplayer.data.cache.OnlineSourceCachePolicy
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.logger.AbsSyncLogger
@@ -379,6 +377,15 @@ class AbsCatalogSynchronizer(
         )
     }
 
+    /**
+     * Upserts an Audiobookshelf library item into the local database catalog.
+     *
+     * This method maps remote ABS item metadata (e.g. author, description, files) into local
+     * database entities. Since cover synchronization is now decoupled from the catalog sync flow,
+     * this function only handles metadata mapping. If the remote item version changes, it
+     * invalidates the cover paths and scanned timestamp in the database to allow the self-healing
+     * flow to lazily fetch the new cover.
+     */
     private suspend fun upsertItem(
         root: LibraryRootEntity,
         serverKey: String,
@@ -391,30 +398,15 @@ class AbsCatalogSynchronizer(
         fullListFingerprint: String
     ) {
         val existingBookEntity = catalogStore.getBookById(idMapper.bookId(serverKey, requireNotNull(item.id)))
-        // Remote Version Invalidation (Propagates catalog-level cover changes even when cached file paths are stable)
-        // ABS may update cover bytes behind the same local cache paths, so matching updatedAt against the existing mirror supplies a safe UI-key refresh signal.
         val remoteVersionChanged = item.updatedAt != null &&
             existingMirror?.remoteUpdatedAt != null &&
             item.updatedAt != existingMirror.remoteUpdatedAt
-        val shouldRefreshCover = remoteVersionChanged || shouldRefreshAbsCover(existingBookEntity, now)
-        val cachedCover = if (shouldRefreshCover) {
-            runCatchingCancellable {
-                coverCache?.downloadCover(root, requireNotNull(item.id))
-            }.getOrNull()
-        } else {
-            null
-        }
-        // Cover Expiration Strategy (Aligns syncedAt parameters with true layout changes to secure UI image caches)
-        // Returns fresh syncedAt values only for new books or if paths shift; otherwise returns cached stamps.
-        val resolvedCoverPath = cachedCover?.originalPath ?: existingBookEntity?.coverPath
-        val resolvedThumbnailPath = cachedCover?.thumbnailPath ?: existingBookEntity?.thumbnailPath
-        val resolvedLastScannedAt = CoverCacheInvalidationPolicy.resolveLastScannedAt(
-            existing = existingBookEntity,
-            nextCoverPath = resolvedCoverPath,
-            nextThumbnailPath = resolvedThumbnailPath,
-            syncedAt = now,
-            remoteVersionChanged = remoteVersionChanged || cachedCover != null
-        )
+
+        // Decouple ABS Cover Synchronization (Reset cover info when remote version changes to let self-healing download it)
+        // Since AbsCatalogSynchronizer no longer fetches cover assets during catalog sync, we invalidate the paths in db if the remote version changes so the recovery helper triggers fresh downloads.
+        val resolvedCoverPath = if (remoteVersionChanged) null else existingBookEntity?.coverPath
+        val resolvedThumbnailPath = if (remoteVersionChanged) null else existingBookEntity?.thumbnailPath
+        val resolvedLastScannedAt = if (remoteVersionChanged) 0L else (existingBookEntity?.lastScannedAt ?: 0L)
         // Catalog-Only Book Mapping (Builds metadata without applying remote progress or read-status overrides)
         // Playback state reconciliation is centralized in AbsAuthorizedProgressSynchronizer to keep catalog writes deterministic.
         val book = catalogMapper.toBook(
@@ -603,16 +595,6 @@ class AbsCatalogSynchronizer(
         // Title: Fix infinite recursion StackOverflowError (Delegate the fingerprint hashing to the static companion object implementation)
         AbsCatalogSynchronizer.minifiedFingerprint(items)
 
-    private fun shouldRefreshAbsCover(existingBookEntity: BookEntity?, now: Long): Boolean {
-        // ABS Cover TTL Fallback (Refreshes remote artwork periodically even when catalog paths remain stable)
-        // New books and version-changed items still refresh through normal materialization; this guard prevents old local cover files from being trusted beyond the shared online policy window.
-        if (existingBookEntity?.coverPath == null && existingBookEntity?.thumbnailPath == null) return true
-        return !OnlineSourceCachePolicy.isFresh(
-            cachedAtMillis = existingBookEntity.lastScannedAt,
-            nowMillis = now,
-            ttlMillis = OnlineSourceCachePolicy.ABS_COVER_TTL_MS
-        )
-    }
 
     private data class DetailRetryResult(
         val items: List<AbsLibraryItemDto>,

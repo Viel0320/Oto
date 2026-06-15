@@ -455,16 +455,19 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     internal val data = DataGraph(context)
     internal val media = MediaGraph(context, data)
     internal val download = DownloadGraph(context, data, media)
-    internal val library = LibraryGraph(
+    internal val library: LibraryGraph = LibraryGraph(
         context = context,
         data = data,
         media = media,
         uiEvents = uiEvents,
         // Management Download Cleanup Wiring (Give LibraryGraph only the book-scoped manual cache cleanup seam)
         // BookManagementUseCase and LibraryRootManagementUseCase can remove Media3 records without seeing queue or cache statistics APIs.
-        manualDownloadCleanupGateway = download.manualDownloadCleanupGateway
+        manualDownloadCleanupGateway = download.manualDownloadCleanupGateway,
+        // ABS Cover Store provider lambda (Provide a lazy accessor to AbsCoverCache to bypass circular initialization ordering)
+        // Since AbsGraph is created after LibraryGraph, passing a lambda allows lazy resolution when CoverRecoveryHelper needs to retrieve ABS covers.
+        absCoverStoreProvider = { abs.absCoverCache }
     )
-    internal val abs = AbsGraph(context, data, media, library, uiEvents)
+    internal val abs: AbsGraph = AbsGraph(context, data, media, library, uiEvents)
 
     init {
         // Application Event Bridge Activation (Attach process-level event routing as soon as the container exists)

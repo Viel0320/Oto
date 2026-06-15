@@ -244,8 +244,10 @@ class AbsSourceProviderStage3Test {
 
         val book = store.books.values.firstOrNull()
         assertNotNull(book)
-        assertEquals("cover.jpg", book?.coverPath)
-        assertEquals("thumb.jpg", book?.thumbnailPath)
+        // ABS Cover Decoupled (Since cover synchronization is decoupled, catalog sync does not write cover paths)
+        // Cover download is moved to the self-healing flow, so new books are synced with null cover paths.
+        org.junit.Assert.assertNull(book?.coverPath)
+        org.junit.Assert.assertNull(book?.thumbnailPath)
     }
 
     private fun createCredentialStore(baseUrl: String, token: String): AbsCredentialStore {
