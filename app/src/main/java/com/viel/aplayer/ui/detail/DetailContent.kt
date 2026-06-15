@@ -233,16 +233,21 @@ fun DetailContent(
                             // Detail Action Dialog Entry (Open shared audiobook actions from the selected Detail projection)
                             // The top-right control renders only when a DetailBookItem exists, preventing empty overlays from exposing commands without a target book.
                             if (book != null) {
-                                DetailTopBarDownloadAction(
-                                    cacheStatus = uiState.bookCacheStatus,
-                                    onClick = {
-                                        if (uiState.bookCacheStatus.state == BookCacheState.NONE) {
-                                            onDownloadBook(book.id)
-                                        } else {
-                                            showDownloadDialog = true
+                                // Local Cache Entry Guard (Hide manual-download buttons for pre-cached/local books)
+                                // If the read model projects BookCacheState.LOCAL (SAF roots), the book is already local,
+                                // so the offline cache controls are bypassed to prevent user confusion.
+                                if (uiState.bookCacheStatus.state != BookCacheState.LOCAL) {
+                                    DetailTopBarDownloadAction(
+                                        cacheStatus = uiState.bookCacheStatus,
+                                        onClick = {
+                                            if (uiState.bookCacheStatus.state == BookCacheState.NONE) {
+                                                onDownloadBook(book.id)
+                                            } else {
+                                                showDownloadDialog = true
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                                 IconButton(onClick = { showActionDialog = true }) {
                                     Icon(
                                         Icons.Rounded.MoreVert,
@@ -481,6 +486,9 @@ fun DetailContent(
                             Text(stringResource(R.string.detail_download_start_action))
                         }
                     }
+                    // Local Cache Dialog Guard (Expose no action buttons for local books as a compile-safe fallback)
+                    // SAF-based books are natively local, so this dialog should never be triggerable in the UI.
+                    BookCacheState.LOCAL -> Unit
                 }
             }
         )
@@ -558,6 +566,8 @@ private const val DETAIL_ACTION_DIALOG_COVER_SCENE = "detail-action-dialog-cover
 private fun com.viel.aplayer.application.download.BookCacheStatus.dialogTitleRes(): Int =
     when (state) {
         BookCacheState.NONE -> R.string.detail_download_dialog_title_none
+        // Local Cache Status Fallback (Map local state to completed title res for safety)
+        BookCacheState.LOCAL -> R.string.detail_download_dialog_title_completed
         BookCacheState.QUEUED -> R.string.detail_download_dialog_title_queued
         BookCacheState.DOWNLOADING -> R.string.detail_download_dialog_title_downloading
         BookCacheState.PAUSED -> R.string.detail_download_dialog_title_paused

@@ -186,7 +186,10 @@ internal class DownloadGraph(
     val downloadStatusReadModel: DownloadStatusReadModel by lazy {
         // Download Status Read Model (Expose Room-derived cache status to presentation)
         // Detail and management UI observe this projection instead of touching the download metadata DAO directly.
-        RoomDownloadStatusReadModel(data.database.downloadMetadataDao())
+        RoomDownloadStatusReadModel(
+            downloadMetadataDao = data.database.downloadMetadataDao(),
+            bookDao = data.database.bookDao()
+        )
     }
 
     val downloadManagementReadModel: DownloadManagementReadModel by lazy {

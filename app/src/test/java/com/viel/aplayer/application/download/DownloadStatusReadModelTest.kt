@@ -1,6 +1,8 @@
 package com.viel.aplayer.application.download
 
+import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.DownloadMetadataDao
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.DownloadMetadataEntity
 import com.viel.aplayer.data.entity.DownloadStatus
 import kotlinx.coroutines.flow.Flow
@@ -9,11 +11,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.lang.reflect.Proxy
 
 class DownloadStatusReadModelTest {
     @Test
     fun `missing metadata should emit none cache status`() = runBlocking {
-        val readModel = RoomDownloadStatusReadModel(InMemoryDownloadMetadataDao())
+        val readModel = RoomDownloadStatusReadModel(
+            InMemoryDownloadMetadataDao(),
+            fakeBookDao()
+        )
 
         val status = readModel.observeBookCacheStatus(BOOK_ID).first()
 
@@ -37,7 +43,8 @@ class DownloadStatusReadModelTest {
                     createdAt = 1L,
                     updatedAt = 2L
                 )
-            )
+            ),
+            fakeBookDao()
         )
 
         val status = readModel.observeBookCacheStatus(BOOK_ID).first()
@@ -49,6 +56,32 @@ class DownloadStatusReadModelTest {
         assertEquals(2, status.completedFiles)
         assertEquals(25, status.progressPercent)
     }
+
+    @Test
+    fun `saf source should emit local cache status`() = runBlocking {
+        val readModel = RoomDownloadStatusReadModel(
+            InMemoryDownloadMetadataDao(),
+            fakeBookDao(AudiobookSchema.LibrarySourceType.SAF)
+        )
+
+        val status = readModel.observeBookCacheStatus(BOOK_ID).first()
+
+        // SAF Cache Status Projection (SAF source roots correspond to native offline cache state)
+        // Direct local sources must bypass manual downloads and expose the LOCAL state.
+        assertEquals(BookCacheState.LOCAL, status.state)
+        assertEquals(0, status.progressPercent)
+    }
+
+    private fun fakeBookDao(sourceType: AudiobookSchema.LibrarySourceType? = null): BookDao =
+        Proxy.newProxyInstance(
+            BookDao::class.java.classLoader,
+            arrayOf(BookDao::class.java)
+        ) { _, method, _ ->
+            when (method.name) {
+                "observeBookLibrarySourceType" -> flowOf(sourceType)
+                else -> throw UnsupportedOperationException("Unexpected method: ${method.name}")
+            }
+        } as BookDao
 
     private class InMemoryDownloadMetadataDao(
         private val metadata: DownloadMetadataEntity? = null

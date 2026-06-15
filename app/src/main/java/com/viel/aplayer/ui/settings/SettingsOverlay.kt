@@ -3,7 +3,6 @@ package com.viel.aplayer.ui.settings
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -18,6 +17,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,12 +25,18 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -38,7 +44,6 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
-import com.viel.aplayer.ui.settings.cache.CacheSettingsScreen
 import com.viel.aplayer.ui.settings.downloads.DownloadManagementScreen
 import com.viel.aplayer.ui.settings.recovery.DeletedBookRecoveryRoute
 import dev.chrisbanes.haze.HazeState
@@ -73,14 +78,9 @@ fun SettingsOverlay(
     // AnimatedContent can keep Settings and About composed briefly at the same time, so About uses its own source to avoid competing registrations on one HazeState.
     val aboutHazeState = remember { HazeState() }
     // Recovery Haze Source (Separate deleted-book recovery sampling from other settings sub-pages)
-    // Local sub-pages can overlap during AnimatedContent transitions, so the recovery list owns its own top-bar sampler.
     val deletedRecoveryHazeState = remember { HazeState() }
     // Download Management Haze Source (Separate manual-cache task sampling from other settings sub-pages)
-    // Each local page can overlap briefly during transitions, so every page owns its own backdrop sampler.
     val downloadManagementHazeState = remember { HazeState() }
-    // Cache Settings Haze Source (Separate cache-policy page sampling from the management list)
-    // This avoids competing hazeSource registrations when users switch between settings sub-pages.
-    val cacheSettingsHazeState = remember { HazeState() }
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     // Settings Dialog Overlay Controller (Own settings modal state above the sampled page content)
     // Keeping this in SettingsOverlay lets dialogs render as siblings of SettingsScreen instead of being held by the page that registers hazeSource.
@@ -165,6 +165,18 @@ fun SettingsOverlay(
         // Settings Sub-Page Navigation (Track local overlay destinations without expanding the app navigation di)
         // Settings, About, and Deleted Book Recovery remain inside one overlay lifecycle while each page keeps its own UI state.
         var activeSettingsPage by remember { mutableStateOf(SettingsOverlayPage.Main) }
+        
+        // Predictive back gesture state definitions (Track gesture execution and progress values)
+        var isPredictiveBackActive by remember { mutableStateOf(false) }
+        var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
+        val density = LocalDensity.current
+        val view = LocalView.current
+        val systemCornerRadius = remember(view) {
+            val insets = view.rootWindowInsets
+            insets?.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_LEFT)?.radius ?: 0
+        }
+        val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
+
         LaunchedEffect(openDownloadManagementRequest, isVisible) {
             if (openDownloadManagementRequest && isVisible) {
                 // Download Notification Page Routing (Open the task list after the settings overlay becomes visible)
@@ -174,21 +186,51 @@ fun SettingsOverlay(
             }
         }
 
-        // Handle physical back gestures (To prevent closing MainActivity accidentally)
-        // Intercepts Android back operations when SettingsOverlay is active.
-        // If a settings sub-page is shown, resets back to settings list; otherwise, hides the overlay.
-        BackHandler(enabled = isVisible) {
-            if (activeSettingsPage != SettingsOverlayPage.Main) {
+        // Sub-page level back handler (Intercepts system back to slide back to main settings page)
+        androidx.activity.compose.PredictiveBackHandler(
+            enabled = isVisible && activeSettingsPage != SettingsOverlayPage.Main
+        ) { progressFlow ->
+            try {
+                progressFlow.collect { }
                 activeSettingsPage = SettingsOverlayPage.Main
-            } else {
-                settingsViewModel.setVisible(false)
+            } catch (_: kotlin.coroutines.cancellation.CancellationException) {
+                // Swipe gesture aborted
             }
         }
+
+        // Overlay level back handler (Minimizes settings overlay with downward slide and fade animations)
+        androidx.activity.compose.PredictiveBackHandler(
+            enabled = isVisible && activeSettingsPage == SettingsOverlayPage.Main
+        ) { progressFlow ->
+            try {
+                progressFlow.collect { backEvent ->
+                    isPredictiveBackActive = true
+                    predictiveBackProgress = backEvent.progress
+                }
+                settingsViewModel.setVisible(false)
+            } catch (_: kotlin.coroutines.cancellation.CancellationException) {
+                // Swipe gesture aborted
+            } finally {
+                isPredictiveBackActive = false
+                predictiveBackProgress = 0f
+            }
+        }
+
+        val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
         Surface(
             // Settings Overlay Surface Boundary (Leave Haze source ownership to screen content)
             // SettingsScreen now registers its content Scaffold as the blur source so the overlay top bar samples settings content without capturing its own chrome.
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    // Gesture drag translates downwards with fade out, matching the Detail / Player screen back animations
+                    if (isPredictiveBackActive) {
+                        translationY = predictiveBackProgress * maxPredictiveTranslationY
+                        alpha = 1f - predictiveBackProgress * 0.3f
+                    }
+                }
+                .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp)),
             color = MaterialTheme.colorScheme.background
         ) {
             // Apply Horizontal Sub-Page Transitions (Switch settings sub-screens fluidly)
@@ -232,6 +274,8 @@ fun SettingsOverlay(
                             onResumeDownload = settingsViewModel::resumeDownload,
                             onRetryDownload = requestSettingsDownload,
                             onDeleteDownload = settingsViewModel::deleteDownload,
+                            // Title: Delete All Downloads Link (Connect the screen delete-all callback to the ViewModel action)
+                            onDeleteAllDownloads = settingsViewModel::deleteAllDownloads,
                             glassEffectMode = glassEffectMode,
                             downloadHazeState = if (isBlur) downloadManagementHazeState else null
                         )
@@ -268,30 +312,7 @@ fun SettingsOverlay(
                             )
                         }
                     }
-                    SettingsOverlayPage.CacheSettings -> {
-                        // Cache Settings State Collection (Bind persisted settings and cache statistics to the policy page)
-                        // Cache mutations still flow through SettingsPreferencesHandler instead of direct DataStore or Cache access.
-                        val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
-                        val cacheStatistics by settingsViewModel.cacheStatistics.collectAsStateWithLifecycle()
-                        LaunchedEffect(Unit) {
-                            settingsViewModel.refreshCacheStatistics()
-                        }
-                        CacheSettingsScreen(
-                            settings = settingsState,
-                            cacheStatistics = cacheStatistics,
-                            onBack = { activeSettingsPage = SettingsOverlayPage.Main },
-                            onRefreshStatistics = settingsViewModel::refreshCacheStatistics,
-                            onClearManualDownloads = settingsViewModel::clearManualDownloadCache,
-                            onPlaybackBufferMaxBytesChange = {
-                                settingsViewModel.preferencesHandler.updatePlaybackBufferMaxBytes(it)
-                            },
-                            onDownloadWifiOnlyChange = {
-                                settingsViewModel.preferencesHandler.toggleDownloadWifiOnly(it)
-                            },
-                            glassEffectMode = glassEffectMode,
-                            cacheHazeState = if (isBlur) cacheSettingsHazeState else null
-                        )
-                    }
+
                     SettingsOverlayPage.Main -> {
                     // Collect settings business data (To populate settings menu and capture actions)
                     // Listens to settings state parameters reactively from SettingsViewModel.
@@ -300,7 +321,6 @@ fun SettingsOverlay(
                     val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
                     val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
                     val downloadTasks by settingsViewModel.downloadTasks.collectAsStateWithLifecycle()
-                    val cacheStatistics by settingsViewModel.cacheStatistics.collectAsStateWithLifecycle()
                     // Effective App Language (Reflect platform per-app language choices when Android owns the locale)
                     // The settings row should show a system-selected app locale even if DataStore still contains the default System value.
                     val effectiveAppLanguage = AppLocaleController.resolveEffectiveLanguage(context, settingsState.appLanguage)
@@ -331,15 +351,14 @@ fun SettingsOverlay(
                                 onDeletedBookRecoveryClick = {
                                     activeSettingsPage = SettingsOverlayPage.DeletedBookRecovery
                                 },
-                                // Download Cache Navigation (Open local settings sub-pages without expanding app navigation)
-                                // Download management and cache policy share the settings overlay lifecycle and reuse SettingsViewModel flows.
+                                // Download & Cache Configuration Settings (Binds task list navigation, wifi policy switch, and buffer capacity)
                                 downloadTaskCount = downloadTasks.size,
-                                cacheStatistics = cacheStatistics,
+                                isDownloadWifiOnly = settingsState.isDownloadWifiOnly,
+                                onDownloadWifiOnlyChange = { settingsViewModel.preferencesHandler.toggleDownloadWifiOnly(it) },
+                                playbackBufferMaxBytes = settingsState.playbackBufferMaxBytes,
+                                onPlaybackBufferMaxBytesChange = { settingsViewModel.preferencesHandler.updatePlaybackBufferMaxBytes(it) },
                                 onDownloadManagementClick = {
                                     activeSettingsPage = SettingsOverlayPage.DownloadManagement
-                                },
-                                onCacheSettingsClick = {
-                                    activeSettingsPage = SettingsOverlayPage.CacheSettings
                                 },
                                 // Title: Delegate Settings Screen Updates (Route preference toggles and connection tests to handler parameters)
                                 isChapterProgressMode = settingsState.isChapterProgressMode,
@@ -438,9 +457,9 @@ fun SettingsOverlay(
  * Avoids adding app-wide routes for settings-only panels while keeping back behavior explicit and testable.
  */
 private enum class SettingsOverlayPage {
+    // Main settings page
     Main,
     AboutLibraries,
     DeletedBookRecovery,
-    DownloadManagement,
-    CacheSettings
+    DownloadManagement
 }

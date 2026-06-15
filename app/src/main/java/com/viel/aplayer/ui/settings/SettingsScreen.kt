@@ -51,7 +51,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.application.download.CacheStatistics
 import com.viel.aplayer.application.library.settings.SettingsCredential
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.store.AppLanguage
@@ -113,12 +112,13 @@ fun SettingsScreen(
     onRootClick: (SettingsRootItem) -> Unit = {},
     onAddLibraryClick: () -> Unit = {},
     onDeletedBookRecoveryClick: () -> Unit = {},
-    // Download Cache Navigation State (Expose settings-hosted cache pages through local overlay navigation)
-    // The screen receives only aggregate counts and statistics, preserving ViewModel ownership of flows and commands.
+    // Download Cache parameters (Wire Wi-Fi only and buffer settings directly to the main settings page)
     downloadTaskCount: Int = 0,
-    cacheStatistics: CacheStatistics = CacheStatistics(0L, 0),
+    isDownloadWifiOnly: Boolean,
+    onDownloadWifiOnlyChange: (Boolean) -> Unit,
+    playbackBufferMaxBytes: Long,
+    onPlaybackBufferMaxBytesChange: (Long) -> Unit,
     onDownloadManagementClick: () -> Unit = {},
-    onCacheSettingsClick: () -> Unit = {},
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
     autoRewindSeconds: Int,
     onAutoRewindSecondsChange: (Int) -> Unit,
@@ -204,13 +204,14 @@ fun SettingsScreen(
                         )
                     }
                     item {
+                        // Download & Cache Configuration (Directly displays Wi-Fi only toggle and buffer capacity selector)
                         DownloadCacheSection(
                             downloadTaskCount = downloadTaskCount,
-                            cacheStatistics = cacheStatistics,
-                            // Download Cache Sub-Page Routing (Forward row taps to SettingsOverlay local navigation)
-                            // SettingsScreen does not own the sub-page enum, so it remains previewable and stateless.
-                            onDownloadManagementClick = onDownloadManagementClick,
-                            onCacheSettingsClick = onCacheSettingsClick
+                            isDownloadWifiOnly = isDownloadWifiOnly,
+                            onDownloadWifiOnlyChange = onDownloadWifiOnlyChange,
+                            playbackBufferMaxBytes = playbackBufferMaxBytes,
+                            onPlaybackBufferMaxBytesChange = onPlaybackBufferMaxBytesChange,
+                            onDownloadManagementClick = onDownloadManagementClick
                         )
                     }
                     item {
@@ -730,6 +731,11 @@ fun SettingsScreenPreview() {
                 appLanguage = AppLanguage.System,
                 onLanguageClick = {},
                 onDeletedBookRecoveryClick = {},
+                // Preview mock settings (Supply default buffer size and Wi-Fi only values for preview rendering)
+                isDownloadWifiOnly = false,
+                onDownloadWifiOnlyChange = {},
+                playbackBufferMaxBytes = 64L * 1024L * 1024L,
+                onPlaybackBufferMaxBytesChange = {},
                 themeMode = ThemeMode.System,
                 onThemeModeChange = {},
                 isDynamicColorEnabled = true,

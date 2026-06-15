@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.Pause
@@ -74,6 +73,8 @@ fun DownloadManagementScreen(
     onResumeDownload: (String) -> Unit,
     onRetryDownload: (String) -> Unit,
     onDeleteDownload: (String) -> Unit,
+    // Callback to delete all manual download tasks
+    onDeleteAllDownloads: () -> Unit,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     downloadHazeState: HazeState? = null
@@ -85,6 +86,8 @@ fun DownloadManagementScreen(
     val density = LocalDensity.current
     var topBarHeightPx by remember { mutableIntStateOf(0) }
     var deleteCandidate by remember { mutableStateOf<ManualDownloadTaskItem?>(null) }
+    // State to toggle the delete all confirmation dialog
+    var showDeleteAllConfirm by remember { mutableStateOf(false) }
     val resolvedHazeState = downloadHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
     // Download Management Top Bar Offset (Reserve list space for the overlay chrome)
     // The measured value matches Settings and Recovery sub-pages, while the fallback protects first composition.
@@ -145,6 +148,17 @@ fun DownloadManagementScreen(
                             contentDescription = stringResource(R.string.back_content_description)
                         )
                     }
+                },
+                // Add Delete All button in topbar actions (only active when there are download tasks)
+                actions = {
+                    if (tasks.isNotEmpty()) {
+                        IconButton(onClick = { showDeleteAllConfirm = true }) {
+                            Icon(
+                                Icons.Rounded.Delete,
+                                contentDescription = stringResource(R.string.download_management_delete_all_action)
+                            )
+                        }
+                    }
                 }
             )
         }
@@ -172,6 +186,35 @@ fun DownloadManagementScreen(
             },
             dismissButton = {
                 TextButton(onClick = { deleteCandidate = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
+
+    // Secondary confirmation dialog for deleting all tasks
+    if (showDeleteAllConfirm) {
+        SettingsTemplateDialog(
+            onDismissRequest = { showDeleteAllConfirm = false },
+            hazeState = resolvedHazeState,
+            glassEffectMode = glassEffectMode,
+            title = { Text(stringResource(R.string.download_management_delete_all_confirm_title)) },
+            text = { Text(stringResource(R.string.download_management_delete_all_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteAllConfirm = false
+                        onDeleteAllDownloads()
+                    }
+                ) {
+                    Text(
+                        text = stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAllConfirm = false }) {
                     Text(stringResource(R.string.action_cancel))
                 }
             }
@@ -321,6 +364,9 @@ private fun DownloadTaskActions(
             }
         }
         BookCacheState.NONE,
+        // Local Cache Action Guard (Do not offer queue actions for natively offline books)
+        // SAF-based books cannot be queued or downloaded, so actions remain a no-op stub for compilation safety.
+        BookCacheState.LOCAL,
         BookCacheState.COMPLETED -> Unit
     }
     IconButton(onClick = { onDeleteRequest(task) }) {
@@ -366,6 +412,8 @@ private fun ManualDownloadTaskItem.subtitleText(status: BookCacheStatus): String
 private fun BookCacheStatus.labelRes(): Int =
     when (state) {
         BookCacheState.NONE -> R.string.download_management_status_none
+        // Local Cache Status Res (Provide completed label for local books as a compile-safe fallback)
+        BookCacheState.LOCAL -> R.string.download_management_status_completed
         BookCacheState.QUEUED -> R.string.download_management_status_queued
         BookCacheState.DOWNLOADING -> R.string.download_management_status_downloading
         BookCacheState.PAUSED -> R.string.download_management_status_paused
@@ -382,7 +430,9 @@ private fun BookCacheStatus.statusIcon() =
         BookCacheState.FAILED -> Icons.Rounded.Error
         BookCacheState.NONE,
         BookCacheState.QUEUED,
-        BookCacheState.DOWNLOADING -> Icons.Rounded.CloudDownload
+        BookCacheState.DOWNLOADING,
+        // Local Cache Icon (Use completed check icon for local books as a compile-safe fallback)
+        BookCacheState.LOCAL -> Icons.Rounded.CheckCircle
     }
 
 // Download Status Content Description (Expose row icon meaning to accessibility services)
@@ -395,6 +445,8 @@ private fun BookCacheStatus.statusContentDescriptionRes(): Int = labelRes()
 private fun BookCacheStatus.statusTint(): Color =
     when (state) {
         BookCacheState.FAILED -> MaterialTheme.colorScheme.error
-        BookCacheState.COMPLETED -> MaterialTheme.colorScheme.primary
+        BookCacheState.COMPLETED,
+        // Local Cache Tint (Use primary tint for local check markers as a compile-safe fallback)
+        BookCacheState.LOCAL -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }

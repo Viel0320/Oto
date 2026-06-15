@@ -160,6 +160,19 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE id = :id")
     fun observeBookById(id: String): Flow<BookEntity?>
 
+    /**
+     * Observe Library Source Type (Stream the protocol/provider type of a book's root library)
+     * Detail presentation layers use this type-safe enum to check if the book is hosted on a local SAF provider,
+     * allowing the UI to bypass manual cache actions for natively offline files.
+     */
+    @Query("""
+        SELECT library_roots.sourceType 
+        FROM books 
+        INNER JOIN library_roots ON library_roots.id = books.rootId 
+        WHERE books.id = :bookId
+    """)
+    fun observeBookLibrarySourceType(bookId: String): Flow<AudiobookSchema.LibrarySourceType?>
+
     // Update Book Status Signature: Update status parameter type to BookStatus enum for compile-time safety.
     @Query("UPDATE books SET status = :status WHERE id = :id")
     suspend fun updateBookStatus(id: String, status: AudiobookSchema.BookStatus)

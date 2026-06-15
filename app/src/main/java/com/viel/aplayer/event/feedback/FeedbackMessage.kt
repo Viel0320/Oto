@@ -241,9 +241,6 @@ object FeedbackMessages {
     fun downloadCacheDeleted(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_download_cache_deleted)
 
-    fun manualDownloadCacheCleared(): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_manual_download_cache_cleared)
-
     fun downloadNotificationPermissionDenied(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_download_notification_permission_denied)
 

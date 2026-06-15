@@ -557,7 +557,6 @@
     <string name="feedback_download_cache_paused">Загрузка приостановлена</string>
     <string name="feedback_download_cache_resumed">Загрузка возобновлена</string>
     <string name="feedback_download_cache_deleted">Автономный кэш удален</string>
-    <string name="feedback_manual_download_cache_cleared">Кэш ручных загрузок очищен</string>
     <string name="feedback_download_notification_permission_denied">Для автономной загрузки требуется разрешение на уведомления</string>
     <string name="feedback_download_cache_command_failed">Ошибка действия загрузки: %1$s</string>
     <!-- Download Management Settings Resources (Define settings-hosted manual cache and playback buffer UI copy)
@@ -565,8 +564,6 @@
     <string name="settings_download_cache_title">Загрузки и кэш</string>
     <string name="settings_download_management_title">Управление загрузками</string>
     <string name="settings_download_management_subtitle">Задач ручного кэширования: %1$d</string>
-    <string name="settings_cache_settings_title">Настройки кэша</string>
-    <string name="settings_cache_settings_subtitle">Ручной кэш: %1$s · настройки буфера воспроизведения</string>
     <string name="download_management_empty">Ручных загрузок пока нет</string>
     <string name="download_management_delete_confirm_title">Удалить автономный кэш</string>
     <string name="download_management_delete_confirm_body">Удалить автономный кэш для \"%1$s\"?</string>
@@ -580,28 +577,12 @@
     <string name="download_management_status_paused">Приостановлено</string>
     <string name="download_management_status_completed">Кэшировано</string>
     <string name="download_management_status_failed">Ошибка</string>
-    <string name="settings_cache_refresh_action">Обновить статистику кэша</string>
-    <string name="settings_cache_statistics_section_title">Использование кэша</string>
     <!-- Cache Maintenance UI Copy (Keeps non-primary locales aligned with manual-cache and playback-buffer controls while translations are pending) -->
-    <string name="settings_cache_manual_section_title">Кэш ручных загрузок</string>
-    <string name="settings_cache_manual_size_title">Кэш ручных загрузок</string>
-    <string name="settings_cache_manual_files_title">Файлы в ручном кэше</string>
-    <string name="settings_cache_clear_manual_title">Очистить все ручные загрузки</string>
-    <string name="settings_cache_clear_manual_subtitle">Удаляет все задачи автономного кэширования, созданные пользователем</string>
-    <string name="settings_cache_playback_size_title">Буфер воспроизведения</string>
-    <string name="settings_cache_playback_usage_value">%1$s</string>
-    <string name="settings_cache_completed_books_title">Полностью автономные книги</string>
-    <string name="settings_cache_total_section_title">Итого</string>
-    <string name="settings_cache_total_files_title">Всего файлов в кэше</string>
-    <string name="settings_cache_total_size_title">Общий размер кэша</string>
-    <string name="settings_cache_clear_action">Очистить</string>
-    <string name="settings_cache_clear_manual_confirm_title">Очистить все ручные загрузки</string>
-    <string name="settings_cache_clear_manual_confirm_body">Это удалит все ручные автономные кэши и связанные с ними записи о загрузках.</string>
-    <string name="settings_cache_clear_manual_confirm_action">Очистить ручные загрузки</string>
-    <string name="settings_cache_download_policy_section_title">Политика загрузки</string>
     <string name="settings_download_wifi_only_title">Загрузка только по Wi-Fi</string>
     <string name="settings_download_wifi_only_subtitle">Ручные загрузки ожидают подключения к сети без тарификации трафика</string>
-    <string name="settings_cache_playback_section_title">Буфер воспроизведения</string>
     <string name="settings_cache_playback_capacity_title">Размер буфера</string>
     <string name="settings_cache_playback_capacity_subtitle">Применяется при следующем перезапуске проигрывателя</string>
+    <string name="download_management_delete_all_action">Удалить все</string>
+    <string name="download_management_delete_all_confirm_title">Удалить все загрузки</string>
+    <string name="download_management_delete_all_confirm_body">Вы уверены, что хотите удалить все загрузки из автономного кэша?</string>
 </resources>

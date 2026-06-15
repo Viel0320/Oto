@@ -538,7 +538,6 @@
     <string name="feedback_download_cache_paused">下载已暂停</string>
     <string name="feedback_download_cache_resumed">下载已继续</string>
     <string name="feedback_download_cache_deleted">离线缓存已删除</string>
-    <string name="feedback_manual_download_cache_cleared">手动下载缓存已清空</string>
     <string name="feedback_download_notification_permission_denied">离线下载需要通知权限</string>
     <string name="feedback_download_cache_command_failed">下载操作失败：%1$s</string>
     <!-- Download Management Settings Resources (Define settings-hosted manual cache and playback buffer UI copy)
@@ -546,8 +545,6 @@
     <string name="settings_download_cache_title">下载与缓存</string>
     <string name="settings_download_management_title">下载管理</string>
     <string name="settings_download_management_subtitle">%1$d 个手动缓存任务</string>
-    <string name="settings_cache_settings_title">缓存设置</string>
-    <string name="settings_cache_settings_subtitle">手动缓存 %1$s · 播放缓冲设置</string>
     <string name="download_management_empty">暂无手动下载</string>
     <string name="download_management_delete_confirm_title">删除离线缓存</string>
     <string name="download_management_delete_confirm_body">删除《%1$s》的离线缓存吗？</string>
@@ -561,28 +558,12 @@
     <string name="download_management_status_paused">已暂停</string>
     <string name="download_management_status_completed">已缓存</string>
     <string name="download_management_status_failed">失败</string>
-    <string name="settings_cache_refresh_action">刷新缓存统计</string>
-    <string name="settings_cache_statistics_section_title">缓存占用</string>
-    <string name="settings_cache_manual_section_title">手动下载缓存</string>
-    <string name="settings_cache_manual_size_title">手动下载缓存</string>
-    <string name="settings_cache_manual_files_title">手动缓存文件</string>
-    <string name="settings_cache_clear_manual_title">清空所有手动下载</string>
-    <string name="settings_cache_clear_manual_subtitle">删除全部用户主动创建的离线缓存任务</string>
-    <string name="settings_cache_playback_size_title">播放缓冲</string>
-    <string name="settings_cache_playback_usage_value">%1$s</string>
-    <string name="settings_cache_completed_books_title">已完成离线书籍</string>
-    <string name="settings_cache_total_section_title">总计</string>
-    <string name="settings_cache_total_files_title">缓存文件总数</string>
-    <string name="settings_cache_total_size_title">缓存总占用</string>
-    <string name="settings_cache_clear_action">清空</string>
-    <string name="settings_cache_clear_manual_confirm_title">清空所有手动下载</string>
-    <string name="settings_cache_clear_manual_confirm_body">这会删除全部手动离线缓存，并移除相关下载记录。</string>
-    <string name="settings_cache_clear_manual_confirm_action">清空手动下载</string>
-    <string name="settings_cache_download_policy_section_title">下载策略</string>
     <string name="settings_download_wifi_only_title">仅 Wi-Fi 下载</string>
     <string name="settings_download_wifi_only_subtitle">手动下载会等待非计费网络</string>
-    <string name="settings_cache_playback_section_title">播放缓冲</string>
     <string name="settings_cache_playback_capacity_title">缓冲大小</string>
     <string name="settings_cache_playback_capacity_subtitle">下次重建播放器时生效</string>
+    <string name="download_management_delete_all_action">删除全部</string>
+    <string name="download_management_delete_all_confirm_title">删除全部下载</string>
+    <string name="download_management_delete_all_confirm_body">确定要删除所有离线缓存下载吗？</string>
 </resources>
 

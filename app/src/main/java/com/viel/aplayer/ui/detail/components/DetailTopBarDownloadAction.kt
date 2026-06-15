@@ -29,7 +29,9 @@ fun DetailTopBarDownloadAction(
         BookCacheState.FAILED -> Icons.Rounded.Error
         BookCacheState.NONE,
         BookCacheState.QUEUED,
-        BookCacheState.DOWNLOADING -> Icons.Rounded.CloudDownload
+        BookCacheState.DOWNLOADING,
+        // Local Cache Fallback Icon (Provide standard download icon for local books as a compile-safe fallback)
+        BookCacheState.LOCAL -> Icons.Rounded.CloudDownload
     }
     val description = when (cacheStatus.state) {
         BookCacheState.NONE -> R.string.detail_download_action_none
@@ -38,6 +40,8 @@ fun DetailTopBarDownloadAction(
         BookCacheState.PAUSED -> R.string.detail_download_action_paused
         BookCacheState.COMPLETED -> R.string.detail_download_action_completed
         BookCacheState.FAILED -> R.string.detail_download_action_failed
+        // Local Cache Fallback Description (Provide none string resource for local books as a compile-safe fallback)
+        BookCacheState.LOCAL -> R.string.detail_download_action_none
     }
     val tint = when (cacheStatus.state) {
         BookCacheState.FAILED -> MaterialTheme.colorScheme.error

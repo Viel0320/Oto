@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +18,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -26,11 +29,13 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
+import com.viel.aplayer.ui.common.formatFileSize
 
 /**
  * Settings Segmented Items (Own multi-choice Settings controls)
  * Segmented controls are split from simple rows because they carry option ordering, selected-state rendering, and explanatory copy together.
  */
+
 
 /**
  * Settings Segmented Sleep Mode Item (Renders sleep countdown strategy choices)
@@ -217,3 +222,85 @@ fun SettingsSegmentedSeekStepItem(
         }
     }
 }
+
+/**
+ * Playback Buffer Size Option projection model.
+ * Associates concrete byte allocations to localized readable file size descriptions.
+ */
+private data class PlaybackBufferSizeOption(
+    val bytes: Long,
+    val label: String
+)
+
+/**
+ * Generates options for playback buffer allocations.
+ * Defines four predefined memory boundaries: 32MB, 64MB, 128MB, and 256MB.
+ */
+private fun playbackBufferSizeOptions(): List<PlaybackBufferSizeOption> =
+    listOf(
+        64L * 1024L * 1024L,
+        128L * 1024L * 1024L,
+        256L * 1024L * 1024L
+    ).map { bytes ->
+        PlaybackBufferSizeOption(
+            bytes = bytes,
+            label = formatFileSize(bytes)
+        )
+    }
+
+/**
+ * SettingsSegmentedPlaybackBufferItem Composable.
+ * Renders a segmented selection bar inside the main settings layout to configure the player's max buffer capacity in memory.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsSegmentedPlaybackBufferItem(
+    selectedBytes: Long,
+    onSelected: (Long) -> Unit
+) {
+    val options = remember { playbackBufferSizeOptions() }
+    val resolvedSelectedBytes = options.firstOrNull { option -> option.bytes == selectedBytes }?.bytes
+        ?: com.viel.aplayer.data.store.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Storage,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.settings_cache_playback_capacity_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = stringResource(R.string.settings_cache_playback_capacity_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                options.forEachIndexed { index, option ->
+                    SegmentedButton(
+                        selected = resolvedSelectedBytes == option.bytes,
+                        onClick = { onSelected(option.bytes) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
+                    ) {
+                        Text(
+                            text = option.label,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

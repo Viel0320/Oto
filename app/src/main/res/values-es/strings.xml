@@ -535,7 +535,6 @@
     <string name="feedback_download_cache_paused">Descarga pausada</string>
     <string name="feedback_download_cache_resumed">Descarga reanudada</string>
     <string name="feedback_download_cache_deleted">Caché sin conexión eliminada</string>
-    <string name="feedback_manual_download_cache_cleared">Caché de descarga manual eliminada</string>
     <string name="feedback_download_notification_permission_denied">Se requiere permiso de notificación para descargas sin conexión</string>
     <string name="feedback_download_cache_command_failed">Error en la acción de descarga: %1$s</string>
     <!-- Download Management Settings Resources (Define settings-hosted manual cache and playback buffer UI copy)
@@ -543,8 +542,6 @@
     <string name="settings_download_cache_title">Descargas y caché</string>
     <string name="settings_download_management_title">Gestión de descargas</string>
     <string name="settings_download_management_subtitle">%1$d tareas de caché manual</string>
-    <string name="settings_cache_settings_title">Ajustes de caché</string>
-    <string name="settings_cache_settings_subtitle">Caché manual %1$s · ajustes del búfer de reproducción</string>
     <string name="download_management_empty">Aún no hay descargas manuales</string>
     <string name="download_management_delete_confirm_title">Eliminar caché sin conexión</string>
     <string name="download_management_delete_confirm_body">¿Eliminar la caché sin conexión de \"%1$s\"?</string>
@@ -558,28 +555,12 @@
     <string name="download_management_status_paused">Pausado</string>
     <string name="download_management_status_completed">Guardado en caché</string>
     <string name="download_management_status_failed">Fallido</string>
-    <string name="settings_cache_refresh_action">Actualizar estadísticas de caché</string>
-    <string name="settings_cache_statistics_section_title">Uso de caché</string>
     <!-- Cache Maintenance UI Copy (Keeps non-primary locales aligned with manual-cache and playback-buffer controls while translations are pending) -->
-    <string name="settings_cache_manual_section_title">Caché de descargas manuales</string>
-    <string name="settings_cache_manual_size_title">Caché de descargas manuales</string>
-    <string name="settings_cache_manual_files_title">Archivos guardados manualmente</string>
-    <string name="settings_cache_clear_manual_title">Limpiar todas las descargas manuales</string>
-    <string name="settings_cache_clear_manual_subtitle">Elimina todas las tareas de caché sin conexión solicitadas por el usuario</string>
-    <string name="settings_cache_playback_size_title">Búfer de reproducción</string>
-    <string name="settings_cache_playback_usage_value">%1$s</string>
-    <string name="settings_cache_completed_books_title">Libros sin conexión completados</string>
-    <string name="settings_cache_total_section_title">Total</string>
-    <string name="settings_cache_total_files_title">Total de archivos en caché</string>
-    <string name="settings_cache_total_size_title">Tamaño total de caché</string>
-    <string name="settings_cache_clear_action">Limpiar</string>
-    <string name="settings_cache_clear_manual_confirm_title">Limpiar todas las descargas manuales</string>
-    <string name="settings_cache_clear_manual_confirm_body">Esto elimina todas las cachés sin conexión manuales y los registros de descarga relacionados.</string>
-    <string name="settings_cache_clear_manual_confirm_action">Limpiar descargas manuales</string>
-    <string name="settings_cache_download_policy_section_title">Política de descargas</string>
     <string name="settings_download_wifi_only_title">Descargar solo con Wi-Fi</string>
     <string name="settings_download_wifi_only_subtitle">Las descargas manuales esperan a redes no medidas</string>
-    <string name="settings_cache_playback_section_title">Búfer de reproducción</string>
     <string name="settings_cache_playback_capacity_title">Tamaño del búfer</string>
     <string name="settings_cache_playback_capacity_subtitle">Se aplica la próxima vez que se inicie el reproductor</string>
+    <string name="download_management_delete_all_action">Eliminar todo</string>
+    <string name="download_management_delete_all_confirm_title">Eliminar todas las descargas</string>
+    <string name="download_management_delete_all_confirm_body">¿Está seguro de que desea eliminar todas las descargas de caché sin conexión?</string>
 </resources>

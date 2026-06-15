@@ -30,9 +30,9 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,7 +44,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.application.download.CacheStatistics
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -52,7 +51,6 @@ import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
-import com.viel.aplayer.ui.common.formatFileSize
 import com.viel.aplayer.ui.settings.appLanguageLabel
 
 /**
@@ -159,15 +157,17 @@ fun LibraryDirectoriesSection(
 }
 
 /**
- * Download Cache Section (Provides settings navigation for manual downloads and playback buffer policy)
- * Keeps download task management and memory-buffer controls in one domain cluster without exposing queue internals on the main settings page.
+ * Download Cache Section (Provides settings navigation for manual downloads, Wi-Fi only download policy, and playback buffer size selector)
+ * Consolidates download and cache configurations on the main settings screen instead of keeping cache settings on a separate sub-page.
  */
 @Composable
 fun DownloadCacheSection(
     downloadTaskCount: Int,
-    cacheStatistics: CacheStatistics,
+    isDownloadWifiOnly: Boolean,
+    onDownloadWifiOnlyChange: (Boolean) -> Unit,
+    playbackBufferMaxBytes: Long,
+    onPlaybackBufferMaxBytesChange: (Long) -> Unit,
     onDownloadManagementClick: () -> Unit,
-    onCacheSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -176,23 +176,25 @@ fun DownloadCacheSection(
             title = stringResource(R.string.settings_download_management_title),
             subtitle = stringResource(R.string.settings_download_management_subtitle, downloadTaskCount),
             // Manual Download Management Icon (Use cloud-download to represent user-requested remote cache tasks)
-            // This row opens a task management page rather than mutating cache policy directly.
             icon = Icons.Rounded.CloudDownload,
             onClick = onDownloadManagementClick
         )
-        SettingsItem(
-            title = stringResource(R.string.settings_cache_settings_title),
-            subtitle = stringResource(
-                R.string.settings_cache_settings_subtitle,
-                formatFileSize(cacheStatistics.manualCacheBytes)
-            ),
-            // Cache Settings Icon (Use storage glyph for manual storage and buffer policy controls)
-            // The row leads to L1 cache statistics and memory-buffer settings rather than a specific download task.
-            icon = Icons.Rounded.Storage,
-            onClick = onCacheSettingsClick
+        // Wi-Fi Only Download Switch (Moved from the old independent cache page to the outer settings screen)
+        SettingsToggleItem(
+            title = stringResource(R.string.settings_download_wifi_only_title),
+            subtitle = stringResource(R.string.settings_download_wifi_only_subtitle),
+            icon = Icons.Rounded.Wifi,
+            checked = isDownloadWifiOnly,
+            onCheckedChange = onDownloadWifiOnlyChange
+        )
+        // Segmented Playback Buffer Capacity Selector (Moved from the old independent cache page to the outer settings screen)
+        SettingsSegmentedPlaybackBufferItem(
+            selectedBytes = playbackBufferMaxBytes,
+            onSelected = onPlaybackBufferMaxBytesChange
         )
     }
 }
+
 
 /**
  * InterfaceSettingsSection Composable: Handles themes, dynamic color settings, and experimental blur effect toggles.

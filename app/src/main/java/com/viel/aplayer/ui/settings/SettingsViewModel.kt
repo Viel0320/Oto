@@ -7,7 +7,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
-import com.viel.aplayer.application.download.CacheStatistics
 import com.viel.aplayer.application.download.ManualDownloadTaskItem
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.data.store.AppSettings
@@ -48,8 +47,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val importUserDataUseCase = settingsDependencies.importUserDataUseCase
     private val downloadManagementReadModel = settingsDependencies.downloadManagementReadModel
     private val downloadController = settingsDependencies.downloadController
-    private val cacheStatisticsProvider = settingsDependencies.cacheStatisticsProvider
-    private val cacheMaintenanceCommands = settingsDependencies.cacheMaintenanceCommands
 
     // Title: Initialize Preferences Handler (Pass settings write interface to preferences handler)
     val preferencesHandler = SettingsPreferencesHandler(
@@ -110,15 +107,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = emptyList()
         )
 
-    private val _cacheStatistics = MutableStateFlow(CacheStatistics(0L, 0))
-    val cacheStatistics: StateFlow<CacheStatistics> = _cacheStatistics.asStateFlow()
-
     init {
         viewModelScope.launch {
             isVisible.collect { visible ->
                 if (visible) {
+                    // Title: Refresh library root sync statuses on visibility change
                     settingsRootCommands.refreshAllRootStatuses()
-                    refreshCacheStatistics()
                 }
             }
         }
@@ -240,18 +234,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun refreshCacheStatistics() {
-        viewModelScope.launch {
-            runCatching {
-                cacheStatisticsProvider.snapshot()
-            }.onSuccess { statistics ->
-                _cacheStatistics.value = statistics
-            }.onFailure { error ->
-                appEventSink.showToast(FeedbackMessages.downloadCacheCommandFailed(AbsLogSanitizer.compact(error.message)))
-            }
-        }
-    }
-
     fun pauseDownload(bookId: String) {
         runDownloadCommand(
             successMessage = FeedbackMessages.downloadCachePaused(),
@@ -280,10 +262,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    fun clearManualDownloadCache() {
+    /**
+     * Delete All Downloads (Clears all local offline downloads and task list items)
+     * Triggers the cache maintenance commands to evict all manually cached audio files and drops
+     * the download queue states from persistence, reporting outcome to the app feedback sink.
+     */
+    fun deleteAllDownloads() {
         runDownloadCommand(
-            successMessage = FeedbackMessages.manualDownloadCacheCleared(),
-            action = { cacheMaintenanceCommands.deleteAllManualDownloads() }
+            successMessage = FeedbackMessages.downloadCacheDeleted(),
+            action = { settingsDependencies.cacheMaintenanceCommands.deleteAllManualDownloads() }
         )
     }
 
@@ -292,7 +279,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     // Title: Run Download Management Command (Apply manual cache operations from settings pages)
-    // Uses resource-backed feedback and refreshes cache totals after the command has updated Media3/Room state.
+    // Uses resource-backed feedback after the command has updated Media3/Room state.
     private fun runDownloadCommand(
         successMessage: FeedbackMessage,
         action: suspend () -> Unit
@@ -302,7 +289,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 action()
             }.onSuccess {
                 appEventSink.showToast(successMessage)
-                refreshCacheStatistics()
             }.onFailure { error ->
                 appEventSink.showToast(FeedbackMessages.downloadCacheCommandFailed(AbsLogSanitizer.compact(error.message)))
             }

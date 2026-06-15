@@ -534,7 +534,6 @@
     <string name="feedback_download_cache_paused">Download pausiert</string>
     <string name="feedback_download_cache_resumed">Download fortgesetzt</string>
     <string name="feedback_download_cache_deleted">Offline-Cache gelöscht</string>
-    <string name="feedback_manual_download_cache_cleared">Manueller Download-Cache geleert</string>
     <string name="feedback_download_notification_permission_denied">Benachrichtigungsberechtigung für Offline-Downloads erforderlich</string>
     <string name="feedback_download_cache_command_failed">Download-Aktion fehlgeschlagen: %1$s</string>
     <!-- Download Management Settings Resources (Define settings-hosted manual cache and playback buffer UI copy)
@@ -542,8 +541,6 @@
     <string name="settings_download_cache_title">Downloads &amp; Cache</string>
     <string name="settings_download_management_title">Download-Verwaltung</string>
     <string name="settings_download_management_subtitle">%1$d manuelle Cache-Aufgaben</string>
-    <string name="settings_cache_settings_title">Cache-Einstellungen</string>
-    <string name="settings_cache_settings_subtitle">Manueller Cache %1$s · Wiedergabepuffereinstellungen</string>
     <string name="download_management_empty">Noch keine manuellen Downloads</string>
     <string name="download_management_delete_confirm_title">Offline-Cache löschen</string>
     <string name="download_management_delete_confirm_body">Offline-Cache für „%1$s“ löschen?</string>
@@ -557,28 +554,12 @@
     <string name="download_management_status_paused">Pausiert</string>
     <string name="download_management_status_completed">Gespeichert</string>
     <string name="download_management_status_failed">Fehlgeschlagen</string>
-    <string name="settings_cache_refresh_action">Cache-Statistiken aktualisieren</string>
-    <string name="settings_cache_statistics_section_title">Cache-Nutzung</string>
     <!-- Cache Maintenance UI Copy (Keeps non-primary locales aligned with manual-cache and playback-buffer controls while translations are pending) -->
-    <string name="settings_cache_manual_section_title">Manueller Download-Cache</string>
-    <string name="settings_cache_manual_size_title">Manueller Download-Cache</string>
-    <string name="settings_cache_manual_files_title">Manuell gecachte Dateien</string>
-    <string name="settings_cache_clear_manual_title">Alle manuellen Downloads löschen</string>
-    <string name="settings_cache_clear_manual_subtitle">Löscht alle vom Benutzer angeforderten Offline-Cache-Aufgaben</string>
-    <string name="settings_cache_playback_size_title">Wiedergabepuffer</string>
-    <string name="settings_cache_playback_usage_value">%1$s</string>
-    <string name="settings_cache_completed_books_title">Abgeschlossene Offline-Bücher</string>
-    <string name="settings_cache_total_section_title">Gesamt</string>
-    <string name="settings_cache_total_files_title">Cache-Dateien insgesamt</string>
-    <string name="settings_cache_total_size_title">Cache-Größe insgesamt</string>
-    <string name="settings_cache_clear_action">Löschen</string>
-    <string name="settings_cache_clear_manual_confirm_title">Alle manuellen Downloads löschen</string>
-    <string name="settings_cache_clear_manual_confirm_body">Dadurch werden alle manuellen Offline-Caches und die zugehörigen Download-Einträge gelöscht.</string>
-    <string name="settings_cache_clear_manual_confirm_action">Manuelle Downloads löschen</string>
-    <string name="settings_cache_download_policy_section_title">Download-Richtlinie</string>
     <string name="settings_download_wifi_only_title">Downloads nur über WLAN</string>
     <string name="settings_download_wifi_only_subtitle">Manuelle Downloads warten auf eine unbegrenzte Netzwerkverbindung</string>
-    <string name="settings_cache_playback_section_title">Wiedergabepuffer</string>
     <string name="settings_cache_playback_capacity_title">Puffergröße</string>
     <string name="settings_cache_playback_capacity_subtitle">Gilt beim nächsten Neuaufbau des Players</string>
+    <string name="download_management_delete_all_action">Alle löschen</string>
+    <string name="download_management_delete_all_confirm_title">Alle Downloads löschen</string>
+    <string name="download_management_delete_all_confirm_body">Sind Sie sicher, dass Sie alle Offline-Cache-Downloads löschen möchten?</string>
 </resources>

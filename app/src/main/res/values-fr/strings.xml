@@ -535,7 +535,6 @@
     <string name="feedback_download_cache_paused">Téléchargement suspendu</string>
     <string name="feedback_download_cache_resumed">Téléchargement repris</string>
     <string name="feedback_download_cache_deleted">Cache hors ligne supprimé</string>
-    <string name="feedback_manual_download_cache_cleared">Cache des téléchargements manuels effacé</string>
     <string name="feedback_download_notification_permission_denied">L\'autorisation de notification est requise pour les téléchargements hors ligne</string>
     <string name="feedback_download_cache_command_failed">Échec de l\'action de téléchargement : %1$s</string>
     <!-- Download Management Settings Resources (Define settings-hosted manual cache and playback buffer UI copy)
@@ -543,8 +542,6 @@
     <string name="settings_download_cache_title">Téléchargements &amp; cache</string>
     <string name="settings_download_management_title">Gestion des téléchargements</string>
     <string name="settings_download_management_subtitle">%1$d tâches de cache manuel</string>
-    <string name="settings_cache_settings_title">Paramètres du cache</string>
-    <string name="settings_cache_settings_subtitle">Cache manuel %1$s · paramètres du tampon de lecture</string>
     <string name="download_management_empty">Aucun téléchargement manuel pour le moment</string>
     <string name="download_management_delete_confirm_title">Supprimer le cache hors ligne</string>
     <string name="download_management_delete_confirm_body">Supprimer le cache hors ligne pour \"%1$s\" ?</string>
@@ -558,28 +555,12 @@
     <string name="download_management_status_paused">Suspendu</string>
     <string name="download_management_status_completed">Mis en cache</string>
     <string name="download_management_status_failed">Échoué</string>
-    <string name="settings_cache_refresh_action">Actualiser les statistiques du cache</string>
-    <string name="settings_cache_statistics_section_title">Utilisation du cache</string>
     <!-- Cache Maintenance UI Copy (Keeps non-primary locales aligned with manual-cache and playback-buffer controls while translations are pending) -->
-    <string name="settings_cache_manual_section_title">Cache des téléchargements manuels</string>
-    <string name="settings_cache_manual_size_title">Cache des téléchargements manuels</string>
-    <string name="settings_cache_manual_files_title">Fichiers mis en cache manuellement</string>
-    <string name="settings_cache_clear_manual_title">Effacer tous les téléchargements manuels</string>
-    <string name="settings_cache_clear_manual_subtitle">Supprime chaque tâche de cache hors ligne demandée par l\'utilisateur</string>
-    <string name="settings_cache_playback_size_title">Tampon de lecture</string>
-    <string name="settings_cache_playback_usage_value">%1$s</string>
-    <string name="settings_cache_completed_books_title">Livres hors ligne complets</string>
-    <string name="settings_cache_total_section_title">Total</string>
-    <string name="settings_cache_total_files_title">Nombre total de fichiers en cache</string>
-    <string name="settings_cache_total_size_title">Taille totale du cache</string>
-    <string name="settings_cache_clear_action">Effacer</string>
-    <string name="settings_cache_clear_manual_confirm_title">Effacer tous les téléchargements manuels</string>
-    <string name="settings_cache_clear_manual_confirm_body">Cela supprimera tous les caches hors ligne manuels et effacera les enregistrements de téléchargement associés.</string>
-    <string name="settings_cache_clear_manual_confirm_action">Effacer les téléchargements manuels</string>
-    <string name="settings_cache_download_policy_section_title">Politique de téléchargement</string>
     <string name="settings_download_wifi_only_title">Téléchargement en Wi-Fi uniquement</string>
     <string name="settings_download_wifi_only_subtitle">Les téléchargements manuels attendent une connexion non facturée à l\'usage</string>
-    <string name="settings_cache_playback_section_title">Tampon de lecture</string>
     <string name="settings_cache_playback_capacity_title">Taille du tampon</string>
     <string name="settings_cache_playback_capacity_subtitle">S\'applique lors de la prochaine reconstruction du lecteur</string>
+    <string name="download_management_delete_all_action">Tout supprimer</string>
+    <string name="download_management_delete_all_confirm_title">Supprimer tous les téléchargements</string>
+    <string name="download_management_delete_all_confirm_body">Êtes-vous sûr de vouloir supprimer tous les téléchargements de cache hors ligne ?</string>
 </resources>

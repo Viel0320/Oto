@@ -1,10 +1,12 @@
 package com.viel.aplayer.application.download
 
+import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.DownloadMetadataDao
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.DownloadMetadataEntity
 import com.viel.aplayer.data.entity.DownloadStatus
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 
 /**
  * Book Cache State (UI-facing manual offline cache state machine)
@@ -12,6 +14,9 @@ import kotlinx.coroutines.flow.map
  */
 enum class BookCacheState {
     NONE,
+    // Native Local Source Status (Flags local SAF books that require no server synchronization)
+    // Presentation modules check this state to completely omit manual download action buttons.
+    LOCAL,
     QUEUED,
     DOWNLOADING,
     PAUSED,
@@ -50,6 +55,19 @@ data class BookCacheStatus(
                 totalBytes = 0L,
                 downloadedBytes = 0L
             )
+
+        /**
+         * Local Cache Status (Represents a book that resides permanently on the local filesystem)
+         * Omit manual cache metrics and return a static local status instance.
+         */
+        fun local(): BookCacheStatus =
+            BookCacheStatus(
+                state = BookCacheState.LOCAL,
+                totalFiles = 0,
+                completedFiles = 0,
+                totalBytes = 0L,
+                downloadedBytes = 0L
+            )
     }
 }
 
@@ -70,11 +88,22 @@ interface DownloadStatusReadModel {
  * Converts missing rows into NONE and clamps progress fields before they reach Compose state.
  */
 class RoomDownloadStatusReadModel(
-    private val downloadMetadataDao: DownloadMetadataDao
+    private val downloadMetadataDao: DownloadMetadataDao,
+    private val bookDao: BookDao
 ) : DownloadStatusReadModel {
     override fun observeBookCacheStatus(bookId: String): Flow<BookCacheStatus> =
-        downloadMetadataDao.observeMetadata(bookId)
-            .map { metadata -> metadata.toBookCacheStatus() }
+        combine(
+            downloadMetadataDao.observeMetadata(bookId),
+            bookDao.observeBookLibrarySourceType(bookId)
+        ) { metadata, sourceType ->
+            // Local Source Interception (Detect local storage assets before processing remote queue details)
+            // Books under SAF roots reside permanently in local sandboxed storage and require no manual downloads.
+            if (sourceType == AudiobookSchema.LibrarySourceType.SAF) {
+                BookCacheStatus.local()
+            } else {
+                metadata.toBookCacheStatus()
+            }
+        }
 }
 
 // Download Metadata Projection (Convert durable Room aggregates into UI cache status)
