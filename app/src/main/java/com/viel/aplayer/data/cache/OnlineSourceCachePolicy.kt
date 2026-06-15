@@ -18,7 +18,7 @@ object OnlineSourceCachePolicy {
     const val ABS_PENDING_PROGRESS_TTL_MS: Long = 7L * 24L * 60L * 60L * 1000L
     // ABS Authorized Progress TTL (Bounds startup-triggered remote progress refresh frequency)
     // Cold start uses this window to avoid enqueueing root-scoped ABS work after every process creation while still allowing periodic cross-device progress convergence.
-    const val ABS_AUTHORIZED_PROGRESS_TTL_MS: Long = 6L * 60L * 60L * 1000L
+    const val ABS_AUTHORIZED_PROGRESS_TTL_MS: Long = 60L  * 1000L
 
     /**
      * Freshness Lower Bound (Converts a TTL into a persisted timestamp floor)
