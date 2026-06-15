@@ -17,7 +17,6 @@ class AbsCatalogSynchronizer(
     private val apiClient: AbsApiClient,
     private val credentialStore: AbsCredentialStore,
     private val catalogStore: AbsCatalogStore,
-    private val coverCache: AbsCoverStore? = null,
     private val idMapper: AbsRemoteIdMapper = AbsRemoteIdMapper(),
     private val catalogMapper: AbsCatalogMapper = AbsCatalogMapper(idMapper),
     private val authorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer? = null,

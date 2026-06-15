@@ -92,7 +92,6 @@ internal class AbsGraph(
             apiClient = absApiClient,
             credentialStore = absCredentialStore,
             catalogStore = data.database.absCatalogDao(),
-            coverCache = absCoverCache,
             authorizedProgressSynchronizer = absAuthorizedProgressSynchronizer
         )
     }

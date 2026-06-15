@@ -1,17 +1,17 @@
 package com.viel.aplayer.application.library.player
 
+import com.viel.aplayer.application.usecase.GetRelatedBooksUseCase
+import com.viel.aplayer.application.usecase.RelatedBookCandidate
+import com.viel.aplayer.application.usecase.RelatedData
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookmarkEntity
+import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookmarkGateway
 import com.viel.aplayer.data.gateway.ChapterGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
 import com.viel.aplayer.data.gateway.SubtitleGateway
-import com.viel.aplayer.data.entity.BookmarkEntity
-import com.viel.aplayer.data.entity.ChapterWithBookFile
-import com.viel.aplayer.application.usecase.GetRelatedBooksUseCase
-import com.viel.aplayer.application.usecase.RelatedData
-import com.viel.aplayer.application.usecase.RelatedBookCandidate
 import com.viel.aplayer.media.subtitle.SubtitleLine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine

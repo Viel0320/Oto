@@ -98,8 +98,8 @@ class AbsSourceProviderStage3Test {
                 displayName = "Audiobooks"
             )
             val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
-            provider.openInputStream(node)?.close()
-            provider.openInputStream(node, offset = 5)?.close()
+            provider.openInputStream(node).close()
+            provider.openInputStream(node, offset = 5).close()
 
             val openRequest = server.takeRequest()
             assertEquals("Bearer token-1", openRequest.getHeader("Authorization"))
@@ -134,7 +134,7 @@ class AbsSourceProviderStage3Test {
             val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
 
             try {
-                provider.openInputStream(node, offset = 5)?.close()
+                provider.openInputStream(node, offset = 5).close()
                 fail("Expected ignored ABS range responses to fail")
             } catch (error: AbsApiError) {
                 // Ignored Range Regression (Protects seek and resume from replaying ABS streams from byte zero)
@@ -205,7 +205,7 @@ class AbsSourceProviderStage3Test {
             val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
 
             try {
-                provider.openInputStream(node)?.close()
+                provider.openInputStream(node).close()
                 fail("Expected typed ABS auth expiration")
             } catch (error: AbsAuthExpiredException) {
                 // Stream Auth Boundary (Refreshes credentials for future attempts while failing the current media request)
@@ -228,8 +228,7 @@ class AbsSourceProviderStage3Test {
         val synchronizer = AbsCatalogSynchronizer(
             apiClient = FakeCatalogApi(),
             credentialStore = credentialStore,
-            catalogStore = store,
-            coverCache = FakeCoverStore("cover.jpg", "thumb.jpg")
+            catalogStore = store
         )
         val root = LibraryRootEntity(
             id = "root-1",

@@ -23,6 +23,7 @@ import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
 import com.viel.aplayer.abs.sync.AbsSyncStateEntity
 import com.viel.aplayer.abs.sync.AbsSyncWorker
+import com.viel.aplayer.application.di.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
@@ -32,7 +33,6 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.gateway.BookCatalogGateway
 import com.viel.aplayer.data.gateway.BookMetadataGateway
 import com.viel.aplayer.data.gateway.ProgressGateway
-import com.viel.aplayer.application.di.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.AppShellEvent
 import com.viel.aplayer.event.feedback.FeedbackDeliveryResult

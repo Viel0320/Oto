@@ -1,7 +1,7 @@
 package com.viel.aplayer.i18n
 
-import android.app.LocaleManager
 import android.app.LocaleConfig
+import android.app.LocaleManager
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build

@@ -1,8 +1,8 @@
 package com.viel.aplayer.application.library.home
 
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeSortDirection
+import com.viel.aplayer.data.store.HomeSortRule
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

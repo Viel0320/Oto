@@ -1,8 +1,8 @@
 package com.viel.aplayer.media.manifest
 
-import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.MetadataSuggestion
+import com.viel.aplayer.logger.SecureLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader

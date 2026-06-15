@@ -3,13 +3,13 @@ package com.viel.aplayer.ui.common
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
+import androidx.core.net.toUri
 import coil.request.ErrorResult
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.viel.aplayer.logger.CacheDiagnosticsLogger
 import com.viel.aplayer.logger.CoverImageCacheLogger
 import java.io.File
-import androidx.core.net.toUri
 
 /**
  * Cover display specification (CoverImageVariant).

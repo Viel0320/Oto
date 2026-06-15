@@ -1,8 +1,8 @@
 package com.viel.aplayer.architecture
 
-import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * Book Gateway Split Architecture Test (Pins the post-facade gateway deepening)

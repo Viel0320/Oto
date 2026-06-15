@@ -1,6 +1,5 @@
 package com.viel.aplayer.media.parser
 
-import android.content.Context
 import android.os.SystemClock
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.sync.AbsCoverStore
@@ -32,7 +31,6 @@ import java.io.File
  */
 @UnstableApi
 class CoverRecoveryHelper(
-    private val context: Context,
     private val bookDao: BookDao,
     private val libraryRootDao: LibraryRootDao,
     private val coverExtractor: CoverExtractor,
@@ -86,7 +84,7 @@ class CoverRecoveryHelper(
                     } else {
                         val nowElapsedMs = SystemClock.elapsedRealtime()
                         alreadyAttempted[bookId] = nowElapsedMs
-                        pruneAlreadyAttempted(nowElapsedMs)
+                        pruneAlreadyAttempted()
                     }
                 }
             }
@@ -299,7 +297,7 @@ class CoverRecoveryHelper(
      * Cap Already Attempted Failures: Limits the in-memory record size of failed recovery book IDs.
      * Keeps memory consumption bounded by removing the oldest failure attempt records when exceeding the limit.
      */
-    private fun pruneAlreadyAttempted(nowElapsedMs: Long) {
+    private fun pruneAlreadyAttempted() {
         if (alreadyAttempted.size <= MAX_ALREADY_ATTEMPTED_SIZE) return
         val sortedEntries = alreadyAttempted.entries.sortedBy { it.value }
         val excessCount = alreadyAttempted.size - MAX_ALREADY_ATTEMPTED_SIZE

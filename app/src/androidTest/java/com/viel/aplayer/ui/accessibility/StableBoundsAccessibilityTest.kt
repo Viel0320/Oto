@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.accessibility
 
+// Relocate mini-player components to the ui/player package
+// Updated imports to com.viel.aplayer.ui.player to compile with the unified player structure.
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -8,9 +10,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertHasClickAction
@@ -31,8 +33,6 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.detail.components.DetailInfoChip
-// Relocate mini-player components to the ui/player package
-// Updated imports to com.viel.aplayer.ui.player to compile with the unified player structure.
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import com.viel.aplayer.ui.player.miniplayer.PillCompactMediaPlayer
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen

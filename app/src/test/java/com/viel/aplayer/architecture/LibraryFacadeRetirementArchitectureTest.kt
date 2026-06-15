@@ -1,8 +1,8 @@
 package com.viel.aplayer.architecture
 
-import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * Library Facade Retirement Guard (Prevents UI dependencies from reopening the retired broad facade)

@@ -5,7 +5,6 @@ import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.sync.AbsConnectionTestResult
 import com.viel.aplayer.abs.sync.AbsConnectionTester
 import com.viel.aplayer.data.dao.LibraryRootDao
-import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.gateway.LibraryRootGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

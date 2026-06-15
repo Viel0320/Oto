@@ -327,8 +327,7 @@ class AbsIncrementalStage6Test {
         val synchronizer = AbsCatalogSynchronizer(
             apiClient = CoverRefreshApi(),
             credentialStore = credentialStore,
-            catalogStore = store,
-            coverCache = coverStore
+            catalogStore = store
         )
 
         synchronizer.syncRoot(root)

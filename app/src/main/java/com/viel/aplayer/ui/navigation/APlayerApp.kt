@@ -14,11 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
@@ -56,8 +53,6 @@ import com.viel.aplayer.ui.settings.SettingsOverlay
 import com.viel.aplayer.ui.settings.SettingsViewModel
 import com.viel.aplayer.ui.settings.rememberSettingsDialogController
 import dev.chrisbanes.haze.HazeState
-import kotlinx.coroutines.delay
-import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -311,14 +306,6 @@ fun APlayerApp(
             startsOverlayTransition
         }
 
-        // Collect Search Visibility State (Control MiniPlayer Rendering)
-        // Responsively collect the visibility state flow of the Search route to control mini-player mounting under layer occlusion.
-        val isSearchVisible by searchViewModel.isVisible.collectAsStateWithLifecycle()
-
-        // Title: Collect Settings and Edit overlay visibility states
-        // Description: Collects settings and edit overlay visibility state flows to coordinate overall layout occlusion and culling decisions.
-        val isSettingsVisible by settingsViewModel.isVisible.collectAsStateWithLifecycle()
-        val isEditVisible by editViewModel.isVisible.collectAsStateWithLifecycle()
 
         // Title: Disable bottom layer culling to support Haze blur backdrop sampling
         // Description: Cleaned up bottom layer rendering culling variables so that background screens remain fully drawn while overlays are active. This preserves proper backdrop sampling for Haze blurs and prevents blank space exposures.

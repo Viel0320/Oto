@@ -3,11 +3,11 @@ package com.viel.aplayer.application.library.settings
 import android.net.Uri
 import com.viel.aplayer.abs.sync.AbsSyncPlan
 import com.viel.aplayer.abs.sync.AbsSyncTaskOrigin
+import com.viel.aplayer.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
-import com.viel.aplayer.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.aplayer.library.availability.AvailabilityResult
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.scan.ScanOutcome

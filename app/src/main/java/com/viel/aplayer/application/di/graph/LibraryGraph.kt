@@ -127,7 +127,6 @@ internal class LibraryGraph(
         val s = CoroutineScope(Dispatchers.IO + SupervisorJob())
         coverRecoveryScope = s
         CoverRecoveryHelper(
-            context = context.applicationContext,
             bookDao = data.database.bookDao(),
             libraryRootDao = data.database.libraryRootDao(),
             coverExtractor = coverExtractor,

@@ -18,7 +18,8 @@ class OnlineSourceCachePolicyTest {
         assertEquals(7L * 24L * 60L * 60L * 1000L, OnlineSourceCachePolicy.ABS_COVER_TTL_MS)
         assertEquals(30L * 60L * 1000L, OnlineSourceCachePolicy.ABS_PLAYBACK_SESSION_TTL_MS)
         assertEquals(7L * 24L * 60L * 60L * 1000L, OnlineSourceCachePolicy.ABS_PENDING_PROGRESS_TTL_MS)
-        assertEquals(6L * 60L * 60L * 1000L, OnlineSourceCachePolicy.ABS_AUTHORIZED_PROGRESS_TTL_MS)
+        // Match the updated 60-second TTL contract for ABS authorized progress
+        assertEquals(60L * 1000L, OnlineSourceCachePolicy.ABS_AUTHORIZED_PROGRESS_TTL_MS)
     }
 
     @Test

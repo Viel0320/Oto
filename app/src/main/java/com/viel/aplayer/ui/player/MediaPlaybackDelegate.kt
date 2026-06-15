@@ -1,8 +1,8 @@
 package com.viel.aplayer.ui.player
 
-import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerChapterTimeline
+import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
 import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.media.BookPlaybackPlan
 import kotlinx.coroutines.CoroutineScope

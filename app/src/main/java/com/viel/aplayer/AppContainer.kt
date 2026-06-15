@@ -427,6 +427,7 @@ internal interface ProcessContainer : AppContainer {
      * Media3 Download Manager (Process-internal Android service runtime)
      * APlayerDownloadService must return the raw manager to Media3, but public callers stay on DownloadRuntimeGateway.
      */
+    @get:UnstableApi
     val media3DownloadManager: DownloadManager
 
     /**

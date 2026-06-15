@@ -5,7 +5,6 @@ import com.viel.aplayer.application.playback.PlaybackStopper
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.gateway.BookAvailabilityGateway
 import com.viel.aplayer.data.gateway.BookDeletionGateway
-import com.viel.aplayer.data.gateway.LibraryResourceCleanupGateway
 import com.viel.aplayer.data.gateway.RemotePlaybackCleanupGateway
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -32,7 +31,6 @@ class BookManagementUseCaseTest {
             listOf(
                 "stopPlayback",
                 "checkPrimaryAudioFile:$BOOK_ID",
-                "clearBookCoverCache:$BOOK_ID",
                 "deleteManualDownload:$BOOK_ID",
                 "deleteBook:$BOOK_ID",
                 "deletePlaybackStateForBook:$BOOK_ID"
@@ -52,7 +50,6 @@ class BookManagementUseCaseTest {
         assertEquals(
             listOf(
                 "checkPrimaryAudioFile:$BOOK_ID",
-                "clearBookCoverCache:$BOOK_ID",
                 "deleteManualDownload:$BOOK_ID",
                 "deleteBook:$BOOK_ID",
                 "deletePlaybackStateForBook:$BOOK_ID"
@@ -62,7 +59,7 @@ class BookManagementUseCaseTest {
     }
 
     @Test
-    fun deletingBookClearsCoverAndDownloadBeforeSoftDelete() = runBlocking {
+    fun deletingBookClearsDownloadBeforeSoftDelete() = runBlocking {
         val events = mutableListOf<String>()
         val useCase = useCaseFor(
             currentBookId = null,
@@ -75,7 +72,6 @@ class BookManagementUseCaseTest {
         assertEquals(
             listOf(
                 "checkPrimaryAudioFile:$BOOK_ID",
-                "clearBookCoverCache:$BOOK_ID",
                 "deleteManualDownload:$BOOK_ID",
                 "deleteBook:$BOOK_ID",
                 "deletePlaybackStateForBook:$BOOK_ID"
@@ -87,6 +83,7 @@ class BookManagementUseCaseTest {
     /**
      * Book Management Fixture (Wire only seams needed by the destructive book workflow)
      * The fake collaborators record call order so tests protect resource cleanup from sliding behind the soft-delete command.
+     * Note: libraryResourceCleanupGateway has been removed because cover cache cleanup was refactored out to self-healing.
      */
     private fun useCaseFor(
         currentBookId: String?,
@@ -98,8 +95,7 @@ class BookManagementUseCaseTest {
             bookAvailabilityGateway = RecordingBookAvailabilityGateway(fileExists, events),
             bookDeletionGateway = RecordingBookDeletionGateway(events),
             remotePlaybackCleanupGateway = RecordingRemotePlaybackCleanupGateway(events),
-            manualDownloadCleanupGateway = RecordingManualDownloadCleanupGateway(events),
-            libraryResourceCleanupGateway = RecordingLibraryResourceCleanupGateway(events)
+            manualDownloadCleanupGateway = RecordingManualDownloadCleanupGateway(events)
         )
     }
 
@@ -149,16 +145,6 @@ class BookManagementUseCaseTest {
         override suspend fun deleteDownload(bookId: String) {
             events += "deleteManualDownload:$bookId"
         }
-    }
-
-    private class RecordingLibraryResourceCleanupGateway(
-        private val events: MutableList<String>
-    ) : LibraryResourceCleanupGateway {
-        override suspend fun clearBookCoverCache(bookId: String) {
-            events += "clearBookCoverCache:$bookId"
-        }
-
-        override suspend fun clearRootDerivedCaches(rootId: String): Unit = unexpected("clearRootDerivedCaches")
     }
 
     private companion object {

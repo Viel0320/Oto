@@ -1,12 +1,13 @@
 package com.viel.aplayer.application.usecase
 
 import android.content.Context
+import androidx.core.content.edit
 import com.viel.aplayer.data.db.AppDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipInputStream
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 // Title: Import User Data UseCase (UseCase responsible for closing resources and overwriting database/settings from a ZIP input stream)
 // Validates paths against Zip Slip vulnerabilities, terminates active Room instances, and replaces data files.
@@ -18,7 +19,7 @@ class ImportUserDataUseCase(private val context: Context) {
 
             // 2. Clear SharedPreferences Cache
             // Clear memory cache to prevent system from rewriting stale memory cache on app process termination.
-            context.getSharedPreferences("webdav_credentials", Context.MODE_PRIVATE).edit().clear().commit()
+            context.getSharedPreferences("webdav_credentials", Context.MODE_PRIVATE).edit(commit = true) { clear() }
 
             // 3. Extract and Overwrite Files
             ZipInputStream(inputStream).use { zis ->
