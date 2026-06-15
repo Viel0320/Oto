@@ -4,6 +4,7 @@ import android.content.Context
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.AbsAuth
 import com.viel.aplayer.abs.net.AbsAuthInterceptor
+import com.viel.aplayer.abs.net.AbsUrlResolver
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.logger.AbsAuthLogger
@@ -13,7 +14,6 @@ import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -54,14 +54,8 @@ class AbsCoverCache(
             if (credential.token.isBlank()) {
                 AbsAuthLogger.logMissingCredential(path = "AbsCoverCache.downloadCover", rootId = root.id, credentialId = root.credentialId)
             }
-            val coverUrl = credential.baseUrl.trimEnd('/').toHttpUrl()
-                .newBuilder()
-                // ABS Cover Endpoint (Build the cover URL structurally before transport checks)
-                // Segment-based construction preserves server base paths and encodes remote item IDs instead of interpolating them into a raw URL string.
-                .addPathSegments("api/items")
-                .addPathSegment(remoteItemId)
-                .addPathSegment("cover")
-                .build()
+            // ABS Cover Endpoint (Build the cover URL structurally using unified AbsUrlResolver)
+            val coverUrl = AbsUrlResolver.resolveCoverUrl(credential.baseUrl, remoteItemId)
             // ABS Cover Cleartext Guard (Reject HTTP before bearer credentials leave the process)
             // The cover cache attaches Authorization itself, so the global transport policy must run before the request builder adds the bearer token header.
             UnsafeNetworkPolicy.requireCleartextHttpAllowed(

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.squareup.moshi.Moshi
+import com.viel.aplayer.abs.net.AbsUrlResolver
 import com.viel.aplayer.logger.AbsAuthLogger
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -96,10 +97,8 @@ class AbsCredentialStore private constructor(
     }
 
     fun normalizeBaseUrl(baseUrl: String): String {
-        val trimmed = baseUrl.trim()
-        require(trimmed.isNotBlank()) { "ABS baseUrl 不能为空" }
-        val noTrailingSlash = trimmed.trimEnd('/')
-        return noTrailingSlash.ifBlank { trimmed }
+        // Use unified AbsUrlResolver to validate and normalize the base URL format.
+        return AbsUrlResolver.resolveBaseUrl(baseUrl).toString().trimEnd('/')
     }
 
     private fun credentialKey(credentialId: String): Preferences.Key<String> =

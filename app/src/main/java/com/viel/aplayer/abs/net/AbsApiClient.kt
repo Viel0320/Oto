@@ -541,21 +541,11 @@ class RealAbsApiClient(
             adapter = authorizeAdapter
         )
 
-    private fun resolveBaseUrl(baseUrl: String): HttpUrl {
-        val normalized = baseUrl.trim().trimEnd('/')
-        return normalized.toHttpUrlOrNull()
-            ?: throw AbsApiError(
-                code = "INVALID_BASE_URL",
-                availabilityStatus = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                message = "Invalid ABS baseUrl: $normalized"
-            )
-    }
+    private fun resolveBaseUrl(baseUrl: String): HttpUrl =
+        AbsUrlResolver.resolveBaseUrl(baseUrl)
 
     private fun resolveApiUrl(baseUrl: String, endpoint: String): HttpUrl =
-        resolveBaseUrl(baseUrl).newBuilder()
-            .addPathSegment("api")
-            .addPathSegment(endpoint)
-            .build()
+        AbsUrlResolver.resolveApiUrl(baseUrl, endpoint)
 
     /**
      * ABS Transport Policy Check (Applies global cleartext settings to resolved request URLs)

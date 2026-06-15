@@ -2,6 +2,7 @@ package com.viel.aplayer.application.usecase
 
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.AbsApiClient
+import com.viel.aplayer.abs.net.AbsUrlResolver
 import com.viel.aplayer.abs.sync.AbsConnectionTestResult
 import com.viel.aplayer.abs.sync.AbsConnectionTester
 import com.viel.aplayer.data.dao.LibraryRootDao
@@ -142,10 +143,10 @@ class AbsSettingsConnectionUseCase(
 
 /**
  * Normalize baseUrl value (Aligns user input URLs during reuse validation)
- * Removes trailing slash and trims whitespace character margins.
+ * Aligns user input URLs by validating and normalizing them using the unified AbsUrlResolver.
  */
 fun normalizeAbsBaseUrlForReuse(baseUrl: String): String =
-    baseUrl.trim().trimEnd('/')
+    AbsUrlResolver.resolveBaseUrl(baseUrl).toString().trimEnd('/')
 
 /**
  * Validate ABS reuse criteria (Determines whether a cached connection snapshot can be safely reused)

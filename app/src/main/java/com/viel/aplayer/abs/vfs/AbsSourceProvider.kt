@@ -8,6 +8,7 @@ import com.viel.aplayer.abs.net.AbsAuth
 import com.viel.aplayer.abs.net.AbsAuthInterceptor
 import com.viel.aplayer.abs.net.AbsTokenRefreshClient
 import com.viel.aplayer.abs.net.AbsTokenRefreshResult
+import com.viel.aplayer.abs.net.AbsUrlResolver
 import com.viel.aplayer.abs.net.RealAbsApiClient
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -330,13 +331,8 @@ class AbsSourceProvider(
     }
 
     internal fun resolveContentUrl(baseUrl: String, root: LibraryRootEntity, contentUrl: String): HttpUrl {
-        val normalizedBaseUrl = baseUrl.trim().trimEnd('/')
-        val base = normalizedBaseUrl.toHttpUrlOrNull()
-            ?: throw AbsApiError(
-                code = "INVALID_BASE_URL",
-                availabilityStatus = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                message = "Invalid ABS baseUrl"
-            )
+        // Use unified AbsUrlResolver to retrieve the structured base URL.
+        val base = AbsUrlResolver.resolveBaseUrl(baseUrl)
         val source = contentUrl.trim()
         if (source.startsWith("/api/")) {
             val resolved = base.newBuilder()

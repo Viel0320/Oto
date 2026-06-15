@@ -145,7 +145,8 @@ fun elapsedMs(startNs: Long): Long = AbsLogClock.elapsedMs(startNs)
 
 **建议**：删掉 `formatBytes`，通知网关改调 `TimeUtils.formatFileSize`。
 
-### 3.4 baseUrl 规范化被 3 处内联绕过 🔴
+<!-- Mark heading of section 3.4 as struck through since it has been resolved -->
+### ~~3.4 baseUrl 规范化被 3 处内联绕过 🔴~~
 
 **已有规范位**：`abs/auth/AbsCredentialStore.kt:98` 的 `normalizeBaseUrl` 与 `application/usecase/AbsSettingsConnectionUseCase.kt:147` 的 `normalizeAbsBaseUrlForReuse`。
 **绕过点**（grep 实测）：
@@ -194,7 +195,8 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 
 **建议**：抽 `object AbsJson { val moshi }`，单实例 + 统一 `parseOrError` 辅助。
 
-### 4.3 封面 URL 构造分散 🟡
+<!-- Mark heading of section 4.3 as struck through since it has been resolved -->
+### ~~4.3 封面 URL 构造分散 🟡~~
 
 `AbsCoverCache.kt:54-61` 硬编码 `api/items/{id}/cover` 拼 URL；`AbsSourceProvider` 走通用 `resolveContentUrl`（:329）。两者各自重新规范化 baseUrl（见 3.4）。`ui/common/CoverImageRequestFactory.kt` 只管 Coil 请求与缓存键，**不算重复**。
 
@@ -336,7 +338,7 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 | 5.1 | BookEntity/ChapterEntity 逐字段构造           | 4+7 处  | ❌         | ★★☆            | 未修复  |
 | 3.1 | 父路径提取                                    | 8 处    | ❌         | ★★☆            | 未修复  |
 | 3.2 | 文件名去扩展名（语义不一致隐患）                         | 15+ 处  | ❌         | ★★☆            | 未修复  |
-| 3.4 | baseUrl 规范化被绕过                           | 3 处    | ✅(被绕过)    | ★★☆            | 未修复  |
+| ~~3.4~~ | ~~baseUrl 规范化被绕过~~                           | ~~3 处~~    | ~~✅(被绕过)~~    | ~~★★☆~~            | ~~已修复~~  |
 | ~~3.3~~ | ~~formatBytes vs formatFileSize（输出不一致）~~     | ~~2 实现~~   | ~~✅(被绕过)~~    | ~~★★☆~~            | ~~已修复~~  |
 | ~~1.2~~ | ~~FLAC 图片块解析 FLAC↔Ogg~~                      | ~~\~40 行~~  | ~~❌~~         | ~~★★☆~~            | ~~已修复~~  |
 | 4.2 | 双 Moshi 实例 + 解析样板                        | 2 实例   | ❌         | ★★☆            | 未修复  |
@@ -344,7 +346,7 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 | 2.2 | 7 个 ABS Logger 转发 mark/elapsedMs         | 7 处    | 🔶        | ★☆☆            | 未修复  |
 | 5.2 | 瘦网关 / 单实现接口 / BookQueryService god-class | 多处     | ❌         | ★★☆（重构较大）      | 未修复  |
 | 6.4 | 对话框确认/取消按钮行                              | 多处     | ❌         | ★★☆            | 未修复  |
-| 4.3 | 封面 URL 构造分散                              | 2 处    | ❌         | ★☆☆            | 未修复  |
+| ~~4.3~~ | ~~封面 URL 构造分散~~                              | ~~2 处~~    | ~~❌~~         | ~~★☆☆~~            | ~~已修复~~  |
 | 4.5 | HttpUrl 脱敏/URL 尾部剥离                      | 3+2 处  | ❌         | ★☆☆            | 未修复  |
 | 3.5 | 枚举从偏好解析样板                                | 9 处    | ❌         | ★☆☆            | 未修复  |
 | 4.4 | 进度 LWW 协调封装分散                            | 3 类    | ✅(比较已集中)  | ★☆☆（重构风险）      | 未修复  |
