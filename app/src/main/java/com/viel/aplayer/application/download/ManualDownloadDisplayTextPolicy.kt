@@ -52,7 +52,7 @@ object ManualDownloadDisplayTextPolicy {
         return normalized.take(maxChars - TRUNCATION_MARKER.length).trimEnd() + TRUNCATION_MARKER
     }
 
-    private const val AUTHOR_MAX_CHARS = 16
+    private const val AUTHOR_MAX_CHARS = 12
     private const val TITLE_MAX_CHARS = 48
     private const val SUPPLEMENTAL_SEPARATOR = " · "
     private const val TRUNCATION_MARKER = "..."

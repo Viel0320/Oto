@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class DownloadProgressPoller(
     private val downloadMetadataDao: DownloadMetadataDao,
@@ -58,7 +59,7 @@ class DownloadProgressPoller(
                     )
                 }
             }
-            delay(pollIntervalMs)
+            delay(pollIntervalMs.milliseconds)
         }
     }
 

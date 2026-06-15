@@ -1,5 +1,7 @@
 package com.viel.aplayer.application.download
 
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.DownloadMetadataDao
 import com.viel.aplayer.logger.DownloadSyncLogger
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +25,7 @@ class ManualDownloadOrphanCleaner(
     private val downloadMetadataDao: DownloadMetadataDao,
     private val downloadableBookFileSelector: DownloadableBookFileSelector
 ) {
+    @OptIn(UnstableApi::class)
     suspend fun cleanOrphans(): ManualDownloadOrphanCleanupResult = withContext(Dispatchers.IO) {
         val manualCache = downloadCacheAccess.manualCache
         val bytesBefore = manualCache.cacheSpace

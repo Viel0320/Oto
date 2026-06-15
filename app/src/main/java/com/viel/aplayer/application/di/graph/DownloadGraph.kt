@@ -223,9 +223,6 @@ internal class DownloadGraph(
     val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
         get() = downloadController as ManualDownloadCleanupGateway
 
-    val manualDownloadCache: Cache
-        get() = manualCacheLazy.value
-
     // Download Service Runtime Owner (Expose the raw Media3 manager only to process-internal service wiring)
     // APlayerDownloadService needs this object for Media3's DownloadService contract, while UI and use cases remain on DownloadRuntimeGateway.
     val media3DownloadManager: DownloadManager

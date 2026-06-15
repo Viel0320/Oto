@@ -10,10 +10,6 @@ object PlaybackCacheKeyPolicy {
         val normalizedExplicitKey = explicitKey?.trim().takeUnless { it.isNullOrEmpty() }
         if (normalizedExplicitKey != null) return normalizedExplicitKey
         val bookFileId = VfsPlaybackUri.bookFileId(uri)
-        return if (bookFileId != null) {
-            bookFileId
-        } else {
-            uri.toString()
-        }
+        return bookFileId ?: uri.toString()
     }
 }

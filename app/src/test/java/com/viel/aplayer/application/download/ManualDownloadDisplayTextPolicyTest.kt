@@ -27,7 +27,7 @@ class ManualDownloadDisplayTextPolicyTest {
 
         // Long Author Contract (Keep title visible by compacting the author field first)
         // Sixteen visible author characters include the ellipsis marker used by both notification and management rows.
-        assertEquals("78%   AuthorNameTha... - Book Title", label)
+        assertEquals("78%   AuthorNam... - Book Title", label)
     }
 
     @Test

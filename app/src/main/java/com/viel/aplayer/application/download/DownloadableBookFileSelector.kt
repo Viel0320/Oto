@@ -2,6 +2,7 @@ package com.viel.aplayer.application.download
 
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.media.PlaybackRootLookup
 
 /**
@@ -14,12 +15,22 @@ class DownloadableBookFileSelector(
     private val downloadBookFileReader: DownloadBookFileReader,
     private val playbackRootLookup: PlaybackRootLookup
 ) {
-    suspend fun remoteAudioFilesForBook(bookId: String): List<BookFileEntity> =
-        downloadBookFileReader.getDownloadFilesForBook(bookId)
+    /**
+     * Retrieve remote audio files eligible for manual download caching.
+     * Excludes SAF (local) files and non-audio files (like playlists/manifests).
+     * Employs a local cache for library roots to prevent redundant N+1 database queries.
+     */
+    suspend fun remoteAudioFilesForBook(bookId: String): List<BookFileEntity> {
+        val files = downloadBookFileReader.getDownloadFilesForBook(bookId)
+        val rootsCache = mutableMapOf<String, LibraryRootEntity?>()
+        return files
             .filter { file -> file.fileRole == AudiobookSchema.FileRole.AUDIO }
             .filter { file ->
-                val root = playbackRootLookup.getRootById(file.rootId)
+                val root = rootsCache.getOrPut(file.rootId) {
+                    playbackRootLookup.getRootById(file.rootId)
+                }
                 root != null && root.sourceType != AudiobookSchema.LibrarySourceType.SAF
             }
             .sortedBy { file -> file.index }
+    }
 }

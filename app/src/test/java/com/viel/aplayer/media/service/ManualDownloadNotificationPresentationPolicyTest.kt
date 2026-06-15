@@ -28,7 +28,7 @@ class ManualDownloadNotificationPresentationPolicyTest {
 
         // Long Author Compaction (Keep the book title visible when the author field is unusually long)
         // The policy truncates only the author segment first because SystemUI has very limited header width.
-        assertEquals("78%   AuthorNameTha... - Book Title", title)
+        assertEquals("78%   AuthorNam... - Book Title", title)
     }
 
     @Test
