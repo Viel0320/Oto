@@ -54,8 +54,8 @@ import com.viel.aplayer.application.download.BookCacheStatus
 import com.viel.aplayer.application.download.ManualDownloadDisplayTextPolicy
 import com.viel.aplayer.application.download.ManualDownloadTaskItem
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.formatFileSize
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
-import com.viel.aplayer.ui.common.formatFileSize
 import com.viel.aplayer.ui.settings.SettingsTemplateDialog
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource

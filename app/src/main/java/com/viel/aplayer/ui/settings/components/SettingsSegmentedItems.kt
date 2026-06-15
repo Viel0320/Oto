@@ -29,7 +29,7 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.data.store.SleepMode
 import com.viel.aplayer.data.store.ThemeMode
-import com.viel.aplayer.ui.common.formatFileSize
+import com.viel.aplayer.shared.formatFileSize
 
 /**
  * Settings Segmented Items (Own multi-choice Settings controls)

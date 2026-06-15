@@ -37,9 +37,9 @@ import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.formatDate
+import com.viel.aplayer.shared.formatTime
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
-import com.viel.aplayer.ui.common.formatDate
-import com.viel.aplayer.ui.common.formatTime
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import dev.chrisbanes.haze.HazeState
 

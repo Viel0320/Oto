@@ -1,5 +1,7 @@
-package com.viel.aplayer.ui.common
+package com.viel.aplayer.shared
 
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.log10
 import kotlin.math.pow
@@ -34,8 +36,8 @@ fun formatFileSize(sizeInBytes: Long): String {
 }
 
 fun formatDate(ms: Long): String {
-    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-    return sdf.format(java.util.Date(ms))
+    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+    return sdf.format(Date(ms))
 }
 
 //fun formatShortDate(ms: Long): String {

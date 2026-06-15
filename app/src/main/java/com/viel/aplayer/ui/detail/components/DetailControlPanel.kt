@@ -42,8 +42,8 @@ import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.formatFileSize
-import com.viel.aplayer.ui.common.formatTime
+import com.viel.aplayer.shared.formatFileSize
+import com.viel.aplayer.shared.formatTime
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.detail.DetailUiState
