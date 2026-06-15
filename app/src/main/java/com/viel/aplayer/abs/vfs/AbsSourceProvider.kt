@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.ParcelFileDescriptor
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.AbsApiError
+import com.viel.aplayer.abs.net.AbsAuth
+import com.viel.aplayer.abs.net.AbsAuthInterceptor
 import com.viel.aplayer.abs.net.AbsTokenRefreshClient
 import com.viel.aplayer.abs.net.AbsTokenRefreshResult
 import com.viel.aplayer.abs.net.RealAbsApiClient
@@ -56,6 +58,7 @@ class AbsSourceProvider(
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .callTimeout(40, TimeUnit.SECONDS)
+        .addInterceptor(AbsAuthInterceptor(credentialStore))
         .build()
 ) : LibrarySourceProvider {
     override val kind: LibrarySourceKind = LibrarySourceKind.ABS
@@ -289,7 +292,7 @@ class AbsSourceProvider(
         )
         val requestBuilder = Request.Builder()
             .url(url)
-            .header("Authorization", "Bearer ${credential.token}")
+            .tag(AbsAuth::class.java, AbsAuth(token = credential.token, credentialId = file.root.credentialId))
         extraHeaders.forEach { (key, value) -> requestBuilder.header(key, value) }
         when (method) {
             "HEAD" -> requestBuilder.head()

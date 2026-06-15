@@ -85,7 +85,7 @@ interface AbsApiClient {
  * ABS API Transport Boundary (OkHttp requests and Moshi parsing rules are consolidated within this class)
  */
 class RealAbsApiClient(
-    private val client: OkHttpClient = defaultClient(),
+    client: OkHttpClient? = null,
     private val appSettingsRepository: AppSettingsRepository? = null,
     private val credentialStore: AbsCredentialStore? = null,
     private val settingsProvider: () -> AppSettings = {
@@ -115,16 +115,25 @@ class RealAbsApiClient(
     // Unsafe Hostname Verifier: Null hostname verifier accepting any server hostname.
     private val unsafeHostnameVerifier = HostnameVerifier { _, _ -> true }
 
-    // Unsafe OkHttpClient: Reconfigured OkHttpClient using client.newBuilder() to share the connection pool but bypass SSL checks.
-    private val unsafeClient = client.newBuilder()
+    // Base Client: Reconfigured client ensuring AbsAuthInterceptor is present.
+    private val baseClient = (client ?: defaultClient(credentialStore)).let { c ->
+        if (c.interceptors.none { it is AbsAuthInterceptor }) {
+            c.newBuilder().addInterceptor(AbsAuthInterceptor(credentialStore)).build()
+        } else {
+            c
+        }
+    }
+
+    // Unsafe OkHttpClient: Reconfigured OkHttpClient using baseClient.newBuilder() to share the connection pool but bypass SSL checks.
+    private val unsafeClient = baseClient.newBuilder()
         .sslSocketFactory(unsafeSslSocketFactory, unsafeTrustManager)
         .hostnameVerifier(unsafeHostnameVerifier)
         .build()
 
-    // Resolve client instance: Dynamically return client or unsafeClient depending on the global unsafe network policy.
+    // Resolve client instance: Dynamically return baseClient or unsafeClient depending on the global unsafe network policy.
     private fun getClient(): OkHttpClient {
         val allowInsecure = UnsafeNetworkPolicy.isInsecureTlsAllowed(settingsProvider())
-        return if (allowInsecure) unsafeClient else client
+        return if (allowInsecure) unsafeClient else baseClient
     }
     private val statusAdapter: JsonAdapter<AbsStatusDto> = moshi.adapter(AbsStatusDto::class.java)
     private val loginAdapter: JsonAdapter<AbsLoginResponseDto> = moshi.adapter(AbsLoginResponseDto::class.java)
@@ -184,7 +193,7 @@ class RealAbsApiClient(
                 .url(resolveApiUrl(baseUrl, "authorize"))
                 // Enforce POST Request (Requires POST method explicitly as defined in integration parameters)
                 .post(EMPTY_JSON_BODY)
-                .header("Authorization", bearer(token))
+                .tag(AbsAuth::class.java, AbsAuth(token = token))
                 .build(),
             adapter = authorizeAdapter
         )
@@ -226,7 +235,7 @@ class RealAbsApiClient(
             request = Request.Builder()
                 .url(resolveApiUrl(baseUrl, "libraries"))
                 .get()
-                .header("Authorization", bearer(token))
+                .tag(AbsAuth::class.java, AbsAuth(token = token, credentialId = credentialId))
                 .build(),
             adapter = librariesAdapter,
             credentialId = credentialId
@@ -249,7 +258,7 @@ class RealAbsApiClient(
                         .build()
                 )
                 .get()
-                .header("Authorization", bearer(token))
+                .tag(AbsAuth::class.java, AbsAuth(token = token, credentialId = credentialId))
                 .build(),
             adapter = libraryItemsAdapter,
             credentialId = credentialId
@@ -265,7 +274,7 @@ class RealAbsApiClient(
             request = Request.Builder()
                 .url(resolveApiUrl(baseUrl, "items").newBuilder().addPathSegment("batch").addPathSegment("get").build())
                 .post(body)
-                .header("Authorization", bearer(token))
+                .tag(AbsAuth::class.java, AbsAuth(token = token, credentialId = credentialId))
                 .build(),
             adapter = batchGetItemsAdapter,
             credentialId = credentialId
@@ -287,7 +296,7 @@ class RealAbsApiClient(
                             .build()
                     )
                     .get()
-                    .header("Authorization", bearer(token))
+                    .tag(AbsAuth::class.java, AbsAuth(token = token, credentialId = credentialId))
                     .build(),
                 adapter = progressAdapter,
                 credentialId = credentialId
@@ -321,7 +330,7 @@ class RealAbsApiClient(
             request = Request.Builder()
                 .url(resolveApiUrl(baseUrl, "items").newBuilder().addPathSegment(itemId).addPathSegment("play").build())
                 .post(body)
-                .header("Authorization", bearer(token))
+                .tag(AbsAuth::class.java, AbsAuth(token = token, credentialId = credentialId))
                 .build(),
             adapter = playbackSessionAdapter,
             credentialId = credentialId
@@ -352,7 +361,7 @@ class RealAbsApiClient(
             request = Request.Builder()
                 .url(resolveApiUrl(baseUrl, "session").newBuilder().addPathSegment(sessionId).addPathSegment("sync").build())
                 .post(body)
-                .header("Authorization", bearer(token))
+                .tag(AbsAuth::class.java, AbsAuth(token = token, credentialId = credentialId))
                 .build(),
             credentialId = credentialId
         )
@@ -382,7 +391,7 @@ class RealAbsApiClient(
             request = Request.Builder()
                 .url(resolveApiUrl(baseUrl, "session").newBuilder().addPathSegment(sessionId).addPathSegment("close").build())
                 .post(body)
-                .header("Authorization", bearer(token))
+                .tag(AbsAuth::class.java, AbsAuth(token = token, credentialId = credentialId))
                 .build(),
             credentialId = credentialId
         )
@@ -526,7 +535,7 @@ class RealAbsApiClient(
             request = Request.Builder()
                 .url(resolveApiUrl(baseUrl, "authorize"))
                 .post(EMPTY_JSON_BODY)
-                .header("Authorization", bearer(token))
+                .tag(AbsAuth::class.java, AbsAuth(token = token))
                 .build(),
             adapter = authorizeAdapter
         )
@@ -561,11 +570,9 @@ class RealAbsApiClient(
         )
     }
 
-    private fun bearer(token: String): String = "Bearer $token"
-
     private fun Request.withBearerToken(token: String): Request =
         newBuilder()
-            .header("Authorization", bearer(token))
+            .tag(AbsAuth::class.java, AbsAuth(token = token))
             .build()
 
     private fun HttpUrl.redacted(): String =
@@ -593,11 +600,12 @@ class RealAbsApiClient(
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         private val EMPTY_JSON_BODY = "{}".toRequestBody(JSON_MEDIA_TYPE)
 
-        private fun defaultClient(): OkHttpClient =
+        private fun defaultClient(credentialStore: AbsCredentialStore?): OkHttpClient =
             OkHttpClient.Builder()
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(20, TimeUnit.SECONDS)
                 .callTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor(AbsAuthInterceptor(credentialStore))
                 .build()
     }
 }

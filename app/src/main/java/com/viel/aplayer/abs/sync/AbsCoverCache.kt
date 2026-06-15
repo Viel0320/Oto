@@ -2,6 +2,8 @@ package com.viel.aplayer.abs.sync
 
 import android.content.Context
 import com.viel.aplayer.abs.auth.AbsCredentialStore
+import com.viel.aplayer.abs.net.AbsAuth
+import com.viel.aplayer.abs.net.AbsAuthInterceptor
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.logger.AbsAuthLogger
@@ -31,6 +33,7 @@ class AbsCoverCache(
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(AbsAuthInterceptor(credentialStore))
         .build(),
     // ABS Cover Settings Provider (Supplies cached unsafe-network settings for cover transport checks)
     // AbsCoverCache sends its own OkHttp requests outside RealAbsApiClient, so constructor injection keeps the runtime policy dependency explicit and testable.
@@ -69,7 +72,7 @@ class AbsCoverCache(
             val request = Request.Builder()
                 .url(coverUrl)
                 .get()
-                .header("Authorization", "Bearer ${credential.token}")
+                .tag(AbsAuth::class.java, AbsAuth(token = credential.token, credentialId = root.credentialId))
                 .build()
             val response = try {
                 client.newCall(request).execute()
