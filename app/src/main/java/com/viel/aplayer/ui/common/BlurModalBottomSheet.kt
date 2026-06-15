@@ -17,14 +17,12 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -93,21 +91,12 @@ fun BlurModalBottomSheet(
         contentWindowInsets = contentWindowInsets,
     ) {
         // Setup Liquid Glass Modifier (Apply the shared liquid glass renderer to modal sheets)
-        // Bottom sheets previously used raw HazeMaterials, so chapter panels blurred but did not draw the app's liquid refraction and highlight treatment.
-        val glassModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
-            Modifier
-                // Bottom Sheet Shape Clipping (Constrain blur and border highlights to the sheet outline)
-                // The liquid renderer draws shape-aware highlights, so clipping first prevents rectangular blur spill around rounded top corners.
-                .clip(shape)
-                .liquidGlassCompatEffect(
-                    state = hazeState,
-                    // Bottom Sheet Liquid Glass Style (Match the Material sheet shape while keeping the shared app tint and blur defaults)
-                    // Passing the sheet shape lets the refraction outline follow BottomSheetDefaults.ExpandedShape instead of the generic rounded rectangle default.
-                    style = LiquidGlassStyle(shape = shape)
-                )
-        } else {
-            Modifier
-        }
+        // Use the unified glassOverlay helper to handle shape clipping and backdrop blur in a single call.
+        val glassModifier = Modifier.glassOverlay(
+            hazeState = hazeState,
+            glassEffectMode = glassEffectMode,
+            shape = shape
+        )
         Box(
             modifier = Modifier
                 .fillMaxWidth()

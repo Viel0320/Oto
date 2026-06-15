@@ -18,9 +18,11 @@ class SnackbarGlassArchitectureTest {
 
         // Snackbar Glass Renderer Guard (Keep snackbar tint and blur aligned with dialogs and sheets)
         // Raw HazeMaterials presets can make the snackbar panel read as a black block, so snackbar Haze mode should use the app-owned renderer.
+        // Snackbar Glass Renderer Guard (Allows either the unified glassOverlay helper or the raw liquidGlassCompatEffect)
+        // Checks that the snackbar styling still supplies custom tint and shape parameters while supporting refactored helper methods.
         assertTrue(
-            "BlurSnackbar must use liquidGlassCompatEffect for Haze rendering.",
-            source.contains("liquidGlassCompatEffect(") &&
+            "BlurSnackbar must use glassOverlay or liquidGlassCompatEffect for Haze rendering.",
+            (source.contains("glassOverlay(") || source.contains("liquidGlassCompatEffect(")) &&
                 source.contains("LiquidGlassStyle(") &&
                 source.contains("tint = snackbarGlassTint") &&
                 source.contains("shape = shape")

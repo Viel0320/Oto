@@ -16,16 +16,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.LocalHazeState
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
@@ -97,20 +95,14 @@ fun BlurDialog(
             // Resolve Dialog Haze State: Fallback to LocalHazeState if no explicit hazeState is passed.
             // Details: Query LocalHazeState.current composition local to obtain the top-level app-level hazeState automatically when hazeState parameter is null.
             val resolvedHazeState = hazeState ?: LocalHazeState.current
-            // Setup Glass Modifier (Apply Haze frosted glass effect) Conditionally apply hazeChild modifier if GlassEffectMode.Haze is selected and resolvedHazeState is available.
-            val glassModifier = if (glassEffectMode == GlassEffectMode.Haze && resolvedHazeState != null) {
-                val dialogShape = MaterialTheme.shapes.extraLarge
-                Modifier
-                    // Clip dialog shape before applying hazeChild
-                    .clip(dialogShape)
-                    // Liquid Glass Dialog Integration (Replace regular haze blur with custom liquid glass effect to add border highlight) Apply liquidGlassCompatEffect to dialog container with the dialog's corner shape.
-                    .liquidGlassCompatEffect(
-                        state = resolvedHazeState,
-                        style = LiquidGlassStyle(shape = dialogShape)
-                    )
-            } else {
-                Modifier
-            }
+            // Setup Glass Modifier (Apply Haze frosted glass effect)
+            // Use the unified glassOverlay helper to handle shape clipping and backdrop blur in a single call.
+            val dialogShape = MaterialTheme.shapes.extraLarge
+            val glassModifier = Modifier.glassOverlay(
+                hazeState = resolvedHazeState,
+                glassEffectMode = glassEffectMode,
+                shape = dialogShape
+            )
 
             // Content Surface (Core Dialog container styled under Material 3 specification)
             // - Uses extraLarge shapes and tonal/shadow elevation mapping to reinforce spatial layering.

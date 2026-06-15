@@ -126,4 +126,13 @@ class PlayerSettingsViewModel(
     fun showToast(message: FeedbackMessage) {
         appEventSink.showToast(message)
     }
+
+    /**
+     * Updates the seek undo banner visibility configuration.
+     *
+     * @param visible The desired visibility state of the undo seek banner.
+     */
+    fun setUndoSeekVisible(visible: Boolean) {
+        settingsManager.setUndoSeekVisible(visible)
+    }
 }

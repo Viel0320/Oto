@@ -16,14 +16,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -63,16 +62,16 @@ fun BlurSnackbar(
             Color.Black.copy(alpha = 0.08f)
         }
         // Haze Snackbar Glass Layer (Use the shared liquid-glass renderer instead of old raw presets)
-        // Raw material presets can tint the snackbar black under forced-dark Haze mode, while this path keeps blur and tint consistent with the rest of the app chrome.
-        val glassModifier = Modifier
-            .clip(shape)
-            .liquidGlassCompatEffect(
-                state = hazeState,
-                style = LiquidGlassStyle(
-                    tint = snackbarGlassTint,
-                    shape = shape
-                )
+        // Use the unified glassOverlay helper to apply shape clipping and liquid glass blur with custom tinting.
+        val glassModifier = Modifier.glassOverlay(
+            hazeState = hazeState,
+            glassEffectMode = glassEffectMode,
+            shape = shape,
+            style = LiquidGlassStyle(
+                tint = snackbarGlassTint,
+                shape = shape
             )
+        )
 
         // Haze Snackbar Surface (Let the effect provide the visible glass body)
         // A transparent Surface avoids stacking Material's opaque snackbar container on top of the sampled backdrop.

@@ -266,7 +266,9 @@ class PlaybackViewModel(
         _playbackSeekStepConfig = config
     }
 
-    private var onUndoSeekVisibilityChanged: ((Boolean) -> Unit)? = null
+    // Callback to notify parent views or settings controllers when the undo seek banner visibility changes.
+    // This allows the playback VM to toggle the showUndoSeek configuration in the settings manager.
+    var onUndoSeekVisibilityChanged: ((Boolean) -> Unit)? = null
     private var onFullPlayerMinimized: (() -> Unit)? = null
     private var onMiniPlayerHiddenChanged: ((Boolean) -> Unit)? = null
 

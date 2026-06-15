@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.data.store.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -189,4 +191,29 @@ private fun DrawScope.drawLiquidGlassBottomEdge(borderBrush: Brush) {
         end = Offset(size.width, y),
         strokeWidth = strokeWidth
     )
+}
+
+/**
+ * Modifier extension to conditionally apply a shape-clipped liquid glass overlay effect.
+ *
+ * Automatically clips the layout to [shape] and applies the Haze-powered liquid glass shader
+ * effect when [glassEffectMode] is Haze and [hazeState] is non-null. Returns the original modifier unmodified otherwise.
+ *
+ * @param hazeState The HazeState linked to the backdrop layout being sampled
+ * @param glassEffectMode The active glass effect setting mode
+ * @param shape The clipping layout shape for the glass panel
+ * @param style Style overrides configuration containing highlight/bezel details, defaulting to a style with the same shape
+ */
+fun Modifier.glassOverlay(
+    hazeState: HazeState?,
+    glassEffectMode: GlassEffectMode,
+    shape: Shape,
+    style: LiquidGlassStyle = LiquidGlassStyle(shape = shape)
+): Modifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
+    // Clip the modifier layout to the specified shape boundary first,
+    // then chain the composite liquid glass effect to render frosted blur and custom borders.
+    this.clip(shape).liquidGlassCompatEffect(state = hazeState, style = style)
+} else {
+    // Degrade gracefully and bypass the glass shader pipeline if glass effects are turned off
+    this
 }

@@ -10,14 +10,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
@@ -59,18 +57,12 @@ fun BlurDropdownMenu(
         currentColorScheme.surfaceContainer
     }
 
-    val menuModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
-        Modifier
-            // Clip menu shape before applying hazeChild
-            .clip(menuShape)
-            // Liquid Glass Menu Integration (Replace regular haze blur with custom liquid glass effect to add border highlight) Apply liquidGlassCompatEffect to DropdownMenu using the menu shape profile.
-            .liquidGlassCompatEffect(
-                state = hazeState,
-                style = LiquidGlassStyle(shape = menuShape)
-            )
-    } else {
-        Modifier
-    }
+    // Setup Menu Glass Modifier: Use the unified glassOverlay helper to apply rounded corner clip and liquid glass blur.
+    val menuModifier = Modifier.glassOverlay(
+        hazeState = hazeState,
+        glassEffectMode = glassEffectMode,
+        shape = menuShape
+    )
 
     DropdownMenu(
         expanded = expanded,

@@ -20,7 +20,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.LiquidGlassBorderMode
 import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
+import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -41,28 +41,21 @@ fun APlayerGlassTopBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val resolvedHazeState = hazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
-    val topBarSurfaceModifier = if (resolvedHazeState != null) {
-        // Glass Top Bar Haze Surface (Extracted Home overlay behavior)
-        // The measured wrapper applies liquid glass over a sibling content source while reporting height for scroll-content padding reservation.
-        modifier
-            .fillMaxWidth()
-            .onSizeChanged { onHeightChanged(it.height) }
-            .liquidGlassCompatEffect(
-                state = resolvedHazeState,
-                style = LiquidGlassStyle(
-                    shape = RectangleShape,
-                    // Glass Top Bar Borderless Haze (Remove all decorative chrome strokes)
-                    // Home, Settings, and About should keep only the Haze blur/tint surface here, without top, side, or bottom edge drawing.
-                    borderMode = LiquidGlassBorderMode.None
-                )
+    // Glass Top Bar Surface (Extracted Home overlay behavior)
+    // The measured wrapper applies liquid glass over a sibling content source while reporting height for scroll-content padding reservation.
+    // Use the unified glassOverlay helper to apply RectangleShape clipping and backdrop blur in a single pipeline.
+    val topBarSurfaceModifier = modifier
+        .fillMaxWidth()
+        .onSizeChanged { onHeightChanged(it.height) }
+        .glassOverlay(
+            hazeState = resolvedHazeState,
+            glassEffectMode = glassEffectMode,
+            shape = RectangleShape,
+            style = LiquidGlassStyle(
+                shape = RectangleShape,
+                borderMode = LiquidGlassBorderMode.None
             )
-    } else {
-        // Static Top Bar Surface (Preserve measurement without glass)
-        // Keeping the same sizing path in Material mode prevents content padding drift when the user toggles glass effects.
-        modifier
-            .fillMaxWidth()
-            .onSizeChanged { onHeightChanged(it.height) }
-    }
+        )
 
     Box(modifier = topBarSurfaceModifier) {
         CenterAlignedTopAppBar(

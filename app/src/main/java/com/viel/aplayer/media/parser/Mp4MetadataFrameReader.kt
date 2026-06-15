@@ -390,6 +390,10 @@ object Mp4MetadataFrameReader {
         }.getOrDefault(0L)
     }
 
+    /**
+     * Parses Nero chpl atom payload to extract embedded audiobook chapters.
+     * Maps the chapter source directly to the type-safe ChapterSource enum.
+     */
     private suspend fun parseChpl(
         chpl: Atom,
         readRange: suspend (offset: Long, length: Int) -> ByteArray?
@@ -418,7 +422,6 @@ object Mp4MetadataFrameReader {
                     startPositionMs = startMs,
                     durationMs = 0L,
                     fileOffsetMs = startMs,
-                    // Update Mp4MetadataFrameReader to use AudiobookSchema.ChapterSource.EMBEDDED: Replacing raw string "EMBEDDED" with type-safe AudiobookSchema.ChapterSource.EMBEDDED enum.
                     source = AudiobookSchema.ChapterSource.EMBEDDED
                 )
             )
@@ -452,6 +455,10 @@ object Mp4MetadataFrameReader {
         return parseChapterTextTrack(chapterTrack, fileSize, readRange)
     }
 
+    /**
+     * Parses the QuickTime chapter text track samples into ChapterEntity items.
+     * Decoded chapters use the type-safe ChapterSource enum.
+     */
     private suspend fun parseChapterTextTrack(
         trak: Atom,
         fileSize: Long,
@@ -500,7 +507,6 @@ object Mp4MetadataFrameReader {
                         startPositionMs = startMs,
                         durationMs = 0L,
                         fileOffsetMs = startMs,
-                        // Update Mp4MetadataFrameReader to use AudiobookSchema.ChapterSource.EMBEDDED: Replacing raw string "EMBEDDED" with type-safe AudiobookSchema.ChapterSource.EMBEDDED enum.
                         source = AudiobookSchema.ChapterSource.EMBEDDED
                     )
                 )

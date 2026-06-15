@@ -220,6 +220,13 @@ fun APlayerApp(
                 }
             }
         )
+        // Bind Playback Seek Undo Callback (Orchestrate playback seek state updates with settings state flow)
+        // Description: Establishes a link where seek-triggered visibility updates in the playback controller are propagated directly into the settings manager to show/hide the undo snackbar.
+        LaunchedEffect(playbackViewModel, playerSettingsViewModel) {
+            playbackViewModel.onUndoSeekVisibilityChanged = { visible ->
+                playerSettingsViewModel.setUndoSeekVisible(visible)
+            }
+        }
         // Separation of DetailViewModel (Single Responsibility)
         // Independent ViewModel for the audiobook details page, split from LibraryViewModel to make each ViewModel have a single responsibility.
         val detailViewModel: DetailViewModel = viewModel(
