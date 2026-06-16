@@ -232,7 +232,6 @@
     <string name="settings_theme_mode_system">跟随系统</string>
     <string name="settings_theme_mode_light">浅色</string>
     <string name="settings_theme_mode_dark">深色</string>
-    <string name="settings_haze_forced_dark_subtitle">开启模糊效果时强制使用深色主题</string>
     <string name="settings_dynamic_color_title">Monet 动态取色</string>
     <string name="settings_dynamic_color_supported_subtitle">开启后，应用主题配色将自动从系统壁纸中提取</string>
     <string name="settings_dynamic_color_unsupported_subtitle">Monet 动态取色需要 Android 8.0 或更高版本</string>

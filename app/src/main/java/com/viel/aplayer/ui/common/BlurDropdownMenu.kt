@@ -10,14 +10,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * BlurDropdownMenu — A generic DropdownMenu wrapper supporting switching between Material native menu and Haze frosted glass menu.
@@ -57,12 +59,14 @@ fun BlurDropdownMenu(
         currentColorScheme.surfaceContainer
     }
 
-    // Setup Menu Glass Modifier: Use the unified glassOverlay helper to apply rounded corner clip and liquid glass blur.
-    val menuModifier = Modifier.glassOverlay(
-        hazeState = hazeState,
-        glassEffectMode = glassEffectMode,
-        shape = menuShape
-    )
+    // Setup Menu Glass Modifier: Apply direct Haze material inside the same rounded menu bounds.
+    val menuModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
+        Modifier
+            .clip(menuShape)
+            .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
+    } else {
+        Modifier
+    }
 
     DropdownMenu(
         expanded = expanded,

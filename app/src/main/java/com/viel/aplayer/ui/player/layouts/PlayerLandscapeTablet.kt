@@ -90,9 +90,6 @@ fun PlayerLandscapeTablet(
     // Player Floating Haze Source (Use the stable app-level sampler for player glass surfaces)
     // PlayerScreen passes the resolved app-level source so chapter sheets, bookmark dialogs, controls, and header menus stay on one HazeState.
     chapterSheetHazeState: HazeState?,
-    // Color Extracted Callback (Pass color callback to downstream PlayerCover)
-    // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
-    onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Resolve window dimensions (To query device width coordinates without reading LocalConfiguration parameters directly)
@@ -265,8 +262,7 @@ fun PlayerLandscapeTablet(
                                             coverScene = "player-main-cover",
                                             onAdjustVolume = { actions.playback.onAdjustVolume(it) },
                                             onNextChapter = { actions.playback.onNextChapter() },
-                                            onPreviousChapter = { actions.playback.onPreviousChapter() },
-                                            onColorExtracted = onColorExtracted
+                                            onPreviousChapter = { actions.playback.onPreviousChapter() }
                                         )
                                     }
                                 }

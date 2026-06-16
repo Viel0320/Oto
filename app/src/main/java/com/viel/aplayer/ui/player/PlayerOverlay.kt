@@ -100,11 +100,11 @@ fun PlayerOverlay(
     val currentColorScheme = MaterialTheme.colorScheme
     val coverPath = metadata.coverPath
 
-    var coverColor by remember(coverPath) {
-        mutableStateOf<Color?>(ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
+    var coverColor by remember(coverPath, metadata.coverLastUpdated) {
+        mutableStateOf<Color?>(ImageProcessor.getCachedColor(coverPath, metadata.coverLastUpdated)?.let { Color(it) })
     }
 
-    val dynamicColorScheme = remember(coverColor, darkTheme) {
+    val dynamicColorScheme = remember(coverColor, darkTheme, currentColorScheme) {
         if (coverColor != null) {
             DynamicColorSchemeHelper.generateColorSchemeFromSeed(coverColor!!, darkTheme, currentColorScheme)
         } else {
@@ -210,7 +210,6 @@ fun PlayerOverlay(
                                 hazeState = appHazeState,
                                 glassEffectMode = glassEffectMode,
                                 dynamicColorScheme = dynamicColorScheme,
-                                onColorExtracted = { coverColor = it },
                                  onExpandClick = { settingsViewModel.openFullPlayerFromMini() }
                             )
                         }
@@ -293,7 +292,6 @@ private fun MiniPlayerContent(
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode,
     dynamicColorScheme: androidx.compose.material3.ColorScheme?,
-    onColorExtracted: (Color) -> Unit,
     onExpandClick: () -> Unit
 ) {
     // Track Availability Check (Consolidate accessibility and availability listener at the overlay container layer instead of repeating it in sub-components)
@@ -322,8 +320,7 @@ private fun MiniPlayerContent(
                     actions = actions,
                     hazeState = hazeState,
                     onClick = onExpandClick,
-                    glassEffectMode = glassEffectMode,
-                    onColorExtracted = onColorExtracted
+                    glassEffectMode = glassEffectMode
                 )
             } else {
                 CompactMediaPlayer(
@@ -338,8 +335,7 @@ private fun MiniPlayerContent(
                     actions = actions,
                     hazeState = hazeState,
                     onClick = onExpandClick,
-                    glassEffectMode = glassEffectMode,
-                    onColorExtracted = onColorExtracted
+                    glassEffectMode = glassEffectMode
                 )
             }
         }

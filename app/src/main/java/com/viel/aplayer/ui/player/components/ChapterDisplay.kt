@@ -34,10 +34,10 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -87,10 +87,10 @@ fun ChapterDisplay(
                     // Setup Suggestion Chip Haze (Apply hazeChild to the chip container Box)
                     // Clip Chip Shape (Apply clip to chip container) Pre-clip container shape before applying hazeChild to avoid rendering shape mismatch.
                     .clip(chipShape)
-                    // Liquid Glass Chapter Chip (Use custom liquidGlassCompatEffect for physical glass blur and refraction highlight border on chapter display) Apply custom glass effect with chipShape.
-                    .liquidGlassCompatEffect(
+                    // Chapter Chip Haze Layer (Apply the direct Haze material inside the clipped chip bounds)
+                    .hazeEffect(
                         state = hazeState,
-                        style = LiquidGlassStyle(shape = chipShape)
+                        style = HazeMaterials.ultraThin()
                     )
                     .background(maskBrush)
                     .clickable(onClick = onChapterClick)

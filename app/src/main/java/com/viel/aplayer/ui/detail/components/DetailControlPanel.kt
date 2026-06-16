@@ -44,11 +44,11 @@ import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.shared.formatFileSize
 import com.viel.aplayer.shared.formatTime
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.detail.DetailUiState
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * DetailControlPanel Setup (Detail Operations Panel Component)
@@ -135,14 +135,9 @@ fun DetailControlPanel(
                             // Setup Play Button Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to button when in Haze mode.
                             it
                                 .clip(RoundedCornerShape(cornerRadius))
-                                .liquidGlassCompatEffect(
+                                .hazeEffect(
                                     state = hazeState,
-                                    style = LiquidGlassStyle(
-                                        //tint = Color.White.copy(alpha = 0.15f), // 玻璃色调
-                                        specularIntensity = 0.6f,              // 高光反射强度
-                                        ambientResponse = 0.5f,                // 边缘漫反射反射强度
-                                        shape = RoundedCornerShape(cornerRadius)       // 玻璃形状（会自动适应边框绘制）
-                                    )
+                                    style = HazeMaterials.ultraThin()
                                 )
                         } else {
                             it
@@ -262,14 +257,9 @@ fun DetailInfoChip(
                     val chipShape = RoundedCornerShape(12.dp)
                     it
                         .clip(chipShape)
-                        .liquidGlassCompatEffect(
+                        .hazeEffect(
                             state = hazeState,
-                            style = LiquidGlassStyle(
-                                // Adaptive Glass Tint: Fallback to theme-based 12% tint (White in Dark, Black in Light) by leaving it Unspecified.
-                                specularIntensity = 0.4f,
-                                ambientResponse = 0.5f,
-                                shape = chipShape
-                            )
+                            style = HazeMaterials.ultraThin()
                         )
                 } else {
                     it

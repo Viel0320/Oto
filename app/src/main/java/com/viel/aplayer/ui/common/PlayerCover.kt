@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.common
 
-import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -29,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -98,8 +96,6 @@ fun PlayerCover(
      * start from 16.dp instead of falling back to the mini-player's 8.dp playback shape.
      */
     sharedElementStartCornerRadius: Dp? = null,
-    // Add onColorExtracted lambda (Support propagating dynamic cover color) Pass color extraction callback to downstream cover views.
-    onColorExtracted: ((Color) -> Unit)? = null
 ) {
     // Use BoxWithConstraints to dynamically capture the maximum available width and height of the parent container, ensuring perfect adaptivity in portrait, landscape, or split-screen modes.
     BoxWithConstraints(
@@ -177,8 +173,6 @@ fun PlayerCover(
             sharedElementKey = sharedElementKey,
             sharedElementVisibilityScope = sharedElementVisibilityScope,
             sharedElementStartCornerRadius = sharedElementStartCornerRadius,
-            // Add onColorExtracted lambda (Support propagating dynamic cover color) Forward color callback downstream.
-            onColorExtracted = onColorExtracted,
             modifier = Modifier
                 .size(coverSize)
                 .then(gestureModifier)
@@ -227,8 +221,6 @@ fun MainCoverView(
      * keeping mini-player playback transitions on the existing 8.dp or 100.dp start radius.
      */
     sharedElementStartCornerRadius: Dp? = null,
-    // Add onColorExtracted lambda (Support propagating dynamic cover color) Accept color extraction callback on main cover.
-    onColorExtracted: ((Color) -> Unit)? = null
 ) {
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val animatedVisibilityScope = sharedElementVisibilityScope
@@ -263,11 +255,7 @@ fun MainCoverView(
     val isKeyConsistent = remember(sharedElementKey, bookId) {
         if (bookId.isBlank()) {
             false
-        } else if (sharedElementKey != null) {
-            sharedElementKey.contains(bookId)
-        } else {
-            true
-        }
+        } else sharedElementKey?.contains(bookId) ?: true
     }
 
     val sharedElementModifier = if (isKeyConsistent && sharedTransitionScope != null && animatedVisibilityScope != null) {
@@ -323,6 +311,7 @@ fun MainCoverView(
 
             if (coverPath != null && !isImageError) {
                 val context = LocalContext.current
+
                 // The main cover uniformly uses the Main1200 specification, allowing the details page and playback page to share the same dimensions and cache key.
                 // If the main cover specification needs to be increased or decreased in the future, only the request factory and enum need to be modified, instead of editing multiple UI files individually.
                 val request = remember(coverPath, coverLastUpdated) {
@@ -334,10 +323,9 @@ fun MainCoverView(
                         lastUpdated = coverLastUpdated,
                         variant = CoverImageVariant.Main1200,
                         scene = coverScene,
-                        // Disable Hardware Cover (Pass allowHardware = false and Config.RGB_565 since this cover needs dominant color extraction)
-                        // Preempts Hardware Bitmaps from being loaded and bypasses the costly copy() call inside ImageProcessor.
-                        allowHardware = false,
-                        bitmapConfig = Bitmap.Config.RGB_565
+                        // Use hardware bitmap for displaying in PlayerCover (Allow hardware bitmap renderer sampling optimization)
+                        allowHardware = true,
+                        bitmapConfig = null
                     )
                 }
                 AsyncImage(
@@ -345,13 +333,6 @@ fun MainCoverView(
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    // Intercept onSuccess load (Extract dominant color directly from memory-based Drawable) Retrieve Drawable from Coil result and propagate color.
-                    onSuccess = { successResult ->
-                        val colorInt = com.viel.aplayer.media.parser.ImageProcessor.getDominantColor(successResult.result.drawable)
-                        // Cache Calculated Color: Write the extracted dominant color into the main process LruCache to speed up future renders.
-                        com.viel.aplayer.media.parser.ImageProcessor.putColorToCache(coverPath, colorInt)
-                        onColorExtracted?.invoke(Color(colorInt))
-                    },
                     onError = {
                         // Main cover component degradation.
                         //

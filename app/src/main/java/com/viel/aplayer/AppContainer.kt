@@ -114,8 +114,6 @@ interface AppContainer :
      * Playback Domain Event Sink (Media-core event stream for playback facts)
      * Lets playback services publish domain outcomes while the application bridge decides how to render them.
      */
-    // Title: Settings Abstractions Binding (Expose read model and commands to UI dependencies)
-    // Replaces concrete AppSettingsRepository with settingsReadModel and settingsCommands interfaces.
     override val settingsReadModel: com.viel.aplayer.application.library.settings.AppSettingsReadModel
     override val settingsCommands: com.viel.aplayer.application.library.settings.AppSettingsCommands
 
@@ -149,8 +147,6 @@ interface AppContainer :
      */
     override val settingsQueryUseCase: SettingsQueryUseCase
 
-    // Title: Declare formatSettingsRootUseCase (Override settings screen format helper dependency)
-    // Satisfies SettingsScreenDependencies interface requirement.
     override val formatSettingsRootUseCase: com.viel.aplayer.application.usecase.FormatSettingsRootUseCase
 
 

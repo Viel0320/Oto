@@ -54,6 +54,13 @@ import com.viel.aplayer.ui.settings.SettingsViewModel
 import com.viel.aplayer.ui.settings.rememberSettingsDialogController
 import dev.chrisbanes.haze.HazeState
 
+/**
+ * Hosts the top-level app shell and resolves appearance preferences before navigation is rendered.
+ *
+ * Theme mode is resolved independently from the selected glass effect mode so Haze can use light,
+ * dark, or system appearance normally. Dynamic color remains owned by APlayerTheme and continues
+ * to use the same wallpaper seed path for both Material and Haze rendering.
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun APlayerApp(
@@ -129,16 +136,11 @@ fun APlayerApp(
         initialSettings.isDynamicColorEnabled
     }
 
-    // Resolve Theme Selection (Calculate target darkTheme state based on setting and glass effect mode)
-    // Compute active dark theme state dynamically. If Haze mode is active, override and force dark theme.
-    val isDarkTheme = if (activeGlassEffectMode == GlassEffectMode.Haze) {
-        true
-    } else {
-        when (activeThemeMode) {
-            ThemeMode.System -> androidx.compose.foundation.isSystemInDarkTheme()
-            ThemeMode.Light -> false
-            ThemeMode.Dark -> true
-        }
+    // Resolve Theme Selection (Calculate target darkTheme state based on setting)
+    val isDarkTheme = when (activeThemeMode) {
+        ThemeMode.System -> androidx.compose.foundation.isSystemInDarkTheme()
+        ThemeMode.Light -> false
+        ThemeMode.Dark -> true
     }
 
     // Localized Resource Context (Feed app-language choices into Compose resource lookup)
@@ -173,7 +175,7 @@ fun APlayerApp(
         LocalContext provides localizedContext,
         LocalConfiguration provides localizedConfiguration
     ) {
-        // Apply App Theme (Pass active dark theme and dynamic color states down to the customized theme container) Wraps the layout in APlayerTheme.
+        // Apply App Theme (Pass active dark theme and dynamic color states down to the theme container)
         APlayerTheme(
             darkTheme = isDarkTheme,
             dynamicColor = isDynamicColorEnabled

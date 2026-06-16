@@ -50,39 +50,6 @@ object ImageProcessor {
     // -------------------------------------------------------------------------
 
     /**
-     * 保存用户手动选择的自定义封面。
-     *
-     * 
-     * 1. 把编辑页生成的临时图片复制到私有 `cache/covers`
-     * 2. 基于正式文件生成缩略图
-     * 3. 提取主色并一起返回
-     */
-    suspend fun saveCustomCover(
-        context: Context,
-        bookId: String,
-        tempCoverPath: String
-    ): CoverExtractor.CoverResult = withContext(Dispatchers.IO) {
-        try {
-            val tempFile = File(tempCoverPath)
-            if (!tempFile.exists()) return@withContext CoverExtractor.CoverResult(null, null)
-
-            val timestamp = System.currentTimeMillis()
-            val originalFile = File(coverCacheDir(context), "${bookId.hashCode()}_custom_${timestamp}_orig.jpg")
-            originalFile.parentFile?.mkdirs()
-            tempFile.copyTo(originalFile, overwrite = true)
-
-            val thumbPath = createThumbnailFromFile(originalFile, "${bookId}_custom_${timestamp}")
-            // Remove Deprecated Color Extraction (Skip redundant disk-based Palette extraction during custom cover saving since database storage is deprecated and UI extracts colors via Coil drawables) Bypasses getDominantColor to reduce background CPU cycles and memory allocations.
-            CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, null)
-        } catch (e: Exception) {
-            // Release Error Boundary (Sanitize custom cover persistence failures)
-            // Cover save failures can expose cache paths through Throwable text, so retained errors use SecureLog.
-            SecureLog.error(TAG, "保存有声书 $bookId 的自定义封面失败", e)
-            CoverExtractor.CoverResult(null, null)
-        }
-    }
-
-    /**
      * Crop, resize and save custom cover from URI (Perform crop and downscaling on cover stream in background)
      *
      * Resolves the target external content URI using VfsExternalInputReader, center-crops the bitmap to a square,
@@ -354,7 +321,7 @@ object ImageProcessor {
                                 break
                             }
                         }
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         break
                     }
                 }
@@ -367,7 +334,7 @@ object ImageProcessor {
                         } else {
                             break
                         }
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         break
                     }
                 }
@@ -377,26 +344,30 @@ object ImageProcessor {
     }
 
     /**
-     * 将主色存入内存缓存。
+     * Stores a dominant cover color using a versioned key so same-path cover replacements do not reuse stale colors.
      */
-    fun putColorToCache(path: String?, color: Int) {
-        // Cache Dominant Color: Store calculated color into LRU cache for high-speed synchronous retrieval on subsequent composition rounds.
-        if (path != null) {
-            Log.d(TAG, "putColorToCache: path=$path, color=${Integer.toHexString(color)}")
-            colorCache.put(path, color)
-        }
+    fun putColorToCache(path: String?, lastUpdated: Long, color: Int) {
+        val cacheKey = colorCacheKey(path, lastUpdated) ?: return
+        Log.d(TAG, "putColorToCache: key=$cacheKey, color=${Integer.toHexString(color)}")
+        colorCache.put(cacheKey, color)
     }
 
     /**
-     * 从内存缓存中同步获取主色。
+     * Reads a dominant cover color with the same versioned key used by CoverBackground color production.
      */
-    fun getCachedColor(path: String?): Int? {
-        // Query Cached Color: Retrieve cached color synchronously to prevent layout jump or color flashing during initial composable creation.
-        if (path == null) return null
-        val cached = colorCache.get(path)
-        Log.d(TAG, "getCachedColor: path=$path, result=${cached?.let { Integer.toHexString(it) }}")
+    fun getCachedColor(path: String?, lastUpdated: Long): Int? {
+        val cacheKey = colorCacheKey(path, lastUpdated) ?: return null
+        val cached = colorCache.get(cacheKey)
+        Log.d(TAG, "getCachedColor: key=$cacheKey, result=${cached?.let { Integer.toHexString(it) }}")
         return cached
     }
+
+    /**
+     * Builds the in-memory color cache key from the displayed source and its invalidation timestamp.
+     */
+    private fun colorCacheKey(path: String?, lastUpdated: Long): String? =
+        path?.let { "$it:$lastUpdated" }
+
     // -------------------------------------------------------------------------
     // 三、Bitmap 通用工具
     // -------------------------------------------------------------------------
@@ -516,3 +487,4 @@ object ImageProcessor {
         File(context.cacheDir, "covers").also { it.mkdirs() }
 
 }
+

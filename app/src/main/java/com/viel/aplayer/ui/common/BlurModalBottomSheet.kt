@@ -17,13 +17,16 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * BlurModalBottomSheet — Frosted glass BottomSheet refactored using Haze.
@@ -46,7 +49,7 @@ import dev.chrisbanes.haze.HazeState
  * @param modifier Modifier.
  * @param content BottomSheet body content (ColumnScope).
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurModalBottomSheet(
     modifier: Modifier = Modifier,
@@ -90,13 +93,14 @@ fun BlurModalBottomSheet(
         dragHandle = null,
         contentWindowInsets = contentWindowInsets,
     ) {
-        // Setup Liquid Glass Modifier (Apply the shared liquid glass renderer to modal sheets)
-        // Use the unified glassOverlay helper to handle shape clipping and backdrop blur in a single call.
-        val glassModifier = Modifier.glassOverlay(
-            hazeState = hazeState,
-            glassEffectMode = glassEffectMode,
-            shape = shape
-        )
+        // Setup Haze Material Modifier (Clip the sheet shape before sampling the shared backdrop)
+        val glassModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
+            Modifier
+                .clip(shape)
+                .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
+        } else {
+            Modifier
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()

@@ -21,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -108,7 +107,9 @@ fun SettingsSegmentedSleepModeItem(
 
 /**
  * Settings Segmented Theme Mode Item (Renders light/dark/system theme choices)
- * Keeps Haze-disabled state handling inside the visual control so appearance sections do not duplicate segmented-button rules.
+ *
+ * The control stays interactive for Material and Haze glass effects because Haze no longer owns
+ * appearance mode selection; dynamic color follows the same wallpaper seed path in both modes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,14 +118,12 @@ fun SettingsSegmentedThemeModeItem(
     subtitle: String,
     icon: ImageVector,
     selectedMode: ThemeMode,
-    onModeSelected: (ThemeMode) -> Unit,
-    enabled: Boolean = true
+    onModeSelected: (ThemeMode) -> Unit
 ) {
     val modes = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (enabled) Modifier else Modifier.alpha(0.38f))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -138,7 +137,7 @@ fun SettingsSegmentedThemeModeItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = MaterialTheme.typography.titleMedium)
             Text(
-                text = if (enabled) subtitle else stringResource(R.string.settings_haze_forced_dark_subtitle),
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -150,8 +149,7 @@ fun SettingsSegmentedThemeModeItem(
                     SegmentedButton(
                         selected = selectedMode == mode,
                         onClick = { onModeSelected(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                        enabled = enabled
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
                     ) {
                         Text(
                             text = when (mode) {

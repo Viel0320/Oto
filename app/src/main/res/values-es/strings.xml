@@ -228,7 +228,6 @@
     <string name="settings_theme_mode_system">Sistema</string>
     <string name="settings_theme_mode_light">Claro</string>
     <string name="settings_theme_mode_dark">Oscuro</string>
-    <string name="settings_haze_forced_dark_subtitle">El modo de desenfoque fuerza el tema oscuro</string>
     <string name="settings_dynamic_color_title">Color dinámico Monet</string>
     <string name="settings_dynamic_color_supported_subtitle">Al activarlo, el tema toma colores del fondo de pantalla del sistema</string>
     <string name="settings_dynamic_color_unsupported_subtitle">El color dinámico Monet requiere Android 8.0 o posterior</string>

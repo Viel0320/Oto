@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,6 +35,7 @@ import dev.chrisbanes.haze.HazeState
  * Owns DetailViewModel collection, dynamic cover color state, and user-effect callbacks before handing
  * pure rendering work to DetailOverlay and DetailScreen.
  */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun DetailRoute(
     detailViewModel: DetailViewModel,
@@ -72,11 +74,12 @@ fun DetailRoute(
     // Detail Cover Seed (Resolve artwork from the scene snapshot instead of a Room entity)
     // Dynamic theme state follows the selected detail item while keeping route code on the Detail boundary type.
     val coverPath = detailUiState.book?.item?.coverPath
+    val coverLastUpdated = detailUiState.book?.item?.lastScannedAt ?: 0L
 
     // Cover Color Route State (Reset per selected artwork and seed the detail theme from cached extraction)
     // The color is route state because it coordinates theme selection and render callbacks without belonging to the stateless screen.
-    var coverColor by remember(coverPath) {
-        mutableStateOf<Color?>(ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
+    var coverColor by remember(coverPath, coverLastUpdated) {
+        mutableStateOf<Color?>(ImageProcessor.getCachedColor(coverPath, coverLastUpdated)?.let { Color(it) })
     }
 
     val detailColorScheme = remember(coverColor, darkTheme, currentColorScheme) {
@@ -100,8 +103,7 @@ fun DetailRoute(
     val requestManualDownload: (String) -> Unit = { bookId ->
         // Download Notification Permission Gate (Prevent invisible foreground downloads on Android 13+)
         // The download domain receives only commands that passed presentation-level notification permission preflight.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         ) {
             detailViewModel.downloadBook(bookId)
         } else {
@@ -146,7 +148,6 @@ fun DetailRoute(
                 onResumeDownload = detailViewModel::resumeDownload,
                 onDeleteDownload = detailViewModel::deleteDownload,
                 glassEffectMode = glassEffectMode,
-                hazeState = hazeState,
                 fullPageHazeState = hazeState,
                 coverColor = coverColor,
                 onColorExtracted = { coverColor = it }

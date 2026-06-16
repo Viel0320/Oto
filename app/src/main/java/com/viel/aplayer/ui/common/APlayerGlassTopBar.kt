@@ -15,21 +15,20 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.onSizeChanged
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.LiquidGlassBorderMode
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * APlayer Glass Top Bar (Reusable overlay chrome for screen headers)
  *
- * Extracts the Home top bar's measured liquid-glass wrapper and Material3 slot wiring so Home, Settings, and About can share identical blur behavior.
+ * Extracts the Home top bar's measured Haze material wrapper and Material3 slot wiring so Home, Settings, and About can share identical blur behavior.
  * Callers still own title, navigation, and action content, keeping screen-specific interactions outside this shared chrome component.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun APlayerGlassTopBar(
     glassEffectMode: GlassEffectMode,
@@ -41,20 +40,17 @@ fun APlayerGlassTopBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val resolvedHazeState = hazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
-    // Glass Top Bar Surface (Extracted Home overlay behavior)
-    // The measured wrapper applies liquid glass over a sibling content source while reporting height for scroll-content padding reservation.
-    // Use the unified glassOverlay helper to apply RectangleShape clipping and backdrop blur in a single pipeline.
+    // Haze Top Bar Surface (Extracted Home overlay behavior)
+    // The measured wrapper applies HazeMaterials.thin over a sibling content source while reporting height for scroll-content padding reservation.
     val topBarSurfaceModifier = modifier
         .fillMaxWidth()
         .onSizeChanged { onHeightChanged(it.height) }
-        .glassOverlay(
-            hazeState = resolvedHazeState,
-            glassEffectMode = glassEffectMode,
-            shape = RectangleShape,
-            style = LiquidGlassStyle(
-                shape = RectangleShape,
-                borderMode = LiquidGlassBorderMode.None
-            )
+        .then(
+            if (resolvedHazeState != null) {
+                Modifier.hazeEffect(state = resolvedHazeState, style = HazeMaterials.thin())
+            } else {
+                Modifier
+            }
         )
 
     Box(modifier = topBarSurfaceModifier) {

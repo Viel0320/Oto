@@ -33,9 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * Home Filter Chip (Custom homepage filter item with Material-like sizing and Haze support)
@@ -43,6 +44,7 @@ import dev.chrisbanes.haze.HazeState
  * Recreates the Home filter affordance without delegating to Material3 FilterChip, while preserving
  * the Material-like 32.dp visual container and the separate 48.dp accessibility touch target.
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun APlayerFilterChip(
     selected: Boolean,
@@ -77,11 +79,11 @@ fun APlayerFilterChip(
         APlayerFilterChipLabelHorizontalPadding
     }
     val visualModifier = if (isBlur) {
-        // Liquid Glass Visual Layer (Apply Haze only to the visible 32.dp chip body)
+        // Haze Visual Layer (Apply the material only to the visible 32.dp chip body)
         // The outer selectable node remains 48.dp for touch and accessibility, while the glass sample stays clipped to the Material-like container.
-        Modifier.liquidGlassCompatEffect(
+        Modifier.hazeEffect(
             state = hazeState,
-            style = LiquidGlassStyle(shape = chipShape)
+            style = HazeMaterials.ultraThin()
         )
     } else {
         Modifier

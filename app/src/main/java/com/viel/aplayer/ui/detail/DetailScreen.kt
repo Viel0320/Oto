@@ -49,13 +49,12 @@ fun DetailScreen(
     glassEffectMode: GlassEffectMode,
     // Detail HazeState Arguments (Separate inline controls from floating app surfaces)
     // hazeState is the stable app-level sampler, while fullPageHazeState is forwarded to menus and dialogs that must not rebind to a page-local source.
-    hazeState: HazeState? = null,
     fullPageHazeState: HazeState? = null,
     // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
-    // Accepts the active cover color extracted from Coil bitmap memory.
+    // Accepts the active cover color extracted by the page CoverBackground.
     coverColor: androidx.compose.ui.graphics.Color?,
     // Color Extracted Callback (Notify parent overlay about extracted cover color)
-    // Callback triggered when Coil successfully loads the cover and extracts its dominant color.
+    // Callback triggered when CoverBackground extracts a dominant color from its software backdrop image.
     onColorExtracted: (androidx.compose.ui.graphics.Color) -> Unit,
 ) {
     // Pass Complete Parameters to L3 content (Forward layout modifiers) Bridges states to DetailContent view.

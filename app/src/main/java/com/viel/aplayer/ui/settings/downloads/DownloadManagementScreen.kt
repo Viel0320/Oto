@@ -292,7 +292,7 @@ private fun DownloadTaskRow(
         supportingContent = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = task.subtitleText(status),
+                    text = subtitleText(status),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -391,7 +391,7 @@ private fun ManualDownloadTaskItem.headlineText(status: BookCacheStatus): String
 // Download Row Subtitle (Build compact supplemental text from aggregate cache state)
 // The progress percentage already appears in the headline and bar, so the subtitle keeps only state, numeric file count, and optional byte range.
 @Composable
-private fun ManualDownloadTaskItem.subtitleText(status: BookCacheStatus): String {
+private fun subtitleText(status: BookCacheStatus): String {
     val stateText = stringResource(status.labelRes())
     val downloadedSizeText = status.totalBytes
         .takeIf { totalBytes -> totalBytes > 0L }

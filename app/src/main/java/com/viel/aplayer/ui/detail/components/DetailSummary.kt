@@ -59,7 +59,7 @@ fun DetailSummary(
             SelectableTextView(
                 text = summaryDescription,
                 modifier = Modifier.fillMaxWidth(),
-                textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                textColor = MaterialTheme.colorScheme.onSurface,
                 textSizeSp = 16f,
                 lineSpacingExtraSp = 4f,
                 firstLineIndentEm = 2f

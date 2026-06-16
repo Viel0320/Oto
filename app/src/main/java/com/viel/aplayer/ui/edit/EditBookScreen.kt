@@ -53,10 +53,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -69,15 +67,17 @@ import com.viel.aplayer.application.library.edit.EditBookDraft
 import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
+import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * Edit Book Screen: Stateless Composable layout for modification of audiobook metadata details.
@@ -92,7 +92,7 @@ import dev.chrisbanes.haze.HazeState
  * @param glassEffectMode Specifies the glassmorphic rendering style.
  * @param modifier The modifier layout chain.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun EditBookScreen(
     book: EditBookDraft?,
@@ -105,8 +105,6 @@ fun EditBookScreen(
     // The legacy parameter name is preserved for compatibility, but production callers now pass the app-level HazeState.
     detailHazeState: HazeState? = null
 ) {
-    // Android Context (Needed for file handling and resolution operations)
-    val context = LocalContext.current
 
     // Selected Cover Image Reference (Tracks the URI string of user-selected photo preview)
     var selectedCoverUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -151,10 +149,11 @@ fun EditBookScreen(
     // Edit Cover Display Source (Use the selected URI if available, otherwise fallback to book cover or thumbnail paths)
     // A freshly uploaded cover replaces the book cover immediately, so this key changes and forces the edit page color state to refresh.
     val editCoverPath = selectedCoverUri?.toString() ?: book?.coverPath ?: book?.thumbnailPath
+    val editCoverLastUpdated = book?.coverLastUpdated ?: 0L
     // Edit Cover Dynamic Color State (Seed the edit page theme from its own currently displayed cover)
-    // The cache gives an instant color when available, while PlayerCover will update this state after Coil decodes a newly uploaded temporary cover.
-    var editCoverColor by remember(editCoverPath) {
-        mutableStateOf<Color?>(ImageProcessor.getCachedColor(editCoverPath)?.let { Color(it) })
+    // The cache gives an instant color when available, while CoverBackground updates this state from its software backdrop decode.
+    var editCoverColor by remember(editCoverPath, editCoverLastUpdated) {
+        mutableStateOf<Color?>(ImageProcessor.getCachedColor(editCoverPath, editCoverLastUpdated)?.let { Color(it) })
     }
     val darkTheme = LocalDarkTheme.current
     val fallbackColorScheme = MaterialTheme.colorScheme
@@ -174,30 +173,9 @@ fun EditBookScreen(
     // Blur Feature flag (Verify if Haze settings and state are present)
     val isBlur = glassEffectMode == GlassEffectMode.Haze && detailHazeState != null
 
-    val animatedBgColor = MaterialTheme.colorScheme.surfaceVariant
-    val bgColor = MaterialTheme.colorScheme.background
     // Edit Page Content Color (Read foreground color from the edit cover-derived Material scheme)
     // Surface and Scaffold are transparent in Haze mode, so explicit contentColor prevents the old underlying page color from leaking into the edit UI.
     val editContentColor = MaterialTheme.colorScheme.onSurface
-
-    // Background tinting brush (Apply translucency in blur mode to allow backdrop colors to bleed through)
-    val backgroundBrush = remember(animatedBgColor, bgColor, isBlur) {
-        if (isBlur) {
-            Brush.verticalGradient(
-                colors = listOf(
-                    animatedBgColor.copy(alpha = 0.35f),
-                    bgColor.copy(alpha = 0.5f)
-                )
-            )
-        } else {
-            Brush.verticalGradient(
-                colors = listOf(
-                    animatedBgColor.copy(alpha = 0.9f),
-                    bgColor.copy(alpha = 0.95f)
-                )
-            )
-        }
-    }
 
     val density = LocalDensity.current
     val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
@@ -225,10 +203,10 @@ fun EditBookScreen(
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
             .then(
                 if (isBlur) {
-                    // Liquid Glass Edit Sheet (Use custom liquidGlassCompatEffect to apply fluid glass highlight borders on the sheet background) Apply custom glass effect with screen corner profile shape.
-                    Modifier.liquidGlassCompatEffect(
+                    // Edit Sheet Haze Layer (Use the direct Haze material inside the clipped sheet shape)
+                    Modifier.hazeEffect(
                         state = detailHazeState,
-                        style = LiquidGlassStyle(shape = RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
+                        style = HazeMaterials.ultraThin()
                     )
                 } else {
                     Modifier
@@ -243,15 +221,16 @@ fun EditBookScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // Conditional Background Modifier (Prevent compiler type-inference issues between Color and Brush)
-                .then(
-                    if (isBlur) {
-                        Modifier.background(Color.Transparent)
-                    } else {
-                        Modifier.background(backgroundBrush)
-                    }
-                )
         ) {
+            CoverBackground(
+                coverPath = editCoverPath,
+                lastUpdated = editCoverLastUpdated,
+                coverColor = editCoverColor,
+                glassEffectMode = glassEffectMode,
+                hazeState = detailHazeState,
+                onColorExtracted = { editCoverColor = it }
+            )
+
             Scaffold(
                 // Scaffold Insets Configuration (Prevent double soft-keyboard padding compression)
                 // Excludes `WindowInsets.ime` from the Scaffold margins to block cumulative padding calculation.
@@ -479,10 +458,10 @@ fun EditBookScreen(
                                     .then(
                                         Modifier
                                             .clip(RoundedCornerShape(16.dp))
-                                            // Liquid Glass Save Button (Use custom liquidGlassCompatEffect to render the button border with liquid glass highlights) Apply custom glass effect with 16.dp rounding shape.
-                                            .liquidGlassCompatEffect(
+                                            // Save Button Haze Layer (Use the direct Haze material inside the local rounded bounds)
+                                            .hazeEffect(
                                                 state = detailHazeState,
-                                                style = LiquidGlassStyle(shape = RoundedCornerShape(16.dp))
+                                                style = HazeMaterials.ultraThin()
                                             )
                                     ),
                                 shape = RoundedCornerShape(16.dp),
@@ -597,10 +576,7 @@ fun EditBookScreen(
                                             .aspectRatio(1f)
                                             .clip(RoundedCornerShape(24.dp)),
                                         sizeRatio = 1.0f,
-                                        gesturesEnabled = false,
-                                        // Edit Cover Color Extraction (Refresh the edit page theme after the visible cover decodes)
-                                        // This callback is also triggered for temporary uploaded covers, so controls recolor before the user saves.
-                                        onColorExtracted = { editCoverColor = it }
+                                        gesturesEnabled = false
                                     )
 
                                     changeCoverButton()
@@ -637,10 +613,7 @@ fun EditBookScreen(
                                     .aspectRatio(1f)
                                     .clip(RoundedCornerShape(24.dp)),
                                 sizeRatio = 1.0f,
-                                gesturesEnabled = false,
-                                // Edit Cover Color Extraction (Refresh the edit page theme after the visible cover decodes)
-                                // This callback is also triggered for temporary uploaded covers, so controls recolor before the user saves.
-                                onColorExtracted = { editCoverColor = it }
+                                gesturesEnabled = false
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))

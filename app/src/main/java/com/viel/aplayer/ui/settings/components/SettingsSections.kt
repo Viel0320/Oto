@@ -221,16 +221,13 @@ fun InterfaceSettingsSection(
             icon = Icons.Rounded.Translate,
             onClick = onLanguageClick
         )
-        val isHaze = glassEffectMode == GlassEffectMode.Haze
         SettingsSegmentedThemeModeItem(
             title = stringResource(R.string.settings_theme_mode_title),
             subtitle = stringResource(R.string.settings_theme_mode_subtitle),
             // Theme Mode Icon (Represent light, dark, and system appearance selection)
-            // A dark-mode glyph is more recognizable than the previous generic scale symbol for this segmented appearance control.
             icon = Icons.Rounded.DarkMode,
-            selectedMode = if (isHaze) ThemeMode.Dark else themeMode,
-            onModeSelected = onThemeModeChange,
-            enabled = !isHaze
+            selectedMode = themeMode,
+            onModeSelected = onThemeModeChange
         )
         val isDynamicColorSupported = true
         SettingsToggleItem(

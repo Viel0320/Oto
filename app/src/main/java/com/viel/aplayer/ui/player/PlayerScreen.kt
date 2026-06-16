@@ -99,10 +99,10 @@ fun PlayerScreen(
     // Accept a nullable parent/global HazeState to support popup dialog/sheet blur.
     hazeState: HazeState? = null,
     // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
-    // Accepts the active cover color extracted from Coil bitmap memory.
+    // Accepts the active cover color extracted by the page CoverBackground.
     coverColor: Color?,
     // Color Extracted Callback (Notify parent overlay about extracted cover color)
-    // Callback triggered when Coil successfully loads the cover and extracts its dominant color.
+    // Callback triggered when CoverBackground extracts a dominant color from its software backdrop image.
     onColorExtracted: (Color) -> Unit,
     // Player Floating Surface Ownership (Allow outer overlays to render modal surfaces outside the sampled content tree)
     // PlayerOverlay disables this flag so chapter sheets and bookmark dialogs are composed as siblings of the player hazeSource instead of inside PlayerScreen.
@@ -413,7 +413,8 @@ fun PlayerScreen(
                         lastUpdated = metadata.coverLastUpdated,
                         coverColor = coverColor,
                         glassEffectMode = glassEffectMode,
-                        hazeState = coverHazeState
+                        hazeState = coverHazeState,
+                        onColorExtracted = onColorExtracted
                     )
                 }
 
@@ -464,8 +465,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetHazeState = floatingHazeState,
-                                onColorExtracted = onColorExtracted
+                                chapterSheetHazeState = floatingHazeState
                             )
                         }
                         isLandscape -> {
@@ -508,8 +508,7 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetHazeState = floatingHazeState,
-                                onColorExtracted = onColorExtracted
+                                chapterSheetHazeState = floatingHazeState
                             )
                         }
                         else -> {
@@ -557,8 +556,7 @@ fun PlayerScreen(
                                 scope = scope,
                                 dismissThreshold = dismissThreshold,
                                 focusManager = focusManager,
-                                navigationActions = navigationActions,
-                                onColorExtracted = onColorExtracted
+                                navigationActions = navigationActions
                             )
                         }
                     }

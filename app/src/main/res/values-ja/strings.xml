@@ -228,7 +228,6 @@
     <string name="settings_theme_mode_system">システム</string>
     <string name="settings_theme_mode_light">ライト</string>
     <string name="settings_theme_mode_dark">ダーク</string>
-    <string name="settings_haze_forced_dark_subtitle">ぼかしモードではダークテーマが強制されます</string>
     <string name="settings_dynamic_color_title">Monet 動的カラー</string>
     <string name="settings_dynamic_color_supported_subtitle">有効にすると、アプリテーマがシステム壁紙から色を取得します</string>
     <string name="settings_dynamic_color_unsupported_subtitle">Monet 動的カラーには Android 8.0 以降が必要です</string>

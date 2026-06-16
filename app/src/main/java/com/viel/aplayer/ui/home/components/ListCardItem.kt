@@ -1,9 +1,5 @@
 package com.viel.aplayer.ui.home.components
 
-// Setup ListCardItem Imports (Coil & Haze Integration)
-// Added getValue and setValue import extensions to perfectly support Composable's 'by' property delegation logic.
-// Introduce Haze related dependencies to draw high-performance frosted glass effects.
-import android.graphics.Bitmap
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateDp
@@ -23,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -41,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -61,14 +55,14 @@ import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.motion.LocalHomeRecent2DetailSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 import androidx.compose.animation.AnimatedVisibility as SharedSourceVisibility
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class,
@@ -119,11 +113,6 @@ fun Cardgroup(
     val resolvedOpenActionLabel = openActionLabel ?: stringResource(R.string.book_open_action)
     val resolvedMoreActionsLabel = moreActionsLabel ?: stringResource(R.string.book_more_actions_action)
 
-    // Reset Color State on Cover Path Changes: Re-initialize coverColor state whenever the coverPath changes using remember(coverPath) and load the cached color synchronously if available.
-    var coverColor by remember(coverPath) {
-        mutableStateOf(com.viel.aplayer.media.parser.ImageProcessor.getCachedColor(coverPath)?.let { Color(it) })
-    }
-
     Column(
         modifier = modifier
             .then(if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier.width(preferredWidth))
@@ -157,10 +146,8 @@ fun Cardgroup(
             coverPath = coverPath,
             coverLastUpdated = coverLastUpdated,
             glassEffectMode = glassEffectMode,
-            coverColor = coverColor,
             isDetailTargetActive = isDetailTargetActive,
             sharedElementKey = sharedElementKey,
-            onColorExtracted = { coverColor = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
@@ -197,10 +184,8 @@ private fun RecentCoverSharedSource(
     coverPath: String?,
     coverLastUpdated: Long,
     glassEffectMode: GlassEffectMode,
-    coverColor: Color?,
     isDetailTargetActive: Boolean,
     sharedElementKey: String?,
-    onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Haze State Initialization (Haze State Allocation) Declare a local HazeState to coordinate background and badge blur.
@@ -312,6 +297,7 @@ private fun RecentCoverSharedSource(
                         var isImageError by remember(coverPath) { mutableStateOf(false) }
                         if ((coverPath != null) && !isImageError) {
                             val context = LocalContext.current
+
                             // Cardgroup Thumbnail Strategy (Reuse the medium thumbnail size for cover-card layouts)
                             // Recently played cards and Home grid cards both match the 360px thumbnail output, keeping cache behavior shared across card surfaces.
                             // This ensures medium cards hit local thumbnails and the same Coil cache specifications, avoiding bringing large covers into the list.
@@ -322,10 +308,9 @@ private fun RecentCoverSharedSource(
                                     lastUpdated = coverLastUpdated,
                                     variant = CoverImageVariant.ThumbnailMedium,
                                     scene = "recently-cover",
-                                    // Disable Hardware Cover (Pass allowHardware = false and Config.RGB_565 since this cover needs dominant color extraction)
-                                    // Preempts Hardware Bitmaps from being loaded and bypasses the costly copy() call inside ImageProcessor.
-                                    allowHardware = false,
-                                    bitmapConfig = Bitmap.Config.RGB_565
+                                    // Use hardware bitmap for displaying in ListCardItem (Allow hardware bitmap renderer sampling optimization)
+                                    allowHardware = true,
+                                    bitmapConfig = null
                                 )
                             }
                             AsyncImage(
@@ -333,12 +318,6 @@ private fun RecentCoverSharedSource(
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
-                                onSuccess = { successResult ->
-                                    val colorInt = com.viel.aplayer.media.parser.ImageProcessor.getDominantColor(successResult.result.drawable)
-                                    // Cache Calculated Color: Write the extracted dominant color into the main process LruCache to speed up future renders.
-                                    com.viel.aplayer.media.parser.ImageProcessor.putColorToCache(coverPath, colorInt)
-                                    onColorExtracted(Color(colorInt))
-                                },
                                 onError = {
                                     // Log Metric Handling (Decoupled Image Metrics Logging)
                                     // Card component only handles display degradation; success, failure, cancel, and hit rate logging are handled uniformly by image request listener, preventing duplicate logs.
@@ -362,7 +341,6 @@ private fun RecentCoverSharedSource(
 
                     RecentCoverProgressBadge(
                         progressText = progressText,
-                        coverColor = coverColor,
                         isBlur = isBlur,
                         itemHazeState = itemHazeState,
                         modifier = Modifier
@@ -379,52 +357,10 @@ private fun RecentCoverSharedSource(
 @OptIn(ExperimentalHazeMaterialsApi::class)
 private fun RecentCoverProgressBadge(
     progressText: String,
-    coverColor: Color?,
     isBlur: Boolean,
     itemHazeState: HazeState,
     modifier: Modifier = Modifier
 ) {
-    // Progress Badge Styling (Frosted Glass/Material Adaptive)
-    // Refactor the progress Badge container into an elegant frosted glass Surface supporting Haze.
-    // When frosted glass is enabled, introduce custom adjustable opacity blur materials and translucent 0.5.dp border; fall back to native high-saturation Material container in traditional mode.
-    // Theme Aware Progress Badge (Use LocalDarkTheme to resolve active theme state instead of system defaults) Read theme preference state for contrast calculation.
-    val isDark = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
-
-    // Contrast Stretching Algorithm (Luminance Contrast Tuning)
-    // Upgrade to contrast-stretching algorithm based on luminance checking (RGB 65% physical channel color blending):
-    // - Dark mode: If cover color extraction is dark (luminance < 0.5f), blend with pure white at 65% ratio (0.35f * rawColor + 0.65f), allowing text to shine warm-glow on dark frosted glass background.
-    // - Light mode: If cover color extraction is light (luminance > 0.5f), blend with pure black at 65% ratio (0.35f * rawColor), suppressing brightness to prevent text from melting on milky semi-translucent glass.
-    val resolvedColor = remember(coverColor, isDark, isBlur) {
-        coverColor?.let { rawColor ->
-            val lum = rawColor.luminance()
-            // Haze Contrast Optimization (Force light tint processing in haze mode or dark theme to keep badge content clean and visible on frosted layouts) Perform white channel contrast stretching for low-luminance values.
-            if (isDark || isBlur) {
-                if (lum < 0.5f) {
-                    // In dark mode or haze mode and cover color is dark, apply 65% white enhancement stretch to guarantee contrast (0.35 * rawColor + 0.65)
-                    Color(
-                        red = rawColor.red * 0.35f + 0.65f,
-                        green = rawColor.green * 0.35f + 0.65f,
-                        blue = rawColor.blue * 0.35f + 0.65f,
-                        alpha = 1f
-                    )
-                } else {
-                    rawColor
-                }
-            } else {
-                if (lum > 0.5f) {
-                    // In light mode and cover color is light, apply 65% black suppression stretch to guarantee recognition (0.35 * rawColor)
-                    Color(
-                        red = rawColor.red * 0.35f,
-                        green = rawColor.green * 0.35f,
-                        blue = rawColor.blue * 0.35f,
-                        alpha = 1f
-                    )
-                } else {
-                    rawColor
-                }
-            }
-        }
-    }
 
     Surface(
         modifier = modifier.then(
@@ -432,14 +368,10 @@ private fun RecentCoverProgressBadge(
                 Modifier
                     // Clip corner radius at the very front of Modifier chain to prevent frosted glass overflow glitches
                     .clip(RoundedCornerShape(12.dp))
-                    // Badge Glassmorphism (Apply Haze Child Blur) Replace old blur with hazeChild regular style.
-                    .liquidGlassCompatEffect(
+                    // Badge Glassmorphism (Apply the direct Haze material after clipping the badge bounds)
+                    .hazeEffect(
                         state = itemHazeState,
-                        style = LiquidGlassStyle(
-                            // Badge Circular Shape (Use Compose shape instead of the liquid glass surface profile enum)
-                            // LiquidGlassStyle.shape expects a Shape implementation, so CircleShape keeps the badge round while avoiding the unresolved Circle symbol.
-                            shape = CircleShape
-                        )
+                        style = HazeMaterials.ultraThin()
                     )
             } else {
                 Modifier
@@ -468,19 +400,7 @@ private fun RecentCoverProgressBadge(
             textAlign = TextAlign.Center,
             // Use .copy(fontWeight = FontWeight.ExtraBold) explicitly to force ExtraBold weight, ensuring edge sharpness and outline clarity in small font sizes on frosted glass background.
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
-            color = if (isBlur) {
-                // Smart Contrast Color Mapping (Dynamic Text Color)
-                // Badge text uses cover color and smart contrast stretching:
-                // - Light mode: use native primary theme color on fallback.
-                // - Dark mode: use pure white (Color.White) to achieve 100% optimal contrast and premium frosted glass look.
-                resolvedColor ?: if (isDark) {
-                    Color.White
-                } else {
-                    MaterialTheme.colorScheme.primary
-                }
-            } else {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            }
+            color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -23,9 +24,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.LocalHazeState
-import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * BlurDialog (A common glassmorphic overlay dialog rewritten using Haze)
@@ -95,14 +97,15 @@ fun BlurDialog(
             // Resolve Dialog Haze State: Fallback to LocalHazeState if no explicit hazeState is passed.
             // Details: Query LocalHazeState.current composition local to obtain the top-level app-level hazeState automatically when hazeState parameter is null.
             val resolvedHazeState = hazeState ?: LocalHazeState.current
-            // Setup Glass Modifier (Apply Haze frosted glass effect)
-            // Use the unified glassOverlay helper to handle shape clipping and backdrop blur in a single call.
+            // Setup Glass Modifier (Apply the direct Haze material while keeping the dialog shape clipped locally)
             val dialogShape = MaterialTheme.shapes.extraLarge
-            val glassModifier = Modifier.glassOverlay(
-                hazeState = resolvedHazeState,
-                glassEffectMode = glassEffectMode,
-                shape = dialogShape
-            )
+            val glassModifier = if (glassEffectMode == GlassEffectMode.Haze && resolvedHazeState != null) {
+                Modifier
+                    .clip(dialogShape)
+                    .hazeEffect(state = resolvedHazeState, style = HazeMaterials.ultraThin())
+            } else {
+                Modifier
+            }
 
             // Content Surface (Core Dialog container styled under Material 3 specification)
             // - Uses extraLarge shapes and tonal/shadow elevation mapping to reinforce spatial layering.

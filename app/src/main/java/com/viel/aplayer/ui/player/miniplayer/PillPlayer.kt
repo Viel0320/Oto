@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.player.miniplayer
 
 // Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and modifiers.
-import android.graphics.Bitmap
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.Animatable
@@ -46,18 +45,17 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import com.viel.aplayer.ui.player.MiniPlayerActions
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * Pill Compact Media Player: A floating stadium-shaped mini player that overlays at the bottom of the screen.
@@ -75,9 +73,6 @@ fun PillCompactMediaPlayer(
     hazeState: HazeState? = null,
     onClick: () -> Unit = {},
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    // Color Extracted Callback (Pass color callback to upstream MiniPlayerOverlay)
-    // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
-    onColorExtracted: ((Color) -> Unit)? = null,
 ) {
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
@@ -173,14 +168,9 @@ fun PillCompactMediaPlayer(
                 if (isBlurMode) {
                     it
                         .clip(pillShape)
-                        .liquidGlassCompatEffect(
+                        .hazeEffect(
                             state = hazeState,
-                            style = LiquidGlassStyle(
-                                // Adaptive Glass Tint: Fallback to theme-based 12% tint (White in Dark, Black in Light) by leaving it Unspecified.
-                                specularIntensity = 0.4f,
-                                ambientResponse = 0.5f,
-                                shape = pillShape
-                            )
+                            style = HazeMaterials.ultraThin()
                         )
                 } else {
                     it
@@ -269,6 +259,7 @@ fun PillCompactMediaPlayer(
                 ) {
                     if (coverPath != null) {
                         val context = LocalContext.current
+
                         val request = remember(coverPath, coverLastUpdated) {
                             CoverImageRequestFactory.build(
                                 context = context,
@@ -276,10 +267,9 @@ fun PillCompactMediaPlayer(
                                 lastUpdated = coverLastUpdated,
                                 variant = CoverImageVariant.ThumbnailSmall,
                                 scene = "pill-player-cover",
-                                // Disable Hardware Cover (Pass allowHardware = false and Config.RGB_565 since this cover needs dominant color extraction)
-                                // Preempts Hardware Bitmaps from being loaded and bypasses the costly copy() call inside ImageProcessor.
-                                allowHardware = false,
-                                bitmapConfig = Bitmap.Config.RGB_565
+                                // Use hardware bitmap for displaying in PillPlayer (Allow hardware bitmap renderer sampling optimization)
+                                allowHardware = true,
+                                bitmapConfig = null
                             )
                         }
                         AsyncImage(
@@ -289,11 +279,8 @@ fun PillCompactMediaPlayer(
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
                             contentScale = ContentScale.Crop,
-                            onSuccess = { successResult ->
-                                val colorInt = ImageProcessor.getDominantColor(successResult.result.drawable)
-                                // Cache Calculated Color: Write the extracted dominant color into the main process LruCache to speed up future renders.
-                                ImageProcessor.putColorToCache(coverPath, colorInt)
-                                onColorExtracted?.invoke(Color(colorInt))
+                            onError = {
+                                // No-op, just fallback presentation
                             }
                         )
                     } else {

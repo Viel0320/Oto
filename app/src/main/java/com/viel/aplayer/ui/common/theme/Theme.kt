@@ -85,6 +85,10 @@ val LocalDarkTheme = androidx.compose.runtime.staticCompositionLocalOf { false }
 // Details: Declare LocalHazeState static CompositionLocal to hold the top-level HazeState reference.
 val LocalHazeState = androidx.compose.runtime.staticCompositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
 
+/**
+ * Applies the app-wide Material theme while keeping appearance mode ownership outside glass rendering.
+ * Dynamic color derives from the wallpaper seed regardless of the active glass effect mode.
+ */
 @Composable
 fun APlayerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

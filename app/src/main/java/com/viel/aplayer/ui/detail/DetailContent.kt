@@ -122,10 +122,10 @@ fun DetailContent(
     // DetailOverlay registers visible Detail content into the stable app source, so floating dialogs avoid local HazeState rebinding.
     fullPageHazeState: HazeState? = null,
     // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
-    // Accepts the active cover color extracted from Coil bitmap memory.
+    // Accepts the active cover color extracted by the page CoverBackground.
     coverColor: Color?,
     // Color Extracted Callback (Notify parent overlay about extracted cover color)
-    // Callback triggered when Coil successfully loads the cover and extracts its dominant color.
+    // Callback triggered when CoverBackground extracts a dominant color from its software backdrop image.
     onColorExtracted: (Color) -> Unit,
 ) {
     // Detail Render Item (Use the Room-free scene item for every detail layout)
@@ -214,7 +214,8 @@ fun DetailContent(
                 lastUpdated = book?.lastScannedAt ?: 0L,
                 coverColor = coverColor,
                 glassEffectMode = glassEffectMode,
-                hazeState = coverHazeState
+                hazeState = coverHazeState,
+                onColorExtracted = onColorExtracted
             )
 
 
@@ -314,8 +315,7 @@ fun DetailContent(
                             onShowInfo = { title, text ->
                                 infoDialogTitle = title
                                 infoDialogText = text
-                            },
-                            onColorExtracted = onColorExtracted
+                            }
                         )
                     }
                     isLandscape -> {
@@ -332,8 +332,7 @@ fun DetailContent(
                             onShowInfo = { title, text ->
                                 infoDialogTitle = title
                                 infoDialogText = text
-                            },
-                            onColorExtracted = onColorExtracted
+                            }
                         )
                     }
                     else -> {
@@ -349,8 +348,7 @@ fun DetailContent(
                             onShowInfo = { title, text ->
                                 infoDialogTitle = title
                                 infoDialogText = text
-                            },
-                            onColorExtracted = onColorExtracted
+                            }
                         )
                     }
                 }

@@ -269,7 +269,6 @@
     <string name="settings_theme_mode_system">System</string>
     <string name="settings_theme_mode_light">Light</string>
     <string name="settings_theme_mode_dark">Dark</string>
-    <string name="settings_haze_forced_dark_subtitle">Blur mode forces a dark theme</string>
     <string name="settings_dynamic_color_title">Monet Dynamic Color</string>
     <string name="settings_dynamic_color_supported_subtitle">When enabled, the app theme samples colors from your system wallpaper</string>
     <string name="settings_dynamic_color_unsupported_subtitle">Monet dynamic color requires Android 8.0 or later</string>

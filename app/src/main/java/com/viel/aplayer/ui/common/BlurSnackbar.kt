@@ -16,14 +16,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.LocalDarkTheme
-import com.viel.aplayer.ui.common.theme.glassOverlay
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * BlurSnackbar (Material-compatible snackbar with app-owned Haze glass rendering)
@@ -32,6 +33,7 @@ import dev.chrisbanes.haze.HazeState
  * liquid-glass renderer used by dialogs, sheets, menus, and top bars. This avoids old raw
  * snackbar presets applying an overly dark tint when the app forces dark Haze mode.
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BlurSnackbar(
     modifier: Modifier = Modifier,
@@ -54,24 +56,10 @@ fun BlurSnackbar(
     val constrainedModifier = modifier.widthIn(max = 480.dp)
 
     if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
-        // Snackbar Glass Tint (Use a light wash in forced-dark Haze mode)
-        // The shared liquid renderer defaults to a dark tint, so snackbar supplies a lighter local tint to avoid reading as a black background.
-        val snackbarGlassTint = if (LocalDarkTheme.current) {
-            Color.White.copy(alpha = 0.10f)
-        } else {
-            Color.Black.copy(alpha = 0.08f)
-        }
-        // Haze Snackbar Glass Layer (Use the shared liquid-glass renderer instead of old raw presets)
-        // Use the unified glassOverlay helper to apply shape clipping and liquid glass blur with custom tinting.
-        val glassModifier = Modifier.glassOverlay(
-            hazeState = hazeState,
-            glassEffectMode = glassEffectMode,
-            shape = shape,
-            style = LiquidGlassStyle(
-                tint = snackbarGlassTint,
-                shape = shape
-            )
-        )
+        // Haze Snackbar Glass Layer (Use the direct Haze material and keep clipping local to the snackbar shape)
+        val glassModifier = Modifier
+            .clip(shape)
+            .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
 
         // Haze Snackbar Surface (Let the effect provide the visible glass body)
         // A transparent Surface avoids stacking Material's opaque snackbar container on top of the sampled backdrop.

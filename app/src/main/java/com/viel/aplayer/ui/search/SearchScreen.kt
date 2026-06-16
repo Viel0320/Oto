@@ -46,7 +46,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -62,13 +61,13 @@ import com.viel.aplayer.application.library.search.SearchResultSnapshot
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * Search Screen (Stateless search screen adapter)
@@ -217,10 +216,10 @@ fun SearchContent(
             .then(
                 if (isBlur) {
                     Modifier
-                        // Liquid Glass Search Overlay (Use custom liquidGlassCompatEffect for full screen blurring and refraction highlight border) Apply liquidGlassCompatEffect with RectangleShape constraint.
-                        .liquidGlassCompatEffect(
+                        // Search Overlay Haze Layer (Use the direct Haze material for full-screen backdrop sampling)
+                        .hazeEffect(
                             state = hazeState,
-                            style = LiquidGlassStyle(shape = RectangleShape)
+                            style = HazeMaterials.ultraThin()
                         )
                         // Chain background to append a translucent mask color (light/dark adaptive) to prevent search screen contents from blending with home page text
                         .background(

@@ -248,7 +248,6 @@
     <string name="settings_theme_mode_system">Система</string>
     <string name="settings_theme_mode_light">Светлая</string>
     <string name="settings_theme_mode_dark">Темная</string>
-    <string name="settings_haze_forced_dark_subtitle">Режим размытия принудительно включает темную тему</string>
     <string name="settings_dynamic_color_title">Динамический цвет Monet</string>
     <string name="settings_dynamic_color_supported_subtitle">Если включено, тема приложения берет цвета из системных обоев</string>
     <string name="settings_dynamic_color_unsupported_subtitle">Динамический цвет Monet требует Android 8.0 или новее</string>

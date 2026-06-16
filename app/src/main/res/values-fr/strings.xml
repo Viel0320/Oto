@@ -229,7 +229,6 @@
     <string name="settings_theme_mode_system">Système</string>
     <string name="settings_theme_mode_light">Clair</string>
     <string name="settings_theme_mode_dark">Sombre</string>
-    <string name="settings_haze_forced_dark_subtitle">Le mode flou force le thème sombre</string>
     <string name="settings_dynamic_color_title">Couleur dynamique Monet</string>
     <string name="settings_dynamic_color_supported_subtitle">Une fois activé, le thème échantillonne les couleurs du fond d’écran système</string>
     <string name="settings_dynamic_color_unsupported_subtitle">La couleur dynamique Monet nécessite Android 8.0 ou plus récent</string>

@@ -19,12 +19,6 @@ class CoverExtractor(private val context: Context) {
     )
 
     /**
-     * 保存用户手动设置的自定义封面。
-     */
-    suspend fun saveCustomCover(bookId: String, tempCoverPath: String): CoverResult =
-        ImageProcessor.saveCustomCover(context, bookId, tempCoverPath)
-
-    /**
      * Save Custom Cover From URI (Delegate custom cover stream processing to ImageProcessor)
      *
      * Enables callers to trigger center cropping and scaling operations directly from an external Content URI.

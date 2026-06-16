@@ -18,7 +18,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
@@ -50,9 +49,6 @@ fun DetailPortrait(
     onPlayClick: () -> Unit,
     onSearchClick: (String) -> Unit,
     onShowInfo: (String, String) -> Unit,
-    // Color Extracted Callback (Pass color callback to downstream PlayerCover)
-    // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
-    onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Portrait Detail Item (Render from the scene projection instead of a database entity)
@@ -137,9 +133,8 @@ fun DetailPortrait(
                  *
                  * Matches the selected recent-card cover radius so the target cover does not flash
                  * through the mini-player's 8.dp start radius on the first overlay frame.
-                 */
+                */
                 sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
-                onColorExtracted = onColorExtracted,
                 modifier = Modifier.size(coverSlotSize)
             )
         }

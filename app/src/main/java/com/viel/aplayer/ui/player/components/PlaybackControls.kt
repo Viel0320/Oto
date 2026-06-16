@@ -47,11 +47,11 @@ import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.media.SeekStepPresentation
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.LiquidGlassStyle
-import com.viel.aplayer.ui.common.theme.liquidGlassCompatEffect
 import com.viel.aplayer.ui.player.PlaybackControlActions
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -155,8 +155,7 @@ fun PlaybackControls(
                 Icon(
                     Icons.Rounded.Speed,
                     contentDescription = playbackSpeedContentDescription,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurface
+                    modifier = Modifier.size(24.dp)
                 )
             } else {
                 Text(
@@ -164,8 +163,7 @@ fun PlaybackControls(
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold
-                    ),
-                    color = MaterialTheme.colorScheme.primary
+                    )
                 )
             }
         }
@@ -182,26 +180,13 @@ fun PlaybackControls(
         val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
         if (isBlur) {
-            // Play/pause button upgrade for Haze glass effect.
-            //
-            // Upgrade the play/pause button to a clear and dynamic frosted glass big button Surface when Haze is active.
-            // Completely strip the physical dependency on real-time backdrop sampling, cascading an adaptive light/dark semi-transparent circular mask color,
-            // and combining it with an adaptive locally-declared 0.5.dp shimmering silver stroke on top of the player's built-in large-radius blur(64.dp) background.
-            // This constructs an iOS-grade outline lighting breathing visual effect and completely eliminates Feedback Loop crashes on Qualcomm Vulkan drivers during translation animations.
             val playPauseShape = CircleShape
-            // Frosted glass play button transformation.
-            //
-            // 1. If the backdrop sampling source is present, use textureBlur to render physical Gaussian blur and add subtle frosted noise.
-            // 2. Chain-overlay a specular glare layer with diagonal linear gradient to form a sparkling droplet reflective surface.
-            // 3. Chain-append a 1.dp ultra-fine adaptive refraction edge gradient border to reshape the 3D delicate outline.
-            // 4. If null, elegantly and safely degrade back to a semi-transparent material background without strokes to maintain ultimate stability.
-            // Liquid Glass Play/Pause (Use custom liquidGlassCompatEffect to apply fluid glass highlight and border details) Apply custom glass effect with playPauseShape profile.
             val glassModifier = Modifier
                 .size(80.dp)
                 .clip(playPauseShape)
-                .liquidGlassCompatEffect(
+                .hazeEffect(
                     state = hazeState,
-                    style = LiquidGlassStyle(shape = playPauseShape)
+                    style = HazeMaterials.ultraThin()
                 )
             Surface(
                 onClick = actions.onPlayPauseClick,
@@ -288,8 +273,7 @@ fun PlaybackControls(
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold
-                    ),
-                    color = MaterialTheme.colorScheme.primary
+                    )
                 )
             }
         }

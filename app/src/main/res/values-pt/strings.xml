@@ -290,7 +290,6 @@
     <string name="settings_theme_mode_system">Sistema</string>
     <string name="settings_theme_mode_light">Claro</string>
     <string name="settings_theme_mode_dark">Escuro</string>
-    <string name="settings_haze_forced_dark_subtitle">O modo de desfoque força o tema escuro</string>
     <string name="settings_dynamic_color_title">Cor dinâmica Monet</string>
     <string name="settings_dynamic_color_supported_subtitle">Quando ativo, o tema usa cores do papel
         de parede do sistema</string>

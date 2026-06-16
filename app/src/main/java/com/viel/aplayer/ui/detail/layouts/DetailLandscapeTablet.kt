@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.application.library.detail.DetailBookItem
@@ -55,9 +54,6 @@ fun DetailLandscapeTablet(
     onPlayClick: () -> Unit, // Confirm playback action callback.
     onSearchClick: (String) -> Unit, // Search callback.
     onShowInfo: (String, String) -> Unit, // Dialog detail display callback.
-    // Color Extracted Callback (Pass color callback to downstream PlayerCover)
-    // Invoked when Coil successfully decodes the Bitmap cover and retrieves its dominant color.
-    onColorExtracted: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Tablet Detail Item (Render from the scene projection instead of a database entity)
@@ -151,9 +147,8 @@ fun DetailLandscapeTablet(
                      *
                      * Matches the selected recent-card cover radius so the target cover does not
                      * begin from the mini-player's 8.dp playback radius during overlay entry.
-                     */
+                    */
                     sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
-                    onColorExtracted = onColorExtracted,
                     modifier = Modifier
                         .fillMaxHeight()
                         .aspectRatio(1f)

@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.common
 // Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and haze modifier for Compose-based blur.
 // Import Canvas and Blur APIs (Allow drawing blurred cover images natively)
 // Import Compose Canvas, draw.blur, geometry.Size, and Coil's rememberAsyncImagePainter to replace AsyncImage with Canvas-based blur.
+import android.graphics.Bitmap
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -22,9 +24,10 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.theme.LocalDarkTheme
+import com.viel.aplayer.media.parser.ImageProcessor
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
@@ -32,23 +35,20 @@ import dev.chrisbanes.haze.hazeSource
  * Globally shared background cover strong blur ambience component, applicable to both playback and details pages.
  * 1. Automatically handles smooth color animations of the background dominant color.
  * 2. Mounts the Haze state modifier in Haze mode and renders a 64.dp strong-blurred cover.
- * 3. Automatically adapts light and dark theme masks to ensure visibility of foreground UI elements.
+ * 3. Produces the page-level cover color from the same software backdrop bitmap used by the background.
  */
 @Composable
 fun CoverBackground(
     coverPath: String?,
     lastUpdated: Long,
-    // Adapt to local coverColor (Support passing Color type directly, bypassing deprecated database integer fields)
     coverColor: Color?,
     glassEffectMode: GlassEffectMode,
-    // Setup HazeState Parameter (Map backdrop from LayerBackdrop to HazeState) Changed backdrop to hazeState.
     hazeState: HazeState?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onColorExtracted: (Color) -> Unit = {}
 ) {
     // Setup Glass Effect Flag (Check active theme style) Check if Haze mode is configured.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
-    // Theme Aware Contrast Check (Query active theme state via LocalDarkTheme instead of system defaults) Use LocalDarkTheme.current.
-    val isDark = LocalDarkTheme.current
     val bgColor = MaterialTheme.colorScheme.background
 
     val fallbackColor = MaterialTheme.colorScheme.primaryContainer
@@ -71,6 +71,35 @@ fun CoverBackground(
         )
     }
 
+    val context = LocalContext.current
+    val backdropPainter = if (coverPath != null) {
+        val bgRequest = remember(coverPath, lastUpdated) {
+            CoverImageRequestFactory.build(
+                context = context,
+                sourcePath = coverPath,
+                lastUpdated = lastUpdated,
+                variant = CoverImageVariant.Backdrop,
+                scene = "cover-backdrop",
+                allowHardware = false,
+                bitmapConfig = Bitmap.Config.RGB_565
+            )
+        }
+        rememberAsyncImagePainter(model = bgRequest)
+    } else {
+        null
+    }
+
+    /**
+     * Extracts the page-level cover seed from the already software-decoded backdrop image.
+     * This keeps foreground cover components display-only and centralizes color invalidation here.
+     */
+    LaunchedEffect(coverPath, lastUpdated, backdropPainter?.state) {
+        val successState = backdropPainter?.state as? AsyncImagePainter.State.Success ?: return@LaunchedEffect
+        val colorInt = ImageProcessor.getDominantColor(successState.result.drawable)
+        ImageProcessor.putColorToCache(coverPath, lastUpdated, colorInt)
+        onColorExtracted(Color(colorInt))
+    }
+
     // Setup Layout Modifier (Apply haze to background Box) Link haze modifier to background container if in Haze mode.
     Box(
         modifier = modifier
@@ -79,33 +108,20 @@ fun CoverBackground(
             .then(if (isBlur && hazeState != null) Modifier.hazeSource(hazeState) else Modifier)
     ) {
         // Render the full-screen cover blurred background only when in Haze mode.
-        if (isBlur && coverPath != null) {
-            val context = LocalContext.current
-            val bgRequest = remember(coverPath, lastUpdated) {
-                CoverImageRequestFactory.build(
-                    context = context,
-                    sourcePath = coverPath,
-                    lastUpdated = lastUpdated,
-                    variant = CoverImageVariant.Backdrop,
-                    scene = "cover-backdrop",
-                    allowHardware = false
-                )
-            }
-
+        if (isBlur && backdropPainter != null) {
             // Render Canvas-based Blur Background (Draw cover on canvas and apply native blur modifier)
             // Use rememberAsyncImagePainter to load cover and render it via Canvas with Modifier.blur to implement hardware-accelerated cover background blur.
-            val painter = rememberAsyncImagePainter(model = bgRequest)
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        scaleX = 1.02f
-                        scaleY = 1.02f
+                        scaleX = 1.05f
+                        scaleY = 1.05f
                     }
                     .blur(64.dp)
             ) {
                 val canvasSize = size
-                val painterSize = painter.intrinsicSize
+                val painterSize = backdropPainter.intrinsicSize
                 if (painterSize.width.isFinite() && painterSize.width > 0 && 
                     painterSize.height.isFinite() && painterSize.height > 0) {
                     val srcRatio = painterSize.width / painterSize.height
@@ -121,12 +137,12 @@ fun CoverBackground(
                     val dy = (canvasSize.height - drawHeight) / 2f
 
                     translate(left = dx, top = dy) {
-                        with(painter) {
+                        with(backdropPainter) {
                             draw(size = Size(drawWidth, drawHeight))
                         }
                     }
                 } else {
-                    with(painter) {
+                    with(backdropPainter) {
                         draw(size = canvasSize)
                     }
                 }
@@ -135,28 +151,8 @@ fun CoverBackground(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(bgColor.copy(alpha = if (isDark) 0.46f else 0.24f))
+                    .background(bgColor.copy(alpha = 0.5f))
             )
-            // Overlay an adaptive theme mask layer.
-//            Box(
-//                modifier = Modifier
-//                    .fillMaxSize()
-//                    .background(bgColor.copy(alpha = if (isDark) 0.62f else 0.74f))
-//            )
-
-            // Bottom gradient deepening layer.
-//            Box(
-//                modifier = Modifier
-//                    .fillMaxSize()
-//                    .background(
-//                        Brush.verticalGradient(
-//                            colors = listOf(
-//                                Color.Transparent,
-//                                bgColor.copy(alpha = if (isDark) 0.46f else 0.34f)
-//                            )
-//                        )
-//                    )
-//            )
         }
     }
 }
