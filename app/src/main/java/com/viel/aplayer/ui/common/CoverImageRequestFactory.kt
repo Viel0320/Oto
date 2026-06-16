@@ -37,8 +37,12 @@ enum class CoverImageVariant(
  * entry-point utility from bloating into a cross-hierarchy centralized manager.
  */
 object CoverImageRequestFactory {
-    // Modify CoverImageRequestFactory build signature (Support Bitmap.Config specification)
-    // Accept an optional bitmapConfig parameter to customize the loaded Bitmap's format (e.g. RGB_565 for memory reduction).
+    /**
+     * Builds a Coil request for a cover display surface.
+     *
+     * Dense lazy surfaces can disable crossfade to avoid animating many thumbnails in the same
+     * frame, while large artwork keeps the existing variant guard against holding two bitmaps.
+     */
     fun build(
         context: Context,
         sourcePath: String,
@@ -46,7 +50,8 @@ object CoverImageRequestFactory {
         variant: CoverImageVariant,
         scene: String,
         allowHardware: Boolean = true,
-        bitmapConfig: Bitmap.Config? = null
+        bitmapConfig: Bitmap.Config? = null,
+        crossfade: Boolean = true
     ): ImageRequest {
         val cacheKey = cacheKey(sourcePath, lastUpdated, variant)
         CoverImageCacheLogger.logRequest(
@@ -146,7 +151,7 @@ object CoverImageRequestFactory {
             //
             // A single 1200px main cover bitmap takes about 5.8MB of native heap, and Backdrop immediately enters the blur pipeline.
             // These two variants skip crossfade to avoid concurrently holding both the old and new bitmaps in memory during transitions; small images retain transition animations.
-            .crossfade(variant != CoverImageVariant.Main1200 && variant != CoverImageVariant.Backdrop)
+            .crossfade(crossfade && variant != CoverImageVariant.Main1200 && variant != CoverImageVariant.Backdrop)
             .size(variant.targetWidth, variant.targetHeight)
             .listener(pipelineListener)
             // Apply bitmapConfig option (Pass customized bitmap config to Coil builder)

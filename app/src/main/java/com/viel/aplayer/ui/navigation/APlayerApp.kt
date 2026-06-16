@@ -499,7 +499,7 @@ fun APlayerApp(
                         // The Home catalog policy keeps cluster order fixed while this value controls ascending or descending comparisons inside clusters.
                         homeSortDirection = libraryUiState.homeSortDirection,
                         // Home Book Status Filter State (Route availability filter into the NavHost-owned preference dialog)
-                        // The shell forwards the value only; LibraryViewModel remains responsible for applying the filter to Home catalog data.
+                        // The shell forwards the value only; the Home read model applies the filter to catalog data.
                         homeBookStatusFilter = libraryUiState.homeBookStatusFilter,
                         // Home Dialog Haze Routing (Use the same app backdrop source as Search route)
                         // Passing the top-level source prevents Home dialogs from sampling the clipped LazyGrid-local fallback source.

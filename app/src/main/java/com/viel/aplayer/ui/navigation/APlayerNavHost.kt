@@ -92,13 +92,13 @@ fun APlayerNavHost(
     // APlayerNavHost only hosts the top-bar dialog and delegates actual preference writes upward.
     onHomeViewStyleSelected: (HomeViewStyle) -> Unit,
     // Home Sort Rule Selection Callback (Persist grouping/order pivot changes through the parent ViewModel)
-    // The ViewModel recalculates sorted sections after DataStore emits the updated rule.
+    // The Home read model recalculates sorted sections after DataStore emits the updated rule.
     onHomeSortRuleSelected: (HomeSortRule) -> Unit,
     // Home Sort Direction Selection Callback (Persist in-cluster direction changes through the parent ViewModel)
-    // Direction updates re-run sorting in LibraryViewModel without changing the script cluster order.
+    // Direction updates re-run sorting in the Home read model without changing the script cluster order.
     onHomeSortDirectionSelected: (HomeSortDirection) -> Unit,
     // Home Book Status Filter Callback (Persist availability filter changes through the parent ViewModel)
-    // The ViewModel applies the filter to its Home scene projection after the DataStore-backed state updates.
+    // The Home read model applies the filter to its scene projection after the DataStore-backed state updates.
     onHomeBookStatusFilterSelected: (HomeBookStatusFilter) -> Unit
 ) {
     val isHomeRoute = navigationState.topLevelRoute == HomeRoute

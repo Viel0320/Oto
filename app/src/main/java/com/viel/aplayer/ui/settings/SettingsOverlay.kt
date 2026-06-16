@@ -2,7 +2,6 @@ package com.viel.aplayer.ui.settings
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -129,8 +128,7 @@ fun SettingsOverlay(
     val requestSettingsDownload: (String) -> Unit = { bookId ->
         // Settings Download Permission Gate (Prevent invisible foreground retry downloads on Android 13+)
         // The settings management page retries only after the same presentation-level notification preflight used by DetailRoute.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         ) {
             settingsViewModel.downloadBook(bookId)
         } else {

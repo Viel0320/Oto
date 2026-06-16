@@ -42,7 +42,11 @@ class HomeLibraryReadModelArchitectureTest {
 
         assertTrue(
             "LibraryViewModel must consume HomeLibraryReadModel instead of the full LibraryFacade bus.",
-            libraryViewModelSource.contains("homeLibraryReadModel.audiobooks")
+            libraryViewModelSource.contains("homeLibraryReadModel.observeCatalog(")
+        )
+        assertTrue(
+            "LibraryViewModel must not own Home catalog sorting policy.",
+            !libraryViewModelSource.contains("HomeCatalogSortPolicy")
         )
         assertTrue(
             "LibraryViewModel must send home commands through HomeLibraryUseCases.",

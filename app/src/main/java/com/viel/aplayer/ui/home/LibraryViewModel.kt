@@ -6,13 +6,15 @@ import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.home.HomeBookItem
-import com.viel.aplayer.application.library.home.HomeCatalogSortPolicy
+import com.viel.aplayer.application.library.home.HomeCatalogSnapshot
 import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.HomeBookStatusFilter
 import com.viel.aplayer.data.store.HomeFilter
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
+import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -55,96 +57,17 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
         kotlinx.coroutines.flow.combine(
-            homeLibraryReadModel.audiobooks,
-            homeLibraryReadModel.hasRegisteredLibraryRoots,
-            _selectedFilter,
-            _selectedBookStatusFilter,
+            homeLibraryReadModel.observeCatalog(
+                userFilterSelections = _selectedFilter,
+                userBookStatusSelections = _selectedBookStatusFilter,
+                settings = settingsReadModel.settingsFlow
+            ),
             settingsReadModel.settingsFlow
-        ) { audiobooks, hasRegisteredLibraryRoots, userSelection, userBookStatusSelection, appSettings ->
-            // Centralized Filter Resolution (Dispatches final filter state once all input streams are ready)
-            // Prevents intermediate visual state jumps in home filter chips.
-            // Priority hierarchy: Explicit User Selection > Persisted Cache Settings > NotStarted Default.
-            // Centralized Filter Resolution (Dispatches final filter state once all input streams are ready)
-            // Priority hierarchy: Explicit User Selection > Persisted Cache Settings.
-            val activeFilter = userSelection ?: appSettings.homeFilter
-            // Home Book Status Filter Resolution (Restore the dialog filter with a non-restrictive default)
-            // BookStatus filtering is independent from read-progress chips, so it uses its own user override and DataStore key.
-            val activeBookStatusFilter = userBookStatusSelection ?: appSettings.homeBookStatusFilter
-
-            // Flow Pipeline Calculations (Handles grouping, filtering, and sorting in backend thread flows)
-            // Ensures that the Composable UI layers remain completely stateless and focus strictly on rendering tasks.
-
-            // Segment 1: Apply chosen BookStatus filter before read-progress filtering
-            // This makes the Home view dialog constrain the entire catalog surface, including recent sections and grouped lists.
-            val statusFilteredAudiobooks = audiobooks.filter { book ->
-                activeBookStatusFilter.matches(book.status)
-            }
-
-            // Segment 2: Apply chosen read-progress filter to the already status-filtered book collection
-            // Keeping the two filters sequential preserves the existing HomeFilter semantics while adding availability narrowing.
-            val filteredAudiobooks = statusFilteredAudiobooks.filter { it.matchesFilter(activeFilter) }
-
-            // Home Catalog Sort Application (Build the selected script-clustered order before grouping)
-            // Sorting before groupBy preserves section order and item order through Kotlin's insertion-ordered LinkedHashMap result.
-            val sortedAudiobooks = HomeCatalogSortPolicy.sort(
-                books = filteredAudiobooks,
-                sortRule = appSettings.homeSortRule,
-                sortDirection = appSettings.homeSortDirection
-            )
-
-            // Home Catalog Grouping (Group by the same field selected in the sort rule)
-            // This keeps the visual section title, section order, and user-selected pivot aligned across listgroup columns and Cardgroup rows.
-            val groupedAudiobooks = sortedAudiobooks.groupBy { book ->
-                HomeCatalogSortPolicy.groupLabel(book, appSettings.homeSortRule)
-            }
-
-            // Segment 3: Filter recent book slots (Takes up to 10 for NotStarted, 5 for InProgress)
-            val recentBooks = when (activeFilter) {
-                HomeFilter.NotStarted -> statusFilteredAudiobooks.filter { it.isNotStarted }
-                    .sortedByDescending { it.addedAt }
-                    .take(10)
-                HomeFilter.InProgress -> statusFilteredAudiobooks.filter { it.isInProgress && it.lastPlayedAt > 0 }
-                    .sortedByDescending { it.lastPlayedAt }
-                    .take(5)
-                else -> emptyList()
-            }
-
-            // Segment 4: Map resource title labels based on filter type
-            val recentTitleRes = when (activeFilter) {
-                HomeFilter.NotStarted -> R.string.recently_added_title
-                HomeFilter.InProgress -> R.string.recently_played_title
-                else -> 0
-            }
-
-            // Segment 5: Evaluate visibility rules for the "Recent" horizontal list
-            val shouldShowRecentBooks = (activeFilter == HomeFilter.NotStarted || activeFilter == HomeFilter.InProgress) && recentBooks.isNotEmpty()
-
-            LibraryUiState(
-                audiobooks = audiobooks,
-                // Registered Root Propagation (Carry media-source presence into Home presentation state)
-                // This keeps the empty-home add-library FAB keyed to real root registration instead of inferring setup state only from scanned books.
-                hasRegisteredLibraryRoots = hasRegisteredLibraryRoots,
-                selectedFilter = activeFilter,
-                homeBookStatusFilter = activeBookStatusFilter,
-                filteredAudiobooks = sortedAudiobooks,
-                groupedAudiobooks = groupedAudiobooks,
-                recentBooks = recentBooks,
-                recentTitleRes = recentTitleRes,
-                shouldShowRecentBooks = shouldShowRecentBooks,
-                // Pass down glassmorphic mode properties to synchronize theme rendering across pages.
+        ) { catalog, appSettings ->
+            catalog.toLibraryUiState(
                 glassEffectMode = appSettings.glassEffectMode,
-                // Home View Preference Propagation (Forward persisted renderer selection to Home UI)
-                // Keeps the ViewModel as the single settings consumer so HomeContent only receives ready-to-render state.
                 homeViewStyle = appSettings.homeViewStyle,
-                // Home Sort Preference Propagation (Forward persisted grouping rule to app bar controls)
-                // The actual sorted/grouped catalog above is already derived from this same value.
-                homeSortRule = appSettings.homeSortRule,
-                // Home Sort Direction Propagation (Forward persisted in-cluster direction to app bar controls)
-                // The sorted catalog above already applies this direction while leaving script cluster order fixed.
-                homeSortDirection = appSettings.homeSortDirection,
-                // Pass down themeMode properties (Synchronize app settings theme configuration down to LibraryUiState) Populate themeMode parameter.
                 themeMode = appSettings.themeMode,
-                // Pass down Dynamic Color Setting (Synchronize app settings dynamic color selection to LibraryUiState) Populate isDynamicColorEnabled parameter.
                 isDynamicColorEnabled = appSettings.isDynamicColorEnabled
             )
         },
@@ -161,16 +84,37 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     )
 
     /**
-     * Filter Matching: Evaluates whether an audiobook aligns with the active filter query.
+     * Maps application-owned Home catalog organization into UI-owned presentation state.
      *
-     * Moved from Composable layout to VM domain to consolidate data calculations.
+     * Sorting, grouping, filtering, and recent slicing stay in the Home read model; this mapper only attaches Android resource identifiers and visual settings needed by Compose.
      */
-    private fun HomeBookItem.matchesFilter(filter: HomeFilter): Boolean {
-        return when (filter) {
-            HomeFilter.NotStarted -> isNotStarted
-            HomeFilter.InProgress -> isInProgress
-            HomeFilter.Finished -> isFinished
-        }
+    private fun HomeCatalogSnapshot.toLibraryUiState(
+        glassEffectMode: GlassEffectMode,
+        homeViewStyle: HomeViewStyle,
+        themeMode: ThemeMode,
+        isDynamicColorEnabled: Boolean
+    ): LibraryUiState {
+        return LibraryUiState(
+            audiobooks = audiobooks,
+            hasRegisteredLibraryRoots = hasRegisteredLibraryRoots,
+            selectedFilter = selectedFilter,
+            homeBookStatusFilter = homeBookStatusFilter,
+            filteredAudiobooks = filteredAudiobooks,
+            groupedAudiobooks = groupedAudiobooks,
+            recentBooks = recentBooks,
+            recentTitleRes = when (selectedFilter) {
+                HomeFilter.NotStarted -> R.string.recently_added_title
+                HomeFilter.InProgress -> R.string.recently_played_title
+                HomeFilter.Finished -> 0
+            },
+            shouldShowRecentBooks = shouldShowRecentBooks,
+            glassEffectMode = glassEffectMode,
+            homeViewStyle = homeViewStyle,
+            homeSortRule = homeSortRule,
+            homeSortDirection = homeSortDirection,
+            themeMode = themeMode,
+            isDynamicColorEnabled = isDynamicColorEnabled
+        )
     }
 
     init {
@@ -241,7 +185,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun setHomeSortRule(rule: HomeSortRule) {
         // Home Sort Rule Update (Persist the user's selected catalog grouping and script-clustered order)
-        // The ViewModel rebuilds filtered and grouped catalog sections from settingsFlow after the preference write completes.
+        // The Home read model rebuilds filtered and grouped catalog sections from settingsFlow after the preference write completes.
         viewModelScope.launch {
             settingsCommands.updateHomeSortRule(rule)
         }
@@ -250,7 +194,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     fun setHomeSortDirection(direction: HomeSortDirection) {
         viewModelScope.launch {
             // Home Sort Direction Update (Persist ascending or descending order inside each script cluster)
-            // Script cluster order itself remains fixed in HomeCatalogSortPolicy so the setting only affects same-cluster comparisons.
+            // Script cluster order itself remains fixed in the Home catalog policy so the setting only affects same-cluster comparisons.
             settingsCommands.updateHomeSortDirection(direction)
         }
     }

@@ -10,7 +10,15 @@ import com.viel.aplayer.data.gateway.LibraryRootGateway
 import com.viel.aplayer.data.gateway.MetadataRefreshGateway
 import com.viel.aplayer.data.gateway.ScanScheduler
 import com.viel.aplayer.data.gateway.SearchHistoryGateway
+import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.data.store.HomeBookStatusFilter
+import com.viel.aplayer.data.store.HomeFilter
+import com.viel.aplayer.data.store.HomeSortDirection
+import com.viel.aplayer.data.store.HomeSortRule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 /**
@@ -43,6 +51,23 @@ data class HomeBookItem(
     val isFinished: Boolean,
     val isInProgress: Boolean,
     val isNotStarted: Boolean
+)
+
+/**
+ * Home Catalog Snapshot (Application-owned catalog organization result)
+ * Carries the filtered, sorted, grouped, and recent Home collections after applying catalog preferences, keeping ordering rules out of the UI ViewModel.
+ */
+data class HomeCatalogSnapshot(
+    val audiobooks: List<HomeBookItem> = emptyList(),
+    val hasRegisteredLibraryRoots: Boolean = false,
+    val selectedFilter: HomeFilter = HomeFilter.NotStarted,
+    val homeBookStatusFilter: HomeBookStatusFilter = HomeBookStatusFilter.All,
+    val filteredAudiobooks: List<HomeBookItem> = emptyList(),
+    val groupedAudiobooks: Map<String, List<HomeBookItem>> = emptyMap(),
+    val recentBooks: List<HomeBookItem> = emptyList(),
+    val shouldShowRecentBooks: Boolean = false,
+    val homeSortRule: HomeSortRule = HomeSortRule.Author,
+    val homeSortDirection: HomeSortDirection = HomeSortDirection.Ascending
 )
 
 // Map HomeBookItem to DetailBookItem (Abstract boundary mapping from UI layer to application layer)
@@ -79,6 +104,16 @@ interface HomeLibraryReadModel {
      * Exposes a boolean root-presence signal so Home can distinguish an unconfigured app from an empty scanned catalog without depending on SettingsRootItem or persistence entities.
      */
     val hasRegisteredLibraryRoots: Flow<Boolean>
+
+    /**
+     * Organized Home Catalog Stream (Application-owned filtering and ordering)
+     * Accepts transient UI overrides plus persisted settings, then emits the complete catalog shape that Home can render without sorting in the ViewModel.
+     */
+    fun observeCatalog(
+        userFilterSelections: Flow<HomeFilter?>,
+        userBookStatusSelections: Flow<HomeBookStatusFilter?>,
+        settings: Flow<AppSettings>
+    ): Flow<HomeCatalogSnapshot>
 }
 
 /**
@@ -121,6 +156,92 @@ class DefaultHomeLibraryReadModel(
             // The Home scene needs this boolean to decide if the onboarding FAB should remain visible without importing settings rows or Room root entities.
             roots.isNotEmpty()
         }
+
+    override fun observeCatalog(
+        userFilterSelections: Flow<HomeFilter?>,
+        userBookStatusSelections: Flow<HomeBookStatusFilter?>,
+        settings: Flow<AppSettings>
+    ): Flow<HomeCatalogSnapshot> {
+        return combine(
+            audiobooks,
+            hasRegisteredLibraryRoots,
+            userFilterSelections,
+            userBookStatusSelections,
+            settings
+        ) { audiobooks, hasRegisteredLibraryRoots, userSelection, userBookStatusSelection, appSettings ->
+            HomeCatalogOrganizer.build(
+                audiobooks = audiobooks,
+                hasRegisteredLibraryRoots = hasRegisteredLibraryRoots,
+                userSelection = userSelection,
+                userBookStatusSelection = userBookStatusSelection,
+                appSettings = appSettings
+            )
+        }.flowOn(Dispatchers.Default)
+    }
+}
+
+/**
+ * Home Catalog Organizer (Applies catalog-domain visibility and ordering rules)
+ * Keeps read-progress filtering, availability filtering, script-cluster sorting, grouping, and recent slices beside the Home read model instead of the UI ViewModel.
+ */
+private object HomeCatalogOrganizer {
+    fun build(
+        audiobooks: List<HomeBookItem>,
+        hasRegisteredLibraryRoots: Boolean,
+        userSelection: HomeFilter?,
+        userBookStatusSelection: HomeBookStatusFilter?,
+        appSettings: AppSettings
+    ): HomeCatalogSnapshot {
+        val activeFilter = userSelection ?: appSettings.homeFilter
+        val activeBookStatusFilter = userBookStatusSelection ?: appSettings.homeBookStatusFilter
+        val statusFilteredAudiobooks = audiobooks.filter { book ->
+            activeBookStatusFilter.matches(book.status)
+        }
+        val filteredAudiobooks = statusFilteredAudiobooks.filter { book ->
+            book.matchesFilter(activeFilter)
+        }
+        val sortedAudiobooks = HomeCatalogSortPolicy.sort(
+            books = filteredAudiobooks,
+            sortRule = appSettings.homeSortRule,
+            sortDirection = appSettings.homeSortDirection
+        )
+        val groupedAudiobooks = sortedAudiobooks.groupBy { book ->
+            HomeCatalogSortPolicy.groupLabel(book, appSettings.homeSortRule)
+        }
+        val recentBooks = when (activeFilter) {
+            HomeFilter.NotStarted -> statusFilteredAudiobooks.filter { book -> book.isNotStarted }
+                .sortedByDescending { book -> book.addedAt }
+                .take(10)
+            HomeFilter.InProgress -> statusFilteredAudiobooks.filter { book -> book.isInProgress && book.lastPlayedAt > 0 }
+                .sortedByDescending { book -> book.lastPlayedAt }
+                .take(5)
+            HomeFilter.Finished -> emptyList()
+        }
+
+        return HomeCatalogSnapshot(
+            audiobooks = audiobooks,
+            hasRegisteredLibraryRoots = hasRegisteredLibraryRoots,
+            selectedFilter = activeFilter,
+            homeBookStatusFilter = activeBookStatusFilter,
+            filteredAudiobooks = sortedAudiobooks,
+            groupedAudiobooks = groupedAudiobooks,
+            recentBooks = recentBooks,
+            shouldShowRecentBooks = (
+                activeFilter == HomeFilter.NotStarted ||
+                    activeFilter == HomeFilter.InProgress
+                ) && recentBooks.isNotEmpty(),
+            homeSortRule = appSettings.homeSortRule,
+            homeSortDirection = appSettings.homeSortDirection
+        )
+    }
+
+    private fun HomeBookItem.matchesFilter(filter: HomeFilter): Boolean {
+        return when (filter) {
+            HomeFilter.NotStarted -> isNotStarted
+            HomeFilter.InProgress -> isInProgress
+            HomeFilter.Finished -> isFinished
+        }
+    }
 }
 
 /**

@@ -29,15 +29,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -48,11 +44,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
+import com.viel.aplayer.ui.common.LazyCoverImage
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.motion.LocalHomeRecent2DetailSourceScope
@@ -293,38 +288,24 @@ private fun RecentCoverSharedSource(
                                 }
                             )
                     ) {
-                        // Use Coil's onError callback to fully decouple the performance risk of calling File.exists() synchronously on the main thread during Composable recombination.
-                        var isImageError by remember(coverPath) { mutableStateOf(false) }
-                        if ((coverPath != null) && !isImageError) {
-                            val context = LocalContext.current
-
-                            // Cardgroup Thumbnail Strategy (Reuse the medium thumbnail size for cover-card layouts)
-                            // Recently played cards and Home grid cards both match the 360px thumbnail output, keeping cache behavior shared across card surfaces.
-                            // This ensures medium cards hit local thumbnails and the same Coil cache specifications, avoiding bringing large covers into the list.
-                            val request = remember(coverPath, coverLastUpdated) {
-                                CoverImageRequestFactory.build(
-                                    context = context,
-                                    sourcePath = coverPath,
-                                    lastUpdated = coverLastUpdated,
-                                    variant = CoverImageVariant.ThumbnailMedium,
-                                    scene = "recently-cover",
-                                    // Use hardware bitmap for displaying in ListCardItem (Allow hardware bitmap renderer sampling optimization)
-                                    allowHardware = true,
-                                    bitmapConfig = null
-                                )
-                            }
-                            AsyncImage(
-                                model = request,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                                onError = {
-                                    // Log Metric Handling (Decoupled Image Metrics Logging)
-                                    // Card component only handles display degradation; success, failure, cancel, and hit rate logging are handled uniformly by image request listener, preventing duplicate logs.
-                                    isImageError = true
-                                }
-                            )
-                        } else {
+                        /*
+                         * Lazy Card Cover Loading (Viewport-gated medium thumbnail request)
+                         *
+                         * Horizontal card rows can precompose nearby cards; delaying the medium
+                         * thumbnail request until placement keeps decoding focused on visible cards.
+                         * Crossfade is disabled here because section rows can reveal many cached
+                         * covers during a fast swipe, and each fade would add avoidable frame work.
+                         */
+                        LazyCoverImage(
+                            sourcePath = coverPath,
+                            lastUpdated = coverLastUpdated,
+                            variant = CoverImageVariant.ThumbnailMedium,
+                            scene = "recently-cover",
+                            modifier = Modifier.fillMaxSize(),
+                            allowHardware = true,
+                            bitmapConfig = null,
+                            crossfade = false
+                        ) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center

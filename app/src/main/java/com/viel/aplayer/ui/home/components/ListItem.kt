@@ -3,7 +3,7 @@ package com.viel.aplayer.ui.home.components
 // Setup ListItem Imports (Coil & click delegate)
 // Added combinedClickable import to respond to list item long press.
 // Added ExperimentalFoundationApi import to shield compilation defects of experimental APIs.
-// Added getValue and setValue import extensions to support Composable property delegation.
+// Added getValue import extension to support Composable property delegation.
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateDp
@@ -32,15 +32,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -49,11 +43,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.formatCompactDuration
-import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
+import com.viel.aplayer.ui.common.LazyCoverImage
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
@@ -291,35 +284,22 @@ private fun ListCoverSharedSource(
                 shape = animatedCoverShape,
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-                val isPreview = LocalInspectionMode.current
-                // Define local image load error state, using Coil's async loading and onError callback to achieve zero main-thread sync disk I/O probing.
-                var isImageError by remember(coverPath) { mutableStateOf(false) }
-                if (!isPreview && (coverPath != null) && !isImageError) {
-                    val context = LocalContext.current
-                    // Thumbnail Small Caching (Optimize Memory and Cache Reuse)
-                    // List item strictly uses ThumbnailSmall specification, allowing list, search thumbnail, and miniplayer to share 180px cache.
-                    // Skips synchronous File.exists() calls, letting Coil handle file missing asynchronously and log results.
-                    val request = remember(coverPath, coverLastUpdated) {
-                        CoverImageRequestFactory.build(
-                            context = context,
-                            sourcePath = coverPath,
-                            lastUpdated = coverLastUpdated,
-                            variant = CoverImageVariant.ThumbnailSmall,
-                            scene = "home-list-cover"
-                        )
-                    }
-                    AsyncImage(
-                        model = request,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        onError = {
-                            // Log Metric Handling (Decoupled Image Metrics Logging)
-                            // UI layer only handles displaying placeholder when image fails; logging metrics are handled by request listener inside CoverImageRequestFactory.
-                            isImageError = true
-                        }
-                    )
-                } else {
+                /*
+                 * Lazy List Cover Loading (Viewport-gated thumbnail request)
+                 *
+                 * The list row keeps its stable placeholder bounds immediately, while Coil request
+                 * construction waits until this cover slot has actually been placed by the lazy host.
+                 * Crossfade stays disabled for dense Home flings because memory-cache hits can enter
+                 * the viewport by the dozen and each fade would schedule extra draw work.
+                 */
+                LazyCoverImage(
+                    sourcePath = coverPath,
+                    lastUpdated = coverLastUpdated,
+                    variant = CoverImageVariant.ThumbnailSmall,
+                    scene = "home-list-cover",
+                    modifier = Modifier.fillMaxSize(),
+                    crossfade = false
+                ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center

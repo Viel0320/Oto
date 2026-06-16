@@ -22,7 +22,7 @@ android {
         applicationId = "com.viel.aplayer"
         // SDK Level Bump (Raise minSdk to 33 to support hardware-level blur effects)
         // This targets Android 13 (API 33) to allow hardware-accelerated window blur rendering.
-        minSdk = 32
+        minSdk = 33
         //noinspection OldTargetApi
         targetSdk = 36
         versionCode = 1
