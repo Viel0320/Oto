@@ -63,7 +63,7 @@ import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
-import com.viel.aplayer.ui.player.components.ChapterListSheetStateful
+import com.viel.aplayer.ui.player.components.PlaybackPositionChapterListSheetStateful
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkDialog
 import com.viel.aplayer.ui.player.layouts.PlayerLandscapePhone
 import com.viel.aplayer.ui.player.layouts.PlayerLandscapeTablet
@@ -72,6 +72,8 @@ import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
 
@@ -118,15 +120,19 @@ fun PlayerScreen(
     // Player Container State Gathering (To ensure layout classes remain stateless)
     // Facilitates UI channel adaptation, decoupling, and automated views testing.
     // =====================================================================
-    val progressState = if (isPreview) {
-        PlaybackViewModel.PlaybackProgressViewState(
-            elapsedMs = 120000L,
-            bufferedMs = 220000L,
-            durationMs = 360000L,
-            isChapterProgressMode = false
-        )
+    val playbackProgressState = if (isPreview) {
+        remember {
+            MutableStateFlow(
+                PlaybackProgressViewState(
+                    elapsedMs = 120000L,
+                    bufferedMs = 220000L,
+                    durationMs = 360000L,
+                    isChapterProgressMode = false
+                )
+            )
+        }
     } else {
-        playbackViewModel.playbackProgressState.collectAsStateWithLifecycle().value
+        playbackViewModel.playbackProgressState
     }
 
     val currentChapter = if (isPreview) {
@@ -427,10 +433,7 @@ fun PlayerScreen(
                     when {
                         isTabletLandscape -> {
                             PlayerLandscapeTablet(
-                                currentPosition = progressState.elapsedMs,
-                                bufferedPosition = progressState.bufferedMs,
-                                totalDuration = progressState.durationMs,
-                                isChapterMode = progressState.isChapterProgressMode,
+                                playbackProgressState = playbackProgressState,
                                 currentChapter = currentChapter,
                                 // Parameter Alignment (Aligns parameter name with isPlaying of layout templates)
                                 // Renamed playing to isPlaying to match defined function arguments.
@@ -470,10 +473,7 @@ fun PlayerScreen(
                         }
                         isLandscape -> {
                             PlayerLandscapePhone(
-                                currentPosition = progressState.elapsedMs,
-                                bufferedPosition = progressState.bufferedMs,
-                                totalDuration = progressState.durationMs,
-                                isChapterMode = progressState.isChapterProgressMode,
+                                playbackProgressState = playbackProgressState,
                                 currentChapter = currentChapter,
                                 // Parameter Alignment (Aligns parameter name with isPlaying of layout templates)
                                 // Renamed playing to isPlaying to match defined function arguments.
@@ -513,10 +513,7 @@ fun PlayerScreen(
                         }
                         else -> {
                             PlayerPortrait(
-                                currentPosition = progressState.elapsedMs,
-                                bufferedPosition = progressState.bufferedMs,
-                                totalDuration = progressState.durationMs,
-                                isChapterMode = progressState.isChapterProgressMode,
+                                playbackProgressState = playbackProgressState,
                                 currentChapter = currentChapter,
                                 // Parameter Alignment (Aligns parameter name with isPlaying of layout templates)
                                 // Renamed playing to isPlaying to match defined function arguments.
@@ -609,8 +606,7 @@ fun PlayerScreen(
             // Inline Player Floating Surface Host (Preserve standalone PlayerScreen behavior for previews and isolated tests)
             // App shell callers can disable this branch and render the same host outside the page hazeSource to prevent nested modal sampling.
             PlayerFloatingSurfaceHost(
-                currentPosition = progressState.elapsedMs,
-                totalDuration = progressState.durationMs,
+                playbackProgressState = playbackProgressState,
                 metadata = metadata,
                 settings = settings,
                 actions = actions,
@@ -624,8 +620,7 @@ fun PlayerScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerFloatingSurfaceHost(
-    currentPosition: Long,
-    totalDuration: Long,
+    playbackProgressState: StateFlow<PlaybackProgressViewState>,
     metadata: BookMetadataState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
@@ -638,9 +633,8 @@ fun PlayerFloatingSurfaceHost(
 
     // Compact Chapter List Surface (Present track index selections through the shared floating surface host)
     // The hazeState is supplied by the caller so app-level overlays can sample a stable source while standalone screens fall back to their local sampler.
-    ChapterListSheetStateful(
-        currentPosition = currentPosition,
-        totalDuration = totalDuration,
+    PlaybackPositionChapterListSheetStateful(
+        playbackProgressState = playbackProgressState,
         metadata = metadata,
         settings = settings,
         actions = actions,

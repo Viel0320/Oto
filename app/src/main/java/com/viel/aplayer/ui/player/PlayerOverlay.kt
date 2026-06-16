@@ -38,6 +38,7 @@ import com.viel.aplayer.ui.player.miniplayer.CompactMediaPlayer
 import com.viel.aplayer.ui.player.miniplayer.PillCompactMediaPlayer
 import com.viel.aplayer.ui.settings.FullPlayerOpenSource
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -76,9 +77,7 @@ fun PlayerOverlay(
     // Gather Playback States (Unify high-frequency and metadata state collection at the overlay root)
     // Facilitates centralized state flows, reducing downstream parameter complexity and making layouts simpler.
     val metadata by playbackViewModel.metadataState.collectAsStateWithLifecycle()
-    val progressState by playbackViewModel.playbackProgressState.collectAsStateWithLifecycle()
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
-    val miniPlayerProgress by playbackViewModel.miniPlayerProgress.collectAsStateWithLifecycle()
 
     val isMediaAvailable by remember(playbackViewModel, metadata.id) {
         playbackViewModel.currentBookAvailability(metadata.id)
@@ -204,7 +203,7 @@ fun PlayerOverlay(
                             MiniPlayerContent(
                                 metadata = metadata,
                                 playback = playbackState,
-                                displayProgress = miniPlayerProgress,
+                                miniPlayerProgress = playbackViewModel.miniPlayerProgress,
                                 isMediaAvailable = isMediaAvailable,
                                 actions = miniPlayerActions,
                                 hazeState = appHazeState,
@@ -246,8 +245,7 @@ fun PlayerOverlay(
                                 )
 
                                 PlayerFloatingSurfaceHost(
-                                    currentPosition = progressState.elapsedMs,
-                                    totalDuration = progressState.durationMs,
+                                    playbackProgressState = playbackViewModel.playbackProgressState,
                                     metadata = metadata,
                                     settings = settings,
                                     actions = playerActions,
@@ -286,7 +284,7 @@ private enum class PlayerOverlayState {
 private fun MiniPlayerContent(
     metadata: BookMetadataState,
     playback: PlaybackState,
-    displayProgress: Float,
+    miniPlayerProgress: StateFlow<Float>,
     isMediaAvailable: Boolean,
     actions: MiniPlayerActions,
     hazeState: HazeState?,
@@ -323,6 +321,7 @@ private fun MiniPlayerContent(
                     glassEffectMode = glassEffectMode
                 )
             } else {
+                val displayProgress by miniPlayerProgress.collectAsStateWithLifecycle()
                 CompactMediaPlayer(
                     bookId = metadata.id,
                     isPlaying = playback.isPlaying,

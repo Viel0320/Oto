@@ -6,15 +6,60 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
+import com.viel.aplayer.ui.player.PlaybackProgressViewState
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * Stateful playback control panel bridge that owns high-frequency progress collection.
+ *
+ * Layout templates call this wrapper instead of reading playback progress themselves, so position
+ * ticks recompose the control panel subtree and do not invalidate the full player screen layout.
+ */
+@Composable
+fun PlayerControlPanelStateful(
+    playbackProgressState: StateFlow<PlaybackProgressViewState>,
+    currentChapter: PlayerChapterItem?,
+    metadata: BookMetadataState,
+    isPlaying: Boolean,
+    playbackSpeed: Float,
+    isSpeedManualMode: Boolean,
+    settings: PlayerSettingsState,
+    actions: PlayerActions,
+    buttonColor: Color,
+    glassEffectMode: GlassEffectMode,
+    hazeState: HazeState? = null,
+    modifier: Modifier = Modifier
+) {
+    val progressState by playbackProgressState.collectAsStateWithLifecycle()
+    PlayerControlPanel(
+        currentPosition = progressState.elapsedMs,
+        bufferedPosition = progressState.bufferedMs,
+        totalDuration = progressState.durationMs,
+        isChapterMode = progressState.isChapterProgressMode,
+        currentChapter = currentChapter,
+        metadata = metadata,
+        isPlaying = isPlaying,
+        playbackSpeed = playbackSpeed,
+        isSpeedManualMode = isSpeedManualMode,
+        settings = settings,
+        actions = actions,
+        buttonColor = buttonColor,
+        glassEffectMode = glassEffectMode,
+        hazeState = hazeState,
+        modifier = modifier
+    )
+}
 
 /**
  * Player control panel component (PlayerControlPanel).

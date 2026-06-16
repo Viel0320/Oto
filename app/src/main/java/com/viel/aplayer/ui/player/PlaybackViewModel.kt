@@ -164,14 +164,6 @@ class PlaybackViewModel(
         }
         .stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
 
-    // Spaced progress view state (Exposes playback positions dynamically to prevent full-screen recompositions)
-    data class PlaybackProgressViewState(
-        val elapsedMs: Long = 0L,
-        val bufferedMs: Long = 0L,
-        val durationMs: Long = 0L,
-        val isChapterProgressMode: Boolean = false
-    )
-
     private val _isChapterProgressMode = MutableStateFlow(false)
 
     fun setChapterProgressMode(enabled: Boolean) {

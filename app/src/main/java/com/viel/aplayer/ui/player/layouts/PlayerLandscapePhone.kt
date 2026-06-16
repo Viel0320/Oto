@@ -45,15 +45,17 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.player.BookMetadataState
+import com.viel.aplayer.ui.player.PlaybackProgressViewState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
 import com.viel.aplayer.ui.player.PlayerUiState
-import com.viel.aplayer.ui.player.components.PlayerControlPanel
+import com.viel.aplayer.ui.player.components.PlaybackPositionBookmarkListView
+import com.viel.aplayer.ui.player.components.PlaybackPositionSubtitlesView
+import com.viel.aplayer.ui.player.components.PlayerControlPanelStateful
 import com.viel.aplayer.ui.player.components.PlayerLandscapeHeader
 import com.viel.aplayer.ui.player.components.RelatedBooksView
-import com.viel.aplayer.ui.player.components.SubtitlesView
-import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Landscape phone player layout (Component rendering dual-column layouts for horizontal phone screens)
@@ -62,10 +64,7 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun PlayerLandscapePhone(
-    currentPosition: Long,
-    bufferedPosition: Long,
-    totalDuration: Long,
-    isChapterMode: Boolean,
+    playbackProgressState: StateFlow<PlaybackProgressViewState>,
     currentChapter: PlayerChapterItem?,
     isPlaying: Boolean,
     playbackSpeed: Float,
@@ -240,9 +239,9 @@ fun PlayerLandscapePhone(
                                     PlayerScreenMode.SUBTITLES -> {
                                         Box(modifier = Modifier.fillMaxSize()) {
                                             // Subtitles view layout (To render parsed lyrics elements using stateless components)
-                                            SubtitlesView(
+                                            PlaybackPositionSubtitlesView(
+                                                playbackProgressState = playbackProgressState,
                                                 subtitles = metadata.subtitles,
-                                                currentPosition = currentPosition,
                                                 onSeek = { actions.playback.onSeek(it, true) },
                                                 modifier = Modifier.fillMaxSize()
                                             )
@@ -271,7 +270,8 @@ fun PlayerLandscapePhone(
                         PlayerContentShell.Bookmarks -> {
                             // Bookmark list layout (To delegate custom bookmark lists to stateless component)
                             Box(modifier = Modifier.fillMaxSize()) {
-                                BookmarkListView(
+                                PlaybackPositionBookmarkListView(
+                                    playbackProgressState = playbackProgressState,
                                     bookmarks = metadata.bookmarks,
                                     bookmarkToDelete = bookmarkToDelete,
                                     bookmarkToEdit = bookmarkToEdit,
@@ -287,7 +287,6 @@ fun PlayerLandscapePhone(
                                     // Edit/delete bookmark dialogs share chapterSheetHazeState with the chapter sheet and player chrome to avoid source rebinding.
                                     hazeState = chapterSheetHazeState,
                                     glassEffectMode = glassEffectMode,
-                                    currentPosition = currentPosition,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -346,11 +345,8 @@ fun PlayerLandscapePhone(
                 Spacer(modifier = Modifier.weight(1f))
                 
                 // Landscape playback controls (To render timeline markers and speed values)
-                PlayerControlPanel(
-                    currentPosition = currentPosition,
-                    bufferedPosition = bufferedPosition,
-                    totalDuration = totalDuration,
-                    isChapterMode = isChapterMode,
+                PlayerControlPanelStateful(
+                    playbackProgressState = playbackProgressState,
                     currentChapter = currentChapter,
                     isPlaying = isPlaying,
                     playbackSpeed = playbackSpeed,

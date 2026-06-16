@@ -35,25 +35,24 @@ import com.viel.aplayer.ui.common.BottomNavTabs
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.player.BookMetadataState
+import com.viel.aplayer.ui.player.PlaybackProgressViewState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
 import com.viel.aplayer.ui.player.PlayerUiState
-import com.viel.aplayer.ui.player.components.PlayerControlPanel
+import com.viel.aplayer.ui.player.components.PlaybackPositionBookmarkListView
+import com.viel.aplayer.ui.player.components.PlaybackPositionSubtitlesView
+import com.viel.aplayer.ui.player.components.PlayerControlPanelStateful
 import com.viel.aplayer.ui.player.components.PlayerVerticalAppBar
 import com.viel.aplayer.ui.player.components.RelatedBooksView
-import com.viel.aplayer.ui.player.components.SubtitlesView
-import com.viel.aplayer.ui.player.components.bookmarks.BookmarkListView
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Portrait adaptive player layout (Component rendering main player details in vertical orientation)
  * Layout features single column design routing events through stateless lambdas.
  * Decouples ViewModel bindings and enforces clean stateless UI architecture contracts.
  *
- * @param currentPosition The current physical playback progress of the player (in milliseconds).
- * @param bufferedPosition The current physical buffered progress of the player (in milliseconds).
- * @param totalDuration The current physical total duration of the player (in milliseconds).
- * @param isChapterMode Whether the progress bar is currently in chapter progress view mode.
+ * @param playbackProgressState High-frequency playback progress stream consumed only by progress-aware children.
  * @param currentChapter The player chapter item currently in the playing state.
  * @param isPlaying Whether the player is currently playing.
  * @param playbackSpeed The current playback speed.
@@ -70,10 +69,7 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun PlayerPortrait(
-    currentPosition: Long,
-    bufferedPosition: Long,
-    totalDuration: Long,
-    isChapterMode: Boolean,
+    playbackProgressState: StateFlow<PlaybackProgressViewState>,
     currentChapter: PlayerChapterItem?,
     isPlaying: Boolean,
     playbackSpeed: Float,
@@ -237,9 +233,9 @@ fun PlayerPortrait(
                                     PlayerScreenMode.SUBTITLES -> {
                                         Box(modifier = Modifier.fillMaxSize()) {
                                             // Subtitles list wrapper (To render stateless SubtitlesView)
-                                            SubtitlesView(
+                                            PlaybackPositionSubtitlesView(
+                                                playbackProgressState = playbackProgressState,
                                                 subtitles = metadata.subtitles,
-                                                currentPosition = currentPosition,
                                                 onSeek = { actions.playback.onSeek(it, true) },
                                                 modifier = Modifier.fillMaxSize()
                                             )
@@ -266,11 +262,8 @@ fun PlayerPortrait(
                                 }
                             }
                             // Control panel layout (To render buttons, timelines, and speech multipliers)
-                            PlayerControlPanel(
-                                currentPosition = currentPosition,
-                                bufferedPosition = bufferedPosition,
-                                totalDuration = totalDuration,
-                                isChapterMode = isChapterMode,
+                            PlayerControlPanelStateful(
+                                playbackProgressState = playbackProgressState,
                                 currentChapter = currentChapter,
                                 isPlaying = isPlaying,
                                 playbackSpeed = playbackSpeed,
@@ -289,7 +282,8 @@ fun PlayerPortrait(
                         PlayerContentShell.Bookmarks -> {
                             // Bookmark list container (To display saved bookmark elements)
                             Box(modifier = Modifier.fillMaxSize()) {
-                                BookmarkListView(
+                                PlaybackPositionBookmarkListView(
+                                    playbackProgressState = playbackProgressState,
                                     bookmarks = metadata.bookmarks,
                                     bookmarkToDelete = bookmarkToDelete,
                                     bookmarkToEdit = bookmarkToEdit,
@@ -305,7 +299,6 @@ fun PlayerPortrait(
                                     // Edit/delete bookmark dialogs share chapterSheetHazeState with the chapter sheet and player chrome to avoid source rebinding.
                                     hazeState = chapterSheetHazeState,
                                     glassEffectMode = glassEffectMode,
-                                    currentPosition = currentPosition,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
