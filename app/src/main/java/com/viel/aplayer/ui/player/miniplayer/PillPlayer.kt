@@ -152,7 +152,6 @@ fun PillCompactMediaPlayer(
         }
     }
 
-    val currentRotation = rotation.value
     // Theme Aware Rotation Border (Use LocalDarkTheme to resolve active theme state instead of system defaults) Read theme preference state.
     val isDark = LocalDarkTheme.current
 
@@ -221,7 +220,9 @@ fun PillCompactMediaPlayer(
                     modifier = Modifier
                         .size(48.dp)
                         .then(coverModifier)
-                        .graphicsLayer { rotationZ = currentRotation }
+                        // Defer the rotation read into the draw phase so the infinite spin
+                        // only invalidates drawing, never recomposition/relayout.
+                        .graphicsLayer { rotationZ = rotation.value }
                         .clip(RoundedCornerShape(animatedCoverCornerRadius))
                         .let {
                             if (isBlurMode) {
