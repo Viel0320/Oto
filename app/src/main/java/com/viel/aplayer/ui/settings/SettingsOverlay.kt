@@ -43,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.i18n.AppLocaleController
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
 import com.viel.aplayer.ui.settings.downloads.DownloadManagementScreen
 import com.viel.aplayer.ui.settings.recovery.DeletedBookRecoveryRoute
@@ -217,12 +218,21 @@ fun SettingsOverlay(
         }
 
         val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
+        // Settings Trace State (Keep diagnostics at the overlay navigation boundary)
+        // Sub-page, predictive-back, and permission-dialog flags explain most settings redraw bursts without exposing form input.
+        val settingsTraceState = "visible=$isVisible,page=$activeSettingsPage," +
+            "predictiveBack=$isPredictiveBackActive,downloadPermissionDialog=$showDownloadPermissionDialog"
 
         Surface(
             // Settings Overlay Surface Boundary (Leave Haze source ownership to screen content)
             // SettingsScreen now registers its content Scaffold as the blur source so the overlay top bar samples settings content without capturing its own chrome.
             modifier = Modifier
                 .fillMaxSize()
+                .uiPerformanceTrace(
+                    node = "SettingsOverlay",
+                    route = "Settings",
+                    state = settingsTraceState
+                )
                 .graphicsLayer {
                     // Gesture drag translates downwards with fade out, matching the Detail / Player screen back animations
                     if (isPredictiveBackActive) {

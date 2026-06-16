@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
@@ -128,10 +129,22 @@ fun PlayerOverlay(
 
     val fallbackPlayerHazeState = remember { HazeState() }
     val resolvedPlayerHazeState = appHazeState ?: fallbackPlayerHazeState
+    // Player Overlay Trace State (Track the overlay state machine at its unified host)
+    // This helps separate mini-player continuous drawing from full-player rendering without logging media metadata.
+    val playerOverlayTraceState = "overlay=$overlayState,full=$isFullPlayerVisible," +
+        "activeTrack=$hasActiveTrack,miniHidden=$isMiniPlayerHidden,pill=$usePillPlayer"
 
     // Unified Transition Container (Replaces two independent AnimatedVisibility containers with a single AnimatedContent)
     // This enables a cohesive transition state machine and customizes transition specs to avoid conflicting slide animations during expanding morphs.
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .uiPerformanceTrace(
+                node = "PlayerOverlay",
+                route = "Player",
+                state = playerOverlayTraceState
+            )
+    ) {
         AnimatedContent(
             targetState = overlayState,
             transitionSpec = {

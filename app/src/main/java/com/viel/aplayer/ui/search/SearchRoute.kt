@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -40,13 +41,21 @@ fun SearchRoute(
     // Search Overlay Dismiss Intent (Share one close command across system back and in-screen navigation)
     // Keeping this callback in the route preserves SearchScreen as a stateless UI surface while letting SearchOverlay handle Android back directly.
     val dismissSearchOverlay = { searchViewModel.setVisible(false) }
+    // Search Trace State (Use query length and result counts instead of the query text)
+    // This preserves useful performance context while avoiding user-entered search terms in Logcat.
+    val searchTraceState = "visible=$isVisible,queryLength=${query.text.length}," +
+        "results=${searchResults.size},history=${searchHistory.size},activeDetail=${activeSearchDetailBookId != null}"
 
     SearchOverlay(
         visible = isVisible,
         onBack = dismissSearchOverlay,
         hazeState = hazeState,
         glassEffectMode = glassEffectMode,
-        modifier = modifier
+        modifier = modifier.uiPerformanceTrace(
+            node = "SearchRoute",
+            route = "Search",
+            state = searchTraceState
+        )
     ) {
         // Search Query Disposal Effect (Clear transient query data when the overlay leaves composition)
         // Keeping this in SearchRoute prevents SearchScreen from owning lifecycle cleanup responsibilities.

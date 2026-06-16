@@ -28,6 +28,7 @@ import com.viel.aplayer.application.library.home.toDetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.i18n.AppLocaleController
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.VisualEffectPolicy
 import com.viel.aplayer.ui.common.theme.rememberVisualEffectEnvironment
@@ -428,10 +429,22 @@ fun APlayerApp(
             )
         }
 
+        // Root Trace State (Summarize only app-shell routing and visibility state)
+        // The trace avoids user-authored content and keeps global diagnostics focused on route, theme, and overlay churn.
+        val appTraceState = "route=$currentRoute,filter=${libraryUiState.selectedFilter}," +
+            "detailVisible=${detailUiState.isVisible},playerFull=${playerSettings.isFullPlayerVisible}," +
+            "miniHidden=${playerSettings.isMiniPlayerHidden},glass=$activeGlassEffectMode"
+
         // Outer Surface Layout (Avoid Keyboard Inset Clipping)
         // Restore the cleanest top-level Surface layout to completely avoid the truncation and leakage of the floating height and background sampling layer when forced to consume bottom padding due to the keyboard popping up.
         Surface(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .uiPerformanceTrace(
+                    node = "APlayerApp",
+                    route = "Root",
+                    state = appTraceState
+                ),
             color = MaterialTheme.colorScheme.background,
         ) {
             /*

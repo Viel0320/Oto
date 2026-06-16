@@ -25,6 +25,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import dev.chrisbanes.haze.HazeState
@@ -111,11 +112,19 @@ fun DetailRoute(
             showNotificationPermissionDialog = true
         }
     }
+    // Detail Trace State (Report overlay lifecycle and selected source without exposing book content)
+    // Visibility and permission-dialog flags are enough to associate layout churn with route-level state changes.
+    val detailTraceState = "visible=${detailUiState.isVisible},hasBook=${detailUiState.book != null}," +
+        "source=${detailUiState.entrySource},permissionDialog=$showNotificationPermissionDialog"
 
     DetailOverlay(
         visible = detailUiState.isVisible,
         glassEffectMode = glassEffectMode,
-        modifier = modifier,
+        modifier = modifier.uiPerformanceTrace(
+            node = "DetailRoute",
+            route = "Detail",
+            state = detailTraceState
+        ),
         hazeState = hazeState,
         detailHazeState = detailHazeState,
         onTransitionIdleChanged = onTransitionIdleChanged

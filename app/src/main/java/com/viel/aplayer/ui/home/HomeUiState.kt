@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.application.library.home.toDetailBookItem
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.components.HomeDialogHost
@@ -88,8 +89,17 @@ fun HomeScreen(
     } else {
         null
     }
+    // Home Trace State (Expose catalog shape and dialog activity without logging book metadata)
+    // Counts let Logcat correlate recomposition or draw bursts with list size and active presentation mode.
+    val homeTraceState = "filter=${libraryUiState.selectedFilter},books=${libraryUiState.audiobooks.size}," +
+        "groups=${libraryUiState.groupedAudiobooks.size},recent=${recentBooks.size}," +
+        "dialog=${libraryUiState.homeDialogState.javaClass.simpleName},mini=${playerUiState.hasActiveTrack}"
     HomeContent(
-        modifier = modifier,
+        modifier = modifier.uiPerformanceTrace(
+            node = "HomeScreen",
+            route = "Home",
+            state = homeTraceState
+        ),
         selectedFilter = libraryUiState.selectedFilter,
         groupedAudiobooks = libraryUiState.groupedAudiobooks,
         recentBooks = recentBooks,

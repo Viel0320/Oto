@@ -19,6 +19,7 @@ import com.viel.aplayer.data.store.HomeBookStatusFilter
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.HomeScreen
@@ -111,6 +112,10 @@ fun APlayerNavHost(
     // Home View Dialog Visibility (Local chrome state for the top-bar display preferences entry)
     // This state belongs to the navigation host because HomeAppBar is mounted here rather than inside HomeContent.
     var isHomeViewPreferenceDialogVisible by remember { mutableStateOf(false) }
+    // NavHost Trace State (Capture route chrome state without reading page internals)
+    // This keeps navigation diagnostics scoped to the host boundary and leaves Home catalog counts to HomeScreen.
+    val navHostTraceState = "topLevelRoute=${navigationState.topLevelRoute},isHome=$isHomeRoute," +
+        "homeViewDialog=$isHomeViewPreferenceDialogVisible,glass=$glassEffectMode"
 
     // Setup Entry Provider (Resolve NavKeys to Screen composables)
     // Declares the mapping of serializable NavKey to their respective Compose screen contents.
@@ -142,7 +147,15 @@ fun APlayerNavHost(
 
     // Render Navigation Stack (Mount NavDisplay as the sampled route source)
     // NavDisplay owns route content while HomeAppBar is mounted as a sibling overlay below, matching the app-shell sampling pattern used by floating layers.
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .uiPerformanceTrace(
+                node = "APlayerNavHost",
+                route = "NavHost",
+                state = navHostTraceState
+            )
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()

@@ -56,6 +56,7 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
@@ -366,11 +367,20 @@ fun PlayerScreen(
         } else {
             RoundedCornerShape(topStart = animatedCornerRadius, topEnd = animatedCornerRadius)
         }
+        // Player Screen Trace State (Describe active player layout without logging track identity)
+        // Mode, visibility, playback, orientation, and chapter count identify redraw causes while keeping media details private.
+        val playerScreenTraceState = "mode=$currentMode,full=${settings.isFullPlayerVisible}," +
+            "playing=${controls.isPlaying},landscape=$isLandscape,chapters=${metadata.chapters.size}"
 
         Surface(
             modifier = modifier
                 .then(boundsModifier)
                 .fillMaxSize()
+                .uiPerformanceTrace(
+                    node = "PlayerScreen",
+                    route = "Player",
+                    state = playerScreenTraceState
+                )
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
                 .graphicsLayer {
                     // Translate cards vertically (To animate card position downwards matching predictive gestures)
