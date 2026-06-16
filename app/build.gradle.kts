@@ -51,6 +51,8 @@ android {
 
     buildTypes {
         release {
+            // Allows shell-based profiling on optimized release builds without making the APK debuggable.
+            isProfileable = true
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
