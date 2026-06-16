@@ -31,7 +31,6 @@ fun DetailOverlay(
     visible: Boolean,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    hazeState: HazeState? = null,
     detailHazeState: HazeState? = null,
     onTransitionIdleChanged: (Boolean) -> Unit = {},
     content: @Composable () -> Unit
@@ -103,21 +102,12 @@ fun DetailOverlay(
             LocalHomeRecent2DetailTargetScope provides this@AnimatedVisibility,
             LocalAnimatedVisibilityScope provides this@AnimatedVisibility
         ) {
-            // Detail App-Level Haze Source (Feed stable app chrome samplers with current Detail content)
-            // MiniPlayerOverlay keeps a constant app-level HazeState to avoid rebinding flashes, so Detail registers into that same source while visible.
+            // Detail Private Haze Boundary (Keep long-lived Detail content out of the app sampler)
+            // Dialogs and inline glass controls sample the route-owned HazeState, so the overlay only registers Detail content once.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(
-                        if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
-                            Modifier.hazeSource(hazeState)
-                        } else {
-                            Modifier
-                        }
-                    )
             ) {
-                // Detail Local Haze Source (Preserve detail-owned inline glass controls)
-                // Detail page controls can keep local sampling, while dialogs and cross-page overlays route to the stable app-level HazeState.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()

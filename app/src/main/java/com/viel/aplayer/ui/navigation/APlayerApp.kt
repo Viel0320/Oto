@@ -28,10 +28,10 @@ import com.viel.aplayer.application.library.home.toDetailBookItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.i18n.AppLocaleController
-import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.VisualEffectPolicy
 import com.viel.aplayer.ui.common.theme.rememberVisualEffectEnvironment
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailRoute
 import com.viel.aplayer.ui.detail.DetailViewModel
@@ -322,9 +322,9 @@ fun APlayerApp(
 
         val canStartNavigation = rememberNavigationThrottle()
 
-        // Setup HazeStates (Manage blur states using Haze library) Introduce global hazeState and detailHazeState for blurring backgrounds.
+        // App Haze Source (Keep only cross-route surfaces at the shell level)
+        // Page-specific screens now allocate their own HazeState so APlayerApp does not retain long-lived Detail, Settings, or Player sampling state.
         val hazeState = remember { HazeState() }
-        val detailHazeState = remember { HazeState() }
 
 
 
@@ -527,14 +527,12 @@ fun APlayerApp(
                     )
                 }
 
-                // Mount Detail Route with HazeStates (Link background and overlay blur targets)
-                // Route owns ViewModel/effect wiring while its overlay shell owns animation and haze registration.
+                // Mount Detail Route (Let the route own Detail-only haze sampling)
+                // The shell keeps cross-route dialogs and search sampling, while DetailRoute owns the page-local HazeState used by its content and dialogs.
                 DetailRoute(
                     detailViewModel = detailViewModel,
                     canStartNavigation = canStartNavigation,
                     glassEffectMode = activeGlassEffectMode,
-                    hazeState = hazeState,
-                    detailHazeState = detailHazeState,
                     onPlayBook = { bookId ->
                         // Title: Simplify Playback Transition Selection (Use mini-player transition whenever mini-player is visible)
                         // Description: Checks if mini-player is visible before loading the book to decide whether to use openFullPlayerFromMini or openFullPlayerFromDirect.
@@ -661,12 +659,11 @@ fun APlayerApp(
                     }
                 )
 
-                // Settings Stable Dialog Haze Target (Share app-level sampling with settings-owned dialogs)
-                // Settings keeps local page chrome sampling separately, while its dialogs use the stable app source like Search and playback dialogs.
+                // Settings Overlay Mount (Let Settings own its page and dialog haze sampling)
+                // App-level haze remains available to Home and Search, while SettingsOverlay keeps long-lived settings glass state private to that page.
                 SettingsOverlay(
                     settingsViewModel = settingsViewModel,
                     glassEffectMode = activeGlassEffectMode,
-                    appHazeState = hazeState,
                     openDownloadManagementRequest = openDownloadManagementRequest,
                     onOpenDownloadManagementConsumed = onOpenDownloadManagementConsumed
                 )

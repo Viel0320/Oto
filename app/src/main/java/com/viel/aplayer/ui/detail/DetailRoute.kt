@@ -25,9 +25,9 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
-import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -60,15 +60,14 @@ fun DetailRoute(
     // DetailRoute passes this value through to both the overlay shell and stateless screen.
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // Haze Route Inputs (Separate app-level and detail-local sampling sources)
-    // Route-level wiring keeps glass source ownership explicit while DetailScreen remains stateless.
-    hazeState: HazeState? = null,
-    detailHazeState: HazeState? = null,
     // Detail Transition Idle Callback (Expose overlay animation lifecycle to the app shell)
     // The navigation layer uses this signal to defer rapid Detail re-entry until the previous shared-element return chain finishes.
     onTransitionIdleChanged: (Boolean) -> Unit = {},
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
+    // Detail Private Haze Source (Keep Detail sampling owned by the Detail route)
+    // The route outlives short dialogs but stays scoped to the Detail page, so dialogs and inline glass controls can share one stable local sampler without depending on APlayerApp.
+    val detailHazeState = remember { HazeState() }
     val context = LocalContext.current
     val darkTheme = LocalDarkTheme.current
     val currentColorScheme = MaterialTheme.colorScheme
@@ -125,7 +124,6 @@ fun DetailRoute(
             route = "Detail",
             state = detailTraceState
         ),
-        hazeState = hazeState,
         detailHazeState = detailHazeState,
         onTransitionIdleChanged = onTransitionIdleChanged
     ) {
@@ -157,7 +155,7 @@ fun DetailRoute(
                 onResumeDownload = detailViewModel::resumeDownload,
                 onDeleteDownload = detailViewModel::deleteDownload,
                 glassEffectMode = glassEffectMode,
-                fullPageHazeState = hazeState,
+                fullPageHazeState = detailHazeState,
                 coverColor = coverColor,
                 onColorExtracted = { coverColor = it }
             )
@@ -167,7 +165,7 @@ fun DetailRoute(
                         pendingDownloadBookId = null
                         showNotificationPermissionDialog = false
                     },
-                    hazeState = hazeState ?: detailHazeState,
+                    hazeState = detailHazeState,
                     glassEffectMode = glassEffectMode,
                     title = { Text(stringResource(R.string.detail_download_permission_title)) },
                     body = {

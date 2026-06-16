@@ -27,10 +27,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
-import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
@@ -57,6 +57,8 @@ fun PlayerOverlay(
     playerActions: PlayerActions,
     playerNavigationActions: PlayerNavigationActions,
     glassEffectMode: GlassEffectMode,
+    // Mini Player Backdrop Source (Allow the cross-page mini player to sample the current app route)
+    // Full-player content and player-owned floating surfaces use the private state below; only the mini player needs the outer source because it is rendered over Home/Search/Detail content.
     appHazeState: HazeState? = null
 ) {
     // Sync Visibility States (Directly derive overlay visibility flags from the collected settings state flow to eliminate rendering race conditions during cold starts)
@@ -127,8 +129,9 @@ fun PlayerOverlay(
         else -> PlayerOverlayState.Hidden
     }
 
-    val fallbackPlayerHazeState = remember { HazeState() }
-    val resolvedPlayerHazeState = appHazeState ?: fallbackPlayerHazeState
+    // Player Private Haze Source (Own full-player and player-modal sampling inside PlayerOverlay)
+    // This prevents full Player chrome, chapter sheets, and bookmark dialogs from registering against the app-level sampler while preserving mini-player backdrop sampling.
+    val playerHazeState = remember { HazeState() }
     // Player Overlay Trace State (Track the overlay state machine at its unified host)
     // This helps separate mini-player continuous drawing from full-player rendering without logging media metadata.
     val playerOverlayTraceState = "overlay=$overlayState,full=$isFullPlayerVisible," +
@@ -251,7 +254,7 @@ fun PlayerOverlay(
                                     actions = playerActions,
                                     navigationActions = playerNavigationActions,
                                     glassEffectMode = glassEffectMode,
-                                    hazeState = resolvedPlayerHazeState,
+                                    hazeState = playerHazeState,
                                     coverColor = coverColor,
                                     onColorExtracted = { coverColor = it },
                                     renderFloatingSurfaces = false
@@ -262,7 +265,7 @@ fun PlayerOverlay(
                                     metadata = metadata,
                                     settings = settings,
                                     actions = playerActions,
-                                    hazeState = resolvedPlayerHazeState,
+                                    hazeState = playerHazeState,
                                     glassEffectMode = glassEffectMode
                                 )
                             }

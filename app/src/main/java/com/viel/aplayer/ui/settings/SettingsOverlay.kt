@@ -48,7 +48,6 @@ import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
 import com.viel.aplayer.ui.settings.downloads.DownloadManagementScreen
 import com.viel.aplayer.ui.settings.recovery.DeletedBookRecoveryRoute
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
 
 /**
  * SettingsOverlay Composable (Stateless Settings Overlay Shell)
@@ -61,9 +60,6 @@ fun SettingsOverlay(
     modifier: Modifier = Modifier,
     settingsViewModel: SettingsViewModel = viewModel(),
     glassEffectMode: GlassEffectMode,
-    // App-Level Dialog Haze Source (Stable sampler for settings dialogs)
-    // Settings page chrome still uses settingsHazeState, but modal dialogs share the app-level source used by Search and playback overlays.
-    appHazeState: HazeState? = null,
     openDownloadManagementRequest: Boolean = false,
     onOpenDownloadManagementConsumed: () -> Unit = {}
 ) {
@@ -336,19 +332,9 @@ fun SettingsOverlay(
                     val effectiveAppLanguage = AppLocaleController.resolveEffectiveLanguage(context, settingsState.appLanguage)
 
                     Box(modifier = Modifier.fillMaxSize()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .then(
-                                    if (isBlur && appHazeState != null) {
-                                        // Settings App-Level Source Registration (Expose settings content to global modal samplers)
-                                        // Dialogs use appHazeState outside this Box, so registering only the page subtree prevents sampling through to Home without including the dialogs themselves.
-                                        Modifier.hazeSource(appHazeState)
-                                    } else {
-                                        Modifier
-                                    }
-                                )
-                        ) {
+                        // Settings Private Haze Content (Keep the long-lived settings page registered only to its own sampler)
+                        // The same local HazeState is shared with settings dialogs so no app-level page registration is needed.
+                        Box(modifier = Modifier.fillMaxSize()) {
                             SettingsScreen(
                                 onBack = { settingsViewModel.setVisible(false) },
                                 libraryRootDisplays = libraryRootDisplays,
@@ -411,12 +397,12 @@ fun SettingsOverlay(
                             )
                         }
 
-                        // Settings Overlay Dialog Host (Render modal surfaces outside the settings hazeSource tree)
-                        // Dialogs share the app-level sampler while SettingsScreen only registers page content for the glass top bar.
+                        // Settings Overlay Dialog Host (Render modal surfaces outside the sampled page subtree)
+                        // Dialogs are short-lived, but they still sample the Settings-owned HazeState so the app shell does not own settings glass state.
                         SettingsDialogHost(
                             controller = settingsDialogController,
                             glassEffectMode = settingsState.glassEffectMode,
-                            settingsDialogHazeState = if (isBlur) appHazeState else null,
+                            settingsDialogHazeState = if (isBlur) settingsHazeState else null,
                             appLanguage = effectiveAppLanguage,
                             onAppLanguageChange = { settingsViewModel.preferencesHandler.updateAppLanguage(it) },
                             webDavConnectionState = webDavConnectionState,
