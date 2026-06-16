@@ -271,11 +271,15 @@ fun PlayerOverlay(
                             }
                         }
 
-                        if (dynamicColorScheme != null) {
-                            MaterialTheme(colorScheme = dynamicColorScheme, content = contentBlock)
-                        } else {
-                            contentBlock()
-                        }
+                        // Stable Theme Wrapper (Keep the full-player subtree under one MaterialTheme call site)
+                        // Toggling between a wrapped and unwrapped contentBlock would move the subtree to a
+                        // different composition position, remounting MainCoverView and destroying the in-flight
+                        // mini->player cover shared-element animation on the first cold-start expand. Always wrap so
+                        // a late dynamicColorScheme only recolors instead of remounting.
+                        MaterialTheme(
+                            colorScheme = dynamicColorScheme ?: currentColorScheme,
+                            content = contentBlock
+                        )
                     }
                 }
             }
@@ -356,9 +360,11 @@ private fun MiniPlayerContent(
         }
     }
 
-    if (dynamicColorScheme != null) {
-        MaterialTheme(colorScheme = dynamicColorScheme, content = contentBlock)
-    } else {
-        contentBlock()
-    }
+    // Stable Theme Wrapper (Keep the mini-player subtree under one MaterialTheme call site)
+    // Mirrors the full-player wrapper: a conditional wrap/unwrap would remount the cover shared-element source
+    // when a late dynamicColorScheme arrives, so always wrap and let it recolor in place.
+    MaterialTheme(
+        colorScheme = dynamicColorScheme ?: MaterialTheme.colorScheme,
+        content = contentBlock
+    )
 }

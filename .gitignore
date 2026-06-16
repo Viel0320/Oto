@@ -14,3 +14,4 @@
 /.codex/
 /.mimocode/
 .gitignore
+trace_processor
