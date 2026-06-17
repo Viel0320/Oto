@@ -37,11 +37,11 @@ internal class DirectoryAudioImporter(
 
     // Chaptered Audio Batching (Performance stream optimization)
     // Processes chaptered tracks in bounded batches to stream metadata parsing and database writes, avoiding OOM from too many large files.
-    private val CHAPTERED_AUDIO_IMPORT_BATCH_SIZE: Int = DEFAULT_SCOPE_IO_CONCURRENCY
+    private val chapterdAudioImportBatchSize: Int = DEFAULT_SCOPE_IO_CONCURRENCY
 
     // Metadata Consuming Window (Pipelined parsing performance)
     // Fetches metadata in small batches so early results can import immediately, eliminating the need to block on parsing the whole directory.
-    private val DIRECTORY_AUDIO_METADATA_BATCH_SIZE: Int = DEFAULT_SCOPE_IO_CONCURRENCY
+    private val directoryAudioMetadataBatchSize: Int = DEFAULT_SCOPE_IO_CONCURRENCY
 
     /**
      * Execute Directory Audio Scope Import (Concurrent routing entry)
@@ -85,11 +85,11 @@ internal class DirectoryAudioImporter(
                     scopeId = timingScopeId,
                     stage = "directoryAudio.metadataResolve",
                     elapsedMs = ImportTimingLogger.elapsedMs(metadataStartedAt),
-                    detail = "input=${scope.inventory.audioFiles.size} resolved=${allRefs.size} chaptered=$chapteredCount heuristic=${allRefs.size - chapteredCount} batches=${metadataJobs.chunked(DIRECTORY_AUDIO_METADATA_BATCH_SIZE).size}"
+                    detail = "input=${scope.inventory.audioFiles.size} resolved=${allRefs.size} chaptered=$chapteredCount heuristic=${allRefs.size - chapteredCount} batches=${metadataJobs.chunked(directoryAudioMetadataBatchSize).size}"
                 )
             }
 
-            val metadataBatches = metadataJobs.chunked(DIRECTORY_AUDIO_METADATA_BATCH_SIZE)
+            val metadataBatches = metadataJobs.chunked(directoryAudioMetadataBatchSize)
             metadataBatches.forEachIndexed { index, batchJobs ->
                 val batchMetadataStartedAt = ImportTimingLogger.mark()
                 val batchRefs = batchJobs.awaitAll()
@@ -115,7 +115,7 @@ internal class DirectoryAudioImporter(
 
                 // In-Order Ingestion (Sequence and UI responsiveness)
                 // Generates one chaptered sub-batch per metadata batch to maintain sequence stability and update the UI incrementally.
-                chapteredRefs.chunked(CHAPTERED_AUDIO_IMPORT_BATCH_SIZE).forEachIndexed { chunkIndex, batchRefs ->
+                chapteredRefs.chunked(chapterdAudioImportBatchSize).forEachIndexed { chunkIndex, batchRefs ->
                     val result = importSubBatch(
                         scope = scope,
                         refs = batchRefs,

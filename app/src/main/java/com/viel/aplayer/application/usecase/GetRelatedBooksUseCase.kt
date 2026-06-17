@@ -1,8 +1,8 @@
 // Package Relocation: Relocate use cases into the application layer so orchestration no longer sits in the domain package.
 package com.viel.aplayer.application.usecase
 
-import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.entity.BookWithProgress
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
@@ -171,7 +171,7 @@ class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
         // Combines audiobooks list and current book metadata flow to recalculate recommendations instantly upon edits.
         val currentBookFlow = repository.observeBookById(currentId)
         val heuristicFlow = combine(repository.audiobooks, currentBookFlow) { allBooks, currentBook ->
-            if (currentBook == null) return@combine emptyList<RelatedBookCandidate>()
+            if (currentBook == null) return@combine emptyList()
             
             val currentTitle = currentBook.title
             val currentYear = currentBook.year

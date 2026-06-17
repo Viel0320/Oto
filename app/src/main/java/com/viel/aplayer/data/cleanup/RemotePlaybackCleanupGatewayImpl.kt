@@ -2,7 +2,6 @@ package com.viel.aplayer.data.cleanup
 
 import com.viel.aplayer.abs.playback.AbsPendingProgressSyncDao
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionDao
-import com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

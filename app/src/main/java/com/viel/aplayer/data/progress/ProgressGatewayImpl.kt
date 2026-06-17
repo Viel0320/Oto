@@ -2,7 +2,6 @@ package com.viel.aplayer.data.progress
 
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.entity.BookProgressEntity
-import com.viel.aplayer.data.progress.ProgressGateway
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope

@@ -1,9 +1,9 @@
 package com.viel.aplayer.application.library.edit
 
-import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.book.BookMetadataGateway
 import com.viel.aplayer.data.cover.CoverAssetGateway
+import com.viel.aplayer.data.entity.BookEntity
 
 /**
  * Default Edit Book Module (Adapter from granular gateways to the edit scene)

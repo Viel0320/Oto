@@ -1,6 +1,5 @@
 package com.viel.aplayer.abs.net
 
-import com.viel.aplayer.abs.net.AbsApiError
 import com.viel.aplayer.data.db.AudiobookSchema
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull

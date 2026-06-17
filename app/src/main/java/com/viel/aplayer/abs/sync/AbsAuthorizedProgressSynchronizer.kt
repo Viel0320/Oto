@@ -6,11 +6,11 @@ import com.viel.aplayer.abs.mapping.AbsRemoteIdMapper
 import com.viel.aplayer.abs.mapping.RemoteProgressReadStatusPolicy
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookMetadataGateway
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.book.BookCatalogGateway
-import com.viel.aplayer.data.book.BookMetadataGateway
 import com.viel.aplayer.data.progress.ProgressGateway
 
 /**

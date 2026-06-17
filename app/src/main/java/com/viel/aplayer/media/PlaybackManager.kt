@@ -200,13 +200,16 @@ class PlaybackManager private constructor(context: Context) {
                     command: androidx.media3.session.SessionCommand,
                     args: android.os.Bundle
                 ): ListenableFuture<androidx.media3.session.SessionResult> {
-                    if (command.customAction == "EVENT_SKIP_SILENCE") {
-                    } else if (command.customAction == "EVENT_TRACK_UNAVAILABLE") {
-                        // Damaged Track Intercept (Extract payload and publish a playback-domain recovery event)
-                        // The app-level bridge decides whether this domain event becomes a dialog, toast, or both.
-                        val bookId = args.getString("bookId") ?: ""
-                        val queueIndex = args.getInt("queueIndex", -1)
-                        playbackEventSink.emit(PlaybackDomainEvent.TrackUnavailable(bookId, queueIndex))
+                    when (command.customAction) {
+                        "EVENT_SKIP_SILENCE" -> {
+                        }
+                        "EVENT_TRACK_UNAVAILABLE" -> {
+                            // Damaged Track Intercept (Extract payload and publish a playback-domain recovery event)
+                            // The app-level bridge decides whether this domain event becomes a dialog, toast, or both.
+                            val bookId = args.getString("bookId") ?: ""
+                            val queueIndex = args.getInt("queueIndex", -1)
+                            playbackEventSink.emit(PlaybackDomainEvent.TrackUnavailable(bookId, queueIndex))
+                        }
                     }
                     return com.google.common.util.concurrent.Futures.immediateFuture(
                         androidx.media3.session.SessionResult(androidx.media3.session.SessionResult.RESULT_SUCCESS)
@@ -509,11 +512,10 @@ class PlaybackManager private constructor(context: Context) {
             // Prevent Redundant Actions (Toggle ignoreNextAutoRewind flag prior to stop to suppress post-pause rewinds)
             autoRewindManager.ignoreNextAutoRewind = true
             val capturedSnapshot = if (controller != null) {
-                val conn = controller
-                conn.pause()
+                controller.pause()
                 val snapshot = captureAbsSessionSnapshot()
-                conn.stop()
-                conn.clearMediaItems()
+                controller.stop()
+                controller.clearMediaItems()
                 snapshot
             } else {
                 captureAbsSessionSnapshot()

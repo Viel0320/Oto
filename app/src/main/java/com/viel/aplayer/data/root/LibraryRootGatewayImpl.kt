@@ -11,7 +11,6 @@ import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind

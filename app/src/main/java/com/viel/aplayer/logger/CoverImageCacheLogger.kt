@@ -1,5 +1,6 @@
 package com.viel.aplayer.logger
 
+import android.annotation.SuppressLint
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
@@ -350,6 +351,7 @@ object CoverImageCacheLogger {
         val otherRatioPercent: String
             get() = ratioPercent(otherLoads)
 
+        @SuppressLint("DefaultLocale")
         private fun ratioPercent(value: Int): String {
             if (totalSuccesses <= 0) return "0.0"
             return String.format("%.1f", (value.toDouble() * 100.0) / totalSuccesses.toDouble())

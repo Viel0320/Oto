@@ -7,6 +7,7 @@ import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
+import com.viel.aplayer.logger.AbsLogSanitizer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +18,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.io.Closeable
-import com.viel.aplayer.logger.AbsLogSanitizer
 
 /**
  * ABS Sync Task Coordinator (Manages application-scoped ABS catalog synchronization)

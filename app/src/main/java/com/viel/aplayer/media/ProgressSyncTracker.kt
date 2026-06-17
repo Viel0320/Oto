@@ -3,9 +3,9 @@ package com.viel.aplayer.media
 import android.content.Context
 import androidx.media3.session.MediaController
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
+import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
-import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.progress.ProgressGateway
 import com.viel.aplayer.timeline.PositionMapper
 import kotlinx.coroutines.CoroutineScope

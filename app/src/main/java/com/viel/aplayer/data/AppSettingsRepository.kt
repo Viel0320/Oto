@@ -404,11 +404,6 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         @Volatile
         private var INSTANCE: AppSettingsRepository? = null
 
-        // JVM Unit Test Constructor (Allows repository tests to inject an isolated Preferences DataStore)
-        // Playback-settings boundary tests need to seed raw restored values without touching the process-wide Android singleton.
-        internal fun createForTesting(dataStore: DataStore<Preferences>): AppSettingsRepository =
-            AppSettingsRepository(dataStore = dataStore)
-
         fun getInstance(context: Context): AppSettingsRepository {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: AppSettingsRepository(context.applicationContext.dataStore).also { INSTANCE = it }

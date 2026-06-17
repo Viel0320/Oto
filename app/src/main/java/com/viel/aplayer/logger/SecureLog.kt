@@ -15,7 +15,7 @@ internal object SecureLog {
         Regex("(?<![A-Za-z0-9:])/(?:storage|sdcard|mnt|data|cache|Android|Download|Documents|Pictures|Music|Movies)[^\\s,;)\"']*")
     private val fileUriRegex = Regex("file://[^\\s,;)\"']+", RegexOption.IGNORE_CASE)
     private val vfsSourcePathRegex = Regex("\\b[A-Za-z0-9_-]+:/(?!/)[^\\s,;)\"']+")
-    private val urlUserInfoRegex = Regex("(https?://)(?:[^/@\\s]+@)", RegexOption.IGNORE_CASE)
+    private val urlUserInfoRegex = Regex("(https?://)[^/@\\s]+@", RegexOption.IGNORE_CASE)
     private val secretFieldRegex =
         Regex("\\b(password|passwd|pwd|token|access_token|refresh_token|api[_-]?key|secret)\\s*[:=]\\s*[\"']?[^,\\s\"'}]+[\"']?", RegexOption.IGNORE_CASE)
     private val keyedCoordinateRegex =

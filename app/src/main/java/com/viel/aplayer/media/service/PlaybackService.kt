@@ -25,11 +25,11 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.availability.BookAvailabilityGateway
 import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.book.BookmarkGateway
 import com.viel.aplayer.data.book.ChapterGateway
+import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.progress.ProgressGateway
 import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.logger.PlaybackWorkflowLogger

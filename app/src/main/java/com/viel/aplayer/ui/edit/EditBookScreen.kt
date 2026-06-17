@@ -153,7 +153,7 @@ fun EditBookScreen(
     // Edit Cover Dynamic Color State (Seed the edit page theme from its own currently displayed cover)
     // The cache gives an instant color when available, while CoverBackground updates this state from its software backdrop decode.
     var editCoverColor by remember(editCoverPath, editCoverLastUpdated) {
-        mutableStateOf<Color?>(ImageProcessor.getCachedColor(editCoverPath, editCoverLastUpdated)?.let { Color(it) })
+        mutableStateOf(ImageProcessor.getCachedColor(editCoverPath, editCoverLastUpdated)?.let { Color(it) })
     }
     val darkTheme = LocalDarkTheme.current
     val fallbackColorScheme = MaterialTheme.colorScheme

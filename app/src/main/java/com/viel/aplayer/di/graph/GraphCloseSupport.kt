@@ -94,5 +94,5 @@ internal fun closeInitializedUiEventGraphResources(
     }
     // Event Scope Cancellation (Final coroutine leak barrier for app-level event collection)
     // Cancels any remaining child work even if an individual bridge close callback failed.
-    eventBridgeScope.coroutineContext.get(Job)?.cancel()
+    eventBridgeScope.coroutineContext[Job]?.cancel()
 }

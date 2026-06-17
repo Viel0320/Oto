@@ -103,7 +103,7 @@ fun PlayerOverlay(
     val coverPath = metadata.coverPath
 
     var coverColor by remember(coverPath, metadata.coverLastUpdated) {
-        mutableStateOf<Color?>(ImageProcessor.getCachedColor(coverPath, metadata.coverLastUpdated)?.let { Color(it) })
+        mutableStateOf(ImageProcessor.getCachedColor(coverPath, metadata.coverLastUpdated)?.let { Color(it) })
     }
 
     val dynamicColorScheme = remember(coverColor, darkTheme, currentColorScheme) {
@@ -151,8 +151,8 @@ fun PlayerOverlay(
         AnimatedContent(
             targetState = overlayState,
             transitionSpec = {
-                when {
-                    initialState == PlayerOverlayState.Mini && targetState == PlayerOverlayState.Full -> {
+                when (initialState) {
+                    PlayerOverlayState.Mini if targetState == PlayerOverlayState.Full -> {
                         // Title: Conditional Slide Transition for Direct Entry (Ensure direct entry requests slide up in landscape mode)
                         // Description: Checks if the open source is MiniPlayer to apply fade transitions, otherwise falls back to standard vertical slide transition for direct player loads.
                         if (usePillPlayer && settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
@@ -162,7 +162,7 @@ fun PlayerOverlay(
                                 .togetherWith(slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)))
                         }
                     }
-                    initialState == PlayerOverlayState.Full && targetState == PlayerOverlayState.Mini -> {
+                    PlayerOverlayState.Full if targetState == PlayerOverlayState.Mini -> {
                         // Title: Conditional Slide Transition for Direct Dismiss (Ensure player slides down when minimizing if it wasn't opened from mini-player)
                         // Description: Applies fade transitions only if the player was opened from the mini-player, otherwise uses the vertical slide transition to match direct entry behavior.
                         if (usePillPlayer && settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
@@ -172,19 +172,19 @@ fun PlayerOverlay(
                                 .togetherWith(slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)))
                         }
                     }
-                    initialState == PlayerOverlayState.Hidden && targetState == PlayerOverlayState.Mini -> {
+                    PlayerOverlayState.Hidden if targetState == PlayerOverlayState.Mini -> {
                         (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))
                             .togetherWith(fadeOut(animationSpec = tween(300)))
                     }
-                    initialState == PlayerOverlayState.Mini && targetState == PlayerOverlayState.Hidden -> {
+                    PlayerOverlayState.Mini if targetState == PlayerOverlayState.Hidden -> {
                         fadeIn(animationSpec = tween(300))
                             .togetherWith(slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)))
                     }
-                    initialState == PlayerOverlayState.Hidden && targetState == PlayerOverlayState.Full -> {
+                    PlayerOverlayState.Hidden if targetState == PlayerOverlayState.Full -> {
                         (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))
                             .togetherWith(fadeOut(animationSpec = tween(300)))
                     }
-                    initialState == PlayerOverlayState.Full && targetState == PlayerOverlayState.Hidden -> {
+                    PlayerOverlayState.Full if targetState == PlayerOverlayState.Hidden -> {
                         fadeIn(animationSpec = tween(300))
                             .togetherWith(slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)))
                     }

@@ -14,8 +14,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.player.BookMetadataState
-import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlaybackProgressViewState
+import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
  */
 @Composable
 fun PlayerControlPanelStateful(
+    modifier: Modifier = Modifier,
     playbackProgressState: StateFlow<PlaybackProgressViewState>,
     currentChapter: PlayerChapterItem?,
     metadata: BookMetadataState,
@@ -38,8 +39,7 @@ fun PlayerControlPanelStateful(
     actions: PlayerActions,
     buttonColor: Color,
     glassEffectMode: GlassEffectMode,
-    hazeState: HazeState? = null,
-    modifier: Modifier = Modifier
+    hazeState: HazeState? = null
 ) {
     val progressState by playbackProgressState.collectAsStateWithLifecycle()
     PlayerControlPanel(

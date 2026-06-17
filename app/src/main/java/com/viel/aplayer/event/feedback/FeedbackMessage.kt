@@ -23,7 +23,7 @@ sealed interface FeedbackMessage {
      * values so tests can assert feedback facts without depending on localized strings.
      */
     data class Resource(
-        @StringRes val resId: Int,
+        @field:StringRes val resId: Int,
         val args: List<Any> = emptyList()
     ) : FeedbackMessage {
         override val mergeKey: String = buildString {
@@ -43,7 +43,7 @@ sealed interface FeedbackMessage {
      * language-neutral facts and allowing locales with complex plural forms to render correctly.
      */
     data class Quantity(
-        @PluralsRes val resId: Int,
+        @field:PluralsRes val resId: Int,
         val quantity: Int,
         val args: List<Any> = listOf(quantity)
     ) : FeedbackMessage {

@@ -29,13 +29,6 @@ sealed interface ImportCommand {
         val replacedBookIds: List<String>
     ) : ImportCommand
 
-    /**
-     * Update Existing Audiobook (Pipeline Action)
-     *
-     * Overwrites metadata, chapters, and track information of a previously recorded audiobook.
-     */
-    data class UpdateExistingBook(val bookId: String, val draft: BookDraft) : ImportCommand
-
     // Rescans only refresh file claim visibility; book metadata is written when a book is created.
     /**
      * Refresh Existing Audiobook Tracks (Pipeline Action)

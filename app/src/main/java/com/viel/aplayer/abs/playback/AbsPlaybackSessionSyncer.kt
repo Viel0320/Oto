@@ -92,7 +92,6 @@ class AbsPlaybackSessionSyncer(
         val session = getFreshSessionOrDelete(book.id) ?: return
         val credential = credentialProvider(book) ?: return
         val currentTimeSec = progress.globalPositionMs / 1000.0
-        val timeListenedSec = currentTimeSec
         val start = AbsPlaybackLogger.mark()
         AbsPlaybackLogger.logSyncStart(
             bookId = book.id,
@@ -119,7 +118,7 @@ class AbsPlaybackSessionSyncer(
                     bookId = book.id,
                     remoteItemId = session.remoteItemId,
                     currentTimeSec = currentTimeSec,
-                    timeListenedSec = timeListenedSec,
+                    timeListenedSec = currentTimeSec,
                     durationSec = durationMs / 1000.0
                 )
                 AbsPlaybackLogger.logSyncSkipped(
@@ -136,13 +135,13 @@ class AbsPlaybackSessionSyncer(
                 token = credential.token,
                 sessionId = session.sessionId,
                 currentTimeSec = currentTimeSec,
-                timeListenedSec = timeListenedSec,
+                timeListenedSec = currentTimeSec,
                 durationSec = durationMs / 1000.0
             )
             absPlaybackSessionDao.insertOrReplace(
                 session.copy(
                     currentTimeSec = currentTimeSec,
-                    timeListenedSec = timeListenedSec,
+                    timeListenedSec = currentTimeSec,
                     // AbsPlaybackSessionState SYNCED Assignment: Assign type-safe SYNCED enum to session state instead of raw string.
                     state = AudiobookSchema.AbsPlaybackSessionState.SYNCED
                 )
@@ -157,7 +156,7 @@ class AbsPlaybackSessionSyncer(
                 bookId = book.id,
                 remoteItemId = session.remoteItemId,
                 currentTimeSec = currentTimeSec,
-                timeListenedSec = timeListenedSec,
+                timeListenedSec = currentTimeSec,
                 durationSec = durationMs / 1000.0
             )
             // Local Progress Truth (Log sync state as pending on network failure)
@@ -182,7 +181,6 @@ class AbsPlaybackSessionSyncer(
         val session = getFreshSessionOrDelete(book.id) ?: return
         val credential = credentialProvider(book) ?: return
         val currentTimeSec = (progress?.globalPositionMs ?: 0L) / 1000.0
-        val timeListenedSec = currentTimeSec
         val start = AbsPlaybackLogger.mark()
         AbsPlaybackLogger.logCloseStart(
             bookId = book.id,
@@ -213,7 +211,7 @@ class AbsPlaybackSessionSyncer(
                     bookId = book.id,
                     remoteItemId = session.remoteItemId,
                     currentTimeSec = currentTimeSec,
-                    timeListenedSec = timeListenedSec,
+                    timeListenedSec = currentTimeSec,
                     durationSec = durationMs / 1000.0
                 )
                 AbsPlaybackLogger.logCloseSkipped(
@@ -232,7 +230,7 @@ class AbsPlaybackSessionSyncer(
                 token = credential.token,
                 sessionId = session.sessionId,
                 currentTimeSec = currentTimeSec,
-                timeListenedSec = timeListenedSec,
+                timeListenedSec = currentTimeSec,
                 durationSec = durationMs / 1000.0
             )
             AbsPlaybackLogger.logCloseSuccess(
@@ -245,7 +243,7 @@ class AbsPlaybackSessionSyncer(
                 bookId = book.id,
                 remoteItemId = session.remoteItemId,
                 currentTimeSec = currentTimeSec,
-                timeListenedSec = timeListenedSec,
+                timeListenedSec = currentTimeSec,
                 durationSec = durationMs / 1000.0
             )
             AbsPlaybackLogger.logClosePending(

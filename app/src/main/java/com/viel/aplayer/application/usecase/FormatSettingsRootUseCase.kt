@@ -9,8 +9,8 @@ import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTestEx
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTestFailureReason
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
-import com.viel.aplayer.network.UnsafeNetworkPolicyViolation
 import com.viel.aplayer.logger.AbsLogSanitizer
+import com.viel.aplayer.network.UnsafeNetworkPolicyViolation
 import java.util.Locale
 
 /**

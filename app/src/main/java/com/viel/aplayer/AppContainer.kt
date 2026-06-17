@@ -48,8 +48,8 @@ import com.viel.aplayer.data.availability.BookAvailabilityGateway
 import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.book.BookmarkGateway
 import com.viel.aplayer.data.book.ChapterGateway
-import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.data.progress.ProgressGateway
+import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.data.search.SearchHistoryGateway
 import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies

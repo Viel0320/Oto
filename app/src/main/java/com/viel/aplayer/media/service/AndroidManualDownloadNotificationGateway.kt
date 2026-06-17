@@ -7,7 +7,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -18,10 +17,9 @@ import com.viel.aplayer.application.download.ManualDownloadNotificationGateway
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.entity.DownloadMetadataEntity
 import com.viel.aplayer.data.entity.DownloadStatus
+import com.viel.aplayer.shared.formatFileSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.viel.aplayer.shared.formatFileSize
-import java.util.Locale
 
 /**
  * Book Download Notification Gateway (Render one Android progress notification per manual book download)
@@ -135,16 +133,13 @@ class AndroidManualDownloadNotificationGateway(
     // Redundant formatBytes helper has been removed in favor of formatFileSize from shared utilities.
 
     private fun canPostNotifications(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) ==
-                PackageManager.PERMISSION_GRANTED
-            if (!granted) return false
-        }
+        val granted = ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) return false
         return notificationManager.areNotificationsEnabled()
     }
 
     private fun ensureNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = appContext.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             DOWNLOAD_NOTIFICATION_CHANNEL_ID,

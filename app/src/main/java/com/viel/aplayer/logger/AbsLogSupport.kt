@@ -29,7 +29,7 @@ internal object AbsLogSanitizer {
     private val tokenQueryRegex = Regex("((?:token|password)=)([^&#\\s]+)", RegexOption.IGNORE_CASE)
     // Embedded URL Detection Pattern (Finds full HTTP URLs inside free-form exception messages)
     // Dedicated URL fields already call sanitizeUrl; this fallback catches URLs that arrive inside mapper, parser, or transport error text.
-    private val embeddedHttpUrlRegex = Regex("https?://[^\\s]+", RegexOption.IGNORE_CASE)
+    private val embeddedHttpUrlRegex = Regex("https?://\\S+", RegexOption.IGNORE_CASE)
 
     fun sanitizeText(raw: String?): String {
         val value = raw.orEmpty()

@@ -32,7 +32,6 @@ object AppLocaleController {
     // Platform Locale Application (Write explicit locale choices into Android per-app language storage)
     // Android 13+ owns process-wide app locale changes through LocaleManager; older devices use the Compose context fallback instead.
     fun applyPlatformLocale(context: Context, language: AppLanguage) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         ensurePlatformLocaleConfig(context)
         runCatching {
             val localeManager = context.getSystemService(LocaleManager::class.java)
@@ -47,7 +46,6 @@ object AppLocaleController {
     // Platform Locale Readback (Observe Android-managed per-app locale selection)
     // Returning null on pre-Android 13 keeps old devices bound to the locally persisted AppLanguage value.
     fun readPlatformLanguage(context: Context): AppLanguage? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
         return runCatching {
             val localeManager = context.getSystemService(LocaleManager::class.java)
             val firstLocaleTag = localeManager.applicationLocales

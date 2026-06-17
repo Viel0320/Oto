@@ -8,16 +8,12 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.orchestrator.ScanSessionRunner
 import com.viel.aplayer.library.scan.ScanCommand
-import com.viel.aplayer.library.scan.ScanImportAdapter
-import com.viel.aplayer.library.scan.ScanLibrarySnapshotAdapter
 import com.viel.aplayer.library.scan.ScanOutcome
 import com.viel.aplayer.library.scan.ScanOutcomeKind
-import com.viel.aplayer.library.scan.ScanRootStatusAdapter
 import com.viel.aplayer.library.scan.ScanSession
 import com.viel.aplayer.library.sync.LibrarySyncWorker
 import com.viel.aplayer.library.vfs.VfsFileInterface
@@ -125,10 +121,10 @@ class ScanSchedulerImpl(
 
     private fun createScanSession(): ScanSession =
         ScanSession(
-            rootStatusAdapter = ScanRootStatusAdapter {
+            rootStatusAdapter = {
                 rootStore.refreshPermissionStatuses()
             },
-            importAdapter = ScanImportAdapter { type, allowedRootIds ->
+            importAdapter = { type, allowedRootIds ->
                 // Runner Import Adapter (Inventory stream and import transaction bridge)
                 // Delegates the heavy scan work to ScanSessionRunner while keeping runner construction outside the command state module.
                 ScanSessionRunner(
@@ -138,7 +134,7 @@ class ScanSchedulerImpl(
                     triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
                 ).rescan(type, allowedRootIds = allowedRootIds)
             },
-            librarySnapshotAdapter = ScanLibrarySnapshotAdapter {
+            librarySnapshotAdapter = {
                 AppDatabase.getInstance(appContext).bookDao().getAllBooksOnce().isEmpty()
             }
         )

@@ -50,11 +50,10 @@ fun LazyCoverImage(
             }
         }
     ) {
-        val imageSourcePath = sourcePath
-        if (canStartRequest && !isPreview && imageSourcePath != null && !isImageError) {
+        if (canStartRequest && !isPreview && sourcePath != null && !isImageError) {
             val request = remember(
                 context,
-                imageSourcePath,
+                sourcePath,
                 lastUpdated,
                 variant,
                 scene,
@@ -64,7 +63,7 @@ fun LazyCoverImage(
             ) {
                 CoverImageRequestFactory.build(
                     context = context,
-                    sourcePath = imageSourcePath,
+                    sourcePath = sourcePath,
                     lastUpdated = lastUpdated,
                     variant = variant,
                     scene = scene,

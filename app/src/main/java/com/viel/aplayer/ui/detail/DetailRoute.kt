@@ -2,10 +2,8 @@ package com.viel.aplayer.ui.detail
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,7 +34,6 @@ import dev.chrisbanes.haze.HazeState
  * Owns DetailViewModel collection, dynamic cover color state, and user-effect callbacks before handing
  * pure rendering work to DetailOverlay and DetailScreen.
  */
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun DetailRoute(
     detailViewModel: DetailViewModel,
@@ -79,7 +76,7 @@ fun DetailRoute(
     // Cover Color Route State (Reset per selected artwork and seed the detail theme from cached extraction)
     // The color is route state because it coordinates theme selection and render callbacks without belonging to the stateless screen.
     var coverColor by remember(coverPath, coverLastUpdated) {
-        mutableStateOf<Color?>(ImageProcessor.getCachedColor(coverPath, coverLastUpdated)?.let { Color(it) })
+        mutableStateOf(ImageProcessor.getCachedColor(coverPath, coverLastUpdated)?.let { Color(it) })
     }
 
     val detailColorScheme = remember(coverColor, darkTheme, currentColorScheme) {

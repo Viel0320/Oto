@@ -5,13 +5,13 @@ import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
-import com.viel.aplayer.data.availability.BookAvailabilityGateway
 import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.library.availability.AvailabilityResult
 import com.viel.aplayer.timeline.PositionMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Book Availability Application Service (Single write-status seam for audiobook reachability)
@@ -199,7 +199,7 @@ class BookAvailabilityGatewayImpl(
             val result = availabilityChecker.checkBookFile(file)
             lastResult = result
             if (result.isAvailable || AvailabilityPersistencePolicy.isDefiniteMissing(result)) return result
-            if (attempt < REMOTE_REACHABILITY_RETRY_DELAYS_MS.lastIndex) delay(delayMs)
+            if (attempt < REMOTE_REACHABILITY_RETRY_DELAYS_MS.lastIndex) delay(delayMs.milliseconds)
         }
         return lastResult
     }

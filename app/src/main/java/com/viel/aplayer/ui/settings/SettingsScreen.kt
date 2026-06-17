@@ -470,7 +470,6 @@ fun SettingsDialogHost(
     }
 
     if (rootToDelete != null) {
-        val root = rootToDelete
         SettingsTemplateDialog(
             onDismissRequest = { controller.dialogState = SettingsDialogState.None },
             hazeState = resolvedSettingsDialogHazeState,
@@ -480,7 +479,7 @@ fun SettingsDialogHost(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onDeleteLibraryRoot(root)
+                        onDeleteLibraryRoot(rootToDelete)
                         controller.dialogState = SettingsDialogState.None
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -563,18 +562,17 @@ fun SettingsDialogHost(
     }
 
     if (rootForAction != null) {
-        val root = rootForAction
         // Settings Root Action Projection (Use scene item fields for all root-specific dialogs)
         // Dialog actions no longer dereference persistence root rows; edit, sync, relocate, and delete flows consume only rootId plus provider-specific form fields.
         // Title: UI branching decoupling (Bypass AudiobookSchema dependency in SettingsScreen using computed root kind flags)
-        val isAbsRoot = root.isAbsRoot
-        val isWebDavRoot = root.isWebDavRoot
+        val isAbsRoot = rootForAction.isAbsRoot
+        val isWebDavRoot = rootForAction.isWebDavRoot
         val scope = rememberCoroutineScope()
         SettingsTemplateDialog(
             onDismissRequest = { controller.dialogState = SettingsDialogState.None },
             hazeState = resolvedSettingsDialogHazeState,
             glassEffectMode = glassEffectMode,
-            title = { Text(root.displayName.ifBlank { stringResource(R.string.settings_root_action_title_fallback) }) },
+            title = { Text(rootForAction.displayName.ifBlank { stringResource(R.string.settings_root_action_title_fallback) }) },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -582,29 +580,29 @@ fun SettingsDialogHost(
                             .fillMaxWidth()
                             .clickable {
                                 // Title: SAF Relocate check (Check isSafRoot to trigger storage relocations)
-                                if (root.isSafRoot) {
-                                    controller.editingSafRootId = root.rootId
+                                if (rootForAction.isSafRoot) {
+                                    controller.editingSafRootId = rootForAction.rootId
                                     controller.dialogState = SettingsDialogState.None
                                     onLaunchSafRootPicker()
                                 } else if (isWebDavRoot) {
-                                    val creds = getWebDavCredentials(root.credentialId ?: "")
-                                    controller.webDavUrl = root.sourceUri
-                                    controller.webDavDisplayName = root.displayName
-                                    controller.webDavBasePath = root.basePath
+                                    val creds = getWebDavCredentials(rootForAction.credentialId ?: "")
+                                    controller.webDavUrl = rootForAction.sourceUri
+                                    controller.webDavDisplayName = rootForAction.displayName
+                                    controller.webDavBasePath = rootForAction.basePath
                                     controller.webDavUsername = creds?.username ?: ""
                                     controller.webDavPassword = creds?.password ?: ""
-                                    controller.editingRootId = root.rootId
+                                    controller.editingRootId = rootForAction.rootId
                                     controller.dialogState = SettingsDialogState.WebDavRoot
                                 } else if (isAbsRoot) {
                                     scope.launch {
-                                        val creds = getAbsCredential(root.credentialId ?: "")
-                                        controller.absBaseUrl = root.sourceUri
+                                        val creds = getAbsCredential(rootForAction.credentialId ?: "")
+                                        controller.absBaseUrl = rootForAction.sourceUri
                                         controller.absUsername = creds?.username ?: ""
                                         controller.absPassword = ""
-                                        controller.absLibraryId = root.basePath
-                                        controller.absLibraryName = root.displayName
-                                        controller.absDisplayName = root.displayName
-                                        controller.editingRootId = root.rootId
+                                        controller.absLibraryId = rootForAction.basePath
+                                        controller.absLibraryName = rootForAction.displayName
+                                        controller.absDisplayName = rootForAction.displayName
+                                        controller.editingRootId = rootForAction.rootId
                                         controller.dialogState = SettingsDialogState.AbsServer
                                     }
                                 }
@@ -616,7 +614,7 @@ fun SettingsDialogHost(
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             // Title: SAF Relocate action label (Check isSafRoot to show relocation text versus edit credentials text)
-                            if (root.isSafRoot) {
+                            if (rootForAction.isSafRoot) {
                                 stringResource(R.string.settings_root_action_relocate_saf)
                             } else {
                                 stringResource(R.string.settings_root_action_edit_remote)
@@ -630,7 +628,7 @@ fun SettingsDialogHost(
                             .fillMaxWidth()
                             .clickable {
                                 if (isAbsRoot) {
-                                    onAbsSync(root.rootId)
+                                    onAbsSync(rootForAction.rootId)
                                 } else {
                                     onRescan()
                                 }
@@ -655,7 +653,9 @@ fun SettingsDialogHost(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                controller.dialogState = SettingsDialogState.DeleteRoot(root)
+                                controller.dialogState = SettingsDialogState.DeleteRoot(
+                                    rootForAction
+                                )
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically

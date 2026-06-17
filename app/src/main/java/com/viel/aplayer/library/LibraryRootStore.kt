@@ -315,7 +315,7 @@ class LibraryRootStore(
         val updated = LibraryRootLifecyclePolicy.markBindingRefreshed(
             existing.copy(
                 sourceUri = normalizedUri,
-                displayName = if (displayName.isNotBlank()) displayName else existing.displayName
+                displayName = displayName.ifBlank { existing.displayName }
             )
         )
         rootDao.insertRoot(updated)

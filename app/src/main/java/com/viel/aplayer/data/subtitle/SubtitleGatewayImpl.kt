@@ -2,7 +2,6 @@ package com.viel.aplayer.data.subtitle
 
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
-import com.viel.aplayer.data.subtitle.SubtitleGateway
 import com.viel.aplayer.media.subtitle.SubtitleFileResolver
 import com.viel.aplayer.media.subtitle.SubtitleLine
 import kotlinx.coroutines.Dispatchers

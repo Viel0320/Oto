@@ -89,7 +89,7 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
         // Ensures the parsed length does not exceed the remaining capacity of the current byte buffer.
         val vendorLengthLong = RangeAudioParserSupport.run { bytes.readUInt32LE(cursor) }
         val maxRemainingVendor = bytes.size - cursor - 8 // 后续还有 commentCount 需要 4 字节
-        if (vendorLengthLong < 0L || vendorLengthLong > maxRemainingVendor) {
+        if (vendorLengthLong !in 0L..maxRemainingVendor) {
             return emptyMap()
         }
         val vendorLength = vendorLengthLong.toInt()

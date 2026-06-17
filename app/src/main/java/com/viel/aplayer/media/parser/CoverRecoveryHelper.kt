@@ -41,9 +41,9 @@ class CoverRecoveryHelper(
 ) {
     // 封面重建会触发 VFS 读流、图片解码和主色提取，因此继续用信号量限制全局并发。
     private val regenerationSemaphore = Semaphore(MAX_CONCURRENT_COVER_REGENERATIONS)
-    // 所有内嵌封面字节都统一通过 MetadataResolver 向各格式 parser 请求，
-    // 复用构造时已注入的运行期 VFS 单例，避免 MetadataResolver 再独立获取 AppDatabase。
-    private val MetadataResolver = MetadataResolver(fileReader)
+    // 所有内嵌封面字节都统一通过 metadataResolver 向各格式 parser 请求，
+    // 复用构造时已注入的运行期 VFS 单例，避免 metadataResolver 再独立获取 AppDatabase。
+    private val metadataResolver = MetadataResolver(fileReader)
 
     private val pendingRegenerations = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     /**
@@ -169,7 +169,7 @@ class CoverRecoveryHelper(
         file: BookFileEntity
     ): CoverExtractor.CoverResult =
         try {
-            val embeddedCover = MetadataResolver.extractWithEmbeddedCover(file).embeddedCover
+            val embeddedCover = metadataResolver.extractWithEmbeddedCover(file).embeddedCover
             if (embeddedCover == null || embeddedCover.bytes.isEmpty()) {
                 CoverExtractor.CoverResult(null, null)
             } else {

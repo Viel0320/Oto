@@ -7,7 +7,6 @@ import com.viel.aplayer.data.dao.BookMinWithProgress
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow

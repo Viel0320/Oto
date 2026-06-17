@@ -4,7 +4,6 @@ import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookmarkDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookmarkEntity
-import com.viel.aplayer.data.book.BookmarkGateway
 import com.viel.aplayer.timeline.PositionMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -64,6 +63,5 @@ class BookmarkGatewayImpl(
 
     override suspend fun deleteBookmark(bookmark: BookmarkEntity) = withContext(Dispatchers.IO) {
         bookmarkDao.delete(bookmark)
-        Unit
     }
 }

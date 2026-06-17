@@ -4,10 +4,8 @@ import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.util.UnstableApi
-import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.cover.CoverUriResolver
-import com.viel.aplayer.media.BookPlaybackPlan
-import com.viel.aplayer.media.PlaybackPlanGateway
+import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,7 +59,7 @@ class PlaybackPlanGatewayImpl(
         // Artwork URI Resolution (Translate stored cover paths for Media3 consumers)
         // Keeping resolver injection here prevents playback callers from knowing Android content URI details.
         val artworkUri = if (!artworkPath.isNullOrBlank()) {
-            coverUriResolver.toContentUri(artworkPath)?.let { it.toUri() }
+            coverUriResolver.toContentUri(artworkPath)?.toUri()
         } else {
             null
         }

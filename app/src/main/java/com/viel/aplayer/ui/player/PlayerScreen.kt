@@ -56,10 +56,10 @@ import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
-import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys

@@ -7,7 +7,6 @@ import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.ChapterDao
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.metadata.MetadataRefreshGateway
 import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.media.parser.MetadataResolver

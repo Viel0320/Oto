@@ -151,7 +151,6 @@ fun ListItem(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val separator = metadataSeparator
                     val textStyle = MaterialTheme.typography.labelSmall
                     val textColor = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -161,14 +160,14 @@ fun ListItem(
                             style = textStyle,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(text = separator, style = textStyle, color = textColor)
+                        Text(text = metadataSeparator, style = textStyle, color = textColor)
                     } else {
                         Text(
                             text = newBadgeText,
                             style = textStyle,
                             color = textColor
                         )
-                        Text(text = separator, style = textStyle, color = textColor)
+                        Text(text = metadataSeparator, style = textStyle, color = textColor)
                     }
 
                     Text(

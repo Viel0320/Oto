@@ -236,8 +236,6 @@ internal class DownloadGraph(
     val isDownloadRuntimeInitialized: Boolean
         get() = downloadManagerLazy.isInitialized()
 
-    internal fun isDownloadRuntimeInitializedForTests(): Boolean = isDownloadRuntimeInitialized
-
     private fun createManualDownloadCache(): Cache =
         SimpleCache(
             appContext.filesDir.resolve(MANUAL_CACHE_DIRECTORY),

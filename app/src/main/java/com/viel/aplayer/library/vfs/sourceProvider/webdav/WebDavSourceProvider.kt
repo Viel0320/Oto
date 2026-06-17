@@ -701,10 +701,8 @@ private class ResponseClosingInputStream(
     override fun markSupported(): Boolean = delegate.markSupported()
 
     override fun close() {
-        try {
+        response.use { _ ->
             delegate.close()
-        } finally {
-            response.close()
         }
     }
 }

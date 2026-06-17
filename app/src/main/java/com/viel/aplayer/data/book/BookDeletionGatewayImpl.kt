@@ -2,7 +2,6 @@ package com.viel.aplayer.data.book
 
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.book.BookDeletionGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

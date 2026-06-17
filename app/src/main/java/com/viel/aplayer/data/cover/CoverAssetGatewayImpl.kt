@@ -1,7 +1,6 @@
 package com.viel.aplayer.data.cover
 
 import com.viel.aplayer.data.dao.BookDao
-import com.viel.aplayer.data.cover.CoverAssetGateway
 import com.viel.aplayer.media.parser.CoverExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

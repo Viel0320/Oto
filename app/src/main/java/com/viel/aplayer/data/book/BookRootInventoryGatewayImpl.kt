@@ -1,7 +1,6 @@
 package com.viel.aplayer.data.book
 
 import com.viel.aplayer.data.dao.BookDao
-import com.viel.aplayer.data.book.BookRootInventoryGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

@@ -77,9 +77,7 @@ class DeletedBookRecoveryUseCase(
             }
             availableFileIds.isEmpty() -> {
                 val reason = audioFiles
-                    .asSequence()
-                    .mapNotNull { file -> availabilityByFileId[file.id] }
-                    .firstOrNull()
+                    .asSequence().firstNotNullOfOrNull { file -> availabilityByFileId[file.id] }
                     .recoveryReason()
                 DeletedBookRecoveryResult.AllFilesUnavailable(reason)
             }

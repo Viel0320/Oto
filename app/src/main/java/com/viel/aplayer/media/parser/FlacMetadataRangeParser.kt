@@ -99,7 +99,7 @@ internal object FlacMetadataRangeParser : RangeAudioFormatParser {
         // 确保读取的长度值绝对不超过当前 bytes 字节数组所能容纳的最大剩余边界
         val vendorLengthLong = RangeAudioParserSupport.run { bytes.readUInt32LE(cursor) }
         val maxRemainingVendor = bytes.size - cursor - 8 // 后续还有 commentCount 需要 4 字节
-        if (vendorLengthLong < 0L || vendorLengthLong > maxRemainingVendor) {
+        if (vendorLengthLong !in 0L..maxRemainingVendor) {
             return emptyMap()
         }
         val vendorLength = vendorLengthLong.toInt()

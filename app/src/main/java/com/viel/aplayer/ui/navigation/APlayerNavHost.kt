@@ -19,8 +19,8 @@ import com.viel.aplayer.data.store.HomeBookStatusFilter
 import com.viel.aplayer.data.store.HomeSortDirection
 import com.viel.aplayer.data.store.HomeSortRule
 import com.viel.aplayer.data.store.HomeViewStyle
-import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
+import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel

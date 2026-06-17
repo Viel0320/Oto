@@ -2,12 +2,12 @@ package com.viel.aplayer.application.library.home
 
 import android.net.Uri
 import com.viel.aplayer.application.library.detail.DetailBookItem
-import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.book.BookMetadataGateway
-import com.viel.aplayer.data.root.LibraryRootGateway
+import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.metadata.MetadataRefreshGateway
+import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.data.search.SearchHistoryGateway
 import com.viel.aplayer.data.store.AppSettings
