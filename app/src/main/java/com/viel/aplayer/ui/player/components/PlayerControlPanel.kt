@@ -33,8 +33,6 @@ fun PlayerControlPanelStateful(
     currentChapter: PlayerChapterItem?,
     metadata: BookMetadataState,
     isPlaying: Boolean,
-    playbackSpeed: Float,
-    isSpeedManualMode: Boolean,
     settings: PlayerSettingsState,
     actions: PlayerActions,
     buttonColor: Color,
@@ -50,8 +48,6 @@ fun PlayerControlPanelStateful(
         currentChapter = currentChapter,
         metadata = metadata,
         isPlaying = isPlaying,
-        playbackSpeed = playbackSpeed,
-        isSpeedManualMode = isSpeedManualMode,
         settings = settings,
         actions = actions,
         buttonColor = buttonColor,
@@ -75,8 +71,6 @@ fun PlayerControlPanelStateful(
  * @param currentChapter The player-scene chapter item that is currently playing.
  * @param metadata The metadata state of the current book.
  * @param isPlaying Whether the player is currently playing.
- * @param playbackSpeed The current playback speed.
- * @param isSpeedManualMode Whether the playback speed is locked by manual adjustment.
  * @param settings The player UI settings state.
  * @param actions Aggregated player actions callback.
  * @param buttonColor The dominant color of the control buttons (the transition-animated dominant color of the book cover).
@@ -93,8 +87,6 @@ fun PlayerControlPanel(
     currentChapter: PlayerChapterItem?,
     metadata: BookMetadataState,
     isPlaying: Boolean,
-    playbackSpeed: Float,
-    isSpeedManualMode: Boolean,
     settings: PlayerSettingsState,
     actions: PlayerActions,
     buttonColor: Color,
@@ -139,9 +131,6 @@ fun PlayerControlPanel(
         // Playback control component, passing fillMaxWidth to allow the five control buttons at the bottom to expand horizontally with equal spacing, adapting to container widths of various sizes.
         PlaybackControls(
             isPlaying = isPlaying,
-            playbackSpeed = playbackSpeed,
-            selectedSleepTimer = settings.selectedSleepTimer,
-            isSpeedManualMode = isSpeedManualMode,
             playbackSeekStepConfig = settings.playbackSeekStepConfig,
             actions = actions.playback,
             buttonColor = buttonColor,

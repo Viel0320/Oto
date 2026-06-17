@@ -12,7 +12,6 @@ data class PlaybackControlActions(
     val onCancelSleepTimer: () -> Unit = {},
     val onSeek: (positionMs: Long, allowUndo: Boolean) -> Unit = { _, _ -> },
     val onUndoSeek: () -> Unit = {},
-    val onAdjustVolume: (delta: Float) -> Unit = {},
     val onNextChapter: () -> Unit = {},
     val onPreviousChapter: () -> Unit = {},
     /**

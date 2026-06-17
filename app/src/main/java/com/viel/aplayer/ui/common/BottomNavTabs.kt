@@ -1,12 +1,9 @@
 package com.viel.aplayer.ui.common
 
-// Import AppWindowSizeClass: Use standardized layout provider
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,9 +13,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.Subtitles
+import androidx.compose.material.icons.rounded.Snooze
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,201 +34,227 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
+import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.player.PlaybackControlActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
-// Decoupled player bottom Tab navigation component.
-//
-// The width is adaptively determined based on the actual measured width of the Tab text.
-// It provides perfect center alignment and interpolated scaling animations when sliding between tabs.
+/**
+ * Decoupled player bottom icon navigation.
+ *
+ * Each tab keeps its localized title as the accessibility label while the
+ * visible selection state is represented by switching between filled and
+ * outlined variants. Every nav target uses the same 56.dp circular touch
+ * target and 32.dp icon size as the transport controls.
+ *
+ * Speed and sleep-timer controls live at the outer edges of the same navigation
+ * row so the playback transport can dedicate its outer buttons to chapter
+ * movement while preserving the existing tap and long-press behavior.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BottomNavTabs(
     selectedTab: PlayerScreenMode,
+    playbackSpeed: Float,
+    selectedSleepTimer: Int,
+    isSpeedManualMode: Boolean,
+    playbackActions: PlaybackControlActions,
     onTabSelected: (PlayerScreenMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+    val sleepTimerContentDescription = stringResource(R.string.settings_sleep_timer_title)
+    val playbackSpeedContentDescription = stringResource(R.string.playback_speed_content_description)
+    val playbackSpeedText = stringResource(R.string.playback_speed_value, playbackSpeed.toString())
+    val playbackSpeedCycleActionLabel = stringResource(R.string.playback_speed_cycle_action)
+    val playbackSpeedResetActionLabel = stringResource(R.string.playback_speed_reset_action)
+    val sleepTimerCycleActionLabel = stringResource(R.string.sleep_timer_cycle_action)
+    val sleepTimerCancelActionLabel = stringResource(R.string.sleep_timer_cancel_action)
+
+    // Speed feedback remains tied to the control that changes speed, even after the control moves from the transport row into bottom navigation.
+    var lastSpeed by remember { mutableFloatStateOf(playbackSpeed) }
+    LaunchedEffect(playbackSpeed) {
+        if (playbackSpeed != lastSpeed) {
+            delay(1500.milliseconds)
+            val message = if (playbackSpeed == 1.0f) {
+                FeedbackMessages.playbackSpeedReset()
+            } else {
+                FeedbackMessages.playbackSpeedChanged(formatPlaybackSpeedForFeedback(playbackSpeed))
+            }
+            playbackActions.onShowToast(message)
+            lastSpeed = playbackSpeed
+        }
+    }
+
+    // Sleep feedback follows the relocated sleep action so timer changes still produce one debounced localized toast.
+    var lastTimer by remember { mutableIntStateOf(selectedSleepTimer) }
+    LaunchedEffect(selectedSleepTimer) {
+        if (selectedSleepTimer != lastTimer) {
+            delay(1500.milliseconds)
+            val message = when (selectedSleepTimer) {
+                0 -> FeedbackMessages.sleepTimerOff()
+                -1 -> FeedbackMessages.sleepTimerFiveSeconds()
+                -2 -> FeedbackMessages.sleepTimerEndOfChapter()
+                else -> FeedbackMessages.sleepTimerMinutes(selectedSleepTimer)
+            }
+            playbackActions.onShowToast(message)
+            lastTimer = selectedSleepTimer
+        }
+    }
+
     // Wrap the bottom navigation component with Column.
     //
     // Instead of applying navigationBarsPadding() directly here, we precisely control the height by sequentially placing a 16.dp anti-mistouch Spacer and the system navigationBarsPadding Spacer at the bottom.
-    // This ensures the Tab click interaction area (height of 48.dp) is physically raised by 16.dp, completely avoiding accidental triggers from virtual navigation keys/gestures.
+    // This ensures the navigation click interaction area remains elevated while matching the transport button hit area.
     Column(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 60.dp)
+                .padding(horizontal = 24.dp)
         ) {
             val tabs = listOf(
-                // Player Tab Labels (Resolve player content tabs through resources)
-                // These tab labels are visible navigation text and must track the app language instead of staying hard-coded English.
-                stringResource(R.string.player_tab_bookmarks) to PlayerScreenMode.BOOKMARKS,
-                stringResource(R.string.player_tab_subtitles) to PlayerScreenMode.SUBTITLES,
-                stringResource(R.string.player_tab_related) to PlayerScreenMode.RELATED
-            )
-
-            val density = LocalDensity.current
-
-            // Declare 3 independent mutableStateOf variables.
-            //
-            // This provides isolated records for the actual text width of each Tab.
-            // Elegant default widths of (80, 70, 60.dp) are used for the first frame to ensure that the indicator width is never abruptly 0 before measurement is complete.
-            var bookmarkTextWidth by remember { mutableStateOf(80.dp) }
-            var subtitlesTextWidth by remember { mutableStateOf(70.dp) }
-            var relatedTextWidth by remember { mutableStateOf(60.dp) }
-
-            var lastActiveTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
-            LaunchedEffect(selectedTab) {
-                if (selectedTab != PlayerScreenMode.PLAYER) {
-                    lastActiveTab = selectedTab
-                }
-            }
-
-            val isMainPlayer = selectedTab == PlayerScreenMode.PLAYER
-            val indicatorAlpha by animateFloatAsState(
-                targetValue = if (isMainPlayer) 0f else 1f,
-                animationSpec = tween(300),
-                label = "indicator_alpha"
-            )
-
-            val indicatorOffset by animateFloatAsState(
-                targetValue = lastActiveTab.index.toFloat(),
-                animationSpec = if (indicatorAlpha == 0f) snap() else tween(300),
-                label = "tab_indicator_offset"
-            )
-
-            // Dynamically read the corresponding independently measured text width after physical isolation based on the current active Tab index.
-            val activeTabWidth = remember(lastActiveTab, bookmarkTextWidth, subtitlesTextWidth, relatedTextWidth) {
-                when (lastActiveTab) {
-                    PlayerScreenMode.BOOKMARKS -> bookmarkTextWidth
-                    PlayerScreenMode.SUBTITLES -> subtitlesTextWidth
-                    PlayerScreenMode.RELATED -> relatedTextWidth
-                    else -> 70.dp
-                }
-            }
-
-            val currentIndicatorWidth by animateDpAsState(
-                targetValue = activeTabWidth,
-                animationSpec = if (indicatorAlpha == 0f) snap() else tween(300),
-                label = "tab_indicator_width"
-            )
-
-            val activeColor = MaterialTheme.colorScheme.onSurface
-
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-            ) {
-                val width = size.width
-                val tabWidth = width / 3
-                val indWidthPx = currentIndicatorWidth.toPx()
-
-                // Calculate physical center coordinates.
-                //
-                // 1. Bookmark is aligned left; its center is at half its width.
-                // 2. Subtitles is aligned center; its center is always at the geometric midpoint of the middle 1/3 section.
-                // 3. Related is aligned right; its right edge sits tight against the right of the canvas, so its center is at the total width minus half its own width.
-                val centerX0 = bookmarkTextWidth.toPx() / 2f
-                val centerX1 = tabWidth * 1.5f
-                val centerX2 = width - relatedTextWidth.toPx() / 2f
-
-                // Linear interpolation logic.
-                //
-                // Linearly interpolate between the three physical text centers based on the sliding percentage indicatorOffset.
-                // This ensures the indicator is always 100% aligned with the actual center of the text during sliding transitions.
-                val indicatorCenterX = if (indicatorOffset <= 1f) {
-                    val t = indicatorOffset
-                    centerX0 + (centerX1 - centerX0) * t
-                } else {
-                    val t = indicatorOffset - 1f
-                    centerX1 + (centerX2 - centerX1) * t
-                }
-
-                // Position the left starting point fluidXPos of the indicator based on the animated width indWidthPx and the calculated center point.
-                val fluidXPos = indicatorCenterX - indWidthPx / 2f
-
-                // Adjust Y-axis height.
-                //
-                // Raise the starting y-coordinate of the indicator from size.height - 4.dp to size.height - 10.dp.
-                // This reduces the physical distance between the indicator and the vertically centered Tab text (bottom is around 32.dp) from 12.dp to exactly 6.dp, halving the space.
-                drawRoundRect(
-                    color = activeColor.copy(alpha = indicatorAlpha),
-                    topLeft = androidx.compose.ui.geometry.Offset(fluidXPos, size.height - 10.dp.toPx()),
-                    size = androidx.compose.ui.geometry.Size(indWidthPx, 3.dp.toPx()),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
+                BottomNavTabItem(
+                    title = stringResource(R.string.player_tab_bookmarks),
+                    mode = PlayerScreenMode.BOOKMARKS,
+                    activeIcon = Icons.Filled.Bookmark,
+                    inactiveIcon = Icons.Outlined.Bookmark
+                ),
+                BottomNavTabItem(
+                    title = stringResource(R.string.player_tab_subtitles),
+                    mode = PlayerScreenMode.SUBTITLES,
+                    activeIcon = Icons.Filled.Subtitles,
+                    inactiveIcon = Icons.Outlined.Subtitles
+                ),
+                BottomNavTabItem(
+                    title = stringResource(R.string.player_tab_related),
+                    mode = PlayerScreenMode.RELATED,
+                    activeIcon = Icons.AutoMirrored.Filled.LibraryBooks,
+                    inactiveIcon = Icons.AutoMirrored.Outlined.LibraryBooks
                 )
-            }
+            )
 
-            // M-18 Fix — Add selectableGroup to allow accessibility services (TalkBack/Switch Access) to recognize this as a mutually exclusive tab container group.
             Row(
-                modifier = Modifier.fillMaxWidth().height(48.dp).selectableGroup(),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                tabs.forEachIndexed { index, (title, mode) ->
-                    // M-18 Fix — Use independent MutableInteractionSource for each Tab to avoid pressing/hover state crosstalk from sharing a single interactionSource.
-                    val tabInteractionSource = remember(mode) { MutableInteractionSource() }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(8.dp))
-                            // M-18 Fix — Change .clickable to .selectable, declaring selected state and Role.Tab to allow TalkBack to speak "Selected/Not selected".
-                            .selectable(
-                                selected = (selectedTab == mode),
-                                onClick = { onTabSelected(mode) },
-                                role = Role.Tab,
-                                interactionSource = tabInteractionSource,
-                                indication = null
-                            ),
-                        contentAlignment = when (index) {
-                            0 -> Alignment.CenterStart
-                            1 -> Alignment.Center
-                            2 -> Alignment.CenterEnd
-                            else -> Alignment.Center
-                        }
-                    ) {
+                BottomNavActionButton(
+                    modifier = Modifier.size(56.dp),
+                    contentDescription = playbackSpeedContentDescription,
+                    onClickLabel = playbackSpeedCycleActionLabel,
+                    onClick = playbackActions.onCyclePlaybackSpeed,
+                    onLongClickLabel = playbackSpeedResetActionLabel,
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        playbackActions.onResetPlaybackSpeed()
+                    }
+                ) {
+                    if (playbackSpeed == 1.0f && !isSpeedManualMode) {
+                        Icon(
+                            Icons.Rounded.Speed,
+                            contentDescription = null,
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f)
+                        )
+                    } else {
                         Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = if (selectedTab == mode) FontWeight.Bold else FontWeight.SemiBold,
-                                fontSize = 16.sp
+                            text = playbackSpeedText,
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
                             ),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (selectedTab == mode) 1f else 0.6f),
-                            modifier = Modifier.onSizeChanged { size ->
-                                val textWidthDp = with(density) { size.width.toDp() }
-                                when (index) {
-                                    0 -> {
-                                        if (bookmarkTextWidth != textWidthDp) bookmarkTextWidth = textWidthDp
-                                    }
-                                    1 -> {
-                                        if (subtitlesTextWidth != textWidthDp) subtitlesTextWidth = textWidthDp
-                                    }
-                                    2 -> {
-                                        if (relatedTextWidth != textWidthDp) relatedTextWidth = textWidthDp
-                                    }
-                                }
-                            }
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .selectableGroup(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    tabs.forEach { tab ->
+                        val tabInteractionSource = remember(tab.mode) { MutableInteractionSource() }
+                        val isSelected = selectedTab == tab.mode
+                        BottomNavTabButton(
+                            modifier = Modifier.size(56.dp),
+                            contentDescription = tab.title,
+                            selected = isSelected,
+                            onClick = { onTabSelected(tab.mode) },
+                            interactionSource = tabInteractionSource
+                        ) {
+                            Icon(
+                                imageVector = if (isSelected) tab.activeIcon else tab.inactiveIcon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isSelected) 1f else 0.58f),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                }
+
+                BottomNavActionButton(
+                    modifier = Modifier.size(56.dp),
+                    contentDescription = sleepTimerContentDescription,
+                    onClickLabel = sleepTimerCycleActionLabel,
+                    onClick = playbackActions.onCycleSleepTimer,
+                    onLongClickLabel = sleepTimerCancelActionLabel,
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        playbackActions.onCancelSleepTimer()
+                    }
+                ) {
+                    if (selectedSleepTimer == 0) {
+                        Icon(
+                            Icons.Rounded.Snooze,
+                            contentDescription = null,
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f)
+                        )
+                    } else {
+                        val displayText = when (selectedSleepTimer) {
+                            -1 -> stringResource(R.string.playback_sleep_timer_seconds_short, 5)
+                            -2 -> stringResource(R.string.playback_sleep_timer_chapter_short)
+                            else -> stringResource(R.string.playback_sleep_timer_minutes_short, selectedSleepTimer)
+                        }
+                        Text(
+                            text = displayText,
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
             }
-            
         }
         
         // WindowClass integration.
@@ -263,6 +297,10 @@ fun BottomNavTabsPreview_Active() {
                 var selectedTab by remember { mutableStateOf(PlayerScreenMode.SUBTITLES) }
                 BottomNavTabs(
                     selectedTab = selectedTab,
+                    playbackSpeed = 1.0f,
+                    selectedSleepTimer = 0,
+                    isSpeedManualMode = false,
+                    playbackActions = PlaybackControlActions(),
                     onTabSelected = { selectedTab = it }
                 )
             }
@@ -272,7 +310,7 @@ fun BottomNavTabsPreview_Active() {
 
 // 2. Preview of inactive Tabs.
 //
-// Simulates returning to the main player (PlayerScreenMode.PLAYER) where the indicator collapses and all Tab texts display uniformly at a low 0.6f brightness.
+// Simulates returning to the main player (PlayerScreenMode.PLAYER) where all tabs use outlined icons and inactive color.
 @Preview(name = "BottomNavTabs - All Inactive", showBackground = true)
 @Composable
 fun BottomNavTabsPreview_Inactive() {
@@ -288,9 +326,108 @@ fun BottomNavTabsPreview_Inactive() {
                 var selectedTab by remember { mutableStateOf(PlayerScreenMode.PLAYER) }
                 BottomNavTabs(
                     selectedTab = selectedTab,
+                    playbackSpeed = 1.25f,
+                    selectedSleepTimer = -2,
+                    isSpeedManualMode = true,
+                    playbackActions = PlaybackControlActions(),
                     onTabSelected = { selectedTab = it }
                 )
             }
         }
     }
+}
+
+/**
+ * Defines the icon and accessibility title for each player bottom tab.
+ *
+ * Keeping this as a narrow UI model avoids leaking icon choices into player
+ * state while giving the navigation renderer a single source for tab visuals.
+ */
+private data class BottomNavTabItem(
+    val title: String,
+    val mode: PlayerScreenMode,
+    val activeIcon: ImageVector,
+    val inactiveIcon: ImageVector
+)
+
+/**
+ * Renders a non-tab action inside the bottom navigation row.
+ *
+ * Speed and sleep are command buttons rather than mutually exclusive tabs, so
+ * this helper keeps their click semantics out of the tab selectable group while
+ * matching the same fixed touch target as the transport controls.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun BottomNavActionButton(
+    modifier: Modifier = Modifier,
+    contentDescription: String,
+    onClickLabel: String,
+    onClick: () -> Unit,
+    onLongClickLabel: String,
+    onLongClick: () -> Unit,
+    content: @Composable () -> Unit
+ ) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .semantics {
+                this.contentDescription = contentDescription
+            }
+            .combinedClickable(
+                onClickLabel = onClickLabel,
+                onClick = onClick,
+                onLongClickLabel = onLongClickLabel,
+                onLongClick = onLongClick,
+                role = Role.Button
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            content()
+        }
+    }
+}
+
+/**
+ * Renders a selectable navigation target inside the bottom navigation row.
+ *
+ * The selectable state stays on the button itself so TalkBack can announce the
+ * active tab while the icon variant switches between filled and outlined.
+ */
+@Composable
+private fun BottomNavTabButton(
+    modifier: Modifier = Modifier,
+    contentDescription: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    interactionSource: MutableInteractionSource,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .semantics {
+                this.contentDescription = contentDescription
+            }
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.Tab,
+                interactionSource = interactionSource,
+                indication = null
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            content()
+        }
+    }
+}
+
+private fun formatPlaybackSpeedForFeedback(speed: Float): String {
+    // Playback Speed Formatting (Keep feedback arguments copy-neutral)
+    // Trims the trailing decimal from whole-number speeds while preserving fractional values such as 0.75 or 1.25.
+    val text = speed.toString()
+    return text.trimEnd('0').trimEnd('.')
 }

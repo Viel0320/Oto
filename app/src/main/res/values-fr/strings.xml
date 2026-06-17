@@ -413,6 +413,8 @@
     <string name="media_cover_content_description">Couverture</string>
     <string name="playback_play_content_description">Lire</string>
     <string name="playback_pause_content_description">Pause</string>
+    <string name="playback_previous_chapter_content_description">Chapitre précédent</string>
+    <string name="playback_next_chapter_content_description">Chapitre suivant</string>
     <string name="player_show_total_progress">Afficher la progression totale</string>
     <string name="player_show_chapter_progress">Afficher la progression du chapitre</string>
     <string name="player_delete_from_library">Supprimer de la médiathèque</string>

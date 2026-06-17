@@ -242,7 +242,7 @@ fun PlayerPortrait(
                                         }
                                     }
                                     else -> {
-                                        // Interactive cover component (To render dual-tap track skip actions)
+                                        // Main artwork cover (Transport gestures were moved to explicit controls to avoid hidden playback commands on artwork)
                                         // Prefers high-resolution original images over thumbnail drafts.
                                         PlayerCover(
                                             bookId = metadata.id,
@@ -253,10 +253,7 @@ fun PlayerPortrait(
                                             ),
                                             isPlaying = isPlaying,
                                             coverLastUpdated = metadata.coverLastUpdated,
-                                            coverScene = "player-main-cover",
-                                            onAdjustVolume = { actions.playback.onAdjustVolume(it) },
-                                            onNextChapter = { actions.playback.onNextChapter() },
-                                            onPreviousChapter = { actions.playback.onPreviousChapter() }
+                                            coverScene = "player-main-cover"
                                         )
                                     }
                                 }
@@ -266,8 +263,6 @@ fun PlayerPortrait(
                                 playbackProgressState = playbackProgressState,
                                 currentChapter = currentChapter,
                                 isPlaying = isPlaying,
-                                playbackSpeed = playbackSpeed,
-                                isSpeedManualMode = isSpeedManualMode,
                                 metadata = metadata,
                                 settings = settings,
                                 actions = actions,
@@ -324,6 +319,10 @@ fun PlayerPortrait(
         // Bottom navigation layout (To toggle main tabs inside player screen)
         BottomNavTabs(
             selectedTab = currentMode,
+            playbackSpeed = playbackSpeed,
+            selectedSleepTimer = settings.selectedSleepTimer,
+            isSpeedManualMode = isSpeedManualMode,
+            playbackActions = actions.playback,
             onTabSelected = {
                 val nextMode = if (currentMode == it) PlayerScreenMode.PLAYER else it
                 onModeChange(nextMode)

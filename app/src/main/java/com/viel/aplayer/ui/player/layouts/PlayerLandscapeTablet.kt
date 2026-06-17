@@ -248,7 +248,7 @@ fun PlayerLandscapeTablet(
                                         }
                                     }
                                     else -> {
-                                        // Tablet main cover (To render original high-definition cover artwork in left column)
+                                        // Tablet main cover (To render original high-definition cover artwork without hidden transport gestures)
                                         PlayerCover(
                                             bookId = metadata.id,
                                             isWideScreen = windowClass.isWideScreen,
@@ -258,10 +258,7 @@ fun PlayerLandscapeTablet(
                                             ),
                                             isPlaying = isPlaying,
                                             coverLastUpdated = metadata.coverLastUpdated,
-                                            coverScene = "player-main-cover",
-                                            onAdjustVolume = { actions.playback.onAdjustVolume(it) },
-                                            onNextChapter = { actions.playback.onNextChapter() },
-                                            onPreviousChapter = { actions.playback.onPreviousChapter() }
+                                            coverScene = "player-main-cover"
                                         )
                                     }
                                 }
@@ -310,6 +307,10 @@ fun PlayerLandscapeTablet(
             // Bottom navigation tabs (To coordinate active tab state in left column)
             BottomNavTabs(
                 selectedTab = currentMode,
+                playbackSpeed = playbackSpeed,
+                selectedSleepTimer = settings.selectedSleepTimer,
+                isSpeedManualMode = isSpeedManualMode,
+                playbackActions = actions.playback,
                 onTabSelected = {
                     val nextMode = if (currentMode == it) PlayerScreenMode.PLAYER else it
                     onModeChange(nextMode)
@@ -348,8 +349,6 @@ fun PlayerLandscapeTablet(
                     playbackProgressState = playbackProgressState,
                     currentChapter = currentChapter,
                     isPlaying = isPlaying,
-                    playbackSpeed = playbackSpeed,
-                    isSpeedManualMode = isSpeedManualMode,
                     metadata = metadata,
                     settings = settings,
                     actions = actions,

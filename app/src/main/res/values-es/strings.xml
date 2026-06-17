@@ -413,6 +413,8 @@
     <string name="media_cover_content_description">Portada</string>
     <string name="playback_play_content_description">Reproducir</string>
     <string name="playback_pause_content_description">Pausar</string>
+    <string name="playback_previous_chapter_content_description">Capítulo anterior</string>
+    <string name="playback_next_chapter_content_description">Capítulo siguiente</string>
     <string name="player_show_total_progress">Mostrar progreso total</string>
     <string name="player_show_chapter_progress">Mostrar progreso del capítulo</string>
     <string name="player_delete_from_library">Eliminar de la biblioteca</string>

@@ -416,6 +416,8 @@
     <string name="media_cover_content_description">封面</string>
     <string name="playback_play_content_description">播放</string>
     <string name="playback_pause_content_description">暂停</string>
+    <string name="playback_previous_chapter_content_description">上一章</string>
+    <string name="playback_next_chapter_content_description">下一章</string>
     <string name="player_show_total_progress">显示总进度</string>
     <string name="player_show_chapter_progress">显示章节进度</string>
     <string name="player_delete_from_library">从媒体库删除</string>

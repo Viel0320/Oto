@@ -7,7 +7,6 @@ import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
@@ -21,7 +20,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -38,27 +35,23 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
-import kotlin.math.abs
 
 /**
- * Adaptive gesture player cover component (PlayerCover).
+ * Adaptive player cover component (PlayerCover).
  *
- * Extracted BoxWithConstraints and its nested gesture listening and size calculation logic from PlayerScreen.kt,
- * encapsulating them into a unified and highly reusable PlayerCover component to achieve layout hierarchy decoupling and performance optimization.
+ * Owns responsive cover sizing and shared-element artwork rendering while leaving
+ * playback commands to explicit controls. The cover no longer registers drag
+ * gestures, so transport actions remain discoverable and do not conflict with
+ * tab swipes or system gestures.
  *
  * @param coverPath The local physical file path of the cover image.
  * @param isPlaying Whether the player is currently playing (affects the scale animation).
  * @param coverLastUpdated The timestamp when the cover file was last updated, used to invalidate Coil cache.
- * @param onAdjustVolume Callback triggered when adjusting the volume.
- * @param onNextChapter Callback triggered when skipping to the next chapter.
- * @param onPreviousChapter Callback triggered when skipping to the previous chapter.
  * @param modifier The layout modifier.
  * @param sizeRatio The ratio of the cover size relative to the minimum dimension of the container, defaulting to 0.8f (80%).
- * @param gesturesEnabled Whether gesture operations on the cover (volume adjustment and chapter skipping) are enabled, defaulting to true.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -69,11 +62,7 @@ fun PlayerCover(
     coverPath: String?,
     isPlaying: Boolean,
     coverLastUpdated: Long,
-    onAdjustVolume: (Float) -> Unit,
-    onNextChapter: () -> Unit,
-    onPreviousChapter: () -> Unit,
     sizeRatio: Float = 0.8f,
-    gesturesEnabled: Boolean = true,
     coverScene: String = "main-cover",
     /*
      * Shared Element Key Override (Route-specific artwork transition identity)
@@ -106,63 +95,6 @@ fun PlayerCover(
         val minDimension = minOf(maxWidth, maxHeight)
         val coverSize = minDimension * sizeRatio
 
-        // State variables to record cumulative horizontal drag to trigger chapter-skipping gestures.
-        var totalHorizontalDrag by remember { mutableFloatStateOf(0f) }
-        var hasTriggeredHorizontalDrag by remember { mutableStateOf(false) }
-
-        // Cover Gesture Transition Gate (Disable drag commands while the host overlay is moving)
-        // Full-player entry animations can place the cover under an in-flight finger, so gestures are
-        // enabled only after the nearest AnimatedVisibility host has fully reached the Visible state.
-        val hostVisibilityScope = LocalAnimatedVisibilityScope.current
-        val isHostVisibilitySettled = hostVisibilityScope?.transition?.let { transition ->
-            transition.currentState == EnterExitState.Visible &&
-                transition.targetState == EnterExitState.Visible
-        } ?: true
-        val effectiveGesturesEnabled = gesturesEnabled && isHostVisibilitySettled
-
-        // Cover Gesture Modifier Assembly (Attach pointer input only after caller and transition gates allow it)
-        // The caller controls scene-level gesture eligibility, while the transition gate blocks accidental
-        // drags during overlay enter/exit frames.
-        val gestureModifier = if (effectiveGesturesEnabled) {
-            Modifier.pointerInput(Unit) {
-                // Detect gestures: drag up/down to adjust volume, drag left/right to skip chapters.
-                detectDragGestures(
-                    onDragStart = {
-                        totalHorizontalDrag = 0f
-                        hasTriggeredHorizontalDrag = false
-                    },
-                    onDragEnd = {
-                        totalHorizontalDrag = 0f
-                        hasTriggeredHorizontalDrag = false
-                    },
-                    onDragCancel = {
-                        totalHorizontalDrag = 0f
-                        hasTriggeredHorizontalDrag = false
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        if (abs(dragAmount.y) > abs(dragAmount.x)) {
-                            // Trigger the volume adjustment callback on vertical dragging
-                            onAdjustVolume(-dragAmount.y * 0.002f)
-                        } else if (!hasTriggeredHorizontalDrag) {
-                            totalHorizontalDrag += dragAmount.x
-                            if (abs(totalHorizontalDrag) > 300f) {
-                                // Trigger the chapter skipping callback when horizontal drag exceeds the threshold (300px)
-                                if (totalHorizontalDrag > 0) {
-                                    onNextChapter()
-                                } else {
-                                    onPreviousChapter()
-                                }
-                                hasTriggeredHorizontalDrag = true
-                            }
-                        }
-                    }
-                )
-            }
-        } else {
-            Modifier
-        }
-
         MainCoverView(
             bookId = bookId,
             isWideScreen = isWideScreen,
@@ -175,7 +107,6 @@ fun PlayerCover(
             sharedElementStartCornerRadius = sharedElementStartCornerRadius,
             modifier = Modifier
                 .size(coverSize)
-                .then(gestureModifier)
         )
     }
 }
@@ -372,9 +303,6 @@ fun PlayerCoverPreview() {
             coverPath = null, // Default Cover Placeholder (Pass null to display the default cover art placeholder)
             isPlaying = true,
             coverLastUpdated = 0L,
-            onAdjustVolume = {},
-            onNextChapter = {},
-            onPreviousChapter = {},
             sizeRatio = 0.8f
         )
     }

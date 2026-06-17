@@ -435,6 +435,8 @@
     <string name="media_cover_content_description">Обложка</string>
     <string name="playback_play_content_description">Воспроизвести</string>
     <string name="playback_pause_content_description">Пауза</string>
+    <string name="playback_previous_chapter_content_description">Предыдущая глава</string>
+    <string name="playback_next_chapter_content_description">Следующая глава</string>
     <string name="player_show_total_progress">Показать общий прогресс</string>
     <string name="player_show_chapter_progress">Показать прогресс главы</string>
     <string name="player_delete_from_library">Удалить из библиотеки</string>

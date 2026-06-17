@@ -56,7 +56,6 @@ fun rememberActions(
                         currentMetadata = { playbackViewModel.metadataState.value }
                     )
                 },
-                onAdjustVolume = { delta -> settingsViewModel.adjustVolume(delta) },
                 onNextChapter = { playbackViewModel.skipToNextChapter() },
                 onPreviousChapter = { playbackViewModel.skipToPreviousChapter() },
                 onShowToast = { msg -> playbackViewModel.showToast(msg) }

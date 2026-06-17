@@ -129,11 +129,7 @@ fun DetailLandscapeTablet(
                     isPlaying = false,
                     coverLastUpdated = book?.lastScannedAt ?: 0L,
                     coverScene = "detail-main-cover",
-                    onAdjustVolume = {},
-                    onNextChapter = {},
-                    onPreviousChapter = {},
                     sizeRatio = 1f,
-                    gesturesEnabled = false,
                     /*
                      * Tablet Detail Cover Shared Element Key (Destination artwork endpoint)
                      *

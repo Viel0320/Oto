@@ -461,6 +461,8 @@
     <string name="media_cover_content_description">Cover</string>
     <string name="playback_play_content_description">Play</string>
     <string name="playback_pause_content_description">Pause</string>
+    <string name="playback_previous_chapter_content_description">Previous chapter</string>
+    <string name="playback_next_chapter_content_description">Next chapter</string>
     <string name="player_show_total_progress">Show Total Progress</string>
     <string name="player_show_chapter_progress">Show Chapter Progress</string>
     <string name="player_delete_from_library">Delete from Library</string>

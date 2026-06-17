@@ -412,6 +412,8 @@
     <string name="media_cover_content_description">Cover</string>
     <string name="playback_play_content_description">Wiedergabe</string>
     <string name="playback_pause_content_description">Pause</string>
+    <string name="playback_previous_chapter_content_description">Vorheriges Kapitel</string>
+    <string name="playback_next_chapter_content_description">Nächstes Kapitel</string>
     <string name="player_show_total_progress">Gesamtfortschritt anzeigen</string>
     <string name="player_show_chapter_progress">Kapitelfortschritt anzeigen</string>
     <string name="player_delete_from_library">Aus Bibliothek löschen</string>

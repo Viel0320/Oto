@@ -62,6 +62,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.materialkolor.PaletteStyle
+import com.materialkolor.dynamicColorScheme
+import com.materialkolor.ktx.animateColorScheme
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.edit.EditBookDraft
 import com.viel.aplayer.data.store.AppSettings
@@ -71,9 +74,6 @@ import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
-import com.materialkolor.PaletteStyle
-import com.materialkolor.dynamicColorScheme
-import com.materialkolor.ktx.animateColorScheme
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalAmoled
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
@@ -572,15 +572,11 @@ fun EditBookScreen(
                                         isPlaying = false,
                                         coverLastUpdated = book.coverLastUpdated,
                                         coverScene = "edit-main-cover",
-                                        onAdjustVolume = {},
-                                        onNextChapter = {},
-                                        onPreviousChapter = {},
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .aspectRatio(1f)
                                             .clip(RoundedCornerShape(24.dp)),
-                                        sizeRatio = 1.0f,
-                                        gesturesEnabled = false
+                                        sizeRatio = 1.0f
                                     )
 
                                     changeCoverButton()
@@ -609,15 +605,11 @@ fun EditBookScreen(
                                 isPlaying = false,
                                 coverLastUpdated = book.coverLastUpdated,
                                 coverScene = "edit-main-cover",
-                                onAdjustVolume = {},
-                                onNextChapter = {},
-                                onPreviousChapter = {},
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(1f)
                                     .clip(RoundedCornerShape(24.dp)),
-                                sizeRatio = 1.0f,
-                                gesturesEnabled = false
+                                sizeRatio = 1.0f
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))

@@ -1,8 +1,5 @@
 package com.viel.aplayer.ui.player.components
 
-// Import fundamental background modifiers to resolve unresolved reference compilation errors on frosted glass big button background modifiers.
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -13,38 +10,27 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Snooze
-import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.data.store.PlaybackSeekStepConfig
-import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.media.SeekStepPresentation
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.PlaybackControlActions
@@ -52,16 +38,18 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
-import kotlinx.coroutines.delay
-import kotlin.time.Duration.Companion.milliseconds
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class)
+/**
+ * Renders explicit playback transport controls.
+ *
+ * The outer buttons now move across chapter boundaries while speed and sleep
+ * timer commands are owned by bottom navigation, keeping hidden long-press
+ * settings out of the main transport row.
+ */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun PlaybackControls(
     isPlaying: Boolean,
-    playbackSpeed: Float,
-    selectedSleepTimer: Int,
-    isSpeedManualMode: Boolean,
     playbackSeekStepConfig: PlaybackSeekStepConfig,
     actions: PlaybackControlActions,
     modifier: Modifier = Modifier,
@@ -70,64 +58,15 @@ fun PlaybackControls(
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null
 ) {
-    val haptic = LocalHapticFeedback.current
     // Localized Playback Control Copy (Resolve button descriptions and compact timer badges)
     // Playback state values are runtime data, while speed labels, transport descriptions, and timer units are app-authored UI copy.
-    val playbackSpeedContentDescription = stringResource(R.string.playback_speed_content_description)
-    val playbackSpeedText = stringResource(R.string.playback_speed_value, playbackSpeed.toString())
+    val previousChapterContentDescription = stringResource(R.string.playback_previous_chapter_content_description)
     val rewindContentDescription = stringResource(SeekStepPresentation.backwardLabel(playbackSeekStepConfig.backward))
     val playPauseContentDescription = stringResource(
         if (isPlaying) R.string.playback_pause_content_description else R.string.playback_play_content_description
     )
     val forwardContentDescription = stringResource(SeekStepPresentation.forwardLabel(playbackSeekStepConfig.forward))
-    val sleepTimerContentDescription = stringResource(R.string.settings_sleep_timer_title)
-    // Playback Assistive Action Labels (Name hidden click and long-press commands)
-    // These labels let TalkBack, Switch Access, and keyboard-driven accessibility services discover reset and cancel commands without relying on gesture memory.
-    val playbackSpeedCycleActionLabel = stringResource(R.string.playback_speed_cycle_action)
-    val playbackSpeedResetActionLabel = stringResource(R.string.playback_speed_reset_action)
-    val sleepTimerCycleActionLabel = stringResource(R.string.sleep_timer_cycle_action)
-    val sleepTimerCancelActionLabel = stringResource(R.string.sleep_timer_cancel_action)
-
-    // Speed Toast logic (Debounced)
-    var lastSpeed by remember { mutableFloatStateOf(playbackSpeed) }
-    LaunchedEffect(playbackSpeed) {
-        if (playbackSpeed != lastSpeed) {
-            // Debounce delay adjustment for speed selection.
-            //
-            // Adjusted to 1500 milliseconds (1.5 seconds) to provide a more sufficient buffer against accidental double clicks or spamming.
-            delay(1500.milliseconds) // Wait for 1.5s of inactivity
-            val message = if (playbackSpeed == 1.0f) {
-                FeedbackMessages.playbackSpeedReset()
-            } else {
-                FeedbackMessages.playbackSpeedChanged(formatPlaybackSpeedForFeedback(playbackSpeed))
-            }
-            // Resource-Backed Speed Feedback (Route playback-speed tips through FeedbackMessage)
-            // This removes English Toast literals from the control surface while preserving the existing debounced UX behavior.
-            actions.onShowToast(message)
-            lastSpeed = playbackSpeed
-        }
-    }
-
-    // Sleep Timer Toast logic (Debounced)
-    var lastTimer by remember { androidx.compose.runtime.mutableIntStateOf(selectedSleepTimer) }
-    LaunchedEffect(selectedSleepTimer) {
-        if (selectedSleepTimer != lastTimer) {
-            // Debounce delay adjustment for sleep timer.
-            //
-            // Adjusted to 1500 milliseconds (1.5 seconds) to avoid spamming the screen with toast popups during rapid successive clicks.
-            delay(1500.milliseconds) // Wait for 1.5s of inactivity
-            val message = when (selectedSleepTimer) {
-                0 -> FeedbackMessages.sleepTimerOff()
-                -1 -> FeedbackMessages.sleepTimerFiveSeconds()
-                -2 -> FeedbackMessages.sleepTimerEndOfChapter()
-                else -> FeedbackMessages.sleepTimerMinutes(selectedSleepTimer)
-            }
-            // Resource-Backed Sleep Timer Feedback (Route timer tips through FeedbackMessage)
-            // This keeps timer copy in string resources while the composable remains responsible only for debounce timing.
-            actions.onShowToast(message)
-            lastTimer = selectedSleepTimer
-        }
-    }
+    val nextChapterContentDescription = stringResource(R.string.playback_next_chapter_content_description)
 
     val contentColor = if (buttonColor.luminance() > 0.5f) Color.Black else Color.White
 
@@ -136,36 +75,12 @@ fun PlaybackControls(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .combinedClickable(
-                    onClickLabel = playbackSpeedCycleActionLabel,
-                    onClick = actions.onCyclePlaybackSpeed,
-                    onLongClickLabel = playbackSpeedResetActionLabel,
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        actions.onResetPlaybackSpeed()
-                    }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (playbackSpeed == 1.0f && !isSpeedManualMode) {
-                Icon(
-                    Icons.Rounded.Speed,
-                    contentDescription = playbackSpeedContentDescription,
-                    modifier = Modifier.size(24.dp)
-                )
-            } else {
-                Text(
-                    text = playbackSpeedText,
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-            }
+        IconButton(onClick = actions.onPreviousChapter, modifier = Modifier.size(56.dp)) {
+            Icon(
+                imageVector = Icons.Rounded.SkipPrevious,
+                contentDescription = previousChapterContentDescription,
+                modifier = Modifier.size(32.dp)
+            )
         }
 
         IconButton(onClick = actions.onSkipBackward, modifier = Modifier.size(56.dp)) {
@@ -240,42 +155,12 @@ fun PlaybackControls(
             )
         }
 
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .combinedClickable(
-                    onClickLabel = sleepTimerCycleActionLabel,
-                    onClick = actions.onCycleSleepTimer,
-                    onLongClickLabel = sleepTimerCancelActionLabel,
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        actions.onCancelSleepTimer()
-                    }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (selectedSleepTimer == 0) {
-                Icon(
-                    Icons.Rounded.Snooze,
-                    contentDescription = sleepTimerContentDescription,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            } else {
-                val displayText = when (selectedSleepTimer) {
-                    -1 -> stringResource(R.string.playback_sleep_timer_seconds_short, 5)
-                    -2 -> stringResource(R.string.playback_sleep_timer_chapter_short)
-                    else -> stringResource(R.string.playback_sleep_timer_minutes_short, selectedSleepTimer)
-                }
-                Text(
-                    text = displayText,
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-            }
+        IconButton(onClick = actions.onNextChapter, modifier = Modifier.size(56.dp)) {
+            Icon(
+                imageVector = Icons.Rounded.SkipNext,
+                contentDescription = nextChapterContentDescription,
+                modifier = Modifier.size(32.dp)
+            )
         }
     }
 }
@@ -287,20 +172,10 @@ fun PlaybackControlsPreview() {
         Surface {
             PlaybackControls(
                 isPlaying = false,
-                playbackSpeed = 1.0f,
-                selectedSleepTimer = 0,
-                isSpeedManualMode = false,
                 playbackSeekStepConfig = PlaybackSeekStepConfig(),
                 actions = PlaybackControlActions(),
                 modifier = Modifier.padding(16.dp)
             )
         }
     }
-}
-
-private fun formatPlaybackSpeedForFeedback(speed: Float): String {
-    // Playback Speed Formatting (Keep feedback arguments copy-neutral)
-    // Trims the trailing decimal from whole-number speeds while preserving fractional values such as 0.75 or 1.25.
-    val text = speed.toString()
-    return text.trimEnd('0').trimEnd('.')
 }

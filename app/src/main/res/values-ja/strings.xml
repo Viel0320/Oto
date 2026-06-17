@@ -412,6 +412,8 @@
     <string name="media_cover_content_description">カバー</string>
     <string name="playback_play_content_description">再生</string>
     <string name="playback_pause_content_description">一時停止</string>
+    <string name="playback_previous_chapter_content_description">前の章</string>
+    <string name="playback_next_chapter_content_description">次の章</string>
     <string name="player_show_total_progress">全体の進捗を表示</string>
     <string name="player_show_chapter_progress">章の進捗を表示</string>
     <string name="player_delete_from_library">ライブラリから削除</string>

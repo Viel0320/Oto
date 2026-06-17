@@ -115,11 +115,7 @@ fun DetailPortrait(
                 isPlaying = false,
                 coverLastUpdated = book?.lastScannedAt ?: 0L,
                 coverScene = "detail-main-cover",
-                onAdjustVolume = {},
-                onNextChapter = {},
-                onPreviousChapter = {},
                 sizeRatio = 1f,
-                gesturesEnabled = false,
                 /*
                  * Detail Cover Shared Element Key (Destination artwork endpoint)
                  *
