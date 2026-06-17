@@ -68,7 +68,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 glassEffectMode = appSettings.glassEffectMode,
                 homeViewStyle = appSettings.homeViewStyle,
                 themeMode = appSettings.themeMode,
-                isDynamicColorEnabled = appSettings.isDynamicColorEnabled
+                isDynamicColorEnabled = appSettings.isDynamicColorEnabled,
+                isAmoledEnabled = appSettings.isAmoledEnabled
             )
         },
         _homeDialogState
@@ -92,7 +93,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         glassEffectMode: GlassEffectMode,
         homeViewStyle: HomeViewStyle,
         themeMode: ThemeMode,
-        isDynamicColorEnabled: Boolean
+        isDynamicColorEnabled: Boolean,
+        isAmoledEnabled: Boolean
     ): LibraryUiState {
         return LibraryUiState(
             audiobooks = audiobooks,
@@ -113,7 +115,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             homeSortRule = homeSortRule,
             homeSortDirection = homeSortDirection,
             themeMode = themeMode,
-            isDynamicColorEnabled = isDynamicColorEnabled
+            isDynamicColorEnabled = isDynamicColorEnabled,
+            isAmoledEnabled = isAmoledEnabled
         )
     }
 

@@ -251,6 +251,8 @@
     <string name="settings_dynamic_color_title">Динамический цвет Monet</string>
     <string name="settings_dynamic_color_supported_subtitle">Если включено, тема приложения берет цвета из системных обоев</string>
     <string name="settings_dynamic_color_unsupported_subtitle">Динамический цвет Monet требует Android 8.0 или новее</string>
+    <string name="settings_amoled_title">Темная тема AMOLED</string>
+    <string name="settings_amoled_subtitle">В темном режиме использовать полностью черные поверхности для экономии заряда на OLED-экранах</string>
     <string name="settings_haze_effect_title">Экспериментальное размытие</string>
     <string name="settings_haze_effect_subtitle">Включает экспериментальное размытие фона на поддерживаемых экранах</string>
     <string name="settings_playback_behavior_title">Поведение воспроизведения</string>

@@ -85,6 +85,8 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         // Dynamic Color Storage Key (Preference key to track whether dynamic Monet coloring is enabled) Adds preferences key for dynamic color option.
         val IS_DYNAMIC_COLOR_ENABLED = booleanPreferencesKey("is_dynamic_color_enabled")
+        // AMOLED Dark Theme Storage Key (Tracks whether dark mode forces pure-black OLED surfaces)
+        val IS_AMOLED_ENABLED = booleanPreferencesKey("is_amoled_enabled")
         val HOME_FILTER = stringPreferencesKey("home_filter")
         // Home Book Status Filter Storage Key (Tracks the Home dialog's availability filter)
         // The value stores HomeBookStatusFilter enum names while this repository stays independent from the UI enum type.
@@ -160,6 +162,8 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
                 ?: AppLanguage.System,
             // Read Dynamic Color Setting (Load persisted dynamic color option, defaulting to true) Reads dynamic color setting from DataStore.
             isDynamicColorEnabled = preferences[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] ?: true,
+            // Read AMOLED Dark Theme Setting (Load persisted pure-black dark mode option, defaulting to off)
+            isAmoledEnabled = preferences[PreferencesKeys.IS_AMOLED_ENABLED] ?: false,
             // Read Home Filter (Parse persisted HomeFilter enum value)
             homeFilter = preferences[PreferencesKeys.HOME_FILTER]
                 ?.let { runCatching { HomeFilter.valueOf(it) }.getOrNull() }
@@ -400,6 +404,11 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
         dataStore.edit { it[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] = enabled }
     }
 
+    // Write AMOLED Dark Theme Setting (Persist the pure-black dark mode option to DataStore)
+    override suspend fun updateAmoledEnabled(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.IS_AMOLED_ENABLED] = enabled }
+    }
+
     companion object {
         @Volatile
         private var INSTANCE: AppSettingsRepository? = null
@@ -409,5 +418,11 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
                 INSTANCE ?: AppSettingsRepository(context.applicationContext.dataStore).also { INSTANCE = it }
             }
         }
+
+        // Test-Only Factory (Builds a repository over an isolated DataStore, bypassing the process singleton)
+        // Unit tests seed raw preferences per case, so they construct instances directly instead of sharing getInstance() cached state.
+        @androidx.annotation.VisibleForTesting
+        fun createForTesting(dataStore: DataStore<Preferences>): AppSettingsRepository =
+            AppSettingsRepository(dataStore)
     }
 }

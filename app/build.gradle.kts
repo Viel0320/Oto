@@ -127,6 +127,9 @@ dependencies {
 
     // Palette (for dynamic background colors)
     implementation(libs.androidx.palette.ktx)
+
+    // MaterialKolor (HCT/Monet dynamic color) Generates full Material 3 ColorSchemeS from a seed color (wallpaper or cover art).
+    implementation(libs.material.kolor)
     implementation(libs.androidx.datastore.preferences)
 
     // Introduce Haze Blur (Transition backdrop blur to dev.chrisbanes.haze) Replaced backdrop blur dependency with Haze libraries.

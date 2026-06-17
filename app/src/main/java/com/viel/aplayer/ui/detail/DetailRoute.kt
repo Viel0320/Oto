@@ -21,9 +21,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.store.GlassEffectMode
+import com.materialkolor.PaletteStyle
+import com.materialkolor.dynamicColorScheme
+import com.materialkolor.ktx.animateColorScheme
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
-import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
+import com.viel.aplayer.ui.common.theme.LocalAmoled
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.common.uiPerformanceTrace
 import dev.chrisbanes.haze.HazeState
@@ -67,7 +70,6 @@ fun DetailRoute(
     val detailHazeState = remember { HazeState() }
     val context = LocalContext.current
     val darkTheme = LocalDarkTheme.current
-    val currentColorScheme = MaterialTheme.colorScheme
     // Detail Cover Seed (Resolve artwork from the scene snapshot instead of a Room entity)
     // Dynamic theme state follows the selected detail item while keeping route code on the Detail boundary type.
     val coverPath = detailUiState.book?.item?.coverPath
@@ -79,9 +81,10 @@ fun DetailRoute(
         mutableStateOf(ImageProcessor.getCachedColor(coverPath, coverLastUpdated)?.let { Color(it) })
     }
 
-    val detailColorScheme = remember(coverColor, darkTheme, currentColorScheme) {
+    val amoled = LocalAmoled.current
+    val detailColorScheme = remember(coverColor, darkTheme, amoled) {
         coverColor?.let { color ->
-            DynamicColorSchemeHelper.generateColorSchemeFromSeed(color, darkTheme, currentColorScheme)
+            dynamicColorScheme(seedColor = color, isDark = darkTheme, isAmoled = amoled, style = PaletteStyle.Content)
         }
     }
     var pendingDownloadBookId by remember { mutableStateOf<String?>(null) }
@@ -193,7 +196,7 @@ fun DetailRoute(
         // Detail Theme Application (Apply book-seeded color only around the stateless detail screen)
         // Keeping theme selection here prevents DetailScreen from needing ImageProcessor or dynamic theme knowledge.
         if (detailColorScheme != null) {
-            MaterialTheme(colorScheme = detailColorScheme, content = screenBlock)
+            MaterialTheme(colorScheme = animateColorScheme(detailColorScheme), content = screenBlock)
         } else {
             screenBlock()
         }

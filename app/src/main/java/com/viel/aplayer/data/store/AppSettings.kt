@@ -181,6 +181,9 @@ data class AppSettings(
     val appLanguage: AppLanguage = AppLanguage.System,
     // Dynamic Color Option (Enable wallpaper-based color theme extraction) Adds isDynamicColorEnabled field to AppSettings with a default value of true to support Monet dynamic coloring.
     val isDynamicColorEnabled: Boolean = true,
+    // AMOLED Dark Theme Option (Forces pure-black surfaces in dark mode for OLED power saving)
+    // Only affects dark appearance; light themes ignore this flag. With dynamic color it routes through MaterialKolor's isAmoled.
+    val isAmoledEnabled: Boolean = false,
     /** Filter state on the home screen */
     // Home Filter Type Safe: Use HomeFilter enum instead of String for type safety.
     val homeFilter: HomeFilter = HomeFilter.NotStarted,

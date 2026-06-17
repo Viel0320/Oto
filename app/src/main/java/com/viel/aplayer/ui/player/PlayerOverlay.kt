@@ -24,11 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.materialkolor.PaletteStyle
+import com.materialkolor.dynamicColorScheme
+import com.materialkolor.ktx.animateColorScheme
 import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
-import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
+import com.viel.aplayer.ui.common.theme.LocalAmoled
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
@@ -106,11 +109,11 @@ fun PlayerOverlay(
         mutableStateOf(ImageProcessor.getCachedColor(coverPath, metadata.coverLastUpdated)?.let { Color(it) })
     }
 
-    val dynamicColorScheme = remember(coverColor, darkTheme, currentColorScheme) {
-        if (coverColor != null) {
-            DynamicColorSchemeHelper.generateColorSchemeFromSeed(coverColor!!, darkTheme, currentColorScheme)
-        } else {
-            null
+    // Cover-seeded scheme uses the Content palette so the UI tracks the artwork's own color.
+    val amoled = LocalAmoled.current
+    val coverColorScheme = remember(coverColor, darkTheme, amoled) {
+        coverColor?.let {
+            dynamicColorScheme(seedColor = it, isDark = darkTheme, isAmoled = amoled, style = PaletteStyle.Content)
         }
     }
 
@@ -224,7 +227,7 @@ fun PlayerOverlay(
                                 actions = miniPlayerActions,
                                 hazeState = appHazeState,
                                 glassEffectMode = glassEffectMode,
-                                dynamicColorScheme = dynamicColorScheme,
+                                dynamicColorScheme = coverColorScheme,
                                  onExpandClick = { settingsViewModel.openFullPlayerFromMini() }
                             )
                         }
@@ -277,7 +280,7 @@ fun PlayerOverlay(
                         // mini->player cover shared-element animation on the first cold-start expand. Always wrap so
                         // a late dynamicColorScheme only recolors instead of remounting.
                         MaterialTheme(
-                            colorScheme = dynamicColorScheme ?: currentColorScheme,
+                            colorScheme = animateColorScheme(coverColorScheme ?: currentColorScheme),
                             content = contentBlock
                         )
                     }
@@ -364,7 +367,7 @@ private fun MiniPlayerContent(
     // Mirrors the full-player wrapper: a conditional wrap/unwrap would remount the cover shared-element source
     // when a late dynamicColorScheme arrives, so always wrap and let it recolor in place.
     MaterialTheme(
-        colorScheme = dynamicColorScheme ?: MaterialTheme.colorScheme,
+        colorScheme = animateColorScheme(dynamicColorScheme ?: MaterialTheme.colorScheme),
         content = contentBlock
     )
 }

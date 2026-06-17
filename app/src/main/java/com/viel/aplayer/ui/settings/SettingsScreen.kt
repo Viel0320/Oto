@@ -106,6 +106,8 @@ fun SettingsScreen(
     onThemeModeChange: (ThemeMode) -> Unit,
     isDynamicColorEnabled: Boolean,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
+    isAmoledEnabled: Boolean,
+    onAmoledEnabledChange: (Boolean) -> Unit,
     glassEffectMode: GlassEffectMode,
     settingsHazeState: HazeState? = null,
     // Settings Dialog Intent Routing (Let the overlay own modal surfaces instead of the sampled page content)
@@ -223,6 +225,8 @@ fun SettingsScreen(
                             onThemeModeChange = onThemeModeChange,
                             isDynamicColorEnabled = isDynamicColorEnabled,
                             onDynamicColorEnabledChange = onDynamicColorEnabledChange,
+                            isAmoledEnabled = isAmoledEnabled,
+                            onAmoledEnabledChange = onAmoledEnabledChange,
                             glassEffectMode = glassEffectMode,
                             onGlassEffectModeChange = onGlassEffectModeChange
                         )
@@ -744,6 +748,8 @@ fun SettingsScreenPreview() {
                 onThemeModeChange = {},
                 isDynamicColorEnabled = true,
                 onDynamicColorEnabledChange = {},
+                isAmoledEnabled = false,
+                onAmoledEnabledChange = {},
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
                 onGlassEffectModeChange = {},
                 autoRewindSeconds = 0,

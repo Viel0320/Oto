@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.CloudUpload
+import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -207,6 +208,8 @@ fun InterfaceSettingsSection(
     onThemeModeChange: (ThemeMode) -> Unit,
     isDynamicColorEnabled: Boolean,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
+    isAmoledEnabled: Boolean,
+    onAmoledEnabledChange: (Boolean) -> Unit,
     glassEffectMode: GlassEffectMode,
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
     modifier: Modifier = Modifier
@@ -243,6 +246,15 @@ fun InterfaceSettingsSection(
             checked = isDynamicColorEnabled,
             onCheckedChange = onDynamicColorEnabledChange,
             enabled = isDynamicColorSupported
+        )
+        SettingsToggleItem(
+            title = stringResource(R.string.settings_amoled_title),
+            subtitle = stringResource(R.string.settings_amoled_subtitle),
+            // AMOLED Icon (Use a contrast glyph for the pure-black dark mode toggle)
+            // The setting only changes dark-mode surfaces, so a contrast symbol separates it from wallpaper color sampling.
+            icon = Icons.Rounded.Contrast,
+            checked = isAmoledEnabled,
+            onCheckedChange = onAmoledEnabledChange
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_haze_effect_title),

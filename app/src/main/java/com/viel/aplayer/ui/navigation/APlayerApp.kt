@@ -137,6 +137,13 @@ fun APlayerApp(
         initialSettings.isDynamicColorEnabled
     }
 
+    // Resolve AMOLED Dark Theme Preference (Live-preview from library state while in settings, else persisted value)
+    val isAmoledEnabled = if (libraryUiState.selectedFilter != null) {
+        libraryUiState.isAmoledEnabled
+    } else {
+        initialSettings.isAmoledEnabled
+    }
+
     // Resolve Theme Selection (Calculate target darkTheme state based on setting)
     val isDarkTheme = when (activeThemeMode) {
         ThemeMode.System -> androidx.compose.foundation.isSystemInDarkTheme()
@@ -179,7 +186,8 @@ fun APlayerApp(
         // Apply App Theme (Pass active dark theme and dynamic color states down to the theme container)
         APlayerTheme(
             darkTheme = isDarkTheme,
-            dynamicColor = isDynamicColorEnabled
+            dynamicColor = isDynamicColorEnabled,
+            amoled = isAmoledEnabled
         ) {
         // Setup Navigation 3
         // Controller (Initialize state and navigator) Migrate from rememberNavController to custom NavigationState.

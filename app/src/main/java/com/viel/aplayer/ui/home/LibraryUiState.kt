@@ -76,6 +76,8 @@ data class LibraryUiState(
     val themeMode: ThemeMode = ThemeMode.System,
     // Dynamic Color State Flag (Track theme color selection preference) Holds dynamic color setting state.
     val isDynamicColorEnabled: Boolean = true,
+    // AMOLED Dark Theme State Flag (Track pure-black dark mode preference for live theme preview)
+    val isAmoledEnabled: Boolean = false,
     // Home Dialog State (Expose page-level modal event holder to ViewModel)
     // Keeps dialog selection in the UI state so that dialog visibility survives configuration changes.
     val homeDialogState: HomeDialogState = HomeDialogState.None

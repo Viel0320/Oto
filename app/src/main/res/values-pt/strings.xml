@@ -295,6 +295,8 @@
         de parede do sistema</string>
     <string name="settings_dynamic_color_unsupported_subtitle">A cor dinâmica Monet requer Android
         8.0 ou posterior</string>
+    <string name="settings_amoled_title">Tema escuro AMOLED</string>
+    <string name="settings_amoled_subtitle">No modo escuro, usa superfícies totalmente pretas para poupar energia em ecrãs OLED</string>
     <string name="settings_haze_effect_title">Efeito de desfoque experimental</string>
     <string name="settings_haze_effect_subtitle">Ativa desfoque de fundo experimental em ecrãs
         suportados</string>

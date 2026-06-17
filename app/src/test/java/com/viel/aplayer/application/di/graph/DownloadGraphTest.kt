@@ -28,7 +28,7 @@ class DownloadGraphTest {
             // Manual Cache Lazy Boundary (Playback may resolve L1 manual cache without starting DownloadManager)
             // Remote playback now relies on memory buffering, so this access must not construct disk buffering or observers.
             assertTrue(cacheAccess.manualCache.cacheSpace >= 0L)
-            assertFalse(graph.isDownloadRuntimeInitializedForTests())
+            assertFalse(graph.isDownloadRuntimeInitialized)
         } finally {
             graph.close()
             media.close()

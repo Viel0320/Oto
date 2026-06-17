@@ -84,6 +84,7 @@ class DownloadAwareAppSettingsCommandsTest {
         override suspend fun updateThemeMode(mode: ThemeMode) = Unit
         override suspend fun updateAppLanguage(language: AppLanguage) = Unit
         override suspend fun updateDynamicColorEnabled(enabled: Boolean) = Unit
+        override suspend fun updateAmoledEnabled(enabled: Boolean) = Unit
         override suspend fun updatePlaybackBufferMaxBytes(bytes: Long) = Unit
     }
 

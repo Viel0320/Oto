@@ -231,6 +231,8 @@
     <string name="settings_dynamic_color_title">Color dinámico Monet</string>
     <string name="settings_dynamic_color_supported_subtitle">Al activarlo, el tema toma colores del fondo de pantalla del sistema</string>
     <string name="settings_dynamic_color_unsupported_subtitle">El color dinámico Monet requiere Android 8.0 o posterior</string>
+    <string name="settings_amoled_title">Tema oscuro AMOLED</string>
+    <string name="settings_amoled_subtitle">En modo oscuro, usa superficies negras puras para ahorrar energía en pantallas OLED</string>
     <string name="settings_haze_effect_title">Efecto de desenfoque experimental</string>
     <string name="settings_haze_effect_subtitle">Activa desenfoque de fondo experimental en pantallas compatibles</string>
     <string name="settings_playback_behavior_title">Comportamiento de reproducción</string>

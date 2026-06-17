@@ -142,6 +142,13 @@ class SettingsPreferencesHandler(
         }
     }
 
+    // Title: Toggle AMOLED Dark Theme (Updates pure-black dark mode preference)
+    fun toggleAmoledEnabled(enabled: Boolean) {
+        scope.launch {
+            settingsCommands.updateAmoledEnabled(enabled)
+        }
+    }
+
     // Title: Update Playback Buffer Size (Persist the memory buffer size preference)
     // The legacy cache-size command now feeds ExoPlayer LoadControl instead of any playback disk-cache runtime.
     fun updatePlaybackBufferMaxBytes(bytes: Long) {

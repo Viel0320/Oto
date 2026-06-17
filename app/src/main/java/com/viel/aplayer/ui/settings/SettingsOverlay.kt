@@ -379,6 +379,8 @@ fun SettingsOverlay(
                                 // Pipe Dynamic Color Settings (Forward dynamic color configuration parameters to downstream SettingsScreen) Binds dynamic color state and callback.
                                 isDynamicColorEnabled = settingsState.isDynamicColorEnabled,
                                 onDynamicColorEnabledChange = { settingsViewModel.preferencesHandler.toggleDynamicColorEnabled(it) },
+                                isAmoledEnabled = settingsState.isAmoledEnabled,
+                                onAmoledEnabledChange = { settingsViewModel.preferencesHandler.toggleAmoledEnabled(it) },
                                 glassEffectMode = settingsState.glassEffectMode,
                                 settingsHazeState = if (isBlur) settingsHazeState else null,
                                 onGlassEffectModeChange = { settingsViewModel.preferencesHandler.updateGlassEffectMode(it) },

@@ -71,8 +71,11 @@ import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
+import com.materialkolor.PaletteStyle
+import com.materialkolor.dynamicColorScheme
+import com.materialkolor.ktx.animateColorScheme
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.common.theme.DynamicColorSchemeHelper
+import com.viel.aplayer.ui.common.theme.LocalAmoled
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -156,15 +159,16 @@ fun EditBookScreen(
         mutableStateOf(ImageProcessor.getCachedColor(editCoverPath, editCoverLastUpdated)?.let { Color(it) })
     }
     val darkTheme = LocalDarkTheme.current
-    val fallbackColorScheme = MaterialTheme.colorScheme
     // Edit Cover Color Scheme (Derive Material colors from the edit page cover instead of inheriting the underlying page)
     // This keeps text fields, outlines, buttons, and top-bar content aligned with the editable cover, including temporary covers chosen before save.
-    val editColorScheme = remember(editCoverColor, darkTheme, fallbackColorScheme) {
+    val amoled = LocalAmoled.current
+    val editColorScheme = remember(editCoverColor, darkTheme, amoled) {
         editCoverColor?.let { coverColor ->
-            DynamicColorSchemeHelper.generateColorSchemeFromSeed(
+            dynamicColorScheme(
                 seedColor = coverColor,
-                darkTheme = darkTheme,
-                fallbackScheme = fallbackColorScheme
+                isDark = darkTheme,
+                isAmoled = amoled,
+                style = PaletteStyle.Content
             )
         }
     }
@@ -642,7 +646,7 @@ fun EditBookScreen(
     // Edit Cover Theme Application (Apply the cover-derived color scheme around the full edit surface)
     // The wrapper sits outside transparent Surface and Scaffold layers so contentColor, primary, outline, and button colors all come from the current edit cover.
     if (editColorScheme != null) {
-        MaterialTheme(colorScheme = editColorScheme, content = contentBlock)
+        MaterialTheme(colorScheme = animateColorScheme(editColorScheme), content = contentBlock)
     } else {
         contentBlock()
     }

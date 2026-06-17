@@ -231,6 +231,8 @@
     <string name="settings_dynamic_color_title">Monet 動的カラー</string>
     <string name="settings_dynamic_color_supported_subtitle">有効にすると、アプリテーマがシステム壁紙から色を取得します</string>
     <string name="settings_dynamic_color_unsupported_subtitle">Monet 動的カラーには Android 8.0 以降が必要です</string>
+    <string name="settings_amoled_title">AMOLED ダークテーマ</string>
+    <string name="settings_amoled_subtitle">ダークモードで純黒のサーフェスを使い、OLED 画面の消費電力を抑えます</string>
     <string name="settings_haze_effect_title">実験的なぼかし効果</string>
     <string name="settings_haze_effect_subtitle">対応画面で実験的な背景ぼかしを有効にします</string>
     <string name="settings_playback_behavior_title">再生動作</string>

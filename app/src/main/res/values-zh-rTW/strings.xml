@@ -235,6 +235,8 @@
     <string name="settings_dynamic_color_title">Monet 動態取色</string>
     <string name="settings_dynamic_color_supported_subtitle">開啟後，應用程式主題會從系統桌布擷取顏色</string>
     <string name="settings_dynamic_color_unsupported_subtitle">Monet 動態取色需要 Android 8.0 或更新版本</string>
+    <string name="settings_amoled_title">AMOLED 純黑深色主題</string>
+    <string name="settings_amoled_subtitle">深色模式下使用純黑背景，為 OLED 螢幕節省電量</string>
     <string name="settings_haze_effect_title">實驗性模糊效果</string>
     <string name="settings_haze_effect_subtitle">在支援的畫面啟用實驗性背景模糊效果</string>
     <string name="settings_playback_behavior_title">播放行為</string>

@@ -56,7 +56,7 @@ APlayer is an Android audiobook player with:
 * CUE, M3U8, generated multi-file, and single-audio book support,
 * Audiobookshelf and WebDAV remote-source infrastructure,
 * Media3 playback with progress persistence, auto rewind, bookmarks, subtitles, cache, and notifications,
-* Jetpack Compose Material 3 UI with Navigation 3,
+* Jetpack Compose Material 3 UI with Navigation 3 and MaterialKolor seed-driven color schemes,
 * Room, DataStore, WorkManager, OkHttp, Moshi, Coil, and Glance widgets,
 * exported Room schemas and architecture tests that guard important boundaries.
 
@@ -123,7 +123,7 @@ Project facts from `app/build.gradle.kts`:
 
 * Android namespace: `com.viel.aplayer`
 * compile SDK: `37`
-* min SDK: `32`
+* min SDK: `33`
 * target SDK: `36`
 * Java/Kotlin JVM target: `21`
 * Compose is enabled through the Kotlin Compose plugin.
@@ -294,6 +294,17 @@ Check:
 5. `LocalAppWindowSizeClass` usage for adaptive layout.
 6. Accessibility tests where labels, touch targets, focus, or stable bounds change.
 7. Maintained strings in `values/` and localized resources.
+
+### Changing Theme Or Dynamic Color
+
+Check:
+
+1. App-wide theme ownership under `ui/common/theme/`, especially `APlayerTheme`, `LocalDarkTheme`, and any CompositionLocal exposed from the theme boundary.
+2. Seed extraction and palette generation separately: wallpaper seed lookup may use Android platform APIs, while seed-to-`ColorScheme` generation should use MaterialKolor instead of ad-hoc HSL or color slicing.
+3. Cover-seeded themes stay scoped to the surfaces that own cover presentation, such as player, detail, and edit screens. Do not move cover-derived theme rules into `APlayerApp`.
+4. Settings persistence and live preview flow when adding theme preferences: DataStore model, application settings commands, read models, Settings UI, localized strings, and tests.
+5. Static fallback schemes in `Color.kt` when dynamic color is disabled or no seed is available.
+6. Visual and compile verification for light mode, dark mode, dynamic color enabled or disabled, and cover-seeded surfaces.
 
 ### Changing Widgets Or Notifications
 

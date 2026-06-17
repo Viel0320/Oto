@@ -231,6 +231,8 @@
     <string name="settings_dynamic_color_title">Monet Dynamic Color</string>
     <string name="settings_dynamic_color_supported_subtitle">Wenn aktiviert, übernimmt das App-Design Farben aus dem Systemhintergrund</string>
     <string name="settings_dynamic_color_unsupported_subtitle">Monet Dynamic Color benötigt Android 8.0 oder neuer</string>
+    <string name="settings_amoled_title">AMOLED-Dunkeldesign</string>
+    <string name="settings_amoled_subtitle">Im Dunkelmodus rein schwarze Flächen verwenden, um auf OLED-Bildschirmen Strom zu sparen</string>
     <string name="settings_haze_effect_title">Experimenteller Unschärfeeffekt</string>
     <string name="settings_haze_effect_subtitle">Aktiviert experimentelle Hintergrundunschärfe auf unterstützten Bildschirmen</string>
     <string name="settings_playback_behavior_title">Wiedergabeverhalten</string>

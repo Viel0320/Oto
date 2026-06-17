@@ -31,6 +31,8 @@ coroutines = "1.11.0"
 robolectric = "4.16.1"
 # Add Haze Library (Introduce Haze and HazeMaterials for backdrop blur effects) Enable hardware-accelerated Compose native backdrop blur.
 haze = "1.7.2"
+# MaterialKolor (HCT/Monet dynamic ColorScheme generation) Replaces the in-house HSL approximation with Google's material-color-utilities algorithm.
+materialKolor = "4.1.1"
 
 
 [libraries]
@@ -86,6 +88,8 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 # Setup Haze Libraries (Link dependencies for Haze and HazeMaterials) Declare Haze and HazeMaterials coordinates to support blurring.
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 haze-materials = { group = "dev.chrisbanes.haze", name = "haze-materials", version.ref = "haze" }
+# MaterialKolor (Material Color Utilities / HCT dynamic ColorScheme generation for Compose)
+material-kolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialKolor" }
 
 
 [plugins]
