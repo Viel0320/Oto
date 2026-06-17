@@ -216,9 +216,7 @@ fun BookmarkListView(
                             color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                         )
                         Text(
-                            // Localized Bookmark Date Prefix (Format bookmark creation dates through resources)
-                            // The timestamp is bookmark data, while the visible prefix and spacing are app-authored UI formatting.
-                            text = stringResource(R.string.bookmark_created_at_label, formatDate(bookmark.createdAt)),
+                            text = "@ ${formatDate(bookmark.createdAt)}",
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontSize = 14.sp
                             ),
