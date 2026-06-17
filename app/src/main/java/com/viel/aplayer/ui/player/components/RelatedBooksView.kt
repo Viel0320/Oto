@@ -40,52 +40,77 @@ fun RelatedBooksView(
     ) {
         //
         // Heuristic recommendations header (To render top scored items row if heuristic list is not empty)
-        // Uses composite prefix keys like "h:${book.book.id}" to guarantee layout uniqueness across sections.
+        // Uses section-aware keys so repeated book IDs from different recommendation groups remain valid LazyColumn items.
         if (heuristicBooks.isNotEmpty()) {
-            item {
+            item(key = "recommended:header") {
                 // Related Header Resources (Resolve recommendation headers through localized resources)
                 // Resource-backed labels let each playback tab locale translate static headings while creator names stay formatted at the UI boundary.
                 RelatedSectionHeader(stringResource(R.string.player_related_recommended))
             }
-            items(heuristicBooks, key = { "h:${it.id}" }) { book ->
+            items(heuristicBooks, key = { "recommended:${it.id}" }) { book ->
                 RelatedAudiobookItem(book, onBookClick)
             }
         }
 
-        authorSections.forEach { section ->
+        authorSections.forEachIndexed { sectionIndex, section ->
             if (section.books.isNotEmpty()) {
-                item {
+                item(key = relatedSectionHeaderKey("author", sectionIndex, section.name)) {
                     RelatedSectionHeader(stringResource(R.string.player_related_more_by_author, section.name))
                 }
                 // M-20 Fix — Configure list key (To assign unique key to prevent index recycling glitches)
-                items(section.books, key = { it.id }) { book ->
+                items(section.books, key = { relatedSectionBookKey("author", sectionIndex, section.name, it) }) { book ->
                     RelatedAudiobookItem(book, onBookClick)
                 }
             }
         }
 
-        narratorSections.forEach { section ->
+        narratorSections.forEachIndexed { sectionIndex, section ->
             if (section.books.isNotEmpty()) {
-                item {
+                item(key = relatedSectionHeaderKey("narrator", sectionIndex, section.name)) {
                     RelatedSectionHeader(stringResource(R.string.player_related_more_by_narrator, section.name))
                 }
                 // M-20 Fix — Configure narrator list key (To assign compound keys to avoid key duplicate errors)
-                items(section.books, key = { "n:${it.id}" }) { book ->
+                items(section.books, key = { relatedSectionBookKey("narrator", sectionIndex, section.name, it) }) { book ->
                     RelatedAudiobookItem(book, onBookClick)
                 }
             }
         }
 
         if (recentBooks.isNotEmpty()) {
-            item {
+            item(key = "recent:header") {
                 RelatedSectionHeader(stringResource(R.string.player_related_recently_added))
             }
             // M-20 Fix — Configure recent list key (To assign prefix keys to prevent section key collisions)
-            items(recentBooks, key = { "r:${it.id}" }) { book ->
+            items(recentBooks, key = { "recent:${it.id}" }) { book ->
                 RelatedAudiobookItem(book, onBookClick)
             }
         }
     }
+}
+
+/**
+ * Related Section Header Key (Preserves LazyColumn identity across repeated creator groups)
+ *
+ * Related recommendations may include the same creator label more than once after metadata splitting, so the section
+ * index is part of the key instead of relying on the creator name alone.
+ */
+private fun relatedSectionHeaderKey(sectionType: String, sectionIndex: Int, sectionName: String): String {
+    return "related:$sectionType:$sectionIndex:$sectionName:header"
+}
+
+/**
+ * Related Section Book Key (Allows one book to appear under multiple recommendation groups)
+ *
+ * Compose requires item keys to be globally unique inside one LazyColumn. Including the section identity keeps repeated
+ * book IDs valid when a title matches several author or narrator sections.
+ */
+private fun relatedSectionBookKey(
+    sectionType: String,
+    sectionIndex: Int,
+    sectionName: String,
+    book: PlayerRelatedBook
+): String {
+    return "related:$sectionType:$sectionIndex:$sectionName:${book.id}"
 }
 
 @Composable

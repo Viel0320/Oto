@@ -339,8 +339,12 @@ fun HomeContent(
 
                     when (homeViewStyle) {
                         HomeViewStyle.List -> {
-                            // M-20 Fix: Use book.id as a stable key to prevent item state dislocation after book list sorting
-                            items(books, key = { it.id }) { book ->
+                            // Home List Composite Key (Scope book identity to its rendered catalog section)
+                            // The group title is the current section identity, so item keys stay stable when sorting changes positions inside the same section.
+                            items(
+                                books,
+                                key = { book -> homeGroupedBookKey("list", groupTitle, book) }
+                            ) { book ->
                                 // listgroup Adaptive Cell Padding (Preserve roomy spacing when responsive layouts create multiple columns)
                                 // Compact portrait keeps the edge-to-edge list feel, while wider layouts add inner spacing between parallel listgroup columns.
                                 val itemModifier = if (listgroupColumnsCount > 1) {
@@ -402,7 +406,10 @@ fun HomeContent(
                                     ),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    items(books, key = { it.id }) { book ->
+                                    items(
+                                        books,
+                                        key = { book -> homeGroupedBookKey("card-row", groupTitle, book) }
+                                    ) { book ->
                                         // Cardgroup Row Item Rendering (Reuse the fixed-width cover card inside a horizontal carousel)
                                         // Uses the Home-list shared element key so card taps still transition through the catalog-origin detail channel.
                                         Cardgroup(
@@ -433,6 +440,20 @@ fun HomeContent(
     }
 
     }
+}
+
+/**
+ * Home Grouped Book Key (Scopes catalog row identity to a Home section)
+ *
+ * The Home section and book ID form the UI identity for a catalog row, preserving Compose state when items reorder
+ * while still preventing the same book from colliding across different Home rendering sections.
+ */
+private fun homeGroupedBookKey(
+    sectionType: String,
+    groupTitle: String,
+    book: HomeBookItem
+): String {
+    return "home:$sectionType:$groupTitle:${book.id}"
 }
 
 @Preview(showBackground = true, apiLevel = 36)

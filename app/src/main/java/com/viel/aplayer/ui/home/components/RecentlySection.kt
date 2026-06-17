@@ -86,8 +86,9 @@ fun RecentlyAddedSection(
             contentPadding = PaddingValues(horizontal = screenHorizontalPadding - 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // M-20 Fix: Use unique book.id as LazyList stable key to prevent card covers from flickering or shifting due to frequent reloads
-            items(recentBooks, key = { it.id }) { book ->
+            // Recent Row Composite Key (Scope recent-card identity to the recent carousel)
+            // The recent section owns a separate key namespace, while book ID preserves item identity during reordering.
+            items(recentBooks, key = { book -> recentHomeBookKey(book) }) { book ->
                 Cardgroup(
                     bookId = book.id,
                     title = book.title,
@@ -127,4 +128,14 @@ fun RecentlyAddedSection(
             }
         }
     }
+}
+
+/**
+ * Recent Home Book Key (Scopes recent-card identity to the Home recent section)
+ *
+ * Recent rows use their own key namespace so the same book can also appear in the main catalog without sharing Lazy
+ * item identity, while the book ID remains stable across order changes.
+ */
+private fun recentHomeBookKey(book: HomeBookItem): String {
+    return "home:recent:${book.id}"
 }
