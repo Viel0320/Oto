@@ -3,7 +3,7 @@ package com.viel.aplayer.abs
 import com.viel.aplayer.abs.sync.AbsSyncPlan
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.service.shouldDeleteAbsCredential
+import com.viel.aplayer.data.root.shouldDeleteAbsCredential
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -188,6 +188,8 @@ Use existing feature packages under `application/library/`, `application/playbac
 
 Room entities, DAOs, gateways, services, cache policies, and DataStore-backed stores live under `data/`.
 
+The data layer is packaged **by feature**, not by type: each capability has its own package under `data/<feature>/` (e.g. `data/book/`, `data/availability/`, `data/cover/`, `data/root/`, `data/metadata/`, `data/progress/`, `data/scan/`, `data/search/`, `data/subtitle/`, `data/cleanup/`). Within a feature package, `XxxGateway` is the application-facing interface contract and `XxxService` is its implementation, kept side by side. There is no longer a type-based `data/gateway/` or `data/service/` directory; do not reintroduce one. A single capability may be split into several narrow gateways (the `data/book/` package backs six), each with its own `XxxService` implementation.
+
 Do not bypass gateways from UI or feature ViewModels. Keep database constants in `AudiobookSchema`. When adding or changing persisted state, update entities, DAOs, migrations, schema exports, services, tests, and affected read models together.
 
 ### Library And VFS

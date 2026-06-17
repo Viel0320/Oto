@@ -22,7 +22,7 @@ import kotlin.io.path.createTempDirectory
 // Local Android Runtime Alignment (Runs AndroidX DataStore through the same SDK path as other repository tests)
 // Robolectric avoids android.jar stub behavior while keeping preference corruption scenarios deterministic on the JVM.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class AppSettingsRepositoryTest {
 
     @Test

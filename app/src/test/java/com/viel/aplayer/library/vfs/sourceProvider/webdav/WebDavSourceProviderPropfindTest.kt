@@ -24,7 +24,7 @@ import org.robolectric.annotation.Config
 // Local WebDAV PROPFIND Runtime (Exercise Multi-Status parsing through the real provider and VFS cache boundary)
 // These tests verify that failed WebDAV response blocks never become SourceNode values or persisted directory snapshots.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class WebDavSourceProviderPropfindTest {
 
     @Test

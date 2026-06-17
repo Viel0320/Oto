@@ -44,14 +44,14 @@ import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
-import com.viel.aplayer.data.gateway.BookAvailabilityGateway
-import com.viel.aplayer.data.gateway.BookCatalogGateway
-import com.viel.aplayer.data.gateway.BookmarkGateway
-import com.viel.aplayer.data.gateway.ChapterGateway
-import com.viel.aplayer.data.gateway.LibraryRootGateway
-import com.viel.aplayer.data.gateway.ProgressGateway
-import com.viel.aplayer.data.gateway.ScanScheduler
-import com.viel.aplayer.data.gateway.SearchHistoryGateway
+import com.viel.aplayer.data.availability.BookAvailabilityGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookmarkGateway
+import com.viel.aplayer.data.book.ChapterGateway
+import com.viel.aplayer.data.root.LibraryRootGateway
+import com.viel.aplayer.data.progress.ProgressGateway
+import com.viel.aplayer.data.scan.ScanScheduler
+import com.viel.aplayer.data.search.SearchHistoryGateway
 import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.di.dependencies.AppFeedbackDependencies
 import com.viel.aplayer.di.dependencies.AppShellDependencies
@@ -474,7 +474,7 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
 
     private val settingsWebDavCredentialStore: WebDavCredentialStore by lazy {
         // Settings WebDAV Credential Store (Shared credential lookup for query use cases)
-        // Reuses the same storage adapter as LibraryRootService without exposing it to SettingsViewModel.
+        // Reuses the same storage adapter as LibraryRootGatewayImpl without exposing it to SettingsViewModel.
         WebDavCredentialStore(context.applicationContext)
     }
 

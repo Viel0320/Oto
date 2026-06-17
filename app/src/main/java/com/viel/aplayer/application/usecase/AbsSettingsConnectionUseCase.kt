@@ -6,7 +6,7 @@ import com.viel.aplayer.abs.net.AbsUrlResolver
 import com.viel.aplayer.abs.sync.AbsConnectionTestResult
 import com.viel.aplayer.abs.sync.AbsConnectionTester
 import com.viel.aplayer.data.dao.LibraryRootDao
-import com.viel.aplayer.data.gateway.LibraryRootGateway
+import com.viel.aplayer.data.root.LibraryRootGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID

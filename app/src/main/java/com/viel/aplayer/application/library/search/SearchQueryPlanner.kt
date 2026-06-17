@@ -1,7 +1,7 @@
 package com.viel.aplayer.application.library.search
 
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.gateway.BookCatalogGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf

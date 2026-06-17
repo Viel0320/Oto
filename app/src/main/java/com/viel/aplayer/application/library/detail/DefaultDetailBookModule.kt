@@ -1,8 +1,8 @@
 package com.viel.aplayer.application.library.detail
 
-import com.viel.aplayer.data.gateway.BookAvailabilityGateway
-import com.viel.aplayer.data.gateway.BookCatalogGateway
-import com.viel.aplayer.data.gateway.LibraryRootGateway
+import com.viel.aplayer.data.availability.BookAvailabilityGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.root.LibraryRootGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

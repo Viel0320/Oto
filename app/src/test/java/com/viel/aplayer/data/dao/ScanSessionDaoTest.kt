@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
 // Room Scan Session Lifecycle Harness (Runs the real DAO SQL against an in-memory database)
 // The abandoned-state bug lives in the persistence update statement, so this test verifies the concrete Room query instead of a fake.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class ScanSessionDaoTest {
 
     @Test

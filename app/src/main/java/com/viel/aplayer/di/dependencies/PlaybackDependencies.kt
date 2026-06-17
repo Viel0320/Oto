@@ -1,11 +1,11 @@
 package com.viel.aplayer.di.dependencies
 
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
-import com.viel.aplayer.data.gateway.BookAvailabilityGateway
-import com.viel.aplayer.data.gateway.BookCatalogGateway
-import com.viel.aplayer.data.gateway.BookmarkGateway
-import com.viel.aplayer.data.gateway.ChapterGateway
-import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.data.availability.BookAvailabilityGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookmarkGateway
+import com.viel.aplayer.data.book.ChapterGateway
+import com.viel.aplayer.data.progress.ProgressGateway
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackFileLookup

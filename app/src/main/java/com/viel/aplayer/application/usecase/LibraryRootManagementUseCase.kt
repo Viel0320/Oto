@@ -3,10 +3,10 @@ package com.viel.aplayer.application.usecase
 import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
 import com.viel.aplayer.application.playback.PlaybackStopper
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.gateway.BookCatalogGateway
-import com.viel.aplayer.data.gateway.BookRootInventoryGateway
-import com.viel.aplayer.data.gateway.LibraryResourceCleanupGateway
-import com.viel.aplayer.data.gateway.LibraryRootGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookRootInventoryGateway
+import com.viel.aplayer.data.cleanup.LibraryResourceCleanupGateway
+import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.logger.LibraryWorkflowLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

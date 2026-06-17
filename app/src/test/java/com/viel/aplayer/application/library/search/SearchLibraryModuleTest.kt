@@ -4,7 +4,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.data.gateway.SearchHistoryGateway
+import com.viel.aplayer.data.search.SearchHistoryGateway
 import com.viel.aplayer.data.store.SearchHistoryEntry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

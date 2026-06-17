@@ -29,9 +29,9 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.gateway.BookCatalogGateway
-import com.viel.aplayer.data.gateway.BookMetadataGateway
-import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookMetadataGateway
+import com.viel.aplayer.data.progress.ProgressGateway
 import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.AppShellEvent

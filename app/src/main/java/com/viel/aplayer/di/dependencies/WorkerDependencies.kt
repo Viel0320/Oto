@@ -1,7 +1,7 @@
 package com.viel.aplayer.di.dependencies
 
 import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
-import com.viel.aplayer.data.gateway.ScanScheduler
+import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.event.AppEventSink
 
 /**

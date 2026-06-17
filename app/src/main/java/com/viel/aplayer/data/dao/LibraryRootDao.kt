@@ -19,7 +19,7 @@ interface LibraryRootDao {
     suspend fun getActiveRootsOnce(): List<LibraryRootEntity>
 
     // Startup Warmup Root Query (Limits cold-start remote freshness checks to active Audiobookshelf roots)
-    // Reading this directly from Room avoids constructing LibraryRootService, scan scheduling, VFS, or cover recovery dependencies before a stale ABS root is found.
+    // Reading this directly from Room avoids constructing LibraryRootGatewayImpl, scan scheduling, VFS, or cover recovery dependencies before a stale ABS root is found.
     @Query("SELECT * FROM library_roots WHERE status = 'ACTIVE' AND sourceType = 'ABS'")
     suspend fun getActiveAbsRootsOnce(): List<LibraryRootEntity>
 

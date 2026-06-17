@@ -188,7 +188,8 @@ class GraphLifecycleTest {
         val closeSupportSource = sourceRoot.resolve("di/graph/GraphCloseSupport.kt").readText()
 
         val declaredCloseableLazyNames = listOf(
-            "bookQueryServiceLazy",
+            "bookMetadataGatewayLazy",
+            "chapterGatewayLazy",
             "progressGatewayLazy",
             "scanSchedulerLazy",
             "libraryRootGatewayLazy",

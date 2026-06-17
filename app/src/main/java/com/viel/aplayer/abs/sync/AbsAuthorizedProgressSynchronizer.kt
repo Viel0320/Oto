@@ -9,9 +9,9 @@ import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.gateway.BookCatalogGateway
-import com.viel.aplayer.data.gateway.BookMetadataGateway
-import com.viel.aplayer.data.gateway.ProgressGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookMetadataGateway
+import com.viel.aplayer.data.progress.ProgressGateway
 
 /**
  * ABS Authorized Progress Synchronizer (Merges authorize-scoped user progress for any sync trigger)

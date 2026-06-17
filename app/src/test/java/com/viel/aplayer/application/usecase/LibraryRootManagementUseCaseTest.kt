@@ -8,10 +8,10 @@ import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.gateway.BookCatalogGateway
-import com.viel.aplayer.data.gateway.BookRootInventoryGateway
-import com.viel.aplayer.data.gateway.LibraryResourceCleanupGateway
-import com.viel.aplayer.data.gateway.LibraryRootGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookRootInventoryGateway
+import com.viel.aplayer.data.cleanup.LibraryResourceCleanupGateway
+import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf

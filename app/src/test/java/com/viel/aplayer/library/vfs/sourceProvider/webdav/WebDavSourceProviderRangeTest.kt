@@ -21,7 +21,7 @@ import org.robolectric.annotation.Config
 // Local WebDAV Runtime Alignment (Exercise the real Context-backed provider through JVM tests)
 // WebDavSourceProvider owns SharedPreferences credentials and AppSettings-backed network policy, so Robolectric keeps range validation on the production request path.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class WebDavSourceProviderRangeTest {
 
     @Test

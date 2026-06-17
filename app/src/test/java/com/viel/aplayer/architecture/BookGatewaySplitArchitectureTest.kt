@@ -33,7 +33,7 @@ class BookGatewaySplitArchitectureTest {
 
     @Test
     fun splitGatewayFilesExistForEachBookCapability() {
-        val gatewayRoot = resolveSourceRoot().resolve("data/gateway")
+        val gatewayRoot = resolveSourceRoot().resolve("data/book")
         val expectedFiles = listOf(
             "BookCatalogGateway.kt",
             "BookMetadataGateway.kt",

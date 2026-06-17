@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config
 // Download Metadata Migration Harness (Validates the non-destructive 42 to 43 schema upgrade)
 // The migration must add only the download aggregate table while preserving existing catalog and playback rows.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class AppDatabaseDownloadMetadataMigrationTest {
 
     @get:Rule

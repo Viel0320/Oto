@@ -19,7 +19,7 @@ import org.robolectric.annotation.Config
 // Download Metadata DAO Harness (Exercises the real Room DAO used by offline-cache recovery)
 // These tests lock the persistence boundary before Media3 runtime code starts depending on the aggregate table.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class DownloadMetadataDaoTest {
 
     @Test

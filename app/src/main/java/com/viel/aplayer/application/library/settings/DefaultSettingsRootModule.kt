@@ -5,8 +5,8 @@ import com.viel.aplayer.abs.sync.AbsSyncPlan
 import com.viel.aplayer.abs.sync.AbsSyncTaskOrigin
 import com.viel.aplayer.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.gateway.LibraryRootGateway
-import com.viel.aplayer.data.gateway.ScanScheduler
+import com.viel.aplayer.data.root.LibraryRootGateway
+import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
 import kotlinx.coroutines.flow.Flow

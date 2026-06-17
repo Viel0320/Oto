@@ -24,7 +24,7 @@ import kotlin.io.path.createTempDirectory
 // Local Android Runtime Alignment (Runs cover cache tests against an Android-like context)
 // AbsCoverCache uses Context-backed cache directories and DataStore-backed credentials, so Robolectric keeps the test on the same code path as production without device instrumentation.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class AbsCoverCacheTest {
 
     @Test

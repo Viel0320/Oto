@@ -4,7 +4,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.gateway.BookAvailabilityGateway
+import com.viel.aplayer.data.availability.BookAvailabilityGateway
 import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.media.PlaybackDomainEvent
 import com.viel.aplayer.media.PlaybackDomainEventSink

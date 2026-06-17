@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config
  * Runs through Robolectric because production sorting uses android.icu.text.Collator instead of java.text.Collator.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class HomeCatalogSortPolicyTest {
 
     @Test

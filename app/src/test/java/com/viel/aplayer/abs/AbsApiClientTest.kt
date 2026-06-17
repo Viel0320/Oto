@@ -37,7 +37,7 @@ import kotlin.io.path.createTempDirectory
 // Local Android Runtime Alignment (Runs AndroidX DataStore through the app-supported SDK path)
 // Robolectric pins Build.VERSION.SDK_INT to API 32 so the test avoids android.jar's default SDK 0 behavior, which makes DataStore use a Windows-incompatible legacy rename path.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class AbsApiClientTest {
 
     // RemoveInvalidEnumCompileError: Remove test asserting invalid String source type since compiler now enforces type-safe enum.

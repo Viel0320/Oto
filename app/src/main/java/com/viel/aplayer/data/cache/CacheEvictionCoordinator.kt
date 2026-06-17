@@ -5,7 +5,7 @@ import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.DirectoryCacheDao
 import com.viel.aplayer.data.dao.DirectoryChildCacheDao
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.gateway.LibraryResourceCleanupGateway
+import com.viel.aplayer.data.cleanup.LibraryResourceCleanupGateway
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.VfsRangeCache
 import com.viel.aplayer.library.vfs.cache.VfsRangeCacheKey

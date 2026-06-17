@@ -24,7 +24,7 @@ import org.robolectric.annotation.Config
  * Exercises root registration and edit flows at the store layer so credential staging is verified before UI, gateway, or scan scheduling code can hide ordering failures.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class LibraryRootStoreTest {
 
     @Test

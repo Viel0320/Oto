@@ -28,34 +28,39 @@ import com.viel.aplayer.application.usecase.BookManagementUseCase
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.application.usecase.LibraryRootManagementUseCase
 import com.viel.aplayer.data.cache.CacheEvictionCoordinator
-import com.viel.aplayer.data.gateway.BookAvailabilityGateway
-import com.viel.aplayer.data.gateway.BookCatalogGateway
-import com.viel.aplayer.data.gateway.BookDeletionGateway
-import com.viel.aplayer.data.gateway.BookMetadataGateway
-import com.viel.aplayer.data.gateway.BookRootInventoryGateway
-import com.viel.aplayer.data.gateway.BookmarkGateway
-import com.viel.aplayer.data.gateway.ChapterGateway
-import com.viel.aplayer.data.gateway.CoverAssetGateway
-import com.viel.aplayer.data.gateway.CoverUriResolver
-import com.viel.aplayer.data.gateway.LibraryResourceCleanupGateway
-import com.viel.aplayer.data.gateway.LibraryRootGateway
-import com.viel.aplayer.data.gateway.MetadataRefreshGateway
-import com.viel.aplayer.data.gateway.ProgressGateway
-import com.viel.aplayer.data.gateway.ScanScheduler
-import com.viel.aplayer.data.gateway.SearchHistoryGateway
-import com.viel.aplayer.data.gateway.SubtitleGateway
-import com.viel.aplayer.data.service.AndroidCoverUriResolver
-import com.viel.aplayer.data.service.BookAvailabilityService
-import com.viel.aplayer.data.service.BookQueryService
-import com.viel.aplayer.data.service.CoverAssetService
-import com.viel.aplayer.data.service.LibraryRootService
-import com.viel.aplayer.data.service.MetadataRefreshService
-import com.viel.aplayer.data.service.PlaybackPlanService
-import com.viel.aplayer.data.service.ProgressService
-import com.viel.aplayer.data.service.RemotePlaybackCleanupService
-import com.viel.aplayer.data.service.ScanService
-import com.viel.aplayer.data.service.SearchService
-import com.viel.aplayer.data.service.SubtitleService
+import com.viel.aplayer.data.availability.BookAvailabilityGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookDeletionGateway
+import com.viel.aplayer.data.book.BookMetadataGateway
+import com.viel.aplayer.data.book.BookRootInventoryGateway
+import com.viel.aplayer.data.book.BookmarkGateway
+import com.viel.aplayer.data.book.ChapterGateway
+import com.viel.aplayer.data.cover.CoverAssetGateway
+import com.viel.aplayer.data.cover.CoverUriResolver
+import com.viel.aplayer.data.cleanup.LibraryResourceCleanupGateway
+import com.viel.aplayer.data.root.LibraryRootGateway
+import com.viel.aplayer.data.metadata.MetadataRefreshGateway
+import com.viel.aplayer.data.progress.ProgressGateway
+import com.viel.aplayer.data.scan.ScanScheduler
+import com.viel.aplayer.data.search.SearchHistoryGateway
+import com.viel.aplayer.data.subtitle.SubtitleGateway
+import com.viel.aplayer.data.cover.AndroidCoverUriResolver
+import com.viel.aplayer.data.availability.BookAvailabilityGatewayImpl
+import com.viel.aplayer.data.book.BookCatalogGatewayImpl
+import com.viel.aplayer.data.book.BookDeletionGatewayImpl
+import com.viel.aplayer.data.book.BookMetadataGatewayImpl
+import com.viel.aplayer.data.book.BookRootInventoryGatewayImpl
+import com.viel.aplayer.data.book.BookmarkGatewayImpl
+import com.viel.aplayer.data.book.ChapterGatewayImpl
+import com.viel.aplayer.data.cover.CoverAssetGatewayImpl
+import com.viel.aplayer.data.root.LibraryRootGatewayImpl
+import com.viel.aplayer.data.metadata.MetadataRefreshGatewayImpl
+import com.viel.aplayer.media.PlaybackPlanGatewayImpl
+import com.viel.aplayer.data.progress.ProgressGatewayImpl
+import com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGatewayImpl
+import com.viel.aplayer.data.scan.ScanSchedulerImpl
+import com.viel.aplayer.data.search.SearchHistoryGatewayImpl
+import com.viel.aplayer.data.subtitle.SubtitleGatewayImpl
 import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.media.PlaybackPlanGateway
 import com.viel.aplayer.media.parser.CoverExtractor
@@ -95,10 +100,10 @@ internal class LibraryGraph(
         AvailabilityChecker(context.applicationContext)
     }
 
-    val bookAvailabilityService: BookAvailabilityService by lazy {
+    val bookAvailabilityGatewayImpl: BookAvailabilityGatewayImpl by lazy {
         // Book Availability Application Service (Centralized reachability and status-refresh orchestration)
         // Provides the single application-layer module that can refresh persisted book/file availability state.
-        BookAvailabilityService(
+        BookAvailabilityGatewayImpl(
             bookDao = data.database.bookDao(),
             libraryRootDao = data.database.libraryRootDao(),
             availabilityChecker = availabilityChecker
@@ -139,70 +144,66 @@ internal class LibraryGraph(
         )
     }
 
-    private val bookQueryServiceLazy = lazy {
-        // Book Query Service Adapter (Dedicated book, chapter, and bookmark query implementation)
-        // Playback plan construction now lives in PlaybackPlanService so this adapter no longer carries playback startup logic.
-        BookQueryService(
+    /**
+     * Split Book Service Wiring (One implementation per capability seam)
+     * BookQueryService was decomposed into capability-scoped services so each gateway accessor returns its
+     * own implementation. Only the metadata and chapter services own background scopes and need teardown.
+     */
+    private val bookCatalogGatewayLazy = lazy {
+        BookCatalogGatewayImpl(
             bookDao = data.database.bookDao(),
-            chapterDao = data.database.chapterDao(),
-            bookmarkDao = data.database.bookmarkDao(),
             coverRecoveryHelper = coverRecoveryHelper
         )
     }
 
-    /**
-     * Book Query Service Accessor (Preserves lazy construction while exposing the typed implementation internally)
-     * The backing Lazy is retained so di teardown can check initialization without constructing Room-backed services.
-     */
-    private val bookQueryService: BookQueryService
-        get() = bookQueryServiceLazy.value
+    private val bookMetadataGatewayLazy = lazy {
+        BookMetadataGatewayImpl(bookDao = data.database.bookDao())
+    }
 
-    /**
-     * Book Catalog Gateway Accessor (Expose read/search/file inventory as a narrow seam)
-     * The same adapter backs this interface, but callers no longer receive metadata, bookmark, chapter, or deletion commands by default.
-     */
+    private val bookmarkGatewayLazy = lazy {
+        BookmarkGatewayImpl(
+            bookDao = data.database.bookDao(),
+            bookmarkDao = data.database.bookmarkDao()
+        )
+    }
+
+    private val chapterGatewayLazy = lazy {
+        ChapterGatewayImpl(
+            bookDao = data.database.bookDao(),
+            chapterDao = data.database.chapterDao()
+        )
+    }
+
+    private val bookDeletionGatewayLazy = lazy {
+        BookDeletionGatewayImpl(bookDao = data.database.bookDao())
+    }
+
+    private val bookRootInventoryGatewayLazy = lazy {
+        BookRootInventoryGatewayImpl(bookDao = data.database.bookDao())
+    }
+
     val bookCatalogGateway: BookCatalogGateway
-        get() = bookQueryService
+        get() = bookCatalogGatewayLazy.value
 
-    /**
-     * Book Metadata Gateway Accessor (Expose semantic metadata writes as a narrow seam)
-     * Home, edit, and ABS progress flows can update read status or text metadata without inheriting catalog filters.
-     */
     val bookMetadataGateway: BookMetadataGateway
-        get() = bookQueryService
+        get() = bookMetadataGatewayLazy.value
 
-    /**
-     * Bookmark Gateway Accessor (Expose bookmark reads and writes as a narrow seam)
-     * Player and notification actions can manage bookmarks without depending on catalog search or chapter replacement.
-     */
     val bookmarkGateway: BookmarkGateway
-        get() = bookQueryService
+        get() = bookmarkGatewayLazy.value
 
-    /**
-     * Chapter Gateway Accessor (Expose chapter timelines as a narrow seam)
-     * Playback and player scenes can read timeline chapters without receiving bookmark or metadata operations.
-     */
     val chapterGateway: ChapterGateway
-        get() = bookQueryService
+        get() = chapterGatewayLazy.value
 
-    /**
-     * Book Deletion Gateway Accessor (Expose destructive book deletion as a narrow seam)
-     * BookManagementUseCase receives only the soft-delete command after playback, cache, and availability guards complete.
-     */
     val bookDeletionGateway: BookDeletionGateway
-        get() = bookQueryService
+        get() = bookDeletionGatewayLazy.value
 
-    /**
-     * Root Book Inventory Gateway Accessor (Expose root-owned book ids for cleanup sequencing)
-     * LibraryRootManagementUseCase needs identifiers before cascade deletion but should not inherit the full catalog surface.
-     */
     val bookRootInventoryGateway: BookRootInventoryGateway
-        get() = bookQueryService
+        get() = bookRootInventoryGatewayLazy.value
 
     val remotePlaybackCleanupGateway by lazy {
         // Remote Playback Cleanup Wiring (Keep ABS playback table pruning behind a narrow persistence seam)
         // BookManagementUseCase only needs book-scoped cleanup, so the di wires the two Room DAOs without exposing ABS syncers.
-        RemotePlaybackCleanupService(
+        RemotePlaybackCleanupGatewayImpl(
             absPlaybackSessionDao = data.database.absPlaybackSessionDao(),
             absPendingProgressSyncDao = data.database.absPendingProgressSyncDao()
         )
@@ -211,7 +212,7 @@ internal class LibraryGraph(
     val playbackPlanGateway: PlaybackPlanGateway by lazy {
         // Playback Plan Service Adapter (Dedicated playback-start materialization implementation)
         // Separating this service from BookQueryService keeps the query gateway shallow and gives playback startup its own locality.
-        PlaybackPlanService(
+        PlaybackPlanGatewayImpl(
             coverUriResolver = coverUriResolver,
             bookDao = data.database.bookDao(),
             coverRecoveryHelper = coverRecoveryHelper
@@ -226,7 +227,7 @@ internal class LibraryGraph(
 
     private val progressGatewayLazy = lazy {
         // Progress Sync Service: Stores listening checkpoints into the local sqlite instance.
-        ProgressService(
+        ProgressGatewayImpl(
             bookDao = data.database.bookDao()
         )
     }
@@ -240,7 +241,7 @@ internal class LibraryGraph(
 
     private val scanSchedulerLazy = lazy {
         // Media Scanner Service: Runs directory crawl passes to locate added/deleted books.
-        ScanService(
+        ScanSchedulerImpl(
             context = context,
             coverRecoveryHelper = coverRecoveryHelper,
             vfsFileInterface = media.vfsFileInterface,
@@ -280,13 +281,13 @@ internal class LibraryGraph(
 
     private val libraryRootGatewayLazy = lazy {
         // Library Root Gateway: Manages directory registrations and coordinates folder purging.
-        LibraryRootService(
+        LibraryRootGatewayImpl(
             context = context,
             libraryRootDao = data.database.libraryRootDao(),
             bookDao = data.database.bookDao(),
             scanScheduler = scanScheduler,
             cacheEvictionCoordinator = cacheEvictionCoordinator,
-            // Root Delete Transaction Database (Bind LibraryRootService to the same Room owner as its DAOs)
+            // Root Delete Transaction Database (Bind LibraryRootGatewayImpl to the same Room owner as its DAOs)
             // Passing the di database explicitly keeps ABS cleanup transactions aligned with the DAO instances injected above.
             databaseOverride = data.database
         )
@@ -302,7 +303,7 @@ internal class LibraryGraph(
     val coverAssetGateway: CoverAssetGateway by lazy {
         // Cover Asset Gateway Service (Dedicated custom artwork persistence adapter)
         // This service owns only user-supplied cover replacement, keeping metadata rescans out of the cover asset seam.
-        CoverAssetService(
+        CoverAssetGatewayImpl(
             bookDao = data.database.bookDao(),
             coverExtractor = coverExtractor
         )
@@ -311,7 +312,7 @@ internal class LibraryGraph(
     val metadataRefreshGateway: MetadataRefreshGateway by lazy {
         // Metadata Refresh Gateway Service (Dedicated tag and chapter recovery adapter)
         // User-triggered rescans mutate book metadata and chapters, so they live apart from custom cover file writes.
-        MetadataRefreshService(
+        MetadataRefreshGatewayImpl(
             bookDao = data.database.bookDao(),
             chapterDao = data.database.chapterDao(),
             coverRecoveryHelper = coverRecoveryHelper,
@@ -323,14 +324,14 @@ internal class LibraryGraph(
     val subtitleGateway: SubtitleGateway by lazy {
         // Subtitle Gateway Service (Dedicated sidecar caption loading adapter)
         // Keeping this adapter separate prevents playback subtitle parsing from depending on cover asset or metadata refresh modules.
-        SubtitleService(
+        SubtitleGatewayImpl(
             subtitleResolver = subtitleFileResolver
         )
     }
 
     private val searchHistoryGatewayLazy = lazy {
         // Search Service Gateway: Persists history terms to data store profiles.
-        SearchService(
+        SearchHistoryGatewayImpl(
             searchHistoryStore = data.searchHistoryStore
         )
     }
@@ -362,7 +363,7 @@ internal class LibraryGraph(
         // This keeps DetailViewModel from querying roots, files, or availability through a broad library surface.
         DefaultDetailBookModule(
             bookCatalogGateway = bookCatalogGateway,
-            bookAvailabilityGateway = bookAvailabilityService,
+            bookAvailabilityGateway = bookAvailabilityGatewayImpl,
             libraryRootGateway = libraryRootGateway
         )
     }
@@ -380,7 +381,7 @@ internal class LibraryGraph(
             bookCatalogGateway = bookCatalogGateway,
             chapterGateway = chapterGateway,
             bookmarkGateway = bookmarkGateway,
-            bookAvailabilityGateway = bookAvailabilityService,
+            bookAvailabilityGateway = bookAvailabilityGatewayImpl,
             progressGateway = progressGateway,
             subtitleGateway = subtitleGateway
         )
@@ -466,7 +467,7 @@ internal class LibraryGraph(
         // The use case coordinates cover cleanup and manual-download deletion before invoking the soft-delete command.
         BookManagementUseCase(
             playbackStopper = media.playbackStopper,
-            bookAvailabilityGateway = bookAvailabilityService,
+            bookAvailabilityGateway = bookAvailabilityGatewayImpl,
             bookDeletionGateway = bookDeletionGateway,
             remotePlaybackCleanupGateway = remotePlaybackCleanupGateway,
             // Manual Download Cleanup Wiring (Route book deletion through the narrow L1 cache cleanup seam)
@@ -480,7 +481,8 @@ internal class LibraryGraph(
         // This prevents application teardown from constructing unused Room-backed services just to close them.
         closeInitializedLibraryGraphResources(
             closeableResources = listOf(
-                bookQueryServiceLazy,
+                bookMetadataGatewayLazy,
+                chapterGatewayLazy,
                 progressGatewayLazy,
                 scanSchedulerLazy,
                 libraryRootGatewayLazy,
@@ -491,5 +493,5 @@ internal class LibraryGraph(
     }
 
     val bookAvailabilityGateway: BookAvailabilityGateway
-        get() = bookAvailabilityService
+        get() = bookAvailabilityGatewayImpl
 }

@@ -6,7 +6,7 @@ import com.viel.aplayer.abs.sync.AbsSyncStateDao
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.gateway.LibraryRootGateway
+import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredential
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import kotlinx.coroutines.Dispatchers

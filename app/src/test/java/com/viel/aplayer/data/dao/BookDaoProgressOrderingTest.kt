@@ -17,9 +17,9 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 // Room Progress Ordering Harness (Runs the real DAO transaction against an in-memory database)
-// The bug is a persistence-ordering issue, so this test avoids fakes and verifies the actual Room update path used by ProgressService.
+// The bug is a persistence-ordering issue, so this test avoids fakes and verifies the actual Room update path used by ProgressGatewayImpl.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class BookDaoProgressOrderingTest {
 
     @Test

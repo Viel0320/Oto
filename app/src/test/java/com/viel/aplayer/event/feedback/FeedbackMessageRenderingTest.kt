@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config
  * Robolectric keeps the test on the real Resources path so plural selection is verified where Toast copy is rendered.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [33])
 class FeedbackMessageRenderingTest {
 
     @Test
