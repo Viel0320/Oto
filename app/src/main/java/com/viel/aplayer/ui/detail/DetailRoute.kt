@@ -59,15 +59,15 @@ fun DetailRoute(
     // Glass Effect Route Input (Receives app-level visual mode without hard-coded defaults)
     // DetailRoute passes this value through to both the overlay shell and stateless screen.
     glassEffectMode: GlassEffectMode,
+    // Detail App Haze Source (Rejoin the app-level sampler)
+    // Detail registers its visible surface into the shell-owned HazeState so Search, Edit, and global dialogs keep one backdrop source while Detail is visible.
+    appHazeState: HazeState? = null,
     modifier: Modifier = Modifier,
     // Detail Transition Idle Callback (Expose overlay animation lifecycle to the app shell)
     // The navigation layer uses this signal to defer rapid Detail re-entry until the previous shared-element return chain finishes.
     onTransitionIdleChanged: (Boolean) -> Unit = {},
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
-    // Detail Private Haze Source (Keep Detail sampling owned by the Detail route)
-    // The route outlives short dialogs but stays scoped to the Detail page, so dialogs and inline glass controls can share one stable local sampler without depending on APlayerApp.
-    val detailHazeState = remember { HazeState() }
     val context = LocalContext.current
     val darkTheme = LocalDarkTheme.current
     // Detail Cover Seed (Resolve artwork from the scene snapshot instead of a Room entity)
@@ -124,7 +124,7 @@ fun DetailRoute(
             route = "Detail",
             state = detailTraceState
         ),
-        detailHazeState = detailHazeState,
+        hazeState = appHazeState,
         onTransitionIdleChanged = onTransitionIdleChanged
     ) {
         val screenBlock = @Composable {
@@ -155,7 +155,7 @@ fun DetailRoute(
                 onResumeDownload = detailViewModel::resumeDownload,
                 onDeleteDownload = detailViewModel::deleteDownload,
                 glassEffectMode = glassEffectMode,
-                fullPageHazeState = detailHazeState,
+                fullPageHazeState = appHazeState,
                 coverColor = coverColor,
                 onColorExtracted = { coverColor = it }
             )
@@ -165,7 +165,7 @@ fun DetailRoute(
                         pendingDownloadBookId = null
                         showNotificationPermissionDialog = false
                     },
-                    hazeState = detailHazeState,
+                    hazeState = appHazeState,
                     glassEffectMode = glassEffectMode,
                     title = { Text(stringResource(R.string.detail_download_permission_title)) },
                     body = {

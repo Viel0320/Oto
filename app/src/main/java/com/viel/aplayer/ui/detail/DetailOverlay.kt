@@ -25,13 +25,15 @@ import dev.chrisbanes.haze.hazeSource
  *
  * Owns only overlay animation, shared-element scope publication, and haze source registration.
  * Route-level state and screen callbacks are injected through [content].
+ *
+ * @param hazeState App-level sampler that receives the visible Detail surface when Haze mode is active.
  */
 @Composable
 fun DetailOverlay(
     visible: Boolean,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    detailHazeState: HazeState? = null,
+    hazeState: HazeState? = null,
     onTransitionIdleChanged: (Boolean) -> Unit = {},
     content: @Composable () -> Unit
 ) {
@@ -102,8 +104,8 @@ fun DetailOverlay(
             LocalHomeRecent2DetailTargetScope provides this@AnimatedVisibility,
             LocalAnimatedVisibilityScope provides this@AnimatedVisibility
         ) {
-            // Detail Private Haze Boundary (Keep long-lived Detail content out of the app sampler)
-            // Dialogs and inline glass controls sample the route-owned HazeState, so the overlay only registers Detail content once.
+            // Detail App Haze Boundary (Register visible Detail content into the shell sampler)
+            // App-level consumers such as Search, Edit, and global dialogs can sample Detail as the current backdrop without switching HazeState instances.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -112,8 +114,8 @@ fun DetailOverlay(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(
-                            if (glassEffectMode == GlassEffectMode.Haze && detailHazeState != null) {
-                                Modifier.hazeSource(detailHazeState)
+                            if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
+                                Modifier.hazeSource(hazeState)
                             } else {
                                 Modifier
                             }

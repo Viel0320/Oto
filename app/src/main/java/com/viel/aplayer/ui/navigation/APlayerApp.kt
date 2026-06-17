@@ -330,8 +330,8 @@ fun APlayerApp(
 
         val canStartNavigation = rememberNavigationThrottle()
 
-        // App Haze Source (Keep only cross-route surfaces at the shell level)
-        // Page-specific screens now allocate their own HazeState so APlayerApp does not retain long-lived Detail, Settings, or Player sampling state.
+        // App Haze Source (Stable sampler for route content and cross-route overlays)
+        // Detail intentionally registers back into this shell-owned HazeState, while Settings and full-player page internals keep their private samplers.
         val hazeState = remember { HazeState() }
 
 
@@ -544,12 +544,13 @@ fun APlayerApp(
                     )
                 }
 
-                // Mount Detail Route (Let the route own Detail-only haze sampling)
-                // The shell keeps cross-route dialogs and search sampling, while DetailRoute owns the page-local HazeState used by its content and dialogs.
+                // Mount Detail Route (Register Detail into the app-level haze sampler)
+                // Detail uses the shell HazeState again so Search, Edit, and global dialogs keep one backdrop source while the Detail overlay is visible.
                 DetailRoute(
                     detailViewModel = detailViewModel,
                     canStartNavigation = canStartNavigation,
                     glassEffectMode = activeGlassEffectMode,
+                    appHazeState = hazeState,
                     onPlayBook = { bookId ->
                         // Title: Simplify Playback Transition Selection (Use mini-player transition whenever mini-player is visible)
                         // Description: Checks if mini-player is visible before loading the book to decide whether to use openFullPlayerFromMini or openFullPlayerFromDirect.
