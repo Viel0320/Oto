@@ -111,7 +111,10 @@ fun ListItem(
                 onLongClickLabel = resolvedMoreActionsLabel,
                 onLongClick = onLongClick
             )
-            .semantics {
+            // Merge the row into a single semantics node: collapses the cover, three text lines,
+            // and trailing button into one accessibility item (one swipe per book for TalkBack) and,
+            // critically, shrinks the merged semantics tree the a11y geometry sort walks every frame.
+            .semantics(mergeDescendants = true) {
                 // Book Row Custom Actions (Aggregate hidden and nested commands on the row)
                 // Assistive technologies can open, play, or reveal the book action menu from the row without hunting for a nested icon or hidden long-press gesture.
                 customActions = listOf(

@@ -452,20 +452,29 @@ fun APlayerApp(
              * Encapsulate overlay views within a SharedTransitionLayout and provide the transition scope
              * via LocalSharedTransitionScope to enable smooth bounds morphing and cover transformations.
              */
-            SharedTransitionLayout(
-                modifier = Modifier.fillMaxSize()
+            // App Haze Scope (Hoisted above SharedTransitionLayout)
+            // LocalHazeState must stay available to every overlay, including those moved outside the
+            // shared-element scope, so it is provided on the outer coordinate Box, not inside the scope.
+            CompositionLocalProvider(
+                com.viel.aplayer.ui.common.theme.LocalHazeState provides hazeState
             ) {
-                CompositionLocalProvider(
-                    LocalSharedTransitionScope provides this@SharedTransitionLayout,
-                    // Global Haze State Provider: Provide hazeState via LocalHazeState CompositionLocal.
-                    // Details: Expose the app-level hazeState globally so all nested dialogs can sample from it without explicit parameter prop drilling.
-                    com.viel.aplayer.ui.common.theme.LocalHazeState provides hazeState
+                // Box Layer Decoupling (Prevent Recursive Deadlock Rendering)
+                // Full-screen coordinate-alignment container for all overlays. Shared-element surfaces and the
+                // non-transition overlays (settings, dialog hosts) are siblings here so their absolute bounds match.
+                Box(
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    // Box Layer Decoupling (Prevent Recursive Deadlock Rendering)
-                    // Use a full-screen top-level Box container at the outermost layer without mounting layerBackdrop, solely as a coordinate alignment and sibling node layout container for all overlays. This completely isolates the layerBackdrop sampling source layer, avoiding infinite recursion deadlock rendering failure due to overlays using textureBlur to sample their own parent containers internally.
-                    Box(
+                    // Shared Element Scope (Narrowed to surfaces that actually morph: Home, Detail, Player, Edit, Search)
+                    // Keeping settings and dialog hosts outside this LookaheadScope avoids double-measuring them each frame.
+                    SharedTransitionLayout(
                         modifier = Modifier.fillMaxSize()
                     ) {
+                        CompositionLocalProvider(
+                            LocalSharedTransitionScope provides this@SharedTransitionLayout
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize()
+                            ) {
                 // Navigation Host Layer (Delegate route-level haze source ownership)
                 // APlayerNavHost mounts the active route content as the Haze source so HomeAppBar can be rendered as a sibling overlay above that source.
                 // Title: Continuous Rendering of Bottom Host
@@ -658,6 +667,10 @@ fun APlayerApp(
                         playerSettingsViewModel.openFullPlayerFromDirect()
                     }
                 )
+                            }
+                        }
+                    }
+                    // End shared-element scope. The overlays below are siblings of the scope (outside the LookaheadScope, no double measure).
 
                 // Settings Overlay Mount (Let Settings own its page and dialog haze sampling)
                 // App-level haze remains available to Home and Search, while SettingsOverlay keeps long-lived settings glass state private to that page.
@@ -736,7 +749,6 @@ fun APlayerApp(
                 )
             }
         }
-    }
 }
 }
 }

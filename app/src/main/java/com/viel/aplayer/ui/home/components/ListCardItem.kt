@@ -119,7 +119,10 @@ fun Cardgroup(
                 onLongClickLabel = resolvedMoreActionsLabel,
                 onLongClick = onLongClick
             )
-            .semantics {
+            // Merge the card into a single semantics node: the cover, progress badge, title, and
+            // author lines collapse into one accessibility item, and the merged tree the a11y
+            // geometry sort traverses each frame gets one node per card instead of three-plus.
+            .semantics(mergeDescendants = true) {
                 // Card Custom Actions (Expose open and action-menu shortcuts on the card node)
                 // Switch Access and TalkBack users can discover the same menu previously hidden behind long press.
                 customActions = listOf(

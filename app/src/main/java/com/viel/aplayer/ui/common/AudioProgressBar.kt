@@ -42,6 +42,10 @@ fun AudioProgressBar(
     color: Color = MaterialTheme.colorScheme.primary,
     showKnob: Boolean = true,
     markers: List<Float> = emptyList(),
+    // Accessibility Semantics Toggle (Skip the progress semantics node for decorative, non-seekable bars)
+    // Mini-player bars are display-only (no onProgressChange), so emitting a per-frame-changing
+    // progressBarRangeInfo only adds a node to the a11y geometry tree and announces an unusable value.
+    enableProgressSemantics: Boolean = true,
     // Added glass effect selection mode parameter to enable a premium progress bar with a realistic water droplet crystal texture.
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
@@ -73,18 +77,26 @@ fun AudioProgressBar(
             // M-17 Fix — Supplement accessibility semantic nodes.
             // Provide progressBarRangeInfo to allow TalkBack to recognize progress values and range.
             // setProgress custom action allows accessibility services to programmatically configure the progress.
-            .semantics(mergeDescendants = true) {
-                contentDescription = progressContentDescription
-                progressBarRangeInfo = ProgressBarRangeInfo(
-                    current = progress(),
-                    range = 0f..1f,
-                    steps = 0
-                )
-                setProgress { newValue ->
-                    currentOnProgressChange(newValue.coerceIn(0f, 1f))
-                    true
+            // Decorative bars (mini player) opt out so they neither add a node to the a11y geometry tree
+            // nor feed it a per-frame-changing progress value the user cannot act on.
+            .then(
+                if (enableProgressSemantics) {
+                    Modifier.semantics(mergeDescendants = true) {
+                        contentDescription = progressContentDescription
+                        progressBarRangeInfo = ProgressBarRangeInfo(
+                            current = progress(),
+                            range = 0f..1f,
+                            steps = 0
+                        )
+                        setProgress { newValue ->
+                            currentOnProgressChange(newValue.coerceIn(0f, 1f))
+                            true
+                        }
+                    }
+                } else {
+                    Modifier
                 }
-            }
+            )
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     val newProgress = (offset.x / size.width).coerceIn(0f, 1f)

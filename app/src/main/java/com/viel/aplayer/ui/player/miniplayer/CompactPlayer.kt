@@ -157,6 +157,9 @@ fun CompactMediaPlayer(
                         .fillMaxWidth()
                         .height(4.dp),
                     showKnob = false,
+                    // Decorative, non-seekable bar: skip the a11y progress node so it stays out of the
+                    // per-frame semantics geometry sort and does not announce an unusable progress value.
+                    enableProgressSemantics = false,
                     glassEffectMode = glassEffectMode
                 )
             }
