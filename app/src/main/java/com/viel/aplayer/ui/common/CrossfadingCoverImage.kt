@@ -35,6 +35,8 @@ private data class CrossfadingCoverKey(
  * Compose `Crossfade` starts when the model changes, but Coil may still be decoding the new image.
  * This component keeps the previous successful cover on screen, loads the next request underneath
  * an alpha gate, and only animates that gate after `AsyncImage` reports success or failure.
+ * Only the settled layer owns accessibility text so temporary transition layers never duplicate
+ * the same cover node while both bitmaps are present.
  */
 @Composable
 fun CrossfadingCoverImage(
@@ -109,7 +111,7 @@ fun CrossfadingCoverImage(
                 failedKeys = failedKeys,
                 variant = variant,
                 scene = scene,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 contentScale = contentScale,
                 allowHardware = allowHardware,
                 bitmapConfig = bitmapConfig,

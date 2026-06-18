@@ -219,9 +219,6 @@ fun PillCompactMediaPlayer(
                     modifier = Modifier
                         .size(48.dp)
                         .then(coverModifier)
-                        // Defer the rotation read into the draw phase so the infinite spin
-                        // only invalidates drawing, never recomposition/relayout.
-                        .graphicsLayer { rotationZ = rotation.value }
                         .clip(RoundedCornerShape(animatedCoverCornerRadius))
                         .let {
                             if (isBlurMode) {
@@ -258,28 +255,37 @@ fun PillCompactMediaPlayer(
                         )
                 ) {
                     /*
-                     * Pill Source Artwork Crossfade (Animate the rotating shared-element source)
+                     * Pill Source Artwork Crossfade (Animate mini-only rotating artwork)
                      *
-                     * The rotation, border, corner, and shared-element modifiers remain on the stable
-                     * outer node, while the decoded thumbnail fades only after the next bitmap has loaded.
+                     * The shared-element, border, click, and corner modifiers stay on the stable outer node.
+                     * Only this inner artwork decoration reads the rotation value, so the shared transition
+                     * receives a non-rotating geometry node while the mini player still looks like a spinning disc.
                      */
-                    CrossfadingCoverImage(
-                        sourcePath = coverPath,
-                        lastUpdated = coverLastUpdated,
-                        variant = CoverImageVariant.ThumbnailSmall,
-                        scene = "pill-player-cover",
-                        contentDescription = coverContentDescription,
+                    Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-                        allowHardware = true,
-                        bitmapConfig = null
+                            .graphicsLayer {
+                                rotationZ = rotation.value
+                            }
                     ) {
+                        CrossfadingCoverImage(
+                            sourcePath = coverPath,
+                            lastUpdated = coverLastUpdated,
+                            variant = CoverImageVariant.ThumbnailSmall,
+                            scene = "pill-player-cover",
+                            contentDescription = coverContentDescription,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
+                            allowHardware = true,
+                            bitmapConfig = null
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                             )
+                        }
                     }
                 }
 
