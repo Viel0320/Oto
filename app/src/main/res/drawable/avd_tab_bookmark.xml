@@ -1,0 +1,93 @@
+<!--
+  Animated bookmark tab icon for the outline -> filled-hollow transition.
+
+  Final state is a white rounded card with the bookmark ribbon punched out as a
+  hollow knockout (the hole spans the ribbon plus its old rounded stroke). The
+  card body fill and the ribbon hole live in a single evenOdd path inside one
+  clip group, so a single bottom-up clip animation reveals the white fill and
+  carves the cutout from the bottom edge upward at the same time. The white
+  ribbon outline from the start frame fades out over the same 300ms so the hole
+  reads cleanly at the end.
+-->
+<animated-vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="24dp"
+            android:height="24dp"
+            android:viewportWidth="48"
+            android:viewportHeight="48">
+            <!--
+              The clip starts as a zero-height rect below the viewport and grows
+              above it, revealing the white card body from the bottom up. Because
+              the ribbon is an evenOdd hole in this same path, the cutout is
+              carved bottom-up by the very same motion.
+            -->
+            <group android:name="bodyFillClipGroup">
+                <clip-path
+                    android:name="bodyFillClip"
+                    android:pathData="M-4,52L52,52L52,52L-4,52Z" />
+                <path
+                    android:name="bodyFill"
+                    android:fillColor="#FFFFFFFF"
+                    android:fillType="evenOdd"
+                    android:pathData="M10,44C8.895,44 8,43.105 8,42V6C8,4.895 8.895,4 10,4H38C39.105,4 40,4.895 40,6V42C40,43.105 39.105,44 38,44H10Z M19,22 L19,9 A2,2 0 0,1 21,7 L33,7 A2,2 0 0,1 35,9 L35,22 A2,2 0 0,1 31.555,23.382 L27,18.618 L22.445,23.382 A2,2 0 0,1 19,22 Z" />
+            </group>
+
+            <!--
+              The card border stays white the whole time so the start frame is
+              the outline icon and the end frame keeps a crisp white edge.
+            -->
+            <path
+                android:name="cardOutline"
+                android:fillColor="#00000000"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeWidth="4"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M10,44C8.895,44 8,43.105 8,42V6C8,4.895 8.895,4 10,4H38C39.105,4 40,4.895 40,6V42C40,43.105 39.105,44 38,44H10Z" />
+
+            <!--
+              Outline ribbon from bookmark_outline.xml. Its white stroke fades to
+              transparent so nothing is painted over the final hole.
+            -->
+            <path
+                android:name="ribbonStroke"
+                android:fillColor="#00000000"
+                android:fillType="evenOdd"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeWidth="4"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M21,22V9H33V22L27,15.727L21,22Z" />
+        </vector>
+    </aapt:attr>
+
+    <target android:name="bodyFillClip">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="180"
+                android:startOffset="120"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="pathData"
+                android:valueFrom="M-4,52L52,52L52,52L-4,52Z"
+                android:valueTo="M-4,-4L52,-4L52,52L-4,52Z"
+                android:valueType="pathType" />
+        </aapt:attr>
+    </target>
+
+    <target android:name="ribbonStroke">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="180"
+                android:startOffset="120"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="strokeColor"
+                android:valueFrom="#FFFFFFFF"
+                android:valueTo="#00FFFFFF"
+                android:valueType="colorType" />
+        </aapt:attr>
+    </target>
+</animated-vector>

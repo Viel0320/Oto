@@ -134,10 +134,21 @@ fun HomeScreen(
             playbackViewModel.loadBook(id)
         },
         onNavigateToPlayer = {
-            // Home Direct Playback Open (Keep catalog play buttons out of mini-player motion)
-            // The catalog play command does not have a full-player shared-element source, so it
-            // opens the player directly and resets to the primary cover view for a stable target.
-            settingsViewModel.openFullPlayerFromDirect()
+            /*
+             * Home Playback Transition Selection (Reuse the visible mini-player as the motion source)
+             *
+             * HomeContent invokes this callback in the same click frame after requesting loadBook(),
+             * so the collected player state still describes the pre-click playback surface. That lets
+             * catalog play buttons match Detail behavior: an already visible mini-player expands
+             * through the mini-to-player shared-bounds channel, while first playback opens directly.
+             */
+            val isMiniPlayerVisible = playerUiState.hasActiveTrack &&
+                !settingsViewModel.settingsState.value.isMiniPlayerHidden
+            if (isMiniPlayerVisible) {
+                settingsViewModel.openFullPlayerFromMini()
+            } else {
+                settingsViewModel.openFullPlayerFromDirect()
+            }
         },
         onBookActionsRequested = { homeBook ->
             // Request Book Actions Dialog (Delegate showing the book actions dialog to the ViewModel)

@@ -9,7 +9,10 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -156,9 +159,14 @@ fun PlayerOverlay(
             transitionSpec = {
                 when (initialState) {
                     PlayerOverlayState.Mini if targetState == PlayerOverlayState.Full -> {
-                        // Title: Conditional Slide Transition for Direct Entry (Ensure direct entry requests slide up in landscape mode)
-                        // Description: Checks if the open source is MiniPlayer to apply fade transitions, otherwise falls back to standard vertical slide transition for direct player loads.
-                        if (usePillPlayer && settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
+                        /*
+                         * Mini-Origin Expansion Transition (Let shared bounds own geometry changes)
+                         *
+                         * Both compact bottom bars and wide pill players can now provide a bounds source.
+                         * Using fade for mini-origin expansion prevents the parent AnimatedContent slide
+                         * from fighting the shared-bounds morph between the mini surface and full player.
+                         */
+                        if (settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
                             fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
                         } else {
                             (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))
@@ -166,9 +174,14 @@ fun PlayerOverlay(
                         }
                     }
                     PlayerOverlayState.Full if targetState == PlayerOverlayState.Mini -> {
-                        // Title: Conditional Slide Transition for Direct Dismiss (Ensure player slides down when minimizing if it wasn't opened from mini-player)
-                        // Description: Applies fade transitions only if the player was opened from the mini-player, otherwise uses the vertical slide transition to match direct entry behavior.
-                        if (usePillPlayer && settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
+                        /*
+                         * Mini-Origin Collapse Transition (Preserve reverse shared-bounds ownership)
+                         *
+                         * The full-player close path keeps the mini open source until the reverse
+                         * transition completes, so fading the AnimatedContent shell lets the shared
+                         * bounds channel animate back to either the compact bar or pill mini-player.
+                         */
+                        if (settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
                             fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
                         } else {
                             (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)))
@@ -260,7 +273,8 @@ fun PlayerOverlay(
                                     hazeState = playerHazeState,
                                     coverColor = coverColor,
                                     onColorExtracted = { coverColor = it },
-                                    renderFloatingSurfaces = false
+                                    renderFloatingSurfaces = false,
+                                    safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
                                 )
 
                                 PlayerFloatingSurfaceHost(

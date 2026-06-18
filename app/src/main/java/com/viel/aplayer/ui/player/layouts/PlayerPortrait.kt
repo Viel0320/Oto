@@ -3,16 +3,13 @@ package com.viel.aplayer.ui.player.layouts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -25,8 +22,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 import com.viel.aplayer.application.library.player.PlayerChapterItem
@@ -94,16 +89,15 @@ fun PlayerPortrait(
     // Player Floating Haze Source (Use the stable app-level sampler for player glass surfaces)
     // PlayerScreen passes the resolved app-level source so chapter sheets, bookmark dialogs, controls, and header menus stay on one HazeState.
     chapterSheetHazeState: HazeState?,
-    // Generic layout parameters (To specify Animatable type constraints to avoid runtime matching errors)
-    offsetY: Animatable<Float, AnimationVector1D>,
+    offsetY: Animatable<Float, *>,
     scope: kotlinx.coroutines.CoroutineScope,
     dismissThreshold: Float,
     // Clean FocusManager import (To bypass platform package compilation symbols drift)
     focusManager: FocusManager,
     navigationActions: com.viel.aplayer.ui.navigation.PlayerNavigationActions,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    safeDrawingPadding: PaddingValues
 ) {
-    val density = LocalDensity.current
     
     // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic (e.g. crossfading to PLAYER mode).
     // Updates synchronously inside LaunchedEffect when currentMode changes.
@@ -113,7 +107,9 @@ fun PlayerPortrait(
     }
 
     Column(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .padding(safeDrawingPadding)
     ) {
         // AppBar widget delegation (To wrap header information, gestures, and timer triggers)
         PlayerVerticalAppBar(
@@ -129,11 +125,6 @@ fun PlayerPortrait(
             dismissThreshold = dismissThreshold
         )
 
-        // Horizontal swipe thresholds (To map horizontal swipe gesture boundaries to 80.dp pixel measurements)
-        val swipeThresholdPx = with(density) { 80.dp.toPx() }
-        val tabModes = remember {
-            listOf(PlayerScreenMode.BOOKMARKS, PlayerScreenMode.SUBTITLES, PlayerScreenMode.RELATED)
-        }
         
         // Map tab modes (To match selected screen tab to active animation container)
         val contentShell = remember(currentMode) {
@@ -148,66 +139,15 @@ fun PlayerPortrait(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .pointerInput(currentMode) {
-                    // Intercept horizontal gestures (To block swipes under core playback modes)
-                    if (currentMode == PlayerScreenMode.PLAYER) return@pointerInput
-                    var accumulatedX = 0f
-                    var hasSwipeTriggered = false
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            accumulatedX = 0f
-                            hasSwipeTriggered = false
-                        },
-                        onDragEnd = {
-                            accumulatedX = 0f
-                            hasSwipeTriggered = false
-                        },
-                        onDragCancel = {
-                            accumulatedX = 0f
-                            hasSwipeTriggered = false
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            if (!hasSwipeTriggered) {
-                                accumulatedX += dragAmount
-                                if (kotlin.math.abs(accumulatedX) > swipeThresholdPx) {
-                                    val currentIndex = tabModes.indexOf(currentMode)
-                                    val nextMode = if (accumulatedX < 0) {
-                                        if (currentIndex < tabModes.lastIndex) tabModes[currentIndex + 1]
-                                        else PlayerScreenMode.PLAYER
-                                    } else {
-                                        if (currentIndex > 0) tabModes[currentIndex - 1]
-                                        else PlayerScreenMode.PLAYER
-                                    }
-                                    onModeChange(nextMode)
-                                    hasSwipeTriggered = true
-                                }
-                            }
-                            change.consume()
-                        }
-                    )
-                }
         ) {
-            // Horizontal sliding transitions (To animate card displacements smoothly across modes)
             AnimatedContent(
                 targetState = contentShell,
                 modifier = Modifier.fillMaxSize(),
                 transitionSpec = {
-                    // Decide Transition Spec: Applies fade-in/fade-out for PLAYER (-1) transitions, and horizontal sliding for others.
-                    val isPlayerTransition = (currentMode == PlayerScreenMode.PLAYER || prevMode == PlayerScreenMode.PLAYER)
-                    if (isPlayerTransition) {
-                        (fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300)))
-                            .using(SizeTransform(clip = false))
-                    } else {
-                        if (targetState.index > initialState.index) {
-                            (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300)))
-                                .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
-                        } else {
-                            (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300)))
-                                .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
-                        }.using(SizeTransform(clip = false))
-                    }
+                    (fadeIn(animationSpec = tween(300))
+                            togetherWith
+                            fadeOut(animationSpec = tween(300)))
                 },
-                label = "player_mode_transition"
             ) { shell ->
                 Column(modifier = Modifier.fillMaxSize()) {
                     when (shell) {

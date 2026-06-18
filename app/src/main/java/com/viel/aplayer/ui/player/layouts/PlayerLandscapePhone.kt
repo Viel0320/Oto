@@ -5,24 +5,16 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,15 +24,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.dp
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.BottomNavTabs
-// Resolve window class dependencies (To replace redundant LocalWindowClass imports with the unified theme package structure)
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
@@ -64,6 +51,7 @@ import kotlinx.coroutines.flow.StateFlow
  */
 @Composable
 fun PlayerLandscapePhone(
+    modifier: Modifier = Modifier,
     playbackProgressState: StateFlow<PlaybackProgressViewState>,
     currentChapter: PlayerChapterItem?,
     isPlaying: Boolean,
@@ -86,15 +74,11 @@ fun PlayerLandscapePhone(
     onModeChange: (PlayerScreenMode) -> Unit,
     animatedBgColor: Color,
     glassEffectMode: GlassEffectMode,
-    // Player Floating Haze Source (Use the stable app-level sampler for player glass surfaces)
-    // PlayerScreen passes the resolved app-level source so chapter sheets, bookmark dialogs, controls, and header menus stay on one HazeState.
     chapterSheetHazeState: HazeState?,
-    modifier: Modifier = Modifier
+    safeDrawingPadding: PaddingValues
 ) {
     // Resolve window dimensions (To query screen width and height coordinates without reading LocalConfiguration directly)
     val windowClass = LocalAppWindowSizeClass.current
-    val density = LocalDensity.current
-    
     // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic (e.g. crossfading to PLAYER mode).
     // Updates synchronously inside LaunchedEffect when currentMode changes.
     var prevMode by remember { mutableStateOf(currentMode) }
@@ -102,36 +86,11 @@ fun PlayerLandscapePhone(
         prevMode = currentMode
     }
 
-    // Title: Standardize landscape phone dimensions (Replace dynamic screen width calculations with screenHorizontalPadding and fixed spacing)
-    // Refactors landscape layout paddings to avoid screen density or dimension shifts dynamically scaling layouts disproportionately.
-    val sidePadding = windowClass.screenHorizontalPadding
-    val middleSpacing = 24.dp
-
-    // Screen safe offsets (To clamp margins to system bars height boundaries to optimize cover drawing area)
-    val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
-    val topPadding = systemBarsPadding.calculateTopPadding()
-    val bottomPadding = systemBarsPadding.calculateBottomPadding()
-
-    // Leave safe margins on both left and right sides to avoid notch cutouts/punched holes and virtual navigation keys, guaranteeing that operations on both sides are never clipped.
-    val layoutDirection = LocalLayoutDirection.current
-    val startPadding = sidePadding + systemBarsPadding.calculateStartPadding(layoutDirection)
-    val endPadding = sidePadding + systemBarsPadding.calculateEndPadding(layoutDirection)
-
     Row(
         modifier = modifier
             .fillMaxSize()
-            .padding(
-                start = startPadding,
-                top = topPadding,
-                end = endPadding,
-                bottom = bottomPadding
-            ),
-        horizontalArrangement = Arrangement.spacedBy(middleSpacing)
+            .padding(safeDrawingPadding)
     ) {
-        val swipeThresholdPx = with(density) { 80.dp.toPx() }
-        val tabModes = remember {
-            listOf(PlayerScreenMode.BOOKMARKS, PlayerScreenMode.SUBTITLES, PlayerScreenMode.RELATED)
-        }
         val contentShell = remember(currentMode) {
             when (currentMode) {
                 PlayerScreenMode.BOOKMARKS -> PlayerContentShell.Bookmarks
@@ -148,73 +107,20 @@ fun PlayerLandscapePhone(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                // Title: Standardize column horizontal padding (Use windowClass.screenHorizontalPadding for side margins to align elements consistently)
-                // Replaces the dynamic screen width multiplication to avoid runtime compilation errors and visual inconsistency.
-                .padding(horizontal = windowClass.screenHorizontalPadding)
         ) {
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .pointerInput(currentMode) {
-                        if (currentMode == PlayerScreenMode.PLAYER) return@pointerInput
-                        var accumulatedX = 0f
-                        var hasSwipeTriggered = false
-                        detectHorizontalDragGestures(
-                            onDragStart = {
-                                accumulatedX = 0f
-                                hasSwipeTriggered = false
-                            },
-                            onDragEnd = {
-                                accumulatedX = 0f
-                                hasSwipeTriggered = false
-                            },
-                            onDragCancel = {
-                                accumulatedX = 0f
-                                hasSwipeTriggered = false
-                            },
-                            onHorizontalDrag = { change, dragAmount ->
-                                if (!hasSwipeTriggered) {
-                                    accumulatedX += dragAmount
-                                    if (kotlin.math.abs(accumulatedX) > swipeThresholdPx) {
-                                        val currentIndex = tabModes.indexOf(currentMode)
-                                        val nextMode = if (accumulatedX < 0) {
-                                            if (currentIndex < tabModes.lastIndex) tabModes[currentIndex + 1]
-                                            else PlayerScreenMode.PLAYER
-                                        } else {
-                                            if (currentIndex > 0) tabModes[currentIndex - 1]
-                                            else PlayerScreenMode.PLAYER
-                                        }
-                                        onModeChange(nextMode)
-                                        hasSwipeTriggered = true
-                                    }
-                                }
-                                change.consume()
-                            }
-                        )
-                    }
             ) {
-                // Sliding transitions animation (To slide left column layouts smoothly between tabs)
                 AnimatedContent(
                     targetState = contentShell,
                     modifier = Modifier.fillMaxSize(),
                     transitionSpec = {
-                        // Decide Transition Spec: Applies fade-in/fade-out for PLAYER (-1) transitions, and horizontal sliding for others.
-                        val isPlayerTransition = (currentMode == PlayerScreenMode.PLAYER || prevMode == PlayerScreenMode.PLAYER)
-                        if (isPlayerTransition) {
-                            (fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300)))
-                                .using(SizeTransform(clip = false))
-                        } else {
-                            if (targetState.index > initialState.index) {
-                                (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300)))
-                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
-                            } else {
-                                (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300)))
-                                    .togetherWith(slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
-                            }.using(SizeTransform(clip = false))
-                        }
+                        (fadeIn(animationSpec = tween(300))
+                                togetherWith
+                                fadeOut(animationSpec = tween(300)))
                     },
-                    label = "player_mode_transition"
                 ) { shell ->
                     when (shell) {
                         PlayerContentShell.PlaybackShell -> {
@@ -331,9 +237,9 @@ fun PlayerLandscapePhone(
             border = null
         ) {
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
             ) {
-                // Landscape layout header (To present main title labels and minimizer actions in right column)
                 PlayerLandscapeHeader(
                     metadata = metadata,
                     settings = settings,

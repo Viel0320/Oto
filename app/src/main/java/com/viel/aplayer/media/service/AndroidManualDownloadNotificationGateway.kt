@@ -168,8 +168,8 @@ class AndroidManualDownloadNotificationGateway(
 
     private fun ManualDownloadNotificationAction.iconRes(): Int =
         when (this) {
-            ManualDownloadNotificationAction.Pause -> R.drawable.ic_widget_pause
-            ManualDownloadNotificationAction.Resume -> R.drawable.ic_widget_play
+            ManualDownloadNotificationAction.Pause -> R.drawable.pause
+            ManualDownloadNotificationAction.Resume -> R.drawable.play
             ManualDownloadNotificationAction.Retry -> android.R.drawable.ic_popup_sync
             ManualDownloadNotificationAction.Cancel -> android.R.drawable.ic_menu_close_clear_cancel
         }

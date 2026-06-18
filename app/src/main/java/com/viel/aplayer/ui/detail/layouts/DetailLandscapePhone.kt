@@ -1,14 +1,11 @@
 package com.viel.aplayer.ui.detail.layouts
 
-// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState class for layouts.
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -92,25 +89,20 @@ fun DetailLandscapePhone(
     } else {
         null
     }
-    // Title: Standardize landscape phone detail layout dimensions (Use screenHorizontalPadding and fixed spacing)
-    // Avoids dynamic screen width calculations scaling paddings and spaces inconsistently on wide displays.
-    val sidePadding = windowClass.screenHorizontalPadding
-    val startPadding = sidePadding + safeDrawingPadding.calculateStartPadding(layoutDirection)
-    val endPadding = sidePadding + safeDrawingPadding.calculateEndPadding(layoutDirection)
+
     val topSpacerHeight = padding.calculateTopPadding() / 2
 
     Row(
         modifier = modifier
             .fillMaxSize()
-            .padding(start = startPadding, end = endPadding),
-        horizontalArrangement = Arrangement.spacedBy(24.dp)
+            .padding(safeDrawingPadding.calculateEndPadding(layoutDirection))
     ) {
         // Left Column: Displays the primary cover and metadata text
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = windowClass.screenHorizontalPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(topSpacerHeight))
@@ -184,7 +176,7 @@ fun DetailLandscapePhone(
                 .weight(1f)
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = windowClass.screenHorizontalPadding)
         ) {
             Spacer(modifier = Modifier.height(topSpacerHeight))
 

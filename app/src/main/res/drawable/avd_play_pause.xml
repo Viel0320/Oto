@@ -1,0 +1,75 @@
+<!--
+  Animated play -> pause transition with rounded corners (no cross-fade).
+
+  Rounded corners here are a STROKE property (strokeLineJoin / strokeLineCap),
+  not geometry, so they survive the entire morph automatically. This mirrors how
+  play.xml already rounds its triangle: white fill + white stroke + round join.
+
+  Both states are two filled quads with identical command structure (M + 3 L + Z)
+  so pathData morphs cleanly:
+    - play  = triangle (left edge x=15 y14..34, apex (35,24)) split at x=24 into
+              a left quad and a right wedge (apex point doubled to keep 4 points).
+    - pause = two zero-width bars (degenerate quads at x=16 and x=32, y14..34);
+              the white round-cap/join stroke (width 6) is the only thing drawn,
+              so each bar is a full capsule (corner radius = strokeWidth/2 = 3).
+
+  White fill+stroke throughout so Compose tints it with onSurface like the other
+  icons. For pause -> play, swap valueFrom/valueTo or reverse the AVD.
+-->
+<animated-vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="24dp"
+            android:height="24dp"
+            android:viewportWidth="48"
+            android:viewportHeight="48">
+            <!-- Left half: play trapezoid -> left pause bar. -->
+            <path
+                android:name="leftShape"
+                android:fillColor="#FFFFFFFF"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeWidth="6"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M15,14L24,18.5L24,29.5L15,34Z" />
+            <!-- Right half: play wedge (apex doubled) -> right pause bar. -->
+            <path
+                android:name="rightShape"
+                android:fillColor="#FFFFFFFF"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeWidth="6"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M24,18.5L35,24L35,24L24,29.5Z" />
+        </vector>
+    </aapt:attr>
+
+    <target android:name="leftShape">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="180"
+                android:startOffset="120"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="pathData"
+                android:valueFrom="M15,14L24,18.5L24,29.5L15,34Z"
+                android:valueTo="M16,14L16,14L16,34L16,34Z"
+                android:valueType="pathType" />
+        </aapt:attr>
+    </target>
+
+    <target android:name="rightShape">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="180"
+                android:startOffset="120"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="pathData"
+                android:valueFrom="M24,18.5L35,24L35,24L24,29.5Z"
+                android:valueTo="M32,14L32,14L32,34L32,34Z"
+                android:valueType="pathType" />
+        </aapt:attr>
+    </target>
+</animated-vector>

@@ -116,7 +116,7 @@
                 android:contentDescription="@string/playback_play_content_description"
                 android:padding="10dp"
                 android:scaleType="centerInside"
-                android:src="@drawable/ic_widget_play" />
+                android:src="@drawable/play" />
 
             <ImageButton
                 android:id="@+id/widget_skip_forward"

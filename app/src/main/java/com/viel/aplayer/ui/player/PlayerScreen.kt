@@ -14,8 +14,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -45,20 +45,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.R
-import com.viel.aplayer.application.library.player.PlayerChapterItem
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurSnackbar
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
-import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
-import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
@@ -73,7 +68,6 @@ import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
@@ -95,25 +89,15 @@ fun PlayerScreen(
     settingsViewModel: PlayerSettingsViewModel,
     actions: PlayerActions,
     navigationActions: PlayerNavigationActions,
-    // Glass effect mode (To customize overlay blur styles)
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // Setup Haze State Parameter (Map fullPageBackdrop parameter to HazeState)
-    // Accept a nullable parent/global HazeState to support popup dialog/sheet blur.
     hazeState: HazeState? = null,
-    // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
-    // Accepts the active cover color extracted by the page CoverBackground.
     coverColor: Color?,
-    // Color Extracted Callback (Notify parent overlay about extracted cover color)
-    // Callback triggered when CoverBackground extracts a dominant color from its software backdrop image.
     onColorExtracted: (Color) -> Unit,
-    // Player Floating Surface Ownership (Allow outer overlays to render modal surfaces outside the sampled content tree)
-    // PlayerOverlay disables this flag so chapter sheets and bookmark dialogs are composed as siblings of the player hazeSource instead of inside PlayerScreen.
     renderFloatingSurfaces: Boolean = true,
+    safeDrawingPadding: PaddingValues
 ) {
-    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    // Localized Seek Undo Banner Copy (Resolve the undo action and transient seek message through resources)
-    // The banner reflects app-authored playback feedback, while the target position itself remains runtime playback state.
+
     val seekUndoActionText = stringResource(R.string.player_seek_undo_action)
     val seekUndoMessageText = stringResource(R.string.player_seek_undo_message)
 
@@ -121,103 +105,32 @@ fun PlayerScreen(
     // Player Container State Gathering (To ensure layout classes remain stateless)
     // Facilitates UI channel adaptation, decoupling, and automated views testing.
     // =====================================================================
-    val playbackProgressState = if (isPreview) {
-        remember {
-            MutableStateFlow(
-                PlaybackProgressViewState(
-                    elapsedMs = 120000L,
-                    bufferedMs = 220000L,
-                    durationMs = 360000L,
-                    isChapterProgressMode = false
-                )
-            )
-        }
-    } else {
-        playbackViewModel.playbackProgressState
-    }
+    val playbackProgressState = playbackViewModel.playbackProgressState
 
-    val currentChapter = if (isPreview) {
-        PlayerChapterItem(
-            id = "chapter_1",
-            bookId = "book_1",
-            bookFileId = "file_1",
-            index = 1,
-            title = "第一章：危机纪元",
-            startPositionMs = 0L,
-            durationMs = 360000L,
-            fileOffsetMs = 0L,
-            // Update PlayerScreen to use AudiobookSchema.ChapterSource: Replacing raw string with type-safe ChapterSource.EMBEDDED.
-            source = AudiobookSchema.ChapterSource.EMBEDDED
-        )
-    } else {
-        playbackViewModel.currentChapterState.collectAsStateWithLifecycle().value
-    }
 
-    val bookmarkDialogs = if (isPreview) {
-        BookmarkViewModel.BookmarkDialogsState(
-            toDelete = null,
-            toEdit = null,
-            editTitle = ""
-        )
-    } else {
-        bookmarkViewModel.bookmarkDialogs.collectAsStateWithLifecycle().value
-    }
+    val currentChapter = playbackViewModel.currentChapterState.collectAsStateWithLifecycle().value
+
+
+    val bookmarkDialogs = bookmarkViewModel.bookmarkDialogs.collectAsStateWithLifecycle().value
+
 
     // IDE preview data check (To supply mock parameters under layout previews)
-    val metadata = if (isPreview) {
-        BookMetadataState(
-            id = "book_1",
-            title = "三体：黑暗森林",
-            author = "刘慈欣",
-            narrator = "王明",
-            coverPath = null,
-            thumbnailPath = null,
-            coverLastUpdated = 0L,
-            // Deprecated: backgroundColorArgb is removed
-            // Player Preview Chapters (Use player-scene projections instead of Room relation models)
-            // Preview data mirrors the runtime player boundary and keeps this UI file independent from persistence entities.
-            // Update PlayerScreen previews to use AudiobookSchema.ChapterSource: Replacing raw string with type-safe ChapterSource.EMBEDDED.
-            chapters = listOf(
-                PlayerChapterItem("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, AudiobookSchema.ChapterSource.EMBEDDED),
-                PlayerChapterItem("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, AudiobookSchema.ChapterSource.EMBEDDED)
-            )
-        )
-    } else {
-        playbackViewModel.metadataState.collectAsStateWithLifecycle().value
-    }
+    val metadata = playbackViewModel.metadataState.collectAsStateWithLifecycle().value
+
     // Lower resolution backdrop image (To decouple backdrop drawing parameters from high-res main artwork)
     val playerBackdropCoverPath = CoverImageSourceSelector.backdrop(
         thumbnailPath = metadata.thumbnailPath,
         coverPath = metadata.coverPath
     )
 
-    val settings = if (isPreview) {
-        PlayerSettingsState(
-            isFullPlayerVisible = true,
-            selectedContentTab = -1,
-            isChapterProgressMode = false,
-            showUndoSeek = false,
-            selectedSleepTimer = 0
-        )
-    } else {
-        settingsViewModel.settingsState.collectAsStateWithLifecycle().value
-    }
+    val settings = settingsViewModel.settingsState.collectAsStateWithLifecycle().value
 
-    val controls = if (isPreview) {
-        PlaybackViewModel.PlaybackControlState(
-            isPlaying = true,
-            playbackSpeed = 1.0f,
-            isSpeedManualMode = false
-        )
-    } else {
-        playbackViewModel.playbackControlState.collectAsStateWithLifecycle().value
-    }
+
+    val controls = playbackViewModel.playbackControlState.collectAsStateWithLifecycle().value
+
     
-    val fullUiState = if (isPreview) {
-        PlayerUiState()
-    } else {
-        playbackViewModel.uiState.collectAsStateWithLifecycle().value
-    }
+    val fullUiState = playbackViewModel.uiState.collectAsStateWithLifecycle().value
+
 
     val targetMode = remember(settings.selectedContentTab) {
         when(settings.selectedContentTab) {
@@ -338,9 +251,14 @@ fun PlayerScreen(
         }
             ?: remember(endCornerRadius) { mutableStateOf(endCornerRadius) }
 
-        // Conditional Bounds Transition: Only apply shared bounds morphing on widescreen/tablet layouts.
-        // This ensures the player sheet on standard phones slides up/down cleanly without morphing the background, while still allowing the cover shared element to animate.
-        val boundsModifier = if (sharedTransitionScope != null && mini2PlayerTargetScope != null && windowClass.isWideScreen) {
+        /*
+         * Full Player Bounds Target (Accept mini-player geometry on every window class)
+         *
+         * The target side only needs a mini-origin visibility scope. Window size still controls the
+         * starting corner radius, but both the bottom bar and the wide pill now bind to the same
+         * playback surface bounds key when the full player is opened from the mini player.
+         */
+        val boundsModifier = if (sharedTransitionScope != null && mini2PlayerTargetScope != null) {
             with(sharedTransitionScope) {
                 Modifier.sharedBounds(
                     /*
@@ -478,7 +396,8 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetHazeState = floatingHazeState
+                                chapterSheetHazeState = floatingHazeState,
+                                safeDrawingPadding = safeDrawingPadding
                             )
                         }
                         isLandscape -> {
@@ -518,7 +437,8 @@ fun PlayerScreen(
                                 },
                                 animatedBgColor = animatedBgColor,
                                 glassEffectMode = glassEffectMode,
-                                chapterSheetHazeState = floatingHazeState
+                                chapterSheetHazeState = floatingHazeState,
+                                safeDrawingPadding = safeDrawingPadding
                             )
                         }
                         else -> {
@@ -563,7 +483,8 @@ fun PlayerScreen(
                                 scope = scope,
                                 dismissThreshold = dismissThreshold,
                                 focusManager = focusManager,
-                                navigationActions = navigationActions
+                                navigationActions = navigationActions,
+                                safeDrawingPadding = safeDrawingPadding
                             )
                         }
                     }
@@ -666,70 +587,4 @@ fun PlayerFloatingSurfaceHost(
         },
         onDismiss = actions.bookmarks.onDismissDialog
     )
-}
-
-// Suppress VM forwarding checker (To allow instantiating empty ViewModel instances under preview components)
-@Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
-@Preview(showBackground = true, apiLevel = 36)
-@Composable
-fun PlayerScreenPreview() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val application = context.applicationContext as android.app.Application
-    APlayerTheme {
-        // Portrait phone preview (To verify vertical scroll drawer positioning metrics)
-        CompositionLocalProvider(
-            LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
-                val mockScope = rememberCoroutineScope()
-                PlayerScreen(
-                    playbackViewModel = PlaybackViewModel(application, mockScope),
-                    bookmarkViewModel = BookmarkViewModel(application, mockScope),
-                    settingsViewModel = PlayerSettingsViewModel(application, mockScope),
-                    actions = PlayerActions(),
-                    navigationActions = PlayerNavigationActions(),
-                    glassEffectMode = GlassEffectMode.Material,
-                    coverColor = null,
-                    onColorExtracted = {}
-                )
-            }
-        }
-    }
-}
-
-// Suppress VM forwarding checker (To allow instantiating empty ViewModel instances under preview components)
-@Suppress("ComposeViewModelForwarding", "ComposeViewModelInjection", "ViewModelConstructorInComposable")
-@Preview(showBackground = true, apiLevel = 36, widthDp = 800, heightDp = 480)
-@Composable
-fun PlayerScreenLandscapePreview() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val application = context.applicationContext as android.app.Application
-    APlayerTheme {
-        // Landscape phone preview (To verify double-column layouts under wider screens)
-        CompositionLocalProvider(
-            LocalAppWindowSizeClass provides AppWindowSizeClass.LandscapePhone
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
-                val mockScope = rememberCoroutineScope()
-                PlayerScreen(
-                    playbackViewModel = PlaybackViewModel(application, mockScope),
-                    bookmarkViewModel = BookmarkViewModel(application, mockScope),
-                    settingsViewModel = PlayerSettingsViewModel(application, mockScope),
-                    actions = PlayerActions(),
-                    navigationActions = PlayerNavigationActions(),
-                    glassEffectMode = GlassEffectMode.Haze,
-                    coverColor = null,
-                    onColorExtracted = {}
-                )
-            }
-        }
-    }
 }

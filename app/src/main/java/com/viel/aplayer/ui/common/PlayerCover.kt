@@ -22,18 +22,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
@@ -43,7 +40,6 @@ import com.viel.aplayer.ui.motion.SharedElementKeys
  * Adaptive player cover component (PlayerCover).
  *
  * Owns responsive cover sizing and shared-element artwork rendering while leaving
- * playback commands to explicit controls. The cover no longer registers drag
  * gestures, so transport actions remain discoverable and do not conflict with
  * tab swipes or system gestures.
  *
@@ -235,56 +231,35 @@ fun MainCoverView(
                 .clip(RoundedCornerShape(animatedCoverCornerRadius))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            // Define local state to track whether asynchronous cover loading failed.
-            // Combined with Coil's onError callback, this completely eliminates the risk of disk I/O blocking from synchronous File.exists() calls on the main thread,
-            // and handles cases where files physically exist but are corrupt and cannot be decoded, automatically transitioning smoothly to a placeholder.
-            var isImageError by remember(coverPath) { mutableStateOf(false) }
-
-            if (coverPath != null && !isImageError) {
-                val context = LocalContext.current
-
-                // The main cover uniformly uses the Main1200 specification, allowing the details page and playback page to share the same dimensions and cache key.
-                // If the main cover specification needs to be increased or decreased in the future, only the request factory and enum need to be modified, instead of editing multiple UI files individually.
-                val request = remember(coverPath, coverLastUpdated) {
-                    // coverScene is passed by the caller to differentiate main cover sources like the player, details page, or edit page.
-                    // When multiple Main1200 Bitmaps exist concurrently in the profiler, the actual holding scene can be traced back through logs.
-                    CoverImageRequestFactory.build(
-                        context = context,
-                        sourcePath = coverPath,
-                        lastUpdated = coverLastUpdated,
-                        variant = CoverImageVariant.Main1200,
-                        scene = coverScene,
-                        // Use hardware bitmap for displaying in PlayerCover (Allow hardware bitmap renderer sampling optimization)
-                        allowHardware = true,
-                        bitmapConfig = null
-                    )
-                }
-                AsyncImage(
-                    model = request,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    onError = {
-                        // Main cover component degradation.
-                        //
-                        // The main cover component only retains UI degradation responsibilities; loading failure exception types,
-                        // decodeCostMs, and cacheHitRatio are already logged by the unified request listener to avoid duplicate logs and conflicting metrics.
-                        isImageError = true
+            /*
+             * Main Artwork Crossfade (Animate bitmap identity without changing motion channels)
+             *
+             * The shared element and breathing-scale modifiers stay on the stable outer cover bounds,
+             * while only the inner decoded artwork fades after the next bitmap has loaded.
+             */
+            CrossfadingCoverImage(
+                sourcePath = coverPath,
+                lastUpdated = coverLastUpdated,
+                variant = CoverImageVariant.Main1200,
+                scene = coverScene,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                allowHardware = true,
+                bitmapConfig = null
+            ) {
+                    // Present a unified placeholder background + play icon when the cover path is empty or loading errors occur, aligning visually with the details page specifications.
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                        )
                     }
-                )
-            } else {
-                // Present a unified placeholder background + play icon when the cover path is empty or loading errors occur, aligning visually with the details page specifications.
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(80.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
-                    )
-                }
             }
         }
     }

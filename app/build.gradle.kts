@@ -108,6 +108,8 @@ dependencies {
     // Fix Compose Material Icons Extended Reference (Use dot notation instead of hyphens in Gradle Kotlin DSL)
     // Map libraries entry 'androidx-compose-material-icons-extended' correctly using dot syntax.
     implementation(libs.androidx.compose.material.icons.extended)
+    // Compose AnimatedVectorDrawable support for bottom nav tab selected-state morphing.
+    implementation(libs.androidx.compose.animation.graphics)
     // Migrate Navigation 2 to Navigation 3 (Transition core navigation containers) Replaced old navigation-compose with navigation3 runtime and UI.
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)

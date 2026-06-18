@@ -1,13 +1,8 @@
 package com.viel.aplayer.ui.player.components
 
-// Align Top Bar Layout (Align title contents to left edge)
-// Import standard TopAppBar instead of CenterAlignedTopAppBar to support left-aligned title layout natively.
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.exclude
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreVert
@@ -54,29 +49,20 @@ fun PlayerAppBar(
     navigationIcon: ImageVector? = null,
     onToggleProgressMode: (() -> Unit)? = null,
     isChapterProgressMode: Boolean = false,
-    // Glass effect mode must be explicitly passed from the settings state by the player page; the player top bar no longer declares a Material default.
     glassEffectMode: GlassEffectMode,
-    // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
     containerColor: Color = Color.Transparent,
     contentColor: Color = LocalContentColor.current
 ) {
     val navIcon = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
-    // Localized Player Menu Copy (Resolve top-bar labels inside composition)
-    // The player dropdown now exposes only playback-display controls, keeping destructive library removal out of the transient player chrome.
     val unknownText = stringResource(R.string.common_unknown)
     val showProgressText = stringResource(
         if (isChapterProgressMode) R.string.player_show_total_progress else R.string.player_show_chapter_progress
     )
 
-    // Left-Align Player Top Bar Title (Shift layout structure to left alignment)
-    // Replace CenterAlignedTopAppBar with TopAppBar and adjust Column alignment to Start,
-    // positioning title and subtitle text on the left edge as requested.
     TopAppBar(
-        // Remove statusBarsPadding() from the modifier, using more professional windowInsets for direct adaptive management to completely eliminate double padding.
-        modifier = modifier,
-        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars),
+        modifier = modifier, windowInsets = WindowInsets(0, 0, 0, 0),
         title = {
             Column(horizontalAlignment = Alignment.Start) {
                 Text(
@@ -149,8 +135,6 @@ fun PlayerAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = containerColor,
             scrolledContainerColor = Color.Unspecified,
-            // Player Top Bar Slot Color Unification (Override Material3 navigation/action defaults)
-            // The icons also set explicit tint, but slot colors stay onSurface for future icon additions.
             navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
             titleContentColor = Color.Unspecified,
             actionIconContentColor = MaterialTheme.colorScheme.onSurface

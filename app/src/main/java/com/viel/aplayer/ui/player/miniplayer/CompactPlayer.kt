@@ -5,7 +5,12 @@ import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
+import androidx.compose.animation.graphics.res.animatedVectorResource
+import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
+import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -20,10 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,17 +37,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.AudioProgressBar
-import com.viel.aplayer.ui.common.CoverImageRequestFactory
 import com.viel.aplayer.ui.common.CoverImageVariant
+import com.viel.aplayer.ui.common.CrossfadingCoverImage
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
@@ -57,7 +56,7 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class, ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class, ExperimentalSharedTransitionApi::class, ExperimentalAnimationGraphicsApi::class)
 @Composable
 fun CompactMediaPlayer(
     bookId: String,
@@ -108,8 +107,24 @@ fun CompactMediaPlayer(
     }
         ?: remember { mutableStateOf(8.dp) }
 
-    // Disable Bounds Transition: Bypass shared bounds morphing for CompactPlayer to let the player slide up/down instead of morphing, while preserving cover shared elements.
-    val boundsModifier = Modifier
+    /*
+     * Compact Player Bounds Source (Register bottom-bar geometry for Mini -> Player motion)
+     *
+     * The standard phone mini-player now participates in the same playback surface bounds channel
+     * as the wide pill player. Keeping the key container-scoped rather than book-scoped lets the
+     * full player morph from the visible bottom bar while the artwork keeps using its own cover key.
+     */
+    val boundsModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedBounds(
+                sharedContentState = rememberSharedContentState(key = SharedElementKeys.playerBounds()),
+                animatedVisibilityScope = mini2PlayerSourceScope,
+                clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
+            )
+        }
+    } else {
+        Modifier
+    }
 
     // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
@@ -204,38 +219,29 @@ fun CompactMediaPlayer(
                             onLongClick = actions.onHide
                         )
                 ) {
-                    if (coverPath != null) {
-                        val context = LocalContext.current
-
-                        val request = remember(coverPath, coverLastUpdated) {
-                            CoverImageRequestFactory.build(
-                                context = context,
-                                sourcePath = coverPath,
-                                lastUpdated = coverLastUpdated,
-                                variant = CoverImageVariant.ThumbnailSmall,
-                                scene = "compact-player-cover",
-                                // Use hardware bitmap for displaying in CompactPlayer (Allow hardware bitmap renderer sampling optimization)
-                                allowHardware = true,
-                                bitmapConfig = null
+                    /*
+                     * Mini Source Artwork Crossfade (Animate the shared-element source content)
+                     *
+                     * The sharedElement modifier stays on the stable cover bounds, while the source
+                     * thumbnail fades only after the next bitmap has loaded.
+                     */
+                    CrossfadingCoverImage(
+                        sourcePath = coverPath,
+                        lastUpdated = coverLastUpdated,
+                        variant = CoverImageVariant.ThumbnailSmall,
+                        scene = "compact-player-cover",
+                        contentDescription = coverContentDescription,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
+                        allowHardware = true,
+                        bitmapConfig = null
+                    ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                             )
-                        }
-                        AsyncImage(
-                            model = request,
-                            contentDescription = coverContentDescription,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-                            contentScale = ContentScale.Crop,
-                            onError = {
-                                // No-op, just fallback presentation
-                            }
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                        )
                     }
                 }
 
@@ -265,15 +271,18 @@ fun CompactMediaPlayer(
                     onClick = actions.onPlayPauseClick,
                     modifier = Modifier.size(48.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) {
-                            Icons.Rounded.Pause
-                        } else {
-                            Icons.Rounded.PlayArrow
-                        },
+                    // Animated play <-> pause glyph driven by isPlaying, morphing
+                    // via the shared avd_play_pause asset and tinted with onSurface.
+                    val playPauseImage = AnimatedImageVector.animatedVectorResource(R.drawable.avd_play_pause)
+                    val playPausePainter = rememberAnimatedVectorPainter(
+                        animatedImageVector = playPauseImage,
+                        atEnd = isPlaying
+                    )
+                    Image(
+                        painter = playPausePainter,
                         contentDescription = playPauseContentDescription,
                         modifier = Modifier.size(32.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface)
                     )
                 }
             }

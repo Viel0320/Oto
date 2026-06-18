@@ -1,5 +1,10 @@
 package com.viel.aplayer.ui.player.components
 
+import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
+import androidx.compose.animation.graphics.res.animatedVectorResource
+import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
+import androidx.compose.animation.graphics.vector.AnimatedImageVector
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -8,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.FilledIconButton
@@ -23,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -112,15 +116,11 @@ fun PlaybackControls(
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = if (isPlaying) {
-                            Icons.Rounded.Pause
-                        } else {
-                            Icons.Rounded.PlayArrow
-                        },
+                    PlayPauseMorphIcon(
+                        isPlaying = isPlaying,
                         contentDescription = playPauseContentDescription,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp)
                     )
                 }
             }
@@ -135,13 +135,10 @@ fun PlaybackControls(
                     contentColor = contentColor
                 )
             ) {
-                Icon(
-                    imageVector = if (isPlaying) {
-                        Icons.Rounded.Pause
-                    } else {
-                        Icons.Rounded.PlayArrow
-                    },
+                PlayPauseMorphIcon(
+                    isPlaying = isPlaying,
                     contentDescription = playPauseContentDescription,
+                    tint = contentColor,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -163,6 +160,34 @@ fun PlaybackControls(
             )
         }
     }
+}
+
+/**
+ * Renders the transport play/pause button as a morphing AnimatedVectorDrawable.
+ *
+ * The single `avd_play_pause` asset starts as the play triangle and morphs into
+ * the pause bars, so [isPlaying] simply drives `atEnd`: false shows play, true
+ * morphs to pause, and toggling reverses the same animation instead of swapping
+ * two static icons. The asset is white fill+stroke, so the active [tint] is
+ * applied at the call site to match each render branch (primary on glass,
+ * computed contentColor on the filled button).
+ */
+@OptIn(ExperimentalAnimationGraphicsApi::class)
+@Composable
+private fun PlayPauseMorphIcon(
+    isPlaying: Boolean,
+    contentDescription: String,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    val image = AnimatedImageVector.animatedVectorResource(R.drawable.avd_play_pause)
+    val painter = rememberAnimatedVectorPainter(animatedImageVector = image, atEnd = isPlaying)
+    Image(
+        painter = painter,
+        contentDescription = contentDescription,
+        colorFilter = ColorFilter.tint(tint),
+        modifier = modifier
+    )
 }
 
 @Preview(apiLevel = 36)

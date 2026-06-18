@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.player.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +38,7 @@ fun PlayerVerticalAppBar(
     glassEffectMode: GlassEffectMode,
     // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
-    offsetY: Animatable<Float, AnimationVector1D>,
+    offsetY: Animatable<Float, *>,
     scope: CoroutineScope,
     dismissThreshold: Float
 ) {

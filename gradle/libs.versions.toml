@@ -54,6 +54,9 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-material3-windowsize = { group = "androidx.compose.material3", name = "material3-window-size-class" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+# Animated Vector Drawable in Compose (Drives selected-state path morphing for bottom nav tabs)
+# Provides animatedVectorResource + rememberAnimatedVectorPainter so AVD assets render with Compose tint.
+androidx-compose-animation-graphics = { group = "androidx.compose.animation", name = "animation-graphics" }
 # Setup Navigation 3 Libraries (Link dependencies for Nav3 runtime and Compose UI) Declare Navigation 3 runtime and UI coordinates.
 androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigation3-runtime", version.ref = "nav3" }
 androidx-navigation3-ui = { group = "androidx.navigation3", name = "navigation3-ui", version.ref = "nav3" }

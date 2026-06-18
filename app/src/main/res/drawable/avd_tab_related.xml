@@ -1,0 +1,71 @@
+<!--
+  Animated related-books tab icon (theme-tinted, bottom-up fill reveal, mirrored).
+
+  Endpoints match svgs/related exactly:
+   - start = outline (back book edge + front book, both strokes, no fill)
+   - end   = filled  (back book stays an outline, front book filled solid)
+  The background book edge stroke is constant. The foreground book fill rises
+  from the bottom via a growing clip-path while its own outline stroke fades out.
+  autoMirrored flips for RTL. White throughout so Compose tints with onSurface.
+-->
+<animated-vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:autoMirrored="true">
+
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="24dp"
+            android:height="24dp"
+            android:viewportWidth="48"
+            android:viewportHeight="48"
+            android:autoMirrored="true">
+            <group android:name="fillClipGroup">
+                <clip-path
+                    android:name="fillClip"
+                    android:pathData="M-4,52L52,52L52,52L-4,52Z" />
+                <path
+                    android:name="body"
+                    android:fillColor="#FFFFFFFF"
+                    android:pathData="M20,16L40,6V34L20,44V16Z" />
+            </group>
+            <path
+                android:name="backBook"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeWidth="4"
+                android:strokeLineJoin="round"
+                android:pathData="M28,12V4L8,14V42L20,36" />
+            <path
+                android:name="frontOutline"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeWidth="4"
+                android:strokeAlpha="1"
+                android:strokeLineJoin="round"
+                android:pathData="M20,16L40,6V34L20,44V16Z" />
+        </vector>
+    </aapt:attr>
+
+    <target android:name="fillClip">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="300"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="pathData"
+                android:valueFrom="M-4,52L52,52L52,52L-4,52Z"
+                android:valueTo="M-4,-4L52,-4L52,52L-4,52Z"
+                android:valueType="pathType" />
+        </aapt:attr>
+    </target>
+    <target android:name="frontOutline">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="180"
+                android:startOffset="120"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="strokeAlpha"
+                android:valueFrom="1"
+                android:valueTo="1"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+</animated-vector>

@@ -4,15 +4,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.application.library.player.PlayerChapterItem
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackProgressViewState
 import com.viel.aplayer.ui.player.PlayerActions
@@ -99,7 +101,6 @@ fun PlayerControlPanel(
         // Add 8dp of padding to the entire play control panel container to prevent control panel sub-elements from sticking to the edges, improving visual elegance and touch experience.
         modifier = modifier
             .fillMaxWidth()
-            .padding(8.dp)
     ) {
         // Chapter title display component, decoupled from ViewModel, directly calling the stateless component by passing the unpacked current chapter title and other parameters.
         ChapterDisplay(
@@ -138,6 +139,47 @@ fun PlayerControlPanel(
             hazeState = hazeState,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(Modifier.height(12.dp))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PlayerControlPanelPreview() {
+    APlayerTheme {
+        PlayerControlPanel(
+            currentPosition = 120000L,
+            bufferedPosition = 220000L,
+            totalDuration = 360000L,
+            isChapterMode = false,
+            currentChapter = PlayerChapterItem(
+                id = "chapter_1",
+                bookId = "book_1",
+                bookFileId = "file_1",
+                index = 1,
+                title = "第一章：危机纪元",
+                startPositionMs = 0L,
+                durationMs = 360000L,
+                fileOffsetMs = 0L,
+                source = AudiobookSchema.ChapterSource.EMBEDDED
+            ),
+            metadata = BookMetadataState(
+                id = "book_1",
+                title = "三体：黑暗森林",
+                author = "刘慈欣",
+                narrator = "王明",
+                coverPath = null,
+                thumbnailPath = null,
+                coverLastUpdated = 0L,
+                chapters = listOf(
+                    PlayerChapterItem("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, AudiobookSchema.ChapterSource.EMBEDDED),
+                    PlayerChapterItem("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, AudiobookSchema.ChapterSource.EMBEDDED)
+                )
+            ),
+            isPlaying = true,
+            settings = PlayerSettingsState(),
+            actions = PlayerActions(),
+            buttonColor = Color(0xFFE91E63),
+            glassEffectMode = GlassEffectMode.Material
+        )
     }
 }

@@ -86,65 +86,33 @@ import kotlin.math.roundToInt
 )
 @Composable
 fun DetailContent(
-    uiState: DetailUiState, // Complete UI state of the detail page
-    onBackClick: () -> Unit, // Callback triggered when the back button is clicked or user drags down to dismiss
+    uiState: DetailUiState,
+    onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
     onPlayPressed: () -> Unit = {},
-    onPlayClick: () -> Unit = {}, // Official playback action callback
-    onSearchClick: (String) -> Unit = {}, // Callback for clicking a specific tag to search for related books
-    // Detail Action Edit Command (Forward selected Detail projection id to the app shell)
-    // DetailContent owns only the action dialog presentation, while the edit overlay route remains hosted by APlayerApp.
+    onPlayClick: () -> Unit = {},
+    onSearchClick: (String) -> Unit = {},
     onEditBook: (String) -> Unit = {},
-    // Detail Action Read Status Command (Forward manual read-status changes)
-    // The command uses the selected DetailBookItem id so status updates do not depend on Home dialog state.
-    // Update Read Status: Update readStatus parameter type to ReadStatus enum.
     onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit = { _, _ -> },
-    // Detail Action Metadata Refresh Command (Forward forced regeneration from the shared action dialog)
-    // DetailContent does not perform library work directly; it only bridges the selected projection id.
     onForceRegenerate: (String) -> Unit = {},
-    // Detail Action Delete Command (Forward destructive removal to the app shell)
-    // The app shell coordinates playback cleanup, detail dismissal, and library deletion outside the stateless detail renderer.
     onDeleteBook: (String) -> Unit = {},
-    // Detail Download Start Command (Forward selected book manual cache starts)
-    // Route-level permission preflight happens before this callback reaches the application download controller.
     onDownloadBook: (String) -> Unit = {},
-    // Detail Download Pause Command (Forward selected book manual cache pause)
-    // The download controller applies Media3 stop reasons per file so this command remains book scoped.
     onPauseDownload: (String) -> Unit = {},
-    // Detail Download Resume Command (Forward selected book manual cache resume)
-    // Resuming remains separate from playback start because it only affects offline cache work.
     onResumeDownload: (String) -> Unit = {},
-    // Detail Download Delete Command (Forward selected book manual cache deletion)
-    // Cache deletion is intentionally separate from audiobook deletion and keeps the book in the library.
     onDeleteDownload: (String) -> Unit = {},
-    glassEffectMode: GlassEffectMode, // Precise control of dynamic switching between Material design and frosted glass Haze mode
-    // Detail Floating Dialog Haze Source (Use app-level sampling for detail dialogs)
-    // DetailOverlay registers visible Detail content into the stable app source, so floating dialogs avoid local HazeState rebinding.
+    glassEffectMode: GlassEffectMode,
     fullPageHazeState: HazeState? = null,
-    // Dynamic Cover Color (Propagate dynamic cover color for backdrop blending)
-    // Accepts the active cover color extracted by the page CoverBackground.
     coverColor: Color?,
-    // Color Extracted Callback (Notify parent overlay about extracted cover color)
-    // Callback triggered when CoverBackground extracts a dominant color from its software backdrop image.
     onColorExtracted: (Color) -> Unit,
 ) {
-    // Detail Render Item (Use the Room-free scene item for every detail layout)
-    // The UI reads only Detail-owned fields here, preventing layout parameters from depending on database entities.
     val book = uiState.book?.item
     val isVisible = uiState.isVisible
-    // Deprecated: backgroundColorArgb is removed
     var isPredictiveBackActive by remember { mutableStateOf(false) }
     var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
-    // Detail Action Dialog Visibility (Own only the local modal presentation state)
-    // The selected book payload still comes from DetailBookItem, and all mutations are delegated through callbacks.
     var showActionDialog by remember { mutableStateOf(false) }
-    // Detail Download Dialog Visibility (Own only the local manual-cache action sheet state)
-    // The selected cache status comes from DetailUiState, while all mutations are delegated to route/ViewModel callbacks.
-    var showDownloadDialog by remember { mutableStateOf(false) }
-    // Localized Detail Dialog Action Copy (Resolve the generic acknowledgement button through resources)
-    // Info dialog titles and body text are selected book metadata, while the closing action is app-authored UI copy.
+    var showDownloadDialog by remember { mutableStateOf(false) } 
     val okActionText = stringResource(R.string.action_ok)
 
     val backdropCoverPath = CoverImageSourceSelector.backdrop(
