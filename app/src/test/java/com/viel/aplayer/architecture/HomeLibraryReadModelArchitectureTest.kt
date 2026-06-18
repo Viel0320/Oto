@@ -41,12 +41,14 @@ class HomeLibraryReadModelArchitectureTest {
         val libraryViewModelSource = resolveSourceRoot().resolve("ui/home/LibraryViewModel.kt").readText()
 
         assertTrue(
-            "LibraryViewModel must consume HomeLibraryReadModel instead of the full LibraryFacade bus.",
-            libraryViewModelSource.contains("homeLibraryReadModel.observeCatalog(")
+            "LibraryViewModel must consume raw HomeLibraryReadModel streams instead of the full LibraryFacade bus.",
+            libraryViewModelSource.contains("homeLibraryReadModel.audiobooks") &&
+                libraryViewModelSource.contains("homeLibraryReadModel.hasRegisteredLibraryRoots")
         )
         assertTrue(
-            "LibraryViewModel must not own Home catalog sorting policy.",
-            !libraryViewModelSource.contains("HomeCatalogSortPolicy")
+            "LibraryViewModel must own Home catalog sorting and grouping policy.",
+            libraryViewModelSource.contains("HomeCatalogSortPolicy.sort(") &&
+                libraryViewModelSource.contains("HomeCatalogSortPolicy.groupLabel(")
         )
         assertTrue(
             "LibraryViewModel must send home commands through HomeLibraryUseCases.",
@@ -103,6 +105,11 @@ class HomeLibraryReadModelArchitectureTest {
             "HomeLibraryReadModel must expose the home scene projection rather than BookWithProgress.",
             readModelInterface.contains("val audiobooks: Flow<List<HomeBookItem>>") &&
                 !readModelInterface.contains("BookWithProgress")
+        )
+        assertTrue(
+            "HomeLibraryReadModel must not organize the Home catalog.",
+            !readModelInterface.contains("observeCatalog(") &&
+                !readModelSource.contains("HomeCatalogSortPolicy")
         )
     }
 

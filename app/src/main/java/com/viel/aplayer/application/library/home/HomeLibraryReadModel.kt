@@ -10,15 +10,7 @@ import com.viel.aplayer.data.metadata.MetadataRefreshGateway
 import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.data.search.SearchHistoryGateway
-import com.viel.aplayer.shared.settings.AppSettings
-import com.viel.aplayer.shared.settings.HomeBookStatusFilter
-import com.viel.aplayer.shared.settings.HomeFilter
-import com.viel.aplayer.shared.settings.HomeSortDirection
-import com.viel.aplayer.shared.settings.HomeSortRule
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 /**
@@ -53,23 +45,6 @@ data class HomeBookItem(
     val isNotStarted: Boolean
 )
 
-/**
- * Home Catalog Snapshot (Application-owned catalog organization result)
- * Carries the filtered, sorted, grouped, and recent Home collections after applying catalog preferences, keeping ordering rules out of the UI ViewModel.
- */
-data class HomeCatalogSnapshot(
-    val audiobooks: List<HomeBookItem> = emptyList(),
-    val hasRegisteredLibraryRoots: Boolean = false,
-    val selectedFilter: HomeFilter = HomeFilter.NotStarted,
-    val homeBookStatusFilter: HomeBookStatusFilter = HomeBookStatusFilter.All,
-    val filteredAudiobooks: List<HomeBookItem> = emptyList(),
-    val groupedAudiobooks: Map<String, List<HomeBookItem>> = emptyMap(),
-    val recentBooks: List<HomeBookItem> = emptyList(),
-    val shouldShowRecentBooks: Boolean = false,
-    val homeSortRule: HomeSortRule = HomeSortRule.Author,
-    val homeSortDirection: HomeSortDirection = HomeSortDirection.Ascending
-)
-
 // Map HomeBookItem to DetailBookItem (Abstract boundary mapping from UI layer to application layer)
 // This encapsulates the conversion logic of book projections, allowing it to be easily unit-tested and keeping Composables focused on pure rendering.
 fun HomeBookItem.toDetailBookItem(): DetailBookItem {
@@ -94,7 +69,7 @@ fun HomeBookItem.toDetailBookItem(): DetailBookItem {
 
 /**
  * Home Library Read Model (Scene-level catalog surface for the home screen)
- * Exposes only the audiobook stream needed to derive the home catalog while hiding the full library gateway bus.
+ * Exposes raw Home projections and root presence while keeping page-level catalog organization inside the Home ViewModel.
  */
 interface HomeLibraryReadModel {
     val audiobooks: Flow<List<HomeBookItem>>
@@ -105,15 +80,6 @@ interface HomeLibraryReadModel {
      */
     val hasRegisteredLibraryRoots: Flow<Boolean>
 
-    /**
-     * Organized Home Catalog Stream (Application-owned filtering and ordering)
-     * Accepts transient UI overrides plus persisted settings, then emits the complete catalog shape that Home can render without sorting in the ViewModel.
-     */
-    fun observeCatalog(
-        userFilterSelections: Flow<HomeFilter?>,
-        userBookStatusSelections: Flow<HomeBookStatusFilter?>,
-        settings: Flow<AppSettings>
-    ): Flow<HomeCatalogSnapshot>
 }
 
 /**
@@ -156,104 +122,6 @@ class DefaultHomeLibraryReadModel(
             // The Home scene needs this boolean to decide if the onboarding FAB should remain visible without importing settings rows or Room root entities.
             roots.isNotEmpty()
         }
-
-    override fun observeCatalog(
-        userFilterSelections: Flow<HomeFilter?>,
-        userBookStatusSelections: Flow<HomeBookStatusFilter?>,
-        settings: Flow<AppSettings>
-    ): Flow<HomeCatalogSnapshot> {
-        return combine(
-            audiobooks,
-            hasRegisteredLibraryRoots,
-            userFilterSelections,
-            userBookStatusSelections,
-            settings
-        ) { audiobooks, hasRegisteredLibraryRoots, userSelection, userBookStatusSelection, appSettings ->
-            HomeCatalogOrganizer.build(
-                audiobooks = audiobooks,
-                hasRegisteredLibraryRoots = hasRegisteredLibraryRoots,
-                userSelection = userSelection,
-                userBookStatusSelection = userBookStatusSelection,
-                appSettings = appSettings
-            )
-        }.flowOn(Dispatchers.Default)
-    }
-}
-
-/**
- * Home Book Status Matching (Maps the UI-facing availability filter onto the data-layer book status)
- * Keeps the schema dependency in the application layer so the shared HomeBookStatusFilter enum stays free of data-layer types.
- */
-private fun HomeBookStatusFilter.matches(bookStatus: AudiobookSchema.BookStatus): Boolean =
-    when (this) {
-        HomeBookStatusFilter.All -> true
-        HomeBookStatusFilter.Ready -> bookStatus == AudiobookSchema.BookStatus.READY
-        HomeBookStatusFilter.Partial -> bookStatus == AudiobookSchema.BookStatus.PARTIAL
-        HomeBookStatusFilter.Unavailable -> bookStatus == AudiobookSchema.BookStatus.UNAVAILABLE
-    }
-
-/**
- * Home Catalog Organizer (Applies catalog-domain visibility and ordering rules)
- * Keeps read-progress filtering, availability filtering, script-cluster sorting, grouping, and recent slices beside the Home read model instead of the UI ViewModel.
- */
-private object HomeCatalogOrganizer {
-    fun build(
-        audiobooks: List<HomeBookItem>,
-        hasRegisteredLibraryRoots: Boolean,
-        userSelection: HomeFilter?,
-        userBookStatusSelection: HomeBookStatusFilter?,
-        appSettings: AppSettings
-    ): HomeCatalogSnapshot {
-        val activeFilter = userSelection ?: appSettings.homeFilter
-        val activeBookStatusFilter = userBookStatusSelection ?: appSettings.homeBookStatusFilter
-        val statusFilteredAudiobooks = audiobooks.filter { book ->
-            activeBookStatusFilter.matches(book.status)
-        }
-        val filteredAudiobooks = statusFilteredAudiobooks.filter { book ->
-            book.matchesFilter(activeFilter)
-        }
-        val sortedAudiobooks = HomeCatalogSortPolicy.sort(
-            books = filteredAudiobooks,
-            sortRule = appSettings.homeSortRule,
-            sortDirection = appSettings.homeSortDirection
-        )
-        val groupedAudiobooks = sortedAudiobooks.groupBy { book ->
-            HomeCatalogSortPolicy.groupLabel(book, appSettings.homeSortRule)
-        }
-        val recentBooks = when (activeFilter) {
-            HomeFilter.NotStarted -> statusFilteredAudiobooks.filter { book -> book.isNotStarted }
-                .sortedByDescending { book -> book.addedAt }
-                .take(10)
-            HomeFilter.InProgress -> statusFilteredAudiobooks.filter { book -> book.isInProgress && book.lastPlayedAt > 0 }
-                .sortedByDescending { book -> book.lastPlayedAt }
-                .take(5)
-            HomeFilter.Finished -> emptyList()
-        }
-
-        return HomeCatalogSnapshot(
-            audiobooks = audiobooks,
-            hasRegisteredLibraryRoots = hasRegisteredLibraryRoots,
-            selectedFilter = activeFilter,
-            homeBookStatusFilter = activeBookStatusFilter,
-            filteredAudiobooks = sortedAudiobooks,
-            groupedAudiobooks = groupedAudiobooks,
-            recentBooks = recentBooks,
-            shouldShowRecentBooks = (
-                activeFilter == HomeFilter.NotStarted ||
-                    activeFilter == HomeFilter.InProgress
-                ) && recentBooks.isNotEmpty(),
-            homeSortRule = appSettings.homeSortRule,
-            homeSortDirection = appSettings.homeSortDirection
-        )
-    }
-
-    private fun HomeBookItem.matchesFilter(filter: HomeFilter): Boolean {
-        return when (filter) {
-            HomeFilter.NotStarted -> isNotStarted
-            HomeFilter.InProgress -> isInProgress
-            HomeFilter.Finished -> isFinished
-        }
-    }
 }
 
 /**
@@ -302,7 +170,7 @@ class DefaultHomeLibraryUseCases(
 
 /**
  * Home Book Projection Mapping (Translate BookWithProgress into the home scene item)
- * Localizes BookWithProgress knowledge inside the adapter while preserving home filter and sort semantics.
+ * Localizes BookWithProgress knowledge inside the adapter while preserving every raw field the Home ViewModel needs for filtering, sorting, grouping, and recents.
  */
 private fun BookWithProgress.toHomeBookItem(): HomeBookItem {
     return HomeBookItem(

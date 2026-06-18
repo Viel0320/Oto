@@ -17,7 +17,7 @@ import com.viel.aplayer.shared.settings.ThemeMode
  * LibraryUiState Model (Library Main Screen UI State)
  *
  * Aggregation class for library home screen UI state.
- * Catalog transformations are completed by the Home application read model before this UI state is assembled.
+ * All catalog transformations are completed in LibraryViewModel's Flow pipeline before this immutable state reaches Compose.
  * Composable layer consumes pre-calculated fields directly, undertaking no business computation.
  */
 data class LibraryUiState(
