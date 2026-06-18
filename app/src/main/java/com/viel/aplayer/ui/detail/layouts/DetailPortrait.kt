@@ -20,7 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.application.library.detail.DetailBookItem
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.detail.DetailEntrySource

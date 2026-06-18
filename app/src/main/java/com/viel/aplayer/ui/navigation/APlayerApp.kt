@@ -25,9 +25,9 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.savedstate.compose.LocalSavedStateRegistryOwner
 import com.viel.aplayer.application.library.home.toDetailBookItem
-import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.i18n.AppLocaleController
+import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.shared.settings.ThemeMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.VisualEffectPolicy
 import com.viel.aplayer.ui.common.theme.rememberVisualEffectEnvironment

@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.search.SearchHistoryItem
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import org.junit.Rule
 import org.junit.Test

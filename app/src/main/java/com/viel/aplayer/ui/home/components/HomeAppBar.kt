@@ -18,7 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import dev.chrisbanes.haze.HazeState
 

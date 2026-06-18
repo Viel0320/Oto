@@ -18,13 +18,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.aplayer.R
-import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.GlassEffectMode
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.ktx.animateColorScheme
+import com.viel.aplayer.R
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.media.parser.ImageProcessor
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.theme.LocalAmoled
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
@@ -39,6 +39,7 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun DetailRoute(
+    modifier: Modifier = Modifier,
     detailViewModel: DetailViewModel,
     canStartNavigation: () -> Boolean,
     onPlayBook: (String) -> Unit,
@@ -62,7 +63,6 @@ fun DetailRoute(
     // Detail App Haze Source (Rejoin the app-level sampler)
     // Detail registers its visible surface into the shell-owned HazeState so Search, Edit, and global dialogs keep one backdrop source while Detail is visible.
     appHazeState: HazeState? = null,
-    modifier: Modifier = Modifier,
     // Detail Transition Idle Callback (Expose overlay animation lifecycle to the app shell)
     // The navigation layer uses this signal to defer rapid Detail re-entry until the previous shared-element return chain finishes.
     onTransitionIdleChanged: (Boolean) -> Unit = {},

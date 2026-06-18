@@ -252,9 +252,9 @@ class PlaybackViewModel(
     private var undoJob: kotlinx.coroutines.Job? = null
     private var hasRestoredLastPlayedBook = false
 
-    private var _playbackSeekStepConfig = com.viel.aplayer.data.store.PlaybackSeekStepConfig()
+    private var _playbackSeekStepConfig = com.viel.aplayer.shared.settings.PlaybackSeekStepConfig()
 
-    fun setPlaybackSeekStepConfig(config: com.viel.aplayer.data.store.PlaybackSeekStepConfig) {
+    fun setPlaybackSeekStepConfig(config: com.viel.aplayer.shared.settings.PlaybackSeekStepConfig) {
         _playbackSeekStepConfig = config
     }
 

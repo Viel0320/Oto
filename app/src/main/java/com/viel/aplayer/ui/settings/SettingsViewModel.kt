@@ -9,11 +9,11 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.application.download.ManualDownloadTaskItem
 import com.viel.aplayer.application.library.settings.SettingsRootItem
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.logger.AbsLogSanitizer
 import com.viel.aplayer.logger.AbsSettingsLogger
+import com.viel.aplayer.shared.settings.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

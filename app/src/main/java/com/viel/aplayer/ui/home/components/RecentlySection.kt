@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.home.HomeBookItem
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.motion.SharedElementKeys
 

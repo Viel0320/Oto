@@ -41,9 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.detail.DetailBookItem
-import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.shared.formatFileSize
 import com.viel.aplayer.shared.formatTime
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.detail.DetailUiState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect

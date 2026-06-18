@@ -57,7 +57,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.GlassEffectMode
 // Import AppWindowSizeClass: Use standardized layout provider to get the current window size details.
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState

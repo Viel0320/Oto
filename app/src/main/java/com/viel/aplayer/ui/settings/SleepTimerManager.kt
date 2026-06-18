@@ -33,7 +33,7 @@ class SleepTimerManager(
     // Dynamic Config Lambdas (Access latest preferences on-demand)
     private val isSleepFadeOutEnabled: () -> Boolean,
     private val isShakeToResetEnabled: () -> Boolean,
-    private val sleepMode: () -> com.viel.aplayer.data.store.SleepMode,
+    private val sleepMode: () -> com.viel.aplayer.shared.settings.SleepMode,
     // Application Feedback Callback (Reports timer tips without routing through playback-core events)
     // The timer engine still controls playback volume and pause, but user messages go through the app-level sink.
     private val onShowToast: (FeedbackMessage) -> Unit,
@@ -81,7 +81,7 @@ class SleepTimerManager(
     ) {
         val ctx = contextProvider() ?: return
         // Resource Conservation check (Skip registration if features are idle)
-        if (!isShakeToResetEnabled() && sleepMode() == com.viel.aplayer.data.store.SleepMode.Regular) return
+        if (!isShakeToResetEnabled() && sleepMode() == com.viel.aplayer.shared.settings.SleepMode.Regular) return
         if (sensorManager == null) {
             sensorManager = ctx.getSystemService(Context.SENSOR_SERVICE) as? android.hardware.SensorManager
         }
@@ -114,13 +114,13 @@ class SleepTimerManager(
                     val gDeviation = kotlin.math.abs(gForce - 1.0f)
 
                     // Mode-Specific Threshold (Adjust sensitivity based on sleep tracking vs motion tracking)
-                    val movementThreshold = if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking) 0.08f else 0.035f
+                    val movementThreshold = if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.SleepTracking) 0.08f else 0.035f
 
                     // Motion Determination (Declare active movement state)
                     if (gDeviation > movementThreshold) {
                         // Movement Toast Notification (Alert listener on movement detection)
                         if (!isDeviceMoving) {
-                            if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking) {
+                            if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.MotionTracking) {
                                 showToast(FeedbackMessages.sleepMotionTrackingPaused())
                             }
                         }
@@ -130,7 +130,7 @@ class SleepTimerManager(
                         staticSampleCount = 0
                         timeInStaticMs = 0L
                         // Sleep Mode Reset (Reset sleep state on movement)
-                        if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking && hasUserFallenAsleep) {
+                        if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.SleepTracking && hasUserFallenAsleep) {
                             hasUserFallenAsleep = false
                             showToast(FeedbackMessages.sleepTrackingPausedByActivity())
                         }
@@ -141,7 +141,7 @@ class SleepTimerManager(
                             if (staticSampleCount >= 8) { // Require 8 consecutive static frames (~0.5s to 0.8s)
                                 // Static Toast Notification (Alert listener on static state recovery)
                                 if (isDeviceMoving) {
-                                    if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking) {
+                                    if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.MotionTracking) {
                                         showToast(FeedbackMessages.sleepMotionTrackingResumed())
                                     }
                                 }
@@ -277,8 +277,8 @@ class SleepTimerManager(
         }
 
         // Active Tracking Registration (Setup sensors immediately if in tracking mode)
-        if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking || 
-            sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking) {
+        if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.MotionTracking || 
+            sleepMode() == com.viel.aplayer.shared.settings.SleepMode.SleepTracking) {
             registerShakeListener(currentPlayback, currentMetadata)
         }
 
@@ -312,7 +312,7 @@ class SleepTimerManager(
                                     if (!isFading) {
                                         isFading = true
                                         originalVolume = playbackController()?.playerVolume ?: 1.0f
-                                        if (isShakeToResetEnabled() || sleepMode() != com.viel.aplayer.data.store.SleepMode.Regular) {
+                                        if (isShakeToResetEnabled() || sleepMode() != com.viel.aplayer.shared.settings.SleepMode.Regular) {
                                             registerShakeListener(currentPlayback, currentMetadata)
                                             registeredSensor = true
                                         }
@@ -327,11 +327,11 @@ class SleepTimerManager(
                                     val updatedState = currentPlayback()
                                     if (updatedState.isPlaying) {
                                         // Volume Restoration Intercept (Revert volume to standard if user is active)
-                                        if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking && isDeviceMoving) {
+                                        if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.MotionTracking && isDeviceMoving) {
                                             playbackController()?.playerVolume = originalVolume
                                             continue
                                         }
-                                        if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking && !hasUserFallenAsleep) {
+                                        if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.SleepTracking && !hasUserFallenAsleep) {
                                             playbackController()?.playerVolume = originalVolume
                                             continue
                                         }
@@ -396,7 +396,7 @@ class SleepTimerManager(
                         if (!isFading) {
                             isFading = true
                             originalVolume = playbackController()?.playerVolume ?: 1.0f
-                            if (isShakeToResetEnabled() || sleepMode() != com.viel.aplayer.data.store.SleepMode.Regular) {
+                            if (isShakeToResetEnabled() || sleepMode() != com.viel.aplayer.shared.settings.SleepMode.Regular) {
                                 registerShakeListener(currentPlayback, currentMetadata)
                                 registeredSensor = true
                             }
@@ -409,11 +409,11 @@ class SleepTimerManager(
                             delay(100.milliseconds)
                             if (currentPlayback().isPlaying) {
                                 // Countdown Suspend Execution (Hold duration and volume levels if active motion is detected)
-                                if (sleepMode() == com.viel.aplayer.data.store.SleepMode.MotionTracking && isDeviceMoving) {
+                                if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.MotionTracking && isDeviceMoving) {
                                     playbackController()?.playerVolume = originalVolume
                                     continue
                                 }
-                                if (sleepMode() == com.viel.aplayer.data.store.SleepMode.SleepTracking && !hasUserFallenAsleep) {
+                                if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.SleepTracking && !hasUserFallenAsleep) {
                                     playbackController()?.playerVolume = originalVolume
                                     continue
                                 }
@@ -440,17 +440,17 @@ class SleepTimerManager(
                         if (currentPlayback().isPlaying) {
                             // Mode Dispatcher Branching (Evaluate current sleep mode algorithm)
                             when (sleepMode()) {
-                                com.viel.aplayer.data.store.SleepMode.Regular -> {
+                                com.viel.aplayer.shared.settings.SleepMode.Regular -> {
                                     // Regular Mode: Deduct 1 second unconditionally per interval while playing.
                                     _sleepTimerMillis.value = (_sleepTimerMillis.value - 1000).coerceAtLeast(0L)
                                 }
-                                com.viel.aplayer.data.store.SleepMode.MotionTracking -> {
+                                com.viel.aplayer.shared.settings.SleepMode.MotionTracking -> {
                                     // Motion Tracking Mode: Ticker counts down only when device is static, suspending on motion.
                                     if (!isDeviceMoving) {
                                         _sleepTimerMillis.value = (_sleepTimerMillis.value - 1000).coerceAtLeast(0L)
                                     }
                                 }
-                                com.viel.aplayer.data.store.SleepMode.SleepTracking -> {
+                                com.viel.aplayer.shared.settings.SleepMode.SleepTracking -> {
                                     // Sleep Tracking Mode: Ticker initiates only after user is determined to be asleep.
                                     if (!hasUserFallenAsleep) {
                                         if (!isDeviceMoving) {

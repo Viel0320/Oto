@@ -10,8 +10,8 @@ import com.viel.aplayer.abs.net.dto.AbsLibraryDto
 import com.viel.aplayer.abs.net.ensureSupportedAbsServerVersion
 import com.viel.aplayer.abs.sync.AbsConnectionTester
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
+import com.viel.aplayer.shared.settings.AppSettings
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient

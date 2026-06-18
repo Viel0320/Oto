@@ -10,11 +10,11 @@ import com.viel.aplayer.data.metadata.MetadataRefreshGateway
 import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.data.search.SearchHistoryGateway
-import com.viel.aplayer.data.store.AppSettings
-import com.viel.aplayer.data.store.HomeBookStatusFilter
-import com.viel.aplayer.data.store.HomeFilter
-import com.viel.aplayer.data.store.HomeSortDirection
-import com.viel.aplayer.data.store.HomeSortRule
+import com.viel.aplayer.shared.settings.AppSettings
+import com.viel.aplayer.shared.settings.HomeBookStatusFilter
+import com.viel.aplayer.shared.settings.HomeFilter
+import com.viel.aplayer.shared.settings.HomeSortDirection
+import com.viel.aplayer.shared.settings.HomeSortRule
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -179,6 +179,18 @@ class DefaultHomeLibraryReadModel(
         }.flowOn(Dispatchers.Default)
     }
 }
+
+/**
+ * Home Book Status Matching (Maps the UI-facing availability filter onto the data-layer book status)
+ * Keeps the schema dependency in the application layer so the shared HomeBookStatusFilter enum stays free of data-layer types.
+ */
+private fun HomeBookStatusFilter.matches(bookStatus: AudiobookSchema.BookStatus): Boolean =
+    when (this) {
+        HomeBookStatusFilter.All -> true
+        HomeBookStatusFilter.Ready -> bookStatus == AudiobookSchema.BookStatus.READY
+        HomeBookStatusFilter.Partial -> bookStatus == AudiobookSchema.BookStatus.PARTIAL
+        HomeBookStatusFilter.Unavailable -> bookStatus == AudiobookSchema.BookStatus.UNAVAILABLE
+    }
 
 /**
  * Home Catalog Organizer (Applies catalog-domain visibility and ordering rules)

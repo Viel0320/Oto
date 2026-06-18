@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerChapterTimeline
-import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.shared.formatTime
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 

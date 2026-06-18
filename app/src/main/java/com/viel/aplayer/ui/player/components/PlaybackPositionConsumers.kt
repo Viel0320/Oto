@@ -7,8 +7,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
-import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.subtitle.SubtitleLine
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackProgressViewState
 import com.viel.aplayer.ui.player.PlayerActions

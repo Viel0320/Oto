@@ -56,11 +56,11 @@ import com.viel.aplayer.R
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerChapterTimeline
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.AppSettings
-import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.shared.formatTime
+import com.viel.aplayer.shared.settings.AppSettings
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurModalBottomSheet
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.BookMetadataState

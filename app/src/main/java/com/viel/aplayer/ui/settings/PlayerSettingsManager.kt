@@ -3,8 +3,8 @@ package com.viel.aplayer.ui.settings
 import android.content.Context
 import android.media.AudioManager
 import com.viel.aplayer.application.playback.PlayerPlaybackController
-import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.shared.settings.PlaybackSeekStepConfig
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackState
 import kotlinx.coroutines.CoroutineScope
@@ -45,7 +45,7 @@ class PlayerSettingsManager(
 
     // Sleep mode state (To differentiate timer target modes like regular or end-of-chapter)
     // Synchronized with DataStore by external ViewModels.
-    var sleepMode: com.viel.aplayer.data.store.SleepMode = com.viel.aplayer.data.store.SleepMode.Regular
+    var sleepMode: com.viel.aplayer.shared.settings.SleepMode = com.viel.aplayer.shared.settings.SleepMode.Regular
 
     // Sleep timer engine (To execute core sleep timer scheduling and sensor tracking)
     // Instantiates SleepTimerManager as a separate cohesive service layer.
@@ -128,7 +128,6 @@ class PlayerSettingsManager(
         )
     }
     fun setMiniPlayerHidden(hidden: Boolean) = _settingsState.update { it.copy(isMiniPlayerHidden = hidden) }
-    fun toggleProgressMode() = _settingsState.update { it.copy(isChapterProgressMode = !it.isChapterProgressMode) }
     fun setChapterProgressMode(enabled: Boolean) = _settingsState.update { it.copy(isChapterProgressMode = enabled) }
     // Playback Seek Step Sync (Updates short-seek configuration from DataStore)
     // Full-player controls read this state so their icons, labels, and seek math match notification and widget behavior.

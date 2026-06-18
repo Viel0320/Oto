@@ -55,8 +55,8 @@ import com.viel.aplayer.application.download.BookCacheState
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.application.library.detail.DetailSnapshot
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.AppSettings
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.AppSettings
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.AudiobookActionDialog
 import com.viel.aplayer.ui.common.AudiobookActionDialogBook

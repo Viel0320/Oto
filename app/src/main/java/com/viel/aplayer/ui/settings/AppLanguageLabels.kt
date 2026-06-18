@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.AppLanguage
+import com.viel.aplayer.shared.settings.AppLanguage
 
 // App Language Option Order (Expose one stable language list for rows and dialogs)
 // System default stays first so users can quickly hand locale control back to Android.

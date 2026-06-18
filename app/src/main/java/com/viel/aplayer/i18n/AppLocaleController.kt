@@ -6,8 +6,8 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
-import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.logger.SecureLog
+import com.viel.aplayer.shared.settings.AppLanguage
 
 object AppLocaleController {
     private const val TAG = "AppLocaleController"

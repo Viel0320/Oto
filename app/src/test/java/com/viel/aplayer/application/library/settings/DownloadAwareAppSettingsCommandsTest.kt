@@ -1,16 +1,16 @@
 package com.viel.aplayer.application.library.settings
 
 import com.viel.aplayer.application.download.DownloadRuntimeGateway
-import com.viel.aplayer.data.store.AppLanguage
-import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.data.store.HomeBookStatusFilter
-import com.viel.aplayer.data.store.HomeFilter
-import com.viel.aplayer.data.store.HomeSortDirection
-import com.viel.aplayer.data.store.HomeSortRule
-import com.viel.aplayer.data.store.HomeViewStyle
-import com.viel.aplayer.data.store.SeekStepSeconds
-import com.viel.aplayer.data.store.SleepMode
-import com.viel.aplayer.data.store.ThemeMode
+import com.viel.aplayer.shared.settings.AppLanguage
+import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.shared.settings.HomeBookStatusFilter
+import com.viel.aplayer.shared.settings.HomeFilter
+import com.viel.aplayer.shared.settings.HomeSortDirection
+import com.viel.aplayer.shared.settings.HomeSortRule
+import com.viel.aplayer.shared.settings.HomeViewStyle
+import com.viel.aplayer.shared.settings.SeekStepSeconds
+import com.viel.aplayer.shared.settings.SleepMode
+import com.viel.aplayer.shared.settings.ThemeMode
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test

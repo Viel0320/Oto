@@ -67,9 +67,9 @@ import com.materialkolor.dynamicColorScheme
 import com.materialkolor.ktx.animateColorScheme
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.edit.EditBookDraft
-import com.viel.aplayer.data.store.AppSettings
-import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.media.parser.ImageProcessor
+import com.viel.aplayer.shared.settings.AppSettings
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverBackground
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass

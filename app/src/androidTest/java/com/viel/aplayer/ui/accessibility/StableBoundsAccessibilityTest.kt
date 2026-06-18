@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.detail.components.DetailInfoChip
 import com.viel.aplayer.ui.player.MiniPlayerActions

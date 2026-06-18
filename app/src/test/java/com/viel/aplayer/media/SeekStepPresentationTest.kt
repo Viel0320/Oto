@@ -1,7 +1,7 @@
 package com.viel.aplayer.media
 
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.SeekStepSeconds
+import com.viel.aplayer.shared.settings.SeekStepSeconds
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

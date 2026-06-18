@@ -1,11 +1,11 @@
 package com.viel.aplayer.media.service
 
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.media.BookPlaybackPlan
 import com.viel.aplayer.media.PlaybackDomainEvent
 import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackSourcePreflight
 import com.viel.aplayer.media.PlaybackSourcePreflightResult
+import com.viel.aplayer.shared.settings.AppSettings
 
 /**
  * Resumption Source Preflight (Keeps MediaSession resume aligned with foreground playback policy)

@@ -96,7 +96,7 @@ class AppSettingsRepositoryTest {
 
         val settings = repository.settingsFlow.first()
 
-        assertEquals(com.viel.aplayer.data.store.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, settings.playbackBufferMaxBytes)
+        assertEquals(com.viel.aplayer.shared.settings.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, settings.playbackBufferMaxBytes)
         assertEquals(false, settings.isDownloadWifiOnly)
         assertTrue(
             "legacy disk cache key should migrate into the new playback buffer key and stale duration should be removed",
@@ -104,7 +104,7 @@ class AppSettingsRepositoryTest {
                 val preferences = dataStore.data.first()
                 preferences[legacyPlaybackCacheMaxBytesKey] == null &&
                     preferences[legacyPlaybackBufferDurationMsKey] == null &&
-                    preferences[playbackBufferMaxBytesKey] == com.viel.aplayer.data.store.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
+                    preferences[playbackBufferMaxBytesKey] == com.viel.aplayer.shared.settings.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
             }
         )
     }
@@ -121,8 +121,8 @@ class AppSettingsRepositoryTest {
         }
 
         val settings = repository.settingsFlow.first()
-        assertEquals(com.viel.aplayer.data.store.HomeFilter.Finished, settings.homeFilter)
-        assertEquals(com.viel.aplayer.data.store.HomeBookStatusFilter.Partial, settings.homeBookStatusFilter)
+        assertEquals(com.viel.aplayer.shared.settings.HomeFilter.Finished, settings.homeFilter)
+        assertEquals(com.viel.aplayer.shared.settings.HomeBookStatusFilter.Partial, settings.homeBookStatusFilter)
 
         // Fallback Filter Seeds (Seed invalid values to test safe fallback behavior)
         dataStore.edit { preferences ->
@@ -131,8 +131,8 @@ class AppSettingsRepositoryTest {
         }
 
         val fallbackSettings = repository.settingsFlow.first()
-        assertEquals(com.viel.aplayer.data.store.HomeFilter.NotStarted, fallbackSettings.homeFilter)
-        assertEquals(com.viel.aplayer.data.store.HomeBookStatusFilter.All, fallbackSettings.homeBookStatusFilter)
+        assertEquals(com.viel.aplayer.shared.settings.HomeFilter.NotStarted, fallbackSettings.homeFilter)
+        assertEquals(com.viel.aplayer.shared.settings.HomeBookStatusFilter.All, fallbackSettings.homeBookStatusFilter)
     }
 
     @Test
@@ -140,8 +140,8 @@ class AppSettingsRepositoryTest {
         val dataStore = createSettingsDataStore(testName = "write-filters")
         val repository = AppSettingsRepository.createForTesting(dataStore)
 
-        repository.updateHomeFilter(com.viel.aplayer.data.store.HomeFilter.InProgress)
-        repository.updateHomeBookStatusFilter(com.viel.aplayer.data.store.HomeBookStatusFilter.Unavailable)
+        repository.updateHomeFilter(com.viel.aplayer.shared.settings.HomeFilter.InProgress)
+        repository.updateHomeBookStatusFilter(com.viel.aplayer.shared.settings.HomeBookStatusFilter.Unavailable)
 
         val preferences = dataStore.data.first()
         assertEquals("InProgress", preferences[stringPreferencesKey("home_filter")])
@@ -190,7 +190,7 @@ class AppSettingsRepositoryTest {
         repository.updatePlaybackBufferMaxBytes(1L)
 
         val fallbackPreferences = dataStore.data.first()
-        assertEquals(com.viel.aplayer.data.store.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, fallbackPreferences[playbackBufferMaxBytesKey])
+        assertEquals(com.viel.aplayer.shared.settings.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, fallbackPreferences[playbackBufferMaxBytesKey])
     }
 
     private fun createSettingsDataStore(testName: String) =

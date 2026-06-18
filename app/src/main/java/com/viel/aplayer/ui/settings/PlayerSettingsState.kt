@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.settings
 
-import com.viel.aplayer.data.store.PlaybackSeekStepConfig
+import com.viel.aplayer.shared.settings.PlaybackSeekStepConfig
 
 /**
  * Full Player Open Source (Separates visual transition origins)

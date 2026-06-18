@@ -1,6 +1,6 @@
 package com.viel.aplayer.network
 
-import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.shared.settings.AppSettings
 
 /**
  * Unsafe Network Policy (Centralizes user-controlled insecure transport decisions)

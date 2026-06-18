@@ -1,6 +1,6 @@
 package com.viel.aplayer.application.library.settings
 
-import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.shared.settings.AppSettings
 import kotlinx.coroutines.flow.Flow
 
 // Title: AppSettingsReadModel Definition (Provides query flow and cached access to app settings independently of persistence layer)

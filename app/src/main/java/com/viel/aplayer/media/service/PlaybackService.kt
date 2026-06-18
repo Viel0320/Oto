@@ -31,7 +31,6 @@ import com.viel.aplayer.data.book.BookmarkGateway
 import com.viel.aplayer.data.book.ChapterGateway
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.progress.ProgressGateway
-import com.viel.aplayer.data.store.PlaybackSeekStepConfig
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import com.viel.aplayer.media.NotificationProgressPlayer
 import com.viel.aplayer.media.PlaybackDomainEvent
@@ -42,6 +41,7 @@ import com.viel.aplayer.media.PlaybackSourcePreflight
 import com.viel.aplayer.media.SeekStepPresentation
 import com.viel.aplayer.media.session.PlaybackSessionErrorDecision
 import com.viel.aplayer.media.session.PlaybackSessionState
+import com.viel.aplayer.shared.settings.PlaybackSeekStepConfig
 import com.viel.aplayer.timeline.PositionMapper
 import com.viel.aplayer.widget.PlayerWidget
 import com.viel.aplayer.widget.PlayerWidgetStateHelper

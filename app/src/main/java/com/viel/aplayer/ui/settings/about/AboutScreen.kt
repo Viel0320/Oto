@@ -75,7 +75,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.viel.aplayer.BuildConfig
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass

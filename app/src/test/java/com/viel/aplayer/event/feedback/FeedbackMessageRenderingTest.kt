@@ -1,8 +1,8 @@
 package com.viel.aplayer.event.feedback
 
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.AppLanguage
 import com.viel.aplayer.i18n.AppLocaleController
+import com.viel.aplayer.shared.settings.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

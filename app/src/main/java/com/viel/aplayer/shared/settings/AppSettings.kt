@@ -1,6 +1,4 @@
-package com.viel.aplayer.data.store
-
-import com.viel.aplayer.data.db.AudiobookSchema
+package com.viel.aplayer.shared.settings
 
 // Glass Effect Visual Mode (UI decoration options)
 // Material represents standard native containers, while Haze enables haze-based Compose native frosted glass visuals.
@@ -112,23 +110,19 @@ enum class HomeFilter {
 }
 
 // Home Book Status Filter: User-facing availability filter for the Home catalog.
-enum class HomeBookStatusFilter(private val schemaStatus: AudiobookSchema.BookStatus?) {
+// This enum stays free of data-layer status types; application-layer code maps each option to a concrete book status.
+enum class HomeBookStatusFilter {
     // All Statuses Filter (Default option that preserves the full visible Home catalog)
-    All(schemaStatus = null),
+    All,
 
     // Ready Status Filter (Shows fully available books)
-    Ready(schemaStatus = AudiobookSchema.BookStatus.READY),
+    Ready,
 
     // Partial Status Filter (Shows books with at least one unavailable file)
-    Partial(schemaStatus = AudiobookSchema.BookStatus.PARTIAL),
+    Partial,
 
     // Unavailable Status Filter (Shows books whose playable files are currently unavailable)
-    Unavailable(schemaStatus = AudiobookSchema.BookStatus.UNAVAILABLE);
-
-    // Match Status Type Safe: Accept BookStatus enum parameter for type safety.
-    fun matches(bookStatus: AudiobookSchema.BookStatus): Boolean {
-        return schemaStatus == null || bookStatus == schemaStatus
-    }
+    Unavailable;
 
     companion object {
         // Stored Preference Parsing (Resolve persisted enum names with a safe All fallback)
@@ -172,7 +166,6 @@ data class PlaybackSeekStepConfig(
             )
     }
 }
-
 data class AppSettings(
     // Theme Mode Setting (Expose themeMode configurations, defaulting to System) Binds active theme configuration.
     val themeMode: ThemeMode = ThemeMode.System,
@@ -257,3 +250,4 @@ data class AppSettings(
         const val DEFAULT_PLAYBACK_BUFFER_MAX_BYTES: Long = 64L * 1024L * 1024L
     }
 }
+

@@ -25,10 +25,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.SeekStepSeconds
-import com.viel.aplayer.data.store.SleepMode
-import com.viel.aplayer.data.store.ThemeMode
 import com.viel.aplayer.shared.formatFileSize
+import com.viel.aplayer.shared.settings.SeekStepSeconds
+import com.viel.aplayer.shared.settings.SleepMode
+import com.viel.aplayer.shared.settings.ThemeMode
 
 /**
  * Settings Segmented Items (Own multi-choice Settings controls)
@@ -258,7 +258,7 @@ fun SettingsSegmentedPlaybackBufferItem(
 ) {
     val options = remember { playbackBufferSizeOptions() }
     val resolvedSelectedBytes = options.firstOrNull { option -> option.bytes == selectedBytes }?.bytes
-        ?: com.viel.aplayer.data.store.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
+        ?: com.viel.aplayer.shared.settings.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
 
     Row(
         modifier = Modifier

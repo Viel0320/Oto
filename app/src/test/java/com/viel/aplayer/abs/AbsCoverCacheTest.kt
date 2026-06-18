@@ -5,8 +5,8 @@ import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.sync.AbsCoverCache
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.network.UnsafeNetworkPolicyViolation
+import com.viel.aplayer.shared.settings.AppSettings
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

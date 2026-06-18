@@ -40,8 +40,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.GlassEffectMode
 import com.viel.aplayer.i18n.AppLocaleController
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
 import com.viel.aplayer.ui.settings.downloads.DownloadManagementScreen

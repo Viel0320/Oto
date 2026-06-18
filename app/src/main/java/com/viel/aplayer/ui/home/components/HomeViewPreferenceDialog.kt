@@ -21,11 +21,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.data.store.HomeBookStatusFilter
-import com.viel.aplayer.data.store.HomeSortDirection
-import com.viel.aplayer.data.store.HomeSortRule
-import com.viel.aplayer.data.store.HomeViewStyle
+import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.shared.settings.HomeBookStatusFilter
+import com.viel.aplayer.shared.settings.HomeSortDirection
+import com.viel.aplayer.shared.settings.HomeSortRule
+import com.viel.aplayer.shared.settings.HomeViewStyle
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import dev.chrisbanes.haze.HazeState
 

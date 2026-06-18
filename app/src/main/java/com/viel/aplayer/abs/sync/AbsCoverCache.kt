@@ -6,12 +6,12 @@ import com.viel.aplayer.abs.net.AbsAuth
 import com.viel.aplayer.abs.net.AbsAuthInterceptor
 import com.viel.aplayer.abs.net.AbsUrlResolver
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.logger.AbsAuthLogger
 import com.viel.aplayer.logger.AbsCoverLogger
 import com.viel.aplayer.logger.CoverImageCacheLogger
 import com.viel.aplayer.media.parser.CoverExtractor
 import com.viel.aplayer.network.UnsafeNetworkPolicy
+import com.viel.aplayer.shared.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient

@@ -2,8 +2,8 @@ package com.viel.aplayer.media
 
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.network.UnsafeNetworkPolicy
+import com.viel.aplayer.shared.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

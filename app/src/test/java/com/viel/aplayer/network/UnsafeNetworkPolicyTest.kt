@@ -1,6 +1,6 @@
 package com.viel.aplayer.network
 
-import com.viel.aplayer.data.store.AppSettings
+import com.viel.aplayer.shared.settings.AppSettings
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

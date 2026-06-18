@@ -43,8 +43,8 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.SeekStepSeconds
 import com.viel.aplayer.media.SeekStepPresentation
+import com.viel.aplayer.shared.settings.SeekStepSeconds
 
 /**
  * Modern declarative desktop media control widget.

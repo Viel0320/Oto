@@ -17,11 +17,11 @@ import com.viel.aplayer.abs.net.dto.AbsStatusDto
 import com.viel.aplayer.abs.net.dto.AbsUserProgressDto
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.library.availability.RemoteAvailabilityMappingPolicy
 import com.viel.aplayer.library.availability.RemoteAvailabilityProtocol
 import com.viel.aplayer.logger.AbsAuthLogger
 import com.viel.aplayer.network.UnsafeNetworkPolicy
+import com.viel.aplayer.shared.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

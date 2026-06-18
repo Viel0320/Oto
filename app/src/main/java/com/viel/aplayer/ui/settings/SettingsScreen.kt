@@ -54,13 +54,13 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.settings.SettingsCredential
 import com.viel.aplayer.application.library.settings.SettingsRootItem
-import com.viel.aplayer.data.store.AppLanguage
-import com.viel.aplayer.data.store.AppSettings
-import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.data.store.PlaybackSeekStepConfig
-import com.viel.aplayer.data.store.SeekStepSeconds
-import com.viel.aplayer.data.store.SleepMode
-import com.viel.aplayer.data.store.ThemeMode
+import com.viel.aplayer.shared.settings.AppLanguage
+import com.viel.aplayer.shared.settings.AppSettings
+import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.shared.settings.PlaybackSeekStepConfig
+import com.viel.aplayer.shared.settings.SeekStepSeconds
+import com.viel.aplayer.shared.settings.SleepMode
+import com.viel.aplayer.shared.settings.ThemeMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
@@ -134,8 +134,6 @@ fun SettingsScreen(
     onImportClick: () -> Unit,
     onAboutLibrariesClick: () -> Unit
 ) {
-    // Resolve Window Layout: Retrieve current viewport details via LocalAppWindowSizeClass
-    val windowClass = LocalAppWindowSizeClass.current
 
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current

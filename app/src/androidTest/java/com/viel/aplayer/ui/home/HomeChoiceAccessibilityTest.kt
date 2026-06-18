@@ -15,8 +15,8 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.data.store.HomeFilter
+import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.shared.settings.HomeFilter
 import com.viel.aplayer.ui.common.AudiobookActionDialog
 import com.viel.aplayer.ui.common.AudiobookActionDialogBook
 import com.viel.aplayer.ui.common.theme.APlayerTheme

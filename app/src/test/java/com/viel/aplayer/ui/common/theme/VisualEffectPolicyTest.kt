@@ -1,6 +1,6 @@
 package com.viel.aplayer.ui.common.theme
 
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

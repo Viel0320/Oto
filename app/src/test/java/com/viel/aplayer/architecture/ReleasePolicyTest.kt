@@ -1,7 +1,7 @@
 package com.viel.aplayer.architecture
 
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.network.UnsafeNetworkPolicy
+import com.viel.aplayer.shared.settings.AppSettings
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.w3c.dom.Element

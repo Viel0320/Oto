@@ -165,7 +165,7 @@ abstract class AppDatabase : RoomDatabase() {
                         if (it.isOpen) {
                             it.close()
                         }
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         // Title: Ignore Close Exception (Swallow database close exceptions when instance is already invalid)
                         // Prevents errors from stale test contexts or missing databases from aborting the close workflow.
                     } finally {

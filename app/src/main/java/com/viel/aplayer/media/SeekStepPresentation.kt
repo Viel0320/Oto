@@ -3,7 +3,7 @@ package com.viel.aplayer.media
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.SeekStepSeconds
+import com.viel.aplayer.shared.settings.SeekStepSeconds
 
 // Seek Step Presentation Resolver (Centralizes icons and accessibility labels for short seek controls)
 // Notification, widget, and full-player controls all call this resolver so a step-size change cannot leave one surface with stale copy or artwork.

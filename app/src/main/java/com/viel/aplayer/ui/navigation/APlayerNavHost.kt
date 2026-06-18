@@ -14,11 +14,11 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.data.store.HomeBookStatusFilter
-import com.viel.aplayer.data.store.HomeSortDirection
-import com.viel.aplayer.data.store.HomeSortRule
-import com.viel.aplayer.data.store.HomeViewStyle
+import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.shared.settings.HomeBookStatusFilter
+import com.viel.aplayer.shared.settings.HomeSortDirection
+import com.viel.aplayer.shared.settings.HomeSortRule
+import com.viel.aplayer.shared.settings.HomeViewStyle
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.detail.DetailViewModel

@@ -46,12 +46,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.settings.SettingsRootItem
-import com.viel.aplayer.data.store.AppLanguage
-import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.data.store.PlaybackSeekStepConfig
-import com.viel.aplayer.data.store.SeekStepSeconds
-import com.viel.aplayer.data.store.SleepMode
-import com.viel.aplayer.data.store.ThemeMode
+import com.viel.aplayer.shared.settings.AppLanguage
+import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.shared.settings.PlaybackSeekStepConfig
+import com.viel.aplayer.shared.settings.SeekStepSeconds
+import com.viel.aplayer.shared.settings.SleepMode
+import com.viel.aplayer.shared.settings.ThemeMode
 import com.viel.aplayer.ui.settings.appLanguageLabel
 
 /**

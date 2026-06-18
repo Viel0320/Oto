@@ -15,7 +15,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.viel.aplayer.R
-import com.viel.aplayer.data.store.SeekStepSeconds
+import com.viel.aplayer.shared.settings.SeekStepSeconds
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.settings.components.SettingsSegmentedSeekStepItem
 import com.viel.aplayer.ui.settings.components.SettingsToggleItem

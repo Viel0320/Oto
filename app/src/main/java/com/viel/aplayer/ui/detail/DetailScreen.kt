@@ -3,7 +3,7 @@ package com.viel.aplayer.ui.detail
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.GlassEffectMode
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 
 /**

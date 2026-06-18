@@ -1,8 +1,8 @@
 package com.viel.aplayer.application.library.home
 
 import android.icu.text.Collator
-import com.viel.aplayer.data.store.HomeSortDirection
-import com.viel.aplayer.data.store.HomeSortRule
+import com.viel.aplayer.shared.settings.HomeSortDirection
+import com.viel.aplayer.shared.settings.HomeSortRule
 import java.util.Locale
 
 /**

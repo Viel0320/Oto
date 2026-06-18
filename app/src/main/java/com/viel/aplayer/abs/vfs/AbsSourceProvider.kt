@@ -13,7 +13,6 @@ import com.viel.aplayer.abs.net.RealAbsApiClient
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.store.AppSettings
 import com.viel.aplayer.library.availability.RemoteAvailabilityMappingPolicy
 import com.viel.aplayer.library.availability.RemoteAvailabilityProtocol
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
@@ -24,6 +23,7 @@ import com.viel.aplayer.library.vfs.sourceProvider.SourceNode
 import com.viel.aplayer.logger.AbsAuthLogger
 import com.viel.aplayer.logger.AbsStreamLogger
 import com.viel.aplayer.network.UnsafeNetworkPolicy
+import com.viel.aplayer.shared.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl

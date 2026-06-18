@@ -50,10 +50,10 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.data.db.AudiobookSchema
-import com.viel.aplayer.data.store.AppSettings
-import com.viel.aplayer.data.store.GlassEffectMode
-import com.viel.aplayer.data.store.HomeFilter
-import com.viel.aplayer.data.store.HomeViewStyle
+import com.viel.aplayer.shared.settings.AppSettings
+import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.shared.settings.HomeFilter
+import com.viel.aplayer.shared.settings.HomeViewStyle
 import com.viel.aplayer.ui.common.APlayerFilterChip
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
