@@ -1,4 +1,4 @@
-﻿<resources>
+<resources>
     <!-- German Locale Resources (Provide German translations for all default user-visible strings)
          The complete table prevents mixed-language UI when the app locale is set to German. -->
     <string name="author_label">Autor</string>
@@ -568,4 +568,11 @@
     <string name="download_management_delete_all_action">Alle löschen</string>
     <string name="download_management_delete_all_confirm_title">Alle Downloads löschen</string>
     <string name="download_management_delete_all_confirm_body">Sind Sie sicher, dass Sie alle Offline-Cache-Downloads löschen möchten?</string>
+    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
+    <string name="about_library_navigation3_description">Navigation 3 bietet Compose-orientierte Navigationsbausteine. APlayer nutzt es, um Bildschirmstapel und Overlay-Routen zustandsgesteuert zu halten.</string>
+    <string name="about_library_materialkolor_description">MaterialKolor erzeugt Material You-Farbschemata aus Seed-Farben. APlayer nutzt es für dynamische Designs aus Wallpaper- und Cover-Farben.</string>
+    <string name="about_library_palette_description">AndroidX Palette extrahiert repräsentative Farben aus Bildern. APlayer nutzt es, um Cover-Akzente vor dem Erzeugen thematischer Oberflächen abzuleiten.</string>
+    <string name="about_library_documentfile_description">DocumentFile kapselt Dokumente des Android Storage Access Framework. APlayer nutzt es zum Prüfen benutzerautorisierter lokaler Medienbibliotheksordner.</string>
+    <string name="about_library_okhttp_description">OkHttp ist ein moderner HTTP-Client. APlayer nutzt es für WebDAV- und Audiobookshelf-Netzwerkzugriff, einschließlich Streaming und API-Aufrufen.</string>
+    <string name="about_library_moshi_description">Moshi ordnet JSON typisierten Kotlin-Modellen zu. APlayer nutzt es zum Parsen strukturierter Audiobookshelf-Protokollantworten.</string>
 </resources>

@@ -3,4 +3,7 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.ksp) apply false
+    // AboutLibraries Android Plugin (Declared once for app-module application)
+    // The app module applies this plugin so variant builds generate the raw license metadata resource automatically.
+    alias(libs.plugins.aboutlibraries.android) apply false
 }

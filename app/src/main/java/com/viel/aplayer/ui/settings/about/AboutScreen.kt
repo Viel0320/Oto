@@ -1,7 +1,5 @@
 package com.viel.aplayer.ui.settings.about
 
-import android.content.Intent
-import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -22,7 +20,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,10 +27,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -42,7 +35,8 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +47,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,9 +54,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -72,7 +65,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
+import com.mikepenz.aboutlibraries.entity.Library
+import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
+import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import com.viel.aplayer.BuildConfig
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
@@ -84,103 +79,9 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
 /**
- * Open-source library entity (Model representing open source dependency info)
- * Holds descriptive metadata and licensing strings for a single library.
+ * Generated open-source licenses view.
+ * Loads the Gradle-generated AboutLibraries metadata while preserving the app-owned card styling from the previous About page.
  */
-data class OpenSourceLibrary(
-    val name: String,
-    val developer: String,
-    val license: String,
-    @field:StringRes val descriptionRes: Int,
-    val url: String,
-    val licenseText: String
-)
-
-/**
- * Open-source libraries static list (Database of dependency details)
- * Organizes APlayer core dependencies to help users explore licenses.
- */
-private val openSourceLibraries = listOf(
-    OpenSourceLibrary(
-        name = "Jetpack Compose",
-        developer = "Google / AndroidX Project",
-        license = "Apache License 2.0",
-        descriptionRes = R.string.about_library_compose_description,
-        url = "https://developer.android.com/compose",
-        licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
-    ),
-    OpenSourceLibrary(
-        name = "AndroidX Media3 (ExoPlayer)",
-        developer = "Google / AndroidX Project",
-        license = "Apache License 2.0",
-        descriptionRes = R.string.about_library_media3_description,
-        url = "https://github.com/androidx/media",
-        licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
-    ),
-    OpenSourceLibrary(
-        name = "AndroidX Room",
-        developer = "Google / AndroidX Project",
-        license = "Apache License 2.0",
-        descriptionRes = R.string.about_library_room_description,
-        url = "https://developer.android.com/training/data-storage/room",
-        licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
-    ),
-    OpenSourceLibrary(
-        // Open Source Haze (Update Open Source License Library) Replace old blur license details with Chris Banes' Haze.
-        name = "Haze",
-        developer = "Chris Banes",
-        license = "Apache License 2.0",
-        descriptionRes = R.string.about_library_haze_description,
-        url = "https://github.com/chrisbanes/haze",
-        licenseText = "Copyright 2023 Chris Banes\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
-    ),
-    OpenSourceLibrary(
-        name = "Coil Compose",
-        developer = "Coil Contributors",
-        license = "Apache License 2.0",
-        descriptionRes = R.string.about_library_coil_description,
-        url = "https://github.com/coil-kt/coil",
-        licenseText = "Copyright 2023 Coil Contributors\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
-    ),
-    OpenSourceLibrary(
-        name = "Jetpack Glance",
-        developer = "Google / AndroidX Project",
-        license = "Apache License 2.0",
-        descriptionRes = R.string.about_library_glance_description,
-        url = "https://developer.android.com/jetpack/androidx/releases/glance",
-        licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
-    ),
-    OpenSourceLibrary(
-        name = "Kotlin Coroutines",
-        developer = "JetBrains",
-        license = "Apache License 2.0",
-        descriptionRes = R.string.about_library_coroutines_description,
-        url = "https://github.com/Kotlin/kotlinx.coroutines",
-        licenseText = "Copyright 2000-2023 JetBrains s.r.o. and contributors\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
-    ),
-    OpenSourceLibrary(
-        name = "AndroidX DataStore Preferences",
-        developer = "Google / AndroidX Project",
-        license = "Apache License 2.0",
-        descriptionRes = R.string.about_library_datastore_description,
-        url = "https://developer.android.com/topic/libraries/architecture/datastore",
-        licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
-    ),
-    OpenSourceLibrary(
-        name = "AndroidX WorkManager",
-        developer = "Google / AndroidX Project",
-        license = "Apache License 2.0",
-        descriptionRes = R.string.about_library_workmanager_description,
-        url = "https://developer.android.com/topic/libraries/architecture/workmanager",
-        licenseText = "Copyright The Android Open Source Project\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0"
-    )
-)
-
-/**
- * Open-source licenses view (Component displaying list of library licenses)
- * Renders brand header card followed by lists of dependency details in landscape and portrait views.
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutLibrariesScreen(
     modifier: Modifier = Modifier,
@@ -188,135 +89,128 @@ fun AboutLibrariesScreen(
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     aboutHazeState: HazeState? = null
 ) {
-    val context = LocalContext.current
+    val libraries by produceLibraries(R.raw.aboutlibraries)
+    val uriHandler = LocalUriHandler.current
     val layoutDirection = LocalLayoutDirection.current
     val density = LocalDensity.current
-
-    // Resolve window proportions (To adapt widths dynamically across diverse display configurations)
-    // Employs unified WindowClass instead of reading LocalConfiguration directly.
-    val windowClass = LocalAppWindowSizeClass.current
-
-    // Read window bounds (To calculate padding boundaries under active displays)
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val startPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val endPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
     var aboutTopBarHeightPx by remember { mutableIntStateOf(0) }
     val resolvedAboutHazeState = aboutHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
-    // About Top Bar Height Resolution (Reserve space for shared overlay chrome)
-    // The measured top bar height preserves the previous Scaffold topBar spacing while allowing license content to scroll beneath the glass layer.
+    val openProjectUrl: (String) -> Unit = { url -> runCatching { uriHandler.openUri(url) } }
+
     val measuredAboutTopBarHeight = if (aboutTopBarHeightPx > 0) {
         with(density) { aboutTopBarHeightPx.toDp() }
     } else {
         safeDrawingPadding.calculateTopPadding() + 64.dp
     }
 
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
             modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth()
-        ) {
-            Scaffold(
-                modifier = Modifier
-                    // About Content Surface Bounds (Keep the sampled license panel full size)
-                    // The shared glass top bar needs a complete backdrop across the centered about panel, including the blank background above the first list row.
-                    .fillMaxSize()
-                    .then(
-                        if (resolvedAboutHazeState != null) {
-                            // About Content Haze Source (Expose license content to overlay chrome)
-                            // Registering the Scaffold content layer lets the shared top bar blur the About page without sampling its own toolbar.
-                            Modifier.hazeSource(resolvedAboutHazeState)
-                        } else {
-                            Modifier
-                        }
-                    ),
-                // Title: Dynamic Scaffold Background Color (Set containerColor to background when Haze is active)
-                // Overrides containerColor to background color under Haze mode so that hazeSource has a solid background to sample from,
-                // while keeping it transparent under Material mode to avoid duplicate draws.
-                containerColor = if (resolvedAboutHazeState != null) MaterialTheme.colorScheme.background else Color.Transparent,
-                // About Content Insets (Let overlay top bar own top spacing)
-                // The list keeps bottom safe-area padding while the measured shared top bar supplies the top content offset.
-                contentWindowInsets = WindowInsets.safeDrawing
-            ) { innerPadding ->
-                // Title: Adapt about screen to grid (Use LazyVerticalGrid with columnsCount to display license cards in dynamic grid)
-                // Migrates from LazyColumn to LazyVerticalGrid to dynamically scale columns based on active layout size.
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(windowClass.columnsCount),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = startPadding + 16.dp,
-                        end = endPadding + 16.dp,
-                        top = measuredAboutTopBarHeight + 16.dp,
-                        bottom = innerPadding.calculateBottomPadding() + 24.dp
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Renders branding layout (To display logo and greetings card)
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        BrandHeaderCard()
+                .fillMaxSize()
+                .then(
+                    if (resolvedAboutHazeState != null) {
+                        Modifier.hazeSource(resolvedAboutHazeState)
+                    } else {
+                        Modifier
                     }
+                ),
+            containerColor = if (resolvedAboutHazeState != null) MaterialTheme.colorScheme.background else Color.Transparent,
+            contentWindowInsets = WindowInsets.safeDrawing
+        ) { innerPadding ->
+            val licenseContentPadding = PaddingValues(
+                start = startPadding + 16.dp,
+                end = endPadding + 16.dp,
+                top = measuredAboutTopBarHeight + 16.dp,
+                bottom = innerPadding.calculateBottomPadding() + 24.dp
+            )
 
-                    // Renders license library list (To display each library description card)
-                    items(openSourceLibraries, key = { it.name }) { library ->
-                        LibraryCard(
+            if (libraries == null) {
+                LoadingLicensesContent(contentPadding = licenseContentPadding)
+            } else {
+                LibrariesContainer(
+                    libraries = libraries,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = licenseContentPadding,
+                    licenseDialogConfirmText = stringResource(R.string.action_ok),
+                    header = {
+                        item {
+                            BrandHeaderCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                            )
+                        }
+                    },
+                    divider = {
+                        Spacer(modifier = Modifier.height(10.dp))
+                    },
+                    libraryRow = { _, library, expanded, toggle, _ ->
+                        GeneratedLibraryCard(
                             library = library,
-                            onVisitUrl = { url ->
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                                    context.startActivity(intent)
-                                } catch (_: Exception) {
-                                    // Handle web launch errors (To catch intent dispatch failures safely)
-                                }
-                            }
+                            expanded = expanded,
+                            onToggle = toggle,
+                            onVisitUrl = openProjectUrl
                         )
                     }
+                )
+            }
+        }
+
+        APlayerGlassTopBar(
+            glassEffectMode = glassEffectMode,
+            hazeState = resolvedAboutHazeState,
+            onHeightChanged = { aboutTopBarHeightPx = it },
+            modifier = Modifier.align(Alignment.TopCenter),
+            title = {
+                Text(
+                    text = stringResource(R.string.settings_open_source_license_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.back_content_description)
+                    )
                 }
             }
-            APlayerGlassTopBar(
-                glassEffectMode = glassEffectMode,
-                hazeState = resolvedAboutHazeState,
-                onHeightChanged = { aboutTopBarHeightPx = it },
-                // About Top Bar Overlay Placement (Reuse Home's extracted glass chrome)
-                // Drawing the license header above Scaffold content keeps About visually aligned with Settings while preserving independent screen content ownership.
-                modifier = Modifier.align(Alignment.TopCenter),
-                title = {
-                    Text(
-                        text = stringResource(R.string.settings_open_source_license_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.back_content_description)
-                        )
-                    }
-                }
-            )
-        }
+        )
     }
 }
 
 /**
- * Branding detail card (Component rendering APlayer identity logo and greetings text)
- * Builds styled backdrop gradient container with rounded edges.
+ * Loading placeholder for generated license metadata.
+ * Keeps the first-frame layout aligned with the final list while AboutLibraries parses the generated JSON off the main thread.
  */
 @Composable
-private fun BrandHeaderCard() {
+private fun LoadingLicensesContent(contentPadding: PaddingValues) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+/**
+ * Branding detail card shown before generated license rows.
+ * Displays app identity and Gradle-owned version metadata without mixing it into generated third-party notices.
+ */
+@Composable
+private fun BrandHeaderCard(modifier: Modifier = Modifier) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.tertiary
-    // Runtime Version Label (Read Gradle-owned app version metadata instead of storing a release value in translations)
-    // The localized string resource owns only the "Version %s" template, while build.gradle.kts owns the actual version name.
     val versionName = remember { BuildConfig.VERSION_NAME }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
@@ -329,7 +223,6 @@ private fun BrandHeaderCard() {
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Styled logo image (To draw vector info icon over gradient backdrop)
             Box(
                 modifier = Modifier
                     .size(80.dp)
@@ -351,8 +244,6 @@ private fun BrandHeaderCard() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Localized App Brand Copy (Read the displayed app name from resources instead of repeating a literal)
-            // The current translations keep the brand stable, but resource lookup keeps the about page aligned with manifest-visible app naming.
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium,
@@ -381,22 +272,28 @@ private fun BrandHeaderCard() {
 }
 
 /**
- * Open-source library layout card (Component rendering expandable license info item)
- * Supports dynamic resize transitions (animateContentSize) to fold or unfold license text.
+ * Generated library card styled like the previous manually curated license rows.
+ * Keeps AboutLibraries as the source of truth while restoring the app-owned card, badge, and inline license presentation.
  */
 @Composable
-private fun LibraryCard(
-    library: OpenSourceLibrary,
-    onVisitUrl: (String) -> Unit
+private fun GeneratedLibraryCard(
+    library: Library,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onVisitUrl: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val libraryDescription = stringResource(library.descriptionRes)
+    val licenseLabel = library.primaryLicenseLabel()
+    val developerName = library.primaryDeveloperName()
+    val description = library.descriptionText()
+    val licenseText = library.licenseDetailsText()
+    val projectUrl = library.projectUrl()
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded }
-            .animateContentSize(), // Transition resize animator (To provide smooth accordion animation effects)
+            .clickable { onToggle() }
+            .animateContentSize(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (expanded) {
@@ -420,23 +317,24 @@ private fun LibraryCard(
                 .padding(16.dp)
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = library.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // License label container (To group license type information tags)
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
@@ -444,16 +342,18 @@ private fun LibraryCard(
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = library.license,
+                                text = licenseLabel,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                fontSize = 10.sp
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                        
+
                         Text(
-                            text = stringResource(R.string.about_developer_credit, library.developer),
+                            text = stringResource(R.string.about_developer_credit, developerName),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -462,27 +362,25 @@ private fun LibraryCard(
                     }
                 }
 
-                // Anchor web hyperlink (To navigate users to project host site)
-                IconButton(
-                    onClick = { onVisitUrl(library.url) },
-                    // Project Link Target (Keep the icon-only link at the 48.dp accessibility floor)
-                    // The visible OpenInNew glyph stays small, while the button surface remains reliable for touch, TalkBack, and Switch Access.
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                        contentDescription = stringResource(R.string.about_visit_project_homepage_content_description),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        modifier = Modifier.size(18.dp)
-                    )
+                if (projectUrl != null) {
+                    IconButton(
+                        onClick = { onVisitUrl(projectUrl) },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                            contentDescription = stringResource(R.string.about_visit_project_homepage_content_description),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Toggle brief description (To truncate texts under folded view states)
             Text(
-                text = libraryDescription,
+                text = description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = if (expanded) Int.MAX_VALUE else 2,
@@ -490,7 +388,6 @@ private fun LibraryCard(
                 lineHeight = 20.sp
             )
 
-            // Toggle accordion section (To reveal license text details with expand transition animation)
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn() + expandVertically(),
@@ -501,13 +398,7 @@ private fun LibraryCard(
                         .fillMaxWidth()
                         .padding(top = 16.dp)
                 ) {
-                    // Section line separator (To divide metadata summary from detailed license texts)
-                    Spacer(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -520,7 +411,6 @@ private fun LibraryCard(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // License block backdrop (To render monospace texts on shaded gray backgrounds)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -534,7 +424,7 @@ private fun LibraryCard(
                             .padding(12.dp)
                     ) {
                         Text(
-                            text = library.licenseText,
+                            text = licenseText,
                             style = MaterialTheme.typography.bodySmall,
                             fontFamily = FontFamily.Monospace,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -542,23 +432,28 @@ private fun LibraryCard(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    if (projectUrl != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    OutlinedButton(
-                        onClick = { onVisitUrl(library.url) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = stringResource(R.string.about_visit_project_homepage), style = MaterialTheme.typography.labelLarge)
+                        OutlinedButton(
+                            onClick = { onVisitUrl(projectUrl) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.about_visit_project_homepage),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
                     }
                 }
             }
@@ -566,17 +461,64 @@ private fun LibraryCard(
     }
 }
 
-
+/**
+ * Resolves the compact license badge text shown on generated cards.
+ * Prefers SPDX identifiers when available because they are short enough for the old pill-style badge.
+ */
+@Composable
+private fun Library.primaryLicenseLabel(): String = licenses.firstOrNull()
+    ?.let { license -> license.spdxId?.takeIf { it.isNotBlank() } ?: license.name.takeIf { it.isNotBlank() } }
+    ?: stringResource(R.string.common_unknown)
 
 /**
- * Licenses view preview (To preview component styling)
+ * Resolves the developer credit line shown under the generated library name.
+ * Falls back through developer, organization, and Gradle coordinates so every generated dependency keeps a stable subtitle.
+ */
+private fun Library.primaryDeveloperName(): String = developers.firstNotNullOfOrNull { developer ->
+    developer.name?.takeIf { it.isNotBlank() }
+} ?: organization?.name?.takeIf { it.isNotBlank() }
+    ?: uniqueId.substringBefore(':').takeIf { it.isNotBlank() }
+    ?: name
+
+/**
+ * Resolves the short body text shown before expansion.
+ * Generated POM descriptions are used when present; otherwise the Gradle coordinate keeps the card informative without adding manual copy.
+ */
+private fun Library.descriptionText(): String = description?.takeIf { it.isNotBlank() }
+    ?: artifactId.takeIf { it.isNotBlank() }
+    ?: uniqueId
+
+/**
+ * Resolves the inline license text shown in the expanded card.
+ * Uses generated license content first, then falls back to license metadata and finally the library coordinate.
+ */
+private fun Library.licenseDetailsText(): String = licenses.firstNotNullOfOrNull { license ->
+    license.licenseContent?.takeIf { it.isNotBlank() }
+} ?: licenses.joinToString(separator = "\n\n") { license ->
+    listOfNotNull(
+        license.spdxId?.takeIf { it.isNotBlank() },
+        license.name.takeIf { it.isNotBlank() },
+        license.url?.takeIf { it.isNotBlank() }
+    ).joinToString(separator = "\n")
+}.takeIf { it.isNotBlank() }
+    ?: artifactId
+
+/**
+ * Resolves the best generated homepage target for the external-link actions.
+ * Website and SCM URLs point users at the project first; license URLs remain a fallback when project metadata is absent.
+ */
+private fun Library.projectUrl(): String? = website?.takeIf { it.isNotBlank() }
+    ?: scm?.url?.takeIf { it.isNotBlank() }
+    ?: licenses.firstNotNullOfOrNull { it.url?.takeIf { url -> url.isNotBlank() } }
+
+/**
+ * Licenses view preview.
+ * Injects the portrait window class used by Settings so preview layout matches the runtime shell constraints.
  */
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
 fun AboutLibrariesScreenPreview() {
     APlayerTheme {
-        // Portrait phone preview (To preview licenses layout in portrait constraints)
-        // Uses CompositionLocalProvider to inject vertical phone window attributes.
         CompositionLocalProvider(
             LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {

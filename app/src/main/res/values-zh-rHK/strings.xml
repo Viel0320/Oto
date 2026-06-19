@@ -568,4 +568,11 @@
     <string name="download_management_delete_all_action">刪除全部</string>
     <string name="download_management_delete_all_confirm_title">刪除全部下載</string>
     <string name="download_management_delete_all_confirm_body">確定要刪除所有離線快取下載嗎？</string>
+    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
+    <string name="about_library_navigation3_description">Navigation 3 提供面向 Compose 的導覽構建塊。APlayer 使用它保持頁面堆疊和浮層路由由狀態驅動。</string>
+    <string name="about_library_materialkolor_description">MaterialKolor 可從種子色生成 Material You 配色。APlayer 使用它支援桌布和封面感知的動態主題。</string>
+    <string name="about_library_palette_description">AndroidX Palette 可從圖像中提取代表性顏色。APlayer 使用它在生成主題介面前推導封面強調色。</string>
+    <string name="about_library_documentfile_description">DocumentFile 封裝 Android 儲存空間存取框架文件。APlayer 使用它檢查使用者授權的本機媒體庫資料夾。</string>
+    <string name="about_library_okhttp_description">OkHttp 是現代 HTTP 用戶端。APlayer 使用它處理 WebDAV 和 Audiobookshelf 網絡存取，包括串流讀取和 API 呼叫。</string>
+    <string name="about_library_moshi_description">Moshi 將 JSON 映射為具型別 Kotlin 模型。APlayer 使用它解析結構化 Audiobookshelf 協議回應。</string>
 </resources>

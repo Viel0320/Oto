@@ -592,5 +592,11 @@
     <string name="download_management_delete_all_action">Delete all</string>
     <string name="download_management_delete_all_confirm_title">Delete all downloads</string>
     <string name="download_management_delete_all_confirm_body">Are you sure you want to delete all offline cache downloads?</string>
+    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
+    <string name="about_library_navigation3_description">Navigation 3 provides Compose-first navigation building blocks. APlayer uses it to keep screen stacks and overlay routes state-driven.</string>
+    <string name="about_library_materialkolor_description">MaterialKolor generates Material You color schemes from seed colors. APlayer uses it for wallpaper and cover-aware dynamic themes.</string>
+    <string name="about_library_palette_description">AndroidX Palette extracts representative colors from images. APlayer uses it to derive cover accents before generating themed surfaces.</string>
+    <string name="about_library_documentfile_description">DocumentFile wraps Android storage access framework documents. APlayer uses it to inspect user-authorized local library folders.</string>
+    <string name="about_library_okhttp_description">OkHttp is a modern HTTP client. APlayer uses it for WebDAV and Audiobookshelf network access, including streaming and API calls.</string>
+    <string name="about_library_moshi_description">Moshi maps JSON into typed Kotlin models. APlayer uses it to parse structured Audiobookshelf protocol responses.</string>
 </resources>
-

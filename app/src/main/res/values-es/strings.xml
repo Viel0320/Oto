@@ -1,4 +1,4 @@
-﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
     <!-- Spanish Locale Resources (Provide Spanish translations for all default user-visible strings)
          Complete key coverage keeps system and in-app language switching aligned. -->
     <string name="author_label">Autor</string>
@@ -569,4 +569,11 @@
     <string name="download_management_delete_all_action">Eliminar todo</string>
     <string name="download_management_delete_all_confirm_title">Eliminar todas las descargas</string>
     <string name="download_management_delete_all_confirm_body">¿Está seguro de que desea eliminar todas las descargas de caché sin conexión?</string>
+    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
+    <string name="about_library_navigation3_description">Navigation 3 ofrece bloques de navegación pensados para Compose. APlayer lo usa para mantener pilas de pantallas y rutas superpuestas controladas por estado.</string>
+    <string name="about_library_materialkolor_description">MaterialKolor genera esquemas Material You desde colores semilla. APlayer lo usa para temas dinámicos basados en el fondo de pantalla y las portadas.</string>
+    <string name="about_library_palette_description">AndroidX Palette extrae colores representativos de imágenes. APlayer lo usa para derivar acentos de portada antes de generar superficies con tema.</string>
+    <string name="about_library_documentfile_description">DocumentFile envuelve documentos del Android Storage Access Framework. APlayer lo usa para inspeccionar carpetas locales de biblioteca autorizadas por el usuario.</string>
+    <string name="about_library_okhttp_description">OkHttp es un cliente HTTP moderno. APlayer lo usa para acceso de red WebDAV y Audiobookshelf, incluidos streaming y llamadas API.</string>
+    <string name="about_library_moshi_description">Moshi asigna JSON a modelos Kotlin tipados. APlayer lo usa para analizar respuestas estructuradas del protocolo Audiobookshelf.</string>
 </resources>

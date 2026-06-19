@@ -1,4 +1,4 @@
-﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
     <!-- Portuguese Locale Resources (Provide Portuguese translations for all default user-visible
     strings)
          Complete coverage lets both Android and in-app language selection render a consistent Portuguese
@@ -698,4 +698,11 @@
     <string name="download_management_delete_all_action">Excluir tudo</string>
     <string name="download_management_delete_all_confirm_title">Excluir todos os downloads</string>
     <string name="download_management_delete_all_confirm_body">Tem certeza de que deseja excluir todos os downloads de cache off-line?</string>
+    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
+    <string name="about_library_navigation3_description">Navigation 3 fornece blocos de navegação pensados para Compose. APlayer usa-o para manter pilhas de ecrãs e rotas de sobreposição orientadas por estado.</string>
+    <string name="about_library_materialkolor_description">MaterialKolor gera esquemas Material You a partir de cores semente. APlayer usa-o para temas dinâmicos baseados no papel de parede e nas capas.</string>
+    <string name="about_library_palette_description">AndroidX Palette extrai cores representativas de imagens. APlayer usa-o para derivar acentos de capa antes de gerar superfícies temáticas.</string>
+    <string name="about_library_documentfile_description">DocumentFile envolve documentos do Android Storage Access Framework. APlayer usa-o para inspecionar pastas locais da biblioteca autorizadas pelo utilizador.</string>
+    <string name="about_library_okhttp_description">OkHttp é um cliente HTTP moderno. APlayer usa-o para acesso de rede WebDAV e Audiobookshelf, incluindo streaming e chamadas API.</string>
+    <string name="about_library_moshi_description">Moshi mapeia JSON para modelos Kotlin tipados. APlayer usa-o para analisar respostas estruturadas do protocolo Audiobookshelf.</string>
 </resources>

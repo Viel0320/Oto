@@ -1,4 +1,4 @@
-﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
     <!-- Japanese Locale Resources (Provide Japanese translations for all default user-visible strings)
          Complete key coverage lets Android and the in-app picker switch the whole app without partial fallback. -->
     <string name="author_label">著者</string>
@@ -568,4 +568,11 @@
     <string name="download_management_delete_all_action">すべて削除</string>
     <string name="download_management_delete_all_confirm_title">すべてのダウンロードを削除</string>
     <string name="download_management_delete_all_confirm_body">すべてのオフラインキャッシュダウンロードを削除してもよろしいですか？</string>
+    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
+    <string name="about_library_navigation3_description">Navigation 3 は Compose 優先のナビゲーション部品を提供します。APlayer は画面スタックとオーバーレイルートを状態駆動で保つために利用します。</string>
+    <string name="about_library_materialkolor_description">MaterialKolor はシードカラーから Material You 配色を生成します。APlayer は壁紙や表紙に応じた動的テーマに利用します。</string>
+    <string name="about_library_palette_description">AndroidX Palette は画像から代表色を抽出します。APlayer はテーマ面を生成する前に表紙のアクセント色を導くために利用します。</string>
+    <string name="about_library_documentfile_description">DocumentFile は Android Storage Access Framework のドキュメントを扱います。APlayer は許可済みローカルライブラリフォルダーの確認に利用します。</string>
+    <string name="about_library_okhttp_description">OkHttp は現代的な HTTP クライアントです。APlayer は WebDAV と Audiobookshelf のネットワークアクセス、ストリーミング、API 呼び出しに利用します。</string>
+    <string name="about_library_moshi_description">Moshi は JSON を型付き Kotlin モデルへ変換します。APlayer は構造化された Audiobookshelf プロトコル応答の解析に利用します。</string>
 </resources>

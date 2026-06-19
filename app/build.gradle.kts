@@ -6,6 +6,9 @@ plugins {
     alias(libs.plugins.ksp)
     // Setup Kotlin Serialization (Apply compiler serialization plugin) Required for type-safe routes serialization in Navigation 3.
     alias(libs.plugins.kotlin.serialization)
+    // AboutLibraries Metadata Generation (Generate dependency license metadata during Android variant builds)
+    // The Settings about page reads the generated R.raw.aboutlibraries file instead of maintaining a hand-written license list.
+    alias(libs.plugins.aboutlibraries.android)
 }
 
 kotlin {
@@ -132,6 +135,9 @@ dependencies {
 
     // MaterialKolor (HCT/Monet dynamic color) Generates full Material 3 ColorSchemeS from a seed color (wallpaper or cover art).
     implementation(libs.material.kolor)
+    // AboutLibraries Material 3 UI (Display Gradle-generated open-source license metadata in Compose)
+    // This keeps the visible license page synchronized with the dependency graph resolved by Gradle.
+    implementation(libs.aboutlibraries.compose.m3)
     implementation(libs.androidx.datastore.preferences)
 
     // Introduce Haze Blur (Transition backdrop blur to dev.chrisbanes.haze) Replaced backdrop blur dependency with Haze libraries.

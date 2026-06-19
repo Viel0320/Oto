@@ -1,4 +1,4 @@
-﻿<resources>
+<resources>
     <!-- Russian Locale Resources (Provide Russian translations for all default user-visible strings)
          The file mirrors the base resource names to support Android per-app language switching. -->
     <string name="author_label">Автор</string>
@@ -591,4 +591,11 @@
     <string name="download_management_delete_all_action">Удалить все</string>
     <string name="download_management_delete_all_confirm_title">Удалить все загрузки</string>
     <string name="download_management_delete_all_confirm_body">Вы уверены, что хотите удалить все загрузки из автономного кэша?</string>
+    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
+    <string name="about_library_navigation3_description">Navigation 3 предоставляет навигационные блоки для Compose. APlayer использует их, чтобы стеки экранов и маршруты оверлеев управлялись состоянием.</string>
+    <string name="about_library_materialkolor_description">MaterialKolor создает цветовые схемы Material You из исходных цветов. APlayer использует его для динамических тем на основе обоев и обложек.</string>
+    <string name="about_library_palette_description">AndroidX Palette извлекает характерные цвета из изображений. APlayer использует его, чтобы получить акценты обложки перед созданием тематических поверхностей.</string>
+    <string name="about_library_documentfile_description">DocumentFile оборачивает документы Android Storage Access Framework. APlayer использует его для проверки локальных папок медиатеки, разрешенных пользователем.</string>
+    <string name="about_library_okhttp_description">OkHttp — современный HTTP-клиент. APlayer использует его для сетевого доступа WebDAV и Audiobookshelf, включая потоки и вызовы API.</string>
+    <string name="about_library_moshi_description">Moshi сопоставляет JSON с типизированными моделями Kotlin. APlayer использует его для разбора структурированных ответов протокола Audiobookshelf.</string>
 </resources>

@@ -33,6 +33,9 @@ robolectric = "4.16.1"
 haze = "1.7.2"
 # MaterialKolor (HCT/Monet dynamic ColorScheme generation) Replaces the in-house HSL approximation with Google's material-color-utilities algorithm.
 materialKolor = "4.1.1"
+# AboutLibraries Metadata UI (Match the app's AGP 9, Kotlin 2.4, Compose 1.11, and compileSdk 37 toolchain)
+# The Android plugin generates the license metadata resource consumed by the Compose Material 3 screen.
+aboutLibraries = "15.0.0-rc01"
 
 
 [libraries]
@@ -93,6 +96,8 @@ haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 haze-materials = { group = "dev.chrisbanes.haze", name = "haze-materials", version.ref = "haze" }
 # MaterialKolor (Material Color Utilities / HCT dynamic ColorScheme generation for Compose)
 material-kolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialKolor" }
+# AboutLibraries Compose Material 3 UI (Render Gradle-generated dependency license metadata inside Settings)
+aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutLibraries" }
 
 
 [plugins]
@@ -101,4 +106,6 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 # Setup Kotlin Serialization (Add serialization plugin for Nav3 type safety) Enable compiler serialization plugin.
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+# AboutLibraries Android Plugin (Automatically attach license metadata generation to Android variants)
+aboutlibraries-android = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutLibraries" }
 

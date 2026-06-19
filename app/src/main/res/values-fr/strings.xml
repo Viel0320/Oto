@@ -569,4 +569,11 @@
     <string name="download_management_delete_all_action">Tout supprimer</string>
     <string name="download_management_delete_all_confirm_title">Supprimer tous les téléchargements</string>
     <string name="download_management_delete_all_confirm_body">Êtes-vous sûr de vouloir supprimer tous les téléchargements de cache hors ligne ?</string>
+    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
+    <string name="about_library_navigation3_description">Navigation 3 fournit des blocs de navigation pensés pour Compose. APlayer utilise ces blocs pour garder les piles écrans et les routes de superposition pilotées par état.</string>
+    <string name="about_library_materialkolor_description">MaterialKolor génère des schémas Material You depuis des couleurs sources. APlayer utilise cette bibliothèque pour les thèmes dynamiques liés au fond écran et aux couvertures.</string>
+    <string name="about_library_palette_description">AndroidX Palette extrait des couleurs représentatives depuis les images. APlayer utilise cette bibliothèque pour déduire les accents de couverture avant de générer les surfaces thémées.</string>
+    <string name="about_library_documentfile_description">DocumentFile encapsule les documents du framework Android Storage Access. APlayer utilise cette bibliothèque pour inspecter les dossiers de médiathèque locale autorisés par utilisateur.</string>
+    <string name="about_library_okhttp_description">OkHttp est un client HTTP moderne. APlayer utilise cette bibliothèque pour accès réseau WebDAV et Audiobookshelf, y compris les flux et les appels API.</string>
+    <string name="about_library_moshi_description">Moshi convertit le JSON en modèles Kotlin typés. APlayer utilise cette bibliothèque pour analyser les réponses structurées du protocole Audiobookshelf.</string>
 </resources>
