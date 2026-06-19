@@ -75,28 +75,10 @@ fun PlayerCover(
     transitionCoverPath: String? = coverPath,
     isPlaying: Boolean,
     coverLastUpdated: Long,
-    sizeRatio: Float = 0.8f,
+    sizeRatio: Float = 1f,
     coverScene: String = "main-cover",
-    /*
-     * Shared Element Key Override (Route-specific artwork transition identity)
-     *
-     * Allows callers such as Home -> Detail to bind the same cover image to a route-specific
-     * shared-element key without changing the player and mini-player artwork transition contract.
-     */
     sharedElementKey: String? = null,
-    /*
-     * Shared Element Visibility Scope Override (Route-specific animation boundary)
-     *
-     * Lets route transitions pass their own destination AnimatedVisibilityScope so detail covers
-     * do not accidentally reuse the mini-to-player target scope owned by PlayerOverlay.
-     */
     sharedElementVisibilityScope: AnimatedVisibilityScope? = null,
-    /*
-     * Shared Element Start Corner Override (Route-specific source shape)
-     *
-     * Lets non-player transitions provide their own source corner radius so Home recent covers
-     * start from 16.dp instead of falling back to the mini-player's 8.dp playback shape.
-     */
     sharedElementStartCornerRadius: Dp? = null,
 ) {
     // Use BoxWithConstraints to dynamically capture the maximum available width and height of the parent container, ensuring perfect adaptivity in portrait, landscape, or split-screen modes.

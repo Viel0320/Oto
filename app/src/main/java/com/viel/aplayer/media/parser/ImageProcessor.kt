@@ -91,8 +91,8 @@ object ImageProcessor {
             val y = (height - size) / 2
             val croppedBitmap = Bitmap.createBitmap(bitmap, x, y, size, size)
 
-            // Downscale resolution (Resize the cropped square to 800x800 pixels to optimize disk layout and memory profiles)
-            val targetResolution = 800
+            // Downscale resolution (Resize the cropped square to 1200x1200 pixels to optimize disk layout and memory profiles)
+            val targetResolution = 1200
             val finalBitmap = if (size > targetResolution) {
                 croppedBitmap.scale(targetResolution, targetResolution)
             } else {
