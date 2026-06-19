@@ -5,10 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.application.library.home.HomeCatalogSortPolicy
 import com.viel.aplayer.application.library.home.matchesHomeBookStatus
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.shared.settings.AppSettings
 import com.viel.aplayer.shared.settings.HomeBookStatusFilter
@@ -183,7 +183,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     // Update Reading State: Updates user progress status in database and dispatches feedback toasts.
     // Update Book Read Status: Change readStatus parameter type to type-safe ReadStatus enum.
-    fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) {
+    fun updateBookReadStatus(bookId: String, readStatus: LibraryReadStatus) {
         viewModelScope.launch {
             // Home Read Status Command (Routes manual status changes through the home scene use case)
             homeLibraryUseCases.updateReadStatus(bookId, readStatus)

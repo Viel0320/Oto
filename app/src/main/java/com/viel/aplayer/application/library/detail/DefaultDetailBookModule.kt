@@ -1,5 +1,7 @@
 package com.viel.aplayer.application.library.detail
 
+import com.viel.aplayer.application.library.toLibraryBookSourceType
+import com.viel.aplayer.application.library.toLibraryReadStatus
 import com.viel.aplayer.data.availability.BookAvailabilityGateway
 import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.root.LibraryRootGateway
@@ -60,7 +62,7 @@ class DefaultDetailBookModule(
                         DetailBookItem(
                             id = updatedBook.id,
                             rootId = updatedBook.rootId,
-                            sourceType = updatedBook.sourceType,
+                            sourceType = updatedBook.sourceType.toLibraryBookSourceType(),
                             title = updatedBook.title,
                             author = updatedBook.author,
                             narrator = updatedBook.narrator,
@@ -74,7 +76,7 @@ class DefaultDetailBookModule(
                             progressPercent = snapshot.progressPercent,
                             // Live Detail Read Status Projection (Refresh manual read status with live book metadata)
                             // The action dialog consumes DetailBookItem only, so live database updates must carry readStatus through the same projection boundary.
-                            readStatus = updatedBook.readStatus
+                            readStatus = updatedBook.readStatus.toLibraryReadStatus()
                         )
                     )
                 } else {

@@ -53,9 +53,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+import com.viel.aplayer.application.library.LibraryChapterSource
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerChapterTimeline
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.shared.formatTime
@@ -244,7 +244,8 @@ fun ChapterListContent(
 ) {
     Column(
         modifier = modifier
-            .fillMaxWidth()            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
     ) {
         Text(
             text = stringResource(R.string.chapter_list_title),
@@ -410,8 +411,8 @@ fun ChapterListSheetPreview() {
             startPositionMs = i * 60000L,
             durationMs = 60000L,
             fileOffsetMs = 0L,
-            // Update ChapterList preview to use AudiobookSchema.ChapterSource: Replacing raw string with type-safe ChapterSource.EMBEDDED.
-            source = AudiobookSchema.ChapterSource.EMBEDDED,
+            // ChapterList preview uses the application-level chapter source enum instead of data-layer schema constants.
+            source = LibraryChapterSource.EMBEDDED,
             isFileMissing = i == 5
         )
     }

@@ -1,5 +1,6 @@
 package com.viel.aplayer.application.library.detail
 
+import com.viel.aplayer.application.library.LibraryBookSourceType
 import com.viel.aplayer.data.db.AudiobookSchema
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,7 +16,7 @@ class DetailSourceLocationFormatterTest {
     @Test
     fun safRootDisplaysRegisteredNameAndRelativePath() {
         val result = formatter.format(
-            snapshot = snapshot(sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO),
+            snapshot = snapshot(sourceType = LibraryBookSourceType.SINGLE_AUDIO),
             files = listOf(
                 DetailSourceFile(
                     fileRole = AudiobookSchema.FileRole.AUDIO,
@@ -38,7 +39,7 @@ class DetailSourceLocationFormatterTest {
     fun webDavRootDoesNotExposeRawUrl() {
         val rawUrl = "https://dav.example.com/audiobooks/Book%20Two/track.mp3"
         val result = formatter.format(
-            snapshot = snapshot(sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO),
+            snapshot = snapshot(sourceType = LibraryBookSourceType.SINGLE_AUDIO),
             files = listOf(
                 DetailSourceFile(
                     fileRole = AudiobookSchema.FileRole.AUDIO,
@@ -62,7 +63,7 @@ class DetailSourceLocationFormatterTest {
     fun absRootDoesNotExposePlaybackApiPath() {
         val result = formatter.format(
             snapshot = snapshot(
-                sourceType = AudiobookSchema.SourceType.ABS_REMOTE,
+                sourceType = LibraryBookSourceType.ABS_REMOTE,
                 title = "Server Book"
             ),
             files = listOf(
@@ -87,7 +88,7 @@ class DetailSourceLocationFormatterTest {
     @Test
     fun missingRootReturnsStableFallbackText() {
         val result = formatter.format(
-            snapshot = snapshot(sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO),
+            snapshot = snapshot(sourceType = LibraryBookSourceType.SINGLE_AUDIO),
             files = emptyList(),
             root = null
         )
@@ -95,9 +96,9 @@ class DetailSourceLocationFormatterTest {
         assertEquals("SAF://Library", result)
     }
 
-    // Update DetailSourceLocationFormatterTest: Change snapshot helper signature to use type-safe AudiobookSchema.SourceType enum.
+    // DetailSourceLocationFormatterTest uses the application-level source enum at the snapshot boundary.
     private fun snapshot(
-        sourceType: AudiobookSchema.SourceType,
+        sourceType: LibraryBookSourceType,
         title: String = "Local Book"
     ): DetailSnapshot {
         // Detail Snapshot Fixture (Creates the transition snapshot without database entity dependencies)

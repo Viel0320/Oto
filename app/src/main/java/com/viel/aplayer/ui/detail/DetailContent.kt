@@ -52,9 +52,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.download.BookCacheState
+import com.viel.aplayer.application.library.LibraryBookSourceType
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.application.library.detail.DetailSnapshot
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.shared.settings.AppSettings
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
@@ -95,7 +96,7 @@ fun DetailContent(
     onPlayClick: () -> Unit = {},
     onSearchClick: (String) -> Unit = {},
     onEditBook: (String) -> Unit = {},
-    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit = { _, _ -> },
+    onUpdateReadStatus: (String, LibraryReadStatus) -> Unit = { _, _ -> },
     onForceRegenerate: (String) -> Unit = {},
     onDeleteBook: (String) -> Unit = {},
     onDownloadBook: (String) -> Unit = {},
@@ -577,8 +578,8 @@ fun DetailContentPortraitPreview() {
                         item = DetailBookItem(
                             id = "id",
                             rootId = "preview-root",
-                            // Update DetailContent to use AudiobookSchema.SourceType: Replacing raw string with enum.
-                            sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
+                            // Detail preview uses the application-level source enum instead of data-layer schema constants.
+                            sourceType = LibraryBookSourceType.SINGLE_AUDIO,
                             title = "In the Megachurch",
                             author = "Ryo Asai",
                             narrator = "Narrator A",

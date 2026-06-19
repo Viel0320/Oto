@@ -1,5 +1,8 @@
 package com.viel.aplayer.application.library.player
 
+import com.viel.aplayer.application.library.toLibraryAnchorStatus
+import com.viel.aplayer.application.library.toLibraryChapterSource
+import com.viel.aplayer.application.library.toSchemaAnchorStatus
 import com.viel.aplayer.application.usecase.GetRelatedBooksUseCase
 import com.viel.aplayer.application.usecase.RelatedBookCandidate
 import com.viel.aplayer.application.usecase.RelatedData
@@ -129,7 +132,7 @@ private fun ChapterWithBookFile.toPlayerChapterItem(): PlayerChapterItem {
         startPositionMs = chapter.startPositionMs,
         durationMs = chapter.durationMs,
         fileOffsetMs = chapter.fileOffsetMs,
-        source = chapter.source,
+        source = chapter.source.toLibraryChapterSource(),
         isFileMissing = bookFile?.status == AudiobookSchema.FileStatus.MISSING
     )
 }
@@ -146,7 +149,7 @@ private fun BookmarkEntity.toPlayerBookmarkItem(): PlayerBookmarkItem {
         bookFileId = bookFileId,
         fileOffsetMs = fileOffsetMs,
         fileFingerprint = fileFingerprint,
-        anchorStatus = anchorStatus,
+        anchorStatus = anchorStatus.toLibraryAnchorStatus(),
         title = title,
         createdAt = createdAt
     )
@@ -164,7 +167,7 @@ private fun PlayerBookmarkItem.toBookmarkEntity(): BookmarkEntity {
         bookFileId = bookFileId,
         fileOffsetMs = fileOffsetMs,
         fileFingerprint = fileFingerprint,
-        anchorStatus = anchorStatus,
+        anchorStatus = anchorStatus.toSchemaAnchorStatus(),
         title = title,
         createdAt = createdAt
     )

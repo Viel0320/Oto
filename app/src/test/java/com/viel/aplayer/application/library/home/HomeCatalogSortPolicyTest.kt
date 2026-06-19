@@ -1,6 +1,8 @@
 package com.viel.aplayer.application.library.home
 
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.library.LibraryBookSourceType
+import com.viel.aplayer.application.library.LibraryBookStatus
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.shared.settings.HomeSortDirection
 import com.viel.aplayer.shared.settings.HomeSortRule
 import org.junit.Assert.assertEquals
@@ -115,9 +117,9 @@ class HomeCatalogSortPolicyTest {
         return HomeBookItem(
             id = id,
             rootId = "root",
-            // Update HomeCatalogSortPolicyTest: Change sourceType in helper to use type-safe AudiobookSchema.SourceType enum.
-            sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
-            status = AudiobookSchema.BookStatus.READY,
+            // HomeCatalogSortPolicyTest uses application-level source/status/read-status enums at the scene projection boundary.
+            sourceType = LibraryBookSourceType.SINGLE_AUDIO,
+            status = LibraryBookStatus.READY,
             title = title,
             author = author,
             narrator = narrator,
@@ -130,7 +132,7 @@ class HomeCatalogSortPolicyTest {
             thumbnailPath = null,
             lastScannedAt = 0L,
             addedAt = 0L,
-            readStatus = AudiobookSchema.ReadStatus.NOT_STARTED,
+            readStatus = LibraryReadStatus.NOT_STARTED,
             progressPercent = 0,
             lastPlayedAt = 0L,
             isFinished = false,

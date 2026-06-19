@@ -1,6 +1,8 @@
 package com.viel.aplayer.application.library.home
 
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.library.LibraryBookSourceType
+import com.viel.aplayer.application.library.LibraryBookStatus
+import com.viel.aplayer.application.library.LibraryReadStatus
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -16,8 +18,8 @@ class HomeBookItemMapperTest {
         val homeBook = HomeBookItem(
             id = "test-id",
             rootId = "test-root-id",
-            sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
-            status = AudiobookSchema.BookStatus.READY,
+            sourceType = LibraryBookSourceType.SINGLE_AUDIO,
+            status = LibraryBookStatus.READY,
             title = "Test Title",
             author = "Test Author",
             narrator = "Test Narrator",
@@ -30,7 +32,7 @@ class HomeBookItemMapperTest {
             thumbnailPath = "path/to/thumbnail",
             lastScannedAt = 111L,
             addedAt = 222L,
-            readStatus = AudiobookSchema.ReadStatus.IN_PROGRESS,
+            readStatus = LibraryReadStatus.IN_PROGRESS,
             progressPercent = 45,
             lastPlayedAt = 333L,
             isFinished = false,

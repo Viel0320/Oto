@@ -56,7 +56,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.viel.aplayer.R
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.shared.settings.GlassEffectMode
 // Import AppWindowSizeClass: Use standardized layout provider to get the current window size details.
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
@@ -76,7 +76,7 @@ data class AudiobookActionDialogBook(
     val thumbnailPath: String?,
     val lastScannedAt: Long,
     // Read Status Type Safe: Change readStatus projection field type to ReadStatus enum for type safety.
-    val readStatus: AudiobookSchema.ReadStatus?
+    val readStatus: LibraryReadStatus?
 )
 
 /**
@@ -101,7 +101,7 @@ fun AudiobookActionDialog(
     // The shared dialog only emits the selected book id; hosts decide whether that id opens EditBookRoute or no edit action should be shown.
     onEditBook: ((String) -> Unit)? = null,
     // Update Read Status Callback: Change readStatus parameter to ReadStatus enum.
-    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit,
+    onUpdateReadStatus: (String, LibraryReadStatus) -> Unit,
     onForceRegenerate: (String) -> Unit,
     onDeleteBook: (String) -> Unit
 ) {
@@ -207,17 +207,17 @@ fun AudiobookActionDialog(
                         // These softer tones keep green/blue/purple meaning while avoiding high-saturation button blocks inside the glass dialog.
                         val statusList = listOf(
                             ReadStatusChipSpec(
-                                status = AudiobookSchema.ReadStatus.NOT_STARTED,
+                                status = LibraryReadStatus.NOT_STARTED,
                                 label = stringResource(R.string.filter_not_started),
                                 accentColor = Color(0xFF72D38A)
                             ),
                             ReadStatusChipSpec(
-                                status = AudiobookSchema.ReadStatus.IN_PROGRESS,
+                                status = LibraryReadStatus.IN_PROGRESS,
                                 label = stringResource(R.string.filter_in_progress),
                                 accentColor = Color(0xFF7DB7FF)
                             ),
                             ReadStatusChipSpec(
-                                status = AudiobookSchema.ReadStatus.FINISHED,
+                                status = LibraryReadStatus.FINISHED,
                                 label = stringResource(R.string.filter_finished),
                                 accentColor = Color(0xFFD49AEF)
                             )
@@ -462,7 +462,7 @@ private fun AudiobookActionLandscapeContent(
     coverRequestScene: String,
     onEditBook: ((String) -> Unit)?,
     // Update Read Status Callback: Change readStatus parameter to ReadStatus enum.
-    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit,
+    onUpdateReadStatus: (String, LibraryReadStatus) -> Unit,
     onForceRegenerate: (String) -> Unit,
     onShowDeleteConfirm: () -> Unit,
     onDismissRequest: () -> Unit
@@ -593,7 +593,7 @@ private fun AudiobookActionIdentityHeader(
 private fun AudiobookActionReadStatusSection(
     book: AudiobookActionDialogBook,
     // Update Read Status Callback: Change readStatus parameter to ReadStatus enum.
-    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit,
+    onUpdateReadStatus: (String, LibraryReadStatus) -> Unit,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -622,17 +622,17 @@ private fun AudiobookActionReadStatusSection(
             // These softer tones keep green/blue/purple meaning while avoiding high-saturation button blocks inside the glass dialog.
             val statusList = listOf(
                 ReadStatusChipSpec(
-                    status = AudiobookSchema.ReadStatus.NOT_STARTED,
+                    status = LibraryReadStatus.NOT_STARTED,
                     label = stringResource(R.string.filter_not_started),
                     accentColor = Color(0xFF72D38A)
                 ),
                 ReadStatusChipSpec(
-                    status = AudiobookSchema.ReadStatus.IN_PROGRESS,
+                    status = LibraryReadStatus.IN_PROGRESS,
                     label = stringResource(R.string.filter_in_progress),
                     accentColor = Color(0xFF7DB7FF)
                 ),
                 ReadStatusChipSpec(
-                    status = AudiobookSchema.ReadStatus.FINISHED,
+                    status = LibraryReadStatus.FINISHED,
                     label = stringResource(R.string.filter_finished),
                     accentColor = Color(0xFFD49AEF)
                 )
@@ -776,7 +776,7 @@ private val AudiobookActionLandscapeColumnSpacing = 20.dp
 // Keeps color mapping data outside the composable rendering branch so chip drawing remains small and predictable.
 // Read Status Chip Spec: Use type-safe ReadStatus enum for status field.
 private data class ReadStatusChipSpec(
-    val status: AudiobookSchema.ReadStatus,
+    val status: LibraryReadStatus,
     val label: String,
     val accentColor: Color
 )

@@ -1,5 +1,6 @@
 package com.viel.aplayer.application.library.detail
 
+import com.viel.aplayer.application.library.LibraryBookSourceType
 import com.viel.aplayer.data.db.AudiobookSchema
 import java.net.URI
 import java.net.URLDecoder
@@ -49,18 +50,22 @@ class DetailSourceLocationFormatter {
      * Detail Source File Selector (Chooses the most representative detail breadcrumb file)
      * Manifest-backed books prefer their manifest sidecar while regular and generated playlists prefer the first playable audio row.
      */
-    private fun selectDisplayFile(sourceType: AudiobookSchema.SourceType, files: List<DetailSourceFile>): DetailSourceFile? {
+    private fun selectDisplayFile(
+        sourceType: LibraryBookSourceType,
+        files: List<DetailSourceFile>
+    ): DetailSourceFile? {
         val playableFiles = files
             .filter { file -> file.fileRole == AudiobookSchema.FileRole.AUDIO }
             .sortedBy { file -> file.index }
         return when (sourceType) {
-            AudiobookSchema.SourceType.CUE,
-            AudiobookSchema.SourceType.M3U8 -> {
+            LibraryBookSourceType.CUE,
+            LibraryBookSourceType.M3U8 -> {
                 files.firstOrNull { file -> file.fileRole == AudiobookSchema.FileRole.SOURCE_MANIFEST }
                     ?: playableFiles.firstOrNull()
                     ?: files.minByOrNull { file -> file.index }
             }
-            AudiobookSchema.SourceType.GENERATED_M3U8 -> playableFiles.firstOrNull()
+
+            LibraryBookSourceType.GENERATED_M3U8 -> playableFiles.firstOrNull()
                 ?: files.minByOrNull { file -> file.index }
             else -> playableFiles.firstOrNull() ?: files.minByOrNull { file -> file.index }
         }
@@ -70,9 +75,12 @@ class DetailSourceLocationFormatter {
      * Detail Source Scheme Resolver (Derives the visible protocol from the registered root)
      * Book source type is only a fallback for transitional selections where the root row is unavailable.
      */
-    private fun resolveSourceDisplayScheme(root: DetailSourceRoot?, bookSourceType: AudiobookSchema.SourceType): AudiobookSchema.LibrarySourceType {
+    private fun resolveSourceDisplayScheme(
+        root: DetailSourceRoot?,
+        bookSourceType: LibraryBookSourceType
+    ): AudiobookSchema.LibrarySourceType {
         return root?.sourceType ?: when (bookSourceType) {
-            AudiobookSchema.SourceType.ABS_REMOTE -> AudiobookSchema.LibrarySourceType.ABS
+            LibraryBookSourceType.ABS_REMOTE -> AudiobookSchema.LibrarySourceType.ABS
             else -> AudiobookSchema.LibrarySourceType.SAF
         }
     }

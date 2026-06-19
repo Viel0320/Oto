@@ -47,8 +47,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+import com.viel.aplayer.application.library.LibraryBookSourceType
+import com.viel.aplayer.application.library.LibraryBookStatus
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.application.library.home.HomeBookItem
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.shared.settings.AppSettings
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.shared.settings.HomeFilter
@@ -451,9 +453,9 @@ fun HomeNotStartedPreview() {
             // Preview Home Item (Use the same Room-free projection delivered by the home read model)
             // This preview avoids rebuilding Room rows and keeps the content renderer aligned with the scene boundary.
             rootId = "preview-root",
-            // Update HomeContent to use AudiobookSchema.SourceType: Replacing raw string with enum.
-            sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
-            status = AudiobookSchema.BookStatus.READY,
+            // Home preview uses application-level source/status/read-status enums instead of data-layer schema constants.
+            sourceType = LibraryBookSourceType.SINGLE_AUDIO,
+            status = LibraryBookStatus.READY,
             title = "In the Megachurch",
             author = "Ryo Asai",
             narrator = "Narrator A",
@@ -466,7 +468,7 @@ fun HomeNotStartedPreview() {
             thumbnailPath = null,
             lastScannedAt = 0L,
             addedAt = System.currentTimeMillis(),
-            readStatus = AudiobookSchema.ReadStatus.NOT_STARTED,
+            readStatus = LibraryReadStatus.NOT_STARTED,
             progressPercent = 0,
             lastPlayedAt = 0L,
             isFinished = false,

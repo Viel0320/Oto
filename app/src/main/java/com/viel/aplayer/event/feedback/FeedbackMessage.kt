@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import com.viel.aplayer.R
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.media.PlaybackSourcePreflightBlockReason
 
@@ -267,14 +268,16 @@ object FeedbackMessages {
         )
 
     // Home Read Status Feedback: Change readStatus parameter type to type-safe ReadStatus enum.
-    fun homeReadStatusUpdated(readStatus: AudiobookSchema.ReadStatus): FeedbackMessage =
+    fun homeReadStatusUpdated(readStatus: LibraryReadStatus): FeedbackMessage =
         FeedbackMessage.Resource(
             when (readStatus) {
-                AudiobookSchema.ReadStatus.NOT_STARTED ->
+                LibraryReadStatus.NOT_STARTED ->
                     R.string.feedback_home_read_status_not_started
-                AudiobookSchema.ReadStatus.IN_PROGRESS ->
+
+                LibraryReadStatus.IN_PROGRESS ->
                     R.string.feedback_home_read_status_in_progress
-                AudiobookSchema.ReadStatus.FINISHED ->
+
+                LibraryReadStatus.FINISHED ->
                     R.string.feedback_home_read_status_finished
             }
         )

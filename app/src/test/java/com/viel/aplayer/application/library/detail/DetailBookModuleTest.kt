@@ -1,6 +1,13 @@
 package com.viel.aplayer.application.library.detail
 
 import android.net.Uri
+import com.viel.aplayer.application.library.LibraryBookSourceType
+import com.viel.aplayer.data.availability.BookAvailabilityGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookDeletionGateway
+import com.viel.aplayer.data.book.BookMetadataGateway
+import com.viel.aplayer.data.book.BookmarkGateway
+import com.viel.aplayer.data.book.ChapterGateway
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
@@ -9,12 +16,6 @@ import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.availability.BookAvailabilityGateway
-import com.viel.aplayer.data.book.BookCatalogGateway
-import com.viel.aplayer.data.book.BookDeletionGateway
-import com.viel.aplayer.data.book.BookMetadataGateway
-import com.viel.aplayer.data.book.BookmarkGateway
-import com.viel.aplayer.data.book.ChapterGateway
 import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import kotlinx.coroutines.flow.Flow
@@ -120,7 +121,7 @@ class DetailBookModuleTest {
             item = DetailBookItem(
                 id = id,
                 rootId = ROOT_ID,
-                sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
+                sourceType = LibraryBookSourceType.SINGLE_AUDIO,
                 title = title
             )
         )

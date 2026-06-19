@@ -1,6 +1,7 @@
 package com.viel.aplayer.application.library.player
 
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.library.LibraryAnchorStatus
+import com.viel.aplayer.application.library.LibraryChapterSource
 import com.viel.aplayer.media.subtitle.SubtitleLine
 import kotlinx.coroutines.flow.Flow
 
@@ -17,8 +18,8 @@ data class PlayerChapterItem(
     val startPositionMs: Long,
     val durationMs: Long,
     val fileOffsetMs: Long,
-    // Player Chapter Source Type Safe: Use ChapterSource enum for type safety.
-    val source: AudiobookSchema.ChapterSource,
+
+    val source: LibraryChapterSource,
     val isFileMissing: Boolean = false
 )
 
@@ -33,8 +34,8 @@ data class PlayerBookmarkItem(
     val bookFileId: String? = null,
     val fileOffsetMs: Long = 0L,
     val fileFingerprint: String? = null,
-    // Update anchorStatus type to AnchorStatus enum for type safety.
-    val anchorStatus: AudiobookSchema.AnchorStatus = AudiobookSchema.AnchorStatus.OK,
+
+    val anchorStatus: LibraryAnchorStatus = LibraryAnchorStatus.OK,
     val title: String,
     val createdAt: Long
 )

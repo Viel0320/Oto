@@ -1,6 +1,6 @@
 package com.viel.aplayer.application.library.home
 
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.library.LibraryBookStatus
 import com.viel.aplayer.shared.settings.HomeBookStatusFilter
 
 /**
@@ -9,10 +9,10 @@ import com.viel.aplayer.shared.settings.HomeBookStatusFilter
  * Keeps the shared settings enum decoupled from database status types while letting the Home ViewModel apply
  * page-level catalog filtering without re-owning schema translation rules.
  */
-fun HomeBookStatusFilter.matchesHomeBookStatus(bookStatus: AudiobookSchema.BookStatus): Boolean =
+fun HomeBookStatusFilter.matchesHomeBookStatus(bookStatus: LibraryBookStatus): Boolean =
     when (this) {
         HomeBookStatusFilter.All -> true
-        HomeBookStatusFilter.Ready -> bookStatus == AudiobookSchema.BookStatus.READY
-        HomeBookStatusFilter.Partial -> bookStatus == AudiobookSchema.BookStatus.PARTIAL
-        HomeBookStatusFilter.Unavailable -> bookStatus == AudiobookSchema.BookStatus.UNAVAILABLE
+        HomeBookStatusFilter.Ready -> bookStatus == LibraryBookStatus.READY
+        HomeBookStatusFilter.Partial -> bookStatus == LibraryBookStatus.PARTIAL
+        HomeBookStatusFilter.Unavailable -> bookStatus == LibraryBookStatus.UNAVAILABLE
     }

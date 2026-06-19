@@ -22,7 +22,7 @@ import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.ktx.animateColorScheme
 import com.viel.aplayer.R
-import com.viel.aplayer.data.db.AudiobookSchema
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
@@ -50,7 +50,7 @@ fun DetailRoute(
     // Detail Action Read Status Route (Delegate manual status changes)
     // The home/library scene still owns the persistence command, while DetailRoute only carries the selected Detail id.
     // Update Read Status: Update readStatus parameter type to ReadStatus enum.
-    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit,
+    onUpdateReadStatus: (String, LibraryReadStatus) -> Unit,
     // Detail Action Metadata Refresh Route (Delegate forced regeneration)
     // Regeneration remains a library command so DetailRoute avoids media parsing or cache work.
     onForceRegenerate: (String) -> Unit,

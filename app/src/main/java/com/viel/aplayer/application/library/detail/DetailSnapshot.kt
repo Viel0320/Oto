@@ -1,5 +1,7 @@
 package com.viel.aplayer.application.library.detail
 
+import com.viel.aplayer.application.library.LibraryBookSourceType
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
@@ -9,7 +11,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 data class DetailBookItem(
     val id: String,
     val rootId: String,
-    val sourceType: AudiobookSchema.SourceType,
+    val sourceType: LibraryBookSourceType,
     val title: String,
     val author: String = "",
     val narrator: String = "",
@@ -23,8 +25,8 @@ data class DetailBookItem(
     val progressPercent: Int = 0,
     // Detail Read Status Projection (Carry optional manual status for detail-owned action dialogs)
     // Keeping the value nullable lets callers that do not have read-status data open the detail action menu without marking any status as selected.
-    // Read Status Type Safe: Change readStatus field type to ReadStatus enum for type safety.
-    val readStatus: AudiobookSchema.ReadStatus? = null
+
+    val readStatus: LibraryReadStatus? = null
 )
 
 /**
@@ -42,7 +44,7 @@ data class DetailSnapshot(
     val rootId: String
         get() = item.rootId
 
-    val sourceType: AudiobookSchema.SourceType
+    val sourceType: LibraryBookSourceType
         get() = item.sourceType
 
     val progressPercent: Int

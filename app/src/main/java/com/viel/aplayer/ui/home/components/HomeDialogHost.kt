@@ -1,8 +1,8 @@
 package com.viel.aplayer.ui.home.components
 
 import androidx.compose.runtime.Composable
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.application.library.home.HomeBookItem
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.AudiobookActionDialog
 import com.viel.aplayer.ui.common.AudiobookActionDialogBook
@@ -23,7 +23,7 @@ fun HomeDialogHost(
     onDismissRequest: () -> Unit,
     onEditBook: (String) -> Unit,
     // Update onUpdateReadStatus parameter type to ReadStatus enum for type safety.
-    onUpdateReadStatus: (String, AudiobookSchema.ReadStatus) -> Unit,
+    onUpdateReadStatus: (String, LibraryReadStatus) -> Unit,
     onForceRegenerate: (String) -> Unit,
     onDeleteBook: (String) -> Unit
 ) {

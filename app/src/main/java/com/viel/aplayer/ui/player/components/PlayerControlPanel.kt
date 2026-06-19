@@ -11,8 +11,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.viel.aplayer.application.library.LibraryChapterSource
 import com.viel.aplayer.application.library.player.PlayerChapterItem
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.BookMetadataState
@@ -160,7 +160,7 @@ fun PlayerControlPanelPreview() {
                 startPositionMs = 0L,
                 durationMs = 360000L,
                 fileOffsetMs = 0L,
-                source = AudiobookSchema.ChapterSource.EMBEDDED
+                source = LibraryChapterSource.EMBEDDED
             ),
             metadata = BookMetadataState(
                 id = "book_1",
@@ -171,8 +171,28 @@ fun PlayerControlPanelPreview() {
                 thumbnailPath = null,
                 coverLastUpdated = 0L,
                 chapters = listOf(
-                    PlayerChapterItem("ch_1", "book_1", "file_1", 1, "引子", 0L, 180000L, 0L, AudiobookSchema.ChapterSource.EMBEDDED),
-                    PlayerChapterItem("ch_2", "book_1", "file_1", 2, "第一章：危机纪元", 180000L, 360000L, 180000L, AudiobookSchema.ChapterSource.EMBEDDED)
+                    PlayerChapterItem(
+                        "ch_1",
+                        "book_1",
+                        "file_1",
+                        1,
+                        "引子",
+                        0L,
+                        180000L,
+                        0L,
+                        LibraryChapterSource.EMBEDDED
+                    ),
+                    PlayerChapterItem(
+                        "ch_2",
+                        "book_1",
+                        "file_1",
+                        2,
+                        "第一章：危机纪元",
+                        180000L,
+                        360000L,
+                        180000L,
+                        LibraryChapterSource.EMBEDDED
+                    )
                 )
             ),
             isPlaying = true,

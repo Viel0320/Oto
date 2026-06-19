@@ -1,10 +1,16 @@
 package com.viel.aplayer.application.library.home
 
 import android.net.Uri
+import com.viel.aplayer.application.library.LibraryBookSourceType
+import com.viel.aplayer.application.library.LibraryBookStatus
+import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.application.library.detail.DetailBookItem
+import com.viel.aplayer.application.library.toLibraryBookSourceType
+import com.viel.aplayer.application.library.toLibraryBookStatus
+import com.viel.aplayer.application.library.toLibraryReadStatus
+import com.viel.aplayer.application.library.toSchemaReadStatus
 import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.book.BookMetadataGateway
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.metadata.MetadataRefreshGateway
 import com.viel.aplayer.data.root.LibraryRootGateway
@@ -15,15 +21,15 @@ import kotlinx.coroutines.flow.map
 
 /**
  * Home Book Item (Room-free catalog projection for the bookshelf)
- * Carries the metadata, progress, and status fields rendered or sorted by Home without exposing Room relationship rows.
+ * Carries the metadata, progress, and application-level status fields rendered or sorted by Home without exposing Room relationship rows or schema enums.
  */
 data class HomeBookItem(
     val id: String,
     val rootId: String,
-    // Home Source Type Safe: Use AudiobookSchema.SourceType enum for type safety.
-    val sourceType: AudiobookSchema.SourceType,
-    // Book Status Type Safe: Use BookStatus enum for type safety.
-    val status: AudiobookSchema.BookStatus,
+
+    val sourceType: LibraryBookSourceType,
+
+    val status: LibraryBookStatus,
     val title: String,
     val author: String,
     val narrator: String,
@@ -36,8 +42,8 @@ data class HomeBookItem(
     val thumbnailPath: String?,
     val lastScannedAt: Long,
     val addedAt: Long,
-    // Read Status Type Safe: Use ReadStatus enum for type safety.
-    val readStatus: AudiobookSchema.ReadStatus,
+
+    val readStatus: LibraryReadStatus,
     val progressPercent: Int,
     val lastPlayedAt: Long,
     val isFinished: Boolean,
@@ -93,8 +99,8 @@ interface HomeLibraryUseCases {
 
     fun addLocalRootAndScheduleSync(uri: Uri)
 
-    // Update Read Status: Update readStatus parameter type to ReadStatus enum.
-    suspend fun updateReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus)
+
+    suspend fun updateReadStatus(bookId: String, readStatus: LibraryReadStatus)
 
     suspend fun regenerateCoverAndMetadata(bookId: String)
 
@@ -147,11 +153,11 @@ class DefaultHomeLibraryUseCases(
         libraryRootGateway.addLibraryRootAndScheduleSync(uri, USER_TRIGGER)
     }
 
-    // Update Read Status: Update readStatus parameter type to ReadStatus enum.
-    override suspend fun updateReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) {
+
+    override suspend fun updateReadStatus(bookId: String, readStatus: LibraryReadStatus) {
         // Home Read Status Update (Use the semantic metadata seam for bookshelf state changes)
         // Home commands no longer depend on catalog search or file inventory just to change the user's reading status.
-        bookMetadataGateway.updateBookReadStatus(bookId, readStatus)
+        bookMetadataGateway.updateBookReadStatus(bookId, readStatus.toSchemaReadStatus())
     }
 
     override suspend fun regenerateCoverAndMetadata(bookId: String) {
@@ -176,8 +182,8 @@ private fun BookWithProgress.toHomeBookItem(): HomeBookItem {
     return HomeBookItem(
         id = book.id,
         rootId = book.rootId,
-        sourceType = book.sourceType,
-        status = book.status,
+        sourceType = book.sourceType.toLibraryBookSourceType(),
+        status = book.status.toLibraryBookStatus(),
         title = book.title,
         author = book.author,
         narrator = book.narrator,
@@ -190,7 +196,7 @@ private fun BookWithProgress.toHomeBookItem(): HomeBookItem {
         thumbnailPath = book.thumbnailPath,
         lastScannedAt = book.lastScannedAt,
         addedAt = book.addedAt,
-        readStatus = book.readStatus,
+        readStatus = book.readStatus.toLibraryReadStatus(),
         progressPercent = progressPercent,
         lastPlayedAt = progress?.lastPlayedAt ?: 0L,
         isFinished = isFinished,
