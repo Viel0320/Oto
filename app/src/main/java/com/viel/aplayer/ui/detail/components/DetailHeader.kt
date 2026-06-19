@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -45,11 +46,13 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
  * DetailHeader Setup (Detail Page Header Component)
  *
  * Header component of the book details page, including title, author, and narrator information.
- * Integrates SelectableTextView that supports the system text selection menu internally.
+ * Keeps the title non-selectable so long-press can open the full-title dialog instead of the
+ * system text selection menu.
  *
  * @param title Book title
  * @param author Author name
  * @param narrator Narrator name
+ * @param onTitleLongClick Triggered on long-pressing title
  * @param onAuthorClick Triggered on clicking author
  * @param onAuthorLongClick Triggered on long-pressing author
  * @param onNarratorClick Triggered on clicking narrator
@@ -62,6 +65,7 @@ fun DetailHeader(
     title: String,
     author: String,
     narrator: String,
+    onTitleLongClick: () -> Unit,
     onAuthorClick: () -> Unit,
     onAuthorLongClick: () -> Unit,
     onNarratorClick: () -> Unit,
@@ -75,8 +79,9 @@ fun DetailHeader(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Detail People Assistive Action Labels (Name metadata shortcut commands)
-        // Author and narrator chips support both search and detail-info shortcuts, so each gesture receives an explicit accessibility label.
+        // Detail Metadata Assistive Action Labels (Name metadata shortcut commands)
+        // Title, author, and narrator shortcuts expose explicit accessibility labels for their long-press detail actions.
+        val titleInfoActionLabel = stringResource(R.string.detail_title_info_action)
         val authorSearchActionLabel = stringResource(R.string.detail_author_search_action)
         val authorInfoActionLabel = stringResource(R.string.detail_author_info_action)
         val narratorSearchActionLabel = stringResource(R.string.detail_narrator_search_action)
@@ -85,15 +90,23 @@ fun DetailHeader(
         // Imported book metadata remains untouched, while app-owned blank fallbacks use resources for TalkBack and locale review.
         val unknownText = stringResource(R.string.common_unknown)
 
-        // Use internal SelectableTextView to display the book title.
-        SelectableTextView(
+        Text(
             text = title.takeIf { it.isNotBlank() } ?: unknownText,
-            modifier = Modifier.fillMaxWidth(),
-            textColor = MaterialTheme.colorScheme.onSurface,
-            textSizeSp = if (isLandscape) 22f else 28f,
-            lineSpacingExtraSp = 0f,
-            gravity = Gravity.CENTER,
-            typefaceStyle = android.graphics.Typeface.BOLD
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = {},
+                    onLongClickLabel = titleInfoActionLabel,
+                    onLongClick = onTitleLongClick
+                ),
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = if (isLandscape) 22.sp else 28.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Clip
         )
 
         Spacer(modifier = Modifier.height(if (isLandscape) 12.dp else 16.dp))
@@ -288,6 +301,7 @@ fun DetailHeaderPortraitPreview() {
             title = "In the Megachurch",
             author = "Ryo Asai",
             narrator = "Narrator A",
+            onTitleLongClick = {},
             onAuthorClick = {},
             onAuthorLongClick = {},
             onNarratorClick = {},
@@ -306,6 +320,7 @@ fun DetailHeaderLandscapePreview() {
             title = "In the Megachurch",
             author = "Ryo Asai",
             narrator = "Narrator A",
+            onTitleLongClick = {},
             onAuthorClick = {},
             onAuthorLongClick = {},
             onNarratorClick = {},

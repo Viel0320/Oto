@@ -1,10 +1,10 @@
 package com.viel.aplayer.ui.home.components
 
 // Import HomeBookStatusFilter (Brings in the relocated type-safe availability filter from the data store layer)
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -27,6 +27,7 @@ import com.viel.aplayer.shared.settings.HomeSortDirection
 import com.viel.aplayer.shared.settings.HomeSortRule
 import com.viel.aplayer.shared.settings.HomeViewStyle
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -77,11 +78,13 @@ fun HomeViewPreferenceDialog(
         HomeBookStatusFilter.Partial to stringResource(R.string.home_book_status_partial),
         HomeBookStatusFilter.Unavailable to stringResource(R.string.home_book_status_unavailable)
     )
+    val useColumnarDialog = LocalAppWindowSizeClass.current.columnsCount > 1
 
     APlayerDialogTemplate(
         onDismissRequest = onDismissRequest,
         hazeState = hazeState,
         glassEffectMode = glassEffectMode,
+        dialogMaxWidth = if (useColumnarDialog) 680.dp else 460.dp,
         // Home View Dialog Center Alignment (Keep all header slots visually centered)
         // The view switcher is a compact preference chooser, so centered chrome better matches its modal selection purpose.
         headerAlignment = Alignment.CenterHorizontally,
@@ -95,112 +98,21 @@ fun HomeViewPreferenceDialog(
             )
         },
         body = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                // Home View Dialog Body Alignment (Center section labels above their segmented controls)
-                // Keeps the dialog's visual axis consistent from title through controls.
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = stringResource(R.string.home_view_style_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    viewStyleOptions.forEachIndexed { index, (style, label) ->
-                        SegmentedButton(
-                            selected = selectedViewStyle == style,
-                            onClick = { onViewStyleSelected(style) },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = viewStyleOptions.size
-                            )
-                        ) {
-                            Text(text = label, style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-                Text(
-                    text = stringResource(R.string.home_sort_rule_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    sortRuleOptions.forEachIndexed { index, (rule, label) ->
-                        SegmentedButton(
-                            selected = selectedSortRule == rule,
-                            onClick = { onSortRuleSelected(rule) },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = sortRuleOptions.size
-                            )
-                        ) {
-                            Text(text = label, style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-                Text(
-                    text = stringResource(R.string.home_sort_direction_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    sortDirectionOptions.forEachIndexed { index, (direction, label) ->
-                        SegmentedButton(
-                            selected = selectedSortDirection == direction,
-                            onClick = { onSortDirectionSelected(direction) },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = sortDirectionOptions.size
-                            )
-                        ) {
-                            Text(text = label, style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-                Text(
-                    text = stringResource(R.string.home_book_status_filter_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    bookStatusFilterOptions.forEachIndexed { index, (filter, label) ->
-                        SegmentedButton(
-                            selected = selectedBookStatusFilter == filter,
-                            onClick = { onBookStatusFilterSelected(filter) },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = bookStatusFilterOptions.size
-                            )
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            }
+            HomeViewPreferenceDialogBody(
+                useColumnarDialog = useColumnarDialog,
+                viewStyleOptions = viewStyleOptions,
+                selectedViewStyle = selectedViewStyle,
+                onViewStyleSelected = onViewStyleSelected,
+                sortRuleOptions = sortRuleOptions,
+                selectedSortRule = selectedSortRule,
+                onSortRuleSelected = onSortRuleSelected,
+                sortDirectionOptions = sortDirectionOptions,
+                selectedSortDirection = selectedSortDirection,
+                onSortDirectionSelected = onSortDirectionSelected,
+                bookStatusFilterOptions = bookStatusFilterOptions,
+                selectedBookStatusFilter = selectedBookStatusFilter,
+                onBookStatusFilterSelected = onBookStatusFilterSelected
+            )
         },
         actions = {
             TextButton(onClick = onDismissRequest) {
@@ -208,4 +120,160 @@ fun HomeViewPreferenceDialog(
             }
         }
     )
+}
+
+/**
+ * Home View Dialog Body (Places independent catalog preference groups in one or two columns)
+ *
+ * Keeps phone layouts vertical while giving landscape and tablet dialogs enough horizontal structure for faster scanning.
+ */
+@Composable
+private fun HomeViewPreferenceDialogBody(
+    useColumnarDialog: Boolean,
+    viewStyleOptions: List<Pair<HomeViewStyle, String>>,
+    selectedViewStyle: HomeViewStyle,
+    onViewStyleSelected: (HomeViewStyle) -> Unit,
+    sortRuleOptions: List<Pair<HomeSortRule, String>>,
+    selectedSortRule: HomeSortRule,
+    onSortRuleSelected: (HomeSortRule) -> Unit,
+    sortDirectionOptions: List<Pair<HomeSortDirection, String>>,
+    selectedSortDirection: HomeSortDirection,
+    onSortDirectionSelected: (HomeSortDirection) -> Unit,
+    bookStatusFilterOptions: List<Pair<HomeBookStatusFilter, String>>,
+    selectedBookStatusFilter: HomeBookStatusFilter,
+    onBookStatusFilterSelected: (HomeBookStatusFilter) -> Unit
+) {
+    if (useColumnarDialog) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                HomeViewPreferenceSegmentSection(
+                    title = stringResource(R.string.home_view_style_title),
+                    options = viewStyleOptions,
+                    selectedValue = selectedViewStyle,
+                    onSelected = onViewStyleSelected,
+                    modifier = Modifier.weight(1f)
+                )
+                HomeViewPreferenceSegmentSection(
+                    title = stringResource(R.string.home_sort_rule_title),
+                    options = sortRuleOptions,
+                    selectedValue = selectedSortRule,
+                    onSelected = onSortRuleSelected,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                HomeViewPreferenceSegmentSection(
+                    title = stringResource(R.string.home_sort_direction_title),
+                    options = sortDirectionOptions,
+                    selectedValue = selectedSortDirection,
+                    onSelected = onSortDirectionSelected,
+                    modifier = Modifier.weight(1f)
+                )
+                HomeViewPreferenceSegmentSection(
+                    title = stringResource(R.string.home_book_status_filter_title),
+                    options = bookStatusFilterOptions,
+                    selectedValue = selectedBookStatusFilter,
+                    onSelected = onBookStatusFilterSelected,
+                    modifier = Modifier.weight(1f),
+                    compactLabels = true
+                )
+            }
+        }
+    } else {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            // Home View Dialog Body Alignment (Center section labels above their segmented controls)
+            // Keeps the dialog's visual axis consistent from title through controls.
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            HomeViewPreferenceSegmentSection(
+                title = stringResource(R.string.home_view_style_title),
+                options = viewStyleOptions,
+                selectedValue = selectedViewStyle,
+                onSelected = onViewStyleSelected
+            )
+            HomeViewPreferenceSegmentSection(
+                title = stringResource(R.string.home_sort_rule_title),
+                options = sortRuleOptions,
+                selectedValue = selectedSortRule,
+                onSelected = onSortRuleSelected
+            )
+            HomeViewPreferenceSegmentSection(
+                title = stringResource(R.string.home_sort_direction_title),
+                options = sortDirectionOptions,
+                selectedValue = selectedSortDirection,
+                onSelected = onSortDirectionSelected
+            )
+            HomeViewPreferenceSegmentSection(
+                title = stringResource(R.string.home_book_status_filter_title),
+                options = bookStatusFilterOptions,
+                selectedValue = selectedBookStatusFilter,
+                onSelected = onBookStatusFilterSelected,
+                compactLabels = true
+            )
+        }
+    }
+}
+
+/**
+ * Home View Preference Segment Section (Renders one titled segmented selector)
+ *
+ * Shares title and segmented-button layout across the dialog so adaptive row and column branches cannot drift.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun <T> HomeViewPreferenceSegmentSection(
+    title: String,
+    options: List<Pair<T, String>>,
+    selectedValue: T,
+    onSelected: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    compactLabels: Boolean = false
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            options.forEachIndexed { index, (value, label) ->
+                SegmentedButton(
+                    selected = selectedValue == value,
+                    onClick = { onSelected(value) },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = options.size
+                    )
+                ) {
+                    Text(
+                        text = label,
+                        style = if (compactLabels) {
+                            MaterialTheme.typography.labelSmall
+                        } else {
+                            MaterialTheme.typography.labelMedium
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
 }

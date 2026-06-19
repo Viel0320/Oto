@@ -27,7 +27,6 @@ import androidx.compose.ui.graphics.Color
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.shared.settings.GlassEffectMode
-import com.viel.aplayer.ui.common.BottomNavTabs
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
@@ -36,6 +35,7 @@ import com.viel.aplayer.ui.player.PlaybackProgressViewState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
 import com.viel.aplayer.ui.player.PlayerUiState
+import com.viel.aplayer.ui.player.components.BottomNavTabs
 import com.viel.aplayer.ui.player.components.PlaybackPositionBookmarkListView
 import com.viel.aplayer.ui.player.components.PlaybackPositionSubtitlesView
 import com.viel.aplayer.ui.player.components.PlayerControlPanelStateful
@@ -110,6 +110,7 @@ fun PlayerLandscapeTablet(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
+                .padding(horizontal = windowClass.screenHorizontalPadding)
         ) {
             Box(
                 modifier = Modifier
@@ -156,13 +157,17 @@ fun PlayerLandscapeTablet(
                                         }
                                     }
                                     else -> {
-                                        // Tablet main cover (To render original high-definition cover artwork without hidden transport gestures)
+                                        // Tablet main cover (Provide a thumbnail bridge candidate only for mismatched mini-player source artwork)
                                         PlayerCover(
                                             bookId = metadata.id,
                                             isWideScreen = windowClass.isWideScreen,
                                             coverPath = CoverImageSourceSelector.main(
                                                 coverPath = metadata.coverPath,
                                                 thumbnailPath = metadata.thumbnailPath
+                                            ),
+                                            transitionCoverPath = CoverImageSourceSelector.small(
+                                                thumbnailPath = metadata.thumbnailPath,
+                                                coverPath = metadata.coverPath
                                             ),
                                             isPlaying = isPlaying,
                                             coverLastUpdated = metadata.coverLastUpdated,
@@ -240,6 +245,7 @@ fun PlayerLandscapeTablet(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(horizontal = windowClass.screenHorizontalPadding)
             ) {
                 PlayerLandscapeHeader(
                     metadata = metadata,

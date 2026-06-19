@@ -323,7 +323,7 @@ fun EditBookScreen(
                         OutlinedTextField(
                             value = title,
                             onValueChange = { title = it },
-                            label = { Text(stringResource(R.string.edit_book_title_label)) },
+                            label = { Text(stringResource(R.string.title_label)) },
                             placeholder = { Text(stringResource(R.string.edit_book_title_placeholder)) },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),

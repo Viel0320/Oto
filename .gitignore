@@ -13,5 +13,7 @@
 /.claude/
 /.codex/
 /.mimocode/
-.gitignore
 trace_processor
+
+.DS_STORE
+.idea/*

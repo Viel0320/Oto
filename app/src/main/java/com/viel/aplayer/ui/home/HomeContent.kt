@@ -41,7 +41,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -106,9 +105,6 @@ fun HomeContent(
     // Home View Style (Select the renderer for the main catalog sections)
     // List renders listgroup items inside the adaptive vertical grid, while Grid renders Cardgroup rows as single-line horizontal carousels.
     homeViewStyle: HomeViewStyle = HomeViewStyle.List,
-    // Home Top Bar Height (Reserve space for the NavHost-owned overlay header)
-    // HomeContent no longer renders the header, but it still needs the measured chrome height to keep the first grid item from sitting under it.
-    homeTopBarHeightPx: Int = 0,
     // Home Top Bar Scroll Request (React to the NavHost-owned title double-tap gesture)
     // Each increment represents one scroll-to-top command emitted by HomeAppBar outside this content tree.
     homeTopBarScrollToTopRequest: Int = 0,
@@ -155,7 +151,7 @@ fun HomeContent(
     // This cuts off physical impact of the software keyboard (IME) on home page's perceived safe area padding, preventing unnecessary recombinations of HomeScreen due to changes in safe area heights.
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
-    val density = LocalDensity.current
+
     // Edge-to-Edge Grid Padding (Exquisite Edge Visual Style)
     // Refactor grid padding strategy: gridStart/EndPadding here only retains physical safe areas (e.g., cutout, side navigation bar).
     // Strip 16dp/24dp business margins from Grid container layer, sinking it into specific titles and list items.
@@ -166,13 +162,9 @@ fun HomeContent(
     // Migrate the scroll state remember from LazyListState to adaptive grid GridState to complete the base upgrade.
     val gridState = rememberLazyGridState()
     val isBlur = glassEffectMode == GlassEffectMode.Haze
-    // Top Bar Height Resolution (Use the NavHost-owned header measurement)
-    // A fallback keeps the first frame and previews stable before the external HomeAppBar reports its measured height.
-    val measuredTopBarHeight = if (homeTopBarHeightPx > 0) {
-        with(density) { homeTopBarHeightPx.toDp() }
-    } else {
-        safeDrawingPadding.calculateTopPadding() + 64.dp
-    }
+
+    val topBarHeight = safeDrawingPadding.calculateTopPadding() + 64.dp
+
     LaunchedEffect(homeTopBarScrollToTopRequest) {
         if (homeTopBarScrollToTopRequest > 0) {
             // Home Grid Scroll Reset (Consume the external top bar gesture event)
@@ -250,7 +242,7 @@ fun HomeContent(
                 contentPadding = PaddingValues(
                     start = gridStartPadding,
                     end = gridEndPadding,
-                    top = measuredTopBarHeight + 12.dp,
+                    top = topBarHeight + 12.dp,
                     bottom = innerPadding.calculateBottomPadding() + (if (isMiniPlayerVisible) 80.dp else 0.dp) + 16.dp
                 )
             ) {
@@ -271,10 +263,7 @@ fun HomeContent(
                                 .padding(bottom = 8.dp),
                             // Align Filter Row (Apply Horizontal Margins)
                             // Filter row needs to manually compensate screenHorizontalPadding to align with the safety line, allowing scrolling to penetrate margins.
-                            contentPadding = PaddingValues(
-                                start = screenHorizontalPadding,
-                                end = screenHorizontalPadding
-                            ),
+                            contentPadding = PaddingValues(horizontal = screenHorizontalPadding),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(filters, key = { (filter, _) -> filter.name }) { (filter, label) ->
@@ -400,10 +389,7 @@ fun HomeContent(
                             item(span = { GridItemSpan(maxLineSpan) }) {
                                 LazyRow(
                                     modifier = Modifier.fillMaxWidth(),
-                                    contentPadding = PaddingValues(
-                                        start = screenHorizontalPadding - 8.dp,
-                                        end = screenHorizontalPadding - 8.dp
-                                    ),
+                                    contentPadding = PaddingValues(horizontal = screenHorizontalPadding - 8.dp),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     items(

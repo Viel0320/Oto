@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
@@ -19,7 +18,6 @@ import com.viel.aplayer.shared.settings.HomeBookStatusFilter
 import com.viel.aplayer.shared.settings.HomeSortDirection
 import com.viel.aplayer.shared.settings.HomeSortRule
 import com.viel.aplayer.shared.settings.HomeViewStyle
-import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.HomeScreen
@@ -103,8 +101,6 @@ fun APlayerNavHost(
 ) {
     val isHomeRoute = navigationState.topLevelRoute == HomeRoute
     val isHazeMode = glassEffectMode == GlassEffectMode.Haze
-    val windowClass = LocalAppWindowSizeClass.current
-    val appBarIconPadding = (windowClass.screenHorizontalPadding - 16.dp).coerceAtLeast(0.dp)
     val fallbackHomeTopBarHazeState = remember { HazeState() }
     val resolvedHomeTopBarHazeState = appHazeState ?: fallbackHomeTopBarHazeState
     var homeTopBarHeightPx by remember { mutableIntStateOf(0) }
@@ -136,7 +132,6 @@ fun APlayerNavHost(
                     detailViewModel = detailViewModel,
                     onOpenDetail = onOpenDetail,
                     homeDialogHazeState = homeDialogHazeState,
-                    homeTopBarHeightPx = homeTopBarHeightPx,
                     homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest,
                     onAddLibraryRequested = onAddLibraryRequested,
                     onEditBookRequested = onEditBookRequested
@@ -180,7 +175,6 @@ fun APlayerNavHost(
             HomeAppBar(
                 glassEffectMode = glassEffectMode,
                 hazeState = resolvedHomeTopBarHazeState,
-                appBarIconPadding = appBarIconPadding,
                 onNavigateToSearch = {
                     if (canStartNavigation()) {
                         searchViewModel.setVisible(true)

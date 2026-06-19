@@ -372,7 +372,7 @@
 
     <!-- Core Dialog and Edit Resources (Localize remaining user-visible workflow surfaces) -->
     <string name="edit_book_title">Edit Book Information</string>
-    <string name="edit_book_title_label">Book Title</string>
+    <string name="title_label">Book Title</string>
     <string name="edit_book_title_placeholder">Enter book title</string>
     <string name="edit_book_author_placeholder">Enter author</string>
     <string name="edit_book_narrator_placeholder">Enter narrator</string>
@@ -435,6 +435,7 @@
     <string name="common_new_badge">NEW</string>
     <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
          The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests validate non-metadata text. -->
+    <string name="detail_title_info_action">Show title details</string>
     <string name="detail_author_search_action">Search author</string>
     <string name="detail_author_info_action">Show author details</string>
     <string name="detail_narrator_search_action">Search narrator</string>

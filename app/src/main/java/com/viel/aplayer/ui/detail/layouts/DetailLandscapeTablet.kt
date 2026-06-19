@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +17,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
@@ -37,6 +40,8 @@ import dev.chrisbanes.haze.HazeState
  * Designed to show a dual-column configuration:
  * Left column features the fixed cover image, book metadata, and playback controls.
  * Right column displays the scrollable synopsis details.
+ * Uses scaffold padding only for top-bar spacing and safe-drawing padding for the
+ * physical horizontal and bottom edges that can contain navigation or cutout areas.
  */
 @Composable
 fun DetailLandscapeTablet(
@@ -53,10 +58,12 @@ fun DetailLandscapeTablet(
     onShowInfo: (String, String) -> Unit, // Dialog detail display callback.
     modifier: Modifier = Modifier
 ) {
+    val titleInfoDialogLabel = stringResource(R.string.title_label)
+    val authorInfoDialogLabel = stringResource(R.string.author_label)
+    val narratorInfoDialogLabel = stringResource(R.string.narrator_label)
     // Tablet Detail Item (Render from the scene projection instead of a database entity)
     // Wide layouts need the same metadata as phones without expanding the Detail UI boundary back to Room.
     val windowClass = LocalAppWindowSizeClass.current
-    val layoutDirection = LocalLayoutDirection.current
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
     /*
      * Tablet Detail Motion Channel (Entry-source based target binding)
@@ -95,7 +102,10 @@ fun DetailLandscapeTablet(
     Row(
         modifier = modifier
             .fillMaxSize()
-            .padding(safeDrawingPadding.calculateEndPadding(layoutDirection))
+            .padding(
+                start = safeDrawingPadding.calculateStartPadding(LocalLayoutDirection.current),
+                end = safeDrawingPadding.calculateEndPadding(LocalLayoutDirection.current)
+            )
     ) {
         // Left Column: Features album cover, book details, and primary controls
         Column(
@@ -149,20 +159,27 @@ fun DetailLandscapeTablet(
                 title = book?.title ?: "",
                 author = book?.author ?: "",
                 narrator = book?.narrator ?: "",
-                onAuthorClick = { 
-                    book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Author:$it ") } 
+                onTitleLongClick = {
+                    if (!book?.title.isNullOrBlank() && !book.title.equals("unknown", true)) {
+                        onShowInfo(titleInfoDialogLabel, book.title)
+                    }
                 },
-                onAuthorLongClick = { 
+                onAuthorClick = {
+                    book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }
+                        ?.let { onSearchClick("Author:$it ") }
+                },
+                onAuthorLongClick = {
                     if (!book?.author.isNullOrBlank() && !book.author.equals("unknown", true)) {
-                        onShowInfo("Author", book.author)
+                        onShowInfo(authorInfoDialogLabel, book.author)
                     }
                 },
                 onNarratorClick = {
-                    book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Narrator:$it ") } 
+                    book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }
+                        ?.let { onSearchClick("Narrator:$it ") }
                 },
-                onNarratorLongClick = { 
+                onNarratorLongClick = {
                     if (!book?.narrator.isNullOrBlank() && !book.narrator.equals("unknown", true)) {
-                        onShowInfo("Narrator", book.narrator)
+                        onShowInfo(narratorInfoDialogLabel, book.narrator)
                     }
                 },
                 // DetailLandscapeTablet Reversion (Remove series parameter pass per user instruction)
@@ -181,7 +198,7 @@ fun DetailLandscapeTablet(
                 onPlayClick = onPlayClick,
                 isLandscape = true,
             )
-            Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
+            Spacer(modifier = Modifier.height(safeDrawingPadding.calculateBottomPadding()))
         }
 
         // Right Column: Displays the scrollable audiobook synopsis
@@ -197,7 +214,7 @@ fun DetailLandscapeTablet(
                 isScrollable = true,
                 modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
+            Spacer(modifier = Modifier.height(100.dp + safeDrawingPadding.calculateBottomPadding()))
         }
     }
 }

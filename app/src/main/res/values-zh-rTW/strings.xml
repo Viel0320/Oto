@@ -329,7 +329,7 @@
     <string name="about_library_datastore_description">DataStore 是 SharedPreferences 的現代替代方案。APlayer 使用它透過 Flow 非同步儲存全域設定與偏好。</string>
     <string name="about_library_workmanager_description">WorkManager 用於排程可靠的背景工作。APlayer 使用它執行媒體庫同步和維護任務。</string>
     <string name="edit_book_title">修改書籍資訊</string>
-    <string name="edit_book_title_label">書名</string>
+    <string name="title_label">書名</string>
     <string name="edit_book_title_placeholder">請輸入書名</string>
     <string name="edit_book_author_placeholder">請輸入作者</string>
     <string name="edit_book_narrator_placeholder">請輸入朗讀者</string>
@@ -390,6 +390,7 @@
     <string name="common_new_badge">新</string>
     <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
          The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests validate non-metadata text. -->
+    <string name="detail_title_info_action">查看書名詳細資訊</string>
     <string name="detail_author_search_action">搜尋作者</string>
     <string name="detail_author_info_action">查看作者詳細資訊</string>
     <string name="detail_narrator_search_action">搜尋朗讀者</string>

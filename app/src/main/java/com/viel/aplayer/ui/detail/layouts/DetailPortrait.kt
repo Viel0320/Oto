@@ -5,12 +5,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -18,11 +17,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.detail.DetailEntrySource
 import com.viel.aplayer.ui.detail.DetailUiState
 import com.viel.aplayer.ui.detail.components.DetailControlPanel
@@ -36,14 +39,16 @@ import dev.chrisbanes.haze.HazeState
  * Portrait Layout Specification (Responsive vertical stack for compact viewports)
  *
  * Implements a standard vertically scrolling list layout.
+ * Uses scaffold padding only for the top app bar offset and applies safe-drawing
+ * side/bottom insets locally to keep the scroll content away from system bars.
  */
 @Composable
 fun DetailPortrait(
     book: DetailBookItem?,
     uiState: DetailUiState,
     padding: PaddingValues,
+    safeDrawingPadding: PaddingValues,
     glassEffectMode: GlassEffectMode,
-    // Setup HazeState Parameter (Map detailBackdrop parameter to HazeState) Changed LayerBackdrop to HazeState.
     detailHazeState: HazeState,
     onPlayPressed: () -> Unit,
     onPlayClick: () -> Unit,
@@ -51,9 +56,11 @@ fun DetailPortrait(
     onShowInfo: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Portrait Detail Item (Render from the scene projection instead of a database entity)
-    // This keeps portrait-specific shared elements, cover loading, and metadata labels inside the Detail boundary.
+    val titleInfoDialogLabel = stringResource(R.string.title_label)
+    val authorInfoDialogLabel = stringResource(R.string.author_label)
+    val narratorInfoDialogLabel = stringResource(R.string.narrator_label)
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
+    val windowClass = LocalAppWindowSizeClass.current
     /*
      * Detail Cover Motion Channel (Entry-source based target binding)
      *
@@ -90,7 +97,11 @@ fun DetailPortrait(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(padding),
+            .padding(
+                start = safeDrawingPadding.calculateStartPadding(LocalLayoutDirection.current) + windowClass.screenHorizontalPadding,
+                end = safeDrawingPadding.calculateEndPadding(LocalLayoutDirection.current) + windowClass.screenHorizontalPadding,
+                top = padding.calculateTopPadding()
+            ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Portrait Cover Adaptive Slot (Constrain cover by window width class instead of phone-only assumptions)
@@ -140,23 +151,29 @@ fun DetailPortrait(
             title = book?.title ?: "",
             author = book?.author ?: "",
             narrator = book?.narrator ?: "",
-            onAuthorClick = { 
-                book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Author:$it ") } 
+            onTitleLongClick = {
+                if (!book?.title.isNullOrBlank() && !book.title.equals("unknown", true)) {
+                    onShowInfo(titleInfoDialogLabel, book.title)
+                }
             },
-            onAuthorLongClick = { 
+            onAuthorClick = {
+                book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }
+                    ?.let { onSearchClick("Author:$it ") }
+            },
+            onAuthorLongClick = {
                 if (!book?.author.isNullOrBlank() && !book.author.equals("unknown", true)) {
-                    onShowInfo("Author", book.author)
+                    onShowInfo(authorInfoDialogLabel, book.author)
                 }
             },
             onNarratorClick = {
-                book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Narrator:$it ") } 
+                book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }
+                    ?.let { onSearchClick("Narrator:$it ") }
             },
-            onNarratorLongClick = { 
+            onNarratorLongClick = {
                 if (!book?.narrator.isNullOrBlank() && !book.narrator.equals("unknown", true)) {
-                    onShowInfo("Narrator", book.narrator)
+                    onShowInfo(narratorInfoDialogLabel, book.narrator)
                 }
             },
-            modifier = Modifier.padding(horizontal = 24.dp),
             // DetailPortrait Reversion (Remove series parameter pass per user instruction)
             // Reverts series visualization to align with design decision of not displaying series on the details page.
             isLandscape = false
@@ -171,8 +188,7 @@ fun DetailPortrait(
             hazeState = detailHazeState,
             onPlayPressed = onPlayPressed,
             onPlayClick = onPlayClick,
-            isLandscape = false,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+            isLandscape = false
         )
 
         if (uiState.fullSourcePath.isEmpty()) {
@@ -181,10 +197,9 @@ fun DetailPortrait(
 
         // Synopsis Segment (Renders the text description of the audiobook)
         DetailSummary(
-            description = book?.description ?: "",
-            modifier = Modifier.padding(horizontal = 24.dp)
+            description = book?.description ?: ""
         )
 
-        Spacer(modifier = Modifier.height(100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
+        Spacer(modifier = Modifier.height(100.dp + safeDrawingPadding.calculateBottomPadding()))
     }
 }

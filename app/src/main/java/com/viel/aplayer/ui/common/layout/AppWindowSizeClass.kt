@@ -86,11 +86,10 @@ data class AppWindowSizeClass(
 
     /**
      * Responsive Side Padding: Differentiate margins for spacing layout.
-     *
-     * Returns 24.dp for wide screens and 16.dp for compact viewports, optimizing visual breathing room.
      */
     val screenHorizontalPadding: Dp
-        get() = if (isWideScreen) 24.dp else 16.dp
+        get() = 16.dp
+    //if (isWideScreen or isLandscape) 24.dp else 16.dp
 
     /**
      * Tablet Landscape Flag: Verify if dual-pane layouts are active.

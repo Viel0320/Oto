@@ -326,7 +326,7 @@
     <string name="about_library_datastore_description">DataStore remplace SharedPreferences de façon moderne. APlayer l’utilise pour stocker les paramètres avec Flow.</string>
     <string name="about_library_workmanager_description">WorkManager planifie des tâches fiables en arrière-plan. APlayer l’utilise pour la synchronisation et la maintenance de la médiathèque.</string>
     <string name="edit_book_title">Modifier les informations du livre</string>
-    <string name="edit_book_title_label">Titre du livre</string>
+    <string name="title_label">Titre du livre</string>
     <string name="edit_book_title_placeholder">Saisir le titre du livre</string>
     <string name="edit_book_author_placeholder">Saisir l’auteur</string>
     <string name="edit_book_narrator_placeholder">Saisir le narrateur</string>
@@ -387,6 +387,7 @@
     <string name="common_new_badge">NOUVEAU</string>
     <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
          The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests validate non-metadata text. -->
+    <string name="detail_title_info_action">Afficher les détails du titre</string>
     <string name="detail_author_search_action">Rechercher l’auteur</string>
     <string name="detail_author_info_action">Afficher les détails de l’auteur</string>
     <string name="detail_narrator_search_action">Rechercher le narrateur</string>

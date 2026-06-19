@@ -79,6 +79,8 @@ import kotlin.math.roundToInt
  * DetailContent Skeleton (Stateless L3 UI Skeleton)
  *
  * Stateless detail page rendering skeleton (DetailContent) at the L3 level.
+ * The scaffold owns the transparent top bar while each adaptive detail layout
+ * consumes side and bottom safe-drawing insets so system bars are not applied twice.
  */
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -262,6 +264,10 @@ fun DetailContent(
                     )
                 },
                 containerColor = Color.Transparent,
+                // Detail Insets Ownership (Keep scaffold chrome and layout safe areas separate)
+                // The TopAppBar consumes status-bar insets, while the adaptive layouts consume
+                // physical side and bottom safe-drawing insets from safeDrawingPadding.
+                contentWindowInsets = WindowInsets(0, 0, 0, 0),
             ) { padding ->
                 val windowClass = LocalAppWindowSizeClass.current
                 val isLandscape = windowClass.isLandscape
@@ -308,6 +314,7 @@ fun DetailContent(
                             book = book,
                             uiState = uiState,
                             padding = padding,
+                            safeDrawingPadding = safeDrawingPadding,
                             glassEffectMode = glassEffectMode,
                             detailHazeState = coverHazeState,
                             onPlayPressed = onPlayPressed,

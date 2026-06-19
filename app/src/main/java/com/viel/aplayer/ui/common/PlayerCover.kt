@@ -19,9 +19,11 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,9 +34,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceBookId
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
+
+/**
+ * Identifies a single thumbnail bridge between a mini-player source cover and full-player target.
+ *
+ * The bridge is keyed by book identity rather than file path so normal cover cache updates cannot
+ * re-arm the mini-origin thumbnail handoff inside the same mounted full-player transition.
+ */
+private data class MiniPlayerCoverBridgeIdentity(
+    val sourceBookId: String,
+    val targetBookId: String
+)
 
 /**
  * Adaptive player cover component (PlayerCover).
@@ -44,6 +58,8 @@ import com.viel.aplayer.ui.motion.SharedElementKeys
  * tab swipes or system gestures.
  *
  * @param coverPath The local physical file path of the cover image.
+ * @param transitionCoverPath Optional low-resolution artwork used only as a mismatched mini-source
+ * bridge before the one-shot high-resolution fade.
  * @param isPlaying Whether the player is currently playing (affects the scale animation).
  * @param coverLastUpdated The timestamp when the cover file was last updated, used to invalidate Coil cache.
  * @param modifier The layout modifier.
@@ -56,6 +72,7 @@ fun PlayerCover(
     bookId: String = "",
     isWideScreen: Boolean = false,
     coverPath: String?,
+    transitionCoverPath: String? = coverPath,
     isPlaying: Boolean,
     coverLastUpdated: Long,
     sizeRatio: Float = 0.8f,
@@ -95,6 +112,7 @@ fun PlayerCover(
             bookId = bookId,
             isWideScreen = isWideScreen,
             coverPath = coverPath,
+            transitionCoverPath = transitionCoverPath,
             isPlaying = isPlaying,
             coverLastUpdated = coverLastUpdated,
             coverScene = coverScene,
@@ -114,6 +132,8 @@ fun PlayerCover(
  * and implementing a subtle scaling animation when switching between play and pause states.
  *
  * @param coverPath The local physical file path of the cover image.
+ * @param transitionCoverPath Optional low-resolution artwork used only when a mismatched mini-player
+ * source cover must bridge into this full-player target before the one-shot high-resolution fade.
  * @param isPlaying Whether the player is currently playing (affects the scale animation).
  * @param coverLastUpdated The timestamp when the cover file was last updated, used to invalidate Coil cache to trigger an immediate refresh after cover self-healing reconstruction.
  */
@@ -124,6 +144,7 @@ fun MainCoverView(
     bookId: String = "",
     isWideScreen: Boolean = false,
     coverPath: String?,
+    transitionCoverPath: String? = coverPath,
     isPlaying: Boolean,
     coverLastUpdated: Long = 0L,
     coverScene: String = "main-cover",
@@ -150,8 +171,10 @@ fun MainCoverView(
     sharedElementStartCornerRadius: Dp? = null,
 ) {
     val sharedTransitionScope = LocalSharedTransitionScope.current
+    val mini2PlayerSourceBookId = LocalMini2PlayerSourceBookId.current
+    val mini2PlayerTargetScope = LocalMini2PlayerTargetScope.current
     val animatedVisibilityScope = sharedElementVisibilityScope
-        ?: LocalMini2PlayerTargetScope.current
+        ?: mini2PlayerTargetScope
 
     /*
      * Start Cover Corner Resolution (Transition source shape selection)
@@ -183,6 +206,56 @@ fun MainCoverView(
         if (bookId.isBlank()) {
             false
         } else sharedElementKey?.contains(bookId) ?: true
+    }
+
+    /*
+     * Mini-Origin Artwork Bridge (Mismatch-only thumbnail handoff)
+     *
+     * Mini-player expansion normally keeps the full-player artwork on the high-resolution request.
+     * The thumbnail bridge is only armed when the captured mini source bookId does not match the
+     * target cover bookId, which means the shared element may otherwise carry stale source artwork.
+     * Until the target is fully visible, the full player renders the mini-sized thumbnail family.
+     * The first composition after the target settles switches to the main artwork, allowing
+     * CrossfadingCoverImage to run exactly one bridge crossfade after geometry has settled.
+     */
+    val isMiniOriginTarget = sharedElementVisibilityScope == null && mini2PlayerTargetScope != null
+    val miniBridgeIdentity = remember(isMiniOriginTarget, mini2PlayerSourceBookId, bookId) {
+        if (
+            isMiniOriginTarget &&
+            !mini2PlayerSourceBookId.isNullOrBlank() &&
+            bookId.isNotBlank() &&
+            mini2PlayerSourceBookId != bookId
+        ) {
+            MiniPlayerCoverBridgeIdentity(
+                sourceBookId = mini2PlayerSourceBookId,
+                targetBookId = bookId
+            )
+        } else {
+            null
+        }
+    }
+    val isMiniOriginTargetSettled = mini2PlayerTargetScope?.transition?.let { transition ->
+        transition.currentState == EnterExitState.Visible &&
+                transition.targetState == EnterExitState.Visible
+    } ?: false
+    var consumedMiniBridgeIdentity by remember { mutableStateOf<MiniPlayerCoverBridgeIdentity?>(null) }
+    val useTransitionArtwork = miniBridgeIdentity != null &&
+            consumedMiniBridgeIdentity != miniBridgeIdentity &&
+            !isMiniOriginTargetSettled
+    LaunchedEffect(miniBridgeIdentity, isMiniOriginTargetSettled) {
+        if (miniBridgeIdentity != null && isMiniOriginTargetSettled) {
+            consumedMiniBridgeIdentity = miniBridgeIdentity
+        }
+    }
+    val activeCoverPath = if (useTransitionArtwork) {
+        transitionCoverPath ?: coverPath
+    } else {
+        coverPath
+    }
+    val activeCoverVariant = if (useTransitionArtwork) {
+        CoverImageVariant.ThumbnailSmall
+    } else {
+        CoverImageVariant.Main1200
     }
 
     val sharedElementModifier = if (isKeyConsistent && sharedTransitionScope != null && animatedVisibilityScope != null) {
@@ -238,9 +311,9 @@ fun MainCoverView(
              * while only the inner decoded artwork fades after the next bitmap has loaded.
              */
             CrossfadingCoverImage(
-                sourcePath = coverPath,
+                sourcePath = activeCoverPath,
                 lastUpdated = coverLastUpdated,
-                variant = CoverImageVariant.Main1200,
+                variant = activeCoverVariant,
                 scene = coverScene,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),

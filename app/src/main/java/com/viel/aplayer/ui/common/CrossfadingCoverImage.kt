@@ -22,11 +22,14 @@ import coil.compose.AsyncImage
  * Loaded-cover crossfade identity.
  *
  * The timestamp is part of the identity because regenerated artwork can reuse the same physical
- * path while still needing a visible transition to the refreshed bitmap.
+ * path while still needing a visible transition to the refreshed bitmap. The variant is also part
+ * of the identity because mini-player thumbnails and full-player artwork can share a path while
+ * decoding to different bitmap sizes.
  */
 private data class CrossfadingCoverKey(
     val sourcePath: String?,
-    val lastUpdated: Long
+    val lastUpdated: Long,
+    val variant: CoverImageVariant
 )
 
 /**
@@ -52,8 +55,8 @@ fun CrossfadingCoverImage(
     durationMillis: Int = 300,
     placeholder: @Composable BoxScope.() -> Unit
 ) {
-    val targetKey = remember(sourcePath, lastUpdated) {
-        CrossfadingCoverKey(sourcePath, lastUpdated)
+    val targetKey = remember(sourcePath, lastUpdated, variant) {
+        CrossfadingCoverKey(sourcePath, lastUpdated, variant)
     }
     var settledKey by remember { mutableStateOf(targetKey) }
     var incomingKey by remember { mutableStateOf<CrossfadingCoverKey?>(null) }
@@ -90,7 +93,6 @@ fun CrossfadingCoverImage(
         CrossfadingCoverLayer(
             coverKey = settledKey,
             failedKeys = failedKeys,
-            variant = variant,
             scene = scene,
             contentDescription = contentDescription,
             contentScale = contentScale,
@@ -109,7 +111,6 @@ fun CrossfadingCoverImage(
             CrossfadingCoverLayer(
                 coverKey = activeIncomingKey,
                 failedKeys = failedKeys,
-                variant = variant,
                 scene = scene,
                 contentDescription = null,
                 contentScale = contentScale,
@@ -147,7 +148,6 @@ fun CrossfadingCoverImage(
 private fun BoxScope.CrossfadingCoverLayer(
     coverKey: CrossfadingCoverKey,
     failedKeys: Set<CrossfadingCoverKey>,
-    variant: CoverImageVariant,
     scene: String,
     contentDescription: String?,
     contentScale: ContentScale,
@@ -164,12 +164,12 @@ private fun BoxScope.CrossfadingCoverLayer(
     }
 
     val context = LocalContext.current
-    val request = remember(context, coverKey, variant, scene, allowHardware, bitmapConfig) {
+    val request = remember(context, coverKey, scene, allowHardware, bitmapConfig) {
         CoverImageRequestFactory.build(
             context = context,
             sourcePath = coverKey.sourcePath,
             lastUpdated = coverKey.lastUpdated,
-            variant = variant,
+            variant = coverKey.variant,
             scene = scene,
             allowHardware = allowHardware,
             bitmapConfig = bitmapConfig,

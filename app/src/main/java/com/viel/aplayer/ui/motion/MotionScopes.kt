@@ -44,6 +44,13 @@ val LocalHomeRecent2DetailTargetScope = staticCompositionLocalOf<AnimatedVisibil
 val LocalMini2PlayerSourceScope = staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
 
 /*
+ * Mini To Player Source Book Identity (Artwork bridge guard)
+ * Carries the mini-player cover's book identity captured before expansion so the full-player
+ * target can tell whether it is morphing from the same book or from a stale source node.
+ */
+val LocalMini2PlayerSourceBookId = staticCompositionLocalOf<String?> { null }
+
+/*
  * Mini To Player Target Scope (Full-player target visibility boundary)
  * Carries only the PlayerOverlay visibility scope used by mini2player cover and bounds destinations.
  * This keeps full-player shared elements tied to the full-screen player transition instead of

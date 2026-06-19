@@ -38,6 +38,7 @@ import com.viel.aplayer.ui.common.theme.LocalAmoled
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
+import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceBookId
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
@@ -133,6 +134,20 @@ fun PlayerOverlay(
         isFullPlayerVisible -> PlayerOverlayState.Full
         isPopupNeeded && !isMiniPlayerHidden -> PlayerOverlayState.Mini
         else -> PlayerOverlayState.Hidden
+    }
+    /*
+     * Mini Cover Source Identity Capture (Expansion-only bridge metadata)
+     *
+     * The mini cover shared element uses a stable motion key that intentionally does not include
+     * bookId. Capture the visible mini bookId before expansion so the full-player target can decide
+     * whether a thumbnail bridge is required instead of assuming every mini-origin transition needs
+     * one.
+     */
+    var mini2PlayerSourceBookId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(overlayState, metadata.id) {
+        if (overlayState == PlayerOverlayState.Mini && metadata.id.isNotBlank()) {
+            mini2PlayerSourceBookId = metadata.id
+        }
     }
 
     // Player Private Haze Source (Own full-player and player-modal sampling inside PlayerOverlay)
@@ -254,6 +269,13 @@ fun PlayerOverlay(
                             settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer
                         ) {
                             this@AnimatedContent
+                        } else {
+                            null
+                        },
+                        LocalMini2PlayerSourceBookId provides if (
+                            settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer
+                        ) {
+                            mini2PlayerSourceBookId
                         } else {
                             null
                         },

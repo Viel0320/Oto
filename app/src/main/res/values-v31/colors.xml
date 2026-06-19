@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ resolves this system accent from the active wallpaper, so the normal launcher icon background follows wallpaper color even outside themed-icon mode. -->
+    <color name="ic_launcher_background_color">@android:color/system_accent1_700</color>
+</resources>

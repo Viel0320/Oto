@@ -46,6 +46,7 @@ import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.CrossfadingCoverImage
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
@@ -76,6 +77,7 @@ fun PillCompactMediaPlayer(
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val mini2PlayerSourceScope = LocalMini2PlayerSourceScope.current
+    val windowClass = LocalAppWindowSizeClass.current
 
     /*
      * Pill Bounds Corner Radius Transition (Dynamic stadium shape morphing)
@@ -160,7 +162,7 @@ fun PillCompactMediaPlayer(
             .then(boundsModifier)
             // Clean Layout Modifiers (Remove redundant fillMaxWidth, wrapContentWidth, and hardcoded widthIn constraints to allow natural capsule width wrap)
             // The parent layout container manages position alignment, so wrapping constraints internally is redundant and hampers responsive layouts.
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = windowClass.screenHorizontalPadding)
             .navigationBarsPadding()
             .let {
                 if (isBlurMode) {

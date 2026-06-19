@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
@@ -37,6 +40,8 @@ import dev.chrisbanes.haze.HazeState
  *
  * Caters to viewports with restricted vertical heights by dividing content left and right.
  * Places the playback controls at the top of the right-hand column.
+ * Uses scaffold padding only for top-bar spacing and safe-drawing padding for the
+ * physical horizontal and bottom edges that can contain navigation or cutout areas.
  */
 @Composable
 fun DetailLandscapePhone(
@@ -45,7 +50,6 @@ fun DetailLandscapePhone(
     padding: PaddingValues,
     safeDrawingPadding: PaddingValues,
     glassEffectMode: GlassEffectMode,
-    // Setup HazeState Parameter (Map detailBackdrop parameter to HazeState) Changed LayerBackdrop to HazeState.
     detailHazeState: HazeState,
     onPlayPressed: () -> Unit,
     onPlayClick: () -> Unit,
@@ -53,11 +57,12 @@ fun DetailLandscapePhone(
     onShowInfo: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Landscape Detail Item (Render from the scene projection instead of a database entity)
-    // The compact split layout only needs Detail-owned metadata and cover fields for rendering.
+    val titleInfoDialogLabel = stringResource(R.string.title_label)
+    val authorInfoDialogLabel = stringResource(R.string.author_label)
+    val narratorInfoDialogLabel = stringResource(R.string.narrator_label)
     val windowClass = LocalAppWindowSizeClass.current
-    val layoutDirection = LocalLayoutDirection.current
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
+
     /*
      * Landscape Detail Motion Channel (Entry-source based target binding)
      *
@@ -95,7 +100,10 @@ fun DetailLandscapePhone(
     Row(
         modifier = modifier
             .fillMaxSize()
-            .padding(safeDrawingPadding.calculateEndPadding(layoutDirection))
+            .padding(
+                start = safeDrawingPadding.calculateStartPadding(LocalLayoutDirection.current),
+                end = safeDrawingPadding.calculateEndPadding(LocalLayoutDirection.current)
+            )
     ) {
         // Left Column: Displays the primary cover and metadata text
         Column(
@@ -147,27 +155,34 @@ fun DetailLandscapePhone(
                 title = book?.title ?: "",
                 author = book?.author ?: "",
                 narrator = book?.narrator ?: "",
-                onAuthorClick = { 
-                    book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Author:$it ") } 
+                onTitleLongClick = {
+                    if (!book?.title.isNullOrBlank() && !book.title.equals("unknown", true)) {
+                        onShowInfo(titleInfoDialogLabel, book.title)
+                    }
                 },
-                onAuthorLongClick = { 
+                onAuthorClick = {
+                    book?.author?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }
+                        ?.let { onSearchClick("Author:$it ") }
+                },
+                onAuthorLongClick = {
                     if (!book?.author.isNullOrBlank() && !book.author.equals("unknown", true)) {
-                        onShowInfo("Author", book.author)
+                        onShowInfo(authorInfoDialogLabel, book.author)
                     }
                 },
                 onNarratorClick = {
-                    book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }?.let { onSearchClick("Narrator:$it ") } 
+                    book?.narrator?.takeIf { it.isNotBlank() && !it.equals("unknown", true) }
+                        ?.let { onSearchClick("Narrator:$it ") }
                 },
-                onNarratorLongClick = { 
+                onNarratorLongClick = {
                     if (!book?.narrator.isNullOrBlank() && !book.narrator.equals("unknown", true)) {
-                        onShowInfo("Narrator", book.narrator)
+                        onShowInfo(narratorInfoDialogLabel, book.narrator)
                     }
                 },
                 // DetailLandscapePhone Reversion (Remove series parameter pass per user instruction)
                 // Reverts series visualization to align with design decision of not displaying series on the details page.
                 isLandscape = true
             )
-            Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
+            Spacer(modifier = Modifier.height(safeDrawingPadding.calculateBottomPadding()))
         }
 
         // Right Column: Houses the playback action panel and scrollable synopsis text
@@ -175,8 +190,8 @@ fun DetailLandscapePhone(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = windowClass.screenHorizontalPadding)
+                .verticalScroll(rememberScrollState())
         ) {
             Spacer(modifier = Modifier.height(topSpacerHeight))
 
@@ -194,8 +209,8 @@ fun DetailLandscapePhone(
             Spacer(modifier = Modifier.height(24.dp))
 
             DetailSummary(description = book?.description ?: "")
-            
-            Spacer(modifier = Modifier.height(padding.calculateBottomPadding()))
+
+            Spacer(modifier = Modifier.height(100.dp + safeDrawingPadding.calculateBottomPadding()))
         }
     }
 }

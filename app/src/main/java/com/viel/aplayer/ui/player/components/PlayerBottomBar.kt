@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.common
+package com.viel.aplayer.ui.player.components
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
@@ -92,7 +92,9 @@ fun PlayerBottomBar(
                 .padding(horizontal = 24.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {

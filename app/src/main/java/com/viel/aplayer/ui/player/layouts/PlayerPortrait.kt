@@ -22,18 +22,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.shared.settings.GlassEffectMode
-import com.viel.aplayer.ui.common.BottomNavTabs
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.PlayerCover
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackProgressViewState
 import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
 import com.viel.aplayer.ui.player.PlayerUiState
+import com.viel.aplayer.ui.player.components.BottomNavTabs
 import com.viel.aplayer.ui.player.components.PlaybackPositionBookmarkListView
 import com.viel.aplayer.ui.player.components.PlaybackPositionSubtitlesView
 import com.viel.aplayer.ui.player.components.PlayerControlPanelStateful
@@ -105,7 +105,7 @@ fun PlayerPortrait(
     LaunchedEffect(currentMode) {
         prevMode = currentMode
     }
-
+    val windowClass = LocalAppWindowSizeClass.current
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -124,149 +124,163 @@ fun PlayerPortrait(
             scope = scope,
             dismissThreshold = dismissThreshold
         )
-
-        
-        // Map tab modes (To match selected screen tab to active animation container)
-        val contentShell = remember(currentMode) {
-            when (currentMode) {
-                PlayerScreenMode.BOOKMARKS -> PlayerContentShell.Bookmarks
-                PlayerScreenMode.RELATED -> PlayerContentShell.Related
-                PlayerScreenMode.PLAYER,
-                PlayerScreenMode.SUBTITLES -> PlayerContentShell.PlaybackShell
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .weight(1f)
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = windowClass.screenHorizontalPadding)
         ) {
-            AnimatedContent(
-                targetState = contentShell,
-                modifier = Modifier.fillMaxSize(),
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(300))
-                            togetherWith
-                            fadeOut(animationSpec = tween(300)))
-                },
-            ) { shell ->
-                Column(modifier = Modifier.fillMaxSize()) {
-                    when (shell) {
-                        PlayerContentShell.PlaybackShell -> {
-                            // Sync Playback Mode State: Tracks and locks the active playback sub-view (subtitles or player artwork cover).
-                            // This state only updates when currentMode is SUBTITLES or PLAYER, freezing the view during exit transitions to other content shells.
-                            var lastPlaybackMode by remember { mutableStateOf(currentMode) }
-                            if (currentMode == PlayerScreenMode.PLAYER || currentMode == PlayerScreenMode.SUBTITLES) {
-                                lastPlaybackMode = currentMode
-                            }
-                            
-                            // Crossfade transitions (To animate artwork cover and subtitles card displays)
-                            AnimatedContent(
-                                targetState = lastPlaybackMode,
-                                modifier = Modifier.weight(1f),
-                                transitionSpec = {
-                                    (fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300)))
-                                        .using(SizeTransform(clip = false))
-                                },
-                                label = "player_playback_top_transition"
-                            ) { topMode ->
-                                when (topMode) {
-                                    PlayerScreenMode.SUBTITLES -> {
-                                        Box(modifier = Modifier.fillMaxSize()) {
-                                            // Subtitles list wrapper (To render stateless SubtitlesView)
-                                            PlaybackPositionSubtitlesView(
-                                                playbackProgressState = playbackProgressState,
-                                                subtitles = metadata.subtitles,
-                                                onSeek = { actions.playback.onSeek(it, true) },
-                                                modifier = Modifier.fillMaxSize()
+            // Map tab modes (To match selected screen tab to active animation container)
+            val contentShell = remember(currentMode) {
+                when (currentMode) {
+                    PlayerScreenMode.BOOKMARKS -> PlayerContentShell.Bookmarks
+                    PlayerScreenMode.RELATED -> PlayerContentShell.Related
+                    PlayerScreenMode.PLAYER,
+                    PlayerScreenMode.SUBTITLES -> PlayerContentShell.PlaybackShell
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+            ) {
+                AnimatedContent(
+                    targetState = contentShell,
+                    modifier = Modifier.fillMaxSize(),
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(300))
+                                togetherWith
+                                fadeOut(animationSpec = tween(300)))
+                    },
+                ) { shell ->
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        when (shell) {
+                            PlayerContentShell.PlaybackShell -> {
+                                var lastPlaybackMode by remember { mutableStateOf(currentMode) }
+                                if (currentMode == PlayerScreenMode.PLAYER || currentMode == PlayerScreenMode.SUBTITLES) {
+                                    lastPlaybackMode = currentMode
+                                }
+
+                                // Crossfade transitions (To animate artwork cover and subtitles card displays)
+                                AnimatedContent(
+                                    targetState = lastPlaybackMode,
+                                    modifier = Modifier.weight(1f),
+                                    transitionSpec = {
+                                        (fadeIn(animationSpec = tween(300)) togetherWith fadeOut(
+                                            animationSpec = tween(300)
+                                        ))
+                                            .using(SizeTransform(clip = false))
+                                    },
+                                    label = "player_playback_top_transition"
+                                ) { topMode ->
+                                    when (topMode) {
+                                        PlayerScreenMode.SUBTITLES -> {
+                                            Box(modifier = Modifier.fillMaxSize()) {
+                                                // Subtitles list wrapper (To render stateless SubtitlesView)
+                                                PlaybackPositionSubtitlesView(
+                                                    playbackProgressState = playbackProgressState,
+                                                    subtitles = metadata.subtitles,
+                                                    onSeek = { actions.playback.onSeek(it, true) },
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            }
+                                        }
+
+                                        else -> {
+                                            // Main artwork cover (Transport gestures were moved to explicit controls to avoid hidden playback commands on artwork)
+                                            // Provides a thumbnail bridge candidate only for mismatched mini-player source artwork; normal full-player rendering stays on the high-resolution main cover.
+                                            PlayerCover(
+                                                bookId = metadata.id,
+                                                isWideScreen = false,
+                                                coverPath = CoverImageSourceSelector.main(
+                                                    coverPath = metadata.coverPath,
+                                                    thumbnailPath = metadata.thumbnailPath
+                                                ),
+                                                transitionCoverPath = CoverImageSourceSelector.small(
+                                                    thumbnailPath = metadata.thumbnailPath,
+                                                    coverPath = metadata.coverPath
+                                                ),
+                                                isPlaying = isPlaying,
+                                                coverLastUpdated = metadata.coverLastUpdated,
+                                                coverScene = "player-main-cover"
                                             )
                                         }
                                     }
-                                    else -> {
-                                        // Main artwork cover (Transport gestures were moved to explicit controls to avoid hidden playback commands on artwork)
-                                        // Prefers high-resolution original images over thumbnail drafts.
-                                        PlayerCover(
-                                            bookId = metadata.id,
-                                            isWideScreen = false,
-                                            coverPath = CoverImageSourceSelector.main(
-                                                coverPath = metadata.coverPath,
-                                                thumbnailPath = metadata.thumbnailPath
-                                            ),
-                                            isPlaying = isPlaying,
-                                            coverLastUpdated = metadata.coverLastUpdated,
-                                            coverScene = "player-main-cover"
-                                        )
-                                    }
+                                }
+                                // Control panel layout (To render buttons, timelines, and speech multipliers)
+                                PlayerControlPanelStateful(
+                                    playbackProgressState = playbackProgressState,
+                                    currentChapter = currentChapter,
+                                    isPlaying = isPlaying,
+                                    metadata = metadata,
+                                    settings = settings,
+                                    actions = actions,
+                                    buttonColor = animatedBgColor,
+                                    glassEffectMode = glassEffectMode,
+                                    hazeState = chapterSheetHazeState,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                )
+                            }
+
+                            PlayerContentShell.Bookmarks -> {
+                                // Bookmark list container (To display saved bookmark elements)
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    PlaybackPositionBookmarkListView(
+                                        playbackProgressState = playbackProgressState,
+                                        bookmarks = metadata.bookmarks,
+                                        bookmarkToDelete = bookmarkToDelete,
+                                        bookmarkToEdit = bookmarkToEdit,
+                                        bookmarkEditTitle = bookmarkEditTitle,
+                                        onBookmarkClick = { pos ->
+                                            actions.playback.onSeek(
+                                                pos,
+                                                true
+                                            )
+                                        },
+                                        onRequestDelete = onRequestDeleteBookmark,
+                                        onRequestEdit = onRequestEditBookmark,
+                                        onEditTitleChange = onBookmarkEditTitleChange,
+                                        onConfirmDelete = onConfirmDeleteBookmark,
+                                        onConfirmUpdate = onConfirmUpdateBookmark,
+                                        onDismissDialogs = onDismissBookmarkDialogs,
+                                        // Bookmark Dialog Haze Routing (Reuse the stable player floating source)
+                                        // Edit/delete bookmark dialogs share chapterSheetHazeState with the chapter sheet and player chrome to avoid source rebinding.
+                                        hazeState = chapterSheetHazeState,
+                                        glassEffectMode = glassEffectMode,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
                                 }
                             }
-                            // Control panel layout (To render buttons, timelines, and speech multipliers)
-                            PlayerControlPanelStateful(
-                                playbackProgressState = playbackProgressState,
-                                currentChapter = currentChapter,
-                                isPlaying = isPlaying,
-                                metadata = metadata,
-                                settings = settings,
-                                actions = actions,
-                                buttonColor = animatedBgColor,
-                                glassEffectMode = glassEffectMode,
-                                hazeState = chapterSheetHazeState,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp)
-                            )
-                        }
-                        PlayerContentShell.Bookmarks -> {
-                            // Bookmark list container (To display saved bookmark elements)
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                PlaybackPositionBookmarkListView(
-                                    playbackProgressState = playbackProgressState,
-                                    bookmarks = metadata.bookmarks,
-                                    bookmarkToDelete = bookmarkToDelete,
-                                    bookmarkToEdit = bookmarkToEdit,
-                                    bookmarkEditTitle = bookmarkEditTitle,
-                                    onBookmarkClick = { pos -> actions.playback.onSeek(pos, true) },
-                                    onRequestDelete = onRequestDeleteBookmark,
-                                    onRequestEdit = onRequestEditBookmark,
-                                    onEditTitleChange = onBookmarkEditTitleChange,
-                                    onConfirmDelete = onConfirmDeleteBookmark,
-                                    onConfirmUpdate = onConfirmUpdateBookmark,
-                                    onDismissDialogs = onDismissBookmarkDialogs,
-                                    // Bookmark Dialog Haze Routing (Reuse the stable player floating source)
-                                    // Edit/delete bookmark dialogs share chapterSheetHazeState with the chapter sheet and player chrome to avoid source rebinding.
-                                    hazeState = chapterSheetHazeState,
-                                    glassEffectMode = glassEffectMode,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                        PlayerContentShell.Related -> {
-                            // Related books collection (To query related author and narrator libraries)
-                            Box(modifier = Modifier.weight(1f)) {
-                                RelatedBooksView(
-                                    currentBookId = metadata.id,
-                                    heuristicBooks = fullUiState.heuristicRecommendedBooks,
-                                    authorSections = fullUiState.relatedAuthorSections,
-                                    narratorSections = fullUiState.relatedNarratorSections,
-                                    recentBooks = fullUiState.recentlyAddedBooks,
-                                    onBookClick = actions.content.onLoadRelatedBook
-                                )
+
+                            PlayerContentShell.Related -> {
+                                // Related books collection (To query related author and narrator libraries)
+                                Box(modifier = Modifier.weight(1f)) {
+                                    RelatedBooksView(
+                                        currentBookId = metadata.id,
+                                        heuristicBooks = fullUiState.heuristicRecommendedBooks,
+                                        authorSections = fullUiState.relatedAuthorSections,
+                                        narratorSections = fullUiState.relatedNarratorSections,
+                                        recentBooks = fullUiState.recentlyAddedBooks,
+                                        onBookClick = actions.content.onLoadRelatedBook
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
+            // Bottom navigation layout (To toggle main tabs inside player screen)
+            BottomNavTabs(
+                selectedTab = currentMode,
+                playbackSpeed = playbackSpeed,
+                selectedSleepTimer = settings.selectedSleepTimer,
+                isSpeedManualMode = isSpeedManualMode,
+                playbackActions = actions.playback,
+                onTabSelected = {
+                    val nextMode = if (currentMode == it) PlayerScreenMode.PLAYER else it
+                    onModeChange(nextMode)
+                }
+            )
         }
-
-        // Bottom navigation layout (To toggle main tabs inside player screen)
-        BottomNavTabs(
-            selectedTab = currentMode,
-            playbackSpeed = playbackSpeed,
-            selectedSleepTimer = settings.selectedSleepTimer,
-            isSpeedManualMode = isSpeedManualMode,
-            playbackActions = actions.playback,
-            onTabSelected = {
-                val nextMode = if (currentMode == it) PlayerScreenMode.PLAYER else it
-                onModeChange(nextMode)
-            }
-        )
     }
 }

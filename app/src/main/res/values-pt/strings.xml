@@ -439,7 +439,7 @@
     <!-- Core Dialog And Edit Resources: Localized labels and actions for book editing, playback
     conflict choices, unavailable tracks, and home-row commands. -->
     <string name="edit_book_title">Editar informações do livro</string>
-    <string name="edit_book_title_label">Título do livro</string>
+    <string name="title_label">Título do livro</string>
     <string name="edit_book_title_placeholder">Introduzir título do livro</string>
     <string name="edit_book_author_placeholder">Introduzir autor</string>
     <string name="edit_book_narrator_placeholder">Introduzir narrador</string>
@@ -500,6 +500,7 @@
     <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
          The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests
     validate non-metadata text. -->
+    <string name="detail_title_info_action">Ver detalhes do título</string>
     <string name="detail_author_search_action">Pesquisar autor</string>
     <string name="detail_author_info_action">Ver detalhes do autor</string>
     <string name="detail_narrator_search_action">Pesquisar narrador</string>

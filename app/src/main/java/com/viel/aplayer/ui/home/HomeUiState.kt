@@ -30,9 +30,6 @@ fun HomeScreen(
     // Home Dialog Backdrop Source (Allow app shell to provide the cross-layer blur source)
     // Dialogs are rendered above the page content, so they should sample the app-level backdrop when one is available instead of the LazyGrid-local fallback source.
     homeDialogHazeState: HazeState? = null,
-    // Home Top Bar Height (Reserve space for the NavHost-owned overlay header)
-    // APlayerNavHost measures the extracted HomeAppBar and passes its height back so Home content can keep stable top padding without owning the chrome component.
-    homeTopBarHeightPx: Int = 0,
     // Home Top Bar Scroll Request (Consume title double-tap events from the NavHost-owned header)
     // The header lives outside Home content, so scroll-to-top is bridged as an incrementing event instead of sharing LazyGridState upward.
     homeTopBarScrollToTopRequest: Int = 0,
@@ -110,7 +107,6 @@ fun HomeScreen(
         glassEffectMode = libraryUiState.glassEffectMode,
         homeViewStyle = libraryUiState.homeViewStyle,
         homeHazeState = homeContentHazeState,
-        homeTopBarHeightPx = homeTopBarHeightPx,
         homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest,
         isMiniPlayerVisible = playerUiState.hasActiveTrack,
         // Empty Library FAB Rule (Show only after Home has resolved and there are no roots or no scanned books)

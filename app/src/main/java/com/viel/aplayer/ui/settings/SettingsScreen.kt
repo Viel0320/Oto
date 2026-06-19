@@ -3,6 +3,7 @@ package com.viel.aplayer.ui.settings
 // Presentation layer should not import infrastructure authentication and virtual file system entities.
 import android.net.Uri
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,7 +21,8 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Cloud
@@ -47,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -78,7 +79,7 @@ import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 
 /**
- * SettingsScreen Composable: Defines the top-level settings controller view, handling local inputs, dialog visibility, and composing setting sections.
+ * SettingsScreen Composable: Defines the top-level settings controller view, handling local inputs, dialog visibility, and adaptive setting sections.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -137,18 +138,13 @@ fun SettingsScreen(
 
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
+    val windowClass = LocalAppWindowSizeClass.current
     val settingsStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val settingsEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
-    val density = LocalDensity.current
     var settingsTopBarHeightPx by remember { mutableIntStateOf(0) }
     val resolvedSettingsHazeState = settingsHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
-    // Settings Top Bar Height Resolution (Reserve space for overlay chrome)
-    // A measured value keeps the list aligned with the real header, while the fallback protects first-frame and preview layouts before measurement arrives.
-    val measuredSettingsTopBarHeight = if (settingsTopBarHeightPx > 0) {
-        with(density) { settingsTopBarHeightPx.toDp() }
-    } else {
-        safeDrawingPadding.calculateTopPadding() + 64.dp
-    }
+    val settingsTopBarHeight = safeDrawingPadding.calculateTopPadding() + 64.dp
+
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -182,18 +178,21 @@ fun SettingsScreen(
                 // The list reads bottom system padding from Scaffold, while the measured overlay header supplies its own top content padding.
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
             ) { innerPadding ->
-                LazyColumn(
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(windowClass.columnsCount),
                     modifier = Modifier
                         .fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = settingsStartPadding,
                         end = settingsEndPadding,
-                        top = measuredSettingsTopBarHeight,
+                        top = settingsTopBarHeight,
                         bottom = innerPadding.calculateBottomPadding()
-                    )
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Settings Functional Cluster Order (Render settings by user-facing capability)
-                    // Media sources, appearance, playback behavior, sleep automation, network safety, and app info stay in separate clusters so unrelated controls no longer share one section.
+                    // Media sources, appearance, playback behavior, sleep automation, network safety, and app info stay in independent grid cells so wide screens can show multiple clusters per row.
                     item {
                         LibraryDirectoriesSection(
                             libraryRootDisplays = libraryRootDisplays,
@@ -201,7 +200,8 @@ fun SettingsScreen(
                             onAddLibraryClick = onAddLibraryClick,
                             // Deleted Book Recovery Entry (Forward settings row clicks to overlay-owned sub-navigation)
                             // The page remains stateless; SettingsOverlay decides which settings sub-screen is currently active.
-                            onDeletedBookRecoveryClick = onDeletedBookRecoveryClick
+                            onDeletedBookRecoveryClick = onDeletedBookRecoveryClick,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     item {
@@ -212,7 +212,8 @@ fun SettingsScreen(
                             onDownloadWifiOnlyChange = onDownloadWifiOnlyChange,
                             playbackBufferMaxBytes = playbackBufferMaxBytes,
                             onPlaybackBufferMaxBytesChange = onPlaybackBufferMaxBytesChange,
-                            onDownloadManagementClick = onDownloadManagementClick
+                            onDownloadManagementClick = onDownloadManagementClick,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     item {
@@ -226,7 +227,8 @@ fun SettingsScreen(
                             isAmoledEnabled = isAmoledEnabled,
                             onAmoledEnabledChange = onAmoledEnabledChange,
                             glassEffectMode = glassEffectMode,
-                            onGlassEffectModeChange = onGlassEffectModeChange
+                            onGlassEffectModeChange = onGlassEffectModeChange,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     item {
@@ -241,7 +243,8 @@ fun SettingsScreen(
                             onSeekBackwardStepChange = onSeekBackwardStepChange,
                             onSeekForwardStepChange = onSeekForwardStepChange,
                             isNotificationAvoidanceEnabled = isNotificationAvoidanceEnabled,
-                            onNotificationAvoidanceEnabledChange = onNotificationAvoidanceEnabledChange
+                            onNotificationAvoidanceEnabledChange = onNotificationAvoidanceEnabledChange,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     item {
@@ -251,7 +254,8 @@ fun SettingsScreen(
                             isSleepFadeOutEnabled = isSleepFadeOutEnabled,
                             onSleepFadeOutEnabledChange = onSleepFadeOutEnabledChange,
                             isShakeToResetEnabled = isShakeToResetEnabled,
-                            onShakeToResetEnabledChange = onShakeToResetEnabledChange
+                            onShakeToResetEnabledChange = onShakeToResetEnabledChange,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     item {
@@ -261,18 +265,21 @@ fun SettingsScreen(
                             // Insecure TLS Callback (Forward transport-risk setting to the dedicated security section)
                             // Keeping this callback near cleartext HTTP mirrors the new functional grouping in SettingsSections.
                             isAllowInsecureTls = isAllowInsecureTls,
-                            onAllowInsecureTlsChange = onAllowInsecureTlsChange
+                            onAllowInsecureTlsChange = onAllowInsecureTlsChange,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     item {
                         BackupRestoreSection(
                             onExportClick = onExportClick,
-                            onImportClick = onImportClick
+                            onImportClick = onImportClick,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     item {
                         AboutSection(
-                            onAboutLibrariesClick = onAboutLibrariesClick
+                            onAboutLibrariesClick = onAboutLibrariesClick,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -587,7 +594,8 @@ fun SettingsDialogHost(
                                     controller.dialogState = SettingsDialogState.None
                                     onLaunchSafRootPicker()
                                 } else if (isWebDavRoot) {
-                                    val creds = getWebDavCredentials(rootForAction.credentialId ?: "")
+                                    val creds =
+                                        getWebDavCredentials(rootForAction.credentialId ?: "")
                                     controller.webDavUrl = rootForAction.sourceUri
                                     controller.webDavDisplayName = rootForAction.displayName
                                     controller.webDavBasePath = rootForAction.basePath
@@ -597,7 +605,8 @@ fun SettingsDialogHost(
                                     controller.dialogState = SettingsDialogState.WebDavRoot
                                 } else if (isAbsRoot) {
                                     scope.launch {
-                                        val creds = getAbsCredential(rootForAction.credentialId ?: "")
+                                        val creds =
+                                            getAbsCredential(rootForAction.credentialId ?: "")
                                         controller.absBaseUrl = rootForAction.sourceUri
                                         controller.absUsername = creds?.username ?: ""
                                         controller.absPassword = ""

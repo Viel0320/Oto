@@ -1,7 +1,6 @@
 package com.viel.aplayer.ui.home.components
 
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
@@ -15,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
@@ -32,7 +30,7 @@ import dev.chrisbanes.haze.HazeState
 fun HomeAppBar(
     glassEffectMode: GlassEffectMode,
     hazeState: HazeState,
-    appBarIconPadding: Dp,
+    // appBarIconPadding: Dp,
     onNavigateToSearch: () -> Unit,
     onHomeViewOptionsClick: () -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -74,7 +72,7 @@ fun HomeAppBar(
                 onClick = onNavigateToSearch,
                 // Home Search Icon Alignment (Compensate adaptive horizontal margins)
                 // The padding keeps the search icon aligned with the content rail on wide and compact window classes.
-                modifier = Modifier.padding(start = appBarIconPadding)
+                // modifier = Modifier.padding(start = appBarIconPadding)
             ) {
                 Icon(
                     Icons.Rounded.Search,
@@ -97,7 +95,7 @@ fun HomeAppBar(
                 onClick = onNavigateToSettings,
                 // Home Settings Icon Alignment (Mirror the adaptive compensation on the trailing edge)
                 // The padding preserves symmetric app bar affordance placement against the grid content boundary.
-                modifier = Modifier.padding(end = appBarIconPadding)
+                //modifier = Modifier.padding(end = appBarIconPadding)
             ) {
                 Icon(
                     Icons.Rounded.Tune,
