@@ -79,6 +79,11 @@ class CoverImageCacheRuleTest {
             lastUpdated = 100L,
             variant = CoverImageVariant.Main1200
         )
+        val originalKey = CoverImageRequestFactory.cacheKey(
+            sourcePath = sourcePath,
+            lastUpdated = 100L,
+            variant = CoverImageVariant.Original
+        )
         val refreshedSmallKey = CoverImageRequestFactory.cacheKey(
             sourcePath = sourcePath,
             lastUpdated = 200L,
@@ -89,7 +94,17 @@ class CoverImageCacheRuleTest {
         assertEquals(firstSmallKey, secondSmallKey)
         // Cache key variant isolation. Different variants must be isolated to prevent memory cache pollution between thumbnail and main cover images.
         assertNotEquals(firstSmallKey, mainKey)
+        assertNotEquals(originalKey, mainKey)
         // Cache key invalidation. Changes in update timestamp must invalidate the old key, ensuring UI updates upon cover recovery or ABS replacements.
         assertNotEquals(firstSmallKey, refreshedSmallKey)
+    }
+
+    @Test
+    fun `original variant should request source dimensions`() {
+        // Original-size request contract. This pins Original as an unbounded source decode path instead of another fixed pixel bucket.
+        assertEquals("original", CoverImageVariant.Original.keySegment)
+        assertEquals("original", CoverImageVariant.Original.requestSizeLabel)
+        assertNull(CoverImageVariant.Original.targetWidth)
+        assertNull(CoverImageVariant.Original.targetHeight)
     }
 }

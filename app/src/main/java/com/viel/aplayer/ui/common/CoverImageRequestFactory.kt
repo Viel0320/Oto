@@ -7,6 +7,7 @@ import androidx.core.net.toUri
 import coil.request.ErrorResult
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import coil.size.Size
 import com.viel.aplayer.logger.CacheDiagnosticsLogger
 import com.viel.aplayer.logger.CoverImageCacheLogger
 import java.io.File
@@ -19,15 +20,27 @@ import java.io.File
  */
 enum class CoverImageVariant(
     val keySegment: String,
-    val targetWidth: Int,
-    val targetHeight: Int
+    val targetWidth: Int?,
+    val targetHeight: Int?
 ) {
+    Original("original", null, null),
     ThumbnailSmall("small180", 180, 180),
     ThumbnailMedium("medium360", 360, 360),
     // Backdrop Cache Coalescing (Reuse the exact small180 request key)
     // Backdrop keeps the same 180px dimensions and cache key as ThumbnailSmall so blurred ambience, list thumbnails, mini-player covers, and transition preloads reuse one Coil cache entry; the request scene still identifies background usage in logs.
     Backdrop("small180", 180, 180),
-    Main1200("main1200", 1200, 1200)
+    Main1200("main1200", 1200, 1200);
+
+    /**
+     * Request Size Label (Formats bounded variants as pixels and the source-sized variant as original)
+     * Keeps diagnostics readable after adding an unbounded source-size decode path.
+     */
+    val requestSizeLabel: String
+        get() = if (targetWidth == null || targetHeight == null) {
+            "original"
+        } else {
+            "${targetWidth}x$targetHeight"
+        }
 }
 
 /**
@@ -59,8 +72,7 @@ object CoverImageRequestFactory {
             variant = variant.keySegment,
             source = sourcePath,
             cacheKey = cacheKey,
-            targetWidth = variant.targetWidth,
-            targetHeight = variant.targetHeight
+            targetSize = variant.requestSizeLabel
         )
         // Bind metric logs directly to the request listener.
         //
@@ -149,10 +161,17 @@ object CoverImageRequestFactory {
             .allowHardware(allowHardware)
             // Crossfade behavior.
             //
-            // A single 1200px main cover bitmap takes about 5.8MB of native heap, and Backdrop immediately enters the blur pipeline.
-            // These two variants skip crossfade to avoid concurrently holding both the old and new bitmaps in memory during transitions; small images retain transition animations.
-            .crossfade(crossfade && variant != CoverImageVariant.Main1200 && variant != CoverImageVariant.Backdrop)
-            .size(variant.targetWidth, variant.targetHeight)
+            // Large cover variants skip crossfade to avoid concurrently holding both old and new decoded bitmaps during transitions; small images retain transition animations.
+            .crossfade(crossfade && variant != CoverImageVariant.Main1200 && variant != CoverImageVariant.Backdrop && variant != CoverImageVariant.Original)
+            .apply {
+                val targetWidth = variant.targetWidth
+                val targetHeight = variant.targetHeight
+                if (targetWidth == null || targetHeight == null) {
+                    size(Size.ORIGINAL)
+                } else {
+                    size(targetWidth, targetHeight)
+                }
+            }
             .listener(pipelineListener)
             // Apply bitmapConfig option (Pass customized bitmap config to Coil builder)
             // Configures the decoding profile, e.g. RGB_565 to optimize RAM overhead and prevent hardware-copying overhead.

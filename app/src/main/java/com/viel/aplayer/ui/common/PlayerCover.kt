@@ -237,7 +237,7 @@ fun MainCoverView(
     val activeCoverVariant = if (useTransitionArtwork) {
         CoverImageVariant.ThumbnailSmall
     } else {
-        CoverImageVariant.Main1200
+        CoverImageVariant.Original
     }
 
     val sharedElementModifier = if (isKeyConsistent && sharedTransitionScope != null && animatedVisibilityScope != null) {

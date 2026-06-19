@@ -130,17 +130,20 @@ object CoverImageCacheLogger {
         )
     }
 
+    /**
+     * Request Logger (Records the requested decode size without forcing original-size variants into fake pixel dimensions)
+     * The target size is preformatted by the caller so bounded and unbounded requests share one diagnostic path.
+     */
     fun logRequest(
         scene: String,
         variant: String,
         source: String?,
         cacheKey: String,
-        targetWidth: Int,
-        targetHeight: Int
+        targetSize: String
     ) {
         Log.d(
             TAG,
-            "request: scene=$scene, variant=$variant, sourceKeyHash=${hashSource(source)}, key=$cacheKey, size=${targetWidth}x$targetHeight"
+            "request: scene=$scene, variant=$variant, sourceKeyHash=${hashSource(source)}, key=$cacheKey, size=$targetSize"
         )
     }
 
