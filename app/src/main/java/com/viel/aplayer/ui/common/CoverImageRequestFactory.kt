@@ -53,8 +53,8 @@ object CoverImageRequestFactory {
     /**
      * Builds a Coil request for a cover display surface.
      *
-     * Dense lazy surfaces can disable crossfade to avoid animating many thumbnails in the same
-     * frame, while large artwork keeps the existing variant guard against holding two bitmaps.
+     * The request owns cache keys, decode sizing, and metrics hooks only; visual transitions are
+     * intentionally left outside this factory.
      */
     fun build(
         context: Context,
@@ -63,8 +63,7 @@ object CoverImageRequestFactory {
         variant: CoverImageVariant,
         scene: String,
         allowHardware: Boolean = true,
-        bitmapConfig: Bitmap.Config? = null,
-        crossfade: Boolean = true
+        bitmapConfig: Bitmap.Config? = null
     ): ImageRequest {
         val cacheKey = cacheKey(sourcePath, lastUpdated, variant)
         CoverImageCacheLogger.logRequest(
@@ -159,10 +158,6 @@ object CoverImageRequestFactory {
             .memoryCacheKey(cacheKey)
             .diskCacheKey(cacheKey)
             .allowHardware(allowHardware)
-            // Crossfade behavior.
-            //
-            // Large cover variants skip crossfade to avoid concurrently holding both old and new decoded bitmaps during transitions; small images retain transition animations.
-            .crossfade(crossfade && variant != CoverImageVariant.Main1200 && variant != CoverImageVariant.Backdrop && variant != CoverImageVariant.Original)
             .apply {
                 val targetWidth = variant.targetWidth
                 val targetHeight = variant.targetHeight

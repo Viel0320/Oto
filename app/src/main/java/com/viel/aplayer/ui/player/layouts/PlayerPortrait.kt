@@ -102,7 +102,7 @@ fun PlayerPortrait(
     safeDrawingPadding: PaddingValues
 ) {
     
-    // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic (e.g. crossfading to PLAYER mode).
+    // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic when returning to PLAYER mode.
     // Updates synchronously inside LaunchedEffect when currentMode changes.
     var prevMode by remember { mutableStateOf(currentMode) }
     LaunchedEffect(currentMode) {
@@ -163,7 +163,7 @@ fun PlayerPortrait(
                                     lastPlaybackMode = currentMode
                                 }
 
-                                // Crossfade transitions (To animate artwork cover and subtitles card displays)
+                                // Content fade transitions (Animate artwork and subtitles card displays)
                                 AnimatedContent(
                                     targetState = lastPlaybackMode,
                                     modifier = Modifier.weight(1f),
@@ -190,17 +190,12 @@ fun PlayerPortrait(
 
                                         else -> {
                                             // Main artwork cover (Transport gestures were moved to explicit controls to avoid hidden playback commands on artwork)
-                                            // Provides a thumbnail bridge candidate only for mismatched mini-player source artwork; normal full-player rendering stays on the high-resolution main cover.
                                             PlayerCover(
                                                 bookId = metadata.id,
                                                 isWideScreen = false,
                                                 coverPath = CoverImageSourceSelector.main(
                                                     coverPath = metadata.coverPath,
                                                     thumbnailPath = metadata.thumbnailPath
-                                                ),
-                                                transitionCoverPath = CoverImageSourceSelector.small(
-                                                    thumbnailPath = metadata.thumbnailPath,
-                                                    coverPath = metadata.coverPath
                                                 ),
                                                 isPlaying = isPlaying,
                                                 coverLastUpdated = metadata.coverLastUpdated,

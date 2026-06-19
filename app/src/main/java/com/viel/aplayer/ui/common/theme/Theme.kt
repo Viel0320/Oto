@@ -159,7 +159,7 @@ fun APlayerTheme(
         LocalAmoled provides amoled
     ) {
         MaterialTheme(
-            // Full-screen dynamic tint: animate the whole-app scheme so wallpaper/seed and light/dark changes cross-fade instead of snapping.
+            // Full-screen dynamic tint: animate the whole-app scheme so wallpaper/seed and light/dark changes transition smoothly instead of snapping.
             colorScheme = animateColorScheme(colorScheme),
             typography = Typography,
             content = content

@@ -190,7 +190,7 @@ object ImageProcessor {
     /**
      * 从 Drawable 提取主色。
      *
-     * 针对 Coil 的 Drawable 进行了深度优化，兼容各种包装类 (CrossfadeDrawable 等) 以及硬件位图 (Hardware Bitmap)。
+     * Handles common drawable wrappers and hardware bitmaps before Palette sampling.
      */
     fun getDominantColor(drawable: Drawable?): Int {
         // Safe Drawable Extraction: Unpack wrappers and restrict bounds to 100x100 ARGB_8888 to guarantee Palette performance and prevent OOM or Hardware Bitmap crashes.
@@ -283,10 +283,10 @@ object ImageProcessor {
     }
 
     /**
-     * 递归解包包装的 Drawable，如 Coil 的 CrossfadeDrawable 或 LayerDrawable。
+     * Recursively unwraps common Drawable containers before color extraction.
      */
     private fun unwrapDrawable(drawable: Drawable?): Drawable? {
-        // Recursive Wrapper Unwrapping: Drill down into LayerDrawable, SDK DrawableWrapper, Coil CrossfadeDrawable, or support-library wrappers using a local immutable reference to guarantee smart casts.
+        // Recursive Wrapper Unwrapping: Drill down into LayerDrawable, SDK DrawableWrapper, or support-library wrappers using a local immutable reference to guarantee smart casts.
         if (drawable == null) return null
         var current = drawable
         while (true) {
@@ -304,26 +304,6 @@ object ImageProcessor {
                 }
                 curr is android.graphics.drawable.DrawableWrapper -> {
                     current = curr.drawable
-                }
-                curr.javaClass.name == "coil.drawable.CrossfadeDrawable" -> {
-                    try {
-                        val getEndMethod = curr.javaClass.getMethod("getEnd")
-                        val endDrawable = getEndMethod.invoke(curr) as? Drawable
-                        if (endDrawable != null) {
-                            current = endDrawable
-                        } else {
-                            val endField = curr.javaClass.getDeclaredField("end")
-                            endField.isAccessible = true
-                            val endDrawableField = endField.get(curr) as? Drawable
-                            if (endDrawableField != null) {
-                                current = endDrawableField
-                            } else {
-                                break
-                            }
-                        }
-                    } catch (_: Exception) {
-                        break
-                    }
                 }
                 else -> {
                     try {

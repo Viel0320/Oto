@@ -43,8 +43,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.ui.common.CoverImage
 import com.viel.aplayer.ui.common.CoverImageVariant
-import com.viel.aplayer.ui.common.CrossfadingCoverImage
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
@@ -220,12 +220,12 @@ fun CompactMediaPlayer(
                         )
                 ) {
                     /*
-                     * Mini Source Artwork Crossfade (Animate the shared-element source content)
+                     * Mini Source Artwork Rendering (Direct shared-element source content)
                      *
                      * The sharedElement modifier stays on the stable cover bounds, while the source
-                     * thumbnail fades only after the next bitmap has loaded.
+                     * thumbnail renders as a single current image layer.
                      */
-                    CrossfadingCoverImage(
+                    CoverImage(
                         sourcePath = coverPath,
                         lastUpdated = coverLastUpdated,
                         variant = CoverImageVariant.ThumbnailSmall,

@@ -1,11 +1,7 @@
 package com.viel.aplayer.ui.common
 
-// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and haze modifier for Compose-based blur.
-// Import Canvas and Blur APIs (Allow drawing blurred cover images natively)
-// Import Compose Canvas, draw.blur, geometry.Size, and Coil's rememberAsyncImagePainter to replace AsyncImage with Canvas-based blur.
 import android.graphics.Bitmap
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -15,9 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Size
@@ -35,21 +29,10 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
 /**
- * Backdrop crossfade identity.
+ * Shared cover-backed ambience for playback, detail, and edit surfaces.
  *
- * The blurred background follows the same asset identity as the visible cover, so book changes and
- * same-book cover regeneration both receive a short bitmap transition instead of an abrupt swap.
- */
-private data class CoverBackdropCrossfadeKey(
-    val coverPath: String?,
-    val lastUpdated: Long
-)
-
-/**
- * Globally shared background cover strong blur ambience component, applicable to both playback and details pages.
- * 1. Automatically handles smooth color animations of the background dominant color.
- * 2. Mounts the Haze state modifier in Haze mode and renders a 64.dp strong-blurred cover.
- * 3. Produces the page-level cover color from the same software backdrop bitmap used by the background.
+ * The component owns the page color animation, optional Haze source registration, software cover
+ * decoding for blurred ambience, and dominant-color extraction from the currently requested cover.
  */
 @Composable
 fun CoverBackground(
@@ -61,21 +44,18 @@ fun CoverBackground(
     modifier: Modifier = Modifier,
     onColorExtracted: (Color) -> Unit = {}
 ) {
-    // Setup Glass Effect Flag (Check active theme style) Check if Haze mode is configured.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     val bgColor = MaterialTheme.colorScheme.background
 
     val fallbackColor = MaterialTheme.colorScheme.primaryContainer
     val finalColor = coverColor ?: fallbackColor
 
-    // Smoothly transition the background dominant color to ensure a seamless visual connection when switching books.
     val animatedBgColor by animateColorAsState(
         targetValue = finalColor,
         animationSpec = tween(300),
         label = "bg_color"
     )
 
-    // Calculate the background gradient brush when frosted glass mode is disabled.
     val backgroundBrush = remember(animatedBgColor, bgColor) {
         Brush.verticalGradient(
             colors = listOf(
@@ -85,40 +65,6 @@ fun CoverBackground(
         )
     }
 
-    val backdropCrossfadeKey = remember(coverPath, lastUpdated) {
-        CoverBackdropCrossfadeKey(coverPath, lastUpdated)
-    }
-    var settledBackdropKey by remember { mutableStateOf(backdropCrossfadeKey) }
-    var incomingBackdropKey by remember { mutableStateOf<CoverBackdropCrossfadeKey?>(null) }
-    var incomingBackdropReady by remember { mutableStateOf(false) }
-    val incomingBackdropAlpha = remember { Animatable(1f) }
-
-    LaunchedEffect(backdropCrossfadeKey) {
-        if (backdropCrossfadeKey == settledBackdropKey) {
-            incomingBackdropKey = null
-            incomingBackdropReady = false
-            incomingBackdropAlpha.snapTo(1f)
-        } else {
-            incomingBackdropKey = backdropCrossfadeKey
-            incomingBackdropReady = backdropCrossfadeKey.coverPath == null
-            incomingBackdropAlpha.snapTo(0f)
-        }
-    }
-
-    LaunchedEffect(incomingBackdropKey, incomingBackdropReady) {
-        val readyKey = incomingBackdropKey ?: return@LaunchedEffect
-        if (!incomingBackdropReady) return@LaunchedEffect
-        incomingBackdropAlpha.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(300)
-        )
-        settledBackdropKey = readyKey
-        incomingBackdropKey = null
-        incomingBackdropReady = false
-        incomingBackdropAlpha.snapTo(1f)
-    }
-
-    // Setup Layout Modifier (Apply haze to background Box) Link haze modifier to background container if in Haze mode.
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -126,50 +72,20 @@ fun CoverBackground(
             .then(if (isBlur && hazeState != null) Modifier.hazeSource(hazeState) else Modifier)
     ) {
         /*
-         * Blurred Backdrop Crossfade (Animate decorative bitmap changes in place)
+         * Blurred Backdrop Rendering (Draw the current decorative bitmap directly)
          *
-         * The Haze source and page gradient remain stable on the parent Box, while each backdrop
-         * target owns its painter, color extraction, blur canvas, and darkening mask during fade.
+         * The Haze source and page gradient remain stable on the parent Box, while the active
+         * backdrop request owns its painter, color extraction, blur canvas, and darkening mask.
          */
         if (isBlur) {
-            val activeIncomingKey = incomingBackdropKey
-            val settledAlpha = if (activeIncomingKey != null && activeIncomingKey.coverPath == null) {
-                1f - incomingBackdropAlpha.value
-            } else {
-                1f
-            }
-
             CoverBackgroundBackdropLayer(
-                targetBackdrop = settledBackdropKey,
-                activeTarget = backdropCrossfadeKey,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        alpha = settledAlpha
-                    },
-                onBackdropReady = {},
+                coverPath = coverPath,
+                lastUpdated = lastUpdated,
+                modifier = Modifier.fillMaxSize(),
                 onColorExtracted = onColorExtracted
             )
 
-            if (activeIncomingKey != null) {
-                CoverBackgroundBackdropLayer(
-                    targetBackdrop = activeIncomingKey,
-                    activeTarget = backdropCrossfadeKey,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            alpha = incomingBackdropAlpha.value
-                        },
-                    onBackdropReady = { readyKey ->
-                        if (incomingBackdropKey == readyKey) {
-                            incomingBackdropReady = true
-                        }
-                    },
-                    onColorExtracted = onColorExtracted
-                )
-            }
-
-            if (settledBackdropKey.coverPath != null || activeIncomingKey?.coverPath != null) {
+            if (coverPath != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -181,36 +97,33 @@ fun CoverBackground(
 }
 
 /**
- * Render one loaded backdrop layer.
+ * Render the active loaded backdrop layer.
  *
- * The layer reports readiness only after Coil has produced a successful drawable, preventing the
- * visible blur transition from spending its duration on an empty painter.
+ * The layer reports the dominant color only after Coil has produced a successful drawable, keeping
+ * failed or empty requests from overwriting the page-level cover color.
  */
 @Composable
 private fun CoverBackgroundBackdropLayer(
-    targetBackdrop: CoverBackdropCrossfadeKey,
-    activeTarget: CoverBackdropCrossfadeKey,
+    coverPath: String?,
+    lastUpdated: Long,
     modifier: Modifier,
-    onBackdropReady: (CoverBackdropCrossfadeKey) -> Unit,
     onColorExtracted: (Color) -> Unit
 ) {
-    val coverPath = targetBackdrop.coverPath ?: return
+    val resolvedCoverPath = coverPath ?: return
     val backdropPainter = rememberCoverBackdropPainter(
-        coverPath = coverPath,
-        lastUpdated = targetBackdrop.lastUpdated
+        coverPath = resolvedCoverPath,
+        lastUpdated = lastUpdated
     )
 
     /**
      * Extracts the page-level cover seed from the active software-decoded backdrop image.
-     * This keeps foreground cover components display-only and blocks outgoing images from
-     * writing stale colors while they are still fading out.
+     * This keeps foreground cover components display-only and prevents failed requests from
+     * writing stale colors into the cover cache.
      */
-    LaunchedEffect(targetBackdrop, activeTarget, backdropPainter.state) {
+    LaunchedEffect(resolvedCoverPath, lastUpdated, backdropPainter.state) {
         val successState = backdropPainter.state as? AsyncImagePainter.State.Success ?: return@LaunchedEffect
-        onBackdropReady(targetBackdrop)
-        if (targetBackdrop != activeTarget) return@LaunchedEffect
         val colorInt = ImageProcessor.getDominantColor(successState.result.drawable)
-        ImageProcessor.putColorToCache(coverPath, targetBackdrop.lastUpdated, colorInt)
+        ImageProcessor.putColorToCache(resolvedCoverPath, lastUpdated, colorInt)
         onColorExtracted(Color(colorInt))
     }
 
@@ -221,10 +134,10 @@ private fun CoverBackgroundBackdropLayer(
 }
 
 /**
- * Remember a software backdrop painter for one non-empty crossfade target.
+ * Remember a software backdrop painter for one non-empty cover request.
  *
- * Keeping painter creation inside the target content lets Compose keep the outgoing painter alive
- * only for the fade duration, instead of replacing it before the transition can be drawn.
+ * Keeping painter creation inside the backdrop layer ensures the request key follows the current
+ * cover identity without holding a second outgoing painter.
  */
 @Composable
 private fun rememberCoverBackdropPainter(
@@ -247,18 +160,16 @@ private fun rememberCoverBackdropPainter(
 }
 
 /**
- * Draw the blurred cover backdrop using the current target painter.
+ * Draw the blurred cover backdrop using the current painter.
  *
  * Canvas drawing keeps the blur layer full-screen and avoids creating a separate image layout node
- * whose intrinsic measurement could resize during a crossfade.
+ * whose intrinsic measurement could resize while the painter is resolving.
  */
 @Composable
 private fun CoverBackgroundBlurCanvas(
     backdropPainter: AsyncImagePainter,
     modifier: Modifier
 ) {
-    // Render Canvas-based Blur Background (Draw cover on canvas and apply native blur modifier)
-    // Use rememberAsyncImagePainter to load cover and render it via Canvas with Modifier.blur to implement hardware-accelerated cover background blur.
     Canvas(
         modifier = modifier
             .graphicsLayer {
@@ -270,7 +181,8 @@ private fun CoverBackgroundBlurCanvas(
         val canvasSize = size
         val painterSize = backdropPainter.intrinsicSize
         if (painterSize.width.isFinite() && painterSize.width > 0 &&
-            painterSize.height.isFinite() && painterSize.height > 0) {
+            painterSize.height.isFinite() && painterSize.height > 0
+        ) {
             val srcRatio = painterSize.width / painterSize.height
             val dstRatio = canvasSize.width / canvasSize.height
             val scale = if (srcRatio > dstRatio) {

@@ -296,8 +296,8 @@ private fun RecentCoverSharedSource(
                          *
                          * Horizontal card rows can precompose nearby cards; delaying the medium
                          * thumbnail request until placement keeps decoding focused on visible cards.
-                         * Crossfade is disabled here because section rows can reveal many cached
-                         * covers during a fast swipe, and each fade would add avoidable frame work.
+                         * Requests stay visually unanimated because section rows can reveal many
+                         * cached covers during a fast swipe.
                          */
                         LazyCoverImage(
                             sourcePath = coverPath,
@@ -306,8 +306,7 @@ private fun RecentCoverSharedSource(
                             scene = "recently-cover",
                             modifier = Modifier.fillMaxSize(),
                             allowHardware = true,
-                            bitmapConfig = null,
-                            crossfade = false
+                            bitmapConfig = null
                         ) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),

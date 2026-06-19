@@ -44,8 +44,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.ui.common.CoverImage
 import com.viel.aplayer.ui.common.CoverImageVariant
-import com.viel.aplayer.ui.common.CrossfadingCoverImage
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
@@ -257,7 +257,7 @@ fun PillCompactMediaPlayer(
                         )
                 ) {
                     /*
-                     * Pill Source Artwork Crossfade (Animate mini-only rotating artwork)
+                     * Pill Source Artwork Rendering (Direct mini-only rotating artwork)
                      *
                      * The shared-element, border, click, and corner modifiers stay on the stable outer node.
                      * Only this inner artwork decoration reads the rotation value, so the shared transition
@@ -270,7 +270,7 @@ fun PillCompactMediaPlayer(
                                 rotationZ = rotation.value
                             }
                     ) {
-                        CrossfadingCoverImage(
+                        CoverImage(
                             sourcePath = coverPath,
                             lastUpdated = coverLastUpdated,
                             variant = CoverImageVariant.ThumbnailSmall,

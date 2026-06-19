@@ -41,8 +41,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -367,16 +367,15 @@ private fun ListCoverSharedSource(
                  *
                  * The list row keeps its stable placeholder bounds immediately, while Coil request
                  * construction waits until this cover slot has actually been placed by the lazy host.
-                 * Crossfade stays disabled for dense Home flings because memory-cache hits can enter
-                 * the viewport by the dozen and each fade would schedule extra draw work.
+                 * Requests stay visually unanimated because dense Home flings can bring many cached
+                 * covers into the viewport at once.
                  */
                 LazyCoverImage(
                     sourcePath = coverPath,
                     lastUpdated = coverLastUpdated,
                     variant = CoverImageVariant.ThumbnailSmall,
                     scene = "home-list-cover",
-                    modifier = Modifier.fillMaxSize(),
-                    crossfade = false
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),

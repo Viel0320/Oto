@@ -79,7 +79,7 @@ fun PlayerLandscapePhone(
 ) {
     // Resolve window dimensions (To query screen width and height coordinates without reading LocalConfiguration directly)
     val windowClass = LocalAppWindowSizeClass.current
-    // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic (e.g. crossfading to PLAYER mode).
+    // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic when returning to PLAYER mode.
     // Updates synchronously inside LaunchedEffect when currentMode changes.
     var prevMode by remember { mutableStateOf(currentMode) }
     LaunchedEffect(currentMode) {
@@ -132,7 +132,7 @@ fun PlayerLandscapePhone(
                                 lastPlaybackMode = currentMode
                             }
                             
-                            // Crossfade transitions (To animate artwork cover and subtitles card displays)
+                            // Content fade transitions (Animate artwork and subtitles card displays)
                             AnimatedContent(
                                 targetState = lastPlaybackMode,
                                 modifier = Modifier.fillMaxSize(),
@@ -155,17 +155,13 @@ fun PlayerLandscapePhone(
                                         }
                                     }
                                     else -> {
-                                        // Landscape phone cover (Provide a thumbnail bridge candidate only for mismatched mini-player source artwork)
+                                        // Landscape phone cover
                                         PlayerCover(
                                             bookId = metadata.id,
                                             isWideScreen = windowClass.isWideScreen,
                                             coverPath = CoverImageSourceSelector.main(
                                                 coverPath = metadata.coverPath,
                                                 thumbnailPath = metadata.thumbnailPath
-                                            ),
-                                            transitionCoverPath = CoverImageSourceSelector.small(
-                                                thumbnailPath = metadata.thumbnailPath,
-                                                coverPath = metadata.coverPath
                                             ),
                                             isPlaying = isPlaying,
                                             coverLastUpdated = metadata.coverLastUpdated,
