@@ -87,8 +87,8 @@ android {
     sourceSets {
         // Room Schema Test Assets (Expose exported schemas to debug-only migration test runtimes)
         // Robolectric resolves MigrationTestHelper schemas from the debug app AssetManager, while instrumentation tests read the same checked-in schema directory from the test APK.
-        getByName("debug").assets.srcDirs(project.layout.projectDirectory.dir("schemas"))
-        getByName("androidTest").assets.srcDirs(project.layout.projectDirectory.dir("schemas"))
+        getByName("debug").assets.directories.add(project.layout.projectDirectory.dir("schemas").asFile.path)
+        getByName("androidTest").assets.directories.add(project.layout.projectDirectory.dir("schemas").asFile.path)
     }
 }
 
