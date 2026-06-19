@@ -1,4 +1,4 @@
-﻿<resources>
+﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
     <!-- Japanese Locale Resources (Provide Japanese translations for all default user-visible strings)
          Complete key coverage lets Android and the in-app picker switch the whole app without partial fallback. -->
     <string name="author_label">著者</string>
@@ -144,7 +144,7 @@
     <string name="feedback_home_read_status_in_progress">進行中としてマークしました</string>
     <string name="feedback_home_read_status_finished">完了としてマークしました</string>
     <string name="feedback_home_read_status_updated">状態を更新しました</string>
-    <string name="feedback_home_cover_metadata_regeneration_started">表紙とメタデータを再構築中...</string>
+    <string name="feedback_home_cover_metadata_regeneration_started">表紙とメタデータを再構築中…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">表紙とメタデータの再構築が完了しました</string>
     <string name="feedback_abs_background_sync_root_missing">ABS バックグラウンド同期に失敗しました：対応する ABS ライブラリルートが見つかりません</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
@@ -284,7 +284,7 @@
     <string name="settings_password_label">パスワード</string>
     <string name="settings_password_optional_label">パスワード（変更しない場合は空欄）</string>
     <string name="settings_test_connection">接続をテスト</string>
-    <string name="settings_test_connecting">接続中...</string>
+    <string name="settings_test_connecting">接続中…</string>
     <string name="settings_abs_login_success">ログインに成功しました。本のライブラリを選択して確認してください。</string>
     <string name="settings_abs_server_version">サーバーバージョン：%1$s</string>
     <string name="settings_abs_selected_library">選択中のライブラリ：%1$s</string>
@@ -294,7 +294,7 @@
     <string name="settings_server_url_label">サーバー URL</string>
     <string name="settings_display_name_label">表示名</string>
     <string name="settings_library_base_path_label">ライブラリパス</string>
-    <string name="settings_webdav_test_connecting">接続をテスト中...</string>
+    <string name="settings_webdav_test_connecting">接続をテスト中…</string>
     <string name="settings_webdav_connection_success">接続テストに成功しました。メディアライブラリを保存できます。</string>
     <string name="settings_delete_root_title">メディアライブラリルートを削除</string>
     <string name="settings_delete_root_body">このメディアライブラリルートを削除すると、アプリは物理ファイルへのアクセスを失います。関連する本の記録はライブラリから削除されますが、ストレージ上の音声ファイルは削除されません。このディレクトリを削除してアクセス権限を解放しますか？</string>

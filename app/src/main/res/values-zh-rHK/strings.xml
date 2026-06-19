@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
     <!-- Hong Kong Traditional Chinese Locale Resources (Provide zh-HK copy for every base string)
          This file keeps the resource key set complete so Android per-app language selection has a full Traditional Chinese surface. -->
     <string name="author_label">作者</string>
@@ -146,7 +146,7 @@
     <string name="feedback_home_read_status_in_progress">已標記為：進行中</string>
     <string name="feedback_home_read_status_finished">已標記為：已完成</string>
     <string name="feedback_home_read_status_updated">狀態已更新</string>
-    <string name="feedback_home_cover_metadata_regeneration_started">正在重建封面與中繼資料...</string>
+    <string name="feedback_home_cover_metadata_regeneration_started">正在重建封面與中繼資料…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">封面與中繼資料重建已完成</string>
     <string name="feedback_abs_background_sync_root_missing">ABS 背景同步失敗：找不到對應的 ABS 書庫根</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
@@ -288,7 +288,7 @@
     <string name="settings_password_label">密碼</string>
     <string name="settings_password_optional_label">密碼（留空則不修改）</string>
     <string name="settings_test_connection">測試連線</string>
-    <string name="settings_test_connecting">連線中...</string>
+    <string name="settings_test_connecting">連線中…</string>
     <string name="settings_abs_login_success">登入成功，請選擇一個書庫後再確認。</string>
     <string name="settings_abs_server_version">伺服器版本：%1$s</string>
     <string name="settings_abs_selected_library">已選書庫：%1$s</string>
@@ -298,7 +298,7 @@
     <string name="settings_server_url_label">伺服器 URL</string>
     <string name="settings_display_name_label">顯示名稱</string>
     <string name="settings_library_base_path_label">庫內路徑</string>
-    <string name="settings_webdav_test_connecting">測試連線中...</string>
+    <string name="settings_webdav_test_connecting">測試連線中…</string>
     <string name="settings_webdav_connection_success">連線測試成功，可以儲存媒體庫。</string>
     <string name="settings_delete_root_title">移除媒體庫根目錄</string>
     <string name="settings_delete_root_body">移除此媒體庫根目錄後，應用程式將失去對其實體檔案的存取權。相關書籍紀錄會從媒體庫移除，但不會刪除儲存空間中的實體音訊檔案。確定要移除此目錄並釋放存取授權嗎？</string>

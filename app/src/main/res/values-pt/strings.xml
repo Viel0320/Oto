@@ -1,4 +1,4 @@
-﻿<resources>
+﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
     <!-- Portuguese Locale Resources (Provide Portuguese translations for all default user-visible
     strings)
          Complete coverage lets both Android and in-app language selection render a consistent Portuguese
@@ -187,7 +187,7 @@
     <string name="feedback_home_read_status_finished">Marcado como: Concluído</string>
     <string name="feedback_home_read_status_updated">Estado atualizado</string>
     <string name="feedback_home_cover_metadata_regeneration_started">A reconstruir capas e
-        metadados...</string>
+        metadados…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">Capas e metadados
         reconstruídos</string>
     <string name="feedback_abs_background_sync_root_missing">Sincronização ABS em segundo plano
@@ -366,7 +366,7 @@
     <string name="settings_password_label">Palavra-passe</string>
     <string name="settings_password_optional_label">Palavra-passe (deixe em branco para não alterar)</string>
     <string name="settings_test_connection">Testar ligação</string>
-    <string name="settings_test_connecting">A ligar...</string>
+    <string name="settings_test_connecting">A ligar…</string>
     <string name="settings_abs_login_success">Início de sessão bem-sucedido. Selecione uma
         biblioteca de livros e confirme.</string>
     <string name="settings_abs_server_version">Versão do servidor: %1$s</string>
@@ -377,7 +377,7 @@
     <string name="settings_server_url_label">URL do servidor</string>
     <string name="settings_display_name_label">Nome apresentado</string>
     <string name="settings_library_base_path_label">Caminho da biblioteca</string>
-    <string name="settings_webdav_test_connecting">A testar ligação...</string>
+    <string name="settings_webdav_test_connecting">A testar ligação…</string>
     <string name="settings_webdav_connection_success">Teste de ligação bem-sucedido. Pode guardar a
         biblioteca.</string>
     <string name="settings_delete_root_title">Remover raiz da biblioteca</string>

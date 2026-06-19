@@ -144,7 +144,7 @@
     <string name="feedback_home_read_status_in_progress">Markiert als: In Bearbeitung</string>
     <string name="feedback_home_read_status_finished">Markiert als: Abgeschlossen</string>
     <string name="feedback_home_read_status_updated">Status aktualisiert</string>
-    <string name="feedback_home_cover_metadata_regeneration_started">Cover und Metadaten werden neu aufgebaut...</string>
+    <string name="feedback_home_cover_metadata_regeneration_started">Cover und Metadaten werden neu aufgebaut…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">Cover und Metadaten neu aufgebaut</string>
     <string name="feedback_abs_background_sync_root_missing">ABS-Hintergrundsync fehlgeschlagen: passende ABS-Bibliothekswurzel nicht gefunden</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
@@ -284,7 +284,7 @@
     <string name="settings_password_label">Passwort</string>
     <string name="settings_password_optional_label">Passwort (leer lassen, um es nicht zu ändern)</string>
     <string name="settings_test_connection">Verbindung testen</string>
-    <string name="settings_test_connecting">Verbindung wird hergestellt...</string>
+    <string name="settings_test_connecting">Verbindung wird hergestellt…</string>
     <string name="settings_abs_login_success">Anmeldung erfolgreich. Wählen Sie eine Buchbibliothek und bestätigen Sie.</string>
     <string name="settings_abs_server_version">Serverversion: %1$s</string>
     <string name="settings_abs_selected_library">Ausgewählte Bibliothek: %1$s</string>
@@ -294,7 +294,7 @@
     <string name="settings_server_url_label">Server-URL</string>
     <string name="settings_display_name_label">Anzeigename</string>
     <string name="settings_library_base_path_label">Bibliothekspfad</string>
-    <string name="settings_webdav_test_connecting">Verbindung wird getestet...</string>
+    <string name="settings_webdav_test_connecting">Verbindung wird getestet…</string>
     <string name="settings_webdav_connection_success">Verbindungstest erfolgreich. Sie können die Medienbibliothek speichern.</string>
     <string name="settings_delete_root_title">Medienbibliothekswurzel entfernen</string>
     <string name="settings_delete_root_body">Wenn diese Medienbibliothekswurzel entfernt wird, verliert die App Zugriff auf ihre physischen Dateien. Verknüpfte Buchdatensätze werden aus der Bibliothek entfernt, aber Audiodateien im Speicher werden nicht gelöscht. Dieses Verzeichnis entfernen und seine Zugriffsberechtigung freigeben?</string>

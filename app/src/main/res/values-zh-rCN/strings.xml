@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
     <!-- Simplified Chinese Locale Resources (Provide Mainland Chinese copy for all default user-visible strings)
          This file mirrors the English base keys so Android can switch the whole app through per-app language selection. -->
     <string name="author_label">作者</string>
@@ -146,7 +146,7 @@
     <string name="feedback_home_read_status_in_progress">已标记为：进行中</string>
     <string name="feedback_home_read_status_finished">已标记为：已完成</string>
     <string name="feedback_home_read_status_updated">状态已更新</string>
-    <string name="feedback_home_cover_metadata_regeneration_started">正在重建封面与元数据...</string>
+    <string name="feedback_home_cover_metadata_regeneration_started">正在重建封面与元数据…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">封面与元数据重建已完成</string>
     <string name="feedback_abs_background_sync_root_missing">ABS 后台同步失败：找不到对应的 ABS 书库根</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
@@ -288,7 +288,7 @@
     <string name="settings_password_label">密码</string>
     <string name="settings_password_optional_label">密码（留空则不修改）</string>
     <string name="settings_test_connection">测试连接</string>
-    <string name="settings_test_connecting">连接中...</string>
+    <string name="settings_test_connecting">连接中…</string>
     <string name="settings_abs_login_success">登录成功，请选择一个书库后再确认。</string>
     <string name="settings_abs_server_version">服务器版本：%1$s</string>
     <string name="settings_abs_selected_library">已选书库：%1$s</string>
@@ -298,7 +298,7 @@
     <string name="settings_server_url_label">服务器 URL</string>
     <string name="settings_display_name_label">显示名</string>
     <string name="settings_library_base_path_label">库内路径</string>
-    <string name="settings_webdav_test_connecting">测试连接中...</string>
+    <string name="settings_webdav_test_connecting">测试连接中…</string>
     <string name="settings_webdav_connection_success">连接测试成功，可以保存媒体库。</string>
     <string name="settings_delete_root_title">移除媒体库根目录</string>
     <string name="settings_delete_root_body">移除此媒体库根目录后，应用将失去对其物理文件的访问权限。相关书籍记录会从媒体库移除，但不会删除存储中的物理音频文件。确定要移除此目录并释放访问授权吗？</string>

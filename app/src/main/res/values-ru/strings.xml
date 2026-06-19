@@ -150,7 +150,7 @@
     <string name="feedback_home_read_status_in_progress">Отмечено как: В процессе</string>
     <string name="feedback_home_read_status_finished">Отмечено как: Завершено</string>
     <string name="feedback_home_read_status_updated">Статус обновлен</string>
-    <string name="feedback_home_cover_metadata_regeneration_started">Перестройка обложек и метаданных...</string>
+    <string name="feedback_home_cover_metadata_regeneration_started">Перестройка обложек и метаданных…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">Обложки и метаданные перестроены</string>
     <string name="feedback_abs_background_sync_root_missing">Фоновая синхронизация ABS не удалась: соответствующий корень библиотеки ABS не найден</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
@@ -306,7 +306,7 @@
     <string name="settings_password_label">Пароль</string>
     <string name="settings_password_optional_label">Пароль (оставьте пустым, чтобы не менять)</string>
     <string name="settings_test_connection">Проверить подключение</string>
-    <string name="settings_test_connecting">Подключение...</string>
+    <string name="settings_test_connecting">Подключение…</string>
     <string name="settings_abs_login_success">Вход выполнен. Выберите библиотеку книг и подтвердите.</string>
     <string name="settings_abs_server_version">Версия сервера: %1$s</string>
     <string name="settings_abs_selected_library">Выбранная библиотека: %1$s</string>
@@ -316,7 +316,7 @@
     <string name="settings_server_url_label">URL сервера</string>
     <string name="settings_display_name_label">Отображаемое имя</string>
     <string name="settings_library_base_path_label">Путь библиотеки</string>
-    <string name="settings_webdav_test_connecting">Проверка подключения...</string>
+    <string name="settings_webdav_test_connecting">Проверка подключения…</string>
     <string name="settings_webdav_connection_success">Проверка подключения успешна. Можно сохранить медиатеку.</string>
     <string name="settings_delete_root_title">Удалить корень медиатеки</string>
     <string name="settings_delete_root_body">Удаление этого корня медиатеки лишит приложение доступа к его физическим файлам. Связанные записи книг будут удалены из медиатеки, но аудиофайлы в хранилище удалены не будут. Удалить этот каталог и освободить разрешение доступа?</string>

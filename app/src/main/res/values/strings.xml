@@ -164,7 +164,7 @@
     <string name="feedback_home_read_status_in_progress">Marked as: In Progress</string>
     <string name="feedback_home_read_status_finished">Marked as: Finished</string>
     <string name="feedback_home_read_status_updated">Status updated</string>
-    <string name="feedback_home_cover_metadata_regeneration_started">Rebuilding covers and metadata...</string>
+    <string name="feedback_home_cover_metadata_regeneration_started">Rebuilding covers and metadata…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">Covers and metadata rebuilt</string>
     <string name="feedback_abs_background_sync_root_missing">ABS background sync failed: matching ABS library root not found</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
@@ -327,7 +327,7 @@
     <string name="settings_password_label">Password</string>
     <string name="settings_password_optional_label">Password (leave blank to keep unchanged)</string>
     <string name="settings_test_connection">Test Connection</string>
-    <string name="settings_test_connecting">Connecting...</string>
+    <string name="settings_test_connecting">Connecting…</string>
     <string name="settings_abs_login_success">Login succeeded. Select a book library, then confirm.</string>
     <string name="settings_abs_server_version">Server version: %1$s</string>
     <string name="settings_abs_selected_library">Selected library: %1$s</string>
@@ -337,7 +337,7 @@
     <string name="settings_server_url_label">Server URL</string>
     <string name="settings_display_name_label">Display Name</string>
     <string name="settings_library_base_path_label">Library Path</string>
-    <string name="settings_webdav_test_connecting">Testing connection...</string>
+    <string name="settings_webdav_test_connecting">Testing connection…</string>
     <string name="settings_webdav_connection_success">Connection test succeeded. You can save the media library.</string>
     <string name="settings_delete_root_title">Remove Media Library Root</string>
     <string name="settings_delete_root_body">Removing this media library root makes the app lose access to its physical files. Related book records will be removed from the library, but physical audio files on storage will not be deleted. Remove this directory and release its access permission?</string>

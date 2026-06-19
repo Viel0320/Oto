@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
     <!-- ESCAPE SINGLE QUOTES: Single quotes (apostrophes) in resource values must be escaped with a backslash (\') to ensure proper AAPT2 resource compilation and prevent flattening errors. -->
     <!-- French Locale Resources (Provide French translations for all default user-visible strings)
          Full key coverage keeps the app language picker and Android locale API behavior consistent. -->
@@ -145,7 +145,7 @@
     <string name="feedback_home_read_status_in_progress">Marqué comme : En cours</string>
     <string name="feedback_home_read_status_finished">Marqué comme : Terminé</string>
     <string name="feedback_home_read_status_updated">Statut mis à jour</string>
-    <string name="feedback_home_cover_metadata_regeneration_started">Reconstruction des couvertures et métadonnées...</string>
+    <string name="feedback_home_cover_metadata_regeneration_started">Reconstruction des couvertures et métadonnées…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">Couvertures et métadonnées reconstruites</string>
     <string name="feedback_abs_background_sync_root_missing">Synchronisation ABS en arrière-plan échouée : racine de bibliothèque ABS introuvable</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
@@ -285,7 +285,7 @@
     <string name="settings_password_label">Mot de passe</string>
     <string name="settings_password_optional_label">Mot de passe (laisser vide pour ne pas modifier)</string>
     <string name="settings_test_connection">Tester la connexion</string>
-    <string name="settings_test_connecting">Connexion...</string>
+    <string name="settings_test_connecting">Connexion…</string>
     <string name="settings_abs_login_success">Connexion réussie. Sélectionnez une bibliothèque de livres, puis confirmez.</string>
     <string name="settings_abs_server_version">Version du serveur : %1$s</string>
     <string name="settings_abs_selected_library">Bibliothèque sélectionnée : %1$s</string>
@@ -295,7 +295,7 @@
     <string name="settings_server_url_label">URL du serveur</string>
     <string name="settings_display_name_label">Nom affiché</string>
     <string name="settings_library_base_path_label">Chemin de bibliothèque</string>
-    <string name="settings_webdav_test_connecting">Test de connexion...</string>
+    <string name="settings_webdav_test_connecting">Test de connexion…</string>
     <string name="settings_webdav_connection_success">Test de connexion réussi. Vous pouvez enregistrer la médiathèque.</string>
     <string name="settings_delete_root_title">Supprimer la racine de médiathèque</string>
     <string name="settings_delete_root_body">Supprimer cette racine fera perdre à l’application l’accès à ses fichiers physiques. Les enregistrements de livres liés seront retirés de la médiathèque, mais les fichiers audio sur le stockage ne seront pas supprimés. Supprimer ce dossier et libérer son autorisation d’accès ?</string>

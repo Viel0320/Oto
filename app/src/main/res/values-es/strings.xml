@@ -1,4 +1,4 @@
-﻿<resources>
+﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
     <!-- Spanish Locale Resources (Provide Spanish translations for all default user-visible strings)
          Complete key coverage keeps system and in-app language switching aligned. -->
     <string name="author_label">Autor</string>
@@ -144,7 +144,7 @@
     <string name="feedback_home_read_status_in_progress">Marcado como: En curso</string>
     <string name="feedback_home_read_status_finished">Marcado como: Terminado</string>
     <string name="feedback_home_read_status_updated">Estado actualizado</string>
-    <string name="feedback_home_cover_metadata_regeneration_started">Reconstruyendo portadas y metadatos...</string>
+    <string name="feedback_home_cover_metadata_regeneration_started">Reconstruyendo portadas y metadatos…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">Portadas y metadatos reconstruidos</string>
     <string name="feedback_abs_background_sync_root_missing">Falló la sincronización ABS en segundo plano: no se encontró la raíz de biblioteca ABS correspondiente</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
@@ -284,7 +284,7 @@
     <string name="settings_password_label">Contraseña</string>
     <string name="settings_password_optional_label">Contraseña (dejar en blanco para no cambiar)</string>
     <string name="settings_test_connection">Probar conexión</string>
-    <string name="settings_test_connecting">Conectando...</string>
+    <string name="settings_test_connecting">Conectando…</string>
     <string name="settings_abs_login_success">Inicio de sesión correcto. Selecciona una biblioteca de libros y confirma.</string>
     <string name="settings_abs_server_version">Versión del servidor: %1$s</string>
     <string name="settings_abs_selected_library">Biblioteca seleccionada: %1$s</string>
@@ -294,7 +294,7 @@
     <string name="settings_server_url_label">URL del servidor</string>
     <string name="settings_display_name_label">Nombre visible</string>
     <string name="settings_library_base_path_label">Ruta de biblioteca</string>
-    <string name="settings_webdav_test_connecting">Probando conexión...</string>
+    <string name="settings_webdav_test_connecting">Probando conexión…</string>
     <string name="settings_webdav_connection_success">Prueba de conexión correcta. Puedes guardar la biblioteca.</string>
     <string name="settings_delete_root_title">Eliminar raíz de biblioteca</string>
     <string name="settings_delete_root_body">Eliminar esta raíz hará que la aplicación pierda acceso a sus archivos físicos. Los registros de libros relacionados se quitarán de la biblioteca, pero los archivos de audio del almacenamiento no se eliminarán. ¿Eliminar este directorio y liberar su permiso de acceso?</string>
