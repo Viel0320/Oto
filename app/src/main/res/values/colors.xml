@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Launcher fallback color used on Android versions without wallpaper-derived system accent resources. -->
-    <color name="ic_launcher_background_color">#6442D6</color>
+    <color name="ic_launcher_background_color">@android:color/system_accent1_700</color>
 </resources>

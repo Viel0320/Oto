@@ -364,13 +364,13 @@ class UserVisibleStringResourceTest {
         private val editSavePathUnknownFallbackRegex = Regex("""title\.ifBlank\s*\{\s*"Unknown"\s*}""")
         private val printfPlaceholderRegex = Regex("""%\d+\$[sd]""")
         private val detailComponentHardCodedCopyRegex = Regex(
-            """(?:Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+"|contentDescription\s*=\s*"[^"\n]+"|onClickLabel\s*=\s*"[^"\n]+"|onLongClickLabel\s*=\s*"[^"\n]+"|\?:\s*"[^"\n]+")"""
+            """Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+"|contentDescription\s*=\s*"[^"\n]+"|onClickLabel\s*=\s*"[^"\n]+"|onLongClickLabel\s*=\s*"[^"\n]+"|\?:\s*"[^"\n]+""""
         )
         private val settingsComponentHardCodedCopyRegex = Regex(
-            """(?:Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+"|contentDescription\s*=\s*"[^"\n]+"|title\s*=\s*"[^"\n]+"|subtitle\s*=\s*"[^"\n]+"|label\s*=\s*"[^"\n]+")"""
+            """Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+"|contentDescription\s*=\s*"[^"\n]+"|title\s*=\s*"[^"\n]+"|subtitle\s*=\s*"[^"\n]+"|label\s*=\s*"[^"\n]+""""
         )
         private val relatedBooksHardCodedCopyRegex = Regex(
-            """(?:RelatedSectionHeader\s*\(\s*"[^"\n]+"|Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+")"""
+            """RelatedSectionHeader\s*\(\s*"[^"\n]+"|Text\s*\(\s*"[^"\n]+"|text\s*=\s*"[^"\n]+""""
         )
 
         private val commonMojibakeMarkers = listOf(
