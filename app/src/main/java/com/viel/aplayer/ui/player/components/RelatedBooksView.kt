@@ -23,6 +23,12 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
 
+/**
+ * Related Books View (Player recommendation panel)
+ *
+ * Keeps row navigation and explicit playback as separate callbacks so tapping a recommendation
+ * opens its Detail page while the play affordance remains an immediate playback command.
+ */
 @Composable
 fun RelatedBooksView(
     currentBookId: String,
@@ -32,6 +38,7 @@ fun RelatedBooksView(
     narratorSections: List<PlayerRelatedSection>,
     recentBooks: List<PlayerRelatedBook>,
     onBookClick: (PlayerRelatedBook) -> Unit,
+    onPlayClick: (PlayerRelatedBook) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -48,7 +55,7 @@ fun RelatedBooksView(
                 RelatedSectionHeader(stringResource(R.string.player_related_recommended))
             }
             items(heuristicBooks, key = { "recommended:${it.id}" }) { book ->
-                RelatedAudiobookItem(book, onBookClick)
+                RelatedAudiobookItem(book, onBookClick, onPlayClick)
             }
         }
 
@@ -59,7 +66,7 @@ fun RelatedBooksView(
                 }
                 // M-20 Fix — Configure list key (To assign unique key to prevent index recycling glitches)
                 items(section.books, key = { relatedSectionBookKey("author", sectionIndex, section.name, it) }) { book ->
-                    RelatedAudiobookItem(book, onBookClick)
+                    RelatedAudiobookItem(book, onBookClick, onPlayClick)
                 }
             }
         }
@@ -71,7 +78,7 @@ fun RelatedBooksView(
                 }
                 // M-20 Fix — Configure narrator list key (To assign compound keys to avoid key duplicate errors)
                 items(section.books, key = { relatedSectionBookKey("narrator", sectionIndex, section.name, it) }) { book ->
-                    RelatedAudiobookItem(book, onBookClick)
+                    RelatedAudiobookItem(book, onBookClick, onPlayClick)
                 }
             }
         }
@@ -82,7 +89,7 @@ fun RelatedBooksView(
             }
             // M-20 Fix — Configure recent list key (To assign prefix keys to prevent section key collisions)
             items(recentBooks, key = { "recent:${it.id}" }) { book ->
-                RelatedAudiobookItem(book, onBookClick)
+                RelatedAudiobookItem(book, onBookClick, onPlayClick)
             }
         }
     }
@@ -129,10 +136,17 @@ private fun RelatedSectionHeader(title: String) {
     )
 }
 
+/**
+ * Related Audiobook Item (Recommendation row action bridge)
+ *
+ * Routes the container tap to Detail navigation and the embedded play button to playback, matching
+ * Home list semantics without letting this shared row know either destination implementation.
+ */
 @Composable
 private fun RelatedAudiobookItem(
     book: PlayerRelatedBook,
-    onBookClick: (PlayerRelatedBook) -> Unit
+    onBookClick: (PlayerRelatedBook) -> Unit,
+    onPlayClick: (PlayerRelatedBook) -> Unit
 ) {
     ListItem(
         title = book.title,
@@ -150,7 +164,7 @@ private fun RelatedAudiobookItem(
         coverLastUpdated = book.coverLastUpdated,
         progressPercent = book.progressPercent,
         onClick = { onBookClick(book) },
-        onPlayClick = { onBookClick(book) }
+        onPlayClick = { onPlayClick(book) }
     )
 }
 
@@ -179,7 +193,8 @@ fun RelatedBooksViewPreview() {
                 authorSections = listOf(PlayerRelatedSection("Author Name", mockList)),
                 narratorSections = listOf(PlayerRelatedSection("Narrator Name", mockList)),
                 recentBooks = mockList,
-                onBookClick = {}
+                onBookClick = {},
+                onPlayClick = {}
             )
         }
     }

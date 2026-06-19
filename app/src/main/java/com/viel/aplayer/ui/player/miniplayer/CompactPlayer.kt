@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.player.miniplayer
 
-// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and modifiers.
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateDp
@@ -78,7 +77,6 @@ fun CompactMediaPlayer(
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val mini2PlayerSourceScope = LocalMini2PlayerSourceScope.current
-
     /*
      * Outer Card Corner Radius Transition (Dynamic bounds shape interpolation)
      * Transition the outer card corner radius from the compact bar's 0.dp to the full screen's 28.dp.
@@ -209,7 +207,7 @@ fun CompactMediaPlayer(
 
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(56.dp)
                         .then(coverModifier)
                         .clip(RoundedCornerShape(animatedCoverCornerRadius))
                         .combinedClickable(

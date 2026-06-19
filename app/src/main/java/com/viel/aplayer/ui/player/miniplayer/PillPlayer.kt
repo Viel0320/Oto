@@ -219,7 +219,7 @@ fun PillCompactMediaPlayer(
 
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(56.dp)
                         .then(coverModifier)
                         .clip(RoundedCornerShape(animatedCoverCornerRadius))
                         .let {

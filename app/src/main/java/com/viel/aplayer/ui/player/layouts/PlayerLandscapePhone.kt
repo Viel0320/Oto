@@ -204,7 +204,12 @@ fun PlayerLandscapePhone(
                                     authorSections = fullUiState.relatedAuthorSections,
                                     narratorSections = fullUiState.relatedNarratorSections,
                                     recentBooks = fullUiState.recentlyAddedBooks,
-                                    onBookClick = actions.content.onLoadRelatedBook
+                                    /*
+                                     * Related Row Action Split (Keep navigation separate from playback)
+                                     * Row taps open Detail through the app shell, while the play button keeps the existing direct playback path.
+                                     */
+                                    onBookClick = actions.content.onOpenRelatedBookDetail,
+                                    onPlayClick = actions.content.onLoadRelatedBook
                                 )
                             }
                         }

@@ -5,35 +5,55 @@ import androidx.compose.runtime.remember
 import com.viel.aplayer.application.library.player.PlayerRelatedBook
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkActions
 
-// Player Content Actions (Player-scoped tab and related-book commands)
-// Avoids reusing the home content action model so player recommendations can stay on player-scene projections.
+/**
+ * Player Content Actions (Player-scoped tab and related-book commands)
+ *
+ * Separates recommendation row navigation from explicit playback so Related rows can open Detail
+ * while their play affordance still starts the selected audiobook immediately.
+ */
 data class PlayerContentActions(
     val onSelectedTabChange: (Int) -> Unit = {},
     val onShowChapterList: () -> Unit = {},
     val onDismissChapterList: () -> Unit = {},
+    val onOpenRelatedBookDetail: (PlayerRelatedBook) -> Unit = {},
     val onLoadRelatedBook: (PlayerRelatedBook) -> Unit = {},
     val onToggleProgressMode: () -> Unit = {},
     val onDeleteBook: () -> Unit = {},
 )
 
-// Player actions aggregator (Aggregator for playback, bookmark, and content operations)
-// Groups area-specific Action payloads to facilitate routing parameter pass-throughs.
+/**
+ * Player Actions Aggregator (Playback, bookmark, and content operation groups)
+ *
+ * Keeps high-frequency transport controls, bookmark commands, and content navigation in separate
+ * payloads so callers do not need a broad player facade to wire scene-specific behavior.
+ */
 data class PlayerActions(
     val playback: PlaybackControlActions = PlaybackControlActions(),
     val bookmarks: BookmarkActions = BookmarkActions(),
     val content: PlayerContentActions = PlayerContentActions(),
 )
 
-// Composable actions builder (Generates the aggregate Actions wrapper from active ViewModel targets)
-// Binds UI events directly to correct specialized ViewModels instead of a single god object.
+/**
+ * Remember Player Actions (Bind UI callbacks to the active player-scene owners)
+ *
+ * Direct playback commands stay on PlaybackViewModel, while Detail navigation is injected by the
+ * app shell because only the shell owns DetailTransitionGate and full-player visibility.
+ */
 @Composable
 fun rememberActions(
     playbackViewModel: PlaybackViewModel,
     bookmarkViewModel: BookmarkViewModel,
     settingsViewModel: PlayerSettingsViewModel,
-    onDeleteBook: (String) -> Unit = {}
+    onDeleteBook: (String) -> Unit = {},
+    onOpenRelatedBookDetail: (PlayerRelatedBook) -> Unit = {}
 ): PlayerActions {
-    return remember(playbackViewModel, bookmarkViewModel, settingsViewModel, onDeleteBook) {
+    return remember(
+        playbackViewModel,
+        bookmarkViewModel,
+        settingsViewModel,
+        onDeleteBook,
+        onOpenRelatedBookDetail
+    ) {
         PlayerActions(
             playback = PlaybackControlActions(
                 onSeek = { pos, allowUndo -> playbackViewModel.seekTo(pos, allowUndo) },
@@ -83,6 +103,7 @@ fun rememberActions(
                 onShowChapterList = { settingsViewModel.showChapterList() },
                 onDismissChapterList = { settingsViewModel.dismissChapterList() },
                 onToggleProgressMode = { settingsViewModel.toggleProgressMode() },
+                onOpenRelatedBookDetail = onOpenRelatedBookDetail,
                 onLoadRelatedBook = { book ->
                     playbackViewModel.loadBook(book.id)
                 },

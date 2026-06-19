@@ -411,6 +411,29 @@ fun APlayerApp(
                 if (currentRoute != HomeRoute) {
                     navigateBack()
                 }
+            },
+            onOpenRelatedBookDetail = { book ->
+                detailBookItems[book.id]?.let { detailBook ->
+                    detailTransitionGate.request(
+                        DetailOpenRequest(
+                            book = detailBook,
+                            /*
+                             * Player Detail Entry Source (No shared source surface)
+                             * Player recommendations do not expose a Detail shared-element source, so the
+                             * Detail overlay opens without claiming Home or Search artwork channels.
+                             */
+                            entrySource = DetailEntrySource.None
+                        ),
+                        beforeExecute = {
+                            /*
+                             * Player Overlay Dismissal (Reveal the requested Detail page)
+                             * The current playback session remains attached, while only the full-screen
+                             * player surface is minimized so Detail is visible after the row tap.
+                             */
+                            playerSettingsViewModel.setFullPlayerVisible(false)
+                        }
+                    )
+                }
             }
         )
 
