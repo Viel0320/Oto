@@ -9,6 +9,7 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.application.download.ManualDownloadTaskItem
 import com.viel.aplayer.application.library.settings.SettingsRootItem
+import com.viel.aplayer.application.usecase.BackupManifest
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.logger.AbsLogSanitizer
@@ -180,15 +181,24 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun exportUserData(uri: Uri) {
         viewModelScope.launch {
             val context = getApplication<Application>()
+            val manifest = runCatching {
+                exportUserDataUseCase.buildManifest(libraryRootDisplays.value.map { it.locationText })
+            }.getOrElse { error ->
+                appEventSink.showToast(
+                    FeedbackMessage.Resource(
+                        R.string.feedback_settings_export_failed,
+                        listOf(error.message ?: "Unknown error")
+                    )
+                )
+                return@launch
+            }
             val outputStream = context.contentResolver.openOutputStream(uri)
             if (outputStream == null) {
-                // Title: Export Stream Open Failure (Display localized error message when output stream fails)
-                // Replaces rawText error message with resource-backed FeedbackMessage.Resource to satisfy localization test rules.
                 appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_stream_failed))
                 return@launch
             }
             runCatching {
-                exportUserDataUseCase.execute(outputStream)
+                exportUserDataUseCase.execute(outputStream, manifest)
             }.onSuccess { result ->
                 if (result.isSuccess) {
                     appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_success))
@@ -204,18 +214,43 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     // Title: Import User Data and Restart (Execute the restore usecase and perform a clean process restart)
     // Runs overwrite actions, then terminates active components, schedules main activity relaunch, and exits the process.
+    suspend fun peekImportManifest(uri: Uri): BackupManifest? {
+        val context = getApplication<Application>()
+        return runCatching {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            inputStream.use { importUserDataUseCase.peekManifest(it) }
+        }.getOrNull()
+    }
+
     fun importUserData(uri: Uri) {
         viewModelScope.launch {
             val context = getApplication<Application>()
             val inputStream = context.contentResolver.openInputStream(uri)
             if (inputStream == null) {
-                // Title: Import Stream Open Failure (Display localized error message when input stream fails)
-                // Replaces rawText error message with resource-backed FeedbackMessage.Resource to satisfy localization test rules.
+                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_stream_failed))
+                return@launch
+            }
+            // Version guard: reject backups from a newer database schema.
+            val manifest = inputStream.use { importUserDataUseCase.peekManifest(it) }
+            if (manifest != null && !importUserDataUseCase.isManifestCompatible(manifest)) {
+                appEventSink.showToast(
+                    FeedbackMessage.Resource(
+                        R.string.feedback_settings_import_version_incompatible,
+                        listOf(
+                            manifest.databaseVersion,
+                            importUserDataUseCase.currentDatabaseVersion
+                        )
+                    )
+                )
+                return@launch
+            }
+            val dataStream = context.contentResolver.openInputStream(uri)
+            if (dataStream == null) {
                 appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_stream_failed))
                 return@launch
             }
             runCatching {
-                importUserDataUseCase.execute(inputStream)
+                importUserDataUseCase.execute(dataStream)
             }.onSuccess { result ->
                 if (result.isSuccess) {
                     // Trigger Application Restart

@@ -490,11 +490,14 @@
     <string name="settings_import_data_subtitle">Restaurar base de datos y ajustes desde una copia de seguridad</string>
     <string name="settings_import_confirm_title">Confirmar sobrescritura de datos</string>
     <string name="settings_import_confirm_body">Importar esta copia de seguridad sobrescribirá completamente tu base de datos y la configuración de la aplicación actual (incluyendo cuentas iniciadas, libros, marcadores y progreso de reproducción).\n\nIMPORTANTE: Las rutas de directorios no autorizadas mediante SAF en este dispositivo no estarán disponibles hasta que se vuelvan a autorizar en Ajustes.</string>
+    <string name="settings_import_manifest_info">Aplicación: %1$s (%2$s)\nVersión: %3$s (%4$d)\nExportado: %5$s</string>
+    <string name="settings_import_manifest_roots">Raíces de biblioteca:\n%1$s</string>
     <string name="feedback_settings_export_success">Datos exportados correctamente</string>
     <string name="feedback_settings_export_failed">Error al exportar: %1$s</string>
     <string name="feedback_settings_import_failed">Error al importar: %1$s</string>
     <string name="feedback_settings_export_stream_failed">No se pudo abrir el flujo del archivo de destino</string>
     <string name="feedback_settings_import_stream_failed">No se pudo abrir el flujo del archivo de copia de seguridad</string>
+    <string name="feedback_settings_import_version_incompatible">No se puede importar: la versión de base de datos de la copia (%1$d) es más reciente que la app actual (%2$d)</string>
     <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
          Localized strings keep foreground download status visible without exposing queue internals. -->
     <string name="download_notification_active">Guardando audiolibros en caché para reproducción sin conexión</string>

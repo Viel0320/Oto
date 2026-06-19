@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +48,7 @@ import com.viel.aplayer.ui.settings.about.AboutLibrariesScreen
 import com.viel.aplayer.ui.settings.downloads.DownloadManagementScreen
 import com.viel.aplayer.ui.settings.recovery.DeletedBookRecoveryRoute
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.launch
 
 /**
  * SettingsOverlay Composable (Stateless Settings Overlay Shell)
@@ -78,6 +80,7 @@ fun SettingsOverlay(
     // Download Management Haze Source (Separate manual-cache task sampling from other settings sub-pages)
     val downloadManagementHazeState = remember { HazeState() }
     val isBlur = glassEffectMode == GlassEffectMode.Haze
+    val scope = rememberCoroutineScope()
     // Settings Dialog Overlay Controller (Own settings modal state above the sampled page content)
     // Keeping this in SettingsOverlay lets dialogs render as siblings of SettingsScreen instead of being held by the page that registers hazeSource.
     val settingsDialogController = rememberSettingsDialogController()
@@ -108,8 +111,12 @@ fun SettingsOverlay(
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        uri?.let {
-            settingsDialogController.dialogState = SettingsDialogState.ImportConfirm(it)
+        uri?.let { pickedUri ->
+            scope.launch {
+                val manifest = settingsViewModel.peekImportManifest(pickedUri)
+                settingsDialogController.dialogState =
+                    SettingsDialogState.ImportConfirm(pickedUri, manifest)
+            }
         }
     }
     var pendingDownloadBookId by remember { mutableStateOf<String?>(null) }
@@ -391,7 +398,11 @@ fun SettingsOverlay(
                                 onSeekForwardStepChange = { settingsViewModel.preferencesHandler.updateSeekForwardSeconds(it) },
                                 isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
                                 onNotificationAvoidanceEnabledChange = { settingsViewModel.preferencesHandler.toggleNotificationAvoidanceEnabled(it) },
-                                onExportClick = { exportLauncher.launch("aplayer_backup.zip") },
+                                onExportClick = {
+                                    val timestamp = java.time.LocalDateTime.now()
+                                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+                                    exportLauncher.launch("aplayer_backup_$timestamp.zip")
+                                },
                                 onImportClick = { importLauncher.launch(arrayOf("*/*")) },
                                 onAboutLibrariesClick = { activeSettingsPage = SettingsOverlayPage.AboutLibraries }
                             )

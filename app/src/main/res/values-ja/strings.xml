@@ -489,11 +489,14 @@
     <string name="settings_import_data_subtitle">バックアップからデータベースとアプリ設定を復元します</string>
     <string name="settings_import_confirm_title">データの復元確認</string>
     <string name="settings_import_confirm_body">このバックアップを読み込むと、現在のデータベースとアプリの設定（ログイン済みのアカウント、書籍、ブックマーク、再生履歴を含む）がすべて上書きされます。\n\n重要：このデバイス上でSAF経由で許可されていないディレクトリパスは、設定で再許可されるまで利用できなくなります。</string>
+    <string name="settings_import_manifest_info">アプリ: %1$s（%2$s）\nバージョン: %3$s（%4$d）\nエクスポート日時: %5$s</string>
+    <string name="settings_import_manifest_roots">ライブラリのルート:\n%1$s</string>
     <string name="feedback_settings_export_success">データの書き出しに成功しました</string>
     <string name="feedback_settings_export_failed">書き出しに失敗しました: %1$s</string>
     <string name="feedback_settings_import_failed">読み込みに失敗しました: %1$s</string>
     <string name="feedback_settings_export_stream_failed">出力先ファイルストリームのオープンに失敗しました</string>
     <string name="feedback_settings_import_stream_failed">バックアップファイルストリームのオープンに失敗しました</string>
+    <string name="feedback_settings_import_version_incompatible">インポートできません: バックアップのデータベースバージョン（%1$d）が現在のアプリ（%2$d）より新しいです</string>
     <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
          Localized strings keep foreground download status visible without exposing queue internals. -->
     <string name="download_notification_active">オフライン再生用にオーディオブックをキャッシュ中</string>

@@ -66,11 +66,19 @@ class UserDataBackupRestoreTest {
             // 4. Export
             val exportUseCase = ExportUserDataUseCase(context)
             val outputStream = ByteArrayOutputStream()
-            val exportResult = exportUseCase.execute(outputStream)
-            assertTrue(exportResult.isSuccess)
+            val backupManifest = sampleBackupManifest()
+            val exportResult = exportUseCase.execute(outputStream, backupManifest)
+            assertTrue(
+                "Export failed: ${exportResult.exceptionOrNull()?.stackTraceToString()}",
+                exportResult.isSuccess
+            )
 
             val zipBytes = outputStream.toByteArray()
             assertTrue(zipBytes.isNotEmpty())
+
+            val importUseCase = ImportUserDataUseCase(context)
+            val exportedManifest = importUseCase.peekManifest(ByteArrayInputStream(zipBytes))
+            assertEquals(backupManifest, exportedManifest)
 
             // 5. Clear / Modify files to verify restoration
             dbFile.writeText("stale-db")
@@ -81,7 +89,6 @@ class UserDataBackupRestoreTest {
             webdavPrefs.writeText("stale-webdav")
 
             // 6. Import
-            val importUseCase = ImportUserDataUseCase(context)
             val inputStream = ByteArrayInputStream(zipBytes)
             val importResult = importUseCase.execute(inputStream)
             assertTrue(importResult.isSuccess)
@@ -105,6 +112,23 @@ class UserDataBackupRestoreTest {
         }
     }
 
+    @Test
+    fun testMalformedManifestPeekReturnsNull() = runBlocking {
+        // Title: Test Malformed Manifest Peek
+        // Verifies that metadata preview failures do not bypass the later user-confirmed import failure path.
+        val context = RuntimeEnvironment.getApplication()
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zos ->
+            zos.putNextEntry(ZipEntry("manifest.json"))
+            zos.write("{broken".toByteArray())
+            zos.closeEntry()
+        }
+
+        val manifest =
+            ImportUserDataUseCase(context).peekManifest(ByteArrayInputStream(output.toByteArray()))
+
+        assertEquals(null, manifest)
+    }
     @Test
     fun testImportZipSlipPrevention() = runBlocking {
         // Title: Test Import Zip Slip Prevention
@@ -146,6 +170,18 @@ class UserDataBackupRestoreTest {
         }
     }
 
+    /**
+     * Builds a deterministic backup manifest so export tests assert metadata is mandatory.
+     */
+    private fun sampleBackupManifest(): BackupManifest = BackupManifest(
+        appName = "APlayer",
+        packageName = "com.viel.aplayer",
+        versionName = "1.2.3",
+        versionCode = 123L,
+        libraryRoots = listOf("content://library/root"),
+        exportedAt = "2026-06-19 12:00:00",
+        databaseVersion = AppDatabase.VERSION
+    )
     /**
      * Isolated Backup Context (Redirects app-private file APIs into a test-owned data directory)
      * Keeps backup tests deterministic when the real APlayerApplication background warmup opens Room during full-suite runs.

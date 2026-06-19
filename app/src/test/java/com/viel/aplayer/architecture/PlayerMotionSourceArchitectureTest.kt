@@ -1,12 +1,13 @@
 package com.viel.aplayer.architecture
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
 /**
  * Player Motion Source Architecture Test (Locks direct playback away from mini-player motion)
- * Verifies that direct playback entries, mini-player expansion, and full-player cover gestures
+ * Verifies that direct playback entries, mini-player expansion, and full-player cover artwork
  * keep separate UI-motion boundaries instead of sharing one broad player visibility flag.
  */
 class PlayerMotionSourceArchitectureTest {
@@ -53,18 +54,27 @@ class PlayerMotionSourceArchitectureTest {
         assertTrue(playerOverlaySource.contains("settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer"))
     }
 
+    /**
+     * Locks the full-player cover contract after cover swipe gestures were removed.
+     *
+     * The cover may still render temporary mini-origin artwork during shared motion, but that
+     * bridge must wait for the target visibility scope to settle before the main artwork takes over.
+     */
     @Test
-    fun fullPlayerCoverGesturesWaitForOverlayVisibilityToSettle() {
+    fun fullPlayerCoverArtworkBridgeWaitsForOverlayVisibilityToSettle() {
         val playerCoverSource = resolveSourceRoot()
             .resolve("ui/common/PlayerCover.kt")
             .readText()
 
-        // Cover Gesture Transition Gate (Prevent entry-animation drags from becoming player commands)
-        // The full-player artwork should not attach drag gestures until its AnimatedVisibility host
-        // has reached the stable Visible state.
-        assertTrue(playerCoverSource.contains("LocalAnimatedVisibilityScope"))
+        // Cover Artwork Bridge Gate (Prevent mini-player thumbnails from outliving the transition)
+        // The full-player artwork no longer owns cover gestures, so this contract only verifies
+        // that the temporary mini-origin artwork bridge waits for the target visibility scope to settle.
+        assertTrue(playerCoverSource.contains("LocalMini2PlayerTargetScope"))
         assertTrue(playerCoverSource.contains("transition.currentState == EnterExitState.Visible"))
-        assertTrue(playerCoverSource.contains("val effectiveGesturesEnabled = gesturesEnabled && isHostVisibilitySettled"))
+        assertTrue(playerCoverSource.contains("transition.targetState == EnterExitState.Visible"))
+        assertTrue(playerCoverSource.contains("val useTransitionArtwork = miniBridgeIdentity != null"))
+        assertFalse(playerCoverSource.contains("gesturesEnabled"))
+        assertFalse(playerCoverSource.contains("effectiveGesturesEnabled"))
     }
 
     private fun resolveSourceRoot(): File {

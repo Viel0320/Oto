@@ -2,6 +2,7 @@ package com.viel.aplayer.application.usecase
 
 import android.content.Context
 import androidx.core.content.edit
+import com.squareup.moshi.Moshi
 import com.viel.aplayer.data.db.AppDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,6 +13,48 @@ import java.util.zip.ZipInputStream
 // Title: Import User Data UseCase (UseCase responsible for closing resources and overwriting database/settings from a ZIP input stream)
 // Validates paths against Zip Slip vulnerabilities, terminates active Room instances, and replaces data files.
 class ImportUserDataUseCase(private val context: Context) {
+    private val manifestAdapter = Moshi.Builder().build().adapter(BackupManifest::class.java)
+
+    /**
+     * Exposes the current restore schema version from the application boundary.
+     *
+     * Settings UI uses this value only for localized feedback, while the database-version source remains
+     * owned by the import use case instead of leaking the Room database class into UI code.
+     */
+    val currentDatabaseVersion: Int
+        get() = AppDatabase.VERSION
+
+    /**
+     * Checks whether a backup manifest can be restored by this app build.
+     */
+    fun isManifestCompatible(manifest: BackupManifest): Boolean =
+        manifest.databaseVersion <= currentDatabaseVersion
+
+    /**
+     * Reads only the optional backup manifest without extracting payload files.
+     *
+     * Malformed ZIP content or malformed manifest JSON returns null so the UI can still show the
+     * overwrite confirmation and let the full import path report the real restore failure after consent.
+     */
+    suspend fun peekManifest(inputStream: InputStream): BackupManifest? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                ZipInputStream(inputStream).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        if (entry.name == "manifest.json") {
+                            return@runCatching manifestAdapter.fromJson(
+                                zis.readBytes().toString(Charsets.UTF_8)
+                            )
+                        }
+                        zis.closeEntry()
+                        entry = zis.nextEntry
+                    }
+                    null
+                }
+            }.getOrNull()
+        }
+
     suspend fun execute(inputStream: InputStream): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             // 1. Close Active Database Connection

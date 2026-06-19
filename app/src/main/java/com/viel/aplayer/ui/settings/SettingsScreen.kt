@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -686,8 +687,8 @@ fun SettingsDialogHost(
         )
     }
 
-    val importUri = (dialogState as? SettingsDialogState.ImportConfirm)?.uri
-    if (importUri != null) {
+    val importConfirm = dialogState as? SettingsDialogState.ImportConfirm
+    if (importConfirm != null) {
         // Title: Render Import Confirm Dialog (Show overwrite alert before replacing databases and preferences)
         // Instructs user that current audio bookmarks/settings will be replaced and SAF folders require re-granting.
         SettingsTemplateDialog(
@@ -695,12 +696,42 @@ fun SettingsDialogHost(
             hazeState = resolvedSettingsDialogHazeState,
             glassEffectMode = glassEffectMode,
             title = { Text(stringResource(R.string.settings_import_confirm_title)) },
-            text = { Text(stringResource(R.string.settings_import_confirm_body)) },
+            text = {
+                Column {
+                    importConfirm.manifest?.let { m ->
+                        Text(
+                            text = stringResource(
+                                R.string.settings_import_manifest_info,
+                                m.appName,
+                                m.packageName,
+                                m.versionName,
+                                m.versionCode,
+                                m.exportedAt
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (m.libraryRoots.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(
+                                    R.string.settings_import_manifest_roots,
+                                    m.libraryRoots.joinToString("\n")
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    Text(stringResource(R.string.settings_import_confirm_body))
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
                         controller.dialogState = SettingsDialogState.None
-                        onImportConfirm(importUri)
+                        onImportConfirm(importConfirm.uri)
                     }
                 ) {
                     Text(stringResource(R.string.action_confirm))

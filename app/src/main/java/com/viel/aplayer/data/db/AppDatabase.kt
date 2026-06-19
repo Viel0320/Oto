@@ -80,6 +80,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadMetadataDao(): DownloadMetadataDao
 
     companion object {
+        const val VERSION = 43
         @Volatile
         private var INSTANCE: AppDatabase? = null
 

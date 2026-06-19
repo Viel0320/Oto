@@ -51,7 +51,10 @@ sealed interface SettingsDialogState {
 
     // Title: Add ImportConfirm dialog state (Expose a confirmation state holding the ZIP file Uri to import)
     // Lets the overlay host present a warning dialog before replacing user configuration data.
-    data class ImportConfirm(val uri: Uri) : SettingsDialogState
+    data class ImportConfirm(
+        val uri: Uri,
+        val manifest: com.viel.aplayer.application.usecase.BackupManifest?
+    ) : SettingsDialogState
 }
 
 /**

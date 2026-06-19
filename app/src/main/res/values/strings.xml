@@ -514,6 +514,8 @@
     <string name="settings_import_data_subtitle">Restore database and app settings from a backup</string>
     <string name="settings_import_confirm_title">Confirm Data Overwrite</string>
     <string name="settings_import_confirm_body">Importing this backup will completely overwrite your current database and application settings (including all logged accounts, books, bookmarks, and play progress).\n\nIMPORTANT: Directory paths not authorized via SAF on this device will be unavailable until reauthorized in Settings.</string>
+    <string name="settings_import_manifest_info">App: %1$s (%2$s)\nVersion: %3$s (%4$d)\nExported: %5$s</string>
+    <string name="settings_import_manifest_roots">Library roots:\n%1$s</string>
     <string name="feedback_settings_export_success">Data exported successfully</string>
     <string name="feedback_settings_export_failed">Export failed: %1$s</string>
     <string name="feedback_settings_import_failed">Import failed: %1$s</string>
@@ -521,6 +523,7 @@
          Enables localized feedback when input or output stream cannot be initialized. -->
     <string name="feedback_settings_export_stream_failed">Failed to open destination file stream</string>
     <string name="feedback_settings_import_stream_failed">Failed to open backup file stream</string>
+    <string name="feedback_settings_import_version_incompatible">Cannot import: backup database version (%1$d) is newer than current app (%2$d)</string>
     <!-- Download Foreground Notification Copy (Describe Media3 manual cache work without exposing queue internals)
          The download service needs stable, lightweight text before the full download management UI and localized strings land in later phases. -->
     <string name="download_notification_active">Caching audiobooks for offline playback</string>

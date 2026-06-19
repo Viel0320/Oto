@@ -512,11 +512,14 @@
     <string name="settings_import_data_subtitle">Восстановление базы данных и настроек приложения из резервной копии</string>
     <string name="settings_import_confirm_title">Подтверждение перезаписи данных</string>
     <string name="settings_import_confirm_body">Импорт этой резервной копии полностью перезапишет текущую базу данных и настройки приложения (включая все вошедшие аккаунты, книги, закладки и прогресс воспроизведения).\n\nВАЖНО: Пути к каталогам, не авторизованные через SAF на этом устройстве, будут недоступны до тех пор, пока они не будут повторно авторизованы в Настройках.</string>
+    <string name="settings_import_manifest_info">Приложение: %1$s (%2$s)\nВерсия: %3$s (%4$d)\nЭкспортировано: %5$s</string>
+    <string name="settings_import_manifest_roots">Корни библиотеки:\n%1$s</string>
     <string name="feedback_settings_export_success">Данные успешно экспортированы</string>
     <string name="feedback_settings_export_failed">Ошибка экспорта: %1$s</string>
     <string name="feedback_settings_import_failed">Ошибка импорта: %1$s</string>
     <string name="feedback_settings_export_stream_failed">Не удалось открыть поток целевого файла</string>
     <string name="feedback_settings_import_stream_failed">Не удалось открыть поток файла резервной копии</string>
+    <string name="feedback_settings_import_version_incompatible">Невозможно импортировать: версия базы данных резервной копии (%1$d) новее текущего приложения (%2$d)</string>
     <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
          Localized strings keep foreground download status visible without exposing queue internals. -->
     <string name="download_notification_active">Кэширование аудиокниг для автономного воспроизведения</string>

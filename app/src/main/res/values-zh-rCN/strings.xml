@@ -493,6 +493,8 @@
     <string name="settings_import_data_subtitle">从备份文件恢复数据库和应用设置</string>
     <string name="settings_import_confirm_title">覆盖本地数据确认</string>
     <string name="settings_import_confirm_body">导入此备份将会完全覆盖您当前的数据库和应用设置（包括所有已登录的账号、书籍列表、书签和播放进度）。\n\n重要提示：在当前设备上未通过 SAF 授权的目录，在您前往设置重新授权之前将无法使用。</string>
+    <string name="settings_import_manifest_info">应用：%1$s（%2$s）\n版本：%3$s（%4$d）\n导出时间：%5$s</string>
+    <string name="settings_import_manifest_roots">媒体库根目录：\n%1$s</string>
     <string name="feedback_settings_export_success">数据已成功导出</string>
     <string name="feedback_settings_export_failed">导出失败：%1$s</string>
     <string name="feedback_settings_import_failed">导入失败：%1$s</string>
@@ -500,6 +502,7 @@
          Enables localized feedback when input or output stream cannot be initialized. -->
     <string name="feedback_settings_export_stream_failed">无法打开导出目标文件流</string>
     <string name="feedback_settings_import_stream_failed">无法打开备份输入文件流</string>
+    <string name="feedback_settings_import_version_incompatible">无法导入：备份的数据库版本（%1$d）高于当前应用（%2$d）</string>
     <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
          Localized strings keep foreground download status visible without exposing queue internals. -->
     <string name="download_notification_active">正在缓存有声书以便离线播放</string>

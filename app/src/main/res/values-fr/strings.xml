@@ -490,11 +490,14 @@
     <string name="settings_import_data_subtitle">Restaurer la base de données et les paramètres de l\'application depuis une sauvegarde</string>
     <string name="settings_import_confirm_title">Confirmer le remplacement des données</string>
     <string name="settings_import_confirm_body">L\'importation de cette sauvegarde écrasera complètement votre base de données et les paramètres actuels de l\'application (y compris tous les comptes connectés, livres, signets et progression de lecture).\n\nIMPORTANT : Les chemins d\'accès aux répertoires non autorisés via SAF sur cet appareil seront indisponibles jusqu\'à ce qu\'ils soient réautorisés dans les Paramètres.</string>
+    <string name="settings_import_manifest_info">Application : %1$s (%2$s)\nVersion : %3$s (%4$d)\nExporté : %5$s</string>
+    <string name="settings_import_manifest_roots">Racines de bibliothèque :\n%1$s</string>
     <string name="feedback_settings_export_success">Données exportées avec succès</string>
     <string name="feedback_settings_export_failed">Échec de l\'exportation : %1$s</string>
     <string name="feedback_settings_import_failed">Échec de l\'importation : %1$s</string>
     <string name="feedback_settings_export_stream_failed">Échec de l\'ouverture du flux de fichier de destination</string>
     <string name="feedback_settings_import_stream_failed">Échec de l\'ouverture du flux de fichier de sauvegarde</string>
+    <string name="feedback_settings_import_version_incompatible">Importation impossible : la version de base de données de la sauvegarde (%1$d) est plus récente que l\'application actuelle (%2$d)</string>
     <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
          Localized strings keep foreground download status visible without exposing queue internals. -->
     <string name="download_notification_active">Mise en cache des livres audio pour une lecture hors ligne</string>

@@ -619,11 +619,14 @@
     <string name="settings_import_data_subtitle">Restaurar banco de dados e configurações a partir de um backup</string>
     <string name="settings_import_confirm_title">Confirmar substituição de dados</string>
     <string name="settings_import_confirm_body">A importação deste backup substituirá completamente o banco de dados e as configurações atuais do aplicativo (incluindo todas as contas conectadas, livros, marcadores e progresso de reprodução).\n\nIMPORTANTE: Caminhos de diretório não autorizados via SAF neste dispositivo ficarão indisponíveis até que sejam reautorizados em Configurações.</string>
+    <string name="settings_import_manifest_info">App: %1$s (%2$s)\nVersão: %3$s (%4$d)\nExportado: %5$s</string>
+    <string name="settings_import_manifest_roots">Raízes da biblioteca:\n%1$s</string>
     <string name="feedback_settings_export_success">Dados exportados com sucesso</string>
     <string name="feedback_settings_export_failed">Falha na exportação: %1$s</string>
     <string name="feedback_settings_import_failed">Falha na importação: %1$s</string>
     <string name="feedback_settings_export_stream_failed">Falha ao abrir o fluxo de arquivo de destino</string>
     <string name="feedback_settings_import_stream_failed">Falha ao abrir o fluxo de arquivo de backup</string>
+    <string name="feedback_settings_import_version_incompatible">Não é possível importar: a versão do banco de dados do backup (%1$d) é mais recente que o app atual (%2$d)</string>
     <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
          Localized strings keep foreground download status visible without exposing queue internals. -->
     <string name="download_notification_active">Armazenando audiolivros em cache para reprodução offline</string>
