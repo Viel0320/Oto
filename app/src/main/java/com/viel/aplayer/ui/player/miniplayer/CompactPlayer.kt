@@ -43,7 +43,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
-import com.viel.aplayer.ui.common.AudioProgressBar
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.CrossfadingCoverImage
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
@@ -51,6 +50,7 @@ import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
 import com.viel.aplayer.ui.player.MiniPlayerActions
+import com.viel.aplayer.ui.player.components.AudioProgressBar
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi

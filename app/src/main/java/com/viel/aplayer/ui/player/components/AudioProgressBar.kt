@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.common
+package com.viel.aplayer.ui.player.components
 
 // Import Resolution (Brings Modifier.semantics extension into scope to build accessibility semantics tree)
 // Added semantics import to fix unresolved reference semantics error.
@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 
 @Composable
 fun AudioProgressBar(
@@ -60,7 +62,7 @@ fun AudioProgressBar(
     val markerRadiusPx = remember(density) { with(density) { 2.dp.toPx() } }
     val knobRadiusPx = remember(density) { with(density) { 8.dp.toPx() } }
     // Theme Aware Progress Bar (Use LocalDarkTheme to resolve active theme state instead of system defaults) Read theme preference state for canvas rendering.
-    val isDark = com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
+    val isDark = LocalDarkTheme.current
     // Glass Effect Resolution (Resolve glass effect modes) Map blur check to the Haze glass effect mode enum.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     // Extract secondary and tertiary colors within the Composable context, caching them as local non-Composable variables.
@@ -298,7 +300,7 @@ fun AudioProgressBar(
                      ),
                      radius = knobRadiusPx,
                      center = Offset(activeWidth, centerY),
-                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = with(density) { 1.dp.toPx() })
+                     style = Stroke(width = with(density) { 1.dp.toPx() })
                 )
             } else {
                 drawCircle(
